@@ -53,20 +53,21 @@ kando-global-project/              # 顶层 Monorepo 根
 - 不包含邮件发送逻辑（发送由 `workers-api` 调用邮件服务处理）
 - 可被 `workers-api` 及未来其他 Workers 项目直接引用
 
-### 2.2 `api-client`（客户端网络层）
+### 2.2 `api-client`（Web 侧客户端网络层）
 
 **职责**：
 
-- HTTP 请求封装（基于 Dio 的 Flutter 侧或 fetch 的 Web 侧，按平台分别实现）
+- HTTP 请求封装（基于 fetch 的 Web 侧实现）
 - 统一错误处理与错误类型定义
 - Token 注入拦截器
 - 重试与超时策略
 
 **边界约定**：
 
-- 不包含 tcg-card 特定业务接口定义（具体 API 路径在 `apps/flutter-app` 或 `apps/admin-web` 各自维护）
+- **作用范围限 Web 侧**（`apps/admin-web`）：`api-client` 是 TS 包，归属 `packages/`，仅供 Web 侧使用。
+- **Flutter 侧网络封装不在此包**：Flutter 侧基于 Dio 的网络层归属 `dart-packages/`（Dart 包），与本 TS 包语言边界天然隔离。
+- 不包含 tcg-card 特定业务接口定义（具体 API 路径在 `apps/admin-web` 维护）
 - 提供通用请求基类和拦截器，业务侧继承/组合使用
-- Flutter 侧和 Web 侧可共享接口契约（TypeScript 类型），但运行时实现分离
 
 ### 2.3 `ui-kit`（通用 UI 组件）
 

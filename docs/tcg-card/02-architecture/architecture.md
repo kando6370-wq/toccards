@@ -14,8 +14,7 @@ graph TD
     B["管理后台 Web\n(React + Vite)"] -->|REST / JWT| C
     C -->|用户资产 CRUD\n覆盖层读写| D["D1\n(用户资产 + 卡牌覆盖层)"]
     C -->|搜索 / 价格 / Trending / 成交| E["第三方聚合 API\n⚠️ TBD 厂商"]
-    C -->|缓存读写| F["Workers KV + Cache API"]
-    E -.->|缓存回填| F
+    C -->|缓存读写 + 回填| F["Workers KV + Cache API"]
 ```
 
 **说明**：
@@ -23,6 +22,7 @@ graph TD
 - App 和管理后台均通过 Cloudflare Workers 统一接入，**不直连第三方 API**。
 - Workers 是唯一出口，对外暴露 REST 接口（鉴权由 JWT 校验）。
 - 数据写入路径：用户资产 → D1；第三方数据 → Workers KV / Cache API（不落 D1 长期存储）。
+- **缓存回填由 Workers 完成**：Workers 收到第三方响应后写入 KV / Cache API；第三方 API 不直连缓存层（符合 spec §4.2"Workers 做代理+缓存"）。
 
 ---
 

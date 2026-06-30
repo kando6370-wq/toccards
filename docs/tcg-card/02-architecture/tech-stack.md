@@ -77,11 +77,11 @@
 
 ## 3. 待定子项
 
-以下依赖尚未最终确认，均标注 ⚠️ TBD，以 spec §6 待定项清单为准，不静默假设。
+以下依赖尚未最终确认，均标注 ⚠️ TBD，以 [`docs/superpowers/specs/2026-06-30-tcg-card-preparation-design.md`](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 待定项清单为准，不静默假设。
 
 | # | 待定项 | 影响范围 | 说明 |
 |---|---|---|---|
-| 1 | **汇率接口提供方** | 货币换算展示（Home / Collection / CardDetail） | 按统一汇率服务接口抽象，厂商待定；见 spec §6 #2 |
-| 2 | **第三方数据源厂商**（TCGplayer / eBay / PriceCharting 等） | 搜索、价格、Trending、成交记录全部能力 | 按可插拔数据源适配层设计，不绑定具体厂商；见 spec §6 #1 |
-| 3 | **Apple / Google OAuth 开发者账号与凭证** | Auth 第三方登录（Apple Login、Google OAuth） | 文档写流程，凭证待开发者账号配置后填入；见 spec §6 #4 |
-| 4 | **邮件服务 Resend vs SES 最终选择** | 验证码发送、找回密码 | 默认 Resend，最终选型根据发送量和成本确认；见 spec §6 #3 |
+| 1 | **汇率接口提供方** | 货币换算展示（Home / Collection / CardDetail） | 按统一汇率服务接口抽象，厂商待定；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #2 |
+| 2 | **第三方数据源厂商**（TCGplayer / eBay / PriceCharting 等） | 搜索、价格、Trending、成交记录全部能力 | 按可插拔数据源适配层设计，不绑定具体厂商；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #1 |
+| 3 | **Apple / Google OAuth 开发者账号与凭证** | Auth 第三方登录（Apple Login、Google OAuth） | 文档写流程，凭证待开发者账号配置后填入；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #4 |
+| 4 | **邮件服务 Resend vs SES 最终选择** | 验证码发送、找回密码 | 默认 Resend，最终选型根据发送量和成本确认；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #3 |
