@@ -44,7 +44,7 @@
 | M4 | 三大页面 | M1 M2 M3 | Home / Collection / Search App 页面可演示 |
 | M5 | 卡牌详情 | M2 M3 | CardDetail 两态 + Price Tab + Collection Item 编辑 |
 | M6 | Profile / 客服 / 引导 | M1 M3 | Profile 页面 + 客服工单提交 + Onboarding 引导 |
-| M7 | 管理后台 | M1 M3 M2 | Admin Web 全功能可用 |
+| M7 | 管理后台 | M1 M2 M3 | Admin Web 全功能可用 |
 | M8 | iOS 联调 / 上线准备 | 全部里程碑 | 审核材料齐备，可提交 App Store |
 
 > **平台约束**：v1.0 仅交付 iOS；Android 架构预留，不在关键路径（见 [`overview.md §2`](../00-product/overview.md)）。
@@ -220,6 +220,7 @@
 ### 依赖与阻塞
 
 - 依赖 M2 数据代理层可用（Mock 数据即可联调 UI）。
+- M4-5 货币换算展示依赖 TBD M2-B（汇率提供方），开发阶段可 Mock 汇率。
 - ⚠️ **TBD M4-A**：Scan 占位页文案（"扫描功能即将上线"，待最终文案确认）。见 [`overview.md §5`](../00-product/overview.md)。
 
 ---
@@ -272,7 +273,7 @@
 | M6-3 | 客服反馈提交 | `POST /feedbacks`（`api-spec.md §5.2.4`）；types / functions 多选；message 限 1000 字符 |
 | M6-4 | 启动引导页 | 首次启动展示引导图（从 `app_config.onboarding_images` 读取）；参见 [`modules/global-rules.md`](../00-product/modules/global-rules.md) |
 | M6-5 | 删除账号流程 | 二次确认 → `DELETE /auth/account` → 退出至游客态；参见 [`modules/profile.md`](../00-product/modules/profile.md) |
-| M6-6 | 订阅相关内容删除/隐藏 | Upgrade to Pro / Subscribe / PRO 标识等全部删除或隐藏；参见 [`overview.md §4.3`](../00-product/overview.md) |
+| M6-6 | 订阅相关内容删除/隐藏 | Upgrade to Pro / Subscribe / PRO 标识等全部删除或隐藏；删除客服反馈 Function 字段中的 Subscription 枚举选项（区别于订阅入口删除）；参见 [`overview.md §4.3`](../00-product/overview.md) |
 
 ### 验收标准
 
