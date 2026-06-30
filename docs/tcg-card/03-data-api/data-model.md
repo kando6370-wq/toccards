@@ -242,9 +242,34 @@ CREATE TABLE user_preference (
 
 ---
 
-## 5. 覆盖层 + 运营 + 反馈
+## 5. 管理员层
 
-### 5.1 card_override（卡牌覆盖层）
+### 5.1 admin_user（后台管理员账号）
+
+```sql
+CREATE TABLE admin_user (
+    id            TEXT PRIMARY KEY,          -- ULID
+    email         TEXT NOT NULL UNIQUE,      -- 管理员登录邮箱
+    password_hash TEXT NOT NULL,             -- bcrypt hash；后台仅支持邮箱 + 密码登录
+    role          TEXT NOT NULL,             -- 'super_admin' | 'operator'
+    status        TEXT NOT NULL DEFAULT 'active',  -- 'active' | 'disabled'
+    created_at    TEXT NOT NULL
+);
+```
+
+说明：
+- **与 App `user` 表完全分离**，不共享数据，不共用 JWT；后台 Admin Token 由独立签发逻辑生成。
+- `role` 枚举：`super_admin`（完整权限）| `operator`（受限写权限）；预留字段供后续角色扩展。
+- `status = 'disabled'` 时，Workers 拒绝该账号的登录和 Admin Token 续签。
+- 后台 §5 所有接口的 Admin Token 均基于本表鉴权（见 api-spec.md §5 开篇说明及 admin.md §1.1）。
+- `card_override.updated_by`、`trending_pin.updated_by`、`app_config.updated_by` 字段软引用 `admin_user.id`（而非 App `user.id`），Workers 在后台写操作时自动填充。
+- v1.0 不含后台管理员管理界面；管理员账号由数据库初始化创建。
+
+---
+
+## 6. 覆盖层 + 运营 + 反馈
+
+### 6.1 card_override（卡牌覆盖层）
 
 ```sql
 CREATE TABLE card_override (
@@ -254,7 +279,7 @@ CREATE TABLE card_override (
     image_url       TEXT,                    -- 覆盖图片 URL；NULL = 使用第三方图片
     is_missing_card INTEGER NOT NULL DEFAULT 0 CHECK (is_missing_card IN (0,1)),
                                              -- 1 = 第三方无此卡，手动录入
-    updated_by      TEXT,                    -- 软引用 user.id（操作管理员），无 DB 级 FK
+    updated_by      TEXT,                    -- 软引用 admin_user.id（操作管理员），无 DB 级 FK
     updated_at      TEXT NOT NULL
 );
 ```
@@ -263,10 +288,10 @@ CREATE TABLE card_override (
 - `override_fields` 为 JSON 对象，只存需要覆盖的字段，其余字段仍由第三方数据提供。
 - `is_missing_card = 1` 表示该卡在第三方无数据，完全依赖覆盖层提供信息（图片、名称、系列等）。
 - 读取时：先查此表，有记录则用覆盖字段覆盖第三方数据；无记录则直接用第三方数据。
-- `updated_by` **软引用 `user.id`**，可空、不设 DB 级 FK，由 Workers 层在写入时填充。
+- `updated_by` **软引用 `admin_user.id`**，可空、不设 DB 级 FK，由 Workers 层在后台写入时填充。
 - 由管理后台"卡牌数据运维"模块维护。
 
-### 5.2 trending_pin（运营置顶）
+### 6.2 trending_pin（运营置顶）
 
 ```sql
 CREATE TABLE trending_pin (
@@ -275,7 +300,7 @@ CREATE TABLE trending_pin (
     rank       INTEGER NOT NULL,             -- 展示排序（从 1 开始）
     active     INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
                                              -- 1 = 生效；0 = 暂停
-    updated_by TEXT,                         -- 软引用 user.id（操作管理员），无 DB 级 FK
+    updated_by TEXT,                         -- 软引用 admin_user.id（操作管理员），无 DB 级 FK
     updated_at TEXT NOT NULL
 );
 CREATE INDEX idx_trending_pin_rank ON trending_pin(active, rank);
@@ -283,16 +308,16 @@ CREATE INDEX idx_trending_pin_rank ON trending_pin(active, rank);
 
 说明：
 - Workers 在返回 Trending Today 时，先查此表；`active = 1` 的卡牌按 `rank` 置于列表首位，后接第三方返回的涨幅数据。
-- `updated_by` **软引用 `user.id`**，可空、不设 DB 级 FK，与 `card_override.updated_by` 处理一致。
+- `updated_by` **软引用 `admin_user.id`**，可空、不设 DB 级 FK，与 `card_override.updated_by` 处理一致。
 - 运营可通过管理后台随时启停置顶。
 
-### 5.3 app_config（运营配置 KV）
+### 6.3 app_config（运营配置 KV）
 
 ```sql
 CREATE TABLE app_config (
     key        TEXT PRIMARY KEY,             -- 配置键（见下方说明）
     value      TEXT NOT NULL,                -- 配置值（字符串或 JSON 字符串）
-    updated_by TEXT,                         -- 软引用 user.id（操作管理员），无 DB 级 FK
+    updated_by TEXT,                         -- 软引用 admin_user.id（操作管理员），无 DB 级 FK
     updated_at TEXT NOT NULL
 );
 ```
@@ -308,7 +333,7 @@ CREATE TABLE app_config (
 | `privacy_url` | 隐私政策链接（⚠️ TBD） |
 | `app_store_url` | App Store 下载链接（⚠️ TBD） |
 
-### 5.4 feedback_ticket（客服工单）
+### 6.4 feedback_ticket（客服工单）
 
 ```sql
 CREATE TABLE feedback_ticket (
@@ -331,7 +356,7 @@ CREATE INDEX idx_feedback_ticket_status ON feedback_ticket(status, created_at);
 
 ---
 
-## 6. ER 图
+## 7. ER 图
 
 ```mermaid
 erDiagram
@@ -467,6 +492,15 @@ erDiagram
         TEXT updated_at
     }
 
+    admin_user {
+        TEXT id PK
+        TEXT email
+        TEXT password_hash
+        TEXT role "super_admin | operator"
+        TEXT status "active | disabled"
+        TEXT created_at
+    }
+
     %% 强关系（DB 级 FK 或 owner 多态归属）：实线
     user ||--o{ auth_identity : "has (FK user_id)"
     user ||--o{ session : "owns (owner_type=user)"
@@ -486,15 +520,16 @@ erDiagram
 > **图例说明**：
 > - 上图只绘制**强关系**——即 DB 级 FK（`auth_identity.user_id`、`collection_item.folder_id`）与 owner 多态归属关系（由 Workers 层保证引用完整性）。
 > - **软引用不画关系线**，避免被误读为 DB 级 FK。以下字段均为可空、无 `REFERENCES`、由 Workers 层维护的软引用，统一不入图：
->   - `card_override.updated_by` → 软引用 `user.id`
->   - `trending_pin.updated_by` → 软引用 `user.id`
->   - `app_config.updated_by` → 软引用 `user.id`
+>   - `card_override.updated_by` → 软引用 `admin_user.id`（后台操作管理员）
+>   - `trending_pin.updated_by` → 软引用 `admin_user.id`（后台操作管理员）
+>   - `app_config.updated_by` → 软引用 `admin_user.id`（后台操作管理员）
 >   - `user_preference.last_selected_folder_id` → 软引用 `portfolio_folder.id`
+> - `admin_user` 为独立实体，与 App `user` 表无外键关联，不绘制关系线（账号体系完全分离）。
 > - `anonymous_account` 升级为 `user` 是**单向**关系（一个匿名账号最多升级为一个 user，`upgraded_user_id` 回填后不再变更）。
 
 ---
 
-## 7. 关键约束汇总
+## 8. 关键约束汇总
 
 | 约束 | 说明 |
 |---|---|
@@ -509,10 +544,13 @@ erDiagram
 | `card_override.card_ref` UNIQUE | 每张卡最多一条覆盖记录 |
 | `trending_pin.card_ref` UNIQUE | 每张卡最多一条置顶记录 |
 | `app_config.key` PRIMARY KEY | 配置 key 全局唯一 |
+| `admin_user.email` UNIQUE | 管理员邮箱全局唯一 |
+| `admin_user.role` 枚举 | Workers 层校验：`super_admin` \| `operator` |
+| `admin_user.status` 枚举 | Workers 层校验：`active` \| `disabled` |
 
 ---
 
-## 8. 字段类型约定
+## 9. 字段类型约定
 
 | 类型 | 存储格式 |
 |---|---|
