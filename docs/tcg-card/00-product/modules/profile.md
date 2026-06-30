@@ -311,6 +311,7 @@ Profile 页（游客态 / 登录态）的 Others 区域。
 - 点击 Log Out 后退出当前账号：调用 `POST /auth/logout`（api-spec §2.11）。
 - 退出成功：返回游客态 Profile；账号绑定的云端卡牌资产不删除。
 - 退出后，Portfolio、Wishlist、账号详情等账号资产数据不再展示。
+- 退出后若客户端仍持有原 anonymous_account 绑定，切回游客态并展示该游客资产（见 `./global-rules.md §14.5`）。
 - 用户再次登录同一账号后，恢复该账号绑定的资产。
 - 退出失败：保留当前账号状态，展示专用失败文案（引用 `./global-rules.md §13.2`）：`Unable to complete this action. Please try again later.`
 - 【建议】退出登录前可展示确认弹窗以避免误触（⚠️ TBD：当前原始 PRD 未画确认弹窗，需确认是否加入）。
