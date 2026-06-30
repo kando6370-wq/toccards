@@ -1868,7 +1868,7 @@ PATCH /admin/app-config/{key}
 
 成功响应（200）：返回更新后的 app_config 记录。
 
-> Workers 内部逻辑：将 `updated_by` 设为当前管理员 user.id，`updated_at` 设为当前时间。
+> Workers 内部逻辑：将 `updated_by` 设为当前管理员 admin_user.id，`updated_at` 设为当前时间。
 
 ---
 
