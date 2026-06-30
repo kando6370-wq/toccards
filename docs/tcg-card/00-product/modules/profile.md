@@ -174,7 +174,7 @@ Profile 已登录态点击账号卡片区域。
   - 失败：保留当前账号状态，展示专用失败文案（引用 `./global-rules.md §13.2`）：`Unable to complete this action. Please try again later.`
 - 删除账号属于高风险操作，不允许无确认直接删除（引用 `./global-rules.md §九`）。
 - **游客态触发删除**（产品已确认）：游客态虽无正式注册账号，点击 **Delete** 删除服务端 anonymous_account 及其绑定的全部游客资产（Portfolio / Wishlist / Collection Item / 文件夹 / 扫描记录）与本地数据；删除后回到全新空游客态，**不可恢复**（不再恢复原 anonymous_account 资产）。
-  - 端点：优先复用 `DELETE /auth/account`；若后端不支持匿名 token，则新增针对 anonymous_account 的删除端点（最终端点以 api-spec 为准）。
+  - 端点：优先复用 `DELETE /auth/account`；若后端不支持匿名 token，则新增针对 anonymous_account 的删除端点（最终端点以 api-spec 为准，见 api-spec §6 TBD #10）。
   - 隐私合规：游客态删除的服务端数据处理与登录态删号统一口径（见 api-spec §6 TBD #8）。
   - 该入口同时满足 App Store 审核对删除账号入口可访问性的要求。
 

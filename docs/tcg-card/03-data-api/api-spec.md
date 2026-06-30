@@ -572,6 +572,8 @@ DELETE /auth/account
 
 > Workers 内部逻辑：将 `user.deleted_at` 设为当前时间；吊销该用户所有 `session`（revoked_at = now）；资产数据按隐私合规策略处理（⚠️ TBD：具体留存/清除规则）。
 
+> ⚠️ TBD（游客态删除账号）：profile §6.3 要求游客态也提供 Delete account 入口（苹果审核）。最终方案二选一——(a) 扩展本端点接受匿名 JWT，删除 `anonymous_account` 及其游客资产；(b) 新增针对 `anonymous_account` 的独立删除端点。当前本端点仍为正式账号软删除、匿名调用返回 `AUTH_REQUIRED`。详见 §6 TBD #10。
+
 ---
 
 ### 2.13 匿名账号升级 / 资产迁移（独立端点）
@@ -2099,5 +2101,6 @@ POST /admin/card-overrides/image-upload
 | 5 | condition / finish 枚举合法值（取决于厂商） | §3.2.2、§4.5 |
 | 6 | Admin Refresh Token 存储方案（复用 `session` 表 `owner_type='admin'` 或独立表，实现阶段确认） | §5.0.1–5.0.3 |
 | 7 | terms_url / privacy_url / app_store_url 实际值 | §5.3.1（app_config key） |
-| 8 | 资产隐私合规留存/清除策略 | §2.12 删除账号 |
+| 8 | 资产隐私合规留存/清除策略（登录态删号 + 游客态 anonymous_account 删除统一口径） | §2.12 删除账号、profile §6.3 |
 | 9 | 各接口最终 TTL（取决于厂商限速策略） | §4.1–§4.7 |
+| 10 | 游客态删除账号端点：复用 §2.12（扩展接受匿名 JWT）或新增 anonymous_account 独立删除端点 | §2.12、profile §6.3 |
