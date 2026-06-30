@@ -1,0 +1,30 @@
+# GitLab CI —— tcg-card monorepo
+# 本轮仅 TS/Node 侧（M0-7）。Dart/Flutter Job 待 Flutter SDK 接入后启用（见计划 Phase B）。
+stages:
+  - ts
+
+ts:
+  stage: ts
+  image: node:22
+  before_script:
+    - corepack enable
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm turbo build type-check
+    - pnpm run lint
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store/
+
+# ── Phase B（待 Flutter SDK 接入后解注释）────────────────────
+# stages: [ts, dart]
+# dart:
+#   stage: dart
+#   image: <flutter 镜像>
+#   script:
+#     - melos bootstrap
+#     - melos run analyze
+#     - melos run test

@@ -8,7 +8,8 @@
   },
   "scripts": {
     "build": "turbo build",
-    "type-check": "turbo type-check"
+    "type-check": "turbo type-check",
+    "lint": "node scripts/check-dep-direction.mjs"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

@@ -6,3 +6,8 @@ allowBuilds:
   esbuild: true
   sharp: false
   workerd: true
+
+# 标准 pnpm 字段：CI（plain pnpm）据此放行必要构建脚本，与上方本地 allowBuilds 对齐。
+onlyBuiltDependencies:
+  - esbuild
+  - workerd
