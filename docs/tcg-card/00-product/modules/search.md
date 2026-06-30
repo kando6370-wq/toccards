@@ -388,7 +388,7 @@ Qty 表示当前账号在当前选中文件夹中的持有数量。
 2. 已加入当前文件夹时展示对应数量，例如 `Qty: 1`。
 3. 点击 Collect 快捷加入后，Qty 从 0 更新为 1。
 4. 点击 Collected 取消加入后，Qty 更新为 0。
-5. 如果同一对象在当前文件夹有多个 Collection Item，Qty 展示总数量。
+5. Qty = 当前选中文件夹内该卡所有有效 Collection Item 的数量总和；同卡多条记录累加（口径见 `global-rules.md §16.1`）。例如同卡有 Raw、PSA 10、PSA 9 三条记录，Qty 累加为三条 Quantity 之和。
 6. Wishlist 不影响 Qty。
 7. Qty 只统计当前选中文件夹，不统计其他文件夹。
 8. TCG 单卡、体育卡、Sealed Product、特殊收藏品均展示 Qty。
@@ -416,7 +416,8 @@ Qty 表示当前账号在当前选中文件夹中的持有数量。
 4. 再次点击实心爱心后将该对象从 Wishlist 移除；移除成功后爱心恢复为空心。
 5. Wishlist 不计入 Home 总资产、不计入 Portfolio、不影响 Most Valuable、不影响 Qty。
 6. 同一对象不可同时存在于 Portfolio 和 Wishlist；点击 Collect 自动移除 Wishlist。
-7. 操作失败时，Toast 见 `global-rules.md §四`。
+7. Collected 与 Heart 互斥：该对象处于 Collected 态时，本页 Heart 不展示为实心（与"Collect 自动移除 Wishlist"一致；口径见 `global-rules.md §16.7`）。
+8. 操作失败时，Toast 见 `global-rules.md §四`。
 
 ---
 
@@ -485,7 +486,8 @@ Qty 表示当前账号在当前选中文件夹中的持有数量。
 7. 点击卡片非按钮区域，进入对应详情页（未加入 Portfolio / 已加入 Portfolio 两态，见 card-detail.md）。
 8. Search 页价格为市场参考价，不代表用户 Portfolio 资产价值。
 9. 用户点击 Collect 加入 Portfolio 后，Portfolio 中该对象的价值按 Collection Item 规则计算。
-10. 接口：`searchCards(query, options)`（见 api-spec 数据代理端点）。
+10. Search 列表的 Collected / Heart / Qty 状态按具体卡版本（card_id / product_id）判定，同名不同 Variant 状态相互独立（详见 `global-rules.md §17.2`）。
+11. 接口：`searchCards(query, options)`（见 api-spec 数据代理端点）。
 
 ---
 

@@ -164,7 +164,7 @@ Account 详情页点击 **Delete account**。
 
 - 点击 **Cancel** → 关闭弹窗，不删除账号，返回 Account 页。
 - 点击 **Delete** → 调用 `DELETE /auth/account`（api-spec §2.12）。
-  - 成功：退出登录，返回游客态 Profile；账号绑定资产按隐私合规要求处理（⚠️ TBD，见 api-spec §6 TBD #8）。
+  - 成功：退出登录，返回游客态 Profile；清除本地账号资产缓存，个人资产统计清空，公共卡牌数据不受影响，重新进入 App 回到游客态 Profile（客户端展示态）。账号绑定资产的服务端隐私合规处理按隐私合规要求执行（⚠️ TBD，见 api-spec §6 TBD #8）。
   - 失败：保留当前账号状态，展示专用失败文案（引用 `./global-rules.md §13.2`）：`Unable to complete this action. Please try again later.`
 - 删除账号属于高风险操作，不允许无确认直接删除（引用 `./global-rules.md §九`）。
 
@@ -311,6 +311,7 @@ Profile 页（游客态 / 登录态）的 Others 区域。
 - 点击 Log Out 后退出当前账号：调用 `POST /auth/logout`（api-spec §2.11）。
 - 退出成功：返回游客态 Profile；账号绑定的云端卡牌资产不删除。
 - 退出后，Portfolio、Wishlist、账号详情等账号资产数据不再展示。
+- 退出登录不影响公共 Search / Trending 数据，仅清空当前账号个人资产展示（Portfolio / Wishlist / Home 个人资产），再登录后重新拉取。
 - 退出后若客户端仍持有原 anonymous_account 绑定，切回游客态并展示该游客资产（见 `./global-rules.md §14.5`）。
 - 用户再次登录同一账号后，恢复该账号绑定的资产。
 - 退出失败：保留当前账号状态，展示专用失败文案（引用 `./global-rules.md §13.2`）：`Unable to complete this action. Please try again later.`
@@ -329,6 +330,8 @@ Profile 页（游客态 / 登录态）的 Others 区域。
 - 用户的 Portfolio 文件夹、Collection Item、Wishlist、扫描添加记录、文件夹排序 / 默认设置、货币偏好、金额隐藏偏好均与账号绑定（引用 `./global-rules.md §八`）。
 - 已登录状态下新增、编辑、删除的卡牌资产归属于当前账号。
 - 切换账号后，只展示新账号下的数据。
+- 切换账号（A 退 B 登）后，Home / Collection / Wishlist / Search Qty / Collected 状态全部按 B 账号刷新；不允许 A 账号资产短暂展示在 B 账号下（防串号 / 防闪现）。（Home 总资产 / Search Qty / Collected 等属其他模块职责，本文仅以账号绑定口径引用，不重复定义。）
+- 切换账号过程中可展示页面级 loading。
 - 退出登录后 Profile 回到游客态；账号资产不删除，再次登录后恢复。
 - 游客注册成功：游客资产迁移到新账号（引用 `./global-rules.md §14.3`）。
 - 游客登录已有账号：游客资产不迁移、不合并（引用 `./global-rules.md §14.4`）。

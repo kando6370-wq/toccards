@@ -347,10 +347,11 @@ No match found. search manually.
 
 ### 操作规则
 
-1. 用户可重试扫描。
+1. No match found 项**不可重试扫描**；只支持 Search Manually 和删除两个操作（区别于 Failed 项可重试）。
 2. 用户可进入 Search 手动查找卡牌。
 3. 如果从 Search 找到正确卡牌，则走 Search 添加流程，不再返回 Scan 流程。
 4. 当前版本不支持 Custom Card，则无匹配卡牌不能直接从 Scan 加入 Portfolio。
+5. No match found 项不进入 Review Your Matches、不参与 Add all cards、不生成 Collection Item、不计入任何资产统计。
 
 ---
 
@@ -388,6 +389,10 @@ No match found. search manually.
 4. Language、Finish 默认取识别结果。
 5. Purchase Price 只作为用户购买成本记录，不参与市场价值计算。
 6. Total 根据当前市场价和数量计算；如果当前市场价缺失，Total 展示 `--`，仍允许用户保存到 Portfolio。
+
+### 1.0 不做实体卡去重
+
+系统不判断扫描卡牌是否为同一张实体卡。用户每次添加都会生成新的 Collection Item，或增加对应卡牌的 Quantity；1.0 不做自动去重。
 
 ---
 
@@ -478,7 +483,7 @@ No match found. search manually.
 | 场景 | 文案 |
 |---|---|
 | 扫描项失败 | `Error / Tap to retry` |
-| 详情页无匹配结果 | `No match found. Try again or search manually.` |
+| 详情页无匹配结果 | `No match found. search manually.`（No match found 不可重试，仅支持 Search Manually 和删除） |
 
 ---
 
@@ -493,6 +498,10 @@ No match found. search manually.
 | 有成功项 + Failed 项，无 Scanning | 可点击 | 仅成功项进入后续流程，Failed 项不进入 Review |
 | 存在 Scanning 项 | 不可点击 | 等待识别完成 |
 | 待处理数量达到 10 | 可处理当前结果 | 用户需添加或删除当前扫描项后继续拍摄 |
+
+### No match found 项的 Done 行为
+
+点击 Done 后，仅成功识别项进入后续确认 / 添加流程；No match found 项保留在扫描列表中，用户可继续 Search Manually 或删除（不可重试）。
 
 ---
 
@@ -600,6 +609,8 @@ No internet connection. Please check your network and try again.
 1. 用户可在确认区查看候选结果，从 Top matched results 中选择正确卡牌。
 2. 手动选择后，替换当前扫描项匹配结果；Our Match 与 Collection Item 信息同步更新。
 3. 如果候选结果没有正确卡牌，用户可进入 Search 手动查找；进入 Search 后，不再返回 Scan 流程。
+4. 改选后以最终选中卡牌为资产计价基准，原识别结果不计入资产；Review Your Matches、Collection Item、添加到 Portfolio 全链路均使用最终选中卡牌的 card_id。
+5. 扫描卡牌已加入 Portfolio 后，若再修改匹配卡牌（在 Collection / Detail 中操作），更新该 Collection Item 的 card_id，从修改保存时间点起按新卡价格计入，修改前历史保留原卡口径，1.0 不做历史重算（见 `global-rules.md §16.2`）。具体口径归 Collection / Detail 模块，本文不展开。
 
 ---
 
@@ -609,6 +620,7 @@ No internet connection. Please check your network and try again.
 2. 用户仍可将卡牌加入 Portfolio；加入后 Collection 中该卡价格展示 `--`。
 3. 缺价卡不计入 Home 总资产，不参与 Most Valuable 排序（见 `global-rules.md §十五 冲突1`）。
 4. Purchase Price 仅作为用户购买成本记录，不参与市场价值计算。
+5. 卡牌价格后续补全后，从补全时间点起重新计入 Home 总资产与 Most Valuable，不回写历史（见 `global-rules.md §16.2`）。
 
 ---
 
@@ -628,11 +640,17 @@ No internet connection. Please check your network and try again.
 1. 成功项加入目标 Portfolio，从待处理扫描列表中移除；失败项保留在 Review Your Matches 中。
 2. 用户可继续编辑失败项、重试添加或删除。
 3. 成功提示按实际成功数量展示，例如：`3 cards added to your portfolio`。
+4. 同时对失败侧展示 Toast：`Some cards couldn't be added. Please try again.`（与成功计数提示并存，成功计数 + 失败 Toast 同时展示）。
 
 ### 全部失败
 
 1. 停留在 Review Your Matches 页面，保留全部用户编辑内容，不清空扫描结果。
 2. 展示通用失败 Toast（见 `global-rules.md §四`）。
+
+### 请求处理中禁止退出
+
+1. 批量 / 单张添加请求处理中，禁止退出扫描流程。
+2. 请求完成后，已成功项以服务端结果为准；未成功项保留为待处理。
 
 ---
 

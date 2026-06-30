@@ -29,6 +29,10 @@
 13. [统一文案表](#十三统一文案表)
 14. [游客状态与资产规则](#十四游客状态与资产规则)
 15. [已固化口径（原 PRD 冲突解消）](#十五已固化口径原-prd-冲突解消)
+16. [统计口径汇总](#十六统计口径汇总)
+17. [价格来源、唯一性与异常价格口径](#十七价格来源唯一性与异常价格口径)
+18. [时区口径](#十八时区口径)
+19. [公共卡牌后台变更口径](#十九公共卡牌后台变更口径)
 
 ---
 
@@ -194,6 +198,8 @@ No internet connection. Please check your network and try again.
 - 用户恢复网络后，可点击 `Refresh` 或重新操作。
 - 适用于：扫描识别 / 搜索 / 价格刷新 / 添加 Portfolio / 保存 Collection Item 等所有依赖网络的操作。
 
+**关于离线暂存（v1.0 范围说明）**：部分离线资产暂存（离线保存、Pending sync、Sync failed / Retry）为 v1.0 之后的后续能力，当前版本不支持。无网络时，所有依赖网络的操作按本节处理——操作失败并恢复操作前状态，展示网络异常 Toast；不提供离线本地暂存与自动补传。
+
 ---
 
 ## 六、图片缺失规则
@@ -221,7 +227,10 @@ No internet connection. Please check your network and try again.
 | 涨跌幅缺失 | 展示 `-/-` |
 | 正向变化 | 展示 `+` |
 | 负向变化 | 展示 `-` |
+| 汇率换算失败 | 该金额展示 `--`，且不参与当前总资产计算 |
 | 资产隐藏 | 用户资产金额被隐藏时，Portfolio 和 Home 中资产金额同步隐藏 |
+
+**百分比不随货币切换变化（涵盖性说明）**：所有涨跌百分比始终按原始市场价格序列计算，不因货币切换或汇率换算而变化。该规则统一覆盖：Home 图表涨跌百分比、Most Valuable 30D Change、Trending Today 涨跌幅、Search 列表 30D Change、Collection 列表 30D Change、Card Detail Market Prices 7d change，以及其他展示涨跌百分比的场景。
 
 ---
 
@@ -316,6 +325,11 @@ No internet connection. Please check your network and try again.
 | Wishlist 移除按钮 | `Remove from Wishlist` |
 | Portfolio 移除按钮 | `Remove from Portfolio` |
 | 扫描结果未保存退出提示 | `Your scan results haven't been saved. If you exit now, they will be lost.` |
+| Quantity 为 0 或负数（不允许保存） | `Quantity must be at least 1.` |
+| Quantity 非整数（不允许保存） | `Quantity must be a whole number.` |
+| 公共数据不可用 Price Tab 标题 | `Price data unavailable` |
+| 公共数据不可用 Price Tab 说明 | `This card's public data is no longer available.` |
+| 公共数据不可用 Price Tab 按钮 | `Refresh` |
 
 ### 13.2 场景专用失败文案例外
 
@@ -411,9 +425,10 @@ App 支持游客状态使用。用户未注册 / 未登录时，也可以在 App
 
 **固化结论**：当两张卡单张价值相同时，排序规则依次为：
 1. 30 天涨幅较高者优先；
-2. 涨幅相同时，最近添加时间较晚者优先。
+2. 涨幅相同时，最近添加时间较晚者优先；
+3. 仍相同时，按卡牌名称 A-Z 升序。
 
-**依据**：来自 `home页说明.md §6.3`。
+**依据**：来自 `home页说明.md §6.3`、`卡牌异常总结.md`（排序与排名异常）。
 
 ### 冲突 3：数据来源口径统一
 
@@ -444,3 +459,124 @@ App 支持游客状态使用。用户未注册 / 未登录时，也可以在 App
 - 通用场景直接引用 `global-rules.md §十三`，不在模块内重复定义。
 - 场景专用文案在 `§13.2 场景专用失败文案例外` 中集中登记，模块 PRD 引用此处。
 - 如发现模块 PRD 与本文件不一致，以本文件为准，模块 PRD 需更新。
+
+---
+
+## 十六、统计口径汇总
+
+> 本节集中收纳跨切面的资产统计口径，作为 Home / Collection / Search / Card Detail 等模块的统一引用来源。涉及缺价不计入、Most Valuable 排序等已固化项，仍以 §十五为准，本节不重复其结论。
+
+### 16.1 价格口径与取价
+
+- **价格口径不混用**：Raw / Graded / Sealed 使用不同的价格口径，相互之间不混用。
+- **Search Qty**：Search 列表中的 Qty = 当前选中文件夹内该卡所有**有效** Collection Item 的数量总和；同一张卡的多条记录（如 Raw、PSA 10、PSA 9）数量累加。
+- **同卡多条不强制合并**：同一张卡的多条 Collection Item 不强制合并，列表分别展示；每条独立取价。
+
+### 16.2 资产变更只影响变更时间点之后（全局原则）
+
+- 所有资产变更只影响变更时间点**之后**的统计，不回写历史。
+- 适用于：Quantity 修改、Language / Finish 修改、卡牌跨 Portfolio 移动，以及其他持有信息变更。
+- **卡牌跨 Portfolio 移动**：自移动时间点起，原 Portfolio 不再计入该卡、目标 Portfolio 开始计入该卡；原 Portfolio 历史保留，目标 Portfolio 移动前的历史不补算。
+
+### 16.3 资产计入的时间边界
+
+- 资产按变更时间点边界计入：卡牌加入前不计入、删除后不计入。
+- 查看长周期图表时，周期前半段只统计当时已存在的资产；卡牌加入前的图表点不计入该卡价值。
+
+### 16.4 周期起点资产为 0
+
+- 周期变化金额从 0 起算。
+- 变化百分比展示 `-/-`（避免除以 0）。
+- 当前总资产正常展示。
+
+### 16.5 当前总资产为 0
+
+- 当前总资产展示 `$0.00`。
+- 图表后续展示 0 / 空状态。
+- 变化百分比展示 `-/-`。
+- Most Valuable 展示空状态。
+
+### 16.6 精度与四舍五入
+
+- 计算使用原始精度，不以展示值参与计算。
+- 多个资产先累加原始值，再统一格式化，末端再四舍五入。
+- 金额默认保留 2 位小数。
+- 涨跌百分比默认 2 位小数；绝对值小于 0.01% 但不为 0 时展示 `<0.01%`；起始值为 0 时展示 `-/-`，不计算无限大涨幅。
+
+### 16.7 Wishlist 与收藏状态口径
+
+- **Wishlist 不计入资产**：Wishlist 不计入 Home 当前总资产、不计入 Home 图表、不计入 Most Valuable、不影响 Portfolio Qty。
+- **Portfolio 与 Wishlist 互斥**：同一张卡不可同时存在于 Portfolio 和 Wishlist；加入 Portfolio 成功时，若 Wishlist 已有该卡则自动从 Wishlist 移除。
+- **Collected 状态范围**：Collected 仅代表该卡已存在于「当前选中文件夹」；该卡在其他文件夹时不展示 Collected。
+- **Collected 与 Heart 互斥**：Collected 与 Heart（Wishlist）状态互斥，Collected 态下不可同时为 Hearted 态。
+
+---
+
+## 十七、价格来源、唯一性与异常价格口径
+
+### 17.1 价格来源与可信度
+
+- 资产估值优先使用成交价 / Sold Listings。
+- 仅有挂牌价、无成交价时，标记为低可信价格。
+- Home 当前总资产不直接使用单个高挂牌价，避免资产虚高。
+- Market Price 优先基于成交价格计算，不直接使用单个在售挂牌价作为资产估值。
+- Shop 可展示在售商品，但不等同于资产估值价格。
+
+### 17.2 卡牌唯一性与取价字段
+
+- **唯一性**：卡牌唯一性由 Set、编号、Language、Finish、Variant 共同决定，不能只按名称判断。
+- **状态判断**：Search / Scan / Collection / Wishlist 的 Collected / Heart / Qty 状态均以 `card_id` / `product_id` 为准；同名不同 Variant 状态独立。
+- **取价字段**：Language、Finish / Variant 是价格取值字段；不同取值不合并估值。
+- **修改后取价**：用户修改 Language / Finish 后，从保存时间点起按新取值计价；若该取值无价，则当前价值展示 `--`。
+
+### 17.3 负价格 / 0 价格
+
+- 价格为负数视为异常，不展示、不计入资产。
+- 价格为 0 统一按缺失处理，展示 `--`（采用文档 1.0 建议，不展示 `$0.00`）。
+
+### 17.4 刷新与延迟口径
+
+- 资产变更（保存 / 删除 / 移动）成功后，自动刷新相关模块：Home 当前总资产、Home 图表、Most Valuable、Collection / Portfolio 列表、Search Qty / Collected、Card Detail。
+- 价格数据可能延迟，页面展示最新可用价；Home 不展示价格更新时间。
+- 若价格缺失，则加入成功但资产金额不增加。
+
+---
+
+## 十八、时区口径
+
+> 本节为正式口径（非参考）。
+
+- 所有资产变更时间统一保存 UTC timestamp。
+- 7D / 30D / 1M 等统计周期统一按用户「固定统计时区」计算，不随设备当前时区变化。
+- 固定统计时区默认为注册 / 首次进入 App 时的设备时区；用户跨地区或设备时区变化，不会自动改变图表统计口径。
+- 后续若支持手动修改统计时区，仅影响修改之后的图表展示与周期边界计算，历史资产变更的 UTC 时间不变。
+
+---
+
+## 十九、公共卡牌后台变更口径
+
+> 公共卡牌因数据问题被后台变更（Delisted / Merged / Unavailable）时的统一处理口径。后台变更**不直接删除**用户已收藏的 Collection Item。
+
+### 19.1 Delisted（下架）
+
+- 卡牌从 Search 公共列表下架，但用户 Portfolio / Wishlist 中已有记录继续展示。
+- 价格仍可用则继续参与统计；价格不可用则展示 `--`，且不计入 Home 当前总资产和 Most Valuable。
+
+### 19.2 Merged（合并）
+
+- 用户已收藏的 Collection Item 自动关联到新的 canonical `card_id`。
+- 用户填写的持有信息（Quantity / Portfolio / Grader / Condition / Grade / Language / Finish / Purchase Price / Notes 等）保持不变。
+- 后续价格与基础信息按新的 canonical `card_id` 取。
+
+### 19.3 Unavailable（不可用）
+
+- 不删除记录，页面展示最近一次可用的基础信息缓存。
+- 当前价格展示 `--`，涨跌幅展示 `-/-`，从异常开始不计入 Home 当前总资产和 Most Valuable。
+- 用户仍可编辑或移除该 Collection Item。
+- Price Tab 不按普通加载失败处理，使用专用文案（见 §13.1）：`Price data unavailable` / `This card's public data is no longer available.` / `Refresh`。
+
+### 19.4 历史统计
+
+- 变为 Unavailable 之前已生成的历史资产快照保留，Home 历史图表中该卡此前的历史价值可继续展示。
+- Unavailable 之后，该卡不再参与新的当前总资产计算，之后的图表点不计入该卡价值。
+- 若后续该卡恢复 active 或 merged 到 canonical `card_id`，则从恢复 / 合并时间点起重新参与资产统计。
