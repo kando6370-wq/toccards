@@ -170,7 +170,9 @@ Something went wrong. Please try again.
 - 如果当前操作是表单保存 / 添加 / 提交，失败后停留当前页面并保留用户输入内容，不强制返回，避免用户丢数据。
 - 如果是删除、移除等高风险操作失败，不删除数据，停留当前页面并展示 Toast。
 
-**通用 Toast 适用按钮操作**：切换文件夹失败 / 新建文件夹失败 / 编辑文件夹失败 / 删除文件夹失败 / 切换货币失败 / 加入 Portfolio 失败 / 移除 Portfolio 失败 / 加入 Wishlist 失败 / 移除 Wishlist 失败 / 保存 Collection Item 失败 / Restore 失败 / 分享调起失败 / 评分跳转失败。
+**通用 Toast 适用按钮操作**：切换文件夹失败 / 新建文件夹失败 / 编辑文件夹失败 / 删除文件夹失败 / 切换货币失败 / 加入 Portfolio 失败 / 移除 Portfolio 失败 / 加入 Wishlist 失败 / 移除 Wishlist 失败 / 保存 Collection Item 失败 / Restore 失败 / 分享调起失败。
+
+> **静默例外**：评分 / App Store 跳转失败**不弹 Toast**（评分为可选操作，跳转失败静默处理，留在原页面）。
 
 > **注意**：以下场景使用场景专用失败文案，不使用通用 Toast——详见 §十三统一文案表中的"场景专用失败文案例外"。
 

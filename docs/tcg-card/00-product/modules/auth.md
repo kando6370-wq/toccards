@@ -278,6 +278,7 @@ App 拉起 Apple 原生授权页
 
 | 场景 | 文案 |
 |---|---|
+| 密码少于 8 位 | `Password must be at least 8 characters.` |
 | 两次密码不一致 | `Passwords do not match.` |
 
 ---
@@ -329,6 +330,7 @@ App 拉起 Apple 原生授权页
 
 | 场景 | 文案 |
 |---|---|
+| 密码少于 8 位 | `Password must be at least 8 characters.` |
 | 两次密码不一致 | `Passwords do not match.` |
 | Email 登录密码错误 | `Incorrect password. Please try again.` |
 
@@ -340,7 +342,7 @@ App 拉起 Apple 原生授权页
 
 ### 13.5 游客资产迁移失败
 
-引用 `./global-rules.md §13.2`："游客资产迁移失败"专用文案：`Something went wrong. Please try again later.`
+引用 `./global-rules.md` §十三文案表（专用失败文案）中"游客资产迁移失败"：`Something went wrong. Please try again later.`
 
 ### 13.6 通用 / 网络异常
 

@@ -258,7 +258,7 @@ Profile 页面点击 **Score**。
 2. 若系统当次不展示原生弹窗（展示频率已耗尽），则跳转 App Store 写评论页。
 3. 用户关闭评分弹窗后返回 Profile。
 4. 用户从 App Store 返回后回到 App。
-5. 跳转 App Store 失败时留在原页面，不提示错误（引用 `./global-rules.md §四` 通用 Toast 适用场景：评分跳转失败）。
+5. 跳转 App Store 失败时留在原页面，不提示错误。此为 global-rules.md §4.2 的静默例外（评分 / App Store 跳转失败不弹 Toast，评分为可选操作）。
 
 > iOS 原生评分弹窗存在系统级展示频率限制，不能保证每次点击均弹出。
 
@@ -344,7 +344,7 @@ Profile 页（游客态 / 登录态）的 Others 区域。
 No internet connection. Please check your network and try again.
 ```
 
-适用场景：Submit Feedback / Log Out / Delete Account / 打开官网协议链接 / 账号信息刷新。
+适用场景：Restore（Restore 本身 ⚠️ TBD，按 §十五 决策保留）/ Submit Feedback / Log Out / Delete Account / 打开官网协议链接 / 账号信息刷新。
 
 ### 13.2 整页数据加载失败
 
