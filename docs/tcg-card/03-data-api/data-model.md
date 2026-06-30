@@ -124,7 +124,7 @@ CREATE TABLE verification_code (
     id         TEXT PRIMARY KEY,
     email      TEXT NOT NULL,
     code       TEXT NOT NULL,                -- 6位数字，明文存储（短期有效）
-    purpose    TEXT NOT NULL,                -- 'register' | 'reset_password'
+    purpose    TEXT NOT NULL,                -- 枚举：'register' | 'reset_password'（API / 前端按此对齐）
     expires_at TEXT NOT NULL,                -- 通常 10 分钟后过期
     used_at    TEXT,                         -- 使用时间；NULL = 未使用
     created_at TEXT NOT NULL
@@ -238,6 +238,7 @@ CREATE TABLE user_preference (
 说明：
 - 首次创建账号时由 Workers 自动初始化（`currency = 'USD'`、`amount_hidden = 0`）。
 - `last_selected_folder_id` 用于记录手动切换的文件夹；冷启动时优先使用 `is_default = 1` 的文件夹（见 glossary default_folder 条目）。
+- `last_selected_folder_id` **软引用 `portfolio_folder.id`**，不设 DB 级 FK；文件夹删除时由 Workers 层将此字段置 NULL（回落到默认文件夹）。
 
 ---
 
@@ -253,7 +254,7 @@ CREATE TABLE card_override (
     image_url       TEXT,                    -- 覆盖图片 URL；NULL = 使用第三方图片
     is_missing_card INTEGER NOT NULL DEFAULT 0 CHECK (is_missing_card IN (0,1)),
                                              -- 1 = 第三方无此卡，手动录入
-    updated_by      TEXT,                    -- 操作管理员的 user.id
+    updated_by      TEXT,                    -- 软引用 user.id（操作管理员），无 DB 级 FK
     updated_at      TEXT NOT NULL
 );
 ```
@@ -262,6 +263,7 @@ CREATE TABLE card_override (
 - `override_fields` 为 JSON 对象，只存需要覆盖的字段，其余字段仍由第三方数据提供。
 - `is_missing_card = 1` 表示该卡在第三方无数据，完全依赖覆盖层提供信息（图片、名称、系列等）。
 - 读取时：先查此表，有记录则用覆盖字段覆盖第三方数据；无记录则直接用第三方数据。
+- `updated_by` **软引用 `user.id`**，可空、不设 DB 级 FK，由 Workers 层在写入时填充。
 - 由管理后台"卡牌数据运维"模块维护。
 
 ### 5.2 trending_pin（运营置顶）
@@ -273,7 +275,7 @@ CREATE TABLE trending_pin (
     rank       INTEGER NOT NULL,             -- 展示排序（从 1 开始）
     active     INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
                                              -- 1 = 生效；0 = 暂停
-    updated_by TEXT,
+    updated_by TEXT,                         -- 软引用 user.id（操作管理员），无 DB 级 FK
     updated_at TEXT NOT NULL
 );
 CREATE INDEX idx_trending_pin_rank ON trending_pin(active, rank);
@@ -281,6 +283,7 @@ CREATE INDEX idx_trending_pin_rank ON trending_pin(active, rank);
 
 说明：
 - Workers 在返回 Trending Today 时，先查此表；`active = 1` 的卡牌按 `rank` 置于列表首位，后接第三方返回的涨幅数据。
+- `updated_by` **软引用 `user.id`**，可空、不设 DB 级 FK，与 `card_override.updated_by` 处理一致。
 - 运营可通过管理后台随时启停置顶。
 
 ### 5.3 app_config（运营配置 KV）
@@ -289,7 +292,7 @@ CREATE INDEX idx_trending_pin_rank ON trending_pin(active, rank);
 CREATE TABLE app_config (
     key        TEXT PRIMARY KEY,             -- 配置键（见下方说明）
     value      TEXT NOT NULL,                -- 配置值（字符串或 JSON 字符串）
-    updated_by TEXT,
+    updated_by TEXT,                         -- 软引用 user.id（操作管理员），无 DB 级 FK
     updated_at TEXT NOT NULL
 );
 ```
@@ -346,7 +349,7 @@ erDiagram
         TEXT id PK
         TEXT device_id
         TEXT created_at
-        TEXT upgraded_user_id "FK -> user.id (nullable)"
+        TEXT upgraded_user_id "-> user.id (nullable, 升级后回填)"
     }
 
     auth_identity {
@@ -464,11 +467,12 @@ erDiagram
         TEXT updated_at
     }
 
-    user ||--o{ auth_identity : "has"
+    %% 强关系（DB 级 FK 或 owner 多态归属）：实线
+    user ||--o{ auth_identity : "has (FK user_id)"
     user ||--o{ session : "owns (owner_type=user)"
     anonymous_account ||--o{ session : "owns (owner_type=anonymous)"
-    anonymous_account }o--o| user : "upgraded_user_id"
-    portfolio_folder ||--o{ collection_item : "contains"
+    anonymous_account }o--|| user : "upgrades to (upgraded_user_id, 单向)"
+    portfolio_folder ||--o{ collection_item : "contains (FK folder_id)"
     user ||--o{ portfolio_folder : "owns (owner_type=user)"
     anonymous_account ||--o{ portfolio_folder : "owns (owner_type=anonymous)"
     user ||--o{ collection_item : "owns (owner_type=user)"
@@ -477,8 +481,16 @@ erDiagram
     anonymous_account ||--o{ wishlist_item : "owns (owner_type=anonymous)"
     user ||--o| user_preference : "has (owner_type=user)"
     anonymous_account ||--o| user_preference : "has (owner_type=anonymous)"
-    user ||--o{ card_override : "updated_by"
 ```
+
+> **图例说明**：
+> - 上图只绘制**强关系**——即 DB 级 FK（`auth_identity.user_id`、`collection_item.folder_id`）与 owner 多态归属关系（由 Workers 层保证引用完整性）。
+> - **软引用不画关系线**，避免被误读为 DB 级 FK。以下字段均为可空、无 `REFERENCES`、由 Workers 层维护的软引用，统一不入图：
+>   - `card_override.updated_by` → 软引用 `user.id`
+>   - `trending_pin.updated_by` → 软引用 `user.id`
+>   - `app_config.updated_by` → 软引用 `user.id`
+>   - `user_preference.last_selected_folder_id` → 软引用 `portfolio_folder.id`
+> - `anonymous_account` 升级为 `user` 是**单向**关系（一个匿名账号最多升级为一个 user，`upgraded_user_id` 回填后不再变更）。
 
 ---
 
