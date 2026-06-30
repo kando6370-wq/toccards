@@ -1,0 +1,4 @@
+packages:
+  - "packages/*"
+  - "apps/admin-web"
+  - "apps/workers-api"

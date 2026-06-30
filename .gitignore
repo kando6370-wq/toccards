@@ -4,3 +4,15 @@
 # OS
 .DS_Store
 Thumbs.db
+
+# Node / TS monorepo
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Cloudflare Workers
+.wrangler/
+
+# Vite
+apps/admin-web/dist/
