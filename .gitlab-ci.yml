@@ -1,7 +1,8 @@
-# GitLab CI —— tcg-card monorepo
-# 本轮仅 TS/Node 侧（M0-7）。Dart/Flutter Job 待 Flutter SDK 接入后启用（见计划 Phase B）。
+# GitLab CI —— tcg-card monorepo（M0-7）
+# TS/Node 侧（ts）+ Dart/Flutter 侧（dart）双 Job。
 stages:
   - ts
+  - dart
 
 ts:
   stage: ts
@@ -19,12 +20,11 @@ ts:
     paths:
       - .pnpm-store/
 
-# ── Phase B（待 Flutter SDK 接入后解注释）────────────────────
-# stages: [ts, dart]
-# dart:
-#   stage: dart
-#   image: <flutter 镜像>
-#   script:
-#     - melos bootstrap
-#     - melos run analyze
-#     - melos run test
+dart:
+  stage: dart
+  image: ghcr.io/cirruslabs/flutter:3.35.5
+  before_script:
+    - flutter pub get # 解析根 pub workspace（含 melos dev 依赖）
+  script:
+    - dart run melos run analyze
+    - dart run melos run test

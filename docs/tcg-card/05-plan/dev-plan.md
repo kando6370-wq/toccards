@@ -67,14 +67,14 @@
 | M0-4 | 初始化 `apps/admin-web` | React + Vite + TypeScript + Ant Design + TanStack Query |
 | M0-5 | 初始化 `packages/` 通用包 | `auth-core` / `api-client` / `ui-kit` / `workers-common` 目录与基础依赖，参见 [`monorepo.md §2`](../02-architecture/monorepo.md) |
 | M0-6 | D1 Schema 初始化迁移 | 按 [`data-model.md`](../03-data-api/data-model.md) 全量建表（DDL + Drizzle 迁移文件） |
-| M0-7 | CI 流水线 | GitLab CI（`.gitlab-ci.yml`）双 Job：TS 侧（`pnpm turbo build/type-check` + 依赖方向 lint）+ Dart 侧（`melos run build/analyze`，待 Flutter SDK 接入后启用），参见 [`tech-stack.md §2.5`](../02-architecture/tech-stack.md) |
+| M0-7 | CI 流水线 | GitLab CI（`.gitlab-ci.yml`）双 Job：TS 侧（`pnpm turbo build/type-check` + 依赖方向 lint）+ Dart 侧（`melos run analyze/test`），参见 [`tech-stack.md §2.5`](../02-architecture/tech-stack.md) |
 | M0-8 | 依赖方向 Lint | 引入 `depcheck` 或自定义脚本，验证 `apps/ → packages/` 单向依赖，参见 [`monorepo.md §4`](../02-architecture/monorepo.md) |
 
 ### 验收标准
 
 - `pnpm turbo build` 全量通过，无类型错误。
 - `melos run build` / `flutter analyze` 通过。
-- CI TS Job 绿（`.gitlab-ci.yml`）；Dart Job 待 Flutter SDK 接入后启用。
+- CI 双 Job 均绿（`.gitlab-ci.yml`：ts + dart）。
 - Workers 本地 `wrangler dev` 可启动，`/api/v1/` 返回 404（路由未注册）而非崩溃。
 - D1 迁移文件可幂等执行：`wrangler d1 migrations apply` 成功。
 
