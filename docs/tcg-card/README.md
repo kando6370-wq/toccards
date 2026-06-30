@@ -105,8 +105,8 @@ docs/tcg-card/
 | TBD-1 | 第三方卡牌数据源厂商（TCGplayer / eBay / PriceCharting 等）及 API Key | `third-party.md`、`api-spec.md §4.1–§4.7`、`data-model.md`（card_ref 格式） | 产品/商务 |
 | TBD-2 | 汇率接口提供方 | `api-spec.md §4.8`、`architecture.md §3.2`、`tech-stack.md §3` | 产品/研发 |
 | TBD-3 | 邮件服务（Resend / SES）账号与 API Key | `api-spec.md §2.2`、`tech-stack.md §2.6` | 研发/运营 |
-| TBD-4 | Apple OAuth 凭证（Service ID / Team ID / Key ID） | `api-spec.md §2.9`、`auth.md §五` | 研发/苹果开发者账号 |
-| TBD-4 | Google OAuth 凭证（Client ID / Secret） | `api-spec.md §2.8`、`auth.md §四` | 研发 |
+| TBD-4a | Apple OAuth 凭证（Service ID / Team ID / Key ID） | `api-spec.md §2.9`、`auth.md §五` | 研发/苹果开发者账号 |
+| TBD-4b | Google OAuth 凭证（Client ID / Secret） | `api-spec.md §2.8`、`auth.md §四` | 研发 |
 | TBD-5 | `terms_url` / `privacy_url` / `app_store_url` 实际值 | `api-spec.md §5.3.1`、`data-model.md §4.3`、`profile.md §十二` | 产品/法务 |
 | TBD-6 | Admin Refresh Token 存储方案（复用 `session` 表 `owner_type='admin'` 还是独立表） | `api-spec.md §5.0.1–5.0.3` | 研发 |
 
