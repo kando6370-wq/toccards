@@ -9,7 +9,7 @@
 > - 跨切面规则 [`./global-rules.md`](./global-rules.md)（失败 Toast / 网络异常 / 确认弹窗 / 游客迁移）
 > - 接口规范 [`../../03-data-api/api-spec.md`](../../03-data-api/api-spec.md)
 
-> **v1.0 版本声明**：订阅相关内容（Upgrade to Pro / Subscribe / Unlock All / Go unlock / 订阅权益展示）**已全部删除**，不进入 v1.0。Restore 入口状态见 §十五。
+> **v1.0 版本声明**：订阅相关内容（Upgrade to Pro / Subscribe / Unlock All / Go unlock / 订阅权益展示 / Restore 恢复购买）**已全部删除**，不进入 v1.0（Restore 下版本上订阅时再用）。
 
 ---
 
@@ -56,15 +56,18 @@
 | Support | Share With Friends | 分享 App |
 | Others | Terms Of Use | 跳转官网协议页 |
 | Others | Privacy Policy | 跳转官网隐私政策页 |
+| 底部 | Delete account | 删除账号入口（苹果审核规定，游客态也需提供）；点击展示删除账号确认弹窗（§六）|
 | 底部 | Version 1.0.0 | App 版本号 |
 
 > **Log Out 在游客态不展示**（用户未登录，无可退出的账号）。
+> **Delete account 在游客态展示**（苹果审核规定要求删除账号入口在登录前也可访问）。
 
 ### 2.2 规则
 
 - 游客态点击 Sign in / Sign up，在当前 Profile 页面原地调起注册 / 登录选项弹窗（不跳转新页面）。
 - 弹窗内展示 Email / Apple / Google 注册 / 登录方式，具体逻辑以 Auth 模块 PRD（`auth.md`）为准。
 - 游客态可点击 Customer Support、Score、Share With Friends、Terms Of Use、Privacy Policy。
+- 游客态底部展示 Delete account 按钮（苹果审核规定，要求删除账号入口在登录前也可访问）；点击同样展示删除账号确认弹窗（§六），行为见 §六。
 - v1.0 不做订阅：Upgrade to Pro、Subscribe 相关区域已删除（见 §十五）。
 
 ---
@@ -149,7 +152,10 @@ Profile 已登录态点击账号卡片区域。
 
 ### 6.1 触发
 
-Account 详情页点击 **Delete account**。
+- 登录态：Account 详情页点击 **Delete account**。
+- 游客态：Profile 游客态页面底部点击 **Delete account**（苹果审核规定，删除账号入口在登录前也需可访问）。
+
+> 两个入口调起的删除账号确认弹窗内容一致（§6.2）。
 
 ### 6.2 弹窗内容
 
@@ -167,6 +173,7 @@ Account 详情页点击 **Delete account**。
   - 成功：退出登录，返回游客态 Profile；清除本地账号资产缓存，个人资产统计清空，公共卡牌数据不受影响，重新进入 App 回到游客态 Profile（客户端展示态）。账号绑定资产的服务端隐私合规处理按隐私合规要求执行（⚠️ TBD，见 api-spec §6 TBD #8）。
   - 失败：保留当前账号状态，展示专用失败文案（引用 `./global-rules.md §13.2`）：`Unable to complete this action. Please try again later.`
 - 删除账号属于高风险操作，不允许无确认直接删除（引用 `./global-rules.md §九`）。
+- **游客态触发删除**：游客态无正式账号，点击 **Delete** 清除 anonymous_account 绑定的游客资产与本地数据，返回干净游客态 Profile。删除范围与所调用端点 ⚠️ TBD（是否复用 `DELETE /auth/account` 或针对 anonymous_account 单独处理，待 api-spec 确认）。该入口主要满足 App Store 审核对删除账号入口的可访问性要求。
 
 ---
 
@@ -348,7 +355,7 @@ Profile 页（游客态 / 登录态）的 Others 区域。
 No internet connection. Please check your network and try again.
 ```
 
-适用场景：Restore（Restore 本身 ⚠️ TBD，按 §十五 决策保留）/ Submit Feedback / Log Out / Delete Account / 打开官网协议链接 / 账号信息刷新。
+适用场景：Submit Feedback / Log Out / Delete Account / 打开官网协议链接 / 账号信息刷新。
 
 ### 13.2 整页数据加载失败
 
@@ -389,8 +396,4 @@ v1.0 不做订阅，以下内容**已删除，不进入首版**：
 | Subscribe | 原始 PRD §十五 |
 | 所有订阅权益展示 | 原始 PRD §十五 |
 | Customer Support — Function 选项 Subscription | 原始 PRD §8.3 |
-
-**Restore（恢复购买）** ⚠️ TBD：
-- 若 v1.0 无任何内购 / 订阅，建议隐藏 Restore。
-- 若 App Store 审核需要保留恢复购买入口，需确认是否存在任何可恢复权益后再决定。
-- **当前状态：标记为 ⚠️ TBD，待上线前最终确认。**
+| Restore（恢复购买）| 原始 PRD §十五（下版本上订阅时再用）|
