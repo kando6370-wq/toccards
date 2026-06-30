@@ -120,7 +120,7 @@ stateDiagram-v2
 
     Wishlist --> Portfolio : 从 Wishlist 加入 Portfolio\n(Card Detail Add to Portfolio\n或 Search Collect 按钮)\nPOST /portfolio/items\n→ Workers 副作用自动移除 Wishlist\n[互斥: 不可同时在两者中]
 
-    note right of Portfolio
+    note right of InPortfolio
         互斥规则:
         加入 Portfolio 时若已在 Wishlist
         → 后端自动移除 Wishlist
@@ -163,12 +163,12 @@ stateDiagram-v2
 
     DefaultAndSelected --> DefaultFolder : 用户切换到其他文件夹\n(默认文件夹退出选中\n但保持默认状态)
 
-    NormalFolder --> DefaultFolder : 点击星标设为默认\nPATCH /portfolio/folders/{id}/set-default\n(原默认文件夹自动取消星标)
+    NormalFolder --> DefaultFolder : 点击星标设为默认\nPATCH /portfolio/folders/{folder_id}/set-default\n(原默认文件夹自动取消星标)
 
     DefaultFolder --> NormalFolder : 另一文件夹被设为新默认\n(本文件夹自动取消星标)
 
-    NormalFolder --> EditedFolder : 编辑文件夹名称\nPATCH /portfolio/folders/{id}
-    DefaultFolder --> EditedFolder : 编辑文件夹名称 (默认文件夹可编辑名称)\nPATCH /portfolio/folders/{id}
+    NormalFolder --> EditedFolder : 编辑文件夹名称\nPATCH /portfolio/folders/{folder_id}
+    DefaultFolder --> EditedFolder : 编辑文件夹名称 (默认文件夹可编辑名称)\nPATCH /portfolio/folders/{folder_id}
     SelectedFolder --> EditedFolder : 编辑文件夹名称
     EditedFolder --> NormalFolder : 保存成功 (普通文件夹)
     EditedFolder --> DefaultFolder : 保存成功 (默认文件夹)
@@ -176,7 +176,7 @@ stateDiagram-v2
 
     EditedFolder : 名称编辑中\n(Home + Collection 名称同步更新后)
 
-    NormalFolder --> [*] : 删除 (需二次确认弹窗)\nDELETE /portfolio/folders/{id}\n内部 Collection Item 级联删除\n若是当前选中文件夹 → 自动切换到默认文件夹
+    NormalFolder --> [*] : 删除 (需二次确认弹窗)\nDELETE /portfolio/folders/{folder_id}\n内部 Collection Item 级联删除\n若是当前选中文件夹 → 自动切换到默认文件夹
 
     SelectedFolder --> [*] : 删除当前选中文件夹\n→ 自动切换到默认文件夹\nHome + Collection 数据刷新
 

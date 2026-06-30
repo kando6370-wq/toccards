@@ -208,7 +208,7 @@ flowchart TD
     CARD_ITEM --> CHECK_HEART{"Wishlist 爱心状态"}
     CHECK_HEART -->|"空心 (未加入 Wishlist)"| CLICK_HEART["点击空心爱心"]
     CLICK_HEART --> POST_WISH["POST /wishlist"]
-    POST_WISH -->|"成功"| HEART_FULL["爱心变实心\n若已在 Portfolio → 不允许同时存在\n加入 Wishlist 后 Collect 状态不变"]
+    POST_WISH -->|"成功"| HEART_FULL["爱心变实心\n已加入 Wishlist"]
     POST_WISH -->|"失败"| WISH_FAIL["Toast: Something went wrong. Please try again."]
     WISH_FAIL --> CARD_ITEM
 
@@ -223,6 +223,10 @@ flowchart TD
     HEART_FULL --> BROWSE
     HEART_EMPTY --> BROWSE
 ```
+
+> **互斥说明**：
+> - **强制方向（PRD 明确）**：同对象不可同时在 Portfolio 与 Wishlist。点击 **Collect 加入 Portfolio 时，若对象已在 Wishlist，自动移除 Wishlist**（search.md §十三、§十四.6，Workers 副作用，已在上图 `COLLECTED_STATE` 节点体现）。
+> - **反向行为 ⚠️ TBD**：对象已在 Portfolio（Collected 状态）时点击空心 Heart 加入 Wishlist 的行为，PRD 未明确。建议：已 Collect 状态下 Heart 禁用，或加入 Wishlist 时先移出 Portfolio——待产品确认。本图 Heart 加入 Wishlist 路径仅陈述成功加入 Wishlist，不在成功节点上断言互斥裁决。
 
 ---
 
@@ -319,7 +323,7 @@ flowchart TD
     NEW_FOLDER -->|"失败"| NEW_FAIL["Toast: Something went wrong."]
     NEW_FAIL --> FOLDER_MODAL
 
-    FOLDER_MODAL -->|"编辑图标"| EDIT_FOLDER["编辑文件夹弹窗\nPATCH /portfolio/folders/{id}"]
+    FOLDER_MODAL -->|"编辑图标"| EDIT_FOLDER["编辑文件夹弹窗\nPATCH /portfolio/folders/{folder_id}"]
     EDIT_FOLDER -->|"成功"| FOLDER_NAME_SYNC["Home + Collection 文件夹名称同步更新"]
     FOLDER_NAME_SYNC --> FOLDER_MODAL
     EDIT_FOLDER -->|"失败"| EDIT_FAIL["Toast: Something went wrong."]
@@ -327,7 +331,7 @@ flowchart TD
 
     FOLDER_MODAL -->|"删除图标 (非默认文件夹)"| DELETE_CONFIRM["删除确认弹窗\n(Cancel / Delete)"]
     DELETE_CONFIRM -->|"Cancel"| FOLDER_MODAL
-    DELETE_CONFIRM -->|"Delete"| DEL_FOLDER["DELETE /portfolio/folders/{id}\n(ON DELETE CASCADE: 删除内部所有 Collection Item)"]
+    DELETE_CONFIRM -->|"Delete"| DEL_FOLDER["DELETE /portfolio/folders/{folder_id}\n(ON DELETE CASCADE: 删除内部所有 Collection Item)"]
     DEL_FOLDER -->|"成功"| DEL_OK["若删除的是当前选中文件夹\n→ 自动切换到默认文件夹\nHome + Collection 数据同步刷新"]
     DEL_FOLDER -->|"失败"| DEL_FAIL["保留原文件夹\nToast: Something went wrong."]
     DEL_FAIL --> FOLDER_MODAL
