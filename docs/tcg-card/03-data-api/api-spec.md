@@ -1473,6 +1473,8 @@ POST /cards/{card_ref}/collect
 ## 5. 后台接口
 
 > 所有后台端点路径前缀为 `/admin`，需要管理员角色 JWT（在 `session.owner_type='user'` 且该 user 具备管理员权限的基础上——⚠️ TBD：管理员角色字段，当前 data-model 未定义 role/permission 字段，需在实现阶段确认）。匿名账号无权访问后台。
+>
+> ⚠️ 鉴权基础已改为独立 admin_user 表（见 data-model §5.1）；TBD #6 已由 admin_user 表解决；管理员登录/登出/token 端点（如 POST /admin/auth/login）待 Task 12 在本节补全。
 
 ### 5.1 用户管理
 
