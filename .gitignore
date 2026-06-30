@@ -16,3 +16,7 @@ dist/
 
 # Vite
 apps/admin-web/dist/
+
+# Dart / Flutter（根工作区）
+.dart_tool/
+build/
