@@ -457,7 +457,7 @@ Qty 表示当前账号在当前选中文件夹中的持有数量。
 | Quantity | 1 |
 | Portfolio | 当前选中文件夹 |
 | Status | Sealed |
-| Product Type | 使用当前列表对象数据 |
+| Product Type | 使用当前列表对象数据（后端存储字段，不在表单 UI 展示，见 `card-detail.md §7.3`） |
 | Purchase Price | 空 |
 | Notes | 空 |
 

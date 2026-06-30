@@ -643,7 +643,7 @@ No internet connection. Please check your network and try again.
 | Quantity | 为空 | `Please enter a quantity.` |
 | Quantity | 小于 1 | `Quantity must be at least 1.` |
 | Quantity | 非整数 | `Quantity must be a whole number.` |
-| Purchase Price | 非数字 / 负数 | （只能填写数字，可为小数，不可为负数）|
+| Purchase Price | 非数字 / 负数 | `Please enter a valid price.` |
 | Notes | 超长 | `Notes must be 500 characters or less.` |
 | Portfolio | 未选择 | `Please select a portfolio.` |
 

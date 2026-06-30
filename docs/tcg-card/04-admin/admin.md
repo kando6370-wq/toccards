@@ -37,7 +37,7 @@
 
 > 选择理由：v1.0 即支持双角色，避免后期需改鉴权模型。`super_admin` 管理后台核心操作，`operator` 负责日常运营配置与工单处理，职责分离清晰。预留 `role` 字段供后续扩展（见 data-model §5.1 `admin_user` 表）。
 
-Admin Token 的签发逻辑独立于 App `/auth` 路径，使用 `/admin/auth` 路径（⚠️ TBD：admin 登录接口待补充到 api-spec §5 前置部分）。
+Admin Token 的签发逻辑独立于 App `/auth` 路径，使用 `/admin/auth` 路径（已在 `api-spec.md §5.0` 定义：`POST /admin/auth/login`、`POST /admin/auth/logout`、`POST /admin/auth/refresh`）。
 
 ### 1.2 列表通用约定
 

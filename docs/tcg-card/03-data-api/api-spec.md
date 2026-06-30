@@ -1472,9 +1472,125 @@ POST /cards/{card_ref}/collect
 
 ## 5. 后台接口
 
-> 所有后台端点路径前缀为 `/admin`，需要管理员角色 JWT（在 `session.owner_type='user'` 且该 user 具备管理员权限的基础上——⚠️ TBD：管理员角色字段，当前 data-model 未定义 role/permission 字段，需在实现阶段确认）。匿名账号无权访问后台。
+> 所有后台端点路径前缀为 `/admin`，需要 **Admin Token**（JWT，由 `/admin/auth/login` 签发）。鉴权基于独立 `admin_user` 表（见 data-model §5.1），与 App `user` / `session` 完全分离。匿名账号无权访问后台。
 >
-> ⚠️ 鉴权基础已改为独立 admin_user 表（见 data-model §5.1）；TBD #6 已由 admin_user 表解决；管理员登录/登出/token 端点（如 POST /admin/auth/login）待 Task 12 在本节补全。
+> Admin Token 在 HTTP Header 中传递方式与 §1.2 一致（`Authorization: Bearer <admin_token>`），但签发主体不同：Workers 识别 JWT `sub` 来自 `admin_user` 表，而非 `user` / `anonymous_account` 表；两套 Token 不可互用。
+
+### 5.0 管理员鉴权
+
+#### 5.0.1 管理员登录
+
+**用途**：管理员使用邮箱 + 密码登录后台，获取 Admin Token。
+
+```
+POST /admin/auth/login
+```
+
+请求体：
+
+```json
+{
+  "email": "string",    // admin_user.email，必填
+  "password": "string"  // 明文密码，Workers 侧与 admin_user.password_hash 校验，必填
+}
+```
+
+成功响应（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "admin_id": "01JADMIN",         // admin_user.id
+    "email": "admin@example.com",   // admin_user.email
+    "role": "super_admin",          // 'super_admin' | 'operator'
+    "access_token": "eyJ...",
+    "refresh_token": "eyJ...",
+    "expires_in": 900               // access_token 有效秒数
+  }
+}
+```
+
+错误：
+
+| code | 触发条件 | 文案 |
+|---|---|---|
+| `VALIDATION_ERROR` | 邮箱为空 | Please enter your email. |
+| `VALIDATION_ERROR` | 邮箱格式错误 | Please enter a valid email address. |
+| `VALIDATION_ERROR` | 密码为空 | — |
+| `VALIDATION_ERROR` | 邮箱不存在或密码错误 | Incorrect email or password. |
+| `FORBIDDEN` | `admin_user.status = 'disabled'` | Your account has been disabled. |
+
+> Workers 内部逻辑：查 `admin_user` 表匹配邮箱；bcrypt 校验密码；若 `status = 'disabled'` 则拒绝；签发 Admin Token（JWT `sub` 写入 `admin_user.id`，`role` 写入 payload）；Refresh Token 策略与普通 session 表相同（⚠️ TBD：可复用 `session` 表 `owner_type='admin'` 或使用独立表，实现阶段确认）。
+
+---
+
+#### 5.0.2 管理员登出
+
+**用途**：吊销当前 Admin Refresh Token。
+
+```
+POST /admin/auth/logout
+```
+
+请求头：需 Admin Token。
+
+请求体：
+
+```json
+{
+  "refresh_token": "string"   // 当前 Admin Refresh Token，必填
+}
+```
+
+成功响应（200）：
+
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
+
+---
+
+#### 5.0.3 Admin Token 续签
+
+**用途**：用 Admin Refresh Token 换取新 Admin Access Token。
+
+```
+POST /admin/auth/refresh
+```
+
+请求体：
+
+```json
+{
+  "refresh_token": "string"   // 当前 Admin Refresh Token，必填
+}
+```
+
+成功响应（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "access_token": "eyJ...",
+    "refresh_token": "eyJ...",   // 可选：滚动刷新时返回新 refresh_token
+    "expires_in": 900
+  }
+}
+```
+
+错误：
+
+| code | 触发条件 |
+|---|---|
+| `UNAUTHORIZED` | refresh_token 无效 / 已过期 / 已吊销 |
+| `FORBIDDEN` | 对应 `admin_user.status = 'disabled'` |
+
+---
 
 ### 5.1 用户管理
 
@@ -1981,7 +2097,7 @@ POST /admin/card-overrides/image-upload
 | 3 | 汇率接口提供方 | §4.8、§3.4.2（currency 枚举） |
 | 4 | 第三方卡牌数据源厂商及 card_ref 格式 | 所有引用 card_ref 的端点 |
 | 5 | condition / finish 枚举合法值（取决于厂商） | §3.2.2、§4.5 |
-| 6 | 管理员角色/权限字段（当前 data-model 未定义） | §5.x 所有后台端点 |
+| 6 | Admin Refresh Token 存储方案（复用 `session` 表 `owner_type='admin'` 或独立表，实现阶段确认） | §5.0.1–5.0.3 |
 | 7 | terms_url / privacy_url / app_store_url 实际值 | §5.3.1（app_config key） |
 | 8 | 资产隐私合规留存/清除策略 | §2.12 删除账号 |
 | 9 | 各接口最终 TTL（取决于厂商限速策略） | §4.1–§4.7 |
