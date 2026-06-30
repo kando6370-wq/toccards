@@ -568,6 +568,8 @@ DELETE /auth/account
 | `AUTH_REQUIRED` | 匿名账号尝试调用 | — |
 | `INTERNAL_ERROR` | 更新失败 | Unable to complete this action. Please try again later. |
 
+> 注：此为来源 PRD 指定的场景专用失败文案，作为通用 Toast 的例外；最终以 global-rules.md 文案表为准。
+
 > Workers 内部逻辑：将 `user.deleted_at` 设为当前时间；吊销该用户所有 `session`（revoked_at = now）；资产数据按隐私合规策略处理（⚠️ TBD：具体留存/清除规则）。
 
 ---
@@ -610,6 +612,8 @@ POST /auth/migrate-assets
 | `NOT_FOUND` | anonymous_id 不存在 | — |
 | `CONFLICT` | 该匿名账号已被升级（upgraded_user_id 已回填） | — |
 | `INTERNAL_ERROR` | 迁移写入失败 | Something went wrong. Please try again later. |
+
+> 注：此为来源 PRD 指定的场景专用失败文案，作为通用 Toast 的例外；最终以 global-rules.md 文案表为准。
 
 ---
 
@@ -784,7 +788,7 @@ PATCH /portfolio/folders/{folder_id}/set-default
 #### 3.1.6 更新文件夹排序
 
 ```
-PATCH /portfolio/folders/sort
+PATCH /portfolio/folders/reorder
 ```
 
 请求体：
@@ -1398,6 +1402,8 @@ GET /cards/{card_ref}/sold-listings
 
 ### 4.8 汇率换算
 
+**适配层接口**：⚠️ TBD（待汇率提供方确定后补充）
+
 > ⚠️ TBD：汇率接口提供方（见 Spec §6 TBD #2）。
 
 ```
@@ -1655,7 +1661,7 @@ PATCH /admin/feedbacks/{ticket_id}/status
 
 #### 5.2.4 提交用户反馈（前台端点）
 
-> 此端点归属前台，由 App 用户提交，无需管理员权限；JWT 可选（已登录则自动填充 email）。
+> 此为前台用户端点（无需管理员权限），因与工单数据相关暂列于此；由 App 用户提交，JWT 可选（已登录则自动填充 email）。
 
 ```
 POST /feedbacks
@@ -1695,6 +1701,8 @@ POST /feedbacks
 | `VALIDATION_ERROR` | message 为空 | Please enter your feedback. |
 | `VALIDATION_ERROR` | message 超 1000 字符 | Message must be 1000 characters or less. |
 | `INTERNAL_ERROR` | 写入失败 | Unable to submit feedback. Please try again later. |
+
+> 注：此为来源 PRD 指定的场景专用失败文案，作为通用 Toast 的例外；最终以 global-rules.md 文案表为准。
 
 ---
 
@@ -1943,10 +1951,10 @@ DELETE /admin/card-overrides/{override_id}
 
 #### 5.4.5 补图（更新 image_url）
 
-**用途**：专用端点，供运营快速为指定 card_ref 更新图片（若 override 记录不存在则自动创建）。
+**用途**：专用端点，供运营快速为指定 card_ref 更新图片（若 override 记录不存在则自动创建）。按 card_ref 而非 override_id 寻址，故采用独立静态路径，避免与 `/card-overrides/{override_id}` 冲突。
 
 ```
-PATCH /admin/card-overrides/image
+POST /admin/card-overrides/image-upload
 ```
 
 请求体：
