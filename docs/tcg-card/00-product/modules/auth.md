@@ -5,7 +5,7 @@
 > **日期**：2026-06-30
 >
 > **上游来源**：
-> - 原始底稿 [`docs/tcg_cord_docs/注册登录.md`](../../../tcg_cord_docs/注册登录.md)
+> - 原始底稿 [`docs/tcg-card/source-tcg-card-docs/注册登录.md`](../../source-tcg-card-docs/注册登录.md)
 > - 跨切面规则 [`./global-rules.md`](./global-rules.md)（失败 Toast / 网络异常 / 确认弹窗 / 游客迁移）
 > - 接口规范 [`../../03-data-api/api-spec.md`](../../03-data-api/api-spec.md)
 

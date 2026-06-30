@@ -5,7 +5,7 @@
 > **日期**：2026-06-30
 >
 > **上游来源**：
-> - 原始底稿 [`docs/tcg_cord_docs/collection说明.md`](../../../tcg_cord_docs/collection说明.md)
+> - 原始底稿 [`docs/tcg-card/source-tcg-card-docs/collection说明.md`](../../source-tcg-card-docs/collection说明.md)
 > - 跨切面规则 [`./global-rules.md`](./global-rules.md)（涨跌公式 / 失败 / Toast / 货币 / 确认弹窗——本文档只引用，不重复定义）
 > - 文件夹管理规则 [`./home.md §八`](./home.md#八文件夹管理弹窗)（Collection 文件夹逻辑与 Home 完全一致，指向此节，不重复正文）
 > - 术语表 [`../glossary.md`](../glossary.md)

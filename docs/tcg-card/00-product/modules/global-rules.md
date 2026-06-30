@@ -6,7 +6,7 @@
 > **日期**：2026-06-30
 >
 > **来源**：
-> - 原始底稿 [`docs/tcg_cord_docs/全局用其他补充事项.md`](../../../tcg_cord_docs/全局用其他补充事项.md)
+> - 原始底稿 [`docs/tcg-card/source-tcg-card-docs/全局用其他补充事项.md`](../../source-tcg-card-docs/全局用其他补充事项.md)
 > - API 规范 [`docs/tcg-card/03-data-api/api-spec.md`](../../03-data-api/api-spec.md)
 > - 模块 PRD：`个人中心.md`、`卡牌详情.md`、`collection说明.md`、`home页说明.md`
 

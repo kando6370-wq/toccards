@@ -5,7 +5,7 @@
 > **日期**：2026-06-30
 >
 > **上游来源**：
-> - 原始底稿 [`docs/tcg_cord_docs/search.md`](../../../tcg_cord_docs/search.md)
+> - 原始底稿 [`docs/tcg-card/source-tcg-card-docs/search.md`](../../source-tcg-card-docs/search.md)
 > - 跨切面规则 [`./global-rules.md`](./global-rules.md)（涨跌公式 / 失败 / Toast / 货币 / 确认弹窗——本文档只引用，不重复定义）
 > - 术语表 [`../glossary.md`](../glossary.md)
 > - 数据模型 [`../../03-data-api/data-model.md`](../../03-data-api/data-model.md)

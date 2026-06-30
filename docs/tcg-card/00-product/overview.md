@@ -4,7 +4,7 @@
 > **最后更新**：2026-06-30
 > **上游来源**：
 > - Spec：[`docs/superpowers/specs/2026-06-30-tcg-card-preparation-design.md`](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md)
-> - 原始 PRD：[`docs/tcg_cord_docs/`](../../tcg_cord_docs/)
+> - 原始 PRD：[`docs/tcg-card/source-tcg-card-docs/`](../source-tcg-card-docs/)
 
 ---
 

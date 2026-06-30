@@ -2,7 +2,7 @@
 
 > **定位**：tcg-card v1.0 iOS 应用全量设计文档导航，供开发者 / AI 据此独立开始 v1.0 iOS 开发。
 > **日期**：2026-06-30
-> **原始资料**：`docs/tcg_cord_docs/`（9 份原始 PRD，已全量并入下列文档，冲突按 `docs/superpowers/specs/2026-06-30-tcg-card-preparation-design.md §7` 统一）
+> **原始资料**：`docs/tcg-card/source-tcg-card-docs/`（9 份原始 PRD，已全量并入下列文档，冲突按 `docs/superpowers/specs/2026-06-30-tcg-card-preparation-design.md §7` 统一）
 
 ---
 
@@ -137,7 +137,7 @@ docs/tcg-card/
 
 ## 溯源说明
 
-本目录文档由以下 9 份原始 PRD 整理产出，原文保留于 `docs/tcg_cord_docs/`：
+本目录文档由以下 9 份原始 PRD 整理产出，原文保留于 `docs/tcg-card/source-tcg-card-docs/`：
 
 1. `注册登录.md` → `auth.md`
 2. `个人中心.md` → `profile.md`

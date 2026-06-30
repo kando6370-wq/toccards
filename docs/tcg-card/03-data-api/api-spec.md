@@ -7,7 +7,7 @@
 > - 第三方适配层 [`docs/tcg-card/03-data-api/third-party.md`](./third-party.md)
 > - 架构 [`docs/tcg-card/02-architecture/architecture.md`](../02-architecture/architecture.md)
 > - 跨切面规则 [`docs/tcg-card/00-product/modules/global-rules.md`](../00-product/modules/global-rules.md)（文案/错误码/金额规则见此，本文档不重复定义）
-> - 原始 PRD：`docs/tcg_cord_docs/注册登录.md`、`个人中心.md`、`全局用其他补充事项.md`
+> - 原始 PRD：`docs/tcg-card/source-tcg-card-docs/注册登录.md`、`个人中心.md`、`全局用其他补充事项.md`
 
 ---
 

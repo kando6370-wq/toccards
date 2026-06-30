@@ -5,7 +5,7 @@
 > **日期**：2026-06-30
 >
 > **上游来源**：
-> - 原始底稿 [`docs/tcg_cord_docs/scan.md`](../../../tcg_cord_docs/scan.md)
+> - 原始底稿 [`docs/tcg-card/source-tcg-card-docs/scan.md`](../../source-tcg-card-docs/scan.md)
 > - 跨切面规则 [`./global-rules.md`](./global-rules.md)（失败 / Toast / 网络异常——本文档只引用，不重复定义）
 > - 术语表 [`../glossary.md`](../glossary.md)
 > - 数据模型 [`../../03-data-api/data-model.md`](../../03-data-api/data-model.md)

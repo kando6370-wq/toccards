@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把 `docs/tcg_cord_docs/` 下零散的 9 份 PRD 与管理后台截图，整理为 `docs/tcg-card/` 下一套完整、无冲突、可直接驱动 AI 开发的文档体系。
+**Goal:** 把 `docs/tcg-card/source-tcg-card-docs/` 下零散的 9 份 PRD 与管理后台截图，整理为 `docs/tcg-card/` 下一套完整、无冲突、可直接驱动 AI 开发的文档体系。
 
 **Architecture:** 分层文档集——全局性内容（架构/数据模型/API/全局规则/开发计划）各自成册，业务模块按模块分文件，顶层 README 用相对链接串联。撰写顺序遵循依赖：术语与范围 → 架构 → 数据与 API → 全局规则 → 模块 PRD → 流程/状态机 → 后台 → 开发计划 → 索引。
 
@@ -12,12 +12,12 @@
 
 - 交付物为**纯文档**，不写任何业务代码、不搭脚手架。
 - 文档语言：**中文叙述 + 英文标识符**（字段名 / 接口名 / 枚举值 / 表名用英文）。
-- 原始资料 `docs/tcg_cord_docs/` **保持不动**，仅作为溯源来源。
+- 原始资料 `docs/tcg-card/source-tcg-card-docs/` **保持不动**，仅作为溯源来源。
 - 所有外部依赖决策用统一 `⚠️ TBD` 标注，注明影响面与决策方，**不静默假设**。
 - 单一真相源：跨切面规则（涨跌算法、加载/失败/空状态、Toast、货币、游客迁移）只在 `global-rules.md` 定义，其他文档**引用而非重复**。
 - Spec 依据：`docs/superpowers/specs/2026-06-30-tcg-card-preparation-design.md`，本计划所有决策以该 spec 为准。
 - 范围基准：v1.0 只交付 iOS 范围；Scan 不做真扫描（保留 Tab + 占位引导）；不做订阅；游客采用**后端匿名账号同步**口径。
-- 每份文档顶部含：标题、一句话定位、最后更新日期、上游来源链接（指向 `docs/tcg_cord_docs/` 对应原件）。
+- 每份文档顶部含：标题、一句话定位、最后更新日期、上游来源链接（指向 `docs/tcg-card/source-tcg-card-docs/` 对应原件）。
 - 每完成一个任务即提交一次 git commit，message 用中文，格式 `docs(tcg-card): <内容>`。
 
 ---
@@ -241,7 +241,7 @@ git commit -m "docs(tcg-card): REST API 接口规范"
 
 - [ ] **Step 1: 迁移并固化全局规则**
 
-  以 `docs/tcg_cord_docs/全局用其他补充事项.md` 为底稿迁入，逐节保留并固化：涨跌幅公式（通用/7D/30D/周期/Portfolio总资产/Collection Item/Most Valuable/Search）、局部 vs 整页加载失败、loading 动效、操作失败 Toast、网络异常、图片缺失、金额与百分比、登录账号规则、确认弹窗、刷新、防重复点击、状态优先级、统一文案表。
+  以 `docs/tcg-card/source-tcg-card-docs/全局用其他补充事项.md` 为底稿迁入，逐节保留并固化：涨跌幅公式（通用/7D/30D/周期/Portfolio总资产/Collection Item/Most Valuable/Search）、局部 vs 整页加载失败、loading 动效、操作失败 Toast、网络异常、图片缺失、金额与百分比、登录账号规则、确认弹窗、刷新、防重复点击、状态优先级、统一文案表。
 
 - [ ] **Step 2: 写入"已固化的口径"小节（消解 spec §7 冲突）**
 
@@ -400,7 +400,7 @@ git commit -m "docs(tcg-card): 业务流程图与状态机"
 
 - [ ] **Step 1: 参考截图并撰写四大模块**
 
-  参考 `docs/tcg_cord_docs/ui/管理后台/` 截图（作为视觉参考，**以 spec 选定的四块范围为准**，截图与范围冲突时以范围为准）。逐模块写定位/页面/字段/操作/异常：
+  参考 `docs/tcg-card/source-tcg-card-docs/ui/管理后台/` 截图（作为视觉参考，**以 spec 选定的四块范围为准**，截图与范围冲突时以范围为准）。逐模块写定位/页面/字段/操作/异常：
   ①用户管理（正式+匿名账号列表/详情/禁用，可见游客；查看其资产）
   ②反馈/客服工单（列表/详情/状态流转，对应 feedback_ticket）
   ③运营配置（启动引导图、版本升级提示、公告、协议链接、Trending 置顶——对应 app_config / trending_pin）
@@ -464,7 +464,7 @@ git commit -m "docs(tcg-card): 分阶段开发计划"
 
 - [ ] **Step 1: 撰写 README.md**
 
-  ①项目一句话简介 ②推荐阅读顺序（新人路径：overview→glossary→architecture→data-model→api-spec→global-rules→模块→flows→admin→dev-plan）③完整文档目录树带相对链接 ④术语表入口 ⑤TBD 总清单（汇总各文档 ⚠️ TBD，集中一处便于决策跟踪）⑥溯源说明（原始资料在 `docs/tcg_cord_docs/`）。
+  ①项目一句话简介 ②推荐阅读顺序（新人路径：overview→glossary→architecture→data-model→api-spec→global-rules→模块→flows→admin→dev-plan）③完整文档目录树带相对链接 ④术语表入口 ⑤TBD 总清单（汇总各文档 ⚠️ TBD，集中一处便于决策跟踪）⑥溯源说明（原始资料在 `docs/tcg-card/source-tcg-card-docs/`）。
 
 - [ ] **Step 2: 全局一致性收尾校验**
 

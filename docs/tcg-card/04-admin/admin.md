@@ -2,7 +2,7 @@
 
 > **定位**：定义 tcg-card v1.0 管理后台的功能范围、页面结构、字段映射、操作流程与异常处理。供后端接口对照、前端实现参考。  
 > **日期**：2026-06-30  
-> **视觉参考**（截图目录，范围冲突时以本文为准）：[`docs/tcg_cord_docs/ui/管理后台/`](../../../tcg_cord_docs/ui/管理后台/)  
+> **视觉参考**（截图目录，范围冲突时以本文为准）：[`docs/tcg-card/source-tcg-card-docs/ui/管理后台/`](../source-tcg-card-docs/ui/管理后台/)  
 >
 > **来源引用**：
 > - 数据模型 [`docs/tcg-card/03-data-api/data-model.md`](../03-data-api/data-model.md)
