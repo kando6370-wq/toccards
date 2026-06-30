@@ -226,7 +226,8 @@ No internet connection. Please check your network and try again.
 ## 八、登录与账号规则
 
 - 用户的 Portfolio、Wishlist、Collection Item、文件夹、扫描添加记录、货币偏好、金额隐藏偏好均与账号绑定。
-- 未登录用户点击需要账号资产的操作时，调起登录 / 注册弹窗。
+- 游客状态下，用户可正常进行 Portfolio、Wishlist、Scan、Search 快捷收藏、Collection Item 编辑等资产相关操作，不强制登录（详见 §十四）。
+- 仅"注册 / 登录"入口本身进入账号流程；资产操作不拦截登录。
 - 登录成功后刷新当前页面状态。
 - 退出登录后，不展示账号资产数据。
 - 删除账号需要二次确认。
