@@ -213,15 +213,16 @@ pnpm run build
 
 Expected: exit code `0`. This proves package builds and app builds are wired into Turborepo.
 
-- [ ] **Step 3: Verify CI-style turbo invocation**
+- [ ] **Step 3: Verify CI-style TS script invocation**
 
 Run:
 
 ```powershell
-pnpm turbo build type-check
+pnpm run build
+pnpm run type-check
 ```
 
-Expected: exit code `0`. If this differs from `pnpm run build` plus `pnpm run type-check`, classify it as a CI parity issue.
+Expected: each command exits `0`. These commands must match the TS script entries in `.gitlab-ci.yml`.
 
 - [ ] **Step 4: Check generated output is limited to build artifacts**
 
@@ -401,10 +402,10 @@ Expected: command prints `404` and exits `0`. A `404` is acceptable for M0 becau
 Run:
 
 ```powershell
-Select-String -Path .gitlab-ci.yml -Pattern "pnpm turbo build type-check","pnpm run lint"
+Select-String -Path .gitlab-ci.yml -Pattern "pnpm run build","pnpm run type-check","pnpm run lint"
 ```
 
-Expected: exit code `0` and both script lines are found.
+Expected: exit code `0` and all three script lines are found.
 
 - [ ] **Step 2: Verify Dart CI commands have local equivalents**
 
@@ -421,7 +422,8 @@ Expected: exit code `0` and both script lines are found.
 Run:
 
 ```powershell
-pnpm turbo build type-check
+pnpm run build
+pnpm run type-check
 pnpm run lint
 dart run melos run analyze
 dart run melos run test

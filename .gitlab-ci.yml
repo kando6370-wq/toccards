@@ -11,7 +11,8 @@ ts:
     - corepack enable
     - pnpm install --frozen-lockfile
   script:
-    - pnpm turbo build type-check
+    - pnpm run build
+    - pnpm run type-check
     - pnpm run lint
   cache:
     key:

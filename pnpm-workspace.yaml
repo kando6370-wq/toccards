@@ -7,6 +7,10 @@ allowBuilds:
   sharp: false
   workerd: true
 
+minimumReleaseAgeExclude:
+  - miniflare@4.20260630.0
+  - wrangler@4.106.0
+
 # 标准 pnpm 字段：CI（plain pnpm）据此放行必要构建脚本，与上方本地 allowBuilds 对齐。
 onlyBuiltDependencies:
   - esbuild
