@@ -35,11 +35,19 @@ type UserPreferenceRow = {
 
 type SessionRow = {
   id: string;
-  owner_type: "anonymous";
+  owner_type: "anonymous" | "user";
   owner_id: string;
   refresh_token: string;
   expires_at: string;
   created_at: string;
+  revoked_at: string | null;
+};
+
+type SessionLookupRow = {
+  id: string;
+  owner_type: "anonymous" | "user";
+  owner_id: string;
+  expires_at: string;
   revoked_at: string | null;
 };
 
@@ -79,6 +87,15 @@ type CurrentAccountSuccessResponse = {
     email: string | null;
     display_name: string | null;
     created_at: string;
+  };
+};
+
+type RefreshSuccessResponse = {
+  success: true;
+  data: {
+    access_token: string;
+    refresh_token?: string;
+    expires_in: number;
   };
 };
 
@@ -177,6 +194,45 @@ class FakeD1 {
         : null;
     }
 
+    if (normalizedSql === SELECT_SESSION_BY_REFRESH_TOKEN_SQL) {
+      const [refreshToken] = values as [string];
+      const session = this.sessions.find(
+        (row) => row.refresh_token === refreshToken,
+      );
+
+      if (!session) {
+        return null;
+      }
+
+      const row: SessionLookupRow = {
+        id: session.id,
+        owner_type: session.owner_type,
+        owner_id: session.owner_id,
+        expires_at: session.expires_at,
+        revoked_at: session.revoked_at,
+      };
+
+      return row as T;
+    }
+
+    if (normalizedSql === SELECT_REFRESH_ANONYMOUS_OWNER_SQL) {
+      const [id] = values as [string];
+      const account = this.anonymousAccounts.find(
+        (row) => row.id === id && row.upgraded_user_id === null,
+      );
+
+      return account ? ({ id: account.id } as T) : null;
+    }
+
+    if (normalizedSql === SELECT_REFRESH_USER_OWNER_SQL) {
+      const [id] = values as [string];
+      const user = this.users.find(
+        (row) => row.id === id && row.deleted_at === null,
+      );
+
+      return user ? ({ id: user.id } as T) : null;
+    }
+
     throw new Error(`Unsupported first() SQL: ${normalizedSql}`);
   }
 
@@ -254,6 +310,19 @@ class FakeD1 {
       return okResult<T>();
     }
 
+    if (normalizedSql === REVOKE_SESSION_SQL) {
+      const [revokedAt, id] = values as [string, string];
+      const session = this.sessions.find(
+        (row) => row.id === id && row.revoked_at === null,
+      );
+
+      if (session) {
+        session.revoked_at = revokedAt;
+      }
+
+      return okResult<T>();
+    }
+
     throw new Error(`Unsupported run() SQL: ${normalizedSql}`);
   }
 }
@@ -300,6 +369,27 @@ const SELECT_CURRENT_USER_SQL = normalizeSql(`
   LIMIT 1
 `);
 
+const SELECT_SESSION_BY_REFRESH_TOKEN_SQL = normalizeSql(`
+  SELECT id, owner_type, owner_id, expires_at, revoked_at
+  FROM session
+  WHERE refresh_token = ?
+  LIMIT 1
+`);
+
+const SELECT_REFRESH_ANONYMOUS_OWNER_SQL = normalizeSql(`
+  SELECT id
+  FROM anonymous_account
+  WHERE id = ? AND upgraded_user_id IS NULL
+  LIMIT 1
+`);
+
+const SELECT_REFRESH_USER_OWNER_SQL = normalizeSql(`
+  SELECT id
+  FROM user
+  WHERE id = ? AND deleted_at IS NULL
+  LIMIT 1
+`);
+
 const INSERT_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
   INSERT INTO anonymous_account (id, device_id, created_at, upgraded_user_id)
   VALUES (?, ?, ?, NULL)
@@ -321,6 +411,12 @@ const INSERT_SESSION_SQL = normalizeSql(`
   INSERT INTO session
     (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
   VALUES (?, 'anonymous', ?, ?, ?, ?, NULL)
+`);
+
+const REVOKE_SESSION_SQL = normalizeSql(`
+  UPDATE session
+  SET revoked_at = ?
+  WHERE id = ? AND revoked_at IS NULL
 `);
 
 function normalizeSql(sql: string): string {
@@ -373,6 +469,45 @@ async function requestCurrentAccount(
     {
       method: "GET",
       headers,
+    },
+    env,
+  );
+}
+
+async function requestRefreshToken(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/token/refresh",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+async function requestLogout(
+  env: TestEnv,
+  authorization: string | undefined,
+  body: unknown,
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (authorization) {
+    headers.Authorization = authorization;
+  }
+
+  return app.request(
+    "/api/v1/auth/logout",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
     },
     env,
   );
@@ -567,6 +702,504 @@ describe("POST /api/v1/auth/anonymous", () => {
         owner_id: body.data.anonymous_id,
       }),
     ]);
+  });
+});
+
+describe("POST /api/v1/auth/token/refresh", () => {
+  it("issues a new access token without rotating refresh token because anonymous sessions keep a stable renewal credential", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(env, "device-refresh");
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: anonymousBody.data.refresh_token,
+    });
+    const body = (await response.json()) as RefreshSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        access_token: expect.any(String),
+        expires_in: 900,
+      },
+    });
+    expect(body.data.refresh_token).toBeUndefined();
+
+    const currentResponse = await requestCurrentAccount(
+      env,
+      `Bearer ${body.data.access_token}`,
+    );
+    const currentBody =
+      (await currentResponse.json()) as CurrentAccountSuccessResponse;
+
+    expect(currentResponse.status).toBe(200);
+    expect(currentBody.data).toMatchObject({
+      owner_type: "anonymous",
+      anonymous_id: anonymousBody.data.anonymous_id,
+    });
+  });
+
+  it("returns 422 / VALIDATION_ERROR when refresh_token is blank because renewal must be tied to a real session secret", async () => {
+    const env = createTestEnv();
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: "   ",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "refresh_token is required.",
+      },
+    });
+  });
+
+  it("returns 401 / UNAUTHORIZED for an unknown refresh token because renewal must not mint identity from unrecognized secrets", async () => {
+    const env = createTestEnv();
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: "unknown-refresh-token",
+    });
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 401 / UNAUTHORIZED for an expired session because stale renewal credentials must not extend access", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-refresh-expired",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const session = fakeD1(env).sessions[0];
+
+    if (!session) {
+      throw new Error("Expected anonymous session.");
+    }
+
+    session.expires_at = "2000-01-01T00:00:00.000Z";
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: anonymousBody.data.refresh_token,
+    });
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 401 / UNAUTHORIZED for an unparseable session lifetime because malformed persistence must not extend access", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-refresh-malformed-expiry",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const session = fakeD1(env).sessions[0];
+
+    if (!session) {
+      throw new Error("Expected anonymous session.");
+    }
+
+    session.expires_at = "not-a-date";
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: anonymousBody.data.refresh_token,
+    });
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 401 / UNAUTHORIZED for a revoked session because server-side logout must immediately block renewal", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-refresh-revoked",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const session = fakeD1(env).sessions[0];
+
+    if (!session) {
+      throw new Error("Expected anonymous session.");
+    }
+
+    session.revoked_at = "2026-07-02T00:00:00.000Z";
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: anonymousBody.data.refresh_token,
+    });
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 401 / UNAUTHORIZED when an anonymous owner was upgraded because refresh must follow the live owner boundary", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-refresh-upgraded",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const account = fakeD1(env).anonymousAccounts[0];
+
+    if (!account) {
+      throw new Error("Expected anonymous account.");
+    }
+
+    account.upgraded_user_id = "user-upgraded";
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: anonymousBody.data.refresh_token,
+    });
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 401 / UNAUTHORIZED for an untrusted persisted owner_type because malformed ownership must not sign access tokens", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-refresh-bad-owner-type",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const session = fakeD1(env).sessions[0];
+
+    if (!session) {
+      throw new Error("Expected anonymous session.");
+    }
+
+    fakeD1(env).users.push({
+      id: session.owner_id,
+      email: "admin-shaped@example.com",
+      display_name: "Admin Shaped",
+      created_at: "2026-07-02T00:00:00.000Z",
+      updated_at: "2026-07-02T00:00:00.000Z",
+      deleted_at: null,
+    });
+    (session as { owner_type: string }).owner_type = "admin";
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: anonymousBody.data.refresh_token,
+    });
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("issues a user access token from a live user session because migrated owners still need refresh continuity", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const refreshToken = "user-refresh-token";
+
+    db.users.push({
+      id: "user-refresh",
+      email: "refresh-user@example.com",
+      display_name: "Refresh User",
+      created_at: "2026-07-02T00:00:00.000Z",
+      updated_at: "2026-07-02T00:00:00.000Z",
+      deleted_at: null,
+    });
+    db.sessions.push({
+      id: "user-session-refresh",
+      owner_type: "user",
+      owner_id: "user-refresh",
+      refresh_token: await hashRefreshToken(refreshToken),
+      expires_at: "2999-01-01T00:00:00.000Z",
+      created_at: "2026-07-02T00:00:00.000Z",
+      revoked_at: null,
+    });
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: refreshToken,
+    });
+    const body = (await response.json()) as RefreshSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        access_token: expect.any(String),
+        expires_in: 900,
+      },
+    });
+
+    const currentResponse = await requestCurrentAccount(
+      env,
+      `Bearer ${body.data.access_token}`,
+    );
+    const currentBody =
+      (await currentResponse.json()) as CurrentAccountSuccessResponse;
+
+    expect(currentResponse.status).toBe(200);
+    expect(currentBody).toEqual({
+      success: true,
+      data: {
+        owner_type: "user",
+        user_id: "user-refresh",
+        anonymous_id: null,
+        email: "refresh-user@example.com",
+        display_name: "Refresh User",
+        created_at: "2026-07-02T00:00:00.000Z",
+      },
+    });
+  });
+
+  it("returns 401 / UNAUTHORIZED for a soft-deleted user owner because refresh must not revive removed accounts", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const refreshToken = "deleted-user-refresh-token";
+
+    db.users.push({
+      id: "user-refresh-deleted",
+      email: "deleted-refresh-user@example.com",
+      display_name: "Deleted Refresh User",
+      created_at: "2026-07-02T00:00:00.000Z",
+      updated_at: "2026-07-02T00:00:00.000Z",
+      deleted_at: "2026-07-03T00:00:00.000Z",
+    });
+    db.sessions.push({
+      id: "deleted-user-session-refresh",
+      owner_type: "user",
+      owner_id: "user-refresh-deleted",
+      refresh_token: await hashRefreshToken(refreshToken),
+      expires_at: "2999-01-01T00:00:00.000Z",
+      created_at: "2026-07-02T00:00:00.000Z",
+      revoked_at: null,
+    });
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: refreshToken,
+    });
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 500 / INTERNAL_ERROR when JWT_SECRET is blank because refreshed access tokens depend on server signing configuration", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-refresh-invalid-secret",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    env.JWT_SECRET = "   ";
+
+    const response = await requestRefreshToken(env, {
+      refresh_token: anonymousBody.data.refresh_token,
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Something went wrong. Please try again.",
+      },
+    });
+  });
+});
+
+describe("POST /api/v1/auth/logout", () => {
+  it("revokes the matching session because logout must invalidate the renewal credential used by that device", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(env, "device-logout");
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const session = fakeD1(env).sessions[0];
+
+    if (!session) {
+      throw new Error("Expected anonymous session.");
+    }
+
+    const response = await requestLogout(
+      env,
+      `Bearer ${anonymousBody.data.access_token}`,
+      { refresh_token: anonymousBody.data.refresh_token },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ success: true, data: {} });
+    expect(session.revoked_at).toEqual(expect.any(String));
+  });
+
+  it("blocks refresh after logout because revoked renewal credentials must not mint new access tokens", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-logout-refresh",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    const logoutResponse = await requestLogout(
+      env,
+      `Bearer ${anonymousBody.data.access_token}`,
+      { refresh_token: anonymousBody.data.refresh_token },
+    );
+    expect(logoutResponse.status).toBe(200);
+
+    const refreshResponse = await requestRefreshToken(env, {
+      refresh_token: anonymousBody.data.refresh_token,
+    });
+    const refreshBody = await refreshResponse.json();
+
+    expectUnauthorized(refreshBody, refreshResponse.status);
+  });
+
+  it("returns 401 / UNAUTHORIZED for mismatched session proofs because logout must not revoke another device", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const firstResponse = await requestAnonymous(
+      env,
+      "device-logout-first",
+    );
+    const firstBody = (await firstResponse.json()) as AnonymousSuccessResponse;
+    const secondResponse = await requestAnonymous(
+      env,
+      "device-logout-second",
+    );
+    const secondBody =
+      (await secondResponse.json()) as AnonymousSuccessResponse;
+
+    const response = await requestLogout(
+      env,
+      `Bearer ${firstBody.data.access_token}`,
+      { refresh_token: secondBody.data.refresh_token },
+    );
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+    expect(db.sessions).toHaveLength(2);
+    expect(db.sessions.map((session) => session.revoked_at)).toEqual([
+      null,
+      null,
+    ]);
+  });
+
+  it("returns 401 / UNAUTHORIZED without Authorization because refresh_token alone must not authorize revocation", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-logout-no-auth",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    const response = await requestLogout(env, undefined, {
+      refresh_token: anonymousBody.data.refresh_token,
+    });
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+    expect(fakeD1(env).sessions[0]?.revoked_at).toBeNull();
+  });
+
+  it("returns 401 / UNAUTHORIZED for Basic Authorization because logout can only be authorized by a bearer access token", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-logout-basic-auth",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    const response = await requestLogout(env, "Basic token", {
+      refresh_token: anonymousBody.data.refresh_token,
+    });
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+    expect(fakeD1(env).sessions[0]?.revoked_at).toBeNull();
+  });
+
+  it("returns 401 / UNAUTHORIZED for a tampered access token because tampered ownership proof must not revoke a session", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-logout-tampered-token",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    const response = await requestLogout(
+      env,
+      `Bearer ${tamperJwtSignature(anonymousBody.data.access_token)}`,
+      { refresh_token: anonymousBody.data.refresh_token },
+    );
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+    expect(fakeD1(env).sessions[0]?.revoked_at).toBeNull();
+  });
+
+  it("returns 422 / VALIDATION_ERROR when refresh_token is blank because logout must target a concrete session secret", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-logout-blank-refresh",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    const response = await requestLogout(
+      env,
+      `Bearer ${anonymousBody.data.access_token}`,
+      { refresh_token: "   " },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "refresh_token is required.",
+      },
+    });
+    expect(fakeD1(env).sessions[0]?.revoked_at).toBeNull();
+  });
+
+  it("returns 500 / INTERNAL_ERROR when JWT_SECRET is blank because logout depends on trusted access token verification", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-logout-invalid-secret",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    env.JWT_SECRET = "   ";
+
+    const response = await requestLogout(
+      env,
+      `Bearer ${anonymousBody.data.access_token}`,
+      { refresh_token: anonymousBody.data.refresh_token },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Something went wrong. Please try again.",
+      },
+    });
+    expect(fakeD1(env).sessions[0]?.revoked_at).toBeNull();
   });
 });
 

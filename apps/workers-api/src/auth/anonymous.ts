@@ -9,6 +9,7 @@ import { Hono } from "hono";
 import { ulid } from "ulid";
 import type { Env } from "../env";
 import { registerCurrentAccountRoutes } from "./current";
+import { registerSessionRoutes } from "./session";
 
 type AnonymousAccountRow = {
   id: string;
@@ -64,6 +65,7 @@ const INSERT_SESSION_SQL = `
 export const authRoutes = new Hono<{ Bindings: Env }>();
 
 registerCurrentAccountRoutes(authRoutes);
+registerSessionRoutes(authRoutes);
 
 authRoutes.post("/anonymous", async (c) => {
   let body: unknown;
