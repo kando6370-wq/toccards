@@ -6,12 +6,25 @@ export interface AccessTokenPayload {
   session_id: string;
 }
 
+export interface VerifiedAccessTokenPayload extends AccessTokenPayload {
+  iat: number;
+  exp: number;
+}
+
+export type VerifyAccessTokenResult =
+  | { valid: true; payload: VerifiedAccessTokenPayload }
+  | { valid: false; reason: "malformed" | "invalid_signature" | "expired" };
+
 export const PACKAGE_NAME = "@kando/auth-core";
 export const ACCESS_TOKEN_EXPIRES_IN_SECONDS = 900;
 export const REFRESH_TOKEN_EXPIRES_IN_DAYS = 30;
 
 type TextEncoderLike = {
   encode(input?: string): Uint8Array;
+};
+
+type TextDecoderLike = {
+  decode(input?: Uint8Array): string;
 };
 
 type WebCryptoLike = {
@@ -70,6 +83,67 @@ export async function signAccessToken(
   return `${signingInput}.${encodeBase64Url(new Uint8Array(signature))}`;
 }
 
+export async function verifyAccessToken(
+  token: string,
+  secret: string,
+  now = new Date(),
+): Promise<VerifyAccessTokenResult> {
+  if (secret.trim().length === 0) {
+    throw new Error("JWT secret is required.");
+  }
+
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return { valid: false, reason: "malformed" };
+  }
+
+  const [encodedHeader, encodedPayload, encodedSignature] = parts as [
+    string,
+    string,
+    string,
+  ];
+  let header: unknown;
+  let signature: Uint8Array;
+
+  try {
+    header = decodeJson(encodedHeader);
+    signature = decodeBase64Url(encodedSignature);
+  } catch {
+    return { valid: false, reason: "malformed" };
+  }
+
+  if (!isRecord(header) || header.alg !== "HS256" || header.typ !== "JWT") {
+    return { valid: false, reason: "malformed" };
+  }
+
+  const expectedSignature = await signHs256(
+    `${encodedHeader}.${encodedPayload}`,
+    secret,
+  );
+
+  if (!signatureMatches(signature, expectedSignature)) {
+    return { valid: false, reason: "invalid_signature" };
+  }
+
+  let payload: unknown;
+  try {
+    payload = decodeJson(encodedPayload);
+  } catch {
+    return { valid: false, reason: "malformed" };
+  }
+
+  if (!isVerifiedAccessTokenPayload(payload)) {
+    return { valid: false, reason: "malformed" };
+  }
+
+  const nowSeconds = Math.floor(now.getTime() / 1000);
+  if (payload.exp <= nowSeconds) {
+    return { valid: false, reason: "expired" };
+  }
+
+  return { valid: true, payload };
+}
+
 export function createRefreshToken(): string {
   const tokenBytes = new Uint8Array(32);
   getCrypto().getRandomValues(tokenBytes);
@@ -100,6 +174,10 @@ function encodeJson(value: unknown): string {
   return encodeBase64Url(encodeText(JSON.stringify(value)));
 }
 
+function decodeJson(value: string): unknown {
+  return JSON.parse(decodeText(decodeBase64Url(value)));
+}
+
 function encodeText(value: string): Uint8Array {
   const TextEncoderCtor = (
     globalThis as unknown as {
@@ -110,8 +188,74 @@ function encodeText(value: string): Uint8Array {
   return new TextEncoderCtor().encode(value);
 }
 
+function decodeText(value: Uint8Array): string {
+  const TextDecoderCtor = (
+    globalThis as unknown as {
+      TextDecoder: new () => TextDecoderLike;
+    }
+  ).TextDecoder;
+
+  return new TextDecoderCtor().decode(value);
+}
+
 function getCrypto(): WebCryptoLike {
   return (globalThis as unknown as { crypto: WebCryptoLike }).crypto;
+}
+
+async function signHs256(
+  signingInput: string,
+  secret: string,
+): Promise<Uint8Array> {
+  const crypto = getCrypto();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encodeText(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encodeText(signingInput),
+  );
+
+  return new Uint8Array(signature);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isVerifiedAccessTokenPayload(
+  value: unknown,
+): value is VerifiedAccessTokenPayload {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    (value.owner_type === "user" || value.owner_type === "anonymous") &&
+    typeof value.owner_id === "string" &&
+    typeof value.session_id === "string" &&
+    typeof value.iat === "number" &&
+    Number.isFinite(value.iat) &&
+    typeof value.exp === "number" &&
+    Number.isFinite(value.exp)
+  );
+}
+
+function signatureMatches(actual: Uint8Array, expected: Uint8Array): boolean {
+  if (actual.length !== expected.length) {
+    return false;
+  }
+
+  let difference = 0;
+  for (let index = 0; index < actual.length; index += 1) {
+    difference |= actual[index] ^ expected[index];
+  }
+
+  return difference === 0;
 }
 
 function encodeBase64Url(bytes: Uint8Array): string {
@@ -138,4 +282,32 @@ function encodeBase64Url(bytes: Uint8Array): string {
   }
 
   return output;
+}
+
+function decodeBase64Url(value: string): Uint8Array {
+  if (value.length % 4 === 1) {
+    throw new Error("Invalid base64url value.");
+  }
+
+  let bits = 0;
+  let bitLength = 0;
+  const bytes: number[] = [];
+
+  for (const char of value) {
+    const index = BASE64URL_ALPHABET.indexOf(char);
+    if (index === -1) {
+      throw new Error("Invalid base64url value.");
+    }
+
+    bits = (bits << 6) | index;
+    bitLength += 6;
+
+    if (bitLength >= 8) {
+      bitLength -= 8;
+      bytes.push((bits >> bitLength) & 0xff);
+      bits &= (1 << bitLength) - 1;
+    }
+  }
+
+  return new Uint8Array(bytes);
 }

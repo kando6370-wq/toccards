@@ -4,6 +4,7 @@ import {
   hashRefreshToken,
   refreshTokenExpiresAt,
   signAccessToken,
+  verifyAccessToken,
 } from "./index";
 
 type JwtHeader = {
@@ -49,6 +50,14 @@ function decodeJwtPart<T>(value: string): T {
   return JSON.parse(decodeBase64Url(value)) as T;
 }
 
+function encodeJwtPart(value: unknown): string {
+  return encodeBase64Url(new TextEncoder().encode(JSON.stringify(value)));
+}
+
+function encodeTextPart(value: string): string {
+  return encodeBase64Url(new TextEncoder().encode(value));
+}
+
 async function signExpectedSignature(
   signingInput: string,
   secret: string,
@@ -67,6 +76,25 @@ async function signExpectedSignature(
   );
 
   return encodeBase64Url(new Uint8Array(signature));
+}
+
+async function signJwtParts(
+  encodedHeader: string,
+  encodedPayload: string,
+  secret: string,
+): Promise<string> {
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
+  const signature = await signExpectedSignature(signingInput, secret);
+
+  return `${signingInput}.${signature}`;
+}
+
+async function signJwt(
+  header: unknown,
+  payload: unknown,
+  secret: string,
+): Promise<string> {
+  return signJwtParts(encodeJwtPart(header), encodeJwtPart(payload), secret);
 }
 
 function encodeBase64Url(bytes: Uint8Array): string {
@@ -145,6 +173,290 @@ describe("auth-core token helpers", () => {
       ),
     ).rejects.toThrow("JWT secret is required.");
   });
+
+  it("verifies signed access tokens so authorization can trust the owner and session identity", async () => {
+    const issuedAt = new Date("2026-07-02T00:00:00.000Z");
+    const issuedAtSeconds = Math.floor(issuedAt.getTime() / 1000);
+    const token = await signAccessToken(
+      {
+        owner_type: "anonymous",
+        owner_id: "anonymous-id",
+        session_id: "session-id",
+      },
+      "test-secret",
+      issuedAt,
+    );
+
+    const result = await verifyAccessToken(
+      token,
+      "test-secret",
+      new Date("2026-07-02T00:14:59.000Z"),
+    );
+
+    expect(result).toEqual({
+      valid: true,
+      payload: {
+        owner_type: "anonymous",
+        owner_id: "anonymous-id",
+        session_id: "session-id",
+        iat: issuedAtSeconds,
+        exp: issuedAtSeconds + 900,
+      },
+    });
+  });
+
+  it("rejects access tokens signed with another secret so bearer credentials cannot be forged", async () => {
+    const token = await signAccessToken(
+      {
+        owner_type: "anonymous",
+        owner_id: "anonymous-id",
+        session_id: "session-id",
+      },
+      "test-secret",
+      new Date("2026-07-02T00:00:00.000Z"),
+    );
+
+    await expect(
+      verifyAccessToken(
+        token,
+        "wrong-secret",
+        new Date("2026-07-02T00:00:00.000Z"),
+      ),
+    ).resolves.toEqual({
+      valid: false,
+      reason: "invalid_signature",
+    });
+  });
+
+  it("checks signatures before payload fields so unauthenticated claims cannot choose the failure reason", async () => {
+    const token = await signJwt(
+      { alg: "HS256", typ: "JWT" },
+      {
+        owner_type: "anonymous",
+        owner_id: "anonymous-id",
+        iat: 1782950400,
+        exp: 1782951300,
+      },
+      "wrong-secret",
+    );
+
+    await expect(
+      verifyAccessToken(
+        token,
+        "test-secret",
+        new Date("2026-07-02T00:00:00.000Z"),
+      ),
+    ).resolves.toEqual({
+      valid: false,
+      reason: "invalid_signature",
+    });
+  });
+
+  it("rejects blank JWT secrets during verification so bearer tokens are never trusted with an empty key", async () => {
+    const token = await signAccessToken(
+      {
+        owner_type: "anonymous",
+        owner_id: "anonymous-id",
+        session_id: "session-id",
+      },
+      "test-secret",
+      new Date("2026-07-02T00:00:00.000Z"),
+    );
+
+    await expect(verifyAccessToken(token, "   ")).rejects.toThrow(
+      "JWT secret is required.",
+    );
+  });
+
+  it("rejects access tokens with a signature length mismatch before trusting bearer claims", async () => {
+    const token = await signAccessToken(
+      {
+        owner_type: "anonymous",
+        owner_id: "anonymous-id",
+        session_id: "session-id",
+      },
+      "test-secret",
+      new Date("2026-07-02T00:00:00.000Z"),
+    );
+    const [encodedHeader, encodedPayload] = token.split(".") as [
+      string,
+      string,
+      string,
+    ];
+
+    await expect(
+      verifyAccessToken(
+        `${encodedHeader}.${encodedPayload}.AA`,
+        "test-secret",
+        new Date("2026-07-02T00:00:00.000Z"),
+      ),
+    ).resolves.toEqual({
+      valid: false,
+      reason: "invalid_signature",
+    });
+  });
+
+  it("rejects expired access tokens at the exp boundary to cap authorization lifetime", async () => {
+    const token = await signAccessToken(
+      {
+        owner_type: "anonymous",
+        owner_id: "anonymous-id",
+        session_id: "session-id",
+      },
+      "test-secret",
+      new Date("2026-07-02T00:00:00.000Z"),
+    );
+
+    await expect(
+      verifyAccessToken(
+        token,
+        "test-secret",
+        new Date("2026-07-02T00:15:00.000Z"),
+      ),
+    ).resolves.toEqual({
+      valid: false,
+      reason: "expired",
+    });
+  });
+
+  it.each<[string, () => string | Promise<string>]>([
+    ["non-three-segment token", () => "not-a-jwt"],
+    [
+      "non-JSON header",
+      () => signJwtParts(
+        encodeTextPart("not-json"),
+        encodeJwtPart({
+          owner_type: "anonymous",
+          owner_id: "anonymous-id",
+          session_id: "session-id",
+          iat: 1782950400,
+          exp: 1782951300,
+        }),
+        "test-secret",
+      ),
+    ],
+    [
+      "non-JSON payload",
+      () => signJwtParts(
+        encodeJwtPart({ alg: "HS256", typ: "JWT" }),
+        encodeTextPart("not-json"),
+        "test-secret",
+      ),
+    ],
+    [
+      "non-HS256 alg",
+      () => signJwt(
+        { alg: "none", typ: "JWT" },
+        {
+          owner_type: "anonymous",
+          owner_id: "anonymous-id",
+          session_id: "session-id",
+          iat: 1782950400,
+          exp: 1782951300,
+        },
+        "test-secret",
+      ),
+    ],
+    [
+      "non-JWT typ",
+      () => signJwt(
+        { alg: "HS256", typ: "JWS" },
+        {
+          owner_type: "anonymous",
+          owner_id: "anonymous-id",
+          session_id: "session-id",
+          iat: 1782950400,
+          exp: 1782951300,
+        },
+        "test-secret",
+      ),
+    ],
+    [
+      "missing typ",
+      () => signJwt(
+        { alg: "HS256" },
+        {
+          owner_type: "anonymous",
+          owner_id: "anonymous-id",
+          session_id: "session-id",
+          iat: 1782950400,
+          exp: 1782951300,
+        },
+        "test-secret",
+      ),
+    ],
+    [
+      "missing payload field",
+      () => signJwt(
+        { alg: "HS256", typ: "JWT" },
+        {
+          owner_type: "anonymous",
+          owner_id: "anonymous-id",
+          iat: 1782950400,
+          exp: 1782951300,
+        },
+        "test-secret",
+      ),
+    ],
+    [
+      "invalid owner type",
+      () => signJwt(
+        { alg: "HS256", typ: "JWT" },
+        {
+          owner_type: "service",
+          owner_id: "anonymous-id",
+          session_id: "session-id",
+          iat: 1782950400,
+          exp: 1782951300,
+        },
+        "test-secret",
+      ),
+    ],
+    [
+      "non-string owner id",
+      () => signJwt(
+        { alg: "HS256", typ: "JWT" },
+        {
+          owner_type: "anonymous",
+          owner_id: 42,
+          session_id: "session-id",
+          iat: 1782950400,
+          exp: 1782951300,
+        },
+        "test-secret",
+      ),
+    ],
+    [
+      "non-number issued-at time",
+      () => signJwt(
+        { alg: "HS256", typ: "JWT" },
+        {
+          owner_type: "anonymous",
+          owner_id: "anonymous-id",
+          session_id: "session-id",
+          iat: "1782950400",
+          exp: 1782951300,
+        },
+        "test-secret",
+      ),
+    ],
+  ])(
+    "rejects %s as malformed so ambiguous bearer credentials are never authorized",
+    async (_, createToken) => {
+      const token = await createToken();
+
+      await expect(
+        verifyAccessToken(
+          token,
+          "test-secret",
+          new Date("2026-07-02T00:00:00.000Z"),
+        ),
+      ).resolves.toEqual({
+        valid: false,
+        reason: "malformed",
+      });
+    },
+  );
 
   it("creates unique base64url refresh tokens so plaintext bearer secrets can be returned once", () => {
     const firstToken = createRefreshToken();

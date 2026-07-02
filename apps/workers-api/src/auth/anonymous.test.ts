@@ -1,4 +1,4 @@
-import { hashRefreshToken } from "@kando/auth-core";
+import { hashRefreshToken, signAccessToken } from "@kando/auth-core";
 import { describe, expect, it } from "vitest";
 import app, { type Env as AppEnv } from "../index";
 
@@ -43,6 +43,15 @@ type SessionRow = {
   revoked_at: string | null;
 };
 
+type UserRow = {
+  id: string;
+  email: string;
+  display_name: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 type AnonymousSuccessResponse = {
   success: true;
   data: {
@@ -59,6 +68,18 @@ type AccessTokenPayload = {
   session_id: string;
   iat: number;
   exp: number;
+};
+
+type CurrentAccountSuccessResponse = {
+  success: true;
+  data: {
+    owner_type: "user" | "anonymous";
+    user_id: string | null;
+    anonymous_id: string | null;
+    email: string | null;
+    display_name: string | null;
+    created_at: string;
+  };
 };
 
 const BASE64URL_ALPHABET =
@@ -101,6 +122,7 @@ class FakeD1 {
   portfolioFolders: PortfolioFolderRow[] = [];
   userPreferences: UserPreferenceRow[] = [];
   sessions: SessionRow[] = [];
+  users: UserRow[] = [];
 
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
@@ -126,6 +148,33 @@ class FakeD1 {
         .at(0);
 
       return account ? ({ id: account.id } as T) : null;
+    }
+
+    if (normalizedSql === SELECT_CURRENT_ANONYMOUS_ACCOUNT_SQL) {
+      const [id] = values as [string];
+      const account = this.anonymousAccounts.find(
+        (row) => row.id === id && row.upgraded_user_id === null,
+      );
+
+      return account
+        ? ({ id: account.id, created_at: account.created_at } as T)
+        : null;
+    }
+
+    if (normalizedSql === SELECT_CURRENT_USER_SQL) {
+      const [id] = values as [string];
+      const user = this.users.find(
+        (row) => row.id === id && row.deleted_at === null,
+      );
+
+      return user
+        ? ({
+            id: user.id,
+            email: user.email,
+            display_name: user.display_name,
+            created_at: user.created_at,
+          } as T)
+        : null;
     }
 
     throw new Error(`Unsupported first() SQL: ${normalizedSql}`);
@@ -237,6 +286,20 @@ const SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
   LIMIT 1
 `);
 
+const SELECT_CURRENT_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
+  SELECT id, created_at
+  FROM anonymous_account
+  WHERE id = ? AND upgraded_user_id IS NULL
+  LIMIT 1
+`);
+
+const SELECT_CURRENT_USER_SQL = normalizeSql(`
+  SELECT id, email, display_name, created_at
+  FROM user
+  WHERE id = ? AND deleted_at IS NULL
+  LIMIT 1
+`);
+
 const INSERT_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
   INSERT INTO anonymous_account (id, device_id, created_at, upgraded_user_id)
   VALUES (?, ?, ?, NULL)
@@ -297,6 +360,42 @@ async function requestAnonymous(
     },
     env,
   );
+}
+
+async function requestCurrentAccount(
+  env: TestEnv,
+  authorization?: string,
+): Promise<Response> {
+  const headers = authorization ? { Authorization: authorization } : undefined;
+
+  return app.request(
+    "/api/v1/auth/me",
+    {
+      method: "GET",
+      headers,
+    },
+    env,
+  );
+}
+
+function expectUnauthorized(body: unknown, status: number): void {
+  expect(status).toBe(401);
+  expect(body).toEqual({
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Unauthorized." },
+  });
+}
+
+function tamperJwtSignature(token: string): string {
+  const parts = token.split(".");
+  const signature = parts[2];
+
+  if (!parts[0] || !parts[1] || !signature) {
+    throw new Error("Expected a signed JWT.");
+  }
+
+  const replacement = signature[0] === "A" ? "B" : "A";
+  return `${parts[0]}.${parts[1]}.${replacement}${signature.slice(1)}`;
 }
 
 describe("POST /api/v1/auth/anonymous", () => {
@@ -468,5 +567,167 @@ describe("POST /api/v1/auth/anonymous", () => {
         owner_id: body.data.anonymous_id,
       }),
     ]);
+  });
+});
+
+describe("GET /api/v1/auth/me", () => {
+  it("returns the active anonymous account for a valid access token because clients need the server-confirmed owner", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(env, "device-current");
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    const response = await requestCurrentAccount(
+      env,
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as CurrentAccountSuccessResponse;
+    const account = fakeD1(env).anonymousAccounts[0];
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        owner_type: "anonymous",
+        user_id: null,
+        anonymous_id: anonymousBody.data.anonymous_id,
+        email: null,
+        display_name: null,
+        created_at: account?.created_at,
+      },
+    });
+  });
+
+  it("returns the active user account for a valid access token because upgraded clients should identify the durable owner", async () => {
+    const env = createTestEnv();
+    fakeD1(env).users.push({
+      id: "user-current",
+      email: "owner@example.com",
+      display_name: "Owner",
+      created_at: "2026-07-02T00:00:00.000Z",
+      updated_at: "2026-07-02T00:00:00.000Z",
+      deleted_at: null,
+    });
+    const accessToken = await signAccessToken(
+      {
+        owner_type: "user",
+        owner_id: "user-current",
+        session_id: "session-current",
+      },
+      env.JWT_SECRET,
+    );
+
+    const response = await requestCurrentAccount(env, `Bearer ${accessToken}`);
+    const body = (await response.json()) as CurrentAccountSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        owner_type: "user",
+        user_id: "user-current",
+        anonymous_id: null,
+        email: "owner@example.com",
+        display_name: "Owner",
+        created_at: "2026-07-02T00:00:00.000Z",
+      },
+    });
+  });
+
+  it("returns 401 / UNAUTHORIZED without Authorization because identity must not be inferred from device state", async () => {
+    const env = createTestEnv();
+
+    const response = await requestCurrentAccount(env);
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 401 / UNAUTHORIZED for non-Bearer Authorization because only access tokens establish API identity", async () => {
+    const env = createTestEnv();
+
+    const response = await requestCurrentAccount(env, "Basic token");
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 401 / UNAUTHORIZED for an invalid token signature because tampered ownership must be rejected", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(env, "device-tampered");
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    const response = await requestCurrentAccount(
+      env,
+      `Bearer ${tamperJwtSignature(anonymousBody.data.access_token)}`,
+    );
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 500 / INTERNAL_ERROR when JWT_SECRET is blank because token verification depends on server configuration", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-me-invalid-secret",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    env.JWT_SECRET = "   ";
+
+    const response = await requestCurrentAccount(
+      env,
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Something went wrong. Please try again.",
+      },
+    });
+  });
+
+  it("returns 401 / UNAUTHORIZED for an expired token because stale session proofs must not identify an account", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(env, "device-expired");
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const accessToken = await signAccessToken(
+      {
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+        session_id: "expired-session",
+      },
+      env.JWT_SECRET,
+      new Date("2000-01-01T00:00:00.000Z"),
+    );
+
+    const response = await requestCurrentAccount(env, `Bearer ${accessToken}`);
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 401 / UNAUTHORIZED when the token owner is missing because tokens are not a substitute for live accounts", async () => {
+    const env = createTestEnv();
+    const accessToken = await signAccessToken(
+      {
+        owner_type: "anonymous",
+        owner_id: "missing-anonymous",
+        session_id: "missing-session",
+      },
+      env.JWT_SECRET,
+    );
+
+    const response = await requestCurrentAccount(env, `Bearer ${accessToken}`);
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
   });
 });
