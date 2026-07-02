@@ -7,12 +7,14 @@ Thumbs.db
 
 # Node / TS monorepo
 node_modules/
+.pnpm-store/
 dist/
 .turbo/
 *.tsbuildinfo
 
 # Cloudflare Workers
 .wrangler/
+apps/workers-api/.dev.vars
 
 # Vite
 apps/admin-web/dist/
