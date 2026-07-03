@@ -86,7 +86,7 @@ type VerificationCodeRow = {
   id: string;
   email: string;
   code: string;
-  purpose: "register";
+  purpose: "register" | "reset_password";
   expires_at: string;
   used_at: string | null;
   created_at: string;
@@ -162,6 +162,11 @@ type LoginSuccessResponse = {
   };
 };
 
+type ForgotPasswordVerifyCodeSuccessResponse = {
+  success: true;
+  data: { reset_token: string };
+};
+
 const BASE64URL_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
@@ -211,6 +216,8 @@ class FakeD1 {
   failNextFirst = false;
   failNextRun = false;
   createConflictingUserBeforeNextUserInsert = false;
+  concurrentResetCodeLookupBarrierSize = 0;
+  concurrentResetCodeLookupResolutions: Array<() => void> = [];
   upgradeAnonymousBeforeUpgrade = false;
 
   prepare(sql: string): FakeD1Statement {
@@ -307,12 +314,64 @@ class FakeD1 {
         : null;
     }
 
+    if (normalizedSql === SELECT_LIVE_EMAIL_PASSWORD_USER_SQL) {
+      const [email] = values as [string];
+      const user = this.users.find(
+        (row) =>
+          row.email === email &&
+          row.deleted_at === null &&
+          row.password_hash !== null,
+      );
+
+      return user ? ({ id: user.id } as T) : null;
+    }
+
     if (normalizedSql === SELECT_LATEST_REGISTER_CODE_SQL) {
       const [email] = values as [string];
       const code = this.verificationCodes
         .filter((row) => row.email === email && row.purpose === "register")
         .sort((left, right) => right.created_at.localeCompare(left.created_at))
         .at(0);
+
+      return code
+        ? ({
+            id: code.id,
+            code: code.code,
+            expires_at: code.expires_at,
+            used_at: code.used_at,
+          } as T)
+        : null;
+    }
+
+    if (normalizedSql === SELECT_LATEST_RESET_CODE_SQL) {
+      const [email] = values as [string];
+      await this.waitForConcurrentResetCodeLookup();
+      const code = this.verificationCodes
+        .filter(
+          (row) => row.email === email && row.purpose === "reset_password",
+        )
+        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+        .at(0);
+
+      return code
+        ? ({
+            id: code.id,
+            code: code.code,
+            expires_at: code.expires_at,
+            used_at: code.used_at,
+            created_at: code.created_at,
+          } as T)
+        : null;
+    }
+
+    if (normalizedSql === SELECT_RESET_CODE_BY_ID_EMAIL_SQL) {
+      const [id, email] = values as [string, string];
+      const code = this.verificationCodes.find(
+        (row) =>
+          row.id === id &&
+          row.email === email &&
+          row.purpose === "reset_password",
+      );
 
       return code
         ? ({
@@ -486,6 +545,49 @@ class FakeD1 {
         email,
         code,
         purpose: "register",
+        expires_at: expiresAt,
+        used_at: null,
+        created_at: createdAt,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_RESET_CODE_SQL) {
+      const [
+        id,
+        email,
+        code,
+        expiresAt,
+        createdAt,
+        guardedEmail,
+        resendWindowStartedAt,
+      ] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      const hasRecentUnusedResetCode = this.verificationCodes.some(
+        (row) =>
+          row.email === guardedEmail &&
+          row.purpose === "reset_password" &&
+          row.used_at === null &&
+          row.created_at > resendWindowStartedAt,
+      );
+
+      if (hasRecentUnusedResetCode) {
+        return okResult<T>(0);
+      }
+
+      this.verificationCodes.push({
+        id,
+        email,
+        code,
+        purpose: "reset_password",
         expires_at: expiresAt,
         used_at: null,
         created_at: createdAt,
@@ -746,6 +848,47 @@ class FakeD1 {
       return okResult<T>(code ? 1 : 0);
     }
 
+    if (normalizedSql === UPDATE_RESET_CODE_USED_SQL) {
+      const [usedAt, id] = values as [string, string];
+      const code = this.verificationCodes.find(
+        (row) => row.id === id && row.used_at === null,
+      );
+
+      if (code) {
+        code.used_at = usedAt;
+      }
+
+      return okResult<T>(code ? 1 : 0);
+    }
+
+    if (normalizedSql === UPDATE_LIVE_EMAIL_PASSWORD_USER_SQL) {
+      const [passwordHash, updatedAt, email, codeId, usedAt] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (!this.hasConsumedResetCode(codeId, usedAt)) {
+        return okResult<T>(0);
+      }
+
+      const user = this.users.find(
+        (row) =>
+          row.email === email &&
+          row.deleted_at === null &&
+          row.password_hash !== null,
+      );
+
+      if (user) {
+        user.password_hash = passwordHash;
+        user.updated_at = updatedAt;
+      }
+
+      return okResult<T>(user ? 1 : 0);
+    }
+
     if (normalizedSql === UPDATE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL) {
       const [
         userId,
@@ -982,6 +1125,37 @@ class FakeD1 {
     );
   }
 
+  private hasConsumedResetCode(id: string, usedAt: string): boolean {
+    return this.verificationCodes.some(
+      (row) =>
+        row.id === id &&
+        row.purpose === "reset_password" &&
+        row.used_at === usedAt,
+    );
+  }
+
+  private async waitForConcurrentResetCodeLookup(): Promise<void> {
+    if (this.concurrentResetCodeLookupBarrierSize <= 0) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      this.concurrentResetCodeLookupResolutions.push(resolve);
+
+      if (
+        this.concurrentResetCodeLookupResolutions.length ===
+        this.concurrentResetCodeLookupBarrierSize
+      ) {
+        const resolutions = this.concurrentResetCodeLookupResolutions.splice(0);
+        this.concurrentResetCodeLookupBarrierSize = 0;
+
+        for (const release of resolutions) {
+          release();
+        }
+      }
+    });
+  }
+
   private hasUpgradedAnonymousAccount(id: string, userId: string): boolean {
     return this.anonymousAccounts.some(
       (row) => row.id === id && row.upgraded_user_id === userId,
@@ -1073,11 +1247,33 @@ const SELECT_LOGIN_USER_BY_EMAIL_SQL = normalizeSql(`
   LIMIT 1
 `);
 
+const SELECT_LIVE_EMAIL_PASSWORD_USER_SQL = normalizeSql(`
+  SELECT id
+  FROM user
+  WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL
+  LIMIT 1
+`);
+
 const SELECT_LATEST_REGISTER_CODE_SQL = normalizeSql(`
   SELECT id, code, expires_at, used_at
   FROM verification_code
   WHERE email = ? AND purpose = 'register'
   ORDER BY created_at DESC
+  LIMIT 1
+`);
+
+const SELECT_LATEST_RESET_CODE_SQL = normalizeSql(`
+  SELECT id, code, expires_at, used_at, created_at
+  FROM verification_code
+  WHERE email = ? AND purpose = 'reset_password'
+  ORDER BY created_at DESC
+  LIMIT 1
+`);
+
+const SELECT_RESET_CODE_BY_ID_EMAIL_SQL = normalizeSql(`
+  SELECT id, code, expires_at, used_at
+  FROM verification_code
+  WHERE id = ? AND email = ? AND purpose = 'reset_password'
   LIMIT 1
 `);
 
@@ -1115,6 +1311,19 @@ const INSERT_VERIFICATION_CODE_SQL = normalizeSql(`
   INSERT INTO verification_code
     (id, email, code, purpose, expires_at, used_at, created_at)
   VALUES (?, ?, ?, 'register', ?, NULL, ?)
+`);
+
+const INSERT_RESET_CODE_SQL = normalizeSql(`
+  INSERT INTO verification_code
+    (id, email, code, purpose, expires_at, used_at, created_at)
+  SELECT ?, ?, ?, 'reset_password', ?, NULL, ?
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM verification_code
+    WHERE email = ? AND purpose = 'reset_password'
+      AND used_at IS NULL
+      AND created_at > ?
+  )
 `);
 
 const INSERT_USER_ACCOUNT_SQL = normalizeSql(`
@@ -1203,6 +1412,23 @@ const UPDATE_REGISTER_CODE_USED_SQL = normalizeSql(`
   UPDATE verification_code
   SET used_at = ?
   WHERE id = ? AND used_at IS NULL
+`);
+
+const UPDATE_RESET_CODE_USED_SQL = normalizeSql(`
+  UPDATE verification_code
+  SET used_at = ?
+  WHERE id = ? AND used_at IS NULL
+`);
+
+const UPDATE_LIVE_EMAIL_PASSWORD_USER_SQL = normalizeSql(`
+  UPDATE user
+  SET password_hash = ?, updated_at = ?
+  WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL
+    AND EXISTS (
+      SELECT 1
+      FROM verification_code
+      WHERE id = ? AND used_at = ?
+    )
 `);
 
 const UPDATE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL = normalizeSql(`
@@ -1411,6 +1637,51 @@ async function requestLogin(
 ): Promise<Response> {
   return app.request(
     "/api/v1/auth/login",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+async function requestForgotPasswordSendCode(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/forgot-password/send-code",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+async function requestForgotPasswordVerifyCode(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/forgot-password/verify-code",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+async function requestForgotPasswordReset(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/forgot-password/reset",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -3050,6 +3321,181 @@ describe("POST /api/v1/auth/login", () => {
       },
     });
     expect(db.sessions).toHaveLength(0);
+  });
+});
+
+describe("POST /api/v1/auth/forgot-password", () => {
+  it("forgot-password sends a reset code for a live Email-password user because password recovery starts with account ownership proof", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "forgot-send-user",
+      email: "forgot.send@example.com",
+      password_hash: await hashPassword("old-password"),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const response = await requestForgotPasswordSendCode(env, {
+      email: "  Forgot.Send@Example.COM  ",
+    });
+    const body = await response.json();
+    const code = db.verificationCodes[0];
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        expires_in: 600,
+        resend_after: 60,
+      },
+    });
+    expect(db.verificationCodes).toHaveLength(1);
+    expect(code).toEqual(
+      expect.objectContaining({
+        id: expect.any(String),
+        email: "forgot.send@example.com",
+        purpose: "reset_password",
+        used_at: null,
+      }),
+    );
+    expect(code?.code).toMatch(/^\d{6}$/);
+  });
+
+  it("forgot-password rate limits concurrent send-code writes because resend throttle must be enforced at the persistence boundary", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "forgot-send-race-user",
+      email: "forgot.send.race@example.com",
+      password_hash: await hashPassword("old-password"),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+    db.concurrentResetCodeLookupBarrierSize = 2;
+
+    const responses = await Promise.all([
+      requestForgotPasswordSendCode(env, {
+        email: "forgot.send.race@example.com",
+      }),
+      requestForgotPasswordSendCode(env, {
+        email: "forgot.send.race@example.com",
+      }),
+    ]);
+    const bodies = await Promise.all(
+      responses.map((response) => response.json()),
+    );
+
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      200,
+      429,
+    ]);
+    expect(bodies).toContainEqual({
+      success: false,
+      error: {
+        code: "RATE_LIMITED",
+        message: "Please try again later.",
+      },
+    });
+    expect(db.verificationCodes).toHaveLength(1);
+  });
+
+  it("forgot-password returns a reset token for a matching reset code because the new password step needs a short-lived proof", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "forgot-verify-user",
+      email: "forgot.verify@example.com",
+      password_hash: await hashPassword("old-password"),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const sendResponse = await requestForgotPasswordSendCode(env, {
+      email: "forgot.verify@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected reset verification code.");
+    }
+
+    const response = await requestForgotPasswordVerifyCode(env, {
+      email: "forgot.verify@example.com",
+      code: code.code,
+    });
+    const body =
+      (await response.json()) as ForgotPasswordVerifyCodeSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: { reset_token: expect.any(String) },
+    });
+    expect(code.used_at).toBeNull();
+  });
+
+  it("forgot-password resets the password and consumes the code because reset tokens must be single use", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const oldPassword = "old-password";
+
+    db.users.push({
+      id: "forgot-reset-user",
+      email: "forgot.reset@example.com",
+      password_hash: await hashPassword(oldPassword),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const sendResponse = await requestForgotPasswordSendCode(env, {
+      email: "forgot.reset@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected reset verification code.");
+    }
+
+    const verifyResponse = await requestForgotPasswordVerifyCode(env, {
+      email: "forgot.reset@example.com",
+      code: code.code,
+    });
+    const verifyBody =
+      (await verifyResponse.json()) as ForgotPasswordVerifyCodeSuccessResponse;
+    expect(verifyResponse.status).toBe(200);
+    expect(code.used_at).toBeNull();
+
+    const response = await requestForgotPasswordReset(env, {
+      email: "forgot.reset@example.com",
+      password: "new-password",
+      reset_token: verifyBody.data.reset_token,
+    });
+    const body = await response.json();
+    const user = db.users[0];
+
+    if (!user?.password_hash) {
+      throw new Error("Expected updated user password hash.");
+    }
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ success: true, data: {} });
+    expect(code.used_at).toEqual(expect.any(String));
+    expect(await verifyPassword("new-password", user.password_hash)).toBe(true);
+    expect(await verifyPassword(oldPassword, user.password_hash)).toBe(false);
   });
 });
 
