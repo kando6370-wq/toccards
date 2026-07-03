@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   createRefreshToken,
+  hashPassword,
   hashRefreshToken,
+  PASSWORD_HASH_ALGORITHM,
+  PASSWORD_HASH_ITERATIONS,
+  PASSWORD_HASH_VERSION,
   refreshTokenExpiresAt,
   signAccessToken,
+  verifyPassword,
   verifyAccessToken,
 } from "./index";
 
@@ -121,6 +126,72 @@ function encodeBase64Url(bytes: Uint8Array): string {
   }
 
   return output;
+}
+
+async function createStoredPasswordHash(
+  password: string,
+  options: {
+    algorithm?: string;
+    version?: string;
+    iterations?: number;
+    iterationsValue?: string;
+    salt?: Uint8Array;
+    hash?: Uint8Array;
+  } = {},
+): Promise<string> {
+  const salt =
+    options.salt ??
+    new Uint8Array([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    ]);
+  const iterations = options.iterations ?? PASSWORD_HASH_ITERATIONS;
+  const hash =
+    options.hash ??
+    (await deriveExpectedPasswordHash(password, salt, iterations));
+
+  return [
+    options.algorithm ?? PASSWORD_HASH_ALGORITHM,
+    options.version ?? PASSWORD_HASH_VERSION,
+    options.iterationsValue ?? String(iterations),
+    encodeBase64Url(salt),
+    encodeBase64Url(hash),
+  ].join("$");
+}
+
+async function deriveExpectedPasswordHash(
+  password: string,
+  salt: Uint8Array,
+  iterations: number,
+): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const hash = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations,
+      hash: "SHA-256",
+    },
+    key,
+    256,
+  );
+
+  return new Uint8Array(hash);
+}
+
+function replacePasswordHashPart(
+  storedHash: string,
+  partIndex: number,
+  value: string,
+): string {
+  const parts = storedHash.split("$");
+  parts[partIndex] = value;
+  return parts.join("$");
 }
 
 describe("auth-core token helpers", () => {
@@ -480,6 +551,105 @@ describe("auth-core token helpers", () => {
     );
     expect(firstHash).not.toBe(token);
     expect(secondHash).toBe(firstHash);
+  });
+
+  it("hashes passwords with versioned PBKDF2 metadata so registrations never store plaintext credentials", async () => {
+    const password = "correct horse battery staple";
+
+    const storedHash = await hashPassword(password);
+
+    const parts = storedHash.split("$");
+    expect(parts).toHaveLength(5);
+    expect(parts).toEqual([
+      PASSWORD_HASH_ALGORITHM,
+      PASSWORD_HASH_VERSION,
+      String(PASSWORD_HASH_ITERATIONS),
+      expect.stringMatching(/^[A-Za-z0-9_-]+$/),
+      expect.stringMatching(/^[A-Za-z0-9_-]+$/),
+    ]);
+    expect(storedHash).not.toContain(password);
+  });
+
+  it("uses a random salt for each password hash while keeping both hashes verifiable", async () => {
+    const password = "correct password";
+
+    const firstHash = await hashPassword(password);
+    const secondHash = await hashPassword(password);
+
+    expect(firstHash).not.toBe(secondHash);
+    await expect(verifyPassword(password, firstHash)).resolves.toBe(true);
+    await expect(verifyPassword(password, secondHash)).resolves.toBe(true);
+  });
+
+  it("verifies the matching password so login can authenticate stored credentials", async () => {
+    const storedHash = await hashPassword("correct password");
+
+    await expect(verifyPassword("correct password", storedHash)).resolves.toBe(
+      true,
+    );
+  });
+
+  it("rejects the wrong password so a stored hash cannot authenticate another credential", async () => {
+    const storedHash = await hashPassword("correct password");
+
+    await expect(verifyPassword("wrong password", storedHash)).resolves.toBe(
+      false,
+    );
+  });
+
+  it.each<[string, () => string | Promise<string>]>([
+    [
+      "unsupported algorithm",
+      () => createStoredPasswordHash("password", { algorithm: "argon2id" }),
+    ],
+    [
+      "unknown version",
+      () => createStoredPasswordHash("password", { version: "v2" }),
+    ],
+    ["unsupported format", () => "not-a-password-hash"],
+    [
+      "non-decimal iterations",
+      async () =>
+        replacePasswordHashPart(
+          await createStoredPasswordHash("password"),
+          2,
+          `${PASSWORD_HASH_ITERATIONS}.0`,
+        ),
+    ],
+    [
+      "non-current iterations",
+      () =>
+        createStoredPasswordHash("password", {
+          iterations: PASSWORD_HASH_ITERATIONS - 1,
+        }),
+    ],
+    [
+      "invalid base64url salt",
+      async () =>
+        replacePasswordHashPart(
+          await createStoredPasswordHash("password"),
+          3,
+          "not+base64url",
+        ),
+    ],
+    [
+      "short salt",
+      () =>
+        createStoredPasswordHash("password", {
+          salt: new Uint8Array([1]),
+        }),
+    ],
+    [
+      "short hash",
+      () =>
+        createStoredPasswordHash("password", {
+          hash: new Uint8Array([1]),
+        }),
+    ],
+  ])("fails closed for %s password hashes", async (_, createStoredHash) => {
+    await expect(
+      verifyPassword("password", await createStoredHash()),
+    ).resolves.toBe(false);
   });
 
   it("expires refresh token sessions after 30 days to bound anonymous session lifetime", () => {

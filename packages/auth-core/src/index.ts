@@ -18,6 +18,12 @@ export type VerifyAccessTokenResult =
 export const PACKAGE_NAME = "@kando/auth-core";
 export const ACCESS_TOKEN_EXPIRES_IN_SECONDS = 900;
 export const REFRESH_TOKEN_EXPIRES_IN_DAYS = 30;
+export const PASSWORD_HASH_ALGORITHM = "pbkdf2-sha256";
+export const PASSWORD_HASH_VERSION = "v1";
+export const PASSWORD_HASH_ITERATIONS = 210_000;
+
+const PASSWORD_HASH_SALT_BYTES = 16;
+const PASSWORD_HASH_BYTES = 32;
 
 type TextEncoderLike = {
   encode(input?: string): Uint8Array;
@@ -38,10 +44,27 @@ type WebCryptoLike = {
       extractable: false,
       keyUsages: readonly ["sign"],
     ): Promise<unknown>;
+    importKey(
+      format: "raw",
+      keyData: Uint8Array,
+      algorithm: "PBKDF2",
+      extractable: false,
+      keyUsages: readonly ["deriveBits"],
+    ): Promise<unknown>;
     sign(
       algorithm: "HMAC",
       key: unknown,
       data: Uint8Array,
+    ): Promise<ArrayBuffer>;
+    deriveBits(
+      algorithm: {
+        name: "PBKDF2";
+        salt: Uint8Array;
+        iterations: number;
+        hash: "SHA-256";
+      },
+      baseKey: unknown,
+      length: number,
     ): Promise<ArrayBuffer>;
   };
 };
@@ -163,6 +186,71 @@ export async function hashRefreshToken(
   ).join("");
 }
 
+export async function hashPassword(password: string): Promise<string> {
+  const salt = new Uint8Array(PASSWORD_HASH_SALT_BYTES);
+  getCrypto().getRandomValues(salt);
+  const hash = await derivePasswordHash(
+    password,
+    salt,
+    PASSWORD_HASH_ITERATIONS,
+  );
+
+  return [
+    PASSWORD_HASH_ALGORITHM,
+    PASSWORD_HASH_VERSION,
+    String(PASSWORD_HASH_ITERATIONS),
+    encodeBase64Url(salt),
+    encodeBase64Url(hash),
+  ].join("$");
+}
+
+export async function verifyPassword(
+  password: string,
+  storedHash: string,
+): Promise<boolean> {
+  try {
+    const parts = storedHash.split("$");
+    if (parts.length !== 5) {
+      return false;
+    }
+
+    const [algorithm, version, iterationsValue, encodedSalt, encodedHash] =
+      parts as [string, string, string, string, string];
+    if (
+      algorithm !== PASSWORD_HASH_ALGORITHM ||
+      version !== PASSWORD_HASH_VERSION
+    ) {
+      return false;
+    }
+
+    if (
+      !/^\d+$/.test(iterationsValue) ||
+      iterationsValue !== String(PASSWORD_HASH_ITERATIONS)
+    ) {
+      return false;
+    }
+
+    const salt = decodeBase64Url(encodedSalt);
+    const expectedHash = decodeBase64Url(encodedHash);
+    if (
+      salt.length !== PASSWORD_HASH_SALT_BYTES ||
+      expectedHash.length !== PASSWORD_HASH_BYTES
+    ) {
+      return false;
+    }
+
+    const actualHash = await derivePasswordHash(
+      password,
+      salt,
+      PASSWORD_HASH_ITERATIONS,
+    );
+
+    return signatureMatches(actualHash, expectedHash);
+  } catch {
+    return false;
+  }
+}
+
 export function refreshTokenExpiresAt(now = new Date()): string {
   const expiresAt = new Date(
     now.getTime() + REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000,
@@ -221,6 +309,33 @@ async function signHs256(
   );
 
   return new Uint8Array(signature);
+}
+
+async function derivePasswordHash(
+  password: string,
+  salt: Uint8Array,
+  iterations: number,
+): Promise<Uint8Array> {
+  const crypto = getCrypto();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encodeText(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const hash = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations,
+      hash: "SHA-256",
+    },
+    key,
+    PASSWORD_HASH_BYTES * 8,
+  );
+
+  return new Uint8Array(hash);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
