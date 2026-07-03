@@ -37,6 +37,22 @@ type UserPreferenceRow = {
   updated_at: string;
 };
 
+type CollectionItemRow = {
+  id: string;
+  owner_type: "anonymous" | "user";
+  owner_id: string;
+  folder_id: string;
+  card_ref: string;
+  updated_at: string;
+};
+
+type WishlistItemRow = {
+  id: string;
+  owner_type: "anonymous" | "user";
+  owner_id: string;
+  card_ref: string;
+};
+
 type SessionRow = {
   id: string;
   owner_type: "anonymous" | "user";
@@ -130,7 +146,7 @@ type RegisterVerifySuccessResponse = {
     access_token: string;
     refresh_token: string;
     expires_in: number;
-    migrated: false;
+    migrated: boolean;
   };
 };
 
@@ -173,6 +189,8 @@ class FakeD1 {
   anonymousAccounts: AnonymousAccountRow[] = [];
   portfolioFolders: PortfolioFolderRow[] = [];
   userPreferences: UserPreferenceRow[] = [];
+  collectionItems: CollectionItemRow[] = [];
+  wishlistItems: WishlistItemRow[] = [];
   sessions: SessionRow[] = [];
   users: UserRow[] = [];
   verificationCodes: VerificationCodeRow[] = [];
@@ -180,6 +198,8 @@ class FakeD1 {
   failNextBatch = false;
   failNextFirst = false;
   failNextRun = false;
+  createConflictingUserBeforeNextUserInsert = false;
+  upgradeAnonymousBeforeUpgrade = false;
 
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
@@ -274,11 +294,39 @@ class FakeD1 {
         : null;
     }
 
+    if (normalizedSql === SELECT_LIVE_ANONYMOUS_ACCOUNT_SQL) {
+      const [id] = values as [string];
+      const account = this.anonymousAccounts.find(
+        (row) => row.id === id && row.upgraded_user_id === null,
+      );
+
+      return account ? ({ id: account.id } as T) : null;
+    }
+
     if (normalizedSql === SELECT_SESSION_BY_REFRESH_TOKEN_SQL) {
       const [refreshToken] = values as [string];
       const session = this.sessions.find(
         (row) => row.refresh_token === refreshToken,
       );
+
+      if (!session) {
+        return null;
+      }
+
+      const row: SessionLookupRow = {
+        id: session.id,
+        owner_type: session.owner_type,
+        owner_id: session.owner_id,
+        expires_at: session.expires_at,
+        revoked_at: session.revoked_at,
+      };
+
+      return row as T;
+    }
+
+    if (normalizedSql === SELECT_SESSION_BY_ID_SQL) {
+      const [id] = values as [string];
+      const session = this.sessions.find((row) => row.id === id);
 
       if (!session) {
         return null;
@@ -431,6 +479,78 @@ class FakeD1 {
         return okResult<T>(0);
       }
 
+      if (this.createConflictingUserBeforeNextUserInsert) {
+        this.createConflictingUserBeforeNextUserInsert = false;
+        this.users.push({
+          id: "concurrent-user",
+          email,
+          password_hash: null,
+          display_name: "Concurrent User",
+          created_at: "2026-07-03T00:00:00.000Z",
+          updated_at: "2026-07-03T00:00:00.000Z",
+          deleted_at: null,
+        });
+      }
+
+      if (this.users.some((row) => row.email === email)) {
+        throw new Error("UNIQUE constraint failed: user.email");
+      }
+
+      this.users.push({
+        id,
+        email,
+        password_hash: passwordHash,
+        display_name: null,
+        created_at: createdAt,
+        updated_at: updatedAt,
+        deleted_at: null,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_MIGRATED_USER_ACCOUNT_SQL) {
+      const [
+        id,
+        email,
+        passwordHash,
+        createdAt,
+        updatedAt,
+        codeId,
+        usedAt,
+        anonymousId,
+        upgradedUserId,
+      ] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (
+        !this.hasConsumedRegisterCode(codeId, usedAt) ||
+        !this.hasUpgradedAnonymousAccount(anonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      if (this.createConflictingUserBeforeNextUserInsert) {
+        this.createConflictingUserBeforeNextUserInsert = false;
+        this.users.push({
+          id: "concurrent-user",
+          email,
+          password_hash: null,
+          display_name: "Concurrent User",
+          created_at: "2026-07-03T00:00:00.000Z",
+          updated_at: "2026-07-03T00:00:00.000Z",
+          deleted_at: null,
+        });
+      }
+
       if (this.users.some((row) => row.email === email)) {
         throw new Error("UNIQUE constraint failed: user.email");
       }
@@ -529,6 +649,48 @@ class FakeD1 {
       return okResult<T>();
     }
 
+    if (normalizedSql === INSERT_MIGRATED_USER_SESSION_SQL) {
+      const [
+        id,
+        ownerId,
+        refreshToken,
+        expiresAt,
+        createdAt,
+        codeId,
+        usedAt,
+        anonymousId,
+        upgradedUserId,
+      ] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (
+        !this.hasConsumedRegisterCode(codeId, usedAt) ||
+        !this.hasUpgradedAnonymousAccount(anonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      this.sessions.push({
+        id,
+        owner_type: "user",
+        owner_id: ownerId,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        created_at: createdAt,
+        revoked_at: null,
+      });
+      return okResult<T>();
+    }
+
     if (normalizedSql === UPDATE_REGISTER_CODE_USED_SQL) {
       const [usedAt, id] = values as [string, string];
 
@@ -554,6 +716,199 @@ class FakeD1 {
       return okResult<T>(code ? 1 : 0);
     }
 
+    if (normalizedSql === UPDATE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL) {
+      const [
+        userId,
+        updatedAt,
+        anonymousId,
+        codeId,
+        usedAt,
+        upgradedAnonymousId,
+        upgradedUserId,
+      ] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (
+        !this.hasConsumedRegisterCode(codeId, usedAt) ||
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const folder of this.portfolioFolders) {
+        if (
+          folder.owner_type === "anonymous" &&
+          folder.owner_id === anonymousId
+        ) {
+          folder.owner_type = "user";
+          folder.owner_id = userId;
+          folder.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === UPDATE_ANONYMOUS_COLLECTION_ITEMS_SQL) {
+      const [
+        userId,
+        updatedAt,
+        anonymousId,
+        codeId,
+        usedAt,
+        upgradedAnonymousId,
+        upgradedUserId,
+      ] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (
+        !this.hasConsumedRegisterCode(codeId, usedAt) ||
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const item of this.collectionItems) {
+        if (item.owner_type === "anonymous" && item.owner_id === anonymousId) {
+          item.owner_type = "user";
+          item.owner_id = userId;
+          item.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === UPDATE_ANONYMOUS_WISHLIST_ITEMS_SQL) {
+      const [
+        userId,
+        anonymousId,
+        codeId,
+        usedAt,
+        upgradedAnonymousId,
+        upgradedUserId,
+      ] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (
+        !this.hasConsumedRegisterCode(codeId, usedAt) ||
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const item of this.wishlistItems) {
+        if (item.owner_type === "anonymous" && item.owner_id === anonymousId) {
+          item.owner_type = "user";
+          item.owner_id = userId;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === UPDATE_ANONYMOUS_USER_PREFERENCE_SQL) {
+      const [
+        userId,
+        updatedAt,
+        anonymousId,
+        codeId,
+        usedAt,
+        upgradedAnonymousId,
+        upgradedUserId,
+      ] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (
+        !this.hasConsumedRegisterCode(codeId, usedAt) ||
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const preference of this.userPreferences) {
+        if (
+          preference.owner_type === "anonymous" &&
+          preference.owner_id === anonymousId
+        ) {
+          preference.owner_type = "user";
+          preference.owner_id = userId;
+          preference.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_SQL) {
+      const [userId, anonymousId, codeId, usedAt] = values as [
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (!this.hasConsumedRegisterCode(codeId, usedAt)) {
+        return okResult<T>(0);
+      }
+
+      if (this.upgradeAnonymousBeforeUpgrade) {
+        this.upgradeAnonymousBeforeUpgrade = false;
+        const concurrentlyUpgradedAccount = this.anonymousAccounts.find(
+          (row) => row.id === anonymousId && row.upgraded_user_id === null,
+        );
+
+        if (concurrentlyUpgradedAccount) {
+          concurrentlyUpgradedAccount.upgraded_user_id = "existing-user";
+        }
+      }
+
+      const account = this.anonymousAccounts.find(
+        (row) => row.id === anonymousId && row.upgraded_user_id === null,
+      );
+
+      if (account) {
+        account.upgraded_user_id = userId;
+      }
+
+      return okResult<T>(account ? 1 : 0);
+    }
+
     if (normalizedSql === REVOKE_SESSION_SQL) {
       const [revokedAt, id] = values as [string, string];
       const session = this.sessions.find(
@@ -573,6 +928,12 @@ class FakeD1 {
   private hasConsumedRegisterCode(id: string, usedAt: string): boolean {
     return this.verificationCodes.some(
       (row) => row.id === id && row.used_at === usedAt,
+    );
+  }
+
+  private hasUpgradedAnonymousAccount(id: string, userId: string): boolean {
+    return this.anonymousAccounts.some(
+      (row) => row.id === id && row.upgraded_user_id === userId,
     );
   }
 }
@@ -626,6 +987,13 @@ const SELECT_SESSION_BY_REFRESH_TOKEN_SQL = normalizeSql(`
   LIMIT 1
 `);
 
+const SELECT_SESSION_BY_ID_SQL = normalizeSql(`
+  SELECT id, owner_type, owner_id, expires_at, revoked_at
+  FROM session
+  WHERE id = ?
+  LIMIT 1
+`);
+
 const SELECT_REFRESH_ANONYMOUS_OWNER_SQL = normalizeSql(`
   SELECT id
   FROM anonymous_account
@@ -652,6 +1020,13 @@ const SELECT_LATEST_REGISTER_CODE_SQL = normalizeSql(`
   FROM verification_code
   WHERE email = ? AND purpose = 'register'
   ORDER BY created_at DESC
+  LIMIT 1
+`);
+
+const SELECT_LIVE_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
+  SELECT id
+  FROM anonymous_account
+  WHERE id = ? AND upgraded_user_id IS NULL
   LIMIT 1
 `);
 
@@ -695,6 +1070,22 @@ const INSERT_USER_ACCOUNT_SQL = normalizeSql(`
   )
 `);
 
+const INSERT_MIGRATED_USER_ACCOUNT_SQL = normalizeSql(`
+  INSERT INTO user
+    (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
+  SELECT ?, ?, ?, NULL, ?, ?, NULL
+  WHERE EXISTS (
+    SELECT 1
+    FROM verification_code
+    WHERE id = ? AND used_at = ?
+  )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
 const INSERT_USER_PORTFOLIO_FOLDER_SQL = normalizeSql(`
   INSERT INTO portfolio_folder
     (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
@@ -728,10 +1119,101 @@ const INSERT_USER_SESSION_SQL = normalizeSql(`
   )
 `);
 
+const INSERT_MIGRATED_USER_SESSION_SQL = normalizeSql(`
+  INSERT INTO session
+    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, ?, ?, ?, NULL
+  WHERE EXISTS (
+    SELECT 1
+    FROM verification_code
+    WHERE id = ? AND used_at = ?
+  )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
 const UPDATE_REGISTER_CODE_USED_SQL = normalizeSql(`
   UPDATE verification_code
   SET used_at = ?
   WHERE id = ? AND used_at IS NULL
+`);
+
+const UPDATE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL = normalizeSql(`
+  UPDATE portfolio_folder
+  SET owner_type = 'user', owner_id = ?, updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM verification_code
+      WHERE id = ? AND used_at = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_ANONYMOUS_COLLECTION_ITEMS_SQL = normalizeSql(`
+  UPDATE collection_item
+  SET owner_type = 'user', owner_id = ?, updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM verification_code
+      WHERE id = ? AND used_at = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_ANONYMOUS_WISHLIST_ITEMS_SQL = normalizeSql(`
+  UPDATE wishlist_item
+  SET owner_type = 'user', owner_id = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM verification_code
+      WHERE id = ? AND used_at = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_ANONYMOUS_USER_PREFERENCE_SQL = normalizeSql(`
+  UPDATE user_preference
+  SET owner_type = 'user', owner_id = ?, updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM verification_code
+      WHERE id = ? AND used_at = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_SQL = normalizeSql(`
+  UPDATE anonymous_account
+  SET upgraded_user_id = ?
+  WHERE id = ? AND upgraded_user_id IS NULL
+    AND EXISTS (
+      SELECT 1
+      FROM verification_code
+      WHERE id = ? AND used_at = ?
+    )
 `);
 
 const REVOKE_SESSION_SQL = normalizeSql(`
@@ -838,12 +1320,21 @@ async function requestRegisterSendCode(
 async function requestRegisterVerify(
   env: TestEnv,
   body: unknown,
+  authorization?: string,
 ): Promise<Response> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (authorization) {
+    headers.Authorization = authorization;
+  }
+
   return app.request(
     "/api/v1/auth/register/verify",
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(body),
     },
     env,
@@ -1196,6 +1687,550 @@ describe("POST /api/v1/auth/register/verify", () => {
     });
   });
 
+  it("migrates live anonymous assets because registration upgrades should preserve guest work", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-register-migrate",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+    const anonymousFolder = db.portfolioFolders.find(
+      (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+    );
+
+    if (!anonymousFolder) {
+      throw new Error("Expected anonymous folder.");
+    }
+
+    db.collectionItems.push({
+      id: "collection-guest",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      folder_id: anonymousFolder.id,
+      card_ref: "card-collection",
+      updated_at: "2026-07-02T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "wishlist-guest",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      card_ref: "card-wishlist",
+    });
+
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "migrate@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const response = await requestRegisterVerify(
+      env,
+      {
+        email: "migrate@example.com",
+        code: code.code,
+        password: "correct-password",
+        anonymous_id: ` ${anonymousId} `,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as RegisterVerifySuccessResponse;
+    const userId = body.data.user_id;
+
+    expect(response.status).toBe(200);
+    expect(body.data.migrated).toBe(true);
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBe(userId);
+    expect(db.portfolioFolders).toHaveLength(1);
+    expect(db.userPreferences).toHaveLength(1);
+    expect(db.portfolioFolders[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: userId,
+      }),
+    );
+    expect(db.userPreferences[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: userId,
+      }),
+    );
+    expect(db.collectionItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: userId,
+        folder_id: db.portfolioFolders[0]?.id,
+      }),
+    );
+    expect(db.wishlistItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: userId,
+      }),
+    );
+  });
+
+  it("creates default assets when anonymous_id lacks a bearer token because an id alone must not prove guest ownership", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-register-no-token-victim",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "no-token-migrate@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const response = await requestRegisterVerify(env, {
+      email: "no-token-migrate@example.com",
+      code: code.code,
+      password: "correct-password",
+      anonymous_id: anonymousId,
+    });
+    const body = (await response.json()) as RegisterVerifySuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data.migrated).toBe(false);
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBeNull();
+    expect(
+      db.portfolioFolders.filter(
+        (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.userPreferences.filter(
+        (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.portfolioFolders.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.userPreferences.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("creates default assets when the bearer token owner differs because guests must not migrate another anonymous account", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const victimResponse = await requestAnonymous(
+      env,
+      "device-register-mismatch-victim",
+    );
+    const victimBody =
+      (await victimResponse.json()) as AnonymousSuccessResponse;
+    const attackerResponse = await requestAnonymous(
+      env,
+      "device-register-mismatch-attacker",
+    );
+    const attackerBody =
+      (await attackerResponse.json()) as AnonymousSuccessResponse;
+
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "mismatch-migrate@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const response = await requestRegisterVerify(
+      env,
+      {
+        email: "mismatch-migrate@example.com",
+        code: code.code,
+        password: "correct-password",
+        anonymous_id: victimBody.data.anonymous_id,
+      },
+      `Bearer ${attackerBody.data.access_token}`,
+    );
+    const body = (await response.json()) as RegisterVerifySuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data.migrated).toBe(false);
+    expect(db.anonymousAccounts.map((row) => row.upgraded_user_id)).toEqual([
+      null,
+      null,
+    ]);
+    expect(
+      db.portfolioFolders.filter(
+        (row) =>
+          row.owner_type === "anonymous" &&
+          row.owner_id === victimBody.data.anonymous_id,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.portfolioFolders.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.userPreferences.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("creates default assets when the matching anonymous session is revoked because stale session proof must not authorize migration", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-register-revoked-session",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+    const session = db.sessions.find(
+      (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+    );
+
+    if (!session) {
+      throw new Error("Expected anonymous session.");
+    }
+
+    session.revoked_at = "2026-07-03T00:00:00.000Z";
+
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "revoked-session-migrate@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const response = await requestRegisterVerify(
+      env,
+      {
+        email: "revoked-session-migrate@example.com",
+        code: code.code,
+        password: "correct-password",
+        anonymous_id: anonymousId,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as RegisterVerifySuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data.migrated).toBe(false);
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBeNull();
+    expect(
+      db.portfolioFolders.filter(
+        (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.portfolioFolders.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.userPreferences.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("creates default assets when the matching anonymous session is expired because stale session proof must not authorize migration", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-register-expired-session",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+    const session = db.sessions.find(
+      (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+    );
+
+    if (!session) {
+      throw new Error("Expected anonymous session.");
+    }
+
+    session.expires_at = "2000-01-01T00:00:00.000Z";
+
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "expired-session-migrate@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const response = await requestRegisterVerify(
+      env,
+      {
+        email: "expired-session-migrate@example.com",
+        code: code.code,
+        password: "correct-password",
+        anonymous_id: anonymousId,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as RegisterVerifySuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data.migrated).toBe(false);
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBeNull();
+    expect(
+      db.portfolioFolders.filter(
+        (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.portfolioFolders.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.userPreferences.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("returns 422 when a live anonymous account is upgraded before the migration gate because stale guest state must not create durable credentials", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-register-upgrade-race",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+    const anonymousFolder = db.portfolioFolders.find(
+      (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+    );
+
+    if (!anonymousFolder) {
+      throw new Error("Expected anonymous folder.");
+    }
+
+    db.collectionItems.push({
+      id: "collection-upgrade-race",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      folder_id: anonymousFolder.id,
+      card_ref: "card-upgrade-race",
+      updated_at: "2026-07-02T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "wishlist-upgrade-race",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      card_ref: "card-upgrade-race",
+    });
+
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "upgrade-race@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    db.upgradeAnonymousBeforeUpgrade = true;
+
+    const response = await requestRegisterVerify(
+      env,
+      {
+        email: "upgrade-race@example.com",
+        code: code.code,
+        password: "correct-password",
+        anonymous_id: anonymousId,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Guest account is no longer available.",
+      },
+    });
+    expect(code.used_at).toEqual(expect.any(String));
+    expect(db.users).toHaveLength(0);
+    expect(
+      db.sessions.filter((row) => row.owner_type === "user"),
+    ).toHaveLength(0);
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBe("existing-user");
+    expect(db.portfolioFolders).toEqual([
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+      }),
+    ]);
+    expect(db.userPreferences).toEqual([
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+      }),
+    ]);
+    expect(db.collectionItems).toEqual([
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+        folder_id: anonymousFolder.id,
+      }),
+    ]);
+    expect(db.wishlistItems).toEqual([
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+      }),
+    ]);
+  });
+
+  it("creates default assets for an invalid anonymous_id because registration must not fail on stale guest state", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "invalid-anonymous@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const response = await requestRegisterVerify(env, {
+      email: "invalid-anonymous@example.com",
+      code: code.code,
+      password: "correct-password",
+      anonymous_id: "missing-anonymous",
+    });
+    const body = (await response.json()) as RegisterVerifySuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data.migrated).toBe(false);
+    expect(
+      db.portfolioFolders.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.userPreferences.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("keeps an upgraded anonymous account untouched because registration must not steal prior guest work", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-register-upgraded",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+    const account = db.anonymousAccounts[0];
+    const anonymousFolder = db.portfolioFolders[0];
+
+    if (!account || !anonymousFolder) {
+      throw new Error("Expected anonymous state.");
+    }
+
+    account.upgraded_user_id = "existing-user";
+    db.collectionItems.push({
+      id: "collection-upgraded",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      folder_id: anonymousFolder.id,
+      card_ref: "card-upgraded",
+      updated_at: "2026-07-02T00:00:00.000Z",
+    });
+
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "upgraded-anonymous@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const response = await requestRegisterVerify(
+      env,
+      {
+        email: "upgraded-anonymous@example.com",
+        code: code.code,
+        password: "correct-password",
+        anonymous_id: anonymousId,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as RegisterVerifySuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data.migrated).toBe(false);
+    expect(account.upgraded_user_id).toBe("existing-user");
+    expect(db.collectionItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+      }),
+    );
+    expect(
+      db.portfolioFolders.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.userPreferences.filter(
+        (row) =>
+          row.owner_type === "user" && row.owner_id === body.data.user_id,
+      ),
+    ).toHaveLength(1);
+  });
+
   it("returns 422 for a reused code because one-time email proof must not create a second durable account", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
@@ -1509,6 +2544,47 @@ describe("POST /api/v1/auth/register/verify", () => {
     expect(db.users).toHaveLength(1);
     expect(db.sessions).toHaveLength(0);
     expect(code.used_at).toBeNull();
+  });
+
+  it("returns 409 when user insert hits an email unique race because conflict semantics must survive concurrent registration", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "race@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    db.createConflictingUserBeforeNextUserInsert = true;
+
+    const response = await requestRegisterVerify(env, {
+      email: "race@example.com",
+      code: code.code,
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "CONFLICT",
+        message: "Email is already registered.",
+      },
+    });
+    expect(db.users).toEqual([
+      expect.objectContaining({
+        id: "concurrent-user",
+        email: "race@example.com",
+      }),
+    ]);
+    expect(
+      db.sessions.filter((row) => row.owner_type === "user"),
+    ).toHaveLength(0);
   });
 });
 
