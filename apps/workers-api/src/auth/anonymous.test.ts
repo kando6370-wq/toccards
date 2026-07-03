@@ -1,4 +1,8 @@
-import { hashRefreshToken, signAccessToken } from "@kando/auth-core";
+import {
+  hashRefreshToken,
+  signAccessToken,
+  verifyPassword,
+} from "@kando/auth-core";
 import { describe, expect, it, vi } from "vitest";
 import app, { type Env as AppEnv } from "../index";
 
@@ -13,7 +17,7 @@ type AnonymousAccountRow = {
 
 type PortfolioFolderRow = {
   id: string;
-  owner_type: "anonymous";
+  owner_type: "anonymous" | "user";
   owner_id: string;
   name: "Main";
   is_default: 1;
@@ -24,7 +28,7 @@ type PortfolioFolderRow = {
 
 type UserPreferenceRow = {
   id: string;
-  owner_type: "anonymous";
+  owner_type: "anonymous" | "user";
   owner_id: string;
   currency: "USD";
   amount_hidden: 0;
@@ -54,6 +58,7 @@ type SessionLookupRow = {
 type UserRow = {
   id: string;
   email: string;
+  password_hash: string | null;
   display_name: string | null;
   created_at: string;
   updated_at: string;
@@ -117,6 +122,18 @@ type RegisterSendCodeSuccessResponse = {
   };
 };
 
+type RegisterVerifySuccessResponse = {
+  success: true;
+  data: {
+    user_id: string;
+    email: string;
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    migrated: false;
+  };
+};
+
 const BASE64URL_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
@@ -159,6 +176,8 @@ class FakeD1 {
   sessions: SessionRow[] = [];
   users: UserRow[] = [];
   verificationCodes: VerificationCodeRow[] = [];
+  consumeNextRegisterCodeBeforeUpdate = false;
+  failNextBatch = false;
   failNextFirst = false;
   failNextRun = false;
 
@@ -169,7 +188,18 @@ class FakeD1 {
   async batch<T = unknown>(
     statements: FakeD1Statement[],
   ): Promise<D1Result<T>[]> {
-    return Promise.all(statements.map((statement) => statement.run<T>()));
+    if (this.failNextBatch) {
+      this.failNextBatch = false;
+      throw new Error("Injected D1 batch failure.");
+    }
+
+    const results: D1Result<T>[] = [];
+
+    for (const statement of statements) {
+      results.push(await statement.run<T>());
+    }
+
+    return results;
   }
 
   async first<T = unknown>(sql: string, values: unknown[]): Promise<T | null> {
@@ -225,6 +255,23 @@ class FakeD1 {
       const user = this.users.find((row) => row.email === email);
 
       return user ? ({ id: user.id } as T) : null;
+    }
+
+    if (normalizedSql === SELECT_LATEST_REGISTER_CODE_SQL) {
+      const [email] = values as [string];
+      const code = this.verificationCodes
+        .filter((row) => row.email === email && row.purpose === "register")
+        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+        .at(0);
+
+      return code
+        ? ({
+            id: code.id,
+            code: code.code,
+            expires_at: code.expires_at,
+            used_at: code.used_at,
+          } as T)
+        : null;
     }
 
     if (normalizedSql === SELECT_SESSION_BY_REFRESH_TOKEN_SQL) {
@@ -368,6 +415,145 @@ class FakeD1 {
       return okResult<T>();
     }
 
+    if (normalizedSql === INSERT_USER_ACCOUNT_SQL) {
+      const [id, email, passwordHash, createdAt, updatedAt, codeId, usedAt] =
+        values as [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
+
+      if (!this.hasConsumedRegisterCode(codeId, usedAt)) {
+        return okResult<T>(0);
+      }
+
+      if (this.users.some((row) => row.email === email)) {
+        throw new Error("UNIQUE constraint failed: user.email");
+      }
+
+      this.users.push({
+        id,
+        email,
+        password_hash: passwordHash,
+        display_name: null,
+        created_at: createdAt,
+        updated_at: updatedAt,
+        deleted_at: null,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_USER_PORTFOLIO_FOLDER_SQL) {
+      const [id, ownerId, createdAt, updatedAt, codeId, usedAt] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (!this.hasConsumedRegisterCode(codeId, usedAt)) {
+        return okResult<T>(0);
+      }
+
+      this.portfolioFolders.push({
+        id,
+        owner_type: "user",
+        owner_id: ownerId,
+        name: "Main",
+        is_default: 1,
+        sort_order: 0,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_USER_USER_PREFERENCE_SQL) {
+      const [id, ownerId, createdAt, updatedAt, codeId, usedAt] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (!this.hasConsumedRegisterCode(codeId, usedAt)) {
+        return okResult<T>(0);
+      }
+
+      this.userPreferences.push({
+        id,
+        owner_type: "user",
+        owner_id: ownerId,
+        currency: "USD",
+        amount_hidden: 0,
+        last_selected_folder_id: null,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_USER_SESSION_SQL) {
+      const [id, ownerId, refreshToken, expiresAt, createdAt, codeId, usedAt] =
+        values as [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
+
+      if (!this.hasConsumedRegisterCode(codeId, usedAt)) {
+        return okResult<T>(0);
+      }
+
+      this.sessions.push({
+        id,
+        owner_type: "user",
+        owner_id: ownerId,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        created_at: createdAt,
+        revoked_at: null,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === UPDATE_REGISTER_CODE_USED_SQL) {
+      const [usedAt, id] = values as [string, string];
+
+      if (this.consumeNextRegisterCodeBeforeUpdate) {
+        this.consumeNextRegisterCodeBeforeUpdate = false;
+        const concurrentlyUsedCode = this.verificationCodes.find(
+          (row) => row.id === id && row.used_at === null,
+        );
+
+        if (concurrentlyUsedCode) {
+          concurrentlyUsedCode.used_at = "2000-01-01T00:00:00.000Z";
+        }
+      }
+
+      const code = this.verificationCodes.find(
+        (row) => row.id === id && row.used_at === null,
+      );
+
+      if (code) {
+        code.used_at = usedAt;
+      }
+
+      return okResult<T>(code ? 1 : 0);
+    }
+
     if (normalizedSql === REVOKE_SESSION_SQL) {
       const [revokedAt, id] = values as [string, string];
       const session = this.sessions.find(
@@ -378,10 +564,16 @@ class FakeD1 {
         session.revoked_at = revokedAt;
       }
 
-      return okResult<T>();
+      return okResult<T>(session ? 1 : 0);
     }
 
     throw new Error(`Unsupported run() SQL: ${normalizedSql}`);
+  }
+
+  private hasConsumedRegisterCode(id: string, usedAt: string): boolean {
+    return this.verificationCodes.some(
+      (row) => row.id === id && row.used_at === usedAt,
+    );
   }
 }
 
@@ -455,6 +647,14 @@ const SELECT_USER_BY_EMAIL_SQL = normalizeSql(`
   LIMIT 1
 `);
 
+const SELECT_LATEST_REGISTER_CODE_SQL = normalizeSql(`
+  SELECT id, code, expires_at, used_at
+  FROM verification_code
+  WHERE email = ? AND purpose = 'register'
+  ORDER BY created_at DESC
+  LIMIT 1
+`);
+
 const INSERT_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
   INSERT INTO anonymous_account (id, device_id, created_at, upgraded_user_id)
   VALUES (?, ?, ?, NULL)
@@ -484,6 +684,56 @@ const INSERT_VERIFICATION_CODE_SQL = normalizeSql(`
   VALUES (?, ?, ?, 'register', ?, NULL, ?)
 `);
 
+const INSERT_USER_ACCOUNT_SQL = normalizeSql(`
+  INSERT INTO user
+    (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
+  SELECT ?, ?, ?, NULL, ?, ?, NULL
+  WHERE EXISTS (
+    SELECT 1
+    FROM verification_code
+    WHERE id = ? AND used_at = ?
+  )
+`);
+
+const INSERT_USER_PORTFOLIO_FOLDER_SQL = normalizeSql(`
+  INSERT INTO portfolio_folder
+    (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
+  SELECT ?, 'user', ?, 'Main', 1, 0, ?, ?
+  WHERE EXISTS (
+    SELECT 1
+    FROM verification_code
+    WHERE id = ? AND used_at = ?
+  )
+`);
+
+const INSERT_USER_USER_PREFERENCE_SQL = normalizeSql(`
+  INSERT INTO user_preference
+    (id, owner_type, owner_id, currency, amount_hidden, last_selected_folder_id, created_at, updated_at)
+  SELECT ?, 'user', ?, 'USD', 0, NULL, ?, ?
+  WHERE EXISTS (
+    SELECT 1
+    FROM verification_code
+    WHERE id = ? AND used_at = ?
+  )
+`);
+
+const INSERT_USER_SESSION_SQL = normalizeSql(`
+  INSERT INTO session
+    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, ?, ?, ?, NULL
+  WHERE EXISTS (
+    SELECT 1
+    FROM verification_code
+    WHERE id = ? AND used_at = ?
+  )
+`);
+
+const UPDATE_REGISTER_CODE_USED_SQL = normalizeSql(`
+  UPDATE verification_code
+  SET used_at = ?
+  WHERE id = ? AND used_at IS NULL
+`);
+
 const REVOKE_SESSION_SQL = normalizeSql(`
   UPDATE session
   SET revoked_at = ?
@@ -494,8 +744,18 @@ function normalizeSql(sql: string): string {
   return sql.replace(/\s+/g, " ").trim();
 }
 
-function okResult<T = unknown>(): D1Result<T> {
-  return { success: true, meta: {} } as D1Result<T>;
+function okResult<T = unknown>(changes = 1): D1Result<T> {
+  return {
+    success: true,
+    meta: {
+      changes,
+      duration: 0,
+      last_row_id: 0,
+      rows_read: 0,
+      rows_written: changes,
+      size_after: 0,
+    },
+  } as D1Result<T>;
 }
 
 function createFakeD1(): D1Database & FakeD1 {
@@ -566,6 +826,21 @@ async function requestRegisterSendCode(
 ): Promise<Response> {
   return app.request(
     "/api/v1/auth/register/send-code",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+async function requestRegisterVerify(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/register/verify",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -703,6 +978,7 @@ describe("POST /api/v1/auth/register/send-code", () => {
     db.users.push({
       id: "existing-user",
       email: "owner@example.com",
+      password_hash: null,
       display_name: "Existing User",
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
@@ -728,6 +1004,7 @@ describe("POST /api/v1/auth/register/send-code", () => {
     db.users.push({
       id: "deleted-user",
       email: "owner@example.com",
+      password_hash: null,
       display_name: "Deleted User",
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
@@ -809,6 +1086,429 @@ describe("POST /api/v1/auth/register/send-code", () => {
     } finally {
       errorSpy.mockRestore();
     }
+  });
+});
+
+describe("POST /api/v1/auth/register/verify", () => {
+  it("creates a user session because verified email ownership upgrades the client to a durable account", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const password = "correct-password";
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "  New.Owner@Example.COM  ",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const response = await requestRegisterVerify(env, {
+      email: " new.owner@example.COM ",
+      code: code.code,
+      password,
+    });
+    const body = (await response.json()) as RegisterVerifySuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        user_id: expect.any(String),
+        email: "new.owner@example.com",
+        access_token: expect.any(String),
+        refresh_token: expect.any(String),
+        expires_in: 900,
+        migrated: false,
+      },
+    });
+    expect(db.users).toHaveLength(1);
+    const user = db.users[0];
+
+    if (!user?.password_hash) {
+      throw new Error("Expected user password hash.");
+    }
+
+    expect(user).toEqual(
+      expect.objectContaining({
+        id: body.data.user_id,
+        email: "new.owner@example.com",
+        display_name: null,
+        deleted_at: null,
+      }),
+    );
+    expect(user.password_hash).not.toBe(password);
+    expect(await verifyPassword(password, user.password_hash)).toBe(true);
+    expect(
+      db.portfolioFolders.find(
+        (row) => row.owner_type === "user" && row.owner_id === user.id,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        name: "Main",
+        is_default: 1,
+        sort_order: 0,
+      }),
+    );
+    expect(
+      db.userPreferences.find(
+        (row) => row.owner_type === "user" && row.owner_id === user.id,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        currency: "USD",
+        amount_hidden: 0,
+        last_selected_folder_id: null,
+      }),
+    );
+    const session = db.sessions.find(
+      (row) => row.owner_type === "user" && row.owner_id === user.id,
+    );
+
+    if (!session) {
+      throw new Error("Expected user session.");
+    }
+
+    expect(session.refresh_token).toBe(
+      await hashRefreshToken(body.data.refresh_token),
+    );
+    expect(code.used_at).toEqual(expect.any(String));
+
+    const currentResponse = await requestCurrentAccount(
+      env,
+      `Bearer ${body.data.access_token}`,
+    );
+    const currentBody =
+      (await currentResponse.json()) as CurrentAccountSuccessResponse;
+
+    expect(currentResponse.status).toBe(200);
+    expect(currentBody).toEqual({
+      success: true,
+      data: {
+        owner_type: "user",
+        user_id: user.id,
+        anonymous_id: null,
+        email: "new.owner@example.com",
+        display_name: null,
+        created_at: user.created_at,
+      },
+    });
+  });
+
+  it("returns 422 for a reused code because one-time email proof must not create a second durable account", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "owner@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const firstResponse = await requestRegisterVerify(env, {
+      email: "owner@example.com",
+      code: code.code,
+      password: "correct-password",
+    });
+    expect(firstResponse.status).toBe(200);
+
+    const response = await requestRegisterVerify(env, {
+      email: "owner@example.com",
+      code: code.code,
+      password: "another-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Incorrect verification code.",
+      },
+    });
+    expect(db.users).toHaveLength(1);
+    expect(db.sessions).toHaveLength(1);
+  });
+
+  it("returns 422 for an expired code because stale inbox ownership proof must not create a user", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "owner@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    code.expires_at = "2000-01-01T00:00:00.000Z";
+
+    const response = await requestRegisterVerify(env, {
+      email: "owner@example.com",
+      code: code.code,
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Incorrect verification code.",
+      },
+    });
+    expect(db.users).toHaveLength(0);
+    expect(db.sessions).toHaveLength(0);
+    expect(code.used_at).toBeNull();
+  });
+
+  it("returns 422 for a short password because a verified email still needs a durable credential", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "owner@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const response = await requestRegisterVerify(env, {
+      email: "owner@example.com",
+      code: code.code,
+      password: "short",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Password must be at least 8 characters.",
+      },
+    });
+    expect(db.users).toHaveLength(0);
+    expect(db.sessions).toHaveLength(0);
+    expect(code.used_at).toBeNull();
+  });
+
+  it("returns 500 / INTERNAL_ERROR when JWT_SECRET is blank because verified registration must not create unusable sessions", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "owner@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    env.JWT_SECRET = "   ";
+
+    const response = await requestRegisterVerify(env, {
+      email: "owner@example.com",
+      code: code.code,
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Something went wrong. Please try again.",
+      },
+    });
+    expect(db.users).toHaveLength(0);
+    expect(db.sessions).toHaveLength(0);
+    expect(code.used_at).toBeNull();
+  });
+
+  it("returns 500 / INTERNAL_ERROR when the registration batch fails because partially persisted credentials must not be reported as usable", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "owner@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    db.failNextBatch = true;
+
+    try {
+      const response = await requestRegisterVerify(env, {
+        email: "owner@example.com",
+        code: code.code,
+        password: "correct-password",
+      });
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Something went wrong. Please try again.",
+        },
+      });
+      expect(db.users).toHaveLength(0);
+      expect(db.sessions).toHaveLength(0);
+      expect(code.used_at).toBeNull();
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Failed to verify register code.",
+        expect.any(Error),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("returns 422 when the code is consumed between select and update because single-use proof must be atomically consumed", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "owner@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    db.consumeNextRegisterCodeBeforeUpdate = true;
+
+    const response = await requestRegisterVerify(env, {
+      email: "owner@example.com",
+      code: code.code,
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Incorrect verification code.",
+      },
+    });
+    expect(code.used_at).toEqual(expect.any(String));
+    expect(db.users).toHaveLength(0);
+    expect(
+      db.portfolioFolders.filter((row) => row.owner_type === "user"),
+    ).toHaveLength(0);
+    expect(
+      db.userPreferences.filter((row) => row.owner_type === "user"),
+    ).toHaveLength(0);
+    expect(db.sessions).toHaveLength(0);
+  });
+
+  it("returns 409 for an existing email during verify because send-code and account creation can race", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "owner@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    db.users.push({
+      id: "existing-user",
+      email: "owner@example.com",
+      password_hash: null,
+      display_name: "Existing User",
+      created_at: "2026-07-02T00:00:00.000Z",
+      updated_at: "2026-07-02T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const response = await requestRegisterVerify(env, {
+      email: "owner@example.com",
+      code: code.code,
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "CONFLICT",
+        message: "Email is already registered.",
+      },
+    });
+    expect(db.users).toHaveLength(1);
+    expect(db.sessions).toHaveLength(0);
+    expect(code.used_at).toBeNull();
+  });
+
+  it("returns 409 for a soft-deleted email during verify because user.email remains globally reserved", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "owner@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    db.users.push({
+      id: "deleted-user",
+      email: "owner@example.com",
+      password_hash: null,
+      display_name: "Deleted User",
+      created_at: "2026-07-02T00:00:00.000Z",
+      updated_at: "2026-07-02T00:00:00.000Z",
+      deleted_at: "2026-07-03T00:00:00.000Z",
+    });
+
+    const response = await requestRegisterVerify(env, {
+      email: "owner@example.com",
+      code: code.code,
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "CONFLICT",
+        message: "Email is already registered.",
+      },
+    });
+    expect(db.users).toHaveLength(1);
+    expect(db.sessions).toHaveLength(0);
+    expect(code.used_at).toBeNull();
   });
 });
 
@@ -1162,6 +1862,7 @@ describe("POST /api/v1/auth/token/refresh", () => {
     fakeD1(env).users.push({
       id: session.owner_id,
       email: "admin-shaped@example.com",
+      password_hash: null,
       display_name: "Admin Shaped",
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
@@ -1185,6 +1886,7 @@ describe("POST /api/v1/auth/token/refresh", () => {
     db.users.push({
       id: "user-refresh",
       email: "refresh-user@example.com",
+      password_hash: null,
       display_name: "Refresh User",
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
@@ -1243,6 +1945,7 @@ describe("POST /api/v1/auth/token/refresh", () => {
     db.users.push({
       id: "user-refresh-deleted",
       email: "deleted-refresh-user@example.com",
+      password_hash: null,
       display_name: "Deleted Refresh User",
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
@@ -1515,6 +2218,7 @@ describe("GET /api/v1/auth/me", () => {
     fakeD1(env).users.push({
       id: "user-current",
       email: "owner@example.com",
+      password_hash: null,
       display_name: "Owner",
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
