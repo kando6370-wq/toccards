@@ -1,4 +1,5 @@
 import {
+  hashPassword,
   hashRefreshToken,
   signAccessToken,
   verifyPassword,
@@ -1451,6 +1452,17 @@ function expectUnauthorized(body: unknown, status: number): void {
   });
 }
 
+function expectIncorrectPassword(body: unknown, status: number): void {
+  expect(status).toBe(422);
+  expect(body).toEqual({
+    success: false,
+    error: {
+      code: "VALIDATION_ERROR",
+      message: "Incorrect password. Please try again.",
+    },
+  });
+}
+
 function tamperJwtSignature(token: string): string {
   const parts = token.split(".");
   const signature = parts[2];
@@ -2787,18 +2799,257 @@ describe("POST /api/v1/auth/login", () => {
       });
       const body = await response.json();
 
-      expect(response.status).toBe(422);
-      expect(body).toEqual({
-        success: false,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Incorrect password. Please try again.",
-        },
-      });
+      expectIncorrectPassword(body, response.status);
       expect(deriveBits).toHaveBeenCalledTimes(1);
     } finally {
       deriveBits.mockRestore();
     }
+  });
+
+  it("returns a uniform password error for an unknown email because login must not reveal account existence", async () => {
+    const env = createTestEnv();
+
+    const response = await requestLogin(env, {
+      email: "missing@example.com",
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expectIncorrectPassword(body, response.status);
+    expect(fakeD1(env).sessions).toHaveLength(0);
+  });
+
+  it("returns a uniform password error for the wrong password because failed authentication must not create sessions", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "wrong-password-user",
+      email: "wrong-password@example.com",
+      password_hash: await hashPassword("correct-password"),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const response = await requestLogin(env, {
+      email: "wrong-password@example.com",
+      password: "incorrect-password",
+    });
+    const body = await response.json();
+
+    expectIncorrectPassword(body, response.status);
+    expect(db.sessions).toHaveLength(0);
+  });
+
+  it("returns a uniform password error for a soft-deleted user because removed accounts must not be revived", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "deleted-login-user",
+      email: "deleted-login@example.com",
+      password_hash: await hashPassword("correct-password"),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: "2026-07-03T01:00:00.000Z",
+    });
+
+    const response = await requestLogin(env, {
+      email: "deleted-login@example.com",
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expectIncorrectPassword(body, response.status);
+    expect(db.sessions).toHaveLength(0);
+  });
+
+  it("returns a uniform password error for an OAuth-only user because password login requires a stored password hash", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "oauth-only-login-user",
+      email: "oauth-only@example.com",
+      password_hash: null,
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const response = await requestLogin(env, {
+      email: "oauth-only@example.com",
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expectIncorrectPassword(body, response.status);
+    expect(db.sessions).toHaveLength(0);
+  });
+
+  it("returns a uniform password error for a blank password because login needs a credential secret", async () => {
+    const env = createTestEnv();
+
+    const response = await requestLogin(env, {
+      email: "blank-password@example.com",
+      password: "",
+    });
+    const body = await response.json();
+
+    expectIncorrectPassword(body, response.status);
+    expect(fakeD1(env).sessions).toHaveLength(0);
+  });
+
+  it("returns 422 / VALIDATION_ERROR for blank email because login cannot identify the account lookup key", async () => {
+    const env = createTestEnv();
+
+    const response = await requestLogin(env, {
+      email: "   ",
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Please enter your email.",
+      },
+    });
+    expect(fakeD1(env).sessions).toHaveLength(0);
+  });
+
+  it("returns 422 / VALIDATION_ERROR for invalid email because malformed account keys must not query users", async () => {
+    const env = createTestEnv();
+
+    const response = await requestLogin(env, {
+      email: "invalid-email",
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Please enter a valid email address.",
+      },
+    });
+    expect(fakeD1(env).sessions).toHaveLength(0);
+  });
+
+  it("returns 422 / VALIDATION_ERROR for overlong email because login must enforce the shared email length rule", async () => {
+    const env = createTestEnv();
+    const overlongEmail = `${"a".repeat(245)}@example.com`;
+
+    const response = await requestLogin(env, {
+      email: overlongEmail,
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Please enter a valid email address.",
+      },
+    });
+    expect(fakeD1(env).sessions).toHaveLength(0);
+  });
+
+  it("returns 500 / INTERNAL_ERROR when JWT_SECRET is blank because login sessions need signed access tokens", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "secret-login-user",
+      email: "secret-login@example.com",
+      password_hash: await hashPassword("correct-password"),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+    env.JWT_SECRET = "   ";
+
+    const response = await requestLogin(env, {
+      email: "secret-login@example.com",
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Something went wrong. Please try again.",
+      },
+    });
+    expect(db.sessions).toHaveLength(0);
+  });
+
+  it("returns 500 / INTERNAL_ERROR when user lookup fails because login must fail loudly before issuing credentials", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.failNextFirst = true;
+
+    const response = await requestLogin(env, {
+      email: "lookup-failure@example.com",
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Something went wrong. Please try again.",
+      },
+    });
+    expect(db.sessions).toHaveLength(0);
+  });
+
+  it("returns 500 / INTERNAL_ERROR when session persistence fails because login must not return unstored refresh credentials", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "run-failure-login-user",
+      email: "run-failure-login@example.com",
+      password_hash: await hashPassword("correct-password"),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+    db.failNextRun = true;
+
+    const response = await requestLogin(env, {
+      email: "run-failure-login@example.com",
+      password: "correct-password",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Something went wrong. Please try again.",
+      },
+    });
+    expect(db.sessions).toHaveLength(0);
   });
 });
 
