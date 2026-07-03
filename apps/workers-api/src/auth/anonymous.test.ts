@@ -150,6 +150,17 @@ type RegisterVerifySuccessResponse = {
   };
 };
 
+type LoginSuccessResponse = {
+  success: true;
+  data: {
+    user_id: string;
+    email: string;
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+  };
+};
+
 const BASE64URL_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
@@ -275,6 +286,24 @@ class FakeD1 {
       const user = this.users.find((row) => row.email === email);
 
       return user ? ({ id: user.id } as T) : null;
+    }
+
+    if (normalizedSql === SELECT_LOGIN_USER_BY_EMAIL_SQL) {
+      const [email] = values as [string];
+      const user = this.users.find(
+        (row) =>
+          row.email === email &&
+          row.deleted_at === null &&
+          row.password_hash !== null,
+      );
+
+      return user
+        ? ({
+            id: user.id,
+            email: user.email,
+            password_hash: user.password_hash,
+          } as T)
+        : null;
     }
 
     if (normalizedSql === SELECT_LATEST_REGISTER_CODE_SQL) {
@@ -922,6 +951,27 @@ class FakeD1 {
       return okResult<T>(session ? 1 : 0);
     }
 
+    if (normalizedSql === INSERT_LOGIN_USER_SESSION_SQL) {
+      const [id, ownerId, refreshToken, expiresAt, createdAt] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      this.sessions.push({
+        id,
+        owner_type: "user",
+        owner_id: ownerId,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        created_at: createdAt,
+        revoked_at: null,
+      });
+      return okResult<T>();
+    }
+
     throw new Error(`Unsupported run() SQL: ${normalizedSql}`);
   }
 
@@ -1012,6 +1062,13 @@ const SELECT_USER_BY_EMAIL_SQL = normalizeSql(`
   SELECT id
   FROM user
   WHERE email = ?
+  LIMIT 1
+`);
+
+const SELECT_LOGIN_USER_BY_EMAIL_SQL = normalizeSql(`
+  SELECT id, email, password_hash
+  FROM user
+  WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL
   LIMIT 1
 `);
 
@@ -1133,6 +1190,12 @@ const INSERT_MIGRATED_USER_SESSION_SQL = normalizeSql(`
       FROM anonymous_account
       WHERE id = ? AND upgraded_user_id = ?
     )
+`);
+
+const INSERT_LOGIN_USER_SESSION_SQL = normalizeSql(`
+  INSERT INTO session
+    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'user', ?, ?, ?, ?, NULL)
 `);
 
 const UPDATE_REGISTER_CODE_USED_SQL = normalizeSql(`
@@ -1335,6 +1398,21 @@ async function requestRegisterVerify(
     {
       method: "POST",
       headers,
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+async function requestLogin(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/login",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     },
     env,
@@ -2585,6 +2663,117 @@ describe("POST /api/v1/auth/register/verify", () => {
     expect(
       db.sessions.filter((row) => row.owner_type === "user"),
     ).toHaveLength(0);
+  });
+});
+
+describe("POST /api/v1/auth/login", () => {
+  it("creates a new user session because registered email owners must be able to return after registration", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const password = "correct-password";
+
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "login.owner@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const registerResponse = await requestRegisterVerify(env, {
+      email: "login.owner@example.com",
+      code: code.code,
+      password,
+    });
+    expect(registerResponse.status).toBe(200);
+    const existingUserSessionCount = db.sessions.filter(
+      (row) => row.owner_type === "user",
+    ).length;
+
+    const response = await requestLogin(env, {
+      email: "login.owner@example.com",
+      password,
+    });
+    const body = (await response.json()) as LoginSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        user_id: expect.any(String),
+        email: "login.owner@example.com",
+        access_token: expect.any(String),
+        refresh_token: expect.any(String),
+        expires_in: 900,
+      },
+    });
+
+    const loginSession = db.sessions.at(-1);
+
+    if (!loginSession) {
+      throw new Error("Expected login session.");
+    }
+
+    expect(db.sessions.filter((row) => row.owner_type === "user")).toHaveLength(
+      existingUserSessionCount + 1,
+    );
+    expect(loginSession.owner_type).toBe("user");
+    expect(loginSession.owner_id).toBe(body.data.user_id);
+    expect(loginSession.refresh_token).toBe(
+      await hashRefreshToken(body.data.refresh_token),
+    );
+    expect(loginSession.refresh_token).not.toBe(body.data.refresh_token);
+
+    const currentResponse = await requestCurrentAccount(
+      env,
+      `Bearer ${body.data.access_token}`,
+    );
+    const currentBody =
+      (await currentResponse.json()) as CurrentAccountSuccessResponse;
+
+    expect(currentResponse.status).toBe(200);
+    expect(currentBody.data).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        user_id: body.data.user_id,
+        anonymous_id: null,
+        email: "login.owner@example.com",
+      }),
+    );
+  });
+
+  it("normalizes email before password verification because login input should match registration input rules", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const password = "correct-password";
+
+    const sendResponse = await requestRegisterSendCode(env, {
+      email: "mixed.login@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected register verification code.");
+    }
+
+    const registerResponse = await requestRegisterVerify(env, {
+      email: "mixed.login@example.com",
+      code: code.code,
+      password,
+    });
+    expect(registerResponse.status).toBe(200);
+
+    const response = await requestLogin(env, {
+      email: "  Mixed.Login@Example.COM  ",
+      password,
+    });
+    const body = (await response.json()) as LoginSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data.email).toBe("mixed.login@example.com");
   });
 });
 

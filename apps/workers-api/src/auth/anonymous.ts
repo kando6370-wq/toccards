@@ -9,6 +9,7 @@ import { Hono } from "hono";
 import { ulid } from "ulid";
 import type { Env } from "../env";
 import { registerCurrentAccountRoutes } from "./current";
+import { registerEmailLoginRoutes } from "./login";
 import { registerEmailRegistrationRoutes } from "./register";
 import { registerSessionRoutes } from "./session";
 
@@ -68,6 +69,7 @@ export const authRoutes = new Hono<{ Bindings: Env }>();
 registerCurrentAccountRoutes(authRoutes);
 registerSessionRoutes(authRoutes);
 registerEmailRegistrationRoutes(authRoutes);
+registerEmailLoginRoutes(authRoutes);
 
 authRoutes.post("/anonymous", async (c) => {
   let body: unknown;
