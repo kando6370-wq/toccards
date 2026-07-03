@@ -13,7 +13,8 @@
 - 修改本地插件缓存中的 `superpowers:brainstorming/SKILL.md`。
 - 在 “Understanding the idea” 相关规则中新增一条移动 App 国际化约束。
 - 明确 iOS 与 Android App 都适用。
-- 明确语言清单未知时，需要澄清目标语言、默认语言和 fallback 策略。
+- 明确未被用户覆盖时，默认语言为英语，首批支持语言为日语，其他语言后续扩展。
+- 明确语言清单需要扩展时，需要澄清新增语言和 fallback 策略。
 
 不包含：
 
@@ -29,19 +30,31 @@
 
 不把规则放进 checklist，因为这会把所有 brainstorming 任务都变成额外步骤；移动 App 国际化只在 iOS 或 Android App 需求触发时适用。也不修改 frontmatter description，因为 description 应只描述触发条件，放入流程细节会降低 skill 可维护性。
 
+## 语言策略
+
+默认策略如下：
+
+- 默认语言：英语。
+- 首批支持语言：日语。
+- 其他语言：后续扩展，不在初始设计中默认纳入。
+- fallback：未指定其他策略时，缺失翻译回退到英语。
+
+这是一条本地 `superpowers:brainstorming` 默认规则。用户在具体任务中显式指定其他默认语言或目标语言时，以用户的具体要求为准。
+
 ## 拟新增规则
 
 建议英文规则如下，保持目标 skill 的原始语言风格：
 
 ```markdown
-- For any iOS or Android app, internationalization and multilingual versions are mandatory requirements by default. Treat localization as part of the design from the start; if target languages are not specified, ask about supported languages, default language, and fallback behavior rather than designing a single-language app.
+- For any iOS or Android app, internationalization and multilingual versions are mandatory requirements by default. Treat localization as part of the design from the start. Unless the user specifies otherwise, use English as the default language, support Japanese in the initial multilingual version, defer other languages to later expansion, and use English as the fallback for missing translations.
 ```
 
 ## 验收标准
 
 - `SKILL.md` 包含一条明确覆盖 iOS 和 Android App 的国际化/多语言强制规则。
 - 规则表达为默认强制要求，而不是可选建议。
-- 规则要求语言未知时继续澄清目标语言、默认语言和 fallback。
+- 规则明确默认语言为英语、首批支持语言为日语、其他语言后续扩展。
+- 规则明确未指定其他 fallback 时回退到英语。
 - 不改动 checklist、流程图、frontmatter 或其他 skill。
 - 文档中不留下占位标记或含糊占位。
 
