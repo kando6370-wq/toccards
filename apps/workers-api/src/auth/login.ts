@@ -48,6 +48,9 @@ const INCORRECT_PASSWORD_RESPONSE = {
   },
 } as const;
 
+const DUMMY_LOGIN_PASSWORD_HASH =
+  "pbkdf2-sha256$v1$210000$AAECAwQFBgcICQoLDA0ODw$5n_O9-8D7zbhW7HPSP6NZf4STgnvUR115Y1j4dCrwHo";
+
 const INTERNAL_ERROR_RESPONSE = {
   success: false,
   error: {
@@ -96,16 +99,12 @@ export function registerEmailLoginRoutes(
         .bind(input.email)
         .first<LoginUserRow>();
 
-      if (!user) {
-        return c.json(INCORRECT_PASSWORD_RESPONSE, 422);
-      }
-
       const passwordMatches = await verifyPassword(
         input.password,
-        user.password_hash,
+        user?.password_hash ?? DUMMY_LOGIN_PASSWORD_HASH,
       );
 
-      if (!passwordMatches) {
+      if (!user || !passwordMatches) {
         return c.json(INCORRECT_PASSWORD_RESPONSE, 422);
       }
 

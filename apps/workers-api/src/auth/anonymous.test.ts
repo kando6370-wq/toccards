@@ -2775,6 +2775,31 @@ describe("POST /api/v1/auth/login", () => {
     expect(response.status).toBe(200);
     expect(body.data.email).toBe("mixed.login@example.com");
   });
+
+  it("runs password verification for an unknown email because failed login paths must not expose account existence by cost", async () => {
+    const env = createTestEnv();
+    const deriveBits = vi.spyOn(crypto.subtle, "deriveBits");
+
+    try {
+      const response = await requestLogin(env, {
+        email: "missing.login@example.com",
+        password: "candidate-password",
+      });
+      const body = await response.json();
+
+      expect(response.status).toBe(422);
+      expect(body).toEqual({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Incorrect password. Please try again.",
+        },
+      });
+      expect(deriveBits).toHaveBeenCalledTimes(1);
+    } finally {
+      deriveBits.mockRestore();
+    }
+  });
 });
 
 describe("POST /api/v1/auth/anonymous", () => {
