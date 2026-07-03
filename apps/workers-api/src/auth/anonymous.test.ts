@@ -1,5 +1,5 @@
 import { hashRefreshToken, signAccessToken } from "@kando/auth-core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import app, { type Env as AppEnv } from "../index";
 
 type TestEnv = AppEnv & { JWT_SECRET: string };
@@ -60,6 +60,16 @@ type UserRow = {
   deleted_at: string | null;
 };
 
+type VerificationCodeRow = {
+  id: string;
+  email: string;
+  code: string;
+  purpose: "register";
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
+};
+
 type AnonymousSuccessResponse = {
   success: true;
   data: {
@@ -96,6 +106,14 @@ type RefreshSuccessResponse = {
     access_token: string;
     refresh_token?: string;
     expires_in: number;
+  };
+};
+
+type RegisterSendCodeSuccessResponse = {
+  success: true;
+  data: {
+    expires_in: number;
+    resend_after: number;
   };
 };
 
@@ -140,6 +158,9 @@ class FakeD1 {
   userPreferences: UserPreferenceRow[] = [];
   sessions: SessionRow[] = [];
   users: UserRow[] = [];
+  verificationCodes: VerificationCodeRow[] = [];
+  failNextFirst = false;
+  failNextRun = false;
 
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
@@ -152,6 +173,11 @@ class FakeD1 {
   }
 
   async first<T = unknown>(sql: string, values: unknown[]): Promise<T | null> {
+    if (this.failNextFirst) {
+      this.failNextFirst = false;
+      throw new Error("Injected D1 first failure.");
+    }
+
     const normalizedSql = normalizeSql(sql);
 
     if (normalizedSql === SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL) {
@@ -192,6 +218,13 @@ class FakeD1 {
             created_at: user.created_at,
           } as T)
         : null;
+    }
+
+    if (normalizedSql === SELECT_USER_BY_EMAIL_SQL) {
+      const [email] = values as [string];
+      const user = this.users.find((row) => row.email === email);
+
+      return user ? ({ id: user.id } as T) : null;
     }
 
     if (normalizedSql === SELECT_SESSION_BY_REFRESH_TOKEN_SQL) {
@@ -237,6 +270,11 @@ class FakeD1 {
   }
 
   async run<T = unknown>(sql: string, values: unknown[]): Promise<D1Result<T>> {
+    if (this.failNextRun) {
+      this.failNextRun = false;
+      throw new Error("Injected D1 run failure.");
+    }
+
     const normalizedSql = normalizeSql(sql);
 
     if (normalizedSql === INSERT_ANONYMOUS_ACCOUNT_SQL) {
@@ -306,6 +344,26 @@ class FakeD1 {
         expires_at: expiresAt,
         created_at: createdAt,
         revoked_at: null,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_VERIFICATION_CODE_SQL) {
+      const [id, email, code, expiresAt, createdAt] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+      this.verificationCodes.push({
+        id,
+        email,
+        code,
+        purpose: "register",
+        expires_at: expiresAt,
+        used_at: null,
+        created_at: createdAt,
       });
       return okResult<T>();
     }
@@ -390,6 +448,13 @@ const SELECT_REFRESH_USER_OWNER_SQL = normalizeSql(`
   LIMIT 1
 `);
 
+const SELECT_USER_BY_EMAIL_SQL = normalizeSql(`
+  SELECT id
+  FROM user
+  WHERE email = ?
+  LIMIT 1
+`);
+
 const INSERT_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
   INSERT INTO anonymous_account (id, device_id, created_at, upgraded_user_id)
   VALUES (?, ?, ?, NULL)
@@ -411,6 +476,12 @@ const INSERT_SESSION_SQL = normalizeSql(`
   INSERT INTO session
     (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
   VALUES (?, 'anonymous', ?, ?, ?, ?, NULL)
+`);
+
+const INSERT_VERIFICATION_CODE_SQL = normalizeSql(`
+  INSERT INTO verification_code
+    (id, email, code, purpose, expires_at, used_at, created_at)
+  VALUES (?, ?, ?, 'register', ?, NULL, ?)
 `);
 
 const REVOKE_SESSION_SQL = normalizeSql(`
@@ -489,6 +560,21 @@ async function requestRefreshToken(
   );
 }
 
+async function requestRegisterSendCode(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/register/send-code",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
 async function requestLogout(
   env: TestEnv,
   authorization: string | undefined,
@@ -532,6 +618,199 @@ function tamperJwtSignature(token: string): string {
   const replacement = signature[0] === "A" ? "B" : "A";
   return `${parts[0]}.${parts[1]}.${replacement}${signature.slice(1)}`;
 }
+
+describe("POST /api/v1/auth/register/send-code", () => {
+  it("stores a normalized one-time register code because email registration must verify ownership before creating a user", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const response = await requestRegisterSendCode(env, {
+      email: "  New.Owner@Example.COM  ",
+    });
+    const body = (await response.json()) as RegisterSendCodeSuccessResponse;
+    const code = db.verificationCodes[0];
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        expires_in: 600,
+        resend_after: 60,
+      },
+    });
+    expect(db.verificationCodes).toHaveLength(1);
+    expect(code).toEqual(
+      expect.objectContaining({
+        id: expect.any(String),
+        email: "new.owner@example.com",
+        purpose: "register",
+        used_at: null,
+      }),
+    );
+    expect(code?.code).toMatch(/^\d{6}$/);
+    expect(Date.parse(code?.expires_at ?? "") - Date.parse(code?.created_at ?? "")).toBe(
+      600000,
+    );
+  });
+
+  it.each([
+    {
+      name: "missing email",
+      body: {},
+      message: "Please enter your email.",
+    },
+    {
+      name: "blank email",
+      body: { email: "   " },
+      message: "Please enter your email.",
+    },
+    {
+      name: "non-string email",
+      body: { email: 42 },
+      message: "Please enter your email.",
+    },
+    {
+      name: "malformed email",
+      body: { email: "not-an-email" },
+      message: "Please enter a valid email address.",
+    },
+    {
+      name: "overlong email",
+      body: { email: `${"a".repeat(244)}@example.com` },
+      message: "Please enter a valid email address.",
+    },
+  ])(
+    "returns 422 / VALIDATION_ERROR for $name without a code because registration requires a usable inbox address",
+    async ({ body, message }) => {
+      const env = createTestEnv();
+      const response = await requestRegisterSendCode(env, body);
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(422);
+      expect(responseBody).toEqual({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message,
+        },
+      });
+      expect(fakeD1(env).verificationCodes).toHaveLength(0);
+    },
+  );
+
+  it("returns 409 / CONFLICT without a code because registration must not replace an active user", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    db.users.push({
+      id: "existing-user",
+      email: "owner@example.com",
+      display_name: "Existing User",
+      created_at: "2026-07-02T00:00:00.000Z",
+      updated_at: "2026-07-02T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const response = await requestRegisterSendCode(env, {
+      email: "  OWNER@example.com ",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({
+      success: false,
+      error: { code: "CONFLICT" },
+    });
+    expect(db.verificationCodes).toHaveLength(0);
+  });
+
+  it("returns 409 / CONFLICT without a code for a soft-deleted email because user.email is globally unique and later user creation would fail", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    db.users.push({
+      id: "deleted-user",
+      email: "owner@example.com",
+      display_name: "Deleted User",
+      created_at: "2026-07-02T00:00:00.000Z",
+      updated_at: "2026-07-02T00:00:00.000Z",
+      deleted_at: "2026-07-03T00:00:00.000Z",
+    });
+
+    const response = await requestRegisterSendCode(env, {
+      email: "  OWNER@example.com ",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({
+      success: false,
+      error: { code: "CONFLICT" },
+    });
+    expect(db.verificationCodes).toHaveLength(0);
+  });
+
+  it("returns 500 / INTERNAL_ERROR when the existing-user lookup fails because D1 errors must keep the API error contract", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    db.failNextFirst = true;
+
+    try {
+      const response = await requestRegisterSendCode(env, {
+        email: "owner@example.com",
+      });
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Something went wrong. Please try again.",
+        },
+      });
+      expect(db.verificationCodes).toHaveLength(0);
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Failed to create register verification code.",
+        expect.any(Error),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("returns 500 / INTERNAL_ERROR when verification-code persistence fails because clients need the same retryable error shape", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    db.failNextRun = true;
+
+    try {
+      const response = await requestRegisterSendCode(env, {
+        email: "owner@example.com",
+      });
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Something went wrong. Please try again.",
+        },
+      });
+      expect(db.verificationCodes).toHaveLength(0);
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Failed to create register verification code.",
+        expect.any(Error),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+});
 
 describe("POST /api/v1/auth/anonymous", () => {
   it("returns 422 / VALIDATION_ERROR when device_id is blank because anonymous assets cannot be isolated", async () => {
