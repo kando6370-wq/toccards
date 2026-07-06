@@ -29,7 +29,7 @@ type VerifyCodeInput = {
 
 type ResetPasswordInput = {
   email: string | null;
-  password: string | null;
+  newPassword: string | null;
   resetToken: string | null;
 };
 
@@ -293,7 +293,7 @@ export function registerForgotPasswordRoutes(
       return c.json(INVALID_EMAIL_RESPONSE, 422);
     }
 
-    if (!input.password || input.password.length < 8) {
+    if (!input.newPassword || input.newPassword.length < 8) {
       return c.json(INVALID_PASSWORD_RESPONSE, 422);
     }
 
@@ -326,7 +326,7 @@ export function registerForgotPasswordRoutes(
       }
 
       const usedAt = now.toISOString();
-      const passwordHash = await hashPassword(input.password);
+      const passwordHash = await hashPassword(input.newPassword);
       const results = await c.env.DB.batch([
         c.env.DB.prepare(UPDATE_RESET_CODE_USED_SQL).bind(
           usedAt,
@@ -410,16 +410,16 @@ async function readResetPasswordInput(request: {
   try {
     body = await request.json();
   } catch {
-    return { email: null, password: null, resetToken: null };
+    return { email: null, newPassword: null, resetToken: null };
   }
 
   const rawEmail =
     body && typeof body === "object"
       ? (body as { email?: unknown }).email
       : undefined;
-  const rawPassword =
+  const rawNewPassword =
     body && typeof body === "object"
-      ? (body as { password?: unknown }).password
+      ? (body as { new_password?: unknown }).new_password
       : undefined;
   const rawResetToken =
     body && typeof body === "object"
@@ -430,7 +430,7 @@ async function readResetPasswordInput(request: {
 
   return {
     email: normalizeEmail(rawEmail),
-    password: typeof rawPassword === "string" ? rawPassword : null,
+    newPassword: typeof rawNewPassword === "string" ? rawNewPassword : null,
     resetToken: resetToken.length > 0 ? resetToken : null,
   };
 }

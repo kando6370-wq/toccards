@@ -1734,6 +1734,29 @@ function expectIncorrectPassword(body: unknown, status: number): void {
   });
 }
 
+function expectEmailNotRegistered(body: unknown, status: number): void {
+  expect(status).toBe(422);
+  expect(body).toEqual({
+    success: false,
+    error: {
+      code: "VALIDATION_ERROR",
+      message:
+        "Email not registered. Please check your email or create a new account.",
+    },
+  });
+}
+
+function expectExpiredResetCode(body: unknown, status: number): void {
+  expect(status).toBe(422);
+  expect(body).toEqual({
+    success: false,
+    error: {
+      code: "VALIDATION_ERROR",
+      message: "Code expired. Please request a new code.",
+    },
+  });
+}
+
 function tamperJwtSignature(token: string): string {
   const parts = token.split(".");
   const signature = parts[2];
@@ -3406,6 +3429,41 @@ describe("POST /api/v1/auth/forgot-password", () => {
     expect(db.verificationCodes).toHaveLength(1);
   });
 
+  it("forgot-password rejects an unknown email because password reset should only start for registered Email accounts", async () => {
+    const env = createTestEnv();
+
+    const response = await requestForgotPasswordSendCode(env, {
+      email: "missing-reset@example.com",
+    });
+    const body = await response.json();
+
+    expectEmailNotRegistered(body, response.status);
+    expect(fakeD1(env).verificationCodes).toHaveLength(0);
+  });
+
+  it("forgot-password rejects an OAuth-only user because accounts without password_hash cannot reset a password", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "oauth-reset-user",
+      email: "oauth-reset@example.com",
+      password_hash: null,
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const response = await requestForgotPasswordSendCode(env, {
+      email: "oauth-reset@example.com",
+    });
+    const body = await response.json();
+
+    expectEmailNotRegistered(body, response.status);
+    expect(db.verificationCodes).toHaveLength(0);
+  });
+
   it("forgot-password returns a reset token for a matching reset code because the new password step needs a short-lived proof", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
@@ -3445,6 +3503,76 @@ describe("POST /api/v1/auth/forgot-password", () => {
     expect(code.used_at).toBeNull();
   });
 
+  it("forgot-password rejects a wrong reset code because only the latest emailed proof can mint a reset token", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "wrong-code-reset-user",
+      email: "wrong-code-reset@example.com",
+      password_hash: await hashPassword("old-password"),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const sendResponse = await requestForgotPasswordSendCode(env, {
+      email: "wrong-code-reset@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+
+    const response = await requestForgotPasswordVerifyCode(env, {
+      email: "wrong-code-reset@example.com",
+      code: "000000",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Incorrect verification code.",
+      },
+    });
+  });
+
+  it("forgot-password rejects an expired reset code because stale email proofs must not reset passwords", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "expired-code-reset-user",
+      email: "expired-code-reset@example.com",
+      password_hash: await hashPassword("old-password"),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const sendResponse = await requestForgotPasswordSendCode(env, {
+      email: "expired-code-reset@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected reset verification code.");
+    }
+
+    code.expires_at = "2000-01-01T00:00:00.000Z";
+
+    const response = await requestForgotPasswordVerifyCode(env, {
+      email: "expired-code-reset@example.com",
+      code: code.code,
+    });
+    const body = await response.json();
+
+    expectExpiredResetCode(body, response.status);
+  });
+
   it("forgot-password resets the password and consumes the code because reset tokens must be single use", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
@@ -3481,7 +3609,7 @@ describe("POST /api/v1/auth/forgot-password", () => {
 
     const response = await requestForgotPasswordReset(env, {
       email: "forgot.reset@example.com",
-      password: "new-password",
+      new_password: "new-password",
       reset_token: verifyBody.data.reset_token,
     });
     const body = await response.json();
@@ -3496,6 +3624,54 @@ describe("POST /api/v1/auth/forgot-password", () => {
     expect(code.used_at).toEqual(expect.any(String));
     expect(await verifyPassword("new-password", user.password_hash)).toBe(true);
     expect(await verifyPassword(oldPassword, user.password_hash)).toBe(false);
+  });
+
+  it("forgot-password rejects replaying a reset token because each reset proof must be consumed once", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    db.users.push({
+      id: "replay-reset-user",
+      email: "replay-reset@example.com",
+      password_hash: await hashPassword("old-password"),
+      display_name: null,
+      created_at: "2026-07-03T00:00:00.000Z",
+      updated_at: "2026-07-03T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const sendResponse = await requestForgotPasswordSendCode(env, {
+      email: "replay-reset@example.com",
+    });
+    expect(sendResponse.status).toBe(200);
+    const code = db.verificationCodes[0];
+
+    if (!code) {
+      throw new Error("Expected reset verification code.");
+    }
+
+    const verifyResponse = await requestForgotPasswordVerifyCode(env, {
+      email: "replay-reset@example.com",
+      code: code.code,
+    });
+    const verifyBody =
+      (await verifyResponse.json()) as ForgotPasswordVerifyCodeSuccessResponse;
+
+    const firstReset = await requestForgotPasswordReset(env, {
+      email: "replay-reset@example.com",
+      new_password: "new-password",
+      reset_token: verifyBody.data.reset_token,
+    });
+    expect(firstReset.status).toBe(200);
+
+    const response = await requestForgotPasswordReset(env, {
+      email: "replay-reset@example.com",
+      new_password: "another-password",
+      reset_token: verifyBody.data.reset_token,
+    });
+    const body = await response.json();
+
+    expectExpiredResetCode(body, response.status);
   });
 });
 
