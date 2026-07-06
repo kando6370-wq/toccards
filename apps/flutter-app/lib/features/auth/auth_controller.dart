@@ -55,16 +55,26 @@ class AuthController extends Notifier<AuthState> {
     _generation++;
     await _enqueueMutation(() async {
       await _repository.clearUserSession();
-      await _replaceWithAnonymous();
+      await _restorePreviousAnonymousOrCreate();
     });
   }
 
   Future<void> deleteAccount() async {
+    final targetSession = state.session;
     _generation++;
     await _enqueueMutation(() async {
-      await _repository.clearUserSession();
-      await _repository.clearAnonymousSession();
-      await _replaceWithAnonymous();
+      if (targetSession != null && !identical(state.session, targetSession)) {
+        return;
+      }
+
+      final session = state.session;
+      if (session?.isAnonymous ?? false) {
+        await _repository.clearAnonymousSession();
+        await _replaceWithAnonymous();
+      } else {
+        await _repository.clearUserSession();
+        await _restorePreviousAnonymousOrCreate();
+      }
     });
   }
 
@@ -99,6 +109,18 @@ class AuthController extends Notifier<AuthState> {
     }
 
     state = AuthState.ready(session: anonymousSession);
+  }
+
+  Future<void> _restorePreviousAnonymousOrCreate() async {
+    final previousAnonymous = await _repository
+        .previousAnonymousSessionFromStorage();
+    if (previousAnonymous == null) {
+      await _replaceWithAnonymous();
+      return;
+    }
+
+    await _repository.persistSession(previousAnonymous);
+    state = AuthState.ready(session: previousAnonymous);
   }
 
   bool _isExpectedGeneration(int? expectedGeneration) {

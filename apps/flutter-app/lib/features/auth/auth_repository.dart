@@ -3,6 +3,7 @@ import 'auth_storage.dart';
 
 abstract class AuthRepository {
   Future<AuthSession?> currentSessionFromStorage();
+  Future<AuthSession?> previousAnonymousSessionFromStorage();
   Future<AuthSession> createAnonymousSession(String deviceId);
   Future<AuthSession?> validateStoredSession(AuthSession session);
   Future<void> persistSession(AuthSession session);
@@ -18,6 +19,11 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
   @override
   Future<AuthSession?> currentSessionFromStorage() {
     return _storage.readSession();
+  }
+
+  @override
+  Future<AuthSession?> previousAnonymousSessionFromStorage() {
+    return _storage.readPreviousAnonymousSession();
   }
 
   @override

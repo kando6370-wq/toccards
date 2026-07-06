@@ -44,6 +44,9 @@ class _WidgetTestAuthRepository implements AuthRepository {
   Future<AuthSession?> currentSessionFromStorage() async => null;
 
   @override
+  Future<AuthSession?> previousAnonymousSessionFromStorage() async => null;
+
+  @override
   Future<AuthSession> createAnonymousSession(String deviceId) async {
     return _anonymousSession;
   }

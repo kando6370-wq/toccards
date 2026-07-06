@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/auth/auth_storage.dart';
 
 void main() {
   const deviceId = 'test-device';
@@ -129,6 +130,36 @@ void main() {
   );
 
   test(
+    'user logout restores previous anonymous session so guest continuity survives sign in',
+    () async {
+      final storedUser = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'user-access',
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      final previousAnonymous = _anonymousSession('anon-before-sign-in');
+      final repository = _FakeAuthRepository(
+        storedSession: storedUser,
+        validatedSession: storedUser,
+        previousAnonymousSession: previousAnonymous,
+      );
+      final container = _createContainer(repository, deviceId);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await container.read(authControllerProvider.notifier).logout();
+      final state = container.read(authControllerProvider);
+
+      expect(repository.clearedUserSessions, 1);
+      expect(repository.previousAnonymousReads, 1);
+      expect(repository.createdDeviceIds, isEmpty);
+      expect(repository.persistedSessions, [same(previousAnonymous)]);
+      expect(state.session, same(previousAnonymous));
+    },
+  );
+
+  test(
     'guest delete clears anonymous session and persists a fresh anonymous session',
     () async {
       final storedAnonymous = _anonymousSession('anon-existing');
@@ -145,11 +176,82 @@ void main() {
       await container.read(authControllerProvider.notifier).deleteAccount();
       final state = container.read(authControllerProvider);
 
-      expect(repository.clearedUserSessions, 1);
+      expect(repository.clearedUserSessions, 0);
       expect(repository.clearedAnonymousSessions, 1);
       expect(repository.createdDeviceIds, [deviceId]);
       expect(repository.persistedSessions, [same(freshAnonymous)]);
       expect(state.session, same(freshAnonymous));
+    },
+  );
+
+  test(
+    'guest delete removes deleted anonymous from real previous storage cache',
+    () async {
+      final storage = InMemoryAuthStorage();
+      final repository = LocalPlaceholderAuthRepository(storage);
+      final anonymousA = _anonymousSession('anon-a');
+      final user = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'user-access',
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      await repository.persistSession(anonymousA);
+      await repository.persistSession(user);
+      final container = _createContainer(repository, deviceId);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await container.read(authControllerProvider.notifier).logout();
+      expect(container.read(authControllerProvider).session, same(anonymousA));
+
+      await container.read(authControllerProvider.notifier).deleteAccount();
+      final afterDelete = container.read(authControllerProvider).session!;
+      expect(afterDelete.isAnonymous, isTrue);
+      expect(afterDelete.anonymousId, isNot(anonymousA.anonymousId));
+
+      await storage.clearAnonymousSession();
+      await repository.persistSession(user);
+      final laterContainer = _createContainer(repository, deviceId);
+      addTearDown(laterContainer.dispose);
+      await laterContainer
+          .read(authControllerProvider.notifier)
+          .startupComplete;
+
+      await laterContainer.read(authControllerProvider.notifier).logout();
+      final laterAnonymous = laterContainer
+          .read(authControllerProvider)
+          .session!;
+      expect(laterAnonymous.isAnonymous, isTrue);
+      expect(laterAnonymous.anonymousId, isNot(anonymousA.anonymousId));
+    },
+  );
+
+  test(
+    'duplicate guest delete only deletes the original anonymous session once',
+    () async {
+      final storedAnonymous = _anonymousSession('anon-existing');
+      final firstFreshAnonymous = _anonymousSession('anon-after-delete-1');
+      final secondFreshAnonymous = _anonymousSession('anon-after-delete-2');
+      final repository = _FakeAuthRepository(
+        storedSession: storedAnonymous,
+        validatedSession: storedAnonymous,
+        createdAnonymousSessions: [firstFreshAnonymous, secondFreshAnonymous],
+      );
+      final container = _createContainer(repository, deviceId);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      final controller = container.read(authControllerProvider.notifier);
+      await Future.wait([
+        controller.deleteAccount(),
+        controller.deleteAccount(),
+      ]);
+      final state = container.read(authControllerProvider);
+
+      expect(repository.clearedAnonymousSessions, 1);
+      expect(repository.persistedSessions, [same(firstFreshAnonymous)]);
+      expect(state.session, same(firstFreshAnonymous));
     },
   );
 
@@ -267,6 +369,7 @@ class _FakeAuthRepository implements AuthRepository {
     this.storedSession,
     this.validatedSession,
     this.validationCompleter,
+    this.previousAnonymousSession,
     AuthSession? createdAnonymousSession,
     List<AuthSession>? createdAnonymousSessions,
     List<Future<AuthSession>>? createAnonymousResults,
@@ -287,6 +390,7 @@ class _FakeAuthRepository implements AuthRepository {
   final AuthSession? storedSession;
   final AuthSession? validatedSession;
   final Completer<AuthSession?>? validationCompleter;
+  final AuthSession? previousAnonymousSession;
   final List<Future<AuthSession>> _createAnonymousResults;
   final List<Future<void>> _persistResults;
 
@@ -295,6 +399,7 @@ class _FakeAuthRepository implements AuthRepository {
   final List<AuthSession> persistedSessions = [];
   var clearedUserSessions = 0;
   var clearedAnonymousSessions = 0;
+  var previousAnonymousReads = 0;
 
   @override
   Future<AuthSession?> currentSessionFromStorage() async => storedSession;
@@ -312,6 +417,12 @@ class _FakeAuthRepository implements AuthRepository {
       return validationCompleter!.future;
     }
     return validatedSession;
+  }
+
+  @override
+  Future<AuthSession?> previousAnonymousSessionFromStorage() async {
+    previousAnonymousReads++;
+    return previousAnonymousSession;
   }
 
   @override

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
+import 'account_page.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -48,21 +50,57 @@ class _ProfileContent extends ConsumerWidget {
         ],
         const SizedBox(height: 24),
         if (isUser) ...[
+          Card(
+            child: ListTile(
+              title: const Text('Account'),
+              subtitle: Text(identity),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/account'),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ] else ...[
           FilledButton(
-            onPressed: () {
-              ref.read(authControllerProvider.notifier).logout();
-            },
-            child: const Text('Log out'),
+            onPressed: () {},
+            child: const Text('Sign in / Sign up'),
           ),
           const SizedBox(height: 12),
         ],
-        OutlinedButton(
-          onPressed: () {
-            ref.read(authControllerProvider.notifier).deleteAccount();
-          },
-          child: const Text('Delete account'),
-        ),
+        const _ProfileEntry(label: 'Customer Support'),
+        const _ProfileEntry(label: 'Score'),
+        const _ProfileEntry(label: 'Share With Friends'),
+        const _ProfileEntry(label: 'Terms Of Use'),
+        const _ProfileEntry(label: 'Privacy Policy'),
+        if (!isUser) ...[
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: () {
+              _confirmAndDelete(context, ref);
+            },
+            child: const Text('Delete account'),
+          ),
+        ],
       ],
     );
+  }
+
+  Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDeleteAccountConfirmation(context);
+    if (!context.mounted || !confirmed) {
+      return;
+    }
+
+    await ref.read(authControllerProvider.notifier).deleteAccount();
+  }
+}
+
+class _ProfileEntry extends StatelessWidget {
+  const _ProfileEntry({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(title: Text(label));
   }
 }
