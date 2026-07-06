@@ -6,6 +6,7 @@ import {
 } from "@kando/auth-core";
 import { describe, expect, it, vi } from "vitest";
 import app, { type Env as AppEnv } from "../index";
+import { migrateGuestAssetsToUser } from "./guest-migration";
 
 type TestEnv = AppEnv & { JWT_SECRET: string };
 
@@ -1082,6 +1083,108 @@ class FakeD1 {
       return okResult<T>(account ? 1 : 0);
     }
 
+    if (normalizedSql === UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_UNGUARDED_SQL) {
+      const [userId, anonymousId] = values as [string, string];
+      const account = this.anonymousAccounts.find(
+        (row) => row.id === anonymousId && row.upgraded_user_id === null,
+      );
+
+      if (account) {
+        account.upgraded_user_id = userId;
+      }
+
+      return okResult<T>(account ? 1 : 0);
+    }
+
+    if (normalizedSql === UPDATE_ANONYMOUS_PORTFOLIO_FOLDERS_UNGUARDED_SQL) {
+      const [userId, updatedAt, anonymousId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string, string];
+
+      if (!this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const folder of this.portfolioFolders) {
+        if (
+          folder.owner_type === "anonymous" &&
+          folder.owner_id === anonymousId
+        ) {
+          folder.owner_type = "user";
+          folder.owner_id = userId;
+          folder.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === UPDATE_ANONYMOUS_COLLECTION_ITEMS_UNGUARDED_SQL) {
+      const [userId, updatedAt, anonymousId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string, string];
+
+      if (!this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const item of this.collectionItems) {
+        if (item.owner_type === "anonymous" && item.owner_id === anonymousId) {
+          item.owner_type = "user";
+          item.owner_id = userId;
+          item.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === UPDATE_ANONYMOUS_WISHLIST_ITEMS_UNGUARDED_SQL) {
+      const [userId, anonymousId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string];
+
+      if (!this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const item of this.wishlistItems) {
+        if (item.owner_type === "anonymous" && item.owner_id === anonymousId) {
+          item.owner_type = "user";
+          item.owner_id = userId;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === UPDATE_ANONYMOUS_USER_PREFERENCE_UNGUARDED_SQL) {
+      const [userId, updatedAt, anonymousId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string, string];
+
+      if (!this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const preference of this.userPreferences) {
+        if (
+          preference.owner_type === "anonymous" &&
+          preference.owner_id === anonymousId
+        ) {
+          preference.owner_type = "user";
+          preference.owner_id = userId;
+          preference.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
     if (normalizedSql === REVOKE_SESSION_SQL) {
       const [revokedAt, id] = values as [string, string];
       const session = this.sessions.find(
@@ -1506,6 +1609,56 @@ const UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_SQL = normalizeSql(`
     )
 `);
 
+const UPDATE_ANONYMOUS_PORTFOLIO_FOLDERS_UNGUARDED_SQL = normalizeSql(`
+  UPDATE portfolio_folder
+  SET owner_type = 'user', owner_id = ?, updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_ANONYMOUS_COLLECTION_ITEMS_UNGUARDED_SQL = normalizeSql(`
+  UPDATE collection_item
+  SET owner_type = 'user', owner_id = ?, updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_ANONYMOUS_WISHLIST_ITEMS_UNGUARDED_SQL = normalizeSql(`
+  UPDATE wishlist_item
+  SET owner_type = 'user', owner_id = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_ANONYMOUS_USER_PREFERENCE_UNGUARDED_SQL = normalizeSql(`
+  UPDATE user_preference
+  SET owner_type = 'user', owner_id = ?, updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_UNGUARDED_SQL = normalizeSql(`
+  UPDATE anonymous_account
+  SET upgraded_user_id = ?
+  WHERE id = ? AND upgraded_user_id IS NULL
+`);
+
 const REVOKE_SESSION_SQL = normalizeSql(`
   UPDATE session
   SET revoked_at = ?
@@ -1544,6 +1697,183 @@ function createTestEnv(): TestEnv {
 
 function fakeD1(env: TestEnv): FakeD1 {
   return env.DB as unknown as FakeD1;
+}
+
+describe("migrateGuestAssetsToUser", () => {
+  it("migrates only the requested live guest assets with an empty guard because standalone migration must not steal other anonymous work", async () => {
+    const db = createFakeD1();
+    seedGuestMigrationRows(db, "anonymous-source");
+    seedGuestMigrationRows(db, "anonymous-other");
+
+    const counts = await migrateGuestAssetsToUser(
+      db,
+      "anonymous-source",
+      "user-target",
+      "2026-07-06T00:00:00.000Z",
+      {},
+    );
+
+    expect(counts).toEqual({
+      migrated_folders: 1,
+      migrated_items: 1,
+      migrated_wishlist: 1,
+    });
+    expect(db.anonymousAccounts).toEqual([
+      expect.objectContaining({
+        id: "anonymous-source",
+        upgraded_user_id: "user-target",
+      }),
+      expect.objectContaining({
+        id: "anonymous-other",
+        upgraded_user_id: null,
+      }),
+    ]);
+    expect(
+      db.portfolioFolders.find((row) => row.id === "folder-anonymous-source"),
+    ).toEqual(expect.objectContaining({ owner_type: "user", owner_id: "user-target" }));
+    expect(
+      db.collectionItems.find(
+        (row) => row.id === "collection-anonymous-source",
+      ),
+    ).toEqual(expect.objectContaining({ owner_type: "user", owner_id: "user-target" }));
+    expect(
+      db.wishlistItems.find((row) => row.id === "wishlist-anonymous-source"),
+    ).toEqual(expect.objectContaining({ owner_type: "user", owner_id: "user-target" }));
+    expect(
+      db.portfolioFolders.find((row) => row.id === "folder-anonymous-other"),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-other",
+      }),
+    );
+    expect(
+      db.collectionItems.find((row) => row.id === "collection-anonymous-other"),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-other",
+      }),
+    );
+    expect(
+      db.wishlistItems.find((row) => row.id === "wishlist-anonymous-other"),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-other",
+      }),
+    );
+  });
+
+  it("fails migration for an already upgraded guest because claimed guest assets must not move to another user", async () => {
+    const db = createFakeD1();
+    seedGuestMigrationRows(db, "anonymous-source", "existing-user");
+
+    await expect(
+      migrateGuestAssetsToUser(
+        db,
+        "anonymous-source",
+        "user-target",
+        "2026-07-06T00:00:00.000Z",
+        {},
+      ),
+    ).rejects.toThrow("Guest account is no longer available.");
+
+    expect(db.anonymousAccounts[0]).toEqual(
+      expect.objectContaining({
+        id: "anonymous-source",
+        upgraded_user_id: "existing-user",
+      }),
+    );
+    expect(db.portfolioFolders[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-source",
+      }),
+    );
+    expect(db.collectionItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-source",
+      }),
+    );
+    expect(db.wishlistItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-source",
+      }),
+    );
+  });
+
+  it("rejects an incomplete guard because verification-gated migration must not silently downgrade to an unguarded path", async () => {
+    const db = createFakeD1();
+    seedGuestMigrationRows(db, "anonymous-source");
+
+    await expect(
+      migrateGuestAssetsToUser(
+        db,
+        "anonymous-source",
+        "user-target",
+        "2026-07-06T00:00:00.000Z",
+        { verificationCodeId: "code-only" },
+      ),
+    ).rejects.toThrow("Incomplete guest migration guard.");
+
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBeNull();
+    expect(db.portfolioFolders[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-source",
+      }),
+    );
+  });
+});
+
+function seedGuestMigrationRows(
+  db: FakeD1,
+  anonymousId: string,
+  upgradedUserId: string | null = null,
+): void {
+  db.anonymousAccounts.push({
+    id: anonymousId,
+    device_id: `device-${anonymousId}`,
+    created_at: "2026-07-06T00:00:00.000Z",
+    upgraded_user_id: upgradedUserId,
+  });
+  db.portfolioFolders.push({
+    id: `folder-${anonymousId}`,
+    owner_type: "anonymous",
+    owner_id: anonymousId,
+    name: "Main",
+    is_default: 1,
+    sort_order: 0,
+    created_at: "2026-07-06T00:00:00.000Z",
+    updated_at: "2026-07-06T00:00:00.000Z",
+  });
+  db.userPreferences.push({
+    id: `preference-${anonymousId}`,
+    owner_type: "anonymous",
+    owner_id: anonymousId,
+    currency: "USD",
+    amount_hidden: 0,
+    last_selected_folder_id: null,
+    created_at: "2026-07-06T00:00:00.000Z",
+    updated_at: "2026-07-06T00:00:00.000Z",
+  });
+  db.collectionItems.push({
+    id: `collection-${anonymousId}`,
+    owner_type: "anonymous",
+    owner_id: anonymousId,
+    folder_id: `folder-${anonymousId}`,
+    card_ref: `card-${anonymousId}`,
+    updated_at: "2026-07-06T00:00:00.000Z",
+  });
+  db.wishlistItems.push({
+    id: `wishlist-${anonymousId}`,
+    owner_type: "anonymous",
+    owner_id: anonymousId,
+    card_ref: `card-${anonymousId}`,
+  });
 }
 
 async function requestAnonymous(
