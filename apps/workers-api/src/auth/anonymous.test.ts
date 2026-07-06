@@ -238,6 +238,7 @@ class FakeD1 {
   failNextBatch = false;
   failNextFirst = false;
   failNextRun = false;
+  failRunOnSql: string | null = null;
   createConflictingUserBeforeNextUserInsert = false;
   concurrentResetCodeLookupBarrierSize = 0;
   concurrentResetCodeLookupResolutions: Array<() => void> = [];
@@ -255,10 +256,39 @@ class FakeD1 {
       throw new Error("Injected D1 batch failure.");
     }
 
+    const snapshot = {
+      anonymousAccounts: this.anonymousAccounts.map((row) => ({ ...row })),
+      portfolioFolders: this.portfolioFolders.map((row) => ({ ...row })),
+      userPreferences: this.userPreferences.map((row) => ({ ...row })),
+      collectionItems: this.collectionItems.map((row) => ({ ...row })),
+      wishlistItems: this.wishlistItems.map((row) => ({ ...row })),
+      sessions: this.sessions.map((row) => ({ ...row })),
+      users: this.users.map((row) => ({ ...row })),
+      authIdentities: this.authIdentities.map((row) => ({ ...row })),
+      verificationCodes: this.verificationCodes.map((row) => ({ ...row })),
+    };
     const results: D1Result<T>[] = [];
 
-    for (const statement of statements) {
-      results.push(await statement.run<T>());
+    try {
+      for (const statement of statements) {
+        results.push(await statement.run<T>());
+      }
+    } catch (error) {
+      const concurrentUsers = this.users.filter(
+        (user) =>
+          user.id === "concurrent-user" &&
+          !snapshot.users.some((snapshotUser) => snapshotUser.id === user.id),
+      );
+      this.anonymousAccounts = snapshot.anonymousAccounts;
+      this.portfolioFolders = snapshot.portfolioFolders;
+      this.userPreferences = snapshot.userPreferences;
+      this.collectionItems = snapshot.collectionItems;
+      this.wishlistItems = snapshot.wishlistItems;
+      this.sessions = snapshot.sessions;
+      this.users = [...snapshot.users, ...concurrentUsers];
+      this.authIdentities = snapshot.authIdentities;
+      this.verificationCodes = snapshot.verificationCodes;
+      throw error;
     }
 
     return results;
@@ -442,6 +472,18 @@ class FakeD1 {
       return account ? ({ id: account.id } as T) : null;
     }
 
+    if (normalizedSql === SELECT_ANONYMOUS_ACCOUNT_FOR_MIGRATION_SQL) {
+      const [id] = values as [string];
+      const account = this.anonymousAccounts.find((row) => row.id === id);
+
+      return account
+        ? ({
+            id: account.id,
+            upgraded_user_id: account.upgraded_user_id,
+          } as T)
+        : null;
+    }
+
     if (normalizedSql === SELECT_SESSION_BY_REFRESH_TOKEN_SQL) {
       const [refreshToken] = values as [string];
       const session = this.sessions.find(
@@ -510,6 +552,11 @@ class FakeD1 {
     }
 
     const normalizedSql = normalizeSql(sql);
+
+    if (this.failRunOnSql === normalizedSql) {
+      this.failRunOnSql = null;
+      throw new Error("Injected D1 run failure for SQL.");
+    }
 
     if (normalizedSql === INSERT_ANONYMOUS_ACCOUNT_SQL) {
       const [id, deviceId, createdAt] = values as [string, string, string];
@@ -1372,12 +1419,214 @@ class FakeD1 {
       return okResult<T>(account ? 1 : 0);
     }
 
+    if (
+      normalizedSql === REMAP_CONFLICTING_COLLECTION_ITEMS_TO_USER_FOLDER_SQL
+    ) {
+      const [
+        userId,
+        anonymousId,
+        updatedAt,
+        ownerId,
+        matchingUserId,
+        matchingAnonymousId,
+        upgradedAnonymousId,
+        upgradedUserId,
+      ] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const item of this.collectionItems) {
+        if (item.owner_type !== "anonymous" || item.owner_id !== ownerId) {
+          continue;
+        }
+
+        const sourceFolder = this.portfolioFolders.find(
+          (folder) =>
+            folder.id === item.folder_id &&
+            folder.owner_type === "anonymous" &&
+            folder.owner_id === matchingAnonymousId,
+        );
+        const targetFolder = sourceFolder
+          ? this.portfolioFolders.find(
+              (folder) =>
+                folder.owner_type === "user" &&
+                folder.owner_id === matchingUserId &&
+                folder.name === sourceFolder.name,
+            )
+          : undefined;
+
+        if (targetFolder && userId === matchingUserId && anonymousId === ownerId) {
+          item.folder_id = targetFolder.id;
+          item.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === REMAP_ANONYMOUS_USER_PREFERENCE_FOLDER_SQL) {
+      const [
+        userId,
+        anonymousId,
+        updatedAt,
+        ownerId,
+        matchingUserId,
+        matchingAnonymousId,
+        upgradedAnonymousId,
+        upgradedUserId,
+      ] = values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const preference of this.userPreferences) {
+        if (
+          preference.owner_type !== "anonymous" ||
+          preference.owner_id !== ownerId ||
+          preference.last_selected_folder_id === null
+        ) {
+          continue;
+        }
+
+        const sourceFolder = this.portfolioFolders.find(
+          (folder) =>
+            folder.id === preference.last_selected_folder_id &&
+            folder.owner_type === "anonymous" &&
+            folder.owner_id === matchingAnonymousId,
+        );
+        const targetFolder = sourceFolder
+          ? this.portfolioFolders.find(
+              (folder) =>
+                folder.owner_type === "user" &&
+                folder.owner_id === matchingUserId &&
+                folder.name === sourceFolder.name,
+            )
+          : undefined;
+
+        if (targetFolder && userId === matchingUserId && anonymousId === ownerId) {
+          preference.last_selected_folder_id = targetFolder.id;
+          preference.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === DELETE_CONFLICTING_ANONYMOUS_PORTFOLIO_FOLDERS_SQL) {
+      const [anonymousId, userId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string];
+
+      if (
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      const before = this.portfolioFolders.length;
+      this.portfolioFolders = this.portfolioFolders.filter(
+        (folder) =>
+          !(
+            folder.owner_type === "anonymous" &&
+            folder.owner_id === anonymousId &&
+            this.portfolioFolders.some(
+              (target) =>
+                target.owner_type === "user" &&
+                target.owner_id === userId &&
+                target.name === folder.name,
+            )
+          ),
+      );
+
+      return okResult<T>(before - this.portfolioFolders.length);
+    }
+
+    if (
+      normalizedSql === UPDATE_NON_CONFLICTING_ANONYMOUS_PORTFOLIO_FOLDERS_SQL
+    ) {
+      const [userId, updatedAt, anonymousId, matchingUserId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string, string, string];
+
+      if (
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const folder of this.portfolioFolders) {
+        if (
+          folder.owner_type === "anonymous" &&
+          folder.owner_id === anonymousId &&
+          !this.portfolioFolders.some(
+            (target) =>
+              target.owner_type === "user" &&
+              target.owner_id === matchingUserId &&
+              target.name === folder.name,
+          )
+        ) {
+          folder.owner_type = "user";
+          folder.owner_id = userId;
+          folder.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
     if (normalizedSql === UPDATE_ANONYMOUS_PORTFOLIO_FOLDERS_UNGUARDED_SQL) {
       const [userId, updatedAt, anonymousId, upgradedAnonymousId, upgradedUserId] =
         values as [string, string, string, string, string];
 
       if (!this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)) {
         return okResult<T>(0);
+      }
+
+      const hasFolderNameConflict = this.portfolioFolders.some(
+        (folder) =>
+          folder.owner_type === "anonymous" &&
+          folder.owner_id === anonymousId &&
+          this.portfolioFolders.some(
+            (target) =>
+              target.owner_type === "user" &&
+              target.owner_id === userId &&
+              target.name === folder.name,
+          ),
+      );
+
+      if (hasFolderNameConflict) {
+        throw new Error(
+          "UNIQUE constraint failed: portfolio_folder.owner_type, portfolio_folder.owner_id, portfolio_folder.name",
+        );
       }
 
       let changes = 0;
@@ -1425,6 +1674,24 @@ class FakeD1 {
         return okResult<T>(0);
       }
 
+      const hasWishlistConflict = this.wishlistItems.some(
+        (item) =>
+          item.owner_type === "anonymous" &&
+          item.owner_id === anonymousId &&
+          this.wishlistItems.some(
+            (target) =>
+              target.owner_type === "user" &&
+              target.owner_id === userId &&
+              target.card_ref === item.card_ref,
+          ),
+      );
+
+      if (hasWishlistConflict) {
+        throw new Error(
+          "UNIQUE constraint failed: wishlist_item.owner_type, wishlist_item.owner_id, wishlist_item.card_ref",
+        );
+      }
+
       let changes = 0;
       for (const item of this.wishlistItems) {
         if (item.owner_type === "anonymous" && item.owner_id === anonymousId) {
@@ -1437,11 +1704,111 @@ class FakeD1 {
       return okResult<T>(changes);
     }
 
-    if (normalizedSql === UPDATE_ANONYMOUS_USER_PREFERENCE_UNGUARDED_SQL) {
-      const [userId, updatedAt, anonymousId, upgradedAnonymousId, upgradedUserId] =
+    if (normalizedSql === DELETE_CONFLICTING_ANONYMOUS_WISHLIST_ITEMS_SQL) {
+      const [anonymousId, userId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string];
+
+      if (
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      const before = this.wishlistItems.length;
+      this.wishlistItems = this.wishlistItems.filter(
+        (item) =>
+          !(
+            item.owner_type === "anonymous" &&
+            item.owner_id === anonymousId &&
+            this.wishlistItems.some(
+              (target) =>
+                target.owner_type === "user" &&
+                target.owner_id === userId &&
+                target.card_ref === item.card_ref,
+            )
+          ),
+      );
+
+      return okResult<T>(before - this.wishlistItems.length);
+    }
+
+    if (normalizedSql === UPDATE_NON_CONFLICTING_ANONYMOUS_WISHLIST_ITEMS_SQL) {
+      const [userId, anonymousId, matchingUserId, upgradedAnonymousId, upgradedUserId] =
         values as [string, string, string, string, string];
 
-      if (!this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)) {
+      if (
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      let changes = 0;
+      for (const item of this.wishlistItems) {
+        if (
+          item.owner_type === "anonymous" &&
+          item.owner_id === anonymousId &&
+          !this.wishlistItems.some(
+            (target) =>
+              target.owner_type === "user" &&
+              target.owner_id === matchingUserId &&
+              target.card_ref === item.card_ref,
+          )
+        ) {
+          item.owner_type = "user";
+          item.owner_id = userId;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === DELETE_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL) {
+      const [anonymousId, userId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string];
+
+      if (
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      const hasUserPreference = this.userPreferences.some(
+        (preference) =>
+          preference.owner_type === "user" && preference.owner_id === userId,
+      );
+      const before = this.userPreferences.length;
+
+      if (hasUserPreference) {
+        this.userPreferences = this.userPreferences.filter(
+          (preference) =>
+            !(
+              preference.owner_type === "anonymous" &&
+              preference.owner_id === anonymousId
+            ),
+        );
+      }
+
+      return okResult<T>(before - this.userPreferences.length);
+    }
+
+    if (normalizedSql === UPDATE_NON_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL) {
+      const [userId, updatedAt, anonymousId, matchingUserId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string, string, string];
+
+      if (
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+
+      const hasUserPreference = this.userPreferences.some(
+        (preference) =>
+          preference.owner_type === "user" &&
+          preference.owner_id === matchingUserId,
+      );
+
+      if (hasUserPreference) {
         return okResult<T>(0);
       }
 
@@ -1459,6 +1826,135 @@ class FakeD1 {
       }
 
       return okResult<T>(changes);
+    }
+
+    if (normalizedSql === UPDATE_ANONYMOUS_USER_PREFERENCE_UNGUARDED_SQL) {
+      const [userId, updatedAt, anonymousId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string, string];
+
+      if (!this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)) {
+        return okResult<T>(0);
+      }
+
+      const hasPreferenceConflict = this.userPreferences.some(
+        (preference) =>
+          preference.owner_type === "anonymous" &&
+          preference.owner_id === anonymousId &&
+          this.userPreferences.some(
+            (target) =>
+              target.owner_type === "user" && target.owner_id === userId,
+          ),
+      );
+
+      if (hasPreferenceConflict) {
+        throw new Error(
+          "UNIQUE constraint failed: user_preference.owner_type, user_preference.owner_id",
+        );
+      }
+
+      let changes = 0;
+      for (const preference of this.userPreferences) {
+        if (
+          preference.owner_type === "anonymous" &&
+          preference.owner_id === anonymousId
+        ) {
+          preference.owner_type = "user";
+          preference.owner_id = userId;
+          preference.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === UPDATE_USER_DELETED_SQL) {
+      const [deletedAt, updatedAt, id] = values as [string, string, string];
+      const user = this.users.find(
+        (row) => row.id === id && row.deleted_at === null,
+      );
+
+      if (user) {
+        user.deleted_at = deletedAt;
+        user.updated_at = updatedAt;
+      }
+
+      return okResult<T>(user ? 1 : 0);
+    }
+
+    if (normalizedSql === REVOKE_OWNER_SESSIONS_SQL) {
+      const [revokedAt, ownerType, ownerId] = values as [
+        string,
+        "anonymous" | "user",
+        string,
+      ];
+      let changes = 0;
+
+      for (const session of this.sessions) {
+        if (
+          session.owner_type === ownerType &&
+          session.owner_id === ownerId &&
+          session.revoked_at === null
+        ) {
+          session.revoked_at = revokedAt;
+          changes += 1;
+        }
+      }
+
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === DELETE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL) {
+      const [ownerId] = values as [string];
+      const before = this.portfolioFolders.length;
+      this.portfolioFolders = this.portfolioFolders.filter(
+        (row) => row.owner_type !== "anonymous" || row.owner_id !== ownerId,
+      );
+
+      return okResult<T>(before - this.portfolioFolders.length);
+    }
+
+    if (normalizedSql === DELETE_ANONYMOUS_COLLECTION_ITEMS_SQL) {
+      const [ownerId] = values as [string];
+      const before = this.collectionItems.length;
+      this.collectionItems = this.collectionItems.filter(
+        (row) => row.owner_type !== "anonymous" || row.owner_id !== ownerId,
+      );
+
+      return okResult<T>(before - this.collectionItems.length);
+    }
+
+    if (normalizedSql === DELETE_ANONYMOUS_WISHLIST_ITEMS_SQL) {
+      const [ownerId] = values as [string];
+      const before = this.wishlistItems.length;
+      this.wishlistItems = this.wishlistItems.filter(
+        (row) => row.owner_type !== "anonymous" || row.owner_id !== ownerId,
+      );
+
+      return okResult<T>(before - this.wishlistItems.length);
+    }
+
+    if (normalizedSql === DELETE_ANONYMOUS_USER_PREFERENCE_SQL) {
+      const [ownerId] = values as [string];
+      const before = this.userPreferences.length;
+      this.userPreferences = this.userPreferences.filter(
+        (row) => row.owner_type !== "anonymous" || row.owner_id !== ownerId,
+      );
+
+      return okResult<T>(before - this.userPreferences.length);
+    }
+
+    if (normalizedSql === INVALIDATE_ANONYMOUS_ACCOUNT_SQL) {
+      const [upgradedUserId, id] = values as [string, string];
+      const account = this.anonymousAccounts.find(
+        (row) => row.id === id && row.upgraded_user_id === null,
+      );
+
+      if (account) {
+        account.upgraded_user_id = upgradedUserId;
+      }
+
+      return okResult<T>(account ? 1 : 0);
     }
 
     if (normalizedSql === REVOKE_SESSION_SQL) {
@@ -1682,6 +2178,13 @@ const SELECT_LIVE_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
   SELECT id
   FROM anonymous_account
   WHERE id = ? AND upgraded_user_id IS NULL
+  LIMIT 1
+`);
+
+const SELECT_ANONYMOUS_ACCOUNT_FOR_MIGRATION_SQL = normalizeSql(`
+  SELECT id, upgraded_user_id
+  FROM anonymous_account
+  WHERE id = ?
   LIMIT 1
 `);
 
@@ -2014,6 +2517,211 @@ const UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_UNGUARDED_SQL = normalizeSql(`
   WHERE id = ? AND upgraded_user_id IS NULL
 `);
 
+const REMAP_CONFLICTING_COLLECTION_ITEMS_TO_USER_FOLDER_SQL = normalizeSql(`
+  UPDATE collection_item
+  SET folder_id = (
+    SELECT target.id
+    FROM portfolio_folder source
+    JOIN portfolio_folder target
+      ON target.owner_type = 'user'
+      AND target.owner_id = ?
+      AND target.name = source.name
+    WHERE source.id = collection_item.folder_id
+      AND source.owner_type = 'anonymous'
+      AND source.owner_id = ?
+    LIMIT 1
+  ), updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM portfolio_folder source
+      JOIN portfolio_folder target
+        ON target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.name = source.name
+      WHERE source.id = collection_item.folder_id
+        AND source.owner_type = 'anonymous'
+        AND source.owner_id = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const DELETE_CONFLICTING_ANONYMOUS_PORTFOLIO_FOLDERS_SQL = normalizeSql(`
+  DELETE FROM portfolio_folder
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM portfolio_folder target
+      WHERE target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.name = portfolio_folder.name
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const REMAP_ANONYMOUS_USER_PREFERENCE_FOLDER_SQL = normalizeSql(`
+  UPDATE user_preference
+  SET last_selected_folder_id = (
+    SELECT target.id
+    FROM portfolio_folder source
+    JOIN portfolio_folder target
+      ON target.owner_type = 'user'
+      AND target.owner_id = ?
+      AND target.name = source.name
+    WHERE source.id = user_preference.last_selected_folder_id
+      AND source.owner_type = 'anonymous'
+      AND source.owner_id = ?
+    LIMIT 1
+  ), updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM portfolio_folder source
+      JOIN portfolio_folder target
+        ON target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.name = source.name
+      WHERE source.id = user_preference.last_selected_folder_id
+        AND source.owner_type = 'anonymous'
+        AND source.owner_id = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_NON_CONFLICTING_ANONYMOUS_PORTFOLIO_FOLDERS_SQL = normalizeSql(`
+  UPDATE portfolio_folder
+  SET owner_type = 'user', owner_id = ?, updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND NOT EXISTS (
+      SELECT 1
+      FROM portfolio_folder target
+      WHERE target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.name = portfolio_folder.name
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const DELETE_CONFLICTING_ANONYMOUS_WISHLIST_ITEMS_SQL = normalizeSql(`
+  DELETE FROM wishlist_item
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM wishlist_item target
+      WHERE target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.card_ref = wishlist_item.card_ref
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_NON_CONFLICTING_ANONYMOUS_WISHLIST_ITEMS_SQL = normalizeSql(`
+  UPDATE wishlist_item
+  SET owner_type = 'user', owner_id = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND NOT EXISTS (
+      SELECT 1
+      FROM wishlist_item target
+      WHERE target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.card_ref = wishlist_item.card_ref
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const DELETE_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL = normalizeSql(`
+  DELETE FROM user_preference
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM user_preference target
+      WHERE target.owner_type = 'user' AND target.owner_id = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_NON_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL = normalizeSql(`
+  UPDATE user_preference
+  SET owner_type = 'user', owner_id = ?, updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND NOT EXISTS (
+      SELECT 1
+      FROM user_preference target
+      WHERE target.owner_type = 'user' AND target.owner_id = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`);
+
+const UPDATE_USER_DELETED_SQL = normalizeSql(`
+  UPDATE user
+  SET deleted_at = ?, updated_at = ?
+  WHERE id = ? AND deleted_at IS NULL
+`);
+
+const REVOKE_OWNER_SESSIONS_SQL = normalizeSql(`
+  UPDATE session
+  SET revoked_at = ?
+  WHERE owner_type = ? AND owner_id = ? AND revoked_at IS NULL
+`);
+
+const DELETE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL = normalizeSql(`
+  DELETE FROM portfolio_folder
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+`);
+
+const DELETE_ANONYMOUS_COLLECTION_ITEMS_SQL = normalizeSql(`
+  DELETE FROM collection_item
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+`);
+
+const DELETE_ANONYMOUS_WISHLIST_ITEMS_SQL = normalizeSql(`
+  DELETE FROM wishlist_item
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+`);
+
+const DELETE_ANONYMOUS_USER_PREFERENCE_SQL = normalizeSql(`
+  DELETE FROM user_preference
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+`);
+
+const INVALIDATE_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
+  UPDATE anonymous_account
+  SET upgraded_user_id = ?
+  WHERE id = ? AND upgraded_user_id IS NULL
+`);
+
 const REVOKE_SESSION_SQL = normalizeSql(`
   UPDATE session
   SET revoked_at = ?
@@ -2052,6 +2760,37 @@ function createTestEnv(): TestEnv {
 
 function fakeD1(env: TestEnv): FakeD1 {
   return env.DB as unknown as FakeD1;
+}
+
+async function seedLiveUserSession(
+  env: TestEnv,
+  userId: string,
+  sessionId: string,
+): Promise<string> {
+  const db = fakeD1(env);
+  db.users.push({
+    id: userId,
+    email: `${userId}@example.com`,
+    password_hash: null,
+    display_name: null,
+    created_at: "2026-07-06T00:00:00.000Z",
+    updated_at: "2026-07-06T00:00:00.000Z",
+    deleted_at: null,
+  });
+  db.sessions.push({
+    id: sessionId,
+    owner_type: "user",
+    owner_id: userId,
+    refresh_token: await hashRefreshToken(`${sessionId}-refresh`),
+    expires_at: "2999-01-01T00:00:00.000Z",
+    created_at: "2026-07-06T00:00:00.000Z",
+    revoked_at: null,
+  });
+
+  return signAccessToken(
+    { owner_type: "user", owner_id: userId, session_id: sessionId },
+    env.JWT_SECRET,
+  );
 }
 
 describe("migrateGuestAssetsToUser", () => {
@@ -3287,6 +4026,43 @@ async function requestLogout(
     {
       method: "POST",
       headers,
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+async function requestDeleteAccount(
+  env: TestEnv,
+  authorization?: string,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/account",
+    {
+      method: "DELETE",
+      headers: authorization ? { Authorization: authorization } : {},
+    },
+    env,
+  );
+}
+
+async function requestMigrateAssets(
+  env: TestEnv,
+  body: unknown,
+  authorization?: string,
+  anonymousAuthorization?: string,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/migrate-assets",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authorization ? { Authorization: authorization } : {}),
+        ...(anonymousAuthorization
+          ? { "X-Anonymous-Authorization": anonymousAuthorization }
+          : {}),
+      },
       body: JSON.stringify(body),
     },
     env,
@@ -5923,6 +6699,1075 @@ describe("POST /api/v1/auth/logout", () => {
       },
     });
     expect(fakeD1(env).sessions[0]?.revoked_at).toBeNull();
+  });
+});
+
+describe("DELETE /api/v1/auth/account", () => {
+  it("delete account soft-deletes a user because removed credentials must not authenticate again", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const password = "old-password";
+    const sessionId = "delete-user-session";
+    db.users.push({
+      id: "delete-user",
+      email: "delete-user@example.com",
+      password_hash: await hashPassword(password),
+      display_name: "Delete User",
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+      deleted_at: null,
+    });
+    db.sessions.push({
+      id: sessionId,
+      owner_type: "user",
+      owner_id: "delete-user",
+      refresh_token: await hashRefreshToken("delete-refresh"),
+      expires_at: "2999-01-01T00:00:00.000Z",
+      created_at: "2026-07-06T00:00:00.000Z",
+      revoked_at: null,
+    });
+    const accessToken = await signAccessToken(
+      { owner_type: "user", owner_id: "delete-user", session_id: sessionId },
+      env.JWT_SECRET,
+    );
+
+    const response = await requestDeleteAccount(env, `Bearer ${accessToken}`);
+    const body = await response.json();
+    const loginResponse = await requestLogin(env, {
+      email: "delete-user@example.com",
+      password,
+    });
+    const loginBody = await loginResponse.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ success: true, data: {} });
+    expect(db.users[0]?.deleted_at).toEqual(expect.any(String));
+    expect(db.users[0]?.updated_at).toBe(db.users[0]?.deleted_at);
+    expectIncorrectPassword(loginBody, loginResponse.status);
+  });
+
+  it("delete account revokes all user sessions because deleted users must not refresh tokens", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    db.users.push({
+      id: "delete-user-sessions",
+      email: "delete-sessions@example.com",
+      password_hash: null,
+      display_name: null,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+      deleted_at: null,
+    });
+    for (const id of ["delete-user-session-a", "delete-user-session-b"]) {
+      db.sessions.push({
+        id,
+        owner_type: "user",
+        owner_id: "delete-user-sessions",
+        refresh_token: await hashRefreshToken(id),
+        expires_at: "2999-01-01T00:00:00.000Z",
+        created_at: "2026-07-06T00:00:00.000Z",
+        revoked_at: null,
+      });
+    }
+    const accessToken = await signAccessToken(
+      {
+        owner_type: "user",
+        owner_id: "delete-user-sessions",
+        session_id: "delete-user-session-a",
+      },
+      env.JWT_SECRET,
+    );
+
+    const response = await requestDeleteAccount(env, `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(db.sessions.map((session) => session.revoked_at)).toEqual([
+      expect.any(String),
+      expect.any(String),
+    ]);
+  });
+
+  it("delete account deletes anonymous guest assets because guest deletion must be irreversible", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(env, "device-delete-assets");
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const db = fakeD1(env);
+    db.collectionItems.push({
+      id: "delete-guest-collection",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: db.portfolioFolders[0]?.id ?? "missing-folder",
+      card_ref: "delete-card",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "delete-guest-wishlist",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      card_ref: "delete-card",
+    });
+
+    const response = await requestDeleteAccount(
+      env,
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      db.portfolioFolders.some(
+        (row) =>
+          row.owner_type === "anonymous" &&
+          row.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+    expect(
+      db.collectionItems.some(
+        (row) =>
+          row.owner_type === "anonymous" &&
+          row.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+    expect(
+      db.wishlistItems.some(
+        (row) =>
+          row.owner_type === "anonymous" &&
+          row.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+    expect(
+      db.userPreferences.some(
+        (row) =>
+          row.owner_type === "anonymous" &&
+          row.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toEqual(expect.any(String));
+  });
+
+  it("delete account revokes anonymous sessions because old guest identity must not be reused", async () => {
+    const env = createTestEnv();
+    const firstResponse = await requestAnonymous(env, "device-delete-session-a");
+    const firstBody = (await firstResponse.json()) as AnonymousSuccessResponse;
+    const db = fakeD1(env);
+    db.sessions.push({
+      id: "delete-anonymous-session-b",
+      owner_type: "anonymous",
+      owner_id: firstBody.data.anonymous_id,
+      refresh_token: await hashRefreshToken("delete-anonymous-refresh-b"),
+      expires_at: "2999-01-01T00:00:00.000Z",
+      created_at: "2026-07-06T00:00:00.000Z",
+      revoked_at: null,
+    });
+
+    const response = await requestDeleteAccount(
+      env,
+      `Bearer ${firstBody.data.access_token}`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      db.sessions
+        .filter((session) => session.owner_id === firstBody.data.anonymous_id)
+        .map((session) => session.revoked_at),
+    ).toEqual([expect.any(String), expect.any(String)]);
+  });
+
+  it("delete account returns 401 without bearer token because destructive actions require owner proof", async () => {
+    const env = createTestEnv();
+
+    const response = await requestDeleteAccount(env);
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("delete account returns 401 for a revoked session because destructive actions require a live session", async () => {
+    const env = createTestEnv();
+    const accessToken = await seedLiveUserSession(
+      env,
+      "delete-revoked-user",
+      "delete-revoked-session",
+    );
+    const db = fakeD1(env);
+    const user = db.users[0];
+    const session = db.sessions[0];
+
+    if (!user || !session) {
+      throw new Error("Expected seeded user and session.");
+    }
+
+    session.revoked_at = "2026-07-06T01:00:00.000Z";
+
+    const response = await requestDeleteAccount(env, `Bearer ${accessToken}`);
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+    expect(user.deleted_at).toBeNull();
+  });
+
+  it("delete account returns 401 for an expired session because stale destructive proofs must not delete users", async () => {
+    const env = createTestEnv();
+    const accessToken = await seedLiveUserSession(
+      env,
+      "delete-expired-user",
+      "delete-expired-session",
+    );
+    const db = fakeD1(env);
+    const user = db.users[0];
+    const session = db.sessions[0];
+
+    if (!user || !session) {
+      throw new Error("Expected seeded user and session.");
+    }
+
+    session.expires_at = "2000-01-01T00:00:00.000Z";
+
+    const response = await requestDeleteAccount(env, `Bearer ${accessToken}`);
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+    expect(user.deleted_at).toBeNull();
+  });
+
+  it("delete account returns 401 for token/session owner mismatch because one session must not delete another owner", async () => {
+    const env = createTestEnv();
+    const accessToken = await seedLiveUserSession(
+      env,
+      "delete-mismatch-user",
+      "delete-mismatch-session",
+    );
+    const db = fakeD1(env);
+    const user = db.users[0];
+    const session = db.sessions[0];
+
+    if (!user || !session) {
+      throw new Error("Expected seeded user and session.");
+    }
+
+    session.owner_id = "other-user";
+
+    const response = await requestDeleteAccount(env, `Bearer ${accessToken}`);
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+    expect(user.deleted_at).toBeNull();
+  });
+
+  it("delete account rolls back anonymous deletion when a batch statement fails because partial guest deletion must not leak through", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-delete-rollback",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const db = fakeD1(env);
+    db.collectionItems.push({
+      id: "delete-rollback-collection",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: db.portfolioFolders[0]?.id ?? "missing-folder",
+      card_ref: "rollback-card",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "delete-rollback-wishlist",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      card_ref: "rollback-card",
+    });
+    db.failRunOnSql = DELETE_ANONYMOUS_COLLECTION_ITEMS_SQL;
+
+    const response = await requestDeleteAccount(
+      env,
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Unable to complete this action. Please try again later.",
+      },
+    });
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBeNull();
+    expect(db.sessions[0]?.revoked_at).toBeNull();
+    expect(db.portfolioFolders).toEqual([
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+      }),
+    ]);
+    expect(db.collectionItems).toEqual([
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+      }),
+    ]);
+    expect(db.wishlistItems).toEqual([
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+      }),
+    ]);
+    expect(db.userPreferences).toEqual([
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+      }),
+    ]);
+  });
+});
+
+describe("POST /api/v1/auth/migrate-assets", () => {
+  it("migrate-assets transfers guest assets to the current user because registration migration can be retried", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const accessToken = await seedLiveUserSession(
+      env,
+      "migrate-user",
+      "migrate-user-session",
+    );
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-migrate-source",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    db.collectionItems.push({
+      id: "migrate-guest-collection",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: db.portfolioFolders[0]?.id ?? "missing-folder",
+      card_ref: "migrate-card",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "migrate-guest-wishlist",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      card_ref: "migrate-card",
+    });
+
+    const response = await requestMigrateAssets(
+      env,
+      { anonymous_id: anonymousBody.data.anonymous_id },
+      `Bearer ${accessToken}`,
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        migrated_folders: 1,
+        migrated_items: 1,
+        migrated_wishlist: 1,
+      },
+    });
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBe("migrate-user");
+    expect(db.portfolioFolders[0]).toEqual(
+      expect.objectContaining({ owner_type: "user", owner_id: "migrate-user" }),
+    );
+  });
+
+  it("migrate-assets merges guest defaults into an existing user because standalone retry must not collide with default assets", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const accessToken = await seedLiveUserSession(
+      env,
+      "migrate-existing-user",
+      "migrate-existing-session",
+    );
+    db.portfolioFolders.push({
+      id: "user-main-folder",
+      owner_type: "user",
+      owner_id: "migrate-existing-user",
+      name: "Main",
+      is_default: 1,
+      sort_order: 0,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.userPreferences.push({
+      id: "user-existing-preference",
+      owner_type: "user",
+      owner_id: "migrate-existing-user",
+      currency: "USD",
+      amount_hidden: 0,
+      last_selected_folder_id: "user-main-folder",
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-migrate-existing",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const guestFolder = db.portfolioFolders.find(
+      (folder) => folder.owner_id === anonymousBody.data.anonymous_id,
+    );
+
+    if (!guestFolder) {
+      throw new Error("Expected guest default folder.");
+    }
+
+    db.collectionItems.push({
+      id: "migrate-existing-collection",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: guestFolder.id,
+      card_ref: "existing-card",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "migrate-existing-wishlist",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      card_ref: "existing-card",
+    });
+    db.wishlistItems.push({
+      id: "migrate-existing-new-wishlist",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      card_ref: "new-card",
+    });
+    db.wishlistItems.push({
+      id: "user-existing-wishlist",
+      owner_type: "user",
+      owner_id: "migrate-existing-user",
+      card_ref: "existing-card",
+    });
+
+    const response = await requestMigrateAssets(
+      env,
+      { anonymous_id: anonymousBody.data.anonymous_id },
+      `Bearer ${accessToken}`,
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        migrated_folders: 1,
+        migrated_items: 1,
+        migrated_wishlist: 1,
+      },
+    });
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBe(
+      "migrate-existing-user",
+    );
+    expect(
+      db.portfolioFolders.find((folder) => folder.id === "user-main-folder"),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: "migrate-existing-user",
+        name: "Main",
+      }),
+    );
+    expect(db.collectionItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: "migrate-existing-user",
+        folder_id: "user-main-folder",
+      }),
+    );
+    expect(
+      db.wishlistItems.find((item) => item.id === "user-existing-wishlist"),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: "migrate-existing-user",
+        card_ref: "existing-card",
+      }),
+    );
+    expect(
+      db.wishlistItems.find(
+        (item) => item.id === "migrate-existing-new-wishlist",
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: "migrate-existing-user",
+        card_ref: "new-card",
+      }),
+    );
+    expect(db.userPreferences).toEqual([
+      expect.objectContaining({
+        id: "user-existing-preference",
+        owner_type: "user",
+        owner_id: "migrate-existing-user",
+      }),
+    ]);
+    expect(
+      db.portfolioFolders.some(
+        (folder) =>
+          folder.owner_type === "anonymous" &&
+          folder.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+    expect(
+      db.collectionItems.some(
+        (item) =>
+          item.owner_type === "anonymous" &&
+          item.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+    expect(
+      db.wishlistItems.some(
+        (item) =>
+          item.owner_type === "anonymous" &&
+          item.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+    expect(
+      db.userPreferences.some(
+        (preference) =>
+          preference.owner_type === "anonymous" &&
+          preference.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+  });
+
+  it("migrate-assets remaps migrated preference folder because deleted guest folders must not leave dangling selections", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const accessToken = await seedLiveUserSession(
+      env,
+      "migrate-preference-user",
+      "migrate-preference-session",
+    );
+    db.portfolioFolders.push({
+      id: "preference-user-main-folder",
+      owner_type: "user",
+      owner_id: "migrate-preference-user",
+      name: "Main",
+      is_default: 1,
+      sort_order: 0,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-migrate-preference",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const guestFolder = db.portfolioFolders.find(
+      (folder) => folder.owner_id === anonymousBody.data.anonymous_id,
+    );
+    const guestPreference = db.userPreferences.find(
+      (preference) => preference.owner_id === anonymousBody.data.anonymous_id,
+    );
+
+    if (!guestFolder || !guestPreference) {
+      throw new Error("Expected guest default folder and preference.");
+    }
+
+    guestPreference.last_selected_folder_id = guestFolder.id;
+
+    const response = await requestMigrateAssets(
+      env,
+      { anonymous_id: anonymousBody.data.anonymous_id },
+      `Bearer ${accessToken}`,
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(db.userPreferences).toEqual([
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: "migrate-preference-user",
+        last_selected_folder_id: "preference-user-main-folder",
+      }),
+    ]);
+    expect(
+      db.portfolioFolders.some(
+        (folder) =>
+          folder.owner_type === "anonymous" &&
+          folder.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+  });
+
+  it("migrate-assets rolls back when migration batch fails because partial guest claims must not leak through", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const accessToken = await seedLiveUserSession(
+      env,
+      "migrate-rollback-user",
+      "migrate-rollback-session",
+    );
+    const userSession = db.sessions.find(
+      (session) => session.id === "migrate-rollback-session",
+    );
+    db.portfolioFolders.push({
+      id: "rollback-user-main-folder",
+      owner_type: "user",
+      owner_id: "migrate-rollback-user",
+      name: "Main",
+      is_default: 1,
+      sort_order: 0,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.userPreferences.push({
+      id: "rollback-user-preference",
+      owner_type: "user",
+      owner_id: "migrate-rollback-user",
+      currency: "USD",
+      amount_hidden: 0,
+      last_selected_folder_id: "rollback-user-main-folder",
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "rollback-user-wishlist",
+      owner_type: "user",
+      owner_id: "migrate-rollback-user",
+      card_ref: "existing-card",
+    });
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-migrate-rollback",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const guestFolder = db.portfolioFolders.find(
+      (folder) => folder.owner_id === anonymousBody.data.anonymous_id,
+    );
+    const guestPreference = db.userPreferences.find(
+      (preference) => preference.owner_id === anonymousBody.data.anonymous_id,
+    );
+    const anonymousSession = db.sessions.find(
+      (session) => session.owner_id === anonymousBody.data.anonymous_id,
+    );
+
+    if (!guestFolder || !guestPreference || !userSession || !anonymousSession) {
+      throw new Error("Expected migration rollback fixtures.");
+    }
+
+    guestPreference.last_selected_folder_id = guestFolder.id;
+    db.collectionItems.push({
+      id: "rollback-guest-collection",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: guestFolder.id,
+      card_ref: "rollback-card",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "rollback-guest-conflicting-wishlist",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      card_ref: "existing-card",
+    });
+    db.wishlistItems.push({
+      id: "rollback-guest-new-wishlist",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      card_ref: "new-card",
+    });
+    db.failRunOnSql = REMAP_CONFLICTING_COLLECTION_ITEMS_TO_USER_FOLDER_SQL;
+
+    const response = await requestMigrateAssets(
+      env,
+      { anonymous_id: anonymousBody.data.anonymous_id },
+      `Bearer ${accessToken}`,
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Unable to complete this action. Please try again later.",
+      },
+    });
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBeNull();
+    expect(userSession.revoked_at).toBeNull();
+    expect(anonymousSession.revoked_at).toBeNull();
+    expect(
+      db.portfolioFolders.find((folder) => folder.id === guestFolder.id),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+        name: "Main",
+      }),
+    );
+    expect(db.collectionItems).toEqual([
+      expect.objectContaining({
+        id: "rollback-guest-collection",
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+        folder_id: guestFolder.id,
+      }),
+    ]);
+    expect(
+      db.wishlistItems.find(
+        (item) => item.id === "rollback-guest-conflicting-wishlist",
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+        card_ref: "existing-card",
+      }),
+    );
+    expect(
+      db.wishlistItems.find((item) => item.id === "rollback-guest-new-wishlist"),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+        card_ref: "new-card",
+      }),
+    );
+    expect(db.userPreferences).toEqual([
+      expect.objectContaining({
+        id: "rollback-user-preference",
+        owner_type: "user",
+        owner_id: "migrate-rollback-user",
+        last_selected_folder_id: "rollback-user-main-folder",
+      }),
+      expect.objectContaining({
+        id: guestPreference.id,
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+        last_selected_folder_id: guestFolder.id,
+      }),
+    ]);
+    expect(
+      db.portfolioFolders.find((folder) => folder.id === "rollback-user-main-folder"),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: "migrate-rollback-user",
+      }),
+    );
+    expect(
+      db.wishlistItems.find((item) => item.id === "rollback-user-wishlist"),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: "migrate-rollback-user",
+        card_ref: "existing-card",
+      }),
+    );
+  });
+
+  it("migrate-assets returns 403 without anonymous proof because anonymous_id alone must not prove source ownership", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const accessToken = await seedLiveUserSession(
+      env,
+      "migrate-no-proof-user",
+      "migrate-no-proof-session",
+    );
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-migrate-no-proof",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    const response = await requestMigrateAssets(
+      env,
+      { anonymous_id: anonymousBody.data.anonymous_id },
+      `Bearer ${accessToken}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      success: false,
+      error: { code: "AUTH_REQUIRED", message: "Auth required." },
+    });
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBeNull();
+    expect(db.portfolioFolders[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+      }),
+    );
+  });
+
+  it("migrate-assets returns 403 for mismatched anonymous proof because one guest token must not claim another guest", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const accessToken = await seedLiveUserSession(
+      env,
+      "migrate-mismatch-user",
+      "migrate-mismatch-session",
+    );
+    const targetResponse = await requestAnonymous(
+      env,
+      "device-migrate-target",
+    );
+    const targetBody =
+      (await targetResponse.json()) as AnonymousSuccessResponse;
+    const otherResponse = await requestAnonymous(env, "device-migrate-other");
+    const otherBody = (await otherResponse.json()) as AnonymousSuccessResponse;
+
+    const response = await requestMigrateAssets(
+      env,
+      { anonymous_id: targetBody.data.anonymous_id },
+      `Bearer ${accessToken}`,
+      `Bearer ${otherBody.data.access_token}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      success: false,
+      error: { code: "AUTH_REQUIRED", message: "Auth required." },
+    });
+    expect(
+      db.anonymousAccounts.find(
+        (row) => row.id === targetBody.data.anonymous_id,
+      )?.upgraded_user_id,
+    ).toBeNull();
+    expect(
+      db.portfolioFolders.find(
+        (row) => row.owner_id === targetBody.data.anonymous_id,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: targetBody.data.anonymous_id,
+      }),
+    );
+  });
+
+  it("migrate-assets returns 403 for missing anonymous account without guest proof because source state must not be disclosed", async () => {
+    const env = createTestEnv();
+    const accessToken = await seedLiveUserSession(
+      env,
+      "migrate-missing-user",
+      "migrate-missing-session",
+    );
+
+    const response = await requestMigrateAssets(
+      env,
+      { anonymous_id: "missing-anonymous" },
+      `Bearer ${accessToken}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      success: false,
+      error: { code: "AUTH_REQUIRED", message: "Auth required." },
+    });
+  });
+
+  it("migrate-assets returns 404 for a missing anonymous account with valid guest proof because there is no source owner", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const accessToken = await seedLiveUserSession(
+      env,
+      "migrate-proven-missing-user",
+      "migrate-proven-missing-session",
+    );
+    db.sessions.push({
+      id: "missing-anonymous-session",
+      owner_type: "anonymous",
+      owner_id: "missing-anonymous",
+      refresh_token: await hashRefreshToken("missing-anonymous-refresh"),
+      expires_at: "2999-01-01T00:00:00.000Z",
+      created_at: "2026-07-06T00:00:00.000Z",
+      revoked_at: null,
+    });
+    const anonymousAccessToken = await signAccessToken(
+      {
+        owner_type: "anonymous",
+        owner_id: "missing-anonymous",
+        session_id: "missing-anonymous-session",
+      },
+      env.JWT_SECRET,
+    );
+
+    const response = await requestMigrateAssets(
+      env,
+      { anonymous_id: "missing-anonymous" },
+      `Bearer ${accessToken}`,
+      `Bearer ${anonymousAccessToken}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      success: false,
+      error: { code: "NOT_FOUND", message: "Not found." },
+    });
+  });
+
+  it("migrate-assets returns 409 for an already upgraded anonymous account because assets must not be stolen", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const sessionId = "migrate-upgraded-session";
+    db.users.push({
+      id: "migrate-upgraded-user",
+      email: "migrate-upgraded@example.com",
+      password_hash: null,
+      display_name: null,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+      deleted_at: null,
+    });
+    db.sessions.push({
+      id: sessionId,
+      owner_type: "user",
+      owner_id: "migrate-upgraded-user",
+      refresh_token: await hashRefreshToken("migrate-upgraded-refresh"),
+      expires_at: "2999-01-01T00:00:00.000Z",
+      created_at: "2026-07-06T00:00:00.000Z",
+      revoked_at: null,
+    });
+    seedGuestMigrationRows(db, "anonymous-upgraded-source", "existing-user");
+    db.sessions.push({
+      id: "anonymous-upgraded-session",
+      owner_type: "anonymous",
+      owner_id: "anonymous-upgraded-source",
+      refresh_token: await hashRefreshToken("anonymous-upgraded-refresh"),
+      expires_at: "2999-01-01T00:00:00.000Z",
+      created_at: "2026-07-06T00:00:00.000Z",
+      revoked_at: null,
+    });
+    const accessToken = await signAccessToken(
+      {
+        owner_type: "user",
+        owner_id: "migrate-upgraded-user",
+        session_id: sessionId,
+      },
+      env.JWT_SECRET,
+    );
+    const anonymousAccessToken = await signAccessToken(
+      {
+        owner_type: "anonymous",
+        owner_id: "anonymous-upgraded-source",
+        session_id: "anonymous-upgraded-session",
+      },
+      env.JWT_SECRET,
+    );
+
+    const response = await requestMigrateAssets(
+      env,
+      { anonymous_id: "anonymous-upgraded-source" },
+      `Bearer ${accessToken}`,
+      `Bearer ${anonymousAccessToken}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "CONFLICT",
+        message: "Guest account is no longer available.",
+      },
+    });
+    expect(db.anonymousAccounts[0]).toEqual(
+      expect.objectContaining({
+        id: "anonymous-upgraded-source",
+        upgraded_user_id: "existing-user",
+      }),
+    );
+    expect(db.portfolioFolders[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-upgraded-source",
+      }),
+    );
+    expect(db.collectionItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-upgraded-source",
+      }),
+    );
+    expect(db.wishlistItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-upgraded-source",
+      }),
+    );
+    expect(db.userPreferences[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-upgraded-source",
+      }),
+    );
+  });
+
+  it("migrate-assets returns 403 for anonymous JWT because only durable users can claim guest assets", async () => {
+    const env = createTestEnv();
+    const anonymousResponse = await requestAnonymous(env, "device-migrate-denied");
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const db = fakeD1(env);
+    db.collectionItems.push({
+      id: "migrate-denied-collection",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: db.portfolioFolders[0]?.id ?? "missing-folder",
+      card_ref: "denied-card",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "migrate-denied-wishlist",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      card_ref: "denied-card",
+    });
+
+    const response = await requestMigrateAssets(
+      env,
+      { anonymous_id: anonymousBody.data.anonymous_id },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      success: false,
+      error: { code: "AUTH_REQUIRED", message: "Auth required." },
+    });
+    expect(db.anonymousAccounts[0]?.upgraded_user_id).toBeNull();
+    expect(db.portfolioFolders[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+      }),
+    );
+    expect(db.collectionItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+      }),
+    );
+    expect(db.wishlistItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+      }),
+    );
+    expect(db.userPreferences[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: anonymousBody.data.anonymous_id,
+      }),
+    );
   });
 });
 

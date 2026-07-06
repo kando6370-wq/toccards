@@ -171,6 +171,173 @@ const UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_UNGUARDED_SQL = `
   WHERE id = ? AND upgraded_user_id IS NULL
 `;
 
+const REMAP_CONFLICTING_COLLECTION_ITEMS_TO_USER_FOLDER_SQL = `
+  UPDATE collection_item
+  SET folder_id = (
+    SELECT target.id
+    FROM portfolio_folder source
+    JOIN portfolio_folder target
+      ON target.owner_type = 'user'
+      AND target.owner_id = ?
+      AND target.name = source.name
+    WHERE source.id = collection_item.folder_id
+      AND source.owner_type = 'anonymous'
+      AND source.owner_id = ?
+    LIMIT 1
+  ), updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM portfolio_folder source
+      JOIN portfolio_folder target
+        ON target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.name = source.name
+      WHERE source.id = collection_item.folder_id
+        AND source.owner_type = 'anonymous'
+        AND source.owner_id = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
+const DELETE_CONFLICTING_ANONYMOUS_PORTFOLIO_FOLDERS_SQL = `
+  DELETE FROM portfolio_folder
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM portfolio_folder target
+      WHERE target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.name = portfolio_folder.name
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
+const REMAP_ANONYMOUS_USER_PREFERENCE_FOLDER_SQL = `
+  UPDATE user_preference
+  SET last_selected_folder_id = (
+    SELECT target.id
+    FROM portfolio_folder source
+    JOIN portfolio_folder target
+      ON target.owner_type = 'user'
+      AND target.owner_id = ?
+      AND target.name = source.name
+    WHERE source.id = user_preference.last_selected_folder_id
+      AND source.owner_type = 'anonymous'
+      AND source.owner_id = ?
+    LIMIT 1
+  ), updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM portfolio_folder source
+      JOIN portfolio_folder target
+        ON target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.name = source.name
+      WHERE source.id = user_preference.last_selected_folder_id
+        AND source.owner_type = 'anonymous'
+        AND source.owner_id = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
+const UPDATE_NON_CONFLICTING_ANONYMOUS_PORTFOLIO_FOLDERS_SQL = `
+  UPDATE portfolio_folder
+  SET owner_type = 'user', owner_id = ?, updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND NOT EXISTS (
+      SELECT 1
+      FROM portfolio_folder target
+      WHERE target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.name = portfolio_folder.name
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
+const DELETE_CONFLICTING_ANONYMOUS_WISHLIST_ITEMS_SQL = `
+  DELETE FROM wishlist_item
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM wishlist_item target
+      WHERE target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.card_ref = wishlist_item.card_ref
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
+const UPDATE_NON_CONFLICTING_ANONYMOUS_WISHLIST_ITEMS_SQL = `
+  UPDATE wishlist_item
+  SET owner_type = 'user', owner_id = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND NOT EXISTS (
+      SELECT 1
+      FROM wishlist_item target
+      WHERE target.owner_type = 'user'
+        AND target.owner_id = ?
+        AND target.card_ref = wishlist_item.card_ref
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
+const DELETE_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL = `
+  DELETE FROM user_preference
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM user_preference target
+      WHERE target.owner_type = 'user' AND target.owner_id = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
+const UPDATE_NON_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL = `
+  UPDATE user_preference
+  SET owner_type = 'user', owner_id = ?, updated_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND NOT EXISTS (
+      SELECT 1
+      FROM user_preference target
+      WHERE target.owner_type = 'user' AND target.owner_id = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
 export async function findVerifiedAnonymousAccount(
   db: D1Database,
   anonymousId: string | null,
@@ -237,6 +404,75 @@ export async function migrateGuestAssetsToUser(
   ]);
 
   return readMigrationCounts(results);
+}
+
+export async function migrateGuestAssetsToExistingUser(
+  db: D1Database,
+  anonymousId: string,
+  userId: string,
+  updatedAt: string,
+): Promise<MigrationCounts> {
+  const results = await db.batch([
+    db
+      .prepare(UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_UNGUARDED_SQL)
+      .bind(userId, anonymousId),
+    db
+      .prepare(REMAP_CONFLICTING_COLLECTION_ITEMS_TO_USER_FOLDER_SQL)
+      .bind(
+        userId,
+        anonymousId,
+        updatedAt,
+        anonymousId,
+        userId,
+        anonymousId,
+        anonymousId,
+        userId,
+      ),
+    db
+      .prepare(REMAP_ANONYMOUS_USER_PREFERENCE_FOLDER_SQL)
+      .bind(
+        userId,
+        anonymousId,
+        updatedAt,
+        anonymousId,
+        userId,
+        anonymousId,
+        anonymousId,
+        userId,
+      ),
+    db
+      .prepare(DELETE_CONFLICTING_ANONYMOUS_PORTFOLIO_FOLDERS_SQL)
+      .bind(anonymousId, userId, anonymousId, userId),
+    db
+      .prepare(UPDATE_NON_CONFLICTING_ANONYMOUS_PORTFOLIO_FOLDERS_SQL)
+      .bind(userId, updatedAt, anonymousId, userId, anonymousId, userId),
+    db
+      .prepare(UPDATE_ANONYMOUS_COLLECTION_ITEMS_UNGUARDED_SQL)
+      .bind(userId, updatedAt, anonymousId, anonymousId, userId),
+    db
+      .prepare(DELETE_CONFLICTING_ANONYMOUS_WISHLIST_ITEMS_SQL)
+      .bind(anonymousId, userId, anonymousId, userId),
+    db
+      .prepare(UPDATE_NON_CONFLICTING_ANONYMOUS_WISHLIST_ITEMS_SQL)
+      .bind(userId, anonymousId, userId, anonymousId, userId),
+    db
+      .prepare(DELETE_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL)
+      .bind(anonymousId, userId, anonymousId, userId),
+    db
+      .prepare(UPDATE_NON_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL)
+      .bind(userId, updatedAt, anonymousId, userId, anonymousId, userId),
+  ]);
+
+  if (results[0]?.meta.changes !== 1) {
+    throw new Error(GUEST_ACCOUNT_UNAVAILABLE_MESSAGE);
+  }
+
+  return {
+    migrated_folders:
+      (results[3]?.meta.changes ?? 0) + (results[4]?.meta.changes ?? 0),
+    migrated_items: results[5]?.meta.changes ?? 0,
+    migrated_wishlist: results[7]?.meta.changes ?? 0,
+  };
 }
 
 export function createGuestMigrationStatements(
