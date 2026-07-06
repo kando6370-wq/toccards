@@ -6,11 +6,20 @@ import {
   isOAuthAuthorizationFailedError,
 } from "./account-flow";
 import { hasSigningSecret } from "./http-auth";
-import { resolveMockGoogleIdentity } from "./oauth-provider";
+import {
+  resolveMockAppleIdentity,
+  resolveMockGoogleIdentity,
+} from "./oauth-provider";
 
 type GoogleOAuthCallbackInput = {
   code: string | null;
   redirectUri: string | null;
+  anonymousId: string | null;
+};
+
+type AppleOAuthCallbackInput = {
+  code: string | null;
+  idToken: string | null;
   anonymousId: string | null;
 };
 
@@ -89,6 +98,57 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
   });
+
+  routes.post("/oauth/apple/callback", async (c) => {
+    const input = await readAppleOAuthCallbackInput(c.req);
+    const identity = resolveMockAppleIdentity({
+      code: input.code,
+      idToken: input.idToken,
+    });
+
+    if (!identity) {
+      return c.json(AUTHORIZATION_FAILED_RESPONSE, 422);
+    }
+
+    if (!hasSigningSecret(c.env.JWT_SECRET)) {
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+
+    try {
+      const result = await completeOAuthAccountFlow(
+        c.env.DB,
+        identity,
+        c.env.JWT_SECRET,
+        input.anonymousId,
+        c.req.header("Authorization"),
+        new Date(),
+      );
+
+      return c.json({
+        success: true,
+        data: {
+          user_id: result.userId,
+          email: identity.email,
+          access_token: result.session.accessToken,
+          refresh_token: result.session.refreshToken,
+          expires_in: result.session.expiresIn,
+          is_new_user: result.isNewUser,
+          migrated: result.migrated,
+        },
+      });
+    } catch (error) {
+      if (isOAuthAuthorizationFailedError(error)) {
+        return c.json(AUTHORIZATION_FAILED_RESPONSE, 422);
+      }
+
+      if (isGuestAccountUnavailableError(error)) {
+        return c.json(STALE_ANONYMOUS_ACCOUNT_RESPONSE, 422);
+      }
+
+      console.error("Failed to complete Apple OAuth callback.", error);
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+  });
 }
 
 async function readGoogleOAuthCallbackInput(request: {
@@ -118,6 +178,37 @@ async function readGoogleOAuthCallbackInput(request: {
   return {
     code: trimString(rawCode),
     redirectUri: trimString(rawRedirectUri),
+    anonymousId: trimString(rawAnonymousId),
+  };
+}
+
+async function readAppleOAuthCallbackInput(request: {
+  json(): Promise<unknown>;
+}): Promise<AppleOAuthCallbackInput> {
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return { code: null, idToken: null, anonymousId: null };
+  }
+
+  const rawCode =
+    body && typeof body === "object"
+      ? (body as { code?: unknown }).code
+      : undefined;
+  const rawIdToken =
+    body && typeof body === "object"
+      ? (body as { id_token?: unknown }).id_token
+      : undefined;
+  const rawAnonymousId =
+    body && typeof body === "object"
+      ? (body as { anonymous_id?: unknown }).anonymous_id
+      : undefined;
+
+  return {
+    code: trimString(rawCode),
+    idToken: trimString(rawIdToken),
     anonymousId: trimString(rawAnonymousId),
   };
 }

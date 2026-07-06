@@ -2700,6 +2700,362 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
   });
 });
 
+describe("POST /api/v1/auth/oauth/apple/callback", () => {
+  it("apple oauth creates an OAuth-only user because id_token proves a new provider identity", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    const response = await requestAppleOAuthCallback(env, {
+      code: "apple-auth-code",
+      id_token: "mock-apple:apple-1:apple.new@example.com",
+    });
+    const body = (await response.json()) as OAuthSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        user_id: expect.any(String),
+        email: "apple.new@example.com",
+        access_token: expect.any(String),
+        refresh_token: expect.any(String),
+        expires_in: 900,
+        is_new_user: true,
+        migrated: false,
+      },
+    });
+    expect(db.users).toEqual([
+      expect.objectContaining({
+        id: body.data.user_id,
+        email: "apple.new@example.com",
+        password_hash: null,
+        deleted_at: null,
+      }),
+    ]);
+    expect(db.authIdentities).toEqual([
+      expect.objectContaining({
+        user_id: body.data.user_id,
+        provider: "apple",
+        provider_uid: "apple-1",
+      }),
+    ]);
+    expect(db.sessions).toEqual([
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: body.data.user_id,
+      }),
+    ]);
+  });
+
+  it("apple oauth signs in an existing identity because provider_uid is stable across sessions", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-apple-existing-identity",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+    const anonymousFolder = db.portfolioFolders.find(
+      (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+    );
+
+    if (!anonymousFolder) {
+      throw new Error("Expected anonymous folder.");
+    }
+
+    db.collectionItems.push({
+      id: "collection-apple-existing-identity",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      folder_id: anonymousFolder.id,
+      card_ref: "card-apple-existing-identity",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "wishlist-apple-existing-identity",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      card_ref: "card-apple-existing-identity",
+    });
+    db.users.push({
+      id: "user-apple-existing",
+      email: "original.apple@example.com",
+      password_hash: null,
+      display_name: null,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+      deleted_at: null,
+    });
+    db.authIdentities.push({
+      id: "identity-apple-existing",
+      user_id: "user-apple-existing",
+      provider: "apple",
+      provider_uid: "apple-existing",
+      created_at: "2026-07-06T00:00:00.000Z",
+    });
+
+    const response = await requestAppleOAuthCallbackWithAuthorization(
+      env,
+      {
+        code: "apple-auth-code",
+        id_token: "mock-apple:apple-existing:new.apple@example.com",
+        anonymous_id: anonymousId,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as OAuthSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual(
+      expect.objectContaining({
+        user_id: "user-apple-existing",
+        email: "new.apple@example.com",
+        is_new_user: false,
+        migrated: false,
+      }),
+    );
+    expect(db.users).toHaveLength(1);
+    expect(db.authIdentities).toHaveLength(1);
+    expect(db.anonymousAccounts).toEqual([
+      expect.objectContaining({ id: anonymousId, upgraded_user_id: null }),
+    ]);
+    expect(db.collectionItems).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+    expect(db.wishlistItems).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+  });
+
+  it("apple oauth binds an existing live email because one email maps to one user", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-apple-existing-email",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+    const anonymousFolder = db.portfolioFolders.find(
+      (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+    );
+
+    if (!anonymousFolder) {
+      throw new Error("Expected anonymous folder.");
+    }
+
+    db.collectionItems.push({
+      id: "collection-apple-existing-email",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      folder_id: anonymousFolder.id,
+      card_ref: "card-apple-existing-email",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "wishlist-apple-existing-email",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      card_ref: "card-apple-existing-email",
+    });
+    db.users.push({
+      id: "user-apple-email-existing",
+      email: "apple.shared@example.com",
+      password_hash: await hashPassword("existing-password"),
+      display_name: null,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const response = await requestAppleOAuthCallbackWithAuthorization(
+      env,
+      {
+        code: "apple-auth-code",
+        id_token: "mock-apple:apple-shared:apple.shared@example.com",
+        anonymous_id: anonymousId,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as OAuthSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual(
+      expect.objectContaining({
+        user_id: "user-apple-email-existing",
+        email: "apple.shared@example.com",
+        is_new_user: false,
+        migrated: false,
+      }),
+    );
+    expect(db.users).toHaveLength(1);
+    expect(db.authIdentities).toEqual([
+      expect.objectContaining({
+        user_id: "user-apple-email-existing",
+        provider: "apple",
+        provider_uid: "apple-shared",
+      }),
+    ]);
+    expect(db.anonymousAccounts).toEqual([
+      expect.objectContaining({ id: anonymousId, upgraded_user_id: null }),
+    ]);
+    expect(db.collectionItems).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+    expect(db.wishlistItems).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+  });
+
+  it("apple oauth migrates a live guest only for a new user because existing-user login must not merge assets", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(env, "device-apple-migrate");
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    db.collectionItems.push({
+      id: `collection-${anonymousBody.data.anonymous_id}`,
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: `folder-${anonymousBody.data.anonymous_id}`,
+      card_ref: `card-${anonymousBody.data.anonymous_id}`,
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: `wishlist-${anonymousBody.data.anonymous_id}`,
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      card_ref: `card-${anonymousBody.data.anonymous_id}`,
+    });
+
+    const response = await requestAppleOAuthCallbackWithAuthorization(
+      env,
+      {
+        code: "apple-auth-code",
+        id_token: "mock-apple:apple-migrate:apple.migrate@example.com",
+        anonymous_id: anonymousBody.data.anonymous_id,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as OAuthSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual(
+      expect.objectContaining({
+        email: "apple.migrate@example.com",
+        is_new_user: true,
+        migrated: true,
+      }),
+    );
+    expect(
+      db.anonymousAccounts.find(
+        (row) => row.id === anonymousBody.data.anonymous_id,
+      ),
+    ).toEqual(expect.objectContaining({ upgraded_user_id: body.data.user_id }));
+    expect(
+      db.collectionItems.find(
+        (row) => row.id === `collection-${anonymousBody.data.anonymous_id}`,
+      ),
+    ).toEqual(
+      expect.objectContaining({ owner_type: "user", owner_id: body.data.user_id }),
+    );
+    expect(
+      db.wishlistItems.find(
+        (row) => row.id === `wishlist-${anonymousBody.data.anonymous_id}`,
+      ),
+    ).toEqual(
+      expect.objectContaining({ owner_type: "user", owner_id: body.data.user_id }),
+    );
+  });
+
+  it("apple oauth rejects missing id_token because provider identity cannot be proven", async () => {
+    const env = createTestEnv();
+
+    const response = await requestAppleOAuthCallback(env, {
+      code: "apple-auth-code",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Authorization failed. Please try again.",
+      },
+    });
+    expect(fakeD1(env).users).toHaveLength(0);
+    expect(fakeD1(env).authIdentities).toHaveLength(0);
+  });
+
+  it("apple oauth rejects malformed mock authorization because failed provider proof must not create accounts", async () => {
+    const env = createTestEnv();
+
+    const response = await requestAppleOAuthCallback(env, {
+      code: "apple-auth-code",
+      id_token: "bad-token",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Authorization failed. Please try again.",
+      },
+    });
+    expect(fakeD1(env).users).toHaveLength(0);
+    expect(fakeD1(env).authIdentities).toHaveLength(0);
+  });
+
+  it("apple oauth rejects malformed provider UID because durable login keys must be constrained", async () => {
+    const env = createTestEnv();
+
+    const response = await requestAppleOAuthCallback(env, {
+      code: "apple-auth-code",
+      id_token: "mock-apple:bad uid:user@example.com",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Authorization failed. Please try again.",
+      },
+    });
+    expect(fakeD1(env).users).toHaveLength(0);
+    expect(fakeD1(env).authIdentities).toHaveLength(0);
+  });
+
+  it("apple oauth rejects malformed email because provider identity email must be usable for account lookup", async () => {
+    const env = createTestEnv();
+
+    const response = await requestAppleOAuthCallback(env, {
+      code: "apple-auth-code",
+      id_token: "mock-apple:valid-uid:not-an-email",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Authorization failed. Please try again.",
+      },
+    });
+    expect(fakeD1(env).users).toHaveLength(0);
+    expect(fakeD1(env).authIdentities).toHaveLength(0);
+  });
+});
+
 async function requestAnonymous(
   env: TestEnv,
   deviceId: string,
@@ -2737,6 +3093,40 @@ async function requestGoogleOAuthCallbackWithAuthorization(
 ): Promise<Response> {
   return app.request(
     "/api/v1/auth/oauth/google/callback",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+async function requestAppleOAuthCallback(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/oauth/apple/callback",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+async function requestAppleOAuthCallbackWithAuthorization(
+  env: TestEnv,
+  body: unknown,
+  authorization: string,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/oauth/apple/callback",
     {
       method: "POST",
       headers: {
