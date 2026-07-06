@@ -9,6 +9,24 @@ abstract class AuthRepository {
   Future<void> persistSession(AuthSession session);
   Future<void> clearUserSession();
   Future<void> clearAnonymousSession();
+  Future<void> sendRegisterCode(String email);
+  Future<AuthSession> verifyRegister({
+    required String email,
+    required String code,
+    required String password,
+    String? anonymousId,
+  });
+  Future<AuthSession> login({required String email, required String password});
+  Future<void> sendForgotPasswordCode(String email);
+  Future<String> verifyForgotPasswordCode({
+    required String email,
+    required String code,
+  });
+  Future<void> resetPassword({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  });
 }
 
 class LocalPlaceholderAuthRepository implements AuthRepository {
@@ -56,5 +74,56 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
   @override
   Future<void> clearAnonymousSession() {
     return _storage.clearAnonymousSession();
+  }
+
+  @override
+  Future<void> sendRegisterCode(String email) async {}
+
+  @override
+  Future<AuthSession> verifyRegister({
+    required String email,
+    required String code,
+    required String password,
+    String? anonymousId,
+  }) async {
+    return _userSession(email);
+  }
+
+  @override
+  Future<AuthSession> login({
+    required String email,
+    required String password,
+  }) async {
+    return _userSession(email);
+  }
+
+  @override
+  Future<void> sendForgotPasswordCode(String email) async {}
+
+  @override
+  Future<String> verifyForgotPasswordCode({
+    required String email,
+    required String code,
+  }) async {
+    return 'local-reset-token-$email';
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  }) async {}
+
+  AuthSession _userSession(String email) {
+    final issuedAt = DateTime.now().microsecondsSinceEpoch;
+
+    return AuthSession(
+      ownerType: OwnerType.user,
+      accessToken: 'local-user-access-$issuedAt',
+      refreshToken: 'local-user-refresh-$issuedAt',
+      userId: 'local-user-$email',
+      email: email,
+    );
   }
 }

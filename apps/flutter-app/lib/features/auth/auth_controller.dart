@@ -78,6 +78,61 @@ class AuthController extends Notifier<AuthState> {
     });
   }
 
+  Future<void> login({required String email, required String password}) async {
+    await _enqueueMutation(() async {
+      final session = await _repository.login(email: email, password: password);
+      await _repository.persistSession(session);
+      state = AuthState.ready(session: session);
+    });
+  }
+
+  Future<void> sendRegisterCode(String email) {
+    return _repository.sendRegisterCode(email);
+  }
+
+  Future<void> verifyRegister({
+    required String email,
+    required String code,
+    required String password,
+  }) async {
+    await _enqueueMutation(() async {
+      final anonymousId = state.session?.isAnonymous == true
+          ? state.session?.anonymousId
+          : null;
+      final session = await _repository.verifyRegister(
+        email: email,
+        code: code,
+        password: password,
+        anonymousId: anonymousId,
+      );
+      await _repository.persistSession(session);
+      state = AuthState.ready(session: session);
+    });
+  }
+
+  Future<void> sendForgotPasswordCode(String email) {
+    return _repository.sendForgotPasswordCode(email);
+  }
+
+  Future<String> verifyForgotPasswordCode({
+    required String email,
+    required String code,
+  }) {
+    return _repository.verifyForgotPasswordCode(email: email, code: code);
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  }) {
+    return _repository.resetPassword(
+      email: email,
+      resetToken: resetToken,
+      newPassword: newPassword,
+    );
+  }
+
   Future<void> _loadInitialSession(int generation) async {
     final storedSession = await _repository.currentSessionFromStorage();
     final validSession = storedSession == null

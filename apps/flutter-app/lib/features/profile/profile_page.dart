@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
+import '../auth/ui/auth_sheet.dart';
 import 'account_page.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -61,7 +62,7 @@ class _ProfileContent extends ConsumerWidget {
           const SizedBox(height: 12),
         ] else ...[
           FilledButton(
-            onPressed: () {},
+            onPressed: () => showAuthSheet(context),
             child: const Text('Sign in / Sign up'),
           ),
           const SizedBox(height: 12),

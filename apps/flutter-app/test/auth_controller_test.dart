@@ -442,4 +442,55 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> clearAnonymousSession() async {
     clearedAnonymousSessions++;
   }
+
+  @override
+  Future<void> sendRegisterCode(String email) async {}
+
+  @override
+  Future<AuthSession> verifyRegister({
+    required String email,
+    required String code,
+    required String password,
+    String? anonymousId,
+  }) async {
+    return AuthSession(
+      ownerType: OwnerType.user,
+      accessToken: 'user-access',
+      refreshToken: 'user-refresh',
+      userId: 'user-1',
+      email: email,
+    );
+  }
+
+  @override
+  Future<AuthSession> login({
+    required String email,
+    required String password,
+  }) async {
+    return AuthSession(
+      ownerType: OwnerType.user,
+      accessToken: 'user-access',
+      refreshToken: 'user-refresh',
+      userId: 'user-1',
+      email: email,
+    );
+  }
+
+  @override
+  Future<void> sendForgotPasswordCode(String email) async {}
+
+  @override
+  Future<String> verifyForgotPasswordCode({
+    required String email,
+    required String code,
+  }) async {
+    return 'reset-token';
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  }) async {}
 }
