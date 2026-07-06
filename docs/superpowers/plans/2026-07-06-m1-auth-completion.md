@@ -253,6 +253,7 @@ git commit -m "refactor(auth): share guest migration helpers"
 
 **Files:**
 - Create: `apps/workers-api/src/auth/oauth-provider.ts`
+- Create: `apps/workers-api/src/auth/account-flow.ts`
 - Create: `apps/workers-api/src/auth/oauth.ts`
 - Modify: `apps/workers-api/src/auth/anonymous.ts`
 - Modify: `apps/workers-api/src/auth/anonymous.test.ts`
@@ -380,15 +381,22 @@ function normalizeEmail(rawEmail: string | undefined): string | null {
 
 - [ ] **Step 4: Implement `oauth.ts` Google path**
 
-Register `POST /oauth/google/callback`. The route must:
+Create `account-flow.ts` and implement the shared OAuth account flow used by the Google route and the later Apple route. It must:
+
+- check existing `auth_identity` by provider and provider UID,
+- sign in the linked live user when identity exists,
+- bind a missing identity to an existing live `user.email`,
+- create an OAuth-only user when neither identity nor live email exists,
+- initialize default user assets for new OAuth-only users,
+- migrate a verified anonymous account only for a newly created user,
+- create a user session with `createUserSessionValues`.
+
+Then register `POST /oauth/google/callback` in `oauth.ts`. The route must:
 
 - parse `code`, `redirect_uri`, and optional `anonymous_id`,
 - call `resolveMockGoogleIdentity`,
 - return the authorization failure response on null,
-- check existing `auth_identity`,
-- bind to an existing live `user.email` when no identity exists,
-- otherwise create OAuth-only user and identity,
-- use shared session helper to return access and refresh tokens.
+- call the shared account-flow helper to return access and refresh tokens.
 
 Response shape:
 
@@ -453,7 +461,7 @@ Expected: all commands exit 0.
 - [ ] **Step 8: Commit**
 
 ```powershell
-git add apps/workers-api/src/auth/oauth-provider.ts apps/workers-api/src/auth/oauth.ts apps/workers-api/src/auth/anonymous.ts apps/workers-api/src/auth/anonymous.test.ts
+git add apps/workers-api/src/auth/oauth-provider.ts apps/workers-api/src/auth/account-flow.ts apps/workers-api/src/auth/oauth.ts apps/workers-api/src/auth/anonymous.ts apps/workers-api/src/auth/anonymous.test.ts
 git commit -m "feat(auth): add mock google oauth callback"
 ```
 
