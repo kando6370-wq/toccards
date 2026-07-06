@@ -83,6 +83,14 @@ type UserRow = {
   deleted_at: string | null;
 };
 
+type AuthIdentityRow = {
+  id: string;
+  user_id: string;
+  provider: "google" | "apple";
+  provider_uid: string;
+  created_at: string;
+};
+
 type VerificationCodeRow = {
   id: string;
   email: string;
@@ -163,6 +171,19 @@ type LoginSuccessResponse = {
   };
 };
 
+type OAuthSuccessResponse = {
+  success: true;
+  data: {
+    user_id: string;
+    email: string;
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    is_new_user: boolean;
+    migrated: boolean;
+  };
+};
+
 type ForgotPasswordVerifyCodeSuccessResponse = {
   success: true;
   data: { reset_token: string };
@@ -211,6 +232,7 @@ class FakeD1 {
   wishlistItems: WishlistItemRow[] = [];
   sessions: SessionRow[] = [];
   users: UserRow[] = [];
+  authIdentities: AuthIdentityRow[] = [];
   verificationCodes: VerificationCodeRow[] = [];
   consumeNextRegisterCodeBeforeUpdate = false;
   failNextBatch = false;
@@ -325,6 +347,33 @@ class FakeD1 {
       );
 
       return user ? ({ id: user.id } as T) : null;
+    }
+
+    if (normalizedSql === SELECT_OAUTH_IDENTITY_SQL) {
+      const [provider, providerUid] = values as [string, string];
+      const identity = this.authIdentities.find(
+        (row) => row.provider === provider && row.provider_uid === providerUid,
+      );
+
+      return identity ? ({ user_id: identity.user_id } as T) : null;
+    }
+
+    if (normalizedSql === SELECT_LIVE_USER_BY_ID_SQL) {
+      const [id] = values as [string];
+      const user = this.users.find(
+        (row) => row.id === id && row.deleted_at === null,
+      );
+
+      return user ? ({ id: user.id } as T) : null;
+    }
+
+    if (normalizedSql === SELECT_USER_BY_EMAIL_FOR_OAUTH_SQL) {
+      const [email] = values as [string];
+      const user = this.users.find((row) => row.email === email);
+
+      return user
+        ? ({ id: user.id, deleted_at: user.deleted_at } as T)
+        : null;
     }
 
     if (normalizedSql === SELECT_LATEST_REGISTER_CODE_SQL) {
@@ -824,6 +873,221 @@ class FakeD1 {
       return okResult<T>();
     }
 
+    if (normalizedSql === INSERT_OAUTH_USER_SQL) {
+      const [id, email, createdAt, updatedAt] = values as [
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (this.users.some((row) => row.email === email)) {
+        throw new Error("UNIQUE constraint failed: user.email");
+      }
+
+      this.users.push({
+        id,
+        email,
+        password_hash: null,
+        display_name: null,
+        created_at: createdAt,
+        updated_at: updatedAt,
+        deleted_at: null,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_AUTH_IDENTITY_SQL) {
+      const [id, userId, provider, providerUid, createdAt] = values as [
+        string,
+        string,
+        "google" | "apple",
+        string,
+        string,
+      ];
+
+      if (
+        !this.users.some(
+          (row) => row.id === userId && row.deleted_at === null,
+        )
+      ) {
+        return okResult<T>(0);
+      }
+
+      if (
+        this.authIdentities.some(
+          (row) =>
+            row.provider === provider && row.provider_uid === providerUid,
+        )
+      ) {
+        throw new Error(
+          "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",
+        );
+      }
+
+      this.authIdentities.push({
+        id,
+        user_id: userId,
+        provider,
+        provider_uid: providerUid,
+        created_at: createdAt,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_OAUTH_USER_FOR_UPGRADED_GUEST_SQL) {
+      const [id, email, createdAt, updatedAt, anonymousId, upgradedUserId] =
+        values as [string, string, string, string, string, string];
+
+      if (!this.hasUpgradedAnonymousAccount(anonymousId, upgradedUserId)) {
+        return okResult<T>(0);
+      }
+
+      if (this.users.some((row) => row.email === email)) {
+        throw new Error("UNIQUE constraint failed: user.email");
+      }
+
+      this.users.push({
+        id,
+        email,
+        password_hash: null,
+        display_name: null,
+        created_at: createdAt,
+        updated_at: updatedAt,
+        deleted_at: null,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_AUTH_IDENTITY_FOR_UPGRADED_GUEST_SQL) {
+      const [
+        id,
+        userId,
+        provider,
+        providerUid,
+        createdAt,
+        anonymousId,
+        upgradedUserId,
+      ] = values as [
+        string,
+        string,
+        "google" | "apple",
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (!this.hasUpgradedAnonymousAccount(anonymousId, upgradedUserId)) {
+        return okResult<T>(0);
+      }
+
+      if (
+        this.authIdentities.some(
+          (row) =>
+            row.provider === provider && row.provider_uid === providerUid,
+        )
+      ) {
+        throw new Error(
+          "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",
+        );
+      }
+
+      this.authIdentities.push({
+        id,
+        user_id: userId,
+        provider,
+        provider_uid: providerUid,
+        created_at: createdAt,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_OAUTH_USER_PORTFOLIO_FOLDER_SQL) {
+      const [id, ownerId, createdAt, updatedAt] = values as [
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (
+        !this.users.some(
+          (row) => row.id === ownerId && row.deleted_at === null,
+        )
+      ) {
+        return okResult<T>(0);
+      }
+
+      this.portfolioFolders.push({
+        id,
+        owner_type: "user",
+        owner_id: ownerId,
+        name: "Main",
+        is_default: 1,
+        sort_order: 0,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_OAUTH_USER_PREFERENCE_SQL) {
+      const [id, ownerId, createdAt, updatedAt] = values as [
+        string,
+        string,
+        string,
+        string,
+      ];
+
+      if (
+        !this.users.some(
+          (row) => row.id === ownerId && row.deleted_at === null,
+        )
+      ) {
+        return okResult<T>(0);
+      }
+
+      this.userPreferences.push({
+        id,
+        owner_type: "user",
+        owner_id: ownerId,
+        currency: "USD",
+        amount_hidden: 0,
+        last_selected_folder_id: null,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL) {
+      const [
+        id,
+        ownerId,
+        refreshToken,
+        expiresAt,
+        createdAt,
+        anonymousId,
+        upgradedUserId,
+      ] = values as [string, string, string, string, string, string, string];
+
+      if (!this.hasUpgradedAnonymousAccount(anonymousId, upgradedUserId)) {
+        return okResult<T>(0);
+      }
+
+      this.sessions.push({
+        id,
+        owner_type: "user",
+        owner_id: ownerId,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        created_at: createdAt,
+        revoked_at: null,
+      });
+      return okResult<T>();
+    }
+
     if (normalizedSql === UPDATE_REGISTER_CODE_USED_SQL) {
       const [usedAt, id] = values as [string, string];
 
@@ -1085,6 +1349,18 @@ class FakeD1 {
 
     if (normalizedSql === UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_UNGUARDED_SQL) {
       const [userId, anonymousId] = values as [string, string];
+
+      if (this.upgradeAnonymousBeforeUpgrade) {
+        this.upgradeAnonymousBeforeUpgrade = false;
+        const concurrentlyUpgradedAccount = this.anonymousAccounts.find(
+          (row) => row.id === anonymousId && row.upgraded_user_id === null,
+        );
+
+        if (concurrentlyUpgradedAccount) {
+          concurrentlyUpgradedAccount.upgraded_user_id = "existing-user";
+        }
+      }
+
       const account = this.anonymousAccounts.find(
         (row) => row.id === anonymousId && row.upgraded_user_id === null,
       );
@@ -1357,6 +1633,28 @@ const SELECT_LIVE_EMAIL_PASSWORD_USER_SQL = normalizeSql(`
   LIMIT 1
 `);
 
+const SELECT_OAUTH_IDENTITY_SQL = normalizeSql(`
+  SELECT user_id
+  FROM auth_identity
+  WHERE auth_identity.provider = ?
+    AND auth_identity.provider_uid = ?
+  LIMIT 1
+`);
+
+const SELECT_LIVE_USER_BY_ID_SQL = normalizeSql(`
+  SELECT id
+  FROM user
+  WHERE id = ? AND deleted_at IS NULL
+  LIMIT 1
+`);
+
+const SELECT_USER_BY_EMAIL_FOR_OAUTH_SQL = normalizeSql(`
+  SELECT id, deleted_at
+  FROM user
+  WHERE email = ?
+  LIMIT 1
+`);
+
 const SELECT_LATEST_REGISTER_CODE_SQL = normalizeSql(`
   SELECT id, code, expires_at, used_at
   FROM verification_code
@@ -1429,6 +1727,40 @@ const INSERT_RESET_CODE_SQL = normalizeSql(`
   )
 `);
 
+const INSERT_OAUTH_USER_SQL = normalizeSql(`
+  INSERT INTO user
+    (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
+  VALUES (?, ?, NULL, NULL, ?, ?, NULL)
+`);
+
+const INSERT_AUTH_IDENTITY_SQL = normalizeSql(`
+  INSERT INTO auth_identity
+    (id, user_id, provider, provider_uid, created_at)
+  VALUES (?, ?, ?, ?, ?)
+`);
+
+const INSERT_OAUTH_USER_FOR_UPGRADED_GUEST_SQL = normalizeSql(`
+  INSERT INTO user
+    (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
+  SELECT ?, ?, NULL, NULL, ?, ?, NULL
+  WHERE EXISTS (
+    SELECT 1
+    FROM anonymous_account
+    WHERE id = ? AND upgraded_user_id = ?
+  )
+`);
+
+const INSERT_AUTH_IDENTITY_FOR_UPGRADED_GUEST_SQL = normalizeSql(`
+  INSERT INTO auth_identity
+    (id, user_id, provider, provider_uid, created_at)
+  SELECT ?, ?, ?, ?, ?
+  WHERE EXISTS (
+    SELECT 1
+    FROM anonymous_account
+    WHERE id = ? AND upgraded_user_id = ?
+  )
+`);
+
 const INSERT_USER_ACCOUNT_SQL = normalizeSql(`
   INSERT INTO user
     (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
@@ -1454,6 +1786,29 @@ const INSERT_MIGRATED_USER_ACCOUNT_SQL = normalizeSql(`
       FROM anonymous_account
       WHERE id = ? AND upgraded_user_id = ?
     )
+`);
+
+const INSERT_OAUTH_USER_PORTFOLIO_FOLDER_SQL = normalizeSql(`
+  INSERT INTO portfolio_folder
+    (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
+  VALUES (?, 'user', ?, 'Main', 1, 0, ?, ?)
+`);
+
+const INSERT_OAUTH_USER_PREFERENCE_SQL = normalizeSql(`
+  INSERT INTO user_preference
+    (id, owner_type, owner_id, currency, amount_hidden, last_selected_folder_id, created_at, updated_at)
+  VALUES (?, 'user', ?, 'USD', 0, NULL, ?, ?)
+`);
+
+const INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL = normalizeSql(`
+  INSERT INTO session
+    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, ?, ?, ?, NULL
+  WHERE EXISTS (
+    SELECT 1
+    FROM anonymous_account
+    WHERE id = ? AND upgraded_user_id = ?
+  )
 `);
 
 const INSERT_USER_PORTFOLIO_FOLDER_SQL = normalizeSql(`
@@ -1876,6 +2231,475 @@ function seedGuestMigrationRows(
   });
 }
 
+describe("POST /api/v1/auth/oauth/google/callback", () => {
+  it("google oauth creates an OAuth-only user because a new provider identity starts durable auth", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    const response = await requestGoogleOAuthCallback(env, {
+      code: "mock-google:google-1:google.new@example.com",
+      redirect_uri: "kando://auth/google",
+    });
+    const body = (await response.json()) as OAuthSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: {
+        user_id: expect.any(String),
+        email: "google.new@example.com",
+        access_token: expect.any(String),
+        refresh_token: expect.any(String),
+        expires_in: 900,
+        is_new_user: true,
+        migrated: false,
+      },
+    });
+    expect(db.users).toEqual([
+      expect.objectContaining({
+        id: body.data.user_id,
+        email: "google.new@example.com",
+        password_hash: null,
+        deleted_at: null,
+      }),
+    ]);
+    expect(db.authIdentities).toEqual([
+      expect.objectContaining({
+        user_id: body.data.user_id,
+        provider: "google",
+        provider_uid: "google-1",
+      }),
+    ]);
+    expect(db.sessions).toEqual([
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: body.data.user_id,
+      }),
+    ]);
+  });
+
+  it("google oauth signs in an existing identity because provider_uid is the stable login key", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-google-existing-identity",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+    const anonymousFolder = db.portfolioFolders.find(
+      (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+    );
+
+    if (!anonymousFolder) {
+      throw new Error("Expected anonymous folder.");
+    }
+
+    db.collectionItems.push({
+      id: "collection-google-existing-identity",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      folder_id: anonymousFolder.id,
+      card_ref: "card-google-existing-identity",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "wishlist-google-existing-identity",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      card_ref: "card-google-existing-identity",
+    });
+    db.users.push({
+      id: "user-google-existing",
+      email: "original@example.com",
+      password_hash: null,
+      display_name: null,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+      deleted_at: null,
+    });
+    db.authIdentities.push({
+      id: "identity-google-existing",
+      user_id: "user-google-existing",
+      provider: "google",
+      provider_uid: "google-existing",
+      created_at: "2026-07-06T00:00:00.000Z",
+    });
+
+    const response = await requestGoogleOAuthCallbackWithAuthorization(
+      env,
+      {
+        code: "mock-google:google-existing:new-email@example.com",
+        redirect_uri: "kando://auth/google",
+        anonymous_id: anonymousId,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as OAuthSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual(
+      expect.objectContaining({
+        user_id: "user-google-existing",
+        email: "new-email@example.com",
+        is_new_user: false,
+        migrated: false,
+      }),
+    );
+    expect(db.users).toHaveLength(1);
+    expect(db.authIdentities).toHaveLength(1);
+    expect(db.anonymousAccounts).toEqual([
+      expect.objectContaining({ id: anonymousId, upgraded_user_id: null }),
+    ]);
+    expect(db.portfolioFolders[0]).toEqual(
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    );
+    expect(db.collectionItems).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+    expect(db.wishlistItems).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+  });
+
+  it("google oauth binds an existing live email because user.email is unique across auth methods", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-google-existing-email",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+    const anonymousFolder = db.portfolioFolders.find(
+      (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+    );
+
+    if (!anonymousFolder) {
+      throw new Error("Expected anonymous folder.");
+    }
+
+    db.collectionItems.push({
+      id: "collection-google-existing-email",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      folder_id: anonymousFolder.id,
+      card_ref: "card-google-existing-email",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "wishlist-google-existing-email",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      card_ref: "card-google-existing-email",
+    });
+    db.users.push({
+      id: "user-email-existing",
+      email: "shared@example.com",
+      password_hash: await hashPassword("existing-password"),
+      display_name: null,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const response = await requestGoogleOAuthCallbackWithAuthorization(
+      env,
+      {
+        code: "mock-google:google-shared:shared@example.com",
+        redirect_uri: "kando://auth/google",
+        anonymous_id: anonymousId,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as OAuthSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual(
+      expect.objectContaining({
+        user_id: "user-email-existing",
+        email: "shared@example.com",
+        is_new_user: false,
+        migrated: false,
+      }),
+    );
+    expect(db.users).toHaveLength(1);
+    expect(db.authIdentities).toEqual([
+      expect.objectContaining({
+        user_id: "user-email-existing",
+        provider: "google",
+        provider_uid: "google-shared",
+      }),
+    ]);
+    expect(db.anonymousAccounts).toEqual([
+      expect.objectContaining({ id: anonymousId, upgraded_user_id: null }),
+    ]);
+    expect(db.portfolioFolders[0]).toEqual(
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    );
+    expect(db.collectionItems).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+    expect(db.wishlistItems).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+  });
+
+  it("google oauth migrates a live guest only for a new user because registration transfers guest assets", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(env, "device-google-migrate");
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+
+    db.collectionItems.push({
+      id: `collection-${anonymousBody.data.anonymous_id}`,
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: `folder-${anonymousBody.data.anonymous_id}`,
+      card_ref: `card-${anonymousBody.data.anonymous_id}`,
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: `wishlist-${anonymousBody.data.anonymous_id}`,
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      card_ref: `card-${anonymousBody.data.anonymous_id}`,
+    });
+
+    const response = await requestGoogleOAuthCallbackWithAuthorization(
+      env,
+      {
+        code: "mock-google:google-migrate:google.migrate@example.com",
+        redirect_uri: "kando://auth/google",
+        anonymous_id: anonymousBody.data.anonymous_id,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = (await response.json()) as OAuthSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual(
+      expect.objectContaining({
+        email: "google.migrate@example.com",
+        is_new_user: true,
+        migrated: true,
+      }),
+    );
+    expect(
+      db.anonymousAccounts.find(
+        (row) => row.id === anonymousBody.data.anonymous_id,
+      ),
+    ).toEqual(expect.objectContaining({ upgraded_user_id: body.data.user_id }));
+    expect(
+      db.portfolioFolders.find(
+        (row) => row.owner_id === body.data.user_id && row.owner_type === "user",
+      ),
+    ).toEqual(expect.objectContaining({ is_default: 1 }));
+    expect(
+      db.collectionItems.find(
+        (row) => row.id === `collection-${anonymousBody.data.anonymous_id}`,
+      ),
+    ).toEqual(
+      expect.objectContaining({ owner_type: "user", owner_id: body.data.user_id }),
+    );
+    expect(
+      db.wishlistItems.find(
+        (row) => row.id === `wishlist-${anonymousBody.data.anonymous_id}`,
+      ),
+    ).toEqual(
+      expect.objectContaining({ owner_type: "user", owner_id: body.data.user_id }),
+    );
+  });
+
+  it("google oauth does not half-create a migrated user when the guest is concurrently upgraded because guarded writes must depend on claimed ownership", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const anonymousResponse = await requestAnonymous(
+      env,
+      "device-google-upgrade-race",
+    );
+    const anonymousBody =
+      (await anonymousResponse.json()) as AnonymousSuccessResponse;
+    const anonymousId = anonymousBody.data.anonymous_id;
+    const anonymousFolder = db.portfolioFolders.find(
+      (row) => row.owner_type === "anonymous" && row.owner_id === anonymousId,
+    );
+
+    if (!anonymousFolder) {
+      throw new Error("Expected anonymous folder.");
+    }
+
+    db.collectionItems.push({
+      id: "collection-google-upgrade-race",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      folder_id: anonymousFolder.id,
+      card_ref: "card-google-upgrade-race",
+      updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.wishlistItems.push({
+      id: "wishlist-google-upgrade-race",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      card_ref: "card-google-upgrade-race",
+    });
+    db.upgradeAnonymousBeforeUpgrade = true;
+
+    const response = await requestGoogleOAuthCallbackWithAuthorization(
+      env,
+      {
+        code: "mock-google:google-race:google.race@example.com",
+        redirect_uri: "kando://auth/google",
+        anonymous_id: anonymousId,
+      },
+      `Bearer ${anonymousBody.data.access_token}`,
+    );
+    const body = await response.json();
+
+    expect(response.status).not.toBe(200);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Guest account is no longer available.",
+      },
+    });
+    expect(db.users).toHaveLength(0);
+    expect(db.authIdentities).toHaveLength(0);
+    expect(
+      db.sessions.filter((row) => row.owner_type === "user"),
+    ).toHaveLength(0);
+    expect(db.anonymousAccounts).toEqual([
+      expect.objectContaining({ id: anonymousId, upgraded_user_id: "existing-user" }),
+    ]);
+    expect(db.portfolioFolders).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+    expect(db.collectionItems).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+    expect(db.wishlistItems).toEqual([
+      expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+  });
+
+  it("google oauth rejects a stale identity because a soft-deleted linked user must not create replacement accounts", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    db.users.push({
+      id: "user-google-deleted",
+      email: "deleted-identity@example.com",
+      password_hash: null,
+      display_name: null,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+      deleted_at: "2026-07-06T01:00:00.000Z",
+    });
+    db.authIdentities.push({
+      id: "identity-google-deleted",
+      user_id: "user-google-deleted",
+      provider: "google",
+      provider_uid: "google-deleted",
+      created_at: "2026-07-06T00:00:00.000Z",
+    });
+
+    const response = await requestGoogleOAuthCallback(env, {
+      code: "mock-google:google-deleted:fresh@example.com",
+      redirect_uri: "kando://auth/google",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Authorization failed. Please try again.",
+      },
+    });
+    expect(db.users).toHaveLength(1);
+    expect(db.authIdentities).toHaveLength(1);
+    expect(db.sessions).toHaveLength(0);
+  });
+
+  it("google oauth rejects a soft-deleted provider email because user.email uniqueness must not become a server error", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    db.users.push({
+      id: "user-google-email-deleted",
+      email: "deleted-email@example.com",
+      password_hash: null,
+      display_name: null,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+      deleted_at: "2026-07-06T01:00:00.000Z",
+    });
+
+    const response = await requestGoogleOAuthCallback(env, {
+      code: "mock-google:google-deleted-email:deleted-email@example.com",
+      redirect_uri: "kando://auth/google",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Authorization failed. Please try again.",
+      },
+    });
+    expect(db.users).toHaveLength(1);
+    expect(db.authIdentities).toHaveLength(0);
+    expect(db.sessions).toHaveLength(0);
+  });
+
+  it("google oauth rejects malformed mock authorization because failed provider proof must not create accounts", async () => {
+    const env = createTestEnv();
+
+    const response = await requestGoogleOAuthCallback(env, {
+      code: "bad-code",
+      redirect_uri: "kando://auth/google",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Authorization failed. Please try again.",
+      },
+    });
+    expect(fakeD1(env).users).toHaveLength(0);
+    expect(fakeD1(env).authIdentities).toHaveLength(0);
+  });
+
+  it("google oauth rejects malformed provider UID because durable login keys must be constrained", async () => {
+    const env = createTestEnv();
+
+    const response = await requestGoogleOAuthCallback(env, {
+      code: "mock-google:bad uid:baduid@example.com",
+      redirect_uri: "kando://auth/google",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Authorization failed. Please try again.",
+      },
+    });
+    expect(fakeD1(env).users).toHaveLength(0);
+    expect(fakeD1(env).authIdentities).toHaveLength(0);
+  });
+});
+
 async function requestAnonymous(
   env: TestEnv,
   deviceId: string,
@@ -1886,6 +2710,40 @@ async function requestAnonymous(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_id: deviceId }),
+    },
+    env,
+  );
+}
+
+async function requestGoogleOAuthCallback(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/oauth/google/callback",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+async function requestGoogleOAuthCallbackWithAuthorization(
+  env: TestEnv,
+  body: unknown,
+  authorization: string,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/oauth/google/callback",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      body: JSON.stringify(body),
     },
     env,
   );

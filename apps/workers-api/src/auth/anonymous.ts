@@ -11,6 +11,7 @@ import type { Env } from "../env";
 import { registerCurrentAccountRoutes } from "./current";
 import { registerForgotPasswordRoutes } from "./forgot-password";
 import { registerEmailLoginRoutes } from "./login";
+import { registerOAuthRoutes } from "./oauth";
 import { registerEmailRegistrationRoutes } from "./register";
 import { registerSessionRoutes } from "./session";
 
@@ -72,6 +73,7 @@ registerSessionRoutes(authRoutes);
 registerEmailRegistrationRoutes(authRoutes);
 registerEmailLoginRoutes(authRoutes);
 registerForgotPasswordRoutes(authRoutes);
+registerOAuthRoutes(authRoutes);
 
 authRoutes.post("/anonymous", async (c) => {
   let body: unknown;
