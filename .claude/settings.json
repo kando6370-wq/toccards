@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "fastModePerSessionOptIn": true,
+  "showClearContextOnPlanAccept": true,
+  "todoFeatureEnabled": true,
+  "permissions": {
+    "defaultMode": "auto",
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(find *)",
+      "Bash(rg *)",
+      "Bash(jq *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)",
+      "Bash(git fetch *)",
+      "Bash(git ls-remote *)",
+      "Bash(pnpm install --frozen-lockfile)",
+      "Bash(pnpm build)",
+      "Bash(pnpm type-check)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm --filter @kando/admin-web dev)",
+      "Bash(pnpm --filter @kando/admin-web build)",
+      "Bash(pnpm --filter @kando/admin-web type-check)",
+      "Bash(pnpm --filter @kando/admin-web preview)",
+      "Bash(pnpm --filter @kando/workers-api dev)",
+      "Bash(pnpm --filter @kando/workers-api build)",
+      "Bash(pnpm --filter @kando/workers-api type-check)",
+      "Bash(pnpm --filter @kando/workers-api test *)",
+      "Bash(pnpm --filter @kando/auth-core build)",
+      "Bash(pnpm --filter @kando/auth-core test *)",
+      "Bash(pnpm --filter @kando/api-client build)",
+      "Bash(pnpm --filter @kando/ui-kit build)",
+      "Bash(pnpm --filter @kando/workers-common build)",
+      "Bash(flutter pub get)",
+      "Bash(dart run melos run analyze)",
+      "Bash(dart run melos run test)",
+      "Bash(cd apps/flutter-app && flutter run)",
+      "Bash(cd apps/flutter-app && flutter analyze)",
+      "Bash(python3 .claude/hooks/task_status.py *)",
+      "Bash(python3 .claude/hooks/db_guard.py)",
+      "Bash(bash .claude/hooks/task_complete_verify.sh)"
+    ],
+    "ask": [
+      "Edit(/Users/git/kando/toC/kando-global-project/apps/workers-api/src/db/schema.ts)",
+      "Write(/Users/git/kando/toC/kando-global-project/apps/workers-api/src/db/schema.ts)",
+      "Edit(/Users/git/kando/toC/kando-global-project/apps/workers-api/src/db/migrations/*)",
+      "Write(/Users/git/kando/toC/kando-global-project/apps/workers-api/src/db/migrations/*)",
+      "Edit(/Users/git/kando/toC/kando-global-project/apps/workers-api/wrangler.toml)",
+      "Write(/Users/git/kando/toC/kando-global-project/apps/workers-api/wrangler.toml)",
+      "Edit(/Users/git/kando/toC/kando-global-project/apps/workers-api/drizzle.config.ts)",
+      "Write(/Users/git/kando/toC/kando-global-project/apps/workers-api/drizzle.config.ts)",
+      "Edit(/Users/git/kando/toC/kando-global-project/docs/tcg-card/*)",
+      "Write(/Users/git/kando/toC/kando-global-project/docs/tcg-card/*)",
+      "Edit(/Users/git/kando/toC/kando-global-project/.gitlab-ci.yml)",
+      "Write(/Users/git/kando/toC/kando-global-project/.gitlab-ci.yml)",
+      "Edit(/Users/git/kando/toC/kando-global-project/package.json)",
+      "Write(/Users/git/kando/toC/kando-global-project/package.json)",
+      "Edit(/Users/git/kando/toC/kando-global-project/pubspec.yaml)",
+      "Write(/Users/git/kando/toC/kando-global-project/pubspec.yaml)",
+      "Edit(/Users/git/kando/toC/kando-global-project/.claude/settings.json)",
+      "Write(/Users/git/kando/toC/kando-global-project/.claude/settings.json)",
+      "Edit(/Users/git/kando/toC/kando-global-project/.claude/settings.local.json)",
+      "Write(/Users/git/kando/toC/kando-global-project/.claude/settings.local.json)",
+      "Edit(/Users/git/kando/toC/kando-global-project/.claude/hooks/*)",
+      "Write(/Users/git/kando/toC/kando-global-project/.claude/hooks/*)",
+      "Bash(pnpm --filter @kando/workers-api db:generate)",
+      "Bash(pnpm --filter @kando/workers-api db:migrate:local)",
+      "Bash(git commit *)"
+    ],
+    "deny": [
+      "Bash(wrangler deploy *)",
+      "Bash(wrangler d1 migrations apply *)",
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)",
+      "Bash(rm -rf *)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm remove *)",
+      "Bash(pnpm update *)",
+      "Bash(flutter pub add *)",
+      "Bash(dart pub add *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/db_guard.py",
+            "timeout": 15,
+            "statusMessage": "检查数据库相关命令是否需要人工确认"
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/task_status.py start",
+            "timeout": 15,
+            "statusMessage": "更新执行状态文档（任务开始）"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/task_status.py stop",
+            "timeout": 15,
+            "statusMessage": "更新执行状态文档（任务完成）"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/task_complete_verify.sh",
+            "timeout": 3600,
+            "statusMessage": "执行任务完成后的打包与自动化单测"
+          }
+        ]
+      }
+    ]
+  }
+}
