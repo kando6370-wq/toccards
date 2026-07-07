@@ -1,30 +1,16 @@
-import {
-  ACCESS_TOKEN_EXPIRES_IN_SECONDS,
-  createRefreshToken,
-  hashPassword,
-  hashRefreshToken,
-  refreshTokenExpiresAt,
-  signAccessToken,
-  verifyAccessToken,
-} from "@kando/auth-core";
+import { hashPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
 import { ulid } from "ulid";
 import type { Env } from "../env";
+import {
+  createGuestMigrationStatements,
+  findVerifiedAnonymousAccount,
+} from "./guest-migration";
+import { hasSigningSecret } from "./http-auth";
+import { createUserSessionValues } from "./user-session";
 
 type UserRow = {
   id: string;
-};
-
-type AnonymousAccountRow = {
-  id: string;
-};
-
-type SessionLookupRow = {
-  id: string;
-  owner_type: string;
-  owner_id: string;
-  expires_at: string;
-  revoked_at: string | null;
 };
 
 type VerificationCodeRow = {
@@ -124,20 +110,6 @@ const SELECT_LATEST_REGISTER_CODE_SQL = `
   LIMIT 1
 `;
 
-const SELECT_LIVE_ANONYMOUS_ACCOUNT_SQL = `
-  SELECT id
-  FROM anonymous_account
-  WHERE id = ? AND upgraded_user_id IS NULL
-  LIMIT 1
-`;
-
-const SELECT_SESSION_BY_ID_SQL = `
-  SELECT id, owner_type, owner_id, expires_at, revoked_at
-  FROM session
-  WHERE id = ?
-  LIMIT 1
-`;
-
 const INSERT_USER_SQL = `
   INSERT INTO user
     (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
@@ -185,81 +157,6 @@ const INSERT_USER_PREFERENCE_SQL = `
     FROM verification_code
     WHERE id = ? AND used_at = ?
   )
-`;
-
-const UPDATE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL = `
-  UPDATE portfolio_folder
-  SET owner_type = 'user', owner_id = ?, updated_at = ?
-  WHERE owner_type = 'anonymous' AND owner_id = ?
-    AND EXISTS (
-      SELECT 1
-      FROM verification_code
-      WHERE id = ? AND used_at = ?
-    )
-    AND EXISTS (
-      SELECT 1
-      FROM anonymous_account
-      WHERE id = ? AND upgraded_user_id = ?
-    )
-`;
-
-const UPDATE_ANONYMOUS_COLLECTION_ITEMS_SQL = `
-  UPDATE collection_item
-  SET owner_type = 'user', owner_id = ?, updated_at = ?
-  WHERE owner_type = 'anonymous' AND owner_id = ?
-    AND EXISTS (
-      SELECT 1
-      FROM verification_code
-      WHERE id = ? AND used_at = ?
-    )
-    AND EXISTS (
-      SELECT 1
-      FROM anonymous_account
-      WHERE id = ? AND upgraded_user_id = ?
-    )
-`;
-
-const UPDATE_ANONYMOUS_WISHLIST_ITEMS_SQL = `
-  UPDATE wishlist_item
-  SET owner_type = 'user', owner_id = ?
-  WHERE owner_type = 'anonymous' AND owner_id = ?
-    AND EXISTS (
-      SELECT 1
-      FROM verification_code
-      WHERE id = ? AND used_at = ?
-    )
-    AND EXISTS (
-      SELECT 1
-      FROM anonymous_account
-      WHERE id = ? AND upgraded_user_id = ?
-    )
-`;
-
-const UPDATE_ANONYMOUS_USER_PREFERENCE_SQL = `
-  UPDATE user_preference
-  SET owner_type = 'user', owner_id = ?, updated_at = ?
-  WHERE owner_type = 'anonymous' AND owner_id = ?
-    AND EXISTS (
-      SELECT 1
-      FROM verification_code
-      WHERE id = ? AND used_at = ?
-    )
-    AND EXISTS (
-      SELECT 1
-      FROM anonymous_account
-      WHERE id = ? AND upgraded_user_id = ?
-    )
-`;
-
-const UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_SQL = `
-  UPDATE anonymous_account
-  SET upgraded_user_id = ?
-  WHERE id = ? AND upgraded_user_id IS NULL
-    AND EXISTS (
-      SELECT 1
-      FROM verification_code
-      WHERE id = ? AND used_at = ?
-    )
 `;
 
 const INSERT_USER_SESSION_SQL = `
@@ -393,158 +290,144 @@ export function registerEmailRegistrationRoutes(
       );
       const createdAt = now.toISOString();
       const userId = ulid();
-      const sessionId = ulid();
-      const refreshToken = createRefreshToken();
       const passwordHash = await hashPassword(input.password);
-      const hashedRefreshToken = await hashRefreshToken(refreshToken);
-      const accessToken = await signAccessToken(
-        {
-          owner_type: "user",
-          owner_id: userId,
-          session_id: sessionId,
-        },
+      const session = await createUserSessionValues(
+        userId,
         c.env.JWT_SECRET,
         now,
       );
 
-      const results = await c.env.DB.batch([
-        c.env.DB.prepare(UPDATE_VERIFICATION_CODE_USED_SQL).bind(
-          createdAt,
-          verificationCode.id,
-        ),
-        ...(anonymousAccount
-          ? [
-              c.env.DB.prepare(UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_SQL).bind(
-                userId,
-                anonymousAccount.id,
-                verificationCode.id,
-                createdAt,
-              ),
-              c.env.DB.prepare(INSERT_MIGRATED_USER_SQL).bind(
-                userId,
-                input.email,
-                passwordHash,
-                createdAt,
-                createdAt,
-                verificationCode.id,
-                createdAt,
-                anonymousAccount.id,
-                userId,
-              ),
-              c.env.DB.prepare(UPDATE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL).bind(
-                userId,
-                createdAt,
-                anonymousAccount.id,
-                verificationCode.id,
-                createdAt,
-                anonymousAccount.id,
-                userId,
-              ),
-              c.env.DB.prepare(UPDATE_ANONYMOUS_COLLECTION_ITEMS_SQL).bind(
-                userId,
-                createdAt,
-                anonymousAccount.id,
-                verificationCode.id,
-                createdAt,
-                anonymousAccount.id,
-                userId,
-              ),
-              c.env.DB.prepare(UPDATE_ANONYMOUS_WISHLIST_ITEMS_SQL).bind(
-                userId,
-                anonymousAccount.id,
-                verificationCode.id,
-                createdAt,
-                anonymousAccount.id,
-                userId,
-              ),
-              c.env.DB.prepare(UPDATE_ANONYMOUS_USER_PREFERENCE_SQL).bind(
-                userId,
-                createdAt,
-                anonymousAccount.id,
-                verificationCode.id,
-                createdAt,
-                anonymousAccount.id,
-                userId,
-              ),
-            ]
-          : [
-              c.env.DB.prepare(INSERT_USER_SQL).bind(
-                userId,
-                input.email,
-                passwordHash,
-                createdAt,
-                createdAt,
-                verificationCode.id,
-                createdAt,
-              ),
-              c.env.DB.prepare(INSERT_USER_PORTFOLIO_FOLDER_SQL).bind(
-                ulid(),
-                userId,
-                createdAt,
-                createdAt,
-                verificationCode.id,
-                createdAt,
-              ),
-              c.env.DB.prepare(INSERT_USER_PREFERENCE_SQL).bind(
-                ulid(),
-                userId,
-                createdAt,
-                createdAt,
-                verificationCode.id,
-                createdAt,
-              ),
-            ]),
-        ...(anonymousAccount
-          ? [
-              c.env.DB.prepare(INSERT_MIGRATED_USER_SESSION_SQL).bind(
-                sessionId,
-                userId,
-                hashedRefreshToken,
-                refreshTokenExpiresAt(now),
-                createdAt,
-                verificationCode.id,
-                createdAt,
-                anonymousAccount.id,
-                userId,
-              ),
-            ]
-          : [
-              c.env.DB.prepare(INSERT_USER_SESSION_SQL).bind(
-                sessionId,
-                userId,
-                hashedRefreshToken,
-                refreshTokenExpiresAt(now),
-                createdAt,
-                verificationCode.id,
-                createdAt,
-              ),
-            ]),
-      ]);
-
-      if (results[0]?.meta.changes !== 1) {
-        return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
-      }
-
       if (anonymousAccount) {
-        if (results.length !== 8) {
+        const migrationStatements = createGuestMigrationStatements(
+          c.env.DB,
+          anonymousAccount.id,
+          userId,
+          createdAt,
+          {
+            verificationCodeId: verificationCode.id,
+            verificationUsedAt: createdAt,
+          },
+        );
+        const results = await c.env.DB.batch([
+          c.env.DB.prepare(UPDATE_VERIFICATION_CODE_USED_SQL).bind(
+            createdAt,
+            verificationCode.id,
+          ),
+          migrationStatements.upgradeAccount,
+          c.env.DB.prepare(INSERT_MIGRATED_USER_SQL).bind(
+            userId,
+            input.email,
+            passwordHash,
+            createdAt,
+            createdAt,
+            verificationCode.id,
+            createdAt,
+            anonymousAccount.id,
+            userId,
+          ),
+          migrationStatements.portfolioFolders,
+          migrationStatements.collectionItems,
+          migrationStatements.wishlistItems,
+          migrationStatements.userPreference,
+          c.env.DB.prepare(INSERT_MIGRATED_USER_SESSION_SQL).bind(
+            session.sessionId,
+            userId,
+            session.hashedRefreshToken,
+            session.expiresAt,
+            createdAt,
+            verificationCode.id,
+            createdAt,
+            anonymousAccount.id,
+            userId,
+          ),
+        ]);
+        const [
+          codeResult,
+          upgradeResult,
+          userResult,
+          portfolioFoldersResult,
+          collectionItemsResult,
+          wishlistItemsResult,
+          userPreferenceResult,
+          sessionResult,
+        ] = results;
+        const assetResults = [
+          portfolioFoldersResult,
+          collectionItemsResult,
+          wishlistItemsResult,
+          userPreferenceResult,
+        ];
+
+        if (codeResult?.meta.changes !== 1) {
+          return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
+        }
+
+        if (results.length !== 8 || assetResults.some((result) => !result)) {
           return c.json(INTERNAL_ERROR_RESPONSE, 500);
         }
 
-        if (results[1]?.meta.changes !== 1) {
+        if (upgradeResult?.meta.changes !== 1) {
           return c.json(STALE_ANONYMOUS_ACCOUNT_RESPONSE, 422);
         }
 
         if (
-          results[2]?.meta.changes !== 1 ||
-          results[7]?.meta.changes !== 1
+          userResult?.meta.changes !== 1 ||
+          sessionResult?.meta.changes !== 1
         ) {
           return c.json(INTERNAL_ERROR_RESPONSE, 500);
         }
-      } else if (
-        results.length !== 5 ||
-        results.slice(1).some((result) => result?.meta.changes !== 1)
-      ) {
-        return c.json(INTERNAL_ERROR_RESPONSE, 500);
+      } else {
+        const results = await c.env.DB.batch([
+          c.env.DB.prepare(UPDATE_VERIFICATION_CODE_USED_SQL).bind(
+            createdAt,
+            verificationCode.id,
+          ),
+          c.env.DB.prepare(INSERT_USER_SQL).bind(
+            userId,
+            input.email,
+            passwordHash,
+            createdAt,
+            createdAt,
+            verificationCode.id,
+            createdAt,
+          ),
+          c.env.DB.prepare(INSERT_USER_PORTFOLIO_FOLDER_SQL).bind(
+            ulid(),
+            userId,
+            createdAt,
+            createdAt,
+            verificationCode.id,
+            createdAt,
+          ),
+          c.env.DB.prepare(INSERT_USER_PREFERENCE_SQL).bind(
+            ulid(),
+            userId,
+            createdAt,
+            createdAt,
+            verificationCode.id,
+            createdAt,
+          ),
+          c.env.DB.prepare(INSERT_USER_SESSION_SQL).bind(
+            session.sessionId,
+            userId,
+            session.hashedRefreshToken,
+            session.expiresAt,
+            createdAt,
+            verificationCode.id,
+            createdAt,
+          ),
+        ]);
+
+        if (results[0]?.meta.changes !== 1) {
+          return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
+        }
+
+        if (
+          results.length !== 5 ||
+          results.slice(1).some((result) => result?.meta.changes !== 1)
+        ) {
+          return c.json(INTERNAL_ERROR_RESPONSE, 500);
+        }
       }
 
       return c.json({
@@ -552,9 +435,9 @@ export function registerEmailRegistrationRoutes(
         data: {
           user_id: userId,
           email: input.email,
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          expires_in: ACCESS_TOKEN_EXPIRES_IN_SECONDS,
+          access_token: session.accessToken,
+          refresh_token: session.refreshToken,
+          expires_in: session.expiresIn,
           migrated: anonymousAccount !== null,
         },
       });
@@ -567,79 +450,6 @@ export function registerEmailRegistrationRoutes(
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
   });
-}
-
-async function findVerifiedAnonymousAccount(
-  db: D1Database,
-  anonymousId: string | null,
-  authorization: string | undefined,
-  jwtSecret: string,
-  now: Date,
-): Promise<AnonymousAccountRow | null> {
-  if (!anonymousId) {
-    return null;
-  }
-
-  const token = getBearerToken(authorization);
-
-  if (!token) {
-    return null;
-  }
-
-  const verification = await verifyAccessToken(token, jwtSecret);
-
-  if (
-    !verification.valid ||
-    verification.payload.owner_type !== "anonymous" ||
-    verification.payload.owner_id !== anonymousId
-  ) {
-    return null;
-  }
-
-  const session = await db
-    .prepare(SELECT_SESSION_BY_ID_SQL)
-    .bind(verification.payload.session_id)
-    .first<SessionLookupRow>();
-
-  if (!isLiveAnonymousSession(session, anonymousId, now)) {
-    return null;
-  }
-
-  return db
-    .prepare(SELECT_LIVE_ANONYMOUS_ACCOUNT_SQL)
-    .bind(anonymousId)
-    .first<AnonymousAccountRow>();
-}
-
-function isLiveAnonymousSession(
-  session: SessionLookupRow | null,
-  anonymousId: string,
-  now: Date,
-): boolean {
-  const expiresAt = session ? Date.parse(session.expires_at) : NaN;
-
-  return (
-    !!session &&
-    session.owner_type === "anonymous" &&
-    session.owner_id === anonymousId &&
-    session.revoked_at === null &&
-    Number.isFinite(expiresAt) &&
-    expiresAt > now.getTime()
-  );
-}
-
-function getBearerToken(authorization: string | undefined): string | null {
-  if (!authorization) {
-    return null;
-  }
-
-  const [scheme, token, extra] = authorization.trim().split(/\s+/);
-
-  if (scheme !== "Bearer" || !token || extra) {
-    return null;
-  }
-
-  return token;
 }
 
 async function readEmail(request: { json(): Promise<unknown> }): Promise<
@@ -711,10 +521,6 @@ function normalizeEmail(rawEmail: unknown): string | null {
 
 function isValidEmail(email: string): boolean {
   return email.length <= EMAIL_MAX_LENGTH && EMAIL_PATTERN.test(email);
-}
-
-function hasSigningSecret(secret: unknown): secret is string {
-  return typeof secret === "string" && secret.trim().length > 0;
 }
 
 function isUserEmailUniqueConstraintError(error: unknown): boolean {

@@ -8,9 +8,11 @@ import {
 import { Hono } from "hono";
 import { ulid } from "ulid";
 import type { Env } from "../env";
+import { registerAccountRoutes } from "./account";
 import { registerCurrentAccountRoutes } from "./current";
 import { registerForgotPasswordRoutes } from "./forgot-password";
 import { registerEmailLoginRoutes } from "./login";
+import { registerOAuthRoutes } from "./oauth";
 import { registerEmailRegistrationRoutes } from "./register";
 import { registerSessionRoutes } from "./session";
 
@@ -67,11 +69,13 @@ const INSERT_SESSION_SQL = `
 
 export const authRoutes = new Hono<{ Bindings: Env }>();
 
+registerAccountRoutes(authRoutes);
 registerCurrentAccountRoutes(authRoutes);
 registerSessionRoutes(authRoutes);
 registerEmailRegistrationRoutes(authRoutes);
 registerEmailLoginRoutes(authRoutes);
 registerForgotPasswordRoutes(authRoutes);
+registerOAuthRoutes(authRoutes);
 
 authRoutes.post("/anonymous", async (c) => {
   let body: unknown;

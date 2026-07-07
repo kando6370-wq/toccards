@@ -14,6 +14,14 @@ type UserRow = {
   created_at: string;
 };
 
+type SessionLookupRow = {
+  id: string;
+  owner_type: string;
+  owner_id: string;
+  expires_at: string;
+  revoked_at: string | null;
+};
+
 const UNAUTHORIZED_RESPONSE = {
   success: false,
   error: {
@@ -44,6 +52,13 @@ const SELECT_CURRENT_USER_SQL = `
   LIMIT 1
 `;
 
+const SELECT_CURRENT_SESSION_SQL = `
+  SELECT id, owner_type, owner_id, expires_at, revoked_at
+  FROM session
+  WHERE id = ?
+  LIMIT 1
+`;
+
 export function registerCurrentAccountRoutes(
   routes: Hono<{ Bindings: Env }>,
 ): void {
@@ -66,6 +81,14 @@ export function registerCurrentAccountRoutes(
     const verification = await verifyAccessToken(token, c.env.JWT_SECRET);
 
     if (!verification.valid) {
+      return c.json(UNAUTHORIZED_RESPONSE, 401);
+    }
+
+    const session = await c.env.DB.prepare(SELECT_CURRENT_SESSION_SQL)
+      .bind(verification.payload.session_id)
+      .first<SessionLookupRow>();
+
+    if (!isLiveAccessSession(session, verification.payload, new Date())) {
       return c.json(UNAUTHORIZED_RESPONSE, 401);
     }
 
@@ -113,6 +136,24 @@ export function registerCurrentAccountRoutes(
       },
     });
   });
+}
+
+function isLiveAccessSession(
+  session: SessionLookupRow | null,
+  payload: { owner_type: string; owner_id: string; session_id: string },
+  now: Date,
+): boolean {
+  const expiresAt = session ? Date.parse(session.expires_at) : NaN;
+
+  return (
+    session !== null &&
+    session.id === payload.session_id &&
+    session.owner_type === payload.owner_type &&
+    session.owner_id === payload.owner_id &&
+    session.revoked_at === null &&
+    Number.isFinite(expiresAt) &&
+    expiresAt > now.getTime()
+  );
 }
 
 function getBearerToken(authorization: string | undefined): string | null {
