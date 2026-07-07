@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/home/home_page.dart';
+import 'package:kando_app/features/profile/profile_page.dart';
 
 void main() {
   testWidgets('Home shows the M4-1 dashboard information hierarchy', (
@@ -72,6 +74,30 @@ void main() {
     expect(find.text('No cards in this portfolio yet'), findsOneWidget);
     expect(find.text('Trending Today'), findsOneWidget);
   });
+
+  testWidgets('Profile bottom tab navigates to the existing Profile page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: _HomeTestAppWithRoutes()));
+
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Guest session'), findsOneWidget);
+    expect(find.text('Sign in / Sign up'), findsOneWidget);
+  });
+
+  testWidgets('unfinished tabs show a lightweight message without leaving Home', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: _HomeTestAppWithRoutes()));
+
+    await tester.tap(find.text('Collection'));
+    await tester.pump();
+
+    expect(find.text('This section is coming soon.'), findsOneWidget);
+    expect(find.text('Overview'), findsOneWidget);
+  });
 }
 
 class _HomeTestApp extends StatelessWidget {
@@ -80,5 +106,24 @@ class _HomeTestApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(home: HomePage());
+  }
+}
+
+class _HomeTestAppWithRoutes extends StatelessWidget {
+  const _HomeTestAppWithRoutes();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      routerConfig: GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfilePage(),
+          ),
+        ],
+      ),
+    );
   }
 }
