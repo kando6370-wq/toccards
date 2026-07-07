@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'search_controller.dart';
 import 'search_models.dart';
@@ -18,57 +19,63 @@ class SearchPage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _SearchHeader(
-              selectedGame: state.selectedGame,
-              onGamePressed: () => _showGameSheet(context, ref),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              key: ValueKey(
-                'search-field-${state.selectedTab}-${state.searchText}',
+            if (state.isUnavailable) ...[
+              Text('Search', style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 16),
+              KandoFailureBlock(onRefresh: controller.refresh),
+            ] else ...[
+              _SearchHeader(
+                selectedGame: state.selectedGame,
+                onGamePressed: () => _showGameSheet(context, ref),
               ),
-              initialValue: state.searchText,
-              decoration: InputDecoration(
-                hintText: 'Search cards, sets, or characters',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (state.hasQuery)
-                      IconButton(
-                        key: const Key('search-clear-button'),
-                        onPressed: controller.clearSearch,
-                        icon: const Icon(Icons.close),
-                      ),
-                    IconButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('This section is coming soon.'),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.qr_code_scanner_outlined),
-                    ),
-                  ],
+              const SizedBox(height: 12),
+              TextFormField(
+                key: ValueKey(
+                  'search-field-${state.selectedTab}-${state.searchText}',
                 ),
-                border: const OutlineInputBorder(),
+                initialValue: state.searchText,
+                decoration: InputDecoration(
+                  hintText: 'Search cards, sets, or characters',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (state.hasQuery)
+                        IconButton(
+                          key: const Key('search-clear-button'),
+                          onPressed: controller.clearSearch,
+                          icon: const Icon(Icons.close),
+                        ),
+                      IconButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('This section is coming soon.'),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.qr_code_scanner_outlined),
+                      ),
+                    ],
+                  ),
+                  border: const OutlineInputBorder(),
+                ),
+                onChanged: controller.updateSearch,
               ),
-              onChanged: controller.updateSearch,
-            ),
-            const SizedBox(height: 12),
-            SegmentedButton<SearchTab>(
-              segments: const [
-                ButtonSegment(value: SearchTab.cards, label: Text('Cards')),
-                ButtonSegment(value: SearchTab.sets, label: Text('Sets')),
-              ],
-              selected: {state.selectedTab},
-              onSelectionChanged: (selection) {
-                controller.selectTab(selection.single);
-              },
-            ),
-            const SizedBox(height: 16),
-            _SearchResults(state: state),
+              const SizedBox(height: 12),
+              SegmentedButton<SearchTab>(
+                segments: const [
+                  ButtonSegment(value: SearchTab.cards, label: Text('Cards')),
+                  ButtonSegment(value: SearchTab.sets, label: Text('Sets')),
+                ],
+                selected: {state.selectedTab},
+                onSelectionChanged: (selection) {
+                  controller.selectTab(selection.single);
+                },
+              ),
+              const SizedBox(height: 16),
+              _SearchResults(state: state),
+            ],
           ],
         ),
       ),
@@ -154,7 +161,7 @@ class _SearchResults extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (state.isNoMatch) {
-      return const _EmptyResults();
+      return const KandoEmptyBlock(title: 'No matching results found.');
     }
 
     if (state.selectedTab == SearchTab.sets) {
@@ -296,23 +303,6 @@ class _SearchSetRow extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyResults extends StatelessWidget {
-  const _EmptyResults();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Text(
-          'No matching results found.',
-          style: Theme.of(context).textTheme.titleMedium,
         ),
       ),
     );

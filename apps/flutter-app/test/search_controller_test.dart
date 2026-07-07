@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_models.dart';
+import 'package:kando_app/features/search/search_repository.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
   test('defaults to Cards tab and Pokemon results', () {
@@ -25,6 +27,31 @@ void main() {
       'Mega Evolution Promos',
       'Obsidian Flames',
     ]);
+  });
+
+  test('repository failure shows page failure and refresh restores search', () {
+    final repository = _FailingThenSuccessfulSearchRepository();
+    final container = ProviderContainer(
+      overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+
+    final failed = container.read(searchControllerProvider);
+
+    expect(failed.loadStatus, KandoLoadStatus.failure);
+    expect(failed.isUnavailable, isTrue);
+    expect(repository.calls, 1);
+
+    container.read(searchControllerProvider.notifier).refresh();
+    final restored = container.read(searchControllerProvider);
+
+    expect(restored.loadStatus, KandoLoadStatus.content);
+    expect(restored.isUnavailable, isFalse);
+    expect(
+      restored.visibleCards.map((card) => card.name),
+      contains('Squirtle'),
+    );
+    expect(repository.calls, 2);
   });
 
   test('Cards and Sets search state stays independent', () {
@@ -122,4 +149,17 @@ void main() {
     expect(card.previous30dPriceUsd, isNull);
     expect(card.changeText, '-/-');
   });
+}
+
+class _FailingThenSuccessfulSearchRepository implements SearchRepository {
+  var calls = 0;
+
+  @override
+  SearchCatalog loadCatalog() {
+    calls += 1;
+    if (calls == 1) {
+      throw StateError('mock search unavailable');
+    }
+    return const MockSearchRepository().loadCatalog();
+  }
 }

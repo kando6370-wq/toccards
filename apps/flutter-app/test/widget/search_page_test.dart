@@ -5,7 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/search/search_controller.dart';
+import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/features/search/search_repository.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
   testWidgets('Search shows Cards tab with Pokemon results by default', (
@@ -23,6 +27,30 @@ void main() {
     expect(find.text('+8.10%'), findsOneWidget);
     expect(find.text('Qty: 0'), findsWidgets);
     expect(find.text('Collect'), findsWidgets);
+  });
+
+  testWidgets('page failure shows Refresh and restores search content', (
+    tester,
+  ) async {
+    final repository = _FailingThenSuccessfulSearchRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const _SearchTestApp(),
+      ),
+    );
+
+    expect(find.text(noContentAvailableText), findsOneWidget);
+    expect(find.text(refreshText), findsOneWidget);
+    expect(find.text('Search'), findsWidgets);
+    expect(repository.calls, 1);
+
+    await tester.tap(find.text(refreshText));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Squirtle'), findsOneWidget);
+    expect(repository.calls, 2);
   });
 
   testWidgets('search and clear update current tab results', (tester) async {
@@ -160,5 +188,18 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _FailingThenSuccessfulSearchRepository implements SearchRepository {
+  var calls = 0;
+
+  @override
+  SearchCatalog loadCatalog() {
+    calls += 1;
+    if (calls == 1) {
+      throw StateError('mock search unavailable');
+    }
+    return const MockSearchRepository().loadCatalog();
   }
 }
