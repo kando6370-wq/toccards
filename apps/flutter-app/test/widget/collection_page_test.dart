@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
+import 'package:kando_app/features/home/home_page.dart';
+import 'package:kando_app/features/profile/profile_page.dart';
 
 void main() {
   testWidgets('Collection shows Portfolio summary and rows by default', (
@@ -84,6 +87,24 @@ void main() {
     expect(find.text('Pikachu Promo'), findsOneWidget);
     expect(find.text('Charizard ex'), findsNothing);
   });
+
+  testWidgets('Collection bottom navigation can return Home and Profile', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _CollectionTestAppWithRoutes()),
+    );
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    expect(find.text('Overview'), findsOneWidget);
+
+    await tester.tap(find.text('Collection'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    expect(find.text('Guest session'), findsOneWidget);
+  });
 }
 
 class _CollectionTestApp extends StatelessWidget {
@@ -92,5 +113,29 @@ class _CollectionTestApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(home: CollectionPage());
+  }
+}
+
+class _CollectionTestAppWithRoutes extends StatelessWidget {
+  const _CollectionTestAppWithRoutes();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      routerConfig: GoRouter(
+        initialLocation: '/collection',
+        routes: [
+          GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(
+            path: '/collection',
+            builder: (context, state) => const CollectionPage(),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfilePage(),
+          ),
+        ],
+      ),
+    );
   }
 }

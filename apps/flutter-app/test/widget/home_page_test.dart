@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 
@@ -91,20 +92,20 @@ void main() {
     expect(find.text('Sign in / Sign up'), findsOneWidget);
   });
 
-  testWidgets(
-    'unfinished tabs show a lightweight message without leaving Home',
-    (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(child: _HomeTestAppWithRoutes()),
-      );
+  testWidgets('Collection bottom tab navigates to Collection page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _HomeTestAppWithRoutes()),
+    );
 
-      await tester.tap(find.text('Collection'));
-      await tester.pump();
+    await tester.tap(find.text('Collection'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('This section is coming soon.'), findsOneWidget);
-      expect(find.text('Overview'), findsOneWidget);
-    },
-  );
+    expect(find.text('Collection'), findsWidgets);
+    expect(find.text('Portfolio'), findsWidgets);
+    expect(find.text('This section is coming soon.'), findsNothing);
+  });
 }
 
 class _HomeTestApp extends StatelessWidget {
@@ -125,6 +126,10 @@ class _HomeTestAppWithRoutes extends StatelessWidget {
       routerConfig: GoRouter(
         routes: [
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(
+            path: '/collection',
+            builder: (context, state) => const CollectionPage(),
+          ),
           GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfilePage(),
