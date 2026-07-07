@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
@@ -186,6 +187,28 @@ void main() {
     expect(find.text('扫描功能即将上线'), findsOneWidget);
     expect(find.text('Search Cards'), findsOneWidget);
   });
+
+  testWidgets('tapping a Search card opens CardDetail', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _SearchTestAppWithRoutes()),
+    );
+
+    await tester.tap(find.byKey(const Key('search-card-squirtle')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Card Detail'), findsOneWidget);
+    expect(find.text('Squirtle'), findsOneWidget);
+    expect(find.text('Mega Evolution Promos'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Price overview'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+
+    expect(find.text('Price overview'), findsOneWidget);
+    expect(find.text('Collect'), findsOneWidget);
+  });
 }
 
 class _SearchTestApp extends StatelessWidget {
@@ -212,6 +235,14 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
             builder: (context, state) => const CollectionPage(),
           ),
           GoRoute(path: '/scan', builder: (context, state) => const ScanPage()),
+          GoRoute(
+            path: '/cards/:cardId',
+            builder: (context, state) {
+              return CardDetailPage(
+                cardId: state.pathParameters['cardId'] ?? '',
+              );
+            },
+          ),
           GoRoute(
             path: '/search',
             builder: (context, state) => const SearchPage(),

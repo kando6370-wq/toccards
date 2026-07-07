@@ -200,69 +200,72 @@ class _SearchCardTile extends ConsumerWidget {
 
     return Card(
       key: Key('search-card-${card.id}'),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.style_outlined,
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              card.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            Text(card.setName, maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text(
-              card.metadataLine,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              card.variantLine,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Text(card.priceText),
-                const Spacer(),
-                Text(card.changeText),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text('Qty: ${card.quantity}'),
-            Row(
-              children: [
-                TextButton(
-                  onPressed: () => controller.toggleCollect(card.id),
-                  child: Text(card.isCollected ? 'Collected' : 'Collect'),
-                ),
-                const Spacer(),
-                IconButton(
-                  key: Key('search-wishlist-${card.id}'),
-                  onPressed: () => controller.toggleWishlist(card.id),
-                  icon: Icon(
-                    showFilledHeart ? Icons.favorite : Icons.favorite_border,
+      child: InkWell(
+        onTap: () => context.go('/cards/${card.id}'),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.style_outlined,
+                    color: Theme.of(context).colorScheme.onSecondaryContainer,
                   ),
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                card.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              Text(card.setName, maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(
+                card.metadataLine,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                card.variantLine,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Text(card.priceText),
+                  const Spacer(),
+                  Text(card.changeText),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text('Qty: ${card.quantity}'),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () => controller.toggleCollect(card.id),
+                    child: Text(card.isCollected ? 'Collected' : 'Collect'),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    key: Key('search-wishlist-${card.id}'),
+                    onPressed: () => controller.toggleWishlist(card.id),
+                    icon: Icon(
+                      showFilledHeart ? Icons.favorite : Icons.favorite_border,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
