@@ -355,12 +355,11 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
               children: [
                 const Text('Sort'),
                 for (final option in CollectionSort.values)
-                  RadioListTile<CollectionSort>(
+                  ListTile(
                     title: Text(_sortLabel(option)),
-                    value: option,
-                    groupValue: sort,
-                    onChanged: (value) {
-                      setModalState(() => sort = value!);
+                    trailing: sort == option ? const Icon(Icons.check) : null,
+                    onTap: () {
+                      setModalState(() => sort = option);
                     },
                   ),
                 const Text('Game / IP'),
