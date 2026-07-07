@@ -168,6 +168,21 @@ void main() {
     expect(find.text('Search cards, sets, or characters'), findsOneWidget);
     expect(find.text('Squirtle'), findsOneWidget);
   });
+
+  testWidgets('Scan bottom tab shows the shared coming-soon Toast', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _CollectionTestAppWithRoutes()),
+    );
+
+    await tester.tap(find.text('Scan'));
+    await tester.pump();
+
+    expect(find.text('This section is coming soon.'), findsOneWidget);
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.behavior, SnackBarBehavior.floating);
+  });
 }
 
 class _CollectionTestApp extends StatelessWidget {

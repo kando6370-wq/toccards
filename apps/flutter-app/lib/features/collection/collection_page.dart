@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import 'collection_controller.dart';
 import 'collection_models.dart';
@@ -87,9 +88,7 @@ class CollectionPage extends ConsumerWidget {
             return;
           }
           if (index != 1) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('This section is coming soon.')),
-            );
+            showKandoToast(context, message: 'This section is coming soon.');
           }
         },
         destinations: const [

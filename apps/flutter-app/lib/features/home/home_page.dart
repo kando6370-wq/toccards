@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import 'home_controller.dart';
 import 'home_models.dart';
@@ -69,9 +70,7 @@ class HomePage extends ConsumerWidget {
             return;
           }
           if (index != 0) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('This section is coming soon.')),
-            );
+            showKandoToast(context, message: 'This section is coming soon.');
           }
         },
         destinations: const [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import 'search_controller.dart';
 import 'search_models.dart';
@@ -48,10 +49,9 @@ class SearchPage extends ConsumerWidget {
                         ),
                       IconButton(
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('This section is coming soon.'),
-                            ),
+                          showKandoToast(
+                            context,
+                            message: 'This section is coming soon.',
                           );
                         },
                         icon: const Icon(Icons.qr_code_scanner_outlined),
@@ -95,9 +95,7 @@ class SearchPage extends ConsumerWidget {
             return;
           }
           if (index != 3) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('This section is coming soon.')),
-            );
+            showKandoToast(context, message: 'This section is coming soon.');
           }
         },
         destinations: const [

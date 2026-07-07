@@ -128,6 +128,25 @@ void main() {
     expect(find.text('No matching results found.'), findsOneWidget);
   });
 
+  testWidgets('scanner action shows the shared coming-soon Toast', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: _SearchTestApp()));
+
+    await tester.tap(
+      find.byWidgetPredicate((widget) {
+        return widget is IconButton &&
+            widget.icon is Icon &&
+            (widget.icon as Icon).icon == Icons.qr_code_scanner_outlined;
+      }),
+    );
+    await tester.pump();
+
+    expect(find.text('This section is coming soon.'), findsOneWidget);
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.behavior, SnackBarBehavior.floating);
+  });
+
   testWidgets(
     'Search bottom navigation can open Home, Collection, and Profile',
     (tester) async {

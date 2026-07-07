@@ -154,6 +154,21 @@ void main() {
     expect(find.text('Squirtle'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
+
+  testWidgets('Scan bottom tab shows the shared coming-soon Toast', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _HomeTestAppWithRoutes()),
+    );
+
+    await tester.tap(find.text('Scan'));
+    await tester.pump();
+
+    expect(find.text('This section is coming soon.'), findsOneWidget);
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.behavior, SnackBarBehavior.floating);
+  });
 }
 
 class _HomeTestApp extends StatelessWidget {
