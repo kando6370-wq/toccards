@@ -19,6 +19,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openEmailAuth(tester);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
@@ -38,6 +39,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openEmailAuth(tester);
     await _continueWithEmail(tester, 'person@example.com');
 
@@ -61,6 +63,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openEmailAuth(tester);
     await _continueWithEmail(tester, ' PERSON@example.com ');
 
@@ -89,6 +92,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openAuthSheet(tester);
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
@@ -120,6 +124,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openAuthSheet(tester);
     await tester.tap(find.text('Continue with Apple'));
     await tester.pumpAndSettle();
@@ -148,6 +153,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openAuthSheet(tester);
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
@@ -176,6 +182,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openAuthSheet(tester);
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
@@ -206,6 +213,7 @@ void main() {
 
       await tester.pumpWidget(_testApp(repository));
       await tester.pumpAndSettle();
+      await _openProfileTab(tester);
       await _openEmailAuth(tester);
       await _continueWithEmail(tester, 'person@example.com');
 
@@ -234,6 +242,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openEmailAuth(tester);
     await _continueWithEmail(tester, 'person@example.com');
     await tester.tap(find.text('Create account'));
@@ -261,6 +270,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openEmailAuth(tester);
     await _continueWithEmail(tester, 'person@example.com');
     await tester.tap(find.text('Create account'));
@@ -297,6 +307,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openEmailAuth(tester);
     await _continueWithEmail(tester, 'person@example.com');
     await tester.tap(find.text('Create account'));
@@ -325,6 +336,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openEmailAuth(tester);
     await tester.tap(find.text('Forgot password'));
     await tester.pumpAndSettle();
@@ -365,6 +377,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
     await _openEmailAuth(tester);
     await tester.tap(find.text('Forgot password'));
     await tester.pumpAndSettle();
@@ -392,6 +405,7 @@ void main() {
 
       await tester.pumpWidget(_testApp(repository));
       await tester.pumpAndSettle();
+      await _openProfileTab(tester);
 
       expect(find.text('Sign in / Sign up'), findsOneWidget);
       expect(find.text('Customer Support'), findsOneWidget);
@@ -425,6 +439,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
 
     await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
@@ -447,14 +462,16 @@ void main() {
 
       await tester.pumpWidget(_testApp(repository));
       await tester.pumpAndSettle();
+      await _openProfileTab(tester);
 
       await tester.tap(find.text('Account'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Log Out'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Guest session'), findsOneWidget);
-      expect(find.text('anon-after-logout'), findsOneWidget);
+      expect(find.text('Overview'), findsOneWidget);
+      expect(find.text('PORTFOLIO'), findsOneWidget);
+      expect(repository._currentSession?.anonymousId, 'anon-after-logout');
       expect(find.text('Log Out'), findsNothing);
       expect(repository.logoutRequests, 1);
     },
@@ -470,6 +487,7 @@ void main() {
 
       await tester.pumpWidget(_testApp(repository));
       await tester.pumpAndSettle();
+      await _openProfileTab(tester);
 
       expect(find.text('anon-old'), findsOneWidget);
 
@@ -492,6 +510,7 @@ void main() {
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
+    await _openProfileTab(tester);
 
     await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
@@ -500,10 +519,16 @@ void main() {
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Guest session'), findsOneWidget);
-    expect(find.text('anon-after-delete'), findsOneWidget);
+    expect(find.text('Overview'), findsOneWidget);
+    expect(find.text('PORTFOLIO'), findsOneWidget);
+    expect(repository._currentSession?.anonymousId, 'anon-after-delete');
     expect(find.text('person@example.com'), findsNothing);
   });
+}
+
+Future<void> _openProfileTab(WidgetTester tester) async {
+  await tester.tap(find.text('Profile'));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _openEmailAuth(WidgetTester tester) async {

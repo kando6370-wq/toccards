@@ -6,7 +6,7 @@ import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
 void main() {
-  testWidgets('KandoApp shows the startup guest profile', (tester) async {
+  testWidgets('KandoApp shows the startup home page', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -27,11 +27,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Profile'), findsOneWidget);
-    expect(find.text('Guest session'), findsOneWidget);
-    expect(find.text('guest-1'), findsOneWidget);
-    expect(find.text('Log out'), findsNothing);
-    expect(find.text('Delete account'), findsOneWidget);
+    expect(find.text('Overview'), findsOneWidget);
+    expect(find.text('PORTFOLIO'), findsOneWidget);
+    expect(find.text('Guest session'), findsNothing);
+    expect(find.text('Delete account'), findsNothing);
   });
 }
 
