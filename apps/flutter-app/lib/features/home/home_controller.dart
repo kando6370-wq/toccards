@@ -36,38 +36,42 @@ class HomeState {
   }
 
   PortfolioSummary get selectedPortfolio {
-    return dashboard.portfolios.firstWhere(
-      (portfolio) => portfolio.folderId == selectedFolder.id,
-      orElse: () => dashboard.portfolios.first,
-    );
+    return dashboard.portfoliosByFolderId[selectedFolder.id] ??
+        dashboard.portfoliosByFolderId[dashboard.defaultFolder.id]!;
   }
 
-  HomeCardHighlight? get mostValuable => selectedPortfolio.mostValuable;
+  HomeCardHighlight? get mostValuable {
+    return dashboard.mostValuableByFolderId[selectedFolder.id];
+  }
 
-  List<int> get chartValues {
-    return selectedPortfolio.chartSeries[chartRange] ?? const [];
+  List<double> get chartValues {
+    return selectedPortfolio.chartValuesByRange[chartRange]!;
   }
 
   String get totalAmountText => _formatMoney(selectedPortfolio.totalValueUsd);
 
   String get changeAmountText {
-    return '${_formatMoney(selectedPortfolio.changeValueUsd)} in the last 30 days';
+    return '${_formatMoney(selectedPortfolio.change30dUsd)} in the last 30 days';
   }
 
   String get changePercentText {
-    final sign = selectedPortfolio.changePercent > 0 ? '+' : '';
-    return '$sign${selectedPortfolio.changePercent.toStringAsFixed(1)}%';
+    final sign = selectedPortfolio.change30dPercent > 0 ? '+' : '';
+    return '$sign${selectedPortfolio.change30dPercent.toStringAsFixed(1)}%';
   }
 
   String get mostValuablePriceText {
+    if (amountHidden) {
+      return _hiddenAmountText;
+    }
+
     final card = mostValuable;
     if (card == null) {
-      return _formatMoney(0);
+      return '--';
     }
     return formatCardPrice(card.priceUsd);
   }
 
-  String formatCardPrice(int priceUsd) => _formatMoney(priceUsd);
+  String formatCardPrice(double valueUsd) => _formatMoney(valueUsd);
 
   HomeState copyWith({
     String? selectedFolderId,
@@ -84,13 +88,13 @@ class HomeState {
     );
   }
 
-  String _formatMoney(int usdAmount) {
+  String _formatMoney(double usdAmount) {
     if (amountHidden) {
       return _hiddenAmountText;
     }
 
     final converted = usdAmount * _currencyRate;
-    return '$_currencySymbol${_formatInteger(converted)}';
+    return '$_currencySymbol${_formatInteger(converted.round())}';
   }
 
   int get _currencyRate {

@@ -11,17 +11,17 @@ class MockHomeRepository implements HomeRepository {
   HomeDashboard loadDashboard() {
     return const HomeDashboard(
       folders: [
-        HomeFolder(id: 'main', name: 'Main'),
-        HomeFolder(id: 'sealed', name: 'Sealed'),
-        HomeFolder(id: 'empty', name: 'Empty'),
+        HomeFolder(id: 'main', name: 'Main', isDefault: true),
+        HomeFolder(id: 'sealed', name: 'Sealed', isDefault: false),
+        HomeFolder(id: 'empty', name: 'Empty', isDefault: false),
       ],
-      portfolios: [
-        PortfolioSummary(
+      portfoliosByFolderId: {
+        'main': PortfolioSummary(
           folderId: 'main',
           totalValueUsd: 12840,
-          changeValueUsd: 420,
-          changePercent: 3.4,
-          chartSeries: {
+          change30dUsd: 420,
+          change30dPercent: 3.4,
+          chartValuesByRange: {
             HomeChartRange.oneDay: [12520, 12680, 12840],
             HomeChartRange.sevenDays: [11980, 12140, 12460, 12840],
             HomeChartRange.oneMonth: [10800, 11320, 11940, 12420, 12840],
@@ -29,18 +29,13 @@ class MockHomeRepository implements HomeRepository {
             HomeChartRange.sixMonths: [7600, 9100, 10500, 11800, 12840],
             HomeChartRange.max: [6400, 8200, 9800, 11100, 12840],
           },
-          mostValuable: HomeCardHighlight(
-            title: 'Umbreon VMAX',
-            subtitle: 'PSA 10 · Holofoil',
-            priceUsd: 3280,
-          ),
         ),
-        PortfolioSummary(
+        'sealed': PortfolioSummary(
           folderId: 'sealed',
           totalValueUsd: 8640,
-          changeValueUsd: 310,
-          changePercent: 2.8,
-          chartSeries: {
+          change30dUsd: 310,
+          change30dPercent: 2.8,
+          chartValuesByRange: {
             HomeChartRange.oneDay: [8500, 8580, 8640],
             HomeChartRange.sevenDays: [8100, 8240, 8460, 8640],
             HomeChartRange.oneMonth: [7200, 7600, 8040, 8320, 8640],
@@ -48,18 +43,13 @@ class MockHomeRepository implements HomeRepository {
             HomeChartRange.sixMonths: [5200, 6100, 7000, 7900, 8640],
             HomeChartRange.max: [4200, 5600, 6900, 7800, 8640],
           },
-          mostValuable: HomeCardHighlight(
-            title: 'Evolving Skies Booster Box',
-            subtitle: 'Sealed · 36 Packs',
-            priceUsd: 720,
-          ),
         ),
-        PortfolioSummary(
+        'empty': PortfolioSummary(
           folderId: 'empty',
           totalValueUsd: 0,
-          changeValueUsd: 0,
-          changePercent: 0,
-          chartSeries: {
+          change30dUsd: 0,
+          change30dPercent: 0,
+          chartValuesByRange: {
             HomeChartRange.oneDay: [0],
             HomeChartRange.sevenDays: [0],
             HomeChartRange.oneMonth: [0],
@@ -68,22 +58,40 @@ class MockHomeRepository implements HomeRepository {
             HomeChartRange.max: [0],
           },
         ),
-      ],
+      },
+      mostValuableByFolderId: {
+        'main': HomeCardHighlight(
+          title: 'Charizard ex',
+          subtitle: 'PSA 10 · Holofoil',
+          priceUsd: 780,
+          change30dPercent: 8.1,
+        ),
+        'sealed': HomeCardHighlight(
+          title: 'Evolving Skies Booster Box',
+          subtitle: 'Sealed · 36 Packs',
+          priceUsd: 620,
+          change30dPercent: 5.4,
+        ),
+        'empty': null,
+      },
       trending: [
         TrendingCard(
           title: 'Umbreon VMAX',
-          subtitle: 'PSA 10 · Holofoil',
-          priceUsd: 3280,
+          subtitle: 'Pokemon · Evolving Skies',
+          priceUsd: 410,
+          changeTodayPercent: 12.2,
         ),
         TrendingCard(
           title: 'Shohei Ohtani Chrome',
-          subtitle: 'Topps · Refractor',
-          priceUsd: 1180,
+          subtitle: 'Baseball · 2024 Topps Chrome',
+          priceUsd: 240,
+          changeTodayPercent: 9.0,
         ),
         TrendingCard(
           title: 'One Piece Manga Luffy',
-          subtitle: 'Pokemon · Evolving Skies',
-          priceUsd: 2140,
+          subtitle: 'One Piece · Romance Dawn',
+          priceUsd: 330,
+          changeTodayPercent: 7.6,
         ),
       ],
     );

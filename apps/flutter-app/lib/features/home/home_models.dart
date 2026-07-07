@@ -12,28 +12,31 @@ enum HomeChartRange {
 }
 
 class HomeFolder {
-  const HomeFolder({required this.id, required this.name});
+  const HomeFolder({
+    required this.id,
+    required this.name,
+    required this.isDefault,
+  });
 
   final String id;
   final String name;
+  final bool isDefault;
 }
 
 class PortfolioSummary {
   const PortfolioSummary({
     required this.folderId,
     required this.totalValueUsd,
-    required this.changeValueUsd,
-    required this.changePercent,
-    required this.chartSeries,
-    this.mostValuable,
+    required this.change30dUsd,
+    required this.change30dPercent,
+    required this.chartValuesByRange,
   });
 
   final String folderId;
-  final int totalValueUsd;
-  final int changeValueUsd;
-  final double changePercent;
-  final Map<HomeChartRange, List<int>> chartSeries;
-  final HomeCardHighlight? mostValuable;
+  final double totalValueUsd;
+  final double change30dUsd;
+  final double change30dPercent;
+  final Map<HomeChartRange, List<double>> chartValuesByRange;
 }
 
 class HomeCardHighlight {
@@ -41,11 +44,13 @@ class HomeCardHighlight {
     required this.title,
     required this.subtitle,
     required this.priceUsd,
+    required this.change30dPercent,
   });
 
   final String title;
   final String subtitle;
-  final int priceUsd;
+  final double priceUsd;
+  final double change30dPercent;
 }
 
 class TrendingCard {
@@ -53,23 +58,29 @@ class TrendingCard {
     required this.title,
     required this.subtitle,
     required this.priceUsd,
+    required this.changeTodayPercent,
   });
 
   final String title;
   final String subtitle;
-  final int priceUsd;
+  final double priceUsd;
+  final double changeTodayPercent;
 }
 
 class HomeDashboard {
   const HomeDashboard({
     required this.folders,
-    required this.portfolios,
+    required this.portfoliosByFolderId,
+    required this.mostValuableByFolderId,
     required this.trending,
   });
 
   final List<HomeFolder> folders;
-  final List<PortfolioSummary> portfolios;
+  final Map<String, PortfolioSummary> portfoliosByFolderId;
+  final Map<String, HomeCardHighlight?> mostValuableByFolderId;
   final List<TrendingCard> trending;
 
-  HomeFolder get defaultFolder => folders.first;
+  HomeFolder get defaultFolder {
+    return folders.firstWhere((folder) => folder.isDefault);
+  }
 }

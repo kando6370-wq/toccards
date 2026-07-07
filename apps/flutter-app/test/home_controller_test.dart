@@ -5,6 +5,41 @@ import 'package:kando_app/features/home/home_models.dart';
 
 void main() {
   test(
+    'dashboard exposes spec-shaped folder, portfolio, highlight, and trend data',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final state = container.read(homeControllerProvider);
+      final dashboard = state.dashboard;
+      final mainPortfolio = dashboard.portfoliosByFolderId['main']!;
+      final mainHighlight = dashboard.mostValuableByFolderId['main']!;
+
+      expect(dashboard.defaultFolder.id, 'main');
+      expect(dashboard.defaultFolder.isDefault, isTrue);
+      expect(mainPortfolio.totalValueUsd, 12840);
+      expect(mainPortfolio.change30dUsd, 420);
+      expect(mainPortfolio.change30dPercent, 3.4);
+      expect(
+        mainPortfolio.chartValuesByRange[HomeChartRange.max],
+        [6400, 8200, 9800, 11100, 12840],
+      );
+      expect(mainHighlight.title, 'Charizard ex');
+      expect(mainHighlight.subtitle, 'PSA 10 · Holofoil');
+      expect(mainHighlight.priceUsd, 780);
+      expect(mainHighlight.change30dPercent, 8.1);
+      expect(dashboard.trending.first.title, 'Umbreon VMAX');
+      expect(dashboard.trending.first.changeTodayPercent, 12.2);
+      expect(state.selectedPortfolio.change30dUsd, 420);
+      expect(state.selectedPortfolio.change30dPercent, 3.4);
+      expect(
+        state.selectedPortfolio.chartValuesByRange[HomeChartRange.max],
+        [6400, 8200, 9800, 11100, 12840],
+      );
+    },
+  );
+
+  test(
     'switching folder changes portfolio-scoped data while market trending stays stable',
     () {
       final container = ProviderContainer();
@@ -21,6 +56,7 @@ void main() {
       expect(changed.selectedFolder.name, 'Sealed');
       expect(changed.selectedPortfolio.totalValueUsd, 8640);
       expect(changed.mostValuable?.title, 'Evolving Skies Booster Box');
+      expect(changed.mostValuable?.priceUsd, 620);
       expect(
         changed.dashboard.trending.map((card) => card.title).toList(),
         initialTrendingTitles,
@@ -57,6 +93,21 @@ void main() {
     expect(state.totalAmountText, '••••••');
     expect(state.changeAmountText, '•••••• in the last 30 days');
     expect(state.mostValuablePriceText, '••••••');
+  });
+
+  test('empty folder most valuable price uses placeholder unless amounts are hidden', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final controller = container.read(homeControllerProvider.notifier);
+    controller.selectFolder('empty');
+    expect(container.read(homeControllerProvider).mostValuablePriceText, '--');
+
+    controller.toggleAmountHidden();
+    expect(
+      container.read(homeControllerProvider).mostValuablePriceText,
+      '••••••',
+    );
   });
 
   test('chart range switches the selected mock series', () {
