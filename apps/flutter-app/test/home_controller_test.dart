@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
+import 'package:kando_app/features/home/home_repository.dart';
 
 void main() {
   test(
@@ -80,6 +81,44 @@ void main() {
     expect(state.changePercentText, '+3.4%');
   });
 
+  test('negative change amount keeps minus before the currency symbol', () {
+    final container = ProviderContainer(
+      overrides: [
+        homeRepositoryProvider.overrideWithValue(
+          const _NegativeChangeHomeRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    expect(
+      container.read(homeControllerProvider).changeAmountText,
+      r'-$420 in the last 30 days',
+    );
+    expect(container.read(homeControllerProvider).changePercentText, '-3.4%');
+
+    container.read(homeControllerProvider.notifier).selectCurrency('CNY');
+    expect(
+      container.read(homeControllerProvider).changeAmountText,
+      '-¥2,940 in the last 30 days',
+    );
+  });
+
+  test('invalid folder and currency selections leave state unchanged', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final controller = container.read(homeControllerProvider.notifier);
+    final initial = container.read(homeControllerProvider);
+
+    controller.selectFolder('missing');
+    controller.selectCurrency('EUR');
+    final state = container.read(homeControllerProvider);
+
+    expect(state.selectedFolder.id, initial.selectedFolder.id);
+    expect(state.totalAmountText, initial.totalAmountText);
+  });
+
   test('hidden amount masks asset money without losing selected folder state', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -126,4 +165,28 @@ void main() {
     expect(state.chartRange, HomeChartRange.max);
     expect(state.chartValues, [6400, 8200, 9800, 11100, 12840]);
   });
+}
+
+class _NegativeChangeHomeRepository implements HomeRepository {
+  const _NegativeChangeHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() {
+    return const HomeDashboard(
+      folders: [HomeFolder(id: 'main', name: 'Main', isDefault: true)],
+      portfoliosByFolderId: {
+        'main': PortfolioSummary(
+          folderId: 'main',
+          totalValueUsd: 12840,
+          change30dUsd: -420,
+          change30dPercent: -3.4,
+          chartValuesByRange: {
+            HomeChartRange.oneMonth: [12840],
+          },
+        ),
+      },
+      mostValuableByFolderId: {'main': null},
+      trending: [],
+    );
+  }
 }

@@ -94,7 +94,9 @@ class HomeState {
     }
 
     final converted = usdAmount * _currencyRate;
-    return '$_currencySymbol${_formatInteger(converted.round())}';
+    final rounded = converted.round();
+    final sign = rounded < 0 ? '-' : '';
+    return '$sign$_currencySymbol${_formatInteger(rounded.abs())}';
   }
 
   int get _currencyRate {
