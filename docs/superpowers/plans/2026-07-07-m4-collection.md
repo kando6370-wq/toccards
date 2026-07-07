@@ -138,8 +138,8 @@ void main() {
     final filtered = container.read(collectionControllerProvider);
 
     expect(filtered.visibleItems.map((item) => item.name), [
-      'Umbreon VMAX',
       'Charizard ex',
+      'Umbreon VMAX',
     ]);
   });
 
@@ -635,12 +635,12 @@ class CollectionController extends Notifier<CollectionState> {
         CollectionTab.wishlist: CollectionSort.newest,
       },
       gamesByTab: const {
-        CollectionTab.portfolio: {},
-        CollectionTab.wishlist: {},
+        CollectionTab.portfolio: <String>{},
+        CollectionTab.wishlist: <String>{},
       },
       languagesByTab: const {
-        CollectionTab.portfolio: {},
-        CollectionTab.wishlist: {},
+        CollectionTab.portfolio: <String>{},
+        CollectionTab.wishlist: <String>{},
       },
     );
   }
