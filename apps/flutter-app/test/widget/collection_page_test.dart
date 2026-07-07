@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/search/search_page.dart';
 
 void main() {
   testWidgets('Collection shows Portfolio summary and rows by default', (
@@ -105,6 +106,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Guest session'), findsOneWidget);
   });
+
+  testWidgets('Collection bottom navigation can open Search', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _CollectionTestAppWithRoutes()),
+    );
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Search cards, sets, or characters'), findsOneWidget);
+    expect(find.text('Squirtle'), findsOneWidget);
+  });
 }
 
 class _CollectionTestApp extends StatelessWidget {
@@ -129,6 +142,10 @@ class _CollectionTestAppWithRoutes extends StatelessWidget {
           GoRoute(
             path: '/collection',
             builder: (context, state) => const CollectionPage(),
+          ),
+          GoRoute(
+            path: '/search',
+            builder: (context, state) => const SearchPage(),
           ),
           GoRoute(
             path: '/profile',

@@ -54,6 +54,10 @@ class HomePage extends ConsumerWidget {
             context.go('/collection');
             return;
           }
+          if (index == 3) {
+            context.go('/search');
+            return;
+          }
           if (index == 4) {
             context.go('/profile');
             return;

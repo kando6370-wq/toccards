@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/search/search_page.dart';
 
 void main() {
   testWidgets('Home shows the M4-1 dashboard information hierarchy', (
@@ -106,6 +107,19 @@ void main() {
     expect(find.text('Portfolio'), findsWidgets);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
+
+  testWidgets('Search bottom tab navigates to Search page', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _HomeTestAppWithRoutes()),
+    );
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Search cards, sets, or characters'), findsOneWidget);
+    expect(find.text('Squirtle'), findsOneWidget);
+    expect(find.text('This section is coming soon.'), findsNothing);
+  });
 }
 
 class _HomeTestApp extends StatelessWidget {
@@ -129,6 +143,10 @@ class _HomeTestAppWithRoutes extends StatelessWidget {
           GoRoute(
             path: '/collection',
             builder: (context, state) => const CollectionPage(),
+          ),
+          GoRoute(
+            path: '/search',
+            builder: (context, state) => const SearchPage(),
           ),
           GoRoute(
             path: '/profile',

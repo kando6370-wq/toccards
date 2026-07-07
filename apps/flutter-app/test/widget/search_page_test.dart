@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:kando_app/features/collection/collection_page.dart';
+import 'package:kando_app/features/home/home_page.dart';
+import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/search/search_page.dart';
 
 void main() {
@@ -94,6 +98,31 @@ void main() {
 
     expect(find.text('No matching results found.'), findsOneWidget);
   });
+
+  testWidgets(
+    'Search bottom navigation can open Home, Collection, and Profile',
+    (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(child: _SearchTestAppWithRoutes()),
+      );
+
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+      expect(find.text('Overview'), findsOneWidget);
+
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Collection'));
+      await tester.pumpAndSettle();
+      expect(find.text('Portfolio'), findsWidgets);
+
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+      expect(find.text('Guest session'), findsOneWidget);
+    },
+  );
 }
 
 class _SearchTestApp extends StatelessWidget {
@@ -102,5 +131,33 @@ class _SearchTestApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(home: SearchPage());
+  }
+}
+
+class _SearchTestAppWithRoutes extends StatelessWidget {
+  const _SearchTestAppWithRoutes();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      routerConfig: GoRouter(
+        initialLocation: '/search',
+        routes: [
+          GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(
+            path: '/collection',
+            builder: (context, state) => const CollectionPage(),
+          ),
+          GoRoute(
+            path: '/search',
+            builder: (context, state) => const SearchPage(),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfilePage(),
+          ),
+        ],
+      ),
+    );
   }
 }

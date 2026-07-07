@@ -5,6 +5,7 @@ import '../features/collection/collection_page.dart';
 import '../features/home/home_page.dart';
 import '../features/profile/account_page.dart';
 import '../features/profile/profile_page.dart';
+import '../features/search/search_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -14,6 +15,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/collection',
         builder: (context, state) => const CollectionPage(),
       ),
+      GoRoute(path: '/search', builder: (context, state) => const SearchPage()),
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfilePage(),
