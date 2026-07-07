@@ -6,6 +6,7 @@ import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 
 void main() {
   testWidgets('Collection shows Portfolio summary and rows by default', (
@@ -17,11 +18,31 @@ void main() {
     expect(find.text('Portfolio'), findsWidgets);
     expect(find.text('Wishlist'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
-    expect(find.text(r'$1,245'), findsOneWidget);
+    expect(find.text(r'$1,245.00'), findsOneWidget);
     expect(find.text('3 cards'), findsOneWidget);
     expect(find.text('2 graded'), findsOneWidget);
     expect(find.text('Charizard ex'), findsOneWidget);
+    expect(find.text(r'$780.00'), findsOneWidget);
     expect(find.text('Qty: 1'), findsWidgets);
+  });
+
+  testWidgets('Collection renders money in the shared selected currency', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          selectedCurrencyProvider.overrideWith(
+            () => _TestSelectedCurrencyController(AppCurrency.eur),
+          ),
+        ],
+        child: const _CollectionTestApp(),
+      ),
+    );
+
+    expect(find.text('€1,132.95'), findsOneWidget);
+    expect(find.text('€709.80'), findsOneWidget);
+    expect(find.text('+8.10%'), findsOneWidget);
   });
 
   testWidgets('folder picker changes Portfolio list', (tester) async {
@@ -68,8 +89,8 @@ void main() {
     await tester.tap(find.byKey(const Key('collection-hide-amount')));
     await tester.pumpAndSettle();
 
-    expect(find.text('••••••'), findsWidgets);
-    expect(find.text(r'$1,245'), findsNothing);
+    expect(find.text(hiddenMoneyText), findsWidgets);
+    expect(find.text(r'$1,245.00'), findsNothing);
     expect(find.text('+8.10%'), findsOneWidget);
   });
 
@@ -154,5 +175,16 @@ class _CollectionTestAppWithRoutes extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _TestSelectedCurrencyController extends SelectedCurrencyController {
+  _TestSelectedCurrencyController(this.initialCurrency);
+
+  final AppCurrency initialCurrency;
+
+  @override
+  AppCurrency build() {
+    return initialCurrency;
   }
 }

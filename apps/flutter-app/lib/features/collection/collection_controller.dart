@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 
 import 'collection_models.dart';
 import 'collection_repository.dart';
-
-const hiddenCollectionAmountText = '••••••';
 
 final collectionRepositoryProvider = Provider<CollectionRepository>((ref) {
   return const MockCollectionRepository();
@@ -53,6 +52,7 @@ class CollectionState {
     required this.dashboard,
     required this.selectedTab,
     required this.selectedFolderId,
+    required this.currency,
     required this.amountHidden,
     required this.searchByTab,
     required this.sortByTab,
@@ -63,6 +63,7 @@ class CollectionState {
   final CollectionDashboard dashboard;
   final CollectionTab selectedTab;
   final String selectedFolderId;
+  final AppCurrency currency;
   final bool amountHidden;
   final Map<CollectionTab, String> searchByTab;
   final Map<CollectionTab, CollectionSort> sortByTab;
@@ -147,9 +148,7 @@ class CollectionState {
     });
 
     return CollectionSummary(
-      totalValueText: amountHidden
-          ? hiddenCollectionAmountText
-          : _formatUsd(total),
+      totalValueText: _formatPortfolioTotal(total),
       cardCount: items.length,
       gradedCount: items.where((item) => item.isGraded).length,
     );
@@ -162,6 +161,7 @@ class CollectionState {
   CollectionState copyWith({
     CollectionTab? selectedTab,
     String? selectedFolderId,
+    AppCurrency? currency,
     bool? amountHidden,
     Map<CollectionTab, String>? searchByTab,
     Map<CollectionTab, CollectionSort>? sortByTab,
@@ -172,6 +172,7 @@ class CollectionState {
       dashboard: dashboard,
       selectedTab: selectedTab ?? this.selectedTab,
       selectedFolderId: selectedFolderId ?? this.selectedFolderId,
+      currency: currency ?? this.currency,
       amountHidden: amountHidden ?? this.amountHidden,
       searchByTab: searchByTab ?? this.searchByTab,
       sortByTab: sortByTab ?? this.sortByTab,
@@ -180,14 +181,22 @@ class CollectionState {
     );
   }
 
+  String _formatPortfolioTotal(double valueUsd) {
+    return CurrencyFormatter(
+      currency: currency,
+    ).formatUsd(valueUsd, hidden: amountHidden);
+  }
+
   String _formatMoney(double? valueUsd, int quantity) {
     if (amountHidden) {
-      return hiddenCollectionAmountText;
+      return hiddenMoneyText;
     }
     if (valueUsd == null || valueUsd <= 0) {
       return '--';
     }
-    return _formatUsd(valueUsd * quantity);
+    return CurrencyFormatter(
+      currency: currency,
+    ).formatUsd(valueUsd, quantity: quantity);
   }
 
   String _formatChange(CollectionItem item) {
@@ -216,30 +225,21 @@ class CollectionState {
     }
     return right.compareTo(left);
   }
-
-  static String _formatUsd(double value) {
-    final rounded = value.round();
-    final source = rounded.toString();
-    final buffer = StringBuffer();
-    for (var index = 0; index < source.length; index++) {
-      final remaining = source.length - index;
-      buffer.write(source[index]);
-      if (remaining > 1 && remaining % 3 == 1) {
-        buffer.write(',');
-      }
-    }
-    return r'$' + buffer.toString();
-  }
 }
 
 class CollectionController extends Notifier<CollectionState> {
   @override
   CollectionState build() {
+    ref.listen<AppCurrency>(selectedCurrencyProvider, (previous, next) {
+      state = state.copyWith(currency: next);
+    });
+
     final dashboard = ref.watch(collectionRepositoryProvider).loadDashboard();
     return CollectionState(
       dashboard: dashboard,
       selectedTab: CollectionTab.portfolio,
       selectedFolderId: dashboard.defaultFolder.id,
+      currency: ref.read(selectedCurrencyProvider),
       amountHidden: false,
       searchByTab: const {
         CollectionTab.portfolio: '',

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 
 void main() {
   test('defaults to Portfolio tab and Main folder summary', () {
@@ -12,7 +13,7 @@ void main() {
 
     expect(state.selectedTab, CollectionTab.portfolio);
     expect(state.selectedFolder.name, 'Main');
-    expect(state.portfolioSummary.totalValueText, r'$1,245');
+    expect(state.portfolioSummary.totalValueText, r'$1,245.00');
     expect(state.portfolioSummary.cardCount, 3);
     expect(state.portfolioSummary.gradedCount, 2);
     expect(state.visibleItems.map((item) => item.name), [
@@ -20,9 +21,33 @@ void main() {
       'Umbreon VMAX',
       'Pikachu Promo',
     ]);
+    expect(state.visibleItems.first.valueText, r'$780.00');
     expect(state.visibleItems.first.source.previous30dPriceUsd, 721.55);
     expect(state.visibleItems.first.changeText, '+8.10%');
   });
+
+  test(
+    'shared selected currency converts collection money while preserving percentages',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(
+        container
+            .read(collectionControllerProvider)
+            .portfolioSummary
+            .totalValueText,
+        r'$1,245.00',
+      );
+
+      container.read(selectedCurrencyProvider.notifier).select(AppCurrency.eur);
+      final state = container.read(collectionControllerProvider);
+
+      expect(state.portfolioSummary.totalValueText, '€1,132.95');
+      expect(state.visibleItems.first.valueText, '€709.80');
+      expect(state.visibleItems.first.changeText, '+8.10%');
+    },
+  );
 
   test('switching folders changes only Portfolio scoped items', () {
     final container = ProviderContainer();
@@ -93,8 +118,8 @@ void main() {
     controller.toggleAmountHidden();
     final state = container.read(collectionControllerProvider);
 
-    expect(state.portfolioSummary.totalValueText, '••••••');
-    expect(state.visibleItems.first.valueText, '••••••');
+    expect(state.portfolioSummary.totalValueText, hiddenMoneyText);
+    expect(state.visibleItems.first.valueText, hiddenMoneyText);
     expect(state.visibleItems.first.changeText, '+8.10%');
   });
 
