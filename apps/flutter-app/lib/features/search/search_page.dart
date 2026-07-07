@@ -90,6 +90,10 @@ class SearchPage extends ConsumerWidget {
             context.go('/collection');
             return;
           }
+          if (index == 2) {
+            context.go('/scan');
+            return;
+          }
           if (index == 4) {
             context.go('/profile');
             return;

@@ -61,6 +61,10 @@ class HomePage extends ConsumerWidget {
             context.go('/collection');
             return;
           }
+          if (index == 2) {
+            context.go('/scan');
+            return;
+          }
           if (index == 3) {
             context.go('/search');
             return;

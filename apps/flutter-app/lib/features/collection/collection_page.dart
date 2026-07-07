@@ -79,6 +79,10 @@ class CollectionPage extends ConsumerWidget {
             context.go('/');
             return;
           }
+          if (index == 2) {
+            context.go('/scan');
+            return;
+          }
           if (index == 3) {
             context.go('/search');
             return;

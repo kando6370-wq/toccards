@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_page.dart';
@@ -171,6 +172,20 @@ void main() {
       expect(find.text('Guest session'), findsOneWidget);
     },
   );
+
+  testWidgets('Scan bottom tab opens the Scan placeholder page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _SearchTestAppWithRoutes()),
+    );
+
+    await tester.tap(find.text('Scan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('扫描功能即将上线'), findsOneWidget);
+    expect(find.text('Search Cards'), findsOneWidget);
+  });
 }
 
 class _SearchTestApp extends StatelessWidget {
@@ -196,6 +211,7 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
             path: '/collection',
             builder: (context, state) => const CollectionPage(),
           ),
+          GoRoute(path: '/scan', builder: (context, state) => const ScanPage()),
           GoRoute(
             path: '/search',
             builder: (context, state) => const SearchPage(),

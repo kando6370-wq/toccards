@@ -8,6 +8,7 @@ import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -169,7 +170,7 @@ void main() {
     expect(find.text('Squirtle'), findsOneWidget);
   });
 
-  testWidgets('Scan bottom tab shows the shared coming-soon Toast', (
+  testWidgets('Scan bottom tab opens the Scan placeholder page', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -177,11 +178,11 @@ void main() {
     );
 
     await tester.tap(find.text('Scan'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('This section is coming soon.'), findsOneWidget);
-    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(snackBar.behavior, SnackBarBehavior.floating);
+    expect(find.text('扫描功能即将上线'), findsOneWidget);
+    expect(find.text('Search Cards'), findsOneWidget);
+    expect(find.text('This section is coming soon.'), findsNothing);
   });
 }
 
@@ -208,6 +209,7 @@ class _CollectionTestAppWithRoutes extends StatelessWidget {
             path: '/collection',
             builder: (context, state) => const CollectionPage(),
           ),
+          GoRoute(path: '/scan', builder: (context, state) => const ScanPage()),
           GoRoute(
             path: '/search',
             builder: (context, state) => const SearchPage(),
