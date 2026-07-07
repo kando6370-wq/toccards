@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/card_detail/card_detail_page.dart';
 import '../features/collection/collection_page.dart';
 import '../features/home/home_page.dart';
 import '../features/profile/account_page.dart';
@@ -17,6 +18,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CollectionPage(),
       ),
       GoRoute(path: '/scan', builder: (context, state) => const ScanPage()),
+      GoRoute(
+        path: '/cards/:cardId',
+        builder: (context, state) {
+          return CardDetailPage(cardId: state.pathParameters['cardId'] ?? '');
+        },
+      ),
       GoRoute(path: '/search', builder: (context, state) => const SearchPage()),
       GoRoute(
         path: '/profile',
