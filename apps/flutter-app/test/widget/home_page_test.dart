@@ -21,36 +21,38 @@ void main() {
     expect(find.text('Umbreon VMAX'), findsOneWidget);
   });
 
-  testWidgets('folder picker changes portfolio sections but not Trending Today', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+  testWidgets(
+    'folder picker changes portfolio sections but not Trending Today',
+    (tester) async {
+      await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
 
-    await tester.tap(find.text('Main'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sealed').last);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sealed').last);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Sealed'), findsOneWidget);
-    expect(find.text(r'$8,640'), findsOneWidget);
-    expect(find.text('Evolving Skies Booster Box'), findsOneWidget);
-    expect(find.text('Umbreon VMAX'), findsOneWidget);
-  });
+      expect(find.text('Sealed'), findsOneWidget);
+      expect(find.text(r'$8,640'), findsOneWidget);
+      expect(find.text('Evolving Skies Booster Box'), findsOneWidget);
+      expect(find.text('Umbreon VMAX'), findsOneWidget);
+    },
+  );
 
-  testWidgets('currency picker converts money while percentages remain visible', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+  testWidgets(
+    'currency picker converts money while percentages remain visible',
+    (tester) async {
+      await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
 
-    await tester.tap(find.text('USD'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('CNY').last);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('USD'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('CNY').last);
+      await tester.pumpAndSettle();
 
-    expect(find.text('CNY'), findsOneWidget);
-    expect(find.text('¥89,880'), findsOneWidget);
-    expect(find.text('+3.4%'), findsOneWidget);
-  });
+      expect(find.text('CNY'), findsOneWidget);
+      expect(find.text('¥89,880'), findsOneWidget);
+      expect(find.text('+3.4%'), findsOneWidget);
+    },
+  );
 
   testWidgets('amount visibility toggle masks asset values', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
@@ -78,7 +80,9 @@ void main() {
   testWidgets('Profile bottom tab navigates to the existing Profile page', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: _HomeTestAppWithRoutes()));
+    await tester.pumpWidget(
+      const ProviderScope(child: _HomeTestAppWithRoutes()),
+    );
 
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
@@ -87,17 +91,20 @@ void main() {
     expect(find.text('Sign in / Sign up'), findsOneWidget);
   });
 
-  testWidgets('unfinished tabs show a lightweight message without leaving Home', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const ProviderScope(child: _HomeTestAppWithRoutes()));
+  testWidgets(
+    'unfinished tabs show a lightweight message without leaving Home',
+    (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(child: _HomeTestAppWithRoutes()),
+      );
 
-    await tester.tap(find.text('Collection'));
-    await tester.pump();
+      await tester.tap(find.text('Collection'));
+      await tester.pump();
 
-    expect(find.text('This section is coming soon.'), findsOneWidget);
-    expect(find.text('Overview'), findsOneWidget);
-  });
+      expect(find.text('This section is coming soon.'), findsOneWidget);
+      expect(find.text('Overview'), findsOneWidget);
+    },
+  );
 }
 
 class _HomeTestApp extends StatelessWidget {

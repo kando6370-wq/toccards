@@ -126,7 +126,9 @@ class HomePage extends ConsumerWidget {
               for (final currency in const ['USD', 'CNY', 'JPY'])
                 ListTile(
                   title: Text(currency),
-                  trailing: currency == selected ? const Icon(Icons.check) : null,
+                  trailing: currency == selected
+                      ? const Icon(Icons.check)
+                      : null,
                   onTap: () {
                     ref
                         .read(homeControllerProvider.notifier)
@@ -143,10 +145,7 @@ class HomePage extends ConsumerWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({
-    required this.currencyCode,
-    required this.onCurrencyPressed,
-  });
+  const _Header({required this.currencyCode, required this.onCurrencyPressed});
 
   final String currencyCode;
   final VoidCallback onCurrencyPressed;
@@ -161,10 +160,7 @@ class _Header extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineMedium,
           ),
         ),
-        OutlinedButton(
-          onPressed: onCurrencyPressed,
-          child: Text(currencyCode),
-        ),
+        OutlinedButton(onPressed: onCurrencyPressed, child: Text(currencyCode)),
       ],
     );
   }
@@ -224,9 +220,7 @@ class _PortfolioCard extends StatelessWidget {
             SizedBox(
               height: 120,
               width: double.infinity,
-              child: CustomPaint(
-                painter: _ChartPainter(state.chartValues),
-              ),
+              child: CustomPaint(painter: _ChartPainter(state.chartValues)),
             ),
           ],
         ),
@@ -236,10 +230,7 @@ class _PortfolioCard extends StatelessWidget {
 }
 
 class _ChartRangePicker extends StatelessWidget {
-  const _ChartRangePicker({
-    required this.selected,
-    required this.onSelected,
-  });
+  const _ChartRangePicker({required this.selected, required this.onSelected});
 
   final HomeChartRange selected;
   final ValueChanged<HomeChartRange> onSelected;
@@ -350,11 +341,7 @@ class _CardValueRow extends StatelessWidget {
         ),
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(price),
-            const SizedBox(height: 4),
-            Text(percent),
-          ],
+          children: [Text(price), const SizedBox(height: 4), Text(percent)],
         ),
       ],
     );

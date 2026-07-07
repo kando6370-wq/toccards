@@ -2,11 +2,11 @@
 
 ## 当前任务
 - 状态：本轮完成（验证通过）
-- 计划编号：无
-- 最近开始：2026-07-07 13:06:39
-- 最近完成：2026-07-07 13:07:44
+- 计划编号：M4-1
+- 最近开始：2026-07-07 15:18:53
+- 最近完成：2026-07-07 17:33:07
 - 最近验证：通过
-- 最近任务摘要：实现 hook 去噪幂等化
+- 最近任务摘要：Implement Home page
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
 ## dev-plan 子任务状态
@@ -35,25 +35,25 @@
 - [M1-12] 匿名 → 正式升级 Flutter 侧 — status: `completed` · updated: 历史回填（基于当前仓库状态）
 
 ### M2 数据代理层
-- [M2-1] `DataSourceAdapter` 抽象层 — status: `todo` · updated: 未开始
+- [M2-1] `DataSourceAdapter` 抽象层 — status: `completed` · updated: 2026-07-07 13:20:58
 - [M2-2] 第三方厂商适配实现 — status: `todo` · updated: 未开始
-- [M2-3] Workers KV 缓存层 — status: `todo` · updated: 未开始
-- [M2-4] Cache API 缓存层 — status: `todo` · updated: 未开始
-- [M2-5] 降级兜底逻辑 — status: `todo` · updated: 未开始
-- [M2-6] card_override 覆盖层合并 — status: `todo` · updated: 未开始
-- [M2-7] 汇率接口代理 — status: `todo` · updated: 未开始
-- [M2-8] 接口端点注册 — status: `todo` · updated: 未开始
+- [M2-3] Workers KV 缓存层 — status: `completed` · updated: 2026-07-07 13:31:42
+- [M2-4] Cache API 缓存层 — status: `completed` · updated: 2026-07-07 13:35:02
+- [M2-5] 降级兜底逻辑 — status: `completed` · updated: 2026-07-07 13:44:52
+- [M2-6] card_override 覆盖层合并 — status: `completed` · updated: 2026-07-07 13:51:48
+- [M2-7] 汇率接口代理 — status: `completed` · updated: 2026-07-07 13:52:54
+- [M2-8] 接口端点注册 — status: `completed` · updated: 2026-07-07 13:39:24
 
 ### M3 核心资产 CRUD
-- [M3-1] Portfolio 文件夹接口 — status: `todo` · updated: 未开始
-- [M3-2] Collection Item 接口 — status: `todo` · updated: 未开始
-- [M3-3] Wishlist 接口 — status: `todo` · updated: 未开始
-- [M3-4] 用户偏好接口 — status: `todo` · updated: 未开始
-- [M3-5] owner 多态隔离中间件 — status: `todo` · updated: 未开始
-- [M3-6] Collect 快捷端点 — status: `todo` · updated: 未开始
+- [M3-1] Portfolio 文件夹接口 — status: `completed` · updated: 2026-07-07 14:07:00
+- [M3-2] Collection Item 接口 — status: `completed` · updated: 2026-07-07 14:15:38
+- [M3-3] Wishlist 接口 — status: `completed` · updated: 2026-07-07 14:23:54
+- [M3-4] 用户偏好接口 — status: `completed` · updated: 2026-07-07 14:33:24
+- [M3-5] owner 多态隔离中间件 — status: `completed` · updated: 2026-07-07 14:36:35
+- [M3-6] Collect 快捷端点 — status: `completed` · updated: 2026-07-07 14:42:37
 
 ### M4 三大页面
-- [M4-1] Home 页面 — status: `todo` · updated: 未开始
+- [M4-1] Home 页面 — status: `completed` · updated: 2026-07-07 17:33:07
 - [M4-2] Collection 页面 — status: `todo` · updated: 未开始
 - [M4-3] Search 页面 — status: `todo` · updated: 未开始
 - [M4-4] 涨跌算法实现 — status: `todo` · updated: 未开始
@@ -102,9 +102,9 @@
 ## 里程碑汇总
 - M0 工程基建 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
 - M1 鉴权与账号 — status: `completed` · completed 12 / total 12 · blocked 0 · in_progress 0
-- M2 数据代理层 — status: `not_started` · completed 0 / total 8 · blocked 0 · in_progress 0
-- M3 核心资产 CRUD — status: `not_started` · completed 0 / total 6 · blocked 0 · in_progress 0
-- M4 三大页面 — status: `not_started` · completed 0 / total 8 · blocked 0 · in_progress 0
+- M2 数据代理层 — status: `in_progress` · completed 7 / total 8 · blocked 0 · in_progress 0
+- M3 核心资产 CRUD — status: `completed` · completed 6 / total 6 · blocked 0 · in_progress 0
+- M4 三大页面 — status: `in_progress` · completed 1 / total 8 · blocked 0 · in_progress 0
 - M5 卡牌详情 — status: `not_started` · completed 0 / total 5 · blocked 0 · in_progress 0
 - M6 Profile / 客服 / 启动引导 — status: `not_started` · completed 0 / total 6 · blocked 0 · in_progress 0
 - M7 管理后台 — status: `not_started` · completed 0 / total 7 · blocked 0 · in_progress 0
@@ -170,15 +170,43 @@
 - 2026-07-07 13:05:10 | 完成（验证通过） | 实现 hook 去噪幂等化
 - 2026-07-07 13:06:08 | 开始 | 实现 hook 去噪幂等化
 - 2026-07-07 13:07:35 | 完成（验证通过） | 实现 hook 去噪幂等化
+- 2026-07-07 13:16:43 | 开始 | [M2-1] Add DataSourceAdapter contract and mock adapter
+- 2026-07-07 13:20:58 | 完成（验证通过） | [M2-1] Add DataSourceAdapter contract and mock adapter
+- 2026-07-07 13:23:48 | 开始 | [M2-3] Add Workers KV cache wrapper for data source adapter
+- 2026-07-07 13:31:42 | 完成（验证通过） | [M2-3] Add Workers KV cache wrapper for data source adapter
+- 2026-07-07 13:31:57 | 开始 | [M2-4] Add Cache API wrapper for data source adapter
+- 2026-07-07 13:35:02 | 完成（验证通过） | [M2-4] Add Cache API wrapper for data source adapter
+- 2026-07-07 13:35:56 | 开始 | [M2-8] Register mock data proxy endpoints
+- 2026-07-07 13:39:24 | 完成（验证通过） | [M2-8] Register mock data proxy endpoints
+- 2026-07-07 13:43:10 | 开始 | [M2-5] Complete data proxy fallback behavior
+- 2026-07-07 13:44:52 | 完成（验证通过） | [M2-5] Complete data proxy fallback behavior
+- 2026-07-07 13:45:07 | 开始 | [M2-6] Merge card_override into card data proxy responses
+- 2026-07-07 13:51:48 | 完成（验证通过） | [M2-6] Merge card_override into card data proxy responses
+- 2026-07-07 13:52:37 | 开始 | [M2-7] Confirm mock rates endpoint response
+- 2026-07-07 13:52:54 | 完成（验证通过） | [M2-7] Confirm mock rates endpoint response
+- 2026-07-07 14:01:06 | 开始 | [M3-1] Implement portfolio folder routes
+- 2026-07-07 14:07:00 | 完成（验证通过） | [M3-1] Implement portfolio folder routes
+- 2026-07-07 14:09:38 | 开始 | [M3-2] Implement collection item routes
+- 2026-07-07 14:15:38 | 完成（验证通过） | [M3-2] Implement collection item routes
+- 2026-07-07 14:19:29 | 开始 | [M3-3] Implement wishlist routes
+- 2026-07-07 14:23:54 | 完成（验证通过） | [M3-3] Implement wishlist routes
+- 2026-07-07 14:29:16 | 开始 | [M3-4] Implement user preference routes
+- 2026-07-07 14:33:24 | 完成（验证通过） | [M3-4] Implement user preference routes
+- 2026-07-07 14:35:44 | 开始 | [M3-5] Verify owner polymorphic isolation
+- 2026-07-07 14:36:35 | 完成（验证通过） | [M3-5] Verify owner polymorphic isolation
+- 2026-07-07 14:38:22 | 开始 | [M3-6] Implement collect shortcut endpoint
+- 2026-07-07 14:42:37 | 完成（验证通过） | [M3-6] Implement collect shortcut endpoint
+- 2026-07-07 15:18:53 | 开始 | [M4-1] Implement Home page
+- 2026-07-07 17:33:07 | 完成（验证通过） | [M4-1] Implement Home page
 
 <!-- task-status-state
 {
   "current": {
     "status": "本轮完成（验证通过）",
-    "started_at": "2026-07-07 13:06:39",
-    "finished_at": "2026-07-07 13:07:44",
-    "plan_ref": null,
-    "summary": "实现 hook 去噪幂等化",
+    "started_at": "2026-07-07 15:18:53",
+    "finished_at": "2026-07-07 17:33:07",
+    "plan_ref": "M4-1",
+    "summary": "Implement Home page",
     "last_verification": "通过",
     "note": "`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。"
   },
@@ -458,6 +486,174 @@
       "phase": "完成（验证通过）",
       "summary": "实现 hook 去噪幂等化",
       "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 13:16:43",
+      "phase": "开始",
+      "summary": "Add DataSourceAdapter contract and mock adapter",
+      "plan_ref": "M2-1"
+    },
+    {
+      "time": "2026-07-07 13:20:58",
+      "phase": "完成（验证通过）",
+      "summary": "Add DataSourceAdapter contract and mock adapter",
+      "plan_ref": "M2-1"
+    },
+    {
+      "time": "2026-07-07 13:23:48",
+      "phase": "开始",
+      "summary": "Add Workers KV cache wrapper for data source adapter",
+      "plan_ref": "M2-3"
+    },
+    {
+      "time": "2026-07-07 13:31:42",
+      "phase": "完成（验证通过）",
+      "summary": "Add Workers KV cache wrapper for data source adapter",
+      "plan_ref": "M2-3"
+    },
+    {
+      "time": "2026-07-07 13:31:57",
+      "phase": "开始",
+      "summary": "Add Cache API wrapper for data source adapter",
+      "plan_ref": "M2-4"
+    },
+    {
+      "time": "2026-07-07 13:35:02",
+      "phase": "完成（验证通过）",
+      "summary": "Add Cache API wrapper for data source adapter",
+      "plan_ref": "M2-4"
+    },
+    {
+      "time": "2026-07-07 13:35:56",
+      "phase": "开始",
+      "summary": "Register mock data proxy endpoints",
+      "plan_ref": "M2-8"
+    },
+    {
+      "time": "2026-07-07 13:39:24",
+      "phase": "完成（验证通过）",
+      "summary": "Register mock data proxy endpoints",
+      "plan_ref": "M2-8"
+    },
+    {
+      "time": "2026-07-07 13:43:10",
+      "phase": "开始",
+      "summary": "Complete data proxy fallback behavior",
+      "plan_ref": "M2-5"
+    },
+    {
+      "time": "2026-07-07 13:44:52",
+      "phase": "完成（验证通过）",
+      "summary": "Complete data proxy fallback behavior",
+      "plan_ref": "M2-5"
+    },
+    {
+      "time": "2026-07-07 13:45:07",
+      "phase": "开始",
+      "summary": "Merge card_override into card data proxy responses",
+      "plan_ref": "M2-6"
+    },
+    {
+      "time": "2026-07-07 13:51:48",
+      "phase": "完成（验证通过）",
+      "summary": "Merge card_override into card data proxy responses",
+      "plan_ref": "M2-6"
+    },
+    {
+      "time": "2026-07-07 13:52:37",
+      "phase": "开始",
+      "summary": "Confirm mock rates endpoint response",
+      "plan_ref": "M2-7"
+    },
+    {
+      "time": "2026-07-07 13:52:54",
+      "phase": "完成（验证通过）",
+      "summary": "Confirm mock rates endpoint response",
+      "plan_ref": "M2-7"
+    },
+    {
+      "time": "2026-07-07 14:01:06",
+      "phase": "开始",
+      "summary": "Implement portfolio folder routes",
+      "plan_ref": "M3-1"
+    },
+    {
+      "time": "2026-07-07 14:07:00",
+      "phase": "完成（验证通过）",
+      "summary": "Implement portfolio folder routes",
+      "plan_ref": "M3-1"
+    },
+    {
+      "time": "2026-07-07 14:09:38",
+      "phase": "开始",
+      "summary": "Implement collection item routes",
+      "plan_ref": "M3-2"
+    },
+    {
+      "time": "2026-07-07 14:15:38",
+      "phase": "完成（验证通过）",
+      "summary": "Implement collection item routes",
+      "plan_ref": "M3-2"
+    },
+    {
+      "time": "2026-07-07 14:19:29",
+      "phase": "开始",
+      "summary": "Implement wishlist routes",
+      "plan_ref": "M3-3"
+    },
+    {
+      "time": "2026-07-07 14:23:54",
+      "phase": "完成（验证通过）",
+      "summary": "Implement wishlist routes",
+      "plan_ref": "M3-3"
+    },
+    {
+      "time": "2026-07-07 14:29:16",
+      "phase": "开始",
+      "summary": "Implement user preference routes",
+      "plan_ref": "M3-4"
+    },
+    {
+      "time": "2026-07-07 14:33:24",
+      "phase": "完成（验证通过）",
+      "summary": "Implement user preference routes",
+      "plan_ref": "M3-4"
+    },
+    {
+      "time": "2026-07-07 14:35:44",
+      "phase": "开始",
+      "summary": "Verify owner polymorphic isolation",
+      "plan_ref": "M3-5"
+    },
+    {
+      "time": "2026-07-07 14:36:35",
+      "phase": "完成（验证通过）",
+      "summary": "Verify owner polymorphic isolation",
+      "plan_ref": "M3-5"
+    },
+    {
+      "time": "2026-07-07 14:38:22",
+      "phase": "开始",
+      "summary": "Implement collect shortcut endpoint",
+      "plan_ref": "M3-6"
+    },
+    {
+      "time": "2026-07-07 14:42:37",
+      "phase": "完成（验证通过）",
+      "summary": "Implement collect shortcut endpoint",
+      "plan_ref": "M3-6"
+    },
+    {
+      "time": "2026-07-07 15:18:53",
+      "phase": "开始",
+      "summary": "Implement Home page",
+      "plan_ref": "M4-1"
+    },
+    {
+      "time": "2026-07-07 17:33:07",
+      "phase": "完成（验证通过）",
+      "summary": "Implement Home page",
+      "plan_ref": "M4-1"
     }
   ],
   "plan": {
@@ -601,6 +797,104 @@
         "summary": "匿名 → 正式升级 Flutter 侧",
         "title": "匿名 → 正式升级 Flutter 侧",
         "milestone": "M1"
+      },
+      "M2-1": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:20:58",
+        "summary": "Add DataSourceAdapter contract and mock adapter",
+        "title": "`DataSourceAdapter` 抽象层",
+        "milestone": "M2"
+      },
+      "M2-3": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:31:42",
+        "summary": "Add Workers KV cache wrapper for data source adapter",
+        "title": "Workers KV 缓存层",
+        "milestone": "M2"
+      },
+      "M2-4": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:35:02",
+        "summary": "Add Cache API wrapper for data source adapter",
+        "title": "Cache API 缓存层",
+        "milestone": "M2"
+      },
+      "M2-8": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:39:24",
+        "summary": "Register mock data proxy endpoints",
+        "title": "接口端点注册",
+        "milestone": "M2"
+      },
+      "M2-5": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:44:52",
+        "summary": "Complete data proxy fallback behavior",
+        "title": "降级兜底逻辑",
+        "milestone": "M2"
+      },
+      "M2-6": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:51:48",
+        "summary": "Merge card_override into card data proxy responses",
+        "title": "card_override 覆盖层合并",
+        "milestone": "M2"
+      },
+      "M2-7": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:52:54",
+        "summary": "Confirm mock rates endpoint response",
+        "title": "汇率接口代理",
+        "milestone": "M2"
+      },
+      "M3-1": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:07:00",
+        "summary": "Implement portfolio folder routes",
+        "title": "Portfolio 文件夹接口",
+        "milestone": "M3"
+      },
+      "M3-2": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:15:38",
+        "summary": "Implement collection item routes",
+        "title": "Collection Item 接口",
+        "milestone": "M3"
+      },
+      "M3-3": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:23:54",
+        "summary": "Implement wishlist routes",
+        "title": "Wishlist 接口",
+        "milestone": "M3"
+      },
+      "M3-4": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:33:24",
+        "summary": "Implement user preference routes",
+        "title": "用户偏好接口",
+        "milestone": "M3"
+      },
+      "M3-5": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:36:35",
+        "summary": "Verify owner polymorphic isolation",
+        "title": "owner 多态隔离中间件",
+        "milestone": "M3"
+      },
+      "M3-6": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:42:37",
+        "summary": "Implement collect shortcut endpoint",
+        "title": "Collect 快捷端点",
+        "milestone": "M3"
+      },
+      "M4-1": {
+        "status": "completed",
+        "updated_at": "2026-07-07 17:33:07",
+        "summary": "Implement Home page",
+        "title": "Home 页面",
+        "milestone": "M4"
       }
     },
     "tbds": {
