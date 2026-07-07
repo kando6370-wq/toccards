@@ -19,7 +19,7 @@ class MarketChange {
         ? (current! - previous!) * normalizedQuantity
         : null;
     final percent = validCurrent && validPrevious
-        ? (current! - previous!) / previous! * 100
+        ? (current! - previous!) / previous * 100
         : null;
 
     return MarketChange._(
