@@ -6,6 +6,7 @@ import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 
 void main() {
   testWidgets('Home shows the M4-1 dashboard information hierarchy', (
@@ -16,7 +17,7 @@ void main() {
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('PORTFOLIO'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
-    expect(find.text(r'$12,840'), findsOneWidget);
+    expect(find.text(r'$12,840.00'), findsOneWidget);
     expect(find.text('Most Valuable'), findsOneWidget);
     expect(find.text('Charizard ex'), findsOneWidget);
     expect(find.text('Trending Today'), findsOneWidget);
@@ -34,7 +35,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Sealed'), findsOneWidget);
-      expect(find.text(r'$8,640'), findsOneWidget);
+      expect(find.text(r'$8,640.00'), findsOneWidget);
       expect(find.text('Evolving Skies Booster Box'), findsOneWidget);
       expect(find.text('Umbreon VMAX'), findsOneWidget);
     },
@@ -47,11 +48,15 @@ void main() {
 
       await tester.tap(find.text('USD'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('CNY').last);
+      expect(find.text('GBP'), findsOneWidget);
+      expect(find.text('SGD'), findsOneWidget);
+
+      await tester.tap(find.text('EUR').last);
       await tester.pumpAndSettle();
 
-      expect(find.text('CNY'), findsOneWidget);
-      expect(find.text('¥89,880'), findsOneWidget);
+      expect(find.text('EUR'), findsOneWidget);
+      expect(find.text('€11,684.40'), findsOneWidget);
+      expect(find.text('€382.20 in the last 30 days'), findsOneWidget);
       expect(find.text('+3.38%'), findsOneWidget);
     },
   );
@@ -62,9 +67,9 @@ void main() {
     await tester.tap(find.byKey(const Key('home-hide-amount')));
     await tester.pumpAndSettle();
 
-    expect(find.text('••••••'), findsWidgets);
-    expect(find.text(r'$12,840'), findsNothing);
-    expect(find.textContaining(r'$420'), findsNothing);
+    expect(find.text(hiddenMoneyText), findsWidgets);
+    expect(find.text(r'$12,840.00'), findsNothing);
+    expect(find.textContaining(r'$420.00'), findsNothing);
   });
 
   testWidgets('empty folder shows Most Valuable empty copy', (tester) async {

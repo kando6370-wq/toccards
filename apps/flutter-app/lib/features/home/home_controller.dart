@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 
 import 'home_models.dart';
 import 'home_repository.dart';
-
-const _hiddenAmountText = '••••••';
 
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {
   return const MockHomeRepository();
@@ -18,16 +17,18 @@ class HomeState {
   const HomeState({
     required this.dashboard,
     required this.selectedFolderId,
-    required this.currencyCode,
+    required this.currency,
     required this.amountHidden,
     required this.chartRange,
   });
 
   final HomeDashboard dashboard;
   final String selectedFolderId;
-  final String currencyCode;
+  final AppCurrency currency;
   final bool amountHidden;
   final HomeChartRange chartRange;
+
+  String get currencyCode => currency.code;
 
   HomeFolder get selectedFolder {
     return dashboard.folders.firstWhere(
@@ -71,7 +72,7 @@ class HomeState {
 
   String get mostValuablePriceText {
     if (amountHidden) {
-      return _hiddenAmountText;
+      return hiddenMoneyText;
     }
 
     final card = mostValuable;
@@ -85,67 +86,38 @@ class HomeState {
 
   HomeState copyWith({
     String? selectedFolderId,
-    String? currencyCode,
+    AppCurrency? currency,
     bool? amountHidden,
     HomeChartRange? chartRange,
   }) {
     return HomeState(
       dashboard: dashboard,
       selectedFolderId: selectedFolderId ?? this.selectedFolderId,
-      currencyCode: currencyCode ?? this.currencyCode,
+      currency: currency ?? this.currency,
       amountHidden: amountHidden ?? this.amountHidden,
       chartRange: chartRange ?? this.chartRange,
     );
   }
 
   String _formatMoney(double usdAmount) {
-    if (amountHidden) {
-      return _hiddenAmountText;
-    }
-
-    final converted = usdAmount * _currencyRate;
-    final rounded = converted.round();
-    final sign = rounded < 0 ? '-' : '';
-    return '$sign$_currencySymbol${_formatInteger(rounded.abs())}';
-  }
-
-  int get _currencyRate {
-    return switch (currencyCode) {
-      'CNY' => 7,
-      'JPY' => 156,
-      _ => 1,
-    };
-  }
-
-  String get _currencySymbol {
-    return switch (currencyCode) {
-      'CNY' || 'JPY' => '¥',
-      _ => r'$',
-    };
-  }
-
-  String _formatInteger(int value) {
-    final source = value.toString();
-    final buffer = StringBuffer();
-    for (var index = 0; index < source.length; index++) {
-      final remaining = source.length - index;
-      buffer.write(source[index]);
-      if (remaining > 1 && remaining % 3 == 1) {
-        buffer.write(',');
-      }
-    }
-    return buffer.toString();
+    return CurrencyFormatter(
+      currency: currency,
+    ).formatUsd(usdAmount, hidden: amountHidden);
   }
 }
 
 class HomeController extends Notifier<HomeState> {
   @override
   HomeState build() {
+    ref.listen<AppCurrency>(selectedCurrencyProvider, (previous, next) {
+      state = state.copyWith(currency: next);
+    });
+
     final dashboard = ref.watch(homeRepositoryProvider).loadDashboard();
     return HomeState(
       dashboard: dashboard,
       selectedFolderId: dashboard.defaultFolder.id,
-      currencyCode: 'USD',
+      currency: ref.read(selectedCurrencyProvider),
       amountHidden: false,
       chartRange: HomeChartRange.oneMonth,
     );
@@ -163,11 +135,13 @@ class HomeController extends Notifier<HomeState> {
   }
 
   void selectCurrency(String currencyCode) {
-    if (!const ['USD', 'CNY', 'JPY'].contains(currencyCode)) {
+    final currency = AppCurrency.fromCode(currencyCode);
+    if (currency.code != currencyCode) {
       return;
     }
 
-    state = state.copyWith(currencyCode: currencyCode);
+    ref.read(selectedCurrencyProvider.notifier).select(currency);
+    state = state.copyWith(currency: currency);
   }
 
   void toggleAmountHidden() {

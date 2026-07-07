@@ -3,12 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 
 import 'home_controller.dart';
 import 'home_models.dart';
-
-const _hiddenAmountText = '••••••';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -129,23 +128,25 @@ class HomePage extends ConsumerWidget {
       context: context,
       builder: (context) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final currency in const ['USD', 'CNY', 'JPY'])
-                ListTile(
-                  title: Text(currency),
-                  trailing: currency == selected
-                      ? const Icon(Icons.check)
-                      : null,
-                  onTap: () {
-                    ref
-                        .read(homeControllerProvider.notifier)
-                        .selectCurrency(currency);
-                    Navigator.of(context).pop();
-                  },
-                ),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final currency in AppCurrency.values)
+                  ListTile(
+                    title: Text(currency.code),
+                    trailing: currency.code == selected
+                        ? const Icon(Icons.check)
+                        : null,
+                    onTap: () {
+                      ref
+                          .read(homeControllerProvider.notifier)
+                          .selectCurrency(currency.code);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+              ],
+            ),
           ),
         );
       },
@@ -214,13 +215,13 @@ class _PortfolioCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              _moneyText(state, state.totalAmountText),
+              state.totalAmountText,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Text(_moneyText(state, state.changeAmountText)),
+                Text(state.changeAmountText),
                 const SizedBox(width: 8),
                 Text(state.changePercentText),
               ],
@@ -282,7 +283,7 @@ class _MostValuableSection extends StatelessWidget {
                 : _CardValueRow(
                     title: card.title,
                     subtitle: card.subtitle,
-                    price: _moneyText(state, state.mostValuablePriceText),
+                    price: state.mostValuablePriceText,
                     percent: _percentText(
                       current: card.priceUsd,
                       previous: card.previousPriceUsd,
@@ -314,7 +315,7 @@ class _TrendingSection extends StatelessWidget {
               child: _CardValueRow(
                 title: card.title,
                 subtitle: card.subtitle,
-                price: _moneyText(state, state.formatCardPrice(card.priceUsd)),
+                price: state.formatCardPrice(card.priceUsd),
                 percent: _percentText(
                   current: card.priceUsd,
                   previous: card.previousPriceUsd,
@@ -411,16 +412,6 @@ class _ChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _ChartPainter oldDelegate) {
     return oldDelegate.values != values;
   }
-}
-
-String _moneyText(HomeState state, String value) {
-  if (state.amountHidden) {
-    return value.contains('in the last 30 days')
-        ? '$_hiddenAmountText in the last 30 days'
-        : _hiddenAmountText;
-  }
-
-  return value.replaceAll('楼', '¥');
 }
 
 String _percentText({required double current, required double previous}) {

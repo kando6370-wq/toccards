@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 
 void main() {
   test(
@@ -33,7 +34,8 @@ void main() {
       expect(mainHighlight.previousPriceUsd, 721.55);
       expect(dashboard.trending.first.title, 'Umbreon VMAX');
       expect(dashboard.trending.first.previousPriceUsd, 365.42);
-      expect(state.changeAmountText, r'$420 in the last 30 days');
+      expect(state.totalAmountText, r'$12,840.00');
+      expect(state.changeAmountText, r'$420.00 in the last 30 days');
       expect(state.changePercentText, '+3.38%');
       expect(state.selectedPortfolio.chartValuesByRange[HomeChartRange.max], [
         6400,
@@ -79,18 +81,18 @@ void main() {
       final controller = container.read(homeControllerProvider.notifier);
       expect(
         container.read(homeControllerProvider).totalAmountText,
-        r'$12,840',
+        r'$12,840.00',
       );
       expect(
         container.read(homeControllerProvider).changePercentText,
         '+3.38%',
       );
 
-      controller.selectCurrency('CNY');
+      controller.selectCurrency('EUR');
       final state = container.read(homeControllerProvider);
 
-      expect(state.totalAmountText, '¥89,880');
-      expect(state.changeAmountText, '¥2,940 in the last 30 days');
+      expect(state.totalAmountText, '€11,684.40');
+      expect(state.changeAmountText, '€382.20 in the last 30 days');
       expect(state.changePercentText, '+3.38%');
     },
   );
@@ -107,14 +109,14 @@ void main() {
 
     expect(
       container.read(homeControllerProvider).changeAmountText,
-      r'-$420 in the last 30 days',
+      r'-$420.00 in the last 30 days',
     );
     expect(container.read(homeControllerProvider).changePercentText, '-3.17%');
 
-    container.read(homeControllerProvider.notifier).selectCurrency('CNY');
+    container.read(homeControllerProvider.notifier).selectCurrency('EUR');
     expect(
       container.read(homeControllerProvider).changeAmountText,
-      '-¥2,940 in the last 30 days',
+      '-€382.20 in the last 30 days',
     );
   });
 
@@ -126,11 +128,12 @@ void main() {
     final initial = container.read(homeControllerProvider);
 
     controller.selectFolder('missing');
-    controller.selectCurrency('EUR');
+    controller.selectCurrency('CNY');
     final state = container.read(homeControllerProvider);
 
     expect(state.selectedFolder.id, initial.selectedFolder.id);
     expect(state.totalAmountText, initial.totalAmountText);
+    expect(state.currencyCode, initial.currencyCode);
   });
 
   test(
@@ -145,9 +148,9 @@ void main() {
       final state = container.read(homeControllerProvider);
 
       expect(state.selectedFolder.id, 'sealed');
-      expect(state.totalAmountText, '••••••');
-      expect(state.changeAmountText, '•••••• in the last 30 days');
-      expect(state.mostValuablePriceText, '••••••');
+      expect(state.totalAmountText, hiddenMoneyText);
+      expect(state.changeAmountText, '$hiddenMoneyText in the last 30 days');
+      expect(state.mostValuablePriceText, hiddenMoneyText);
     },
   );
 
@@ -167,7 +170,7 @@ void main() {
       controller.toggleAmountHidden();
       expect(
         container.read(homeControllerProvider).mostValuablePriceText,
-        '••••••',
+        hiddenMoneyText,
       );
     },
   );
