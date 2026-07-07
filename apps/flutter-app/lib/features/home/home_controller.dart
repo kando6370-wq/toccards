@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/market/market_change.dart';
 
 import 'home_models.dart';
 import 'home_repository.dart';
@@ -51,12 +52,21 @@ class HomeState {
   String get totalAmountText => _formatMoney(selectedPortfolio.totalValueUsd);
 
   String get changeAmountText {
-    return '${_formatMoney(selectedPortfolio.change30dUsd)} in the last 30 days';
+    final change = MarketChange.fromPrices(
+      current: selectedPortfolio.totalValueUsd,
+      previous: selectedPortfolio.previous30dValueUsd,
+    );
+    final amountText = change.amount == null
+        ? '--'
+        : _formatMoney(change.amount!);
+    return '$amountText in the last 30 days';
   }
 
   String get changePercentText {
-    final sign = selectedPortfolio.change30dPercent > 0 ? '+' : '';
-    return '$sign${selectedPortfolio.change30dPercent.toStringAsFixed(1)}%';
+    return MarketChange.fromPrices(
+      current: selectedPortfolio.totalValueUsd,
+      previous: selectedPortfolio.previous30dValueUsd,
+    ).percentText;
   }
 
   String get mostValuablePriceText {

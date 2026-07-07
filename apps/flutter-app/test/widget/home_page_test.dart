@@ -52,7 +52,7 @@ void main() {
 
       expect(find.text('CNY'), findsOneWidget);
       expect(find.text('¥89,880'), findsOneWidget);
-      expect(find.text('+3.4%'), findsOneWidget);
+      expect(find.text('+3.38%'), findsOneWidget);
     },
   );
 

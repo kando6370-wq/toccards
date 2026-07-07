@@ -19,8 +19,7 @@ class MockHomeRepository implements HomeRepository {
         'main': PortfolioSummary(
           folderId: 'main',
           totalValueUsd: 12840,
-          change30dUsd: 420,
-          change30dPercent: 3.4,
+          previous30dValueUsd: 12420,
           chartValuesByRange: {
             HomeChartRange.oneDay: [12520, 12680, 12840],
             HomeChartRange.sevenDays: [11980, 12140, 12460, 12840],
@@ -33,8 +32,7 @@ class MockHomeRepository implements HomeRepository {
         'sealed': PortfolioSummary(
           folderId: 'sealed',
           totalValueUsd: 8640,
-          change30dUsd: 310,
-          change30dPercent: 2.8,
+          previous30dValueUsd: 8330,
           chartValuesByRange: {
             HomeChartRange.oneDay: [8500, 8580, 8640],
             HomeChartRange.sevenDays: [8100, 8240, 8460, 8640],
@@ -47,8 +45,7 @@ class MockHomeRepository implements HomeRepository {
         'empty': PortfolioSummary(
           folderId: 'empty',
           totalValueUsd: 0,
-          change30dUsd: 0,
-          change30dPercent: 0,
+          previous30dValueUsd: 0,
           chartValuesByRange: {
             HomeChartRange.oneDay: [0],
             HomeChartRange.sevenDays: [0],
@@ -64,13 +61,13 @@ class MockHomeRepository implements HomeRepository {
           title: 'Charizard ex',
           subtitle: 'PSA 10 · Holofoil',
           priceUsd: 780,
-          change30dPercent: 8.1,
+          previousPriceUsd: 721.55,
         ),
         'sealed': HomeCardHighlight(
           title: 'Evolving Skies Booster Box',
           subtitle: 'Sealed · 36 Packs',
           priceUsd: 620,
-          change30dPercent: 5.4,
+          previousPriceUsd: 588.24,
         ),
         'empty': null,
       },
@@ -79,19 +76,19 @@ class MockHomeRepository implements HomeRepository {
           title: 'Umbreon VMAX',
           subtitle: 'Pokemon · Evolving Skies',
           priceUsd: 410,
-          changeTodayPercent: 12.2,
+          previousPriceUsd: 365.42,
         ),
         TrendingCard(
           title: 'Shohei Ohtani Chrome',
           subtitle: 'Baseball · 2024 Topps Chrome',
           priceUsd: 240,
-          changeTodayPercent: 9.0,
+          previousPriceUsd: 220.18,
         ),
         TrendingCard(
           title: 'One Piece Manga Luffy',
           subtitle: 'One Piece · Romance Dawn',
           priceUsd: 330,
-          changeTodayPercent: 7.6,
+          previousPriceUsd: 306.69,
         ),
       ],
     );

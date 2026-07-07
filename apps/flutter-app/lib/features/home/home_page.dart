@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/market/market_change.dart';
 
 import 'home_controller.dart';
 import 'home_models.dart';
@@ -282,7 +283,10 @@ class _MostValuableSection extends StatelessWidget {
                     title: card.title,
                     subtitle: card.subtitle,
                     price: _moneyText(state, state.mostValuablePriceText),
-                    percent: _percentText(card.change30dPercent),
+                    percent: _percentText(
+                      current: card.priceUsd,
+                      previous: card.previousPriceUsd,
+                    ),
                   ),
           ),
         ),
@@ -311,7 +315,10 @@ class _TrendingSection extends StatelessWidget {
                 title: card.title,
                 subtitle: card.subtitle,
                 price: _moneyText(state, state.formatCardPrice(card.priceUsd)),
-                percent: _percentText(card.changeTodayPercent),
+                percent: _percentText(
+                  current: card.priceUsd,
+                  previous: card.previousPriceUsd,
+                ),
               ),
             ),
           ),
@@ -416,7 +423,9 @@ String _moneyText(HomeState state, String value) {
   return value.replaceAll('楼', '¥');
 }
 
-String _percentText(double value) {
-  final sign = value > 0 ? '+' : '';
-  return '$sign${value.toStringAsFixed(1)}%';
+String _percentText({required double current, required double previous}) {
+  return MarketChange.fromPrices(
+    current: current,
+    previous: previous,
+  ).percentText;
 }

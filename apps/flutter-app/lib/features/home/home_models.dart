@@ -27,15 +27,13 @@ class PortfolioSummary {
   const PortfolioSummary({
     required this.folderId,
     required this.totalValueUsd,
-    required this.change30dUsd,
-    required this.change30dPercent,
+    required this.previous30dValueUsd,
     required this.chartValuesByRange,
   });
 
   final String folderId;
   final double totalValueUsd;
-  final double change30dUsd;
-  final double change30dPercent;
+  final double previous30dValueUsd;
   final Map<HomeChartRange, List<double>> chartValuesByRange;
 }
 
@@ -44,13 +42,13 @@ class HomeCardHighlight {
     required this.title,
     required this.subtitle,
     required this.priceUsd,
-    required this.change30dPercent,
+    required this.previousPriceUsd,
   });
 
   final String title;
   final String subtitle;
   final double priceUsd;
-  final double change30dPercent;
+  final double previousPriceUsd;
 }
 
 class TrendingCard {
@@ -58,13 +56,13 @@ class TrendingCard {
     required this.title,
     required this.subtitle,
     required this.priceUsd,
-    required this.changeTodayPercent,
+    required this.previousPriceUsd,
   });
 
   final String title;
   final String subtitle;
   final double priceUsd;
-  final double changeTodayPercent;
+  final double previousPriceUsd;
 }
 
 class HomeDashboard {

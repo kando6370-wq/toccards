@@ -19,8 +19,7 @@ void main() {
       expect(dashboard.defaultFolder.id, 'main');
       expect(dashboard.defaultFolder.isDefault, isTrue);
       expect(mainPortfolio.totalValueUsd, 12840);
-      expect(mainPortfolio.change30dUsd, 420);
-      expect(mainPortfolio.change30dPercent, 3.4);
+      expect(mainPortfolio.previous30dValueUsd, 12420);
       expect(mainPortfolio.chartValuesByRange[HomeChartRange.max], [
         6400,
         8200,
@@ -31,11 +30,11 @@ void main() {
       expect(mainHighlight.title, 'Charizard ex');
       expect(mainHighlight.subtitle, 'PSA 10 · Holofoil');
       expect(mainHighlight.priceUsd, 780);
-      expect(mainHighlight.change30dPercent, 8.1);
+      expect(mainHighlight.previousPriceUsd, 721.55);
       expect(dashboard.trending.first.title, 'Umbreon VMAX');
-      expect(dashboard.trending.first.changeTodayPercent, 12.2);
-      expect(state.selectedPortfolio.change30dUsd, 420);
-      expect(state.selectedPortfolio.change30dPercent, 3.4);
+      expect(dashboard.trending.first.previousPriceUsd, 365.42);
+      expect(state.changeAmountText, r'$420 in the last 30 days');
+      expect(state.changePercentText, '+3.38%');
       expect(state.selectedPortfolio.chartValuesByRange[HomeChartRange.max], [
         6400,
         8200,
@@ -82,14 +81,17 @@ void main() {
         container.read(homeControllerProvider).totalAmountText,
         r'$12,840',
       );
-      expect(container.read(homeControllerProvider).changePercentText, '+3.4%');
+      expect(
+        container.read(homeControllerProvider).changePercentText,
+        '+3.38%',
+      );
 
       controller.selectCurrency('CNY');
       final state = container.read(homeControllerProvider);
 
       expect(state.totalAmountText, '¥89,880');
       expect(state.changeAmountText, '¥2,940 in the last 30 days');
-      expect(state.changePercentText, '+3.4%');
+      expect(state.changePercentText, '+3.38%');
     },
   );
 
@@ -107,7 +109,7 @@ void main() {
       container.read(homeControllerProvider).changeAmountText,
       r'-$420 in the last 30 days',
     );
-    expect(container.read(homeControllerProvider).changePercentText, '-3.4%');
+    expect(container.read(homeControllerProvider).changePercentText, '-3.17%');
 
     container.read(homeControllerProvider.notifier).selectCurrency('CNY');
     expect(
@@ -170,6 +172,20 @@ void main() {
     },
   );
 
+  test('zero previous portfolio value falls back for percent change', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final controller = container.read(homeControllerProvider.notifier);
+    controller.selectFolder('empty');
+
+    expect(
+      container.read(homeControllerProvider).changeAmountText,
+      '-- in the last 30 days',
+    );
+    expect(container.read(homeControllerProvider).changePercentText, '-/-');
+  });
+
   test('chart range switches the selected mock series', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -199,8 +215,7 @@ class _NegativeChangeHomeRepository implements HomeRepository {
         'main': PortfolioSummary(
           folderId: 'main',
           totalValueUsd: 12840,
-          change30dUsd: -420,
-          change30dPercent: -3.4,
+          previous30dValueUsd: 13260,
           chartValuesByRange: {
             HomeChartRange.oneMonth: [12840],
           },
