@@ -1,11 +1,127 @@
 # 执行状态文档
 
 ## 当前任务
-- 状态：进行中
-- 最近开始：2026-07-06 14:07:28
-- 最近完成：2026-07-06 14:06:16
-- 最近任务摘要：收口并提交开发者交接文档更新
-- 备注：本文件由 hook 自动记录“任务开始 / 本轮结束”检查点；当前已先手动初始化，并记录本次已完成的部分工作。
+- 状态：本轮完成（验证通过）
+- 计划编号：无
+- 最近开始：2026-07-07 13:06:39
+- 最近完成：2026-07-07 13:07:44
+- 最近验证：通过
+- 最近任务摘要：实现 hook 去噪幂等化
+- 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
+
+## dev-plan 子任务状态
+### M0 工程基建
+- [M0-1] 初始化 Monorepo 顶层结构 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M0-2] 初始化 `apps/workers-api` — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M0-3] 初始化 `apps/flutter-app` — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M0-4] 初始化 `apps/admin-web` — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M0-5] 初始化 `packages/` 通用包 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M0-6] D1 Schema 初始化迁移 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M0-7] CI 流水线 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M0-8] 依赖方向 Lint — status: `completed` · updated: 历史回填（基于当前仓库状态）
+
+### M1 鉴权与账号
+- [M1-1] `packages/auth-core` 实现 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-2] 匿名账号接口 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-3] Email 注册流程 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-4] Email 登录 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-5] 找回密码流程 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-6] Google OAuth 回调 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-7] Apple OAuth 回调 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-8] Token 刷新 / 登出 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-9] 删除账号 / 资产迁移 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-10] 获取当前账号 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-11] Flutter Auth UI — status: `completed` · updated: 历史回填（基于当前仓库状态）
+- [M1-12] 匿名 → 正式升级 Flutter 侧 — status: `completed` · updated: 历史回填（基于当前仓库状态）
+
+### M2 数据代理层
+- [M2-1] `DataSourceAdapter` 抽象层 — status: `todo` · updated: 未开始
+- [M2-2] 第三方厂商适配实现 — status: `todo` · updated: 未开始
+- [M2-3] Workers KV 缓存层 — status: `todo` · updated: 未开始
+- [M2-4] Cache API 缓存层 — status: `todo` · updated: 未开始
+- [M2-5] 降级兜底逻辑 — status: `todo` · updated: 未开始
+- [M2-6] card_override 覆盖层合并 — status: `todo` · updated: 未开始
+- [M2-7] 汇率接口代理 — status: `todo` · updated: 未开始
+- [M2-8] 接口端点注册 — status: `todo` · updated: 未开始
+
+### M3 核心资产 CRUD
+- [M3-1] Portfolio 文件夹接口 — status: `todo` · updated: 未开始
+- [M3-2] Collection Item 接口 — status: `todo` · updated: 未开始
+- [M3-3] Wishlist 接口 — status: `todo` · updated: 未开始
+- [M3-4] 用户偏好接口 — status: `todo` · updated: 未开始
+- [M3-5] owner 多态隔离中间件 — status: `todo` · updated: 未开始
+- [M3-6] Collect 快捷端点 — status: `todo` · updated: 未开始
+
+### M4 三大页面
+- [M4-1] Home 页面 — status: `todo` · updated: 未开始
+- [M4-2] Collection 页面 — status: `todo` · updated: 未开始
+- [M4-3] Search 页面 — status: `todo` · updated: 未开始
+- [M4-4] 涨跌算法实现 — status: `todo` · updated: 未开始
+- [M4-5] 货币换算展示 — status: `todo` · updated: 未开始
+- [M4-6] 加载/失败/空状态 — status: `todo` · updated: 未开始
+- [M4-7] Toast 全局组件 — status: `todo` · updated: 未开始
+- [M4-8] Scan Tab 占位页 — status: `todo` · updated: 未开始
+
+### M5 卡牌详情
+- [M5-1] CardDetail 未加入态 — status: `todo` · updated: 未开始
+- [M5-2] CardDetail 已加入态 — status: `todo` · updated: 未开始
+- [M5-3] Price Tab 实现 — status: `todo` · updated: 未开始
+- [M5-4] Collection Item 增删改 — status: `todo` · updated: 未开始
+- [M5-5] 价格降级展示 — status: `todo` · updated: 未开始
+
+### M6 Profile / 客服 / 启动引导
+- [M6-1] Profile 游客态 — status: `todo` · updated: 未开始
+- [M6-2] Profile 登录态 — status: `todo` · updated: 未开始
+- [M6-3] 客服反馈提交 — status: `todo` · updated: 未开始
+- [M6-4] 启动引导页 — status: `todo` · updated: 未开始
+- [M6-5] 删除账号流程 — status: `todo` · updated: 未开始
+- [M6-6] 订阅相关内容删除/隐藏 — status: `todo` · updated: 未开始
+
+### M7 管理后台
+- [M7-1] Admin 鉴权接口 — status: `todo` · updated: 未开始
+- [M7-2] Admin Token 中间件 — status: `todo` · updated: 未开始
+- [M7-3] 用户管理模块 — status: `todo` · updated: 未开始
+- [M7-4] 反馈工单模块 — status: `todo` · updated: 未开始
+- [M7-5] 运营配置模块 — status: `todo` · updated: 未开始
+- [M7-6] 卡牌数据运维模块 — status: `todo` · updated: 未开始
+- [M7-7] D1 管理员初始化 — status: `todo` · updated: 未开始
+
+### M8 iOS 联调 / 上线准备
+- [M8-1] OAuth 凭证填入 — status: `todo` · updated: 未开始
+- [M8-2] 邮件服务上线 — status: `todo` · updated: 未开始
+- [M8-3] 第三方数据源联调 — status: `todo` · updated: 未开始
+- [M8-4] 汇率接口接入 — status: `todo` · updated: 未开始
+- [M8-5] 协议链接配置 — status: `todo` · updated: 未开始
+- [M8-6] Restore 按钮审核决策 — status: `todo` · updated: 未开始
+- [M8-7] iOS 真机联调 — status: `todo` · updated: 未开始
+- [M8-8] TTL / 限速确认 — status: `todo` · updated: 未开始
+- [M8-9] 性能与安全 review — status: `todo` · updated: 未开始
+- [M8-10] App Store 审核材料 — status: `todo` · updated: 未开始
+- [M8-11] 生产环境配置 — status: `todo` · updated: 未开始
+
+## 里程碑汇总
+- M0 工程基建 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
+- M1 鉴权与账号 — status: `completed` · completed 12 / total 12 · blocked 0 · in_progress 0
+- M2 数据代理层 — status: `not_started` · completed 0 / total 8 · blocked 0 · in_progress 0
+- M3 核心资产 CRUD — status: `not_started` · completed 0 / total 6 · blocked 0 · in_progress 0
+- M4 三大页面 — status: `not_started` · completed 0 / total 8 · blocked 0 · in_progress 0
+- M5 卡牌详情 — status: `not_started` · completed 0 / total 5 · blocked 0 · in_progress 0
+- M6 Profile / 客服 / 启动引导 — status: `not_started` · completed 0 / total 6 · blocked 0 · in_progress 0
+- M7 管理后台 — status: `not_started` · completed 0 / total 7 · blocked 0 · in_progress 0
+- M8 iOS 联调 / 上线准备 — status: `not_started` · completed 0 / total 11 · blocked 0 · in_progress 0
+
+## TBD 状态
+- [TBD M1-A] 邮件服务提供商（Resend / SES）账号与 API Key — status: `open` · affects: M1、M8 · updated: 历史回填（基于当前仓库状态）
+- [TBD M1-B] Apple / Google OAuth 凭证 — status: `open` · affects: M1、M8 · updated: 历史回填（基于当前仓库状态）
+
+## 当前任务清单
+- 已完成：审阅现有 hook 与计划文档
+- 已完成：实现 dev-plan 状态覆盖层
+- 已完成：调整完成验证与 hook 配置
+- 已完成：更新规则文档与执行状态
+- 已完成：展示全量 dev-plan 子任务状态
+- 已完成：清理 execution-status 历史脏摘要
+- 已完成：归一 execution-status 隐藏状态块
 
 ## 执行日志
 - 2026-07-06 00:00:00 | 开始 | 为仓库落地 Claude Code harness 规则：共享 settings、规则文档、执行状态文档与完成后自动验证
@@ -18,3 +134,509 @@
 - 2026-07-06 14:05:27 | 开始 | 编写开发者交接文档
 - 2026-07-06 14:06:16 | 完成 | 编写开发者交接文档
 - 2026-07-06 14:07:28 | 开始 | 收口并提交开发者交接文档更新
+- 2026-07-06 14:08:34 | 完成 | 收口并提交开发者交接文档更新
+- 2026-07-07 11:19:29 | 完成 | 更新 harness 执行状态文档，补齐已完成任务状态，并完成 build + unit test 验证
+- 2026-07-07 11:19:54 | 完成 | 更新 harness 执行状态文档，补齐已完成任务状态，并完成 build + unit test 验证
+- 2026-07-07 11:55:42 | 开始 | 实现 dev-plan 状态覆盖层与完成验证链路
+- 2026-07-07 12:01:37 | 完成（验证通过） | 实现 dev-plan 状态覆盖层与完成验证链路
+- 2026-07-07 12:03:06 | 完成（验证通过） | 实现 dev-plan 状态覆盖层与完成验证链路
+- 2026-07-07 12:08:53 | 开始 | 同步 execution-status 任务清单
+- 2026-07-07 12:12:17 | 开始 | 清理 execution-status 历史脏摘要
+- 2026-07-07 12:13:40 | 开始 | 补齐 execution-status 子任务状态视图
+- 2026-07-07 12:17:01 | 完成（验证通过） | 补齐 execution-status 子任务状态视图
+- 2026-07-07 12:20:45 | 完成（人工清理完成） | 清理 execution-status 历史脏摘要
+- 2026-07-07 12:24:53 | 完成（人工归一完成） | 归一 execution-status 隐藏状态块
+- 2026-07-07 12:26:35 | 完成（验证通过） | 归一 execution-status 隐藏状态块
+- 2026-07-07 12:28:28 | 开始 | 未从 hook 输入中提取到可读任务摘要；请在任务完成前手动补充。
+- 2026-07-07 12:28:28 | 开始 | 未从 hook 输入中提取到可读任务摘要；请在任务完成前手动补充。
+- 2026-07-07 12:34:59 | 开始 | 稳定 execution-status hook 回写与计划状态校正
+- 2026-07-07 12:35:15 | 完成（验证通过） | 稳定 execution-status hook 回写与计划状态校正
+- 2026-07-07 12:35:29 | 完成（验证通过） | 稳定 execution-status hook 回写与计划状态校正
+- 2026-07-07 12:35:29 | 完成（验证通过） | 稳定 execution-status hook 回写与计划状态校正
+- 2026-07-07 12:36:51 | 开始 | 确认 plans/specs 已完成并更新状态
+- 2026-07-07 12:37:06 | 开始 | 确认 plans/specs 已完成并更新状态
+- 2026-07-07 12:38:00 | 完成（验证通过） | 确认 plans/specs 已完成并更新状态
+- 2026-07-07 12:39:23 | 开始 | 确认 plans/specs 已完成并更新状态
+- 2026-07-07 12:39:32 | 开始 | 清理 execution-status 历史噪音日志
+- 2026-07-07 12:41:10 | 完成（验证通过） | 清理 execution-status 历史噪音日志
+- 2026-07-07 12:42:54 | 开始 | 清理 execution-status 历史噪音日志
+- 2026-07-07 12:45:40 | 开始 | 实现 hook 去噪幂等化
+- 2026-07-07 12:45:40 | 完成（验证通过） | 实现 hook 去噪幂等化
+- 2026-07-07 12:46:59 | 开始 | 实现 hook 去噪幂等化
+- 2026-07-07 12:49:24 | 完成（验证通过） | 实现 hook 去噪幂等化
+- 2026-07-07 12:51:30 | 开始 | 实现 hook 去噪幂等化
+- 2026-07-07 12:52:43 | 完成（验证通过） | 实现 hook 去噪幂等化
+- 2026-07-07 13:01:25 | 开始 | 实现 hook 去噪幂等化
+- 2026-07-07 13:05:10 | 完成（验证通过） | 实现 hook 去噪幂等化
+- 2026-07-07 13:06:08 | 开始 | 实现 hook 去噪幂等化
+- 2026-07-07 13:07:35 | 完成（验证通过） | 实现 hook 去噪幂等化
+
+<!-- task-status-state
+{
+  "current": {
+    "status": "本轮完成（验证通过）",
+    "started_at": "2026-07-07 13:06:39",
+    "finished_at": "2026-07-07 13:07:44",
+    "plan_ref": null,
+    "summary": "实现 hook 去噪幂等化",
+    "last_verification": "通过",
+    "note": "`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。"
+  },
+  "logs": [
+    {
+      "time": "2026-07-06 00:00:00",
+      "phase": "开始",
+      "summary": "为仓库落地 Claude Code harness 规则：共享 settings、规则文档、执行状态文档与完成后自动验证",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-06 00:05:00",
+      "phase": "进展",
+      "summary": "已创建 `.claude/settings.json`、`.claude/hooks/task_status.py`、`.claude/hooks/task_complete_verify.sh`",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-06 00:10:00",
+      "phase": "进展",
+      "summary": "已补充 `CLAUDE.md` 的 harness 规则，并新增 `docs/superpowers/claude-harness-rules.md`",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-06 11:48:05",
+      "phase": "开始",
+      "summary": "为仓库落地 Claude Code harness 规则",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-06 11:53:51",
+      "phase": "完成",
+      "summary": "为仓库落地 Claude Code harness 规则",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-06 14:00:21",
+      "phase": "开始",
+      "summary": "补数据库保护 hook 并准备提交 harness 规则改动",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-06 14:03:33",
+      "phase": "完成",
+      "summary": "补数据库保护 hook 并准备提交 harness 规则改动",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-06 14:05:27",
+      "phase": "开始",
+      "summary": "编写开发者交接文档",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-06 14:06:16",
+      "phase": "完成",
+      "summary": "编写开发者交接文档",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-06 14:07:28",
+      "phase": "开始",
+      "summary": "收口并提交开发者交接文档更新",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-06 14:08:34",
+      "phase": "完成",
+      "summary": "收口并提交开发者交接文档更新",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 11:19:29",
+      "phase": "完成",
+      "summary": "更新 harness 执行状态文档，补齐已完成任务状态，并完成 build + unit test 验证",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 11:19:54",
+      "phase": "完成",
+      "summary": "更新 harness 执行状态文档，补齐已完成任务状态，并完成 build + unit test 验证",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 11:55:42",
+      "phase": "开始",
+      "summary": "实现 dev-plan 状态覆盖层与完成验证链路",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:01:37",
+      "phase": "完成（验证通过）",
+      "summary": "实现 dev-plan 状态覆盖层与完成验证链路",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:03:06",
+      "phase": "完成（验证通过）",
+      "summary": "实现 dev-plan 状态覆盖层与完成验证链路",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:08:53",
+      "phase": "开始",
+      "summary": "同步 execution-status 任务清单",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:12:17",
+      "phase": "开始",
+      "summary": "清理 execution-status 历史脏摘要",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:13:40",
+      "phase": "开始",
+      "summary": "补齐 execution-status 子任务状态视图",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:17:01",
+      "phase": "完成（验证通过）",
+      "summary": "补齐 execution-status 子任务状态视图",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:20:45",
+      "phase": "完成（人工清理完成）",
+      "summary": "清理 execution-status 历史脏摘要",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:24:53",
+      "phase": "完成（人工归一完成）",
+      "summary": "归一 execution-status 隐藏状态块",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:26:35",
+      "phase": "完成（验证通过）",
+      "summary": "归一 execution-status 隐藏状态块",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:28:28",
+      "phase": "开始",
+      "summary": "未从 hook 输入中提取到可读任务摘要；请在任务完成前手动补充。",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:28:28",
+      "phase": "开始",
+      "summary": "未从 hook 输入中提取到可读任务摘要；请在任务完成前手动补充。",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:34:59",
+      "phase": "开始",
+      "summary": "稳定 execution-status hook 回写与计划状态校正",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:35:15",
+      "phase": "完成（验证通过）",
+      "summary": "稳定 execution-status hook 回写与计划状态校正",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:35:29",
+      "phase": "完成（验证通过）",
+      "summary": "稳定 execution-status hook 回写与计划状态校正",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:35:29",
+      "phase": "完成（验证通过）",
+      "summary": "稳定 execution-status hook 回写与计划状态校正",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:36:51",
+      "phase": "开始",
+      "summary": "确认 plans/specs 已完成并更新状态",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:37:06",
+      "phase": "开始",
+      "summary": "确认 plans/specs 已完成并更新状态",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:38:00",
+      "phase": "完成（验证通过）",
+      "summary": "确认 plans/specs 已完成并更新状态",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:39:23",
+      "phase": "开始",
+      "summary": "确认 plans/specs 已完成并更新状态",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:39:32",
+      "phase": "开始",
+      "summary": "清理 execution-status 历史噪音日志",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:41:10",
+      "phase": "完成（验证通过）",
+      "summary": "清理 execution-status 历史噪音日志",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:42:54",
+      "phase": "开始",
+      "summary": "清理 execution-status 历史噪音日志",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:45:40",
+      "phase": "开始",
+      "summary": "实现 hook 去噪幂等化",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:45:40",
+      "phase": "完成（验证通过）",
+      "summary": "实现 hook 去噪幂等化",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:46:59",
+      "phase": "开始",
+      "summary": "实现 hook 去噪幂等化",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:49:24",
+      "phase": "完成（验证通过）",
+      "summary": "实现 hook 去噪幂等化",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:51:30",
+      "phase": "开始",
+      "summary": "实现 hook 去噪幂等化",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 12:52:43",
+      "phase": "完成（验证通过）",
+      "summary": "实现 hook 去噪幂等化",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 13:01:25",
+      "phase": "开始",
+      "summary": "实现 hook 去噪幂等化",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 13:05:10",
+      "phase": "完成（验证通过）",
+      "summary": "实现 hook 去噪幂等化",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 13:06:08",
+      "phase": "开始",
+      "summary": "实现 hook 去噪幂等化",
+      "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 13:07:35",
+      "phase": "完成（验证通过）",
+      "summary": "实现 hook 去噪幂等化",
+      "plan_ref": null
+    }
+  ],
+  "plan": {
+    "tasks": {
+      "M0-1": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "初始化 Monorepo 顶层结构",
+        "title": "初始化 Monorepo 顶层结构",
+        "milestone": "M0"
+      },
+      "M0-2": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "初始化 `apps/workers-api`",
+        "title": "初始化 `apps/workers-api`",
+        "milestone": "M0"
+      },
+      "M0-3": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "初始化 `apps/flutter-app`",
+        "title": "初始化 `apps/flutter-app`",
+        "milestone": "M0"
+      },
+      "M0-4": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "初始化 `apps/admin-web`",
+        "title": "初始化 `apps/admin-web`",
+        "milestone": "M0"
+      },
+      "M0-5": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "初始化 `packages/` 通用包",
+        "title": "初始化 `packages/` 通用包",
+        "milestone": "M0"
+      },
+      "M0-6": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "D1 Schema 初始化迁移",
+        "title": "D1 Schema 初始化迁移",
+        "milestone": "M0"
+      },
+      "M0-7": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "CI 流水线",
+        "title": "CI 流水线",
+        "milestone": "M0"
+      },
+      "M0-8": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "依赖方向 Lint",
+        "title": "依赖方向 Lint",
+        "milestone": "M0"
+      },
+      "M1-1": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "`packages/auth-core` 实现",
+        "title": "`packages/auth-core` 实现",
+        "milestone": "M1"
+      },
+      "M1-2": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "匿名账号接口",
+        "title": "匿名账号接口",
+        "milestone": "M1"
+      },
+      "M1-3": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "Email 注册流程",
+        "title": "Email 注册流程",
+        "milestone": "M1"
+      },
+      "M1-4": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "Email 登录",
+        "title": "Email 登录",
+        "milestone": "M1"
+      },
+      "M1-5": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "找回密码流程",
+        "title": "找回密码流程",
+        "milestone": "M1"
+      },
+      "M1-6": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "Google OAuth 回调",
+        "title": "Google OAuth 回调",
+        "milestone": "M1"
+      },
+      "M1-7": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "Apple OAuth 回调",
+        "title": "Apple OAuth 回调",
+        "milestone": "M1"
+      },
+      "M1-8": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "Token 刷新 / 登出",
+        "title": "Token 刷新 / 登出",
+        "milestone": "M1"
+      },
+      "M1-9": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "删除账号 / 资产迁移",
+        "title": "删除账号 / 资产迁移",
+        "milestone": "M1"
+      },
+      "M1-10": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "获取当前账号",
+        "title": "获取当前账号",
+        "milestone": "M1"
+      },
+      "M1-11": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "Flutter Auth UI",
+        "title": "Flutter Auth UI",
+        "milestone": "M1"
+      },
+      "M1-12": {
+        "status": "completed",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "匿名 → 正式升级 Flutter 侧",
+        "title": "匿名 → 正式升级 Flutter 侧",
+        "milestone": "M1"
+      }
+    },
+    "tbds": {
+      "TBD M1-A": {
+        "status": "open",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "邮件服务提供商（Resend / SES）账号与 API Key",
+        "title": "邮件服务提供商（Resend / SES）账号与 API Key",
+        "affects_milestones": [
+          "M1",
+          "M8"
+        ]
+      },
+      "TBD M1-B": {
+        "status": "open",
+        "updated_at": "历史回填（基于当前仓库状态）",
+        "summary": "Apple / Google OAuth 凭证",
+        "title": "Apple / Google OAuth 凭证",
+        "affects_milestones": [
+          "M1",
+          "M8"
+        ]
+      }
+    }
+  },
+  "meta": {
+    "hook_errors": [],
+    "task_board": [
+      "已完成：审阅现有 hook 与计划文档",
+      "已完成：实现 dev-plan 状态覆盖层",
+      "已完成：调整完成验证与 hook 配置",
+      "已完成：更新规则文档与执行状态",
+      "已完成：展示全量 dev-plan 子任务状态",
+      "已完成：清理 execution-status 历史脏摘要",
+      "已完成：归一 execution-status 隐藏状态块"
+    ]
+  }
+}
+-->

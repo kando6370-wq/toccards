@@ -117,12 +117,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/task_status.py stop",
-            "timeout": 15,
-            "statusMessage": "更新执行状态文档（任务完成）"
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/task_complete_verify.sh",
             "timeout": 3600,
             "statusMessage": "执行任务完成后的打包与自动化单测"

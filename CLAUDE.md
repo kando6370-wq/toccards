@@ -111,7 +111,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Execution status document
 
 - 必须维护执行状态文档：`docs/superpowers/execution-status.md`。
+- `docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；`execution-status.md` 仅作为运行态覆盖层与执行日志，不直接回写 `dev-plan.md`。
 - 每次任务开始与完成后，都要更新当前任务状态、时间戳与任务摘要。
+- 若任务对应 `dev-plan.md` 中的计划项，任务标题必须显式带 `[Mx-y]` 或 `[TBD Mx-A]` 前缀；无前缀任务只记执行日志，不更新里程碑 / 任务 / TBD 状态覆盖层。
+- `completed` 状态只能在完成门验证通过后写入；验证失败时必须显式保留未完成状态。
 - 自动 hook 负责写入基础检查点；复杂多阶段任务在交付前仍需补充人工总结。
 
 ## Big-picture architecture

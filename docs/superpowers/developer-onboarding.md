@@ -70,6 +70,13 @@ Flutter 侧：
 每次任务开始与完成，都要更新：
 - `docs/superpowers/execution-status.md`
 
+补充约束：
+- `docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源，不直接回写状态
+- `execution-status.md` 负责展示运行态覆盖层与执行日志
+- 对应 `dev-plan.md` 的任务，标题必须带 `[Mx-y]` 或 `[TBD Mx-A]` 前缀
+- 无前缀任务只记执行日志，不更新计划状态覆盖层
+- 只有验证通过后才能写 completed；验证失败必须明确保留未完成状态
+
 当前已接入 hook 自动写基础状态，但复杂任务在交付前仍要人工补充总结。
 
 ---
