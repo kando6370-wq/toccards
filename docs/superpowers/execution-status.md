@@ -1,12 +1,12 @@
 # 执行状态文档
 
 ## 当前任务
-- 状态：本轮完成（验证通过）
-- 计划编号：M4-4
-- 最近开始：2026-07-07 18:51:24
+- 状态：进行中
+- 计划编号：M4-5
+- 最近开始：2026-07-07 19:14:33
 - 最近完成：2026-07-07 19:11:14
-- 最近验证：通过
-- 最近任务摘要：Design market change algorithm
+- 最近验证：未记录
+- 最近任务摘要：Design currency conversion display
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
 ## dev-plan 子任务状态
@@ -57,7 +57,7 @@
 - [M4-2] Collection 页面 — status: `completed` · updated: 2026-07-07 18:20:30
 - [M4-3] Search 页面 — status: `completed` · updated: 2026-07-07 18:48:42
 - [M4-4] 涨跌算法实现 — status: `completed` · updated: 2026-07-07 19:11:14
-- [M4-5] 货币换算展示 — status: `todo` · updated: 未开始
+- [M4-5] 货币换算展示 — status: `in_progress` · updated: 2026-07-07 19:14:33
 - [M4-6] 加载/失败/空状态 — status: `todo` · updated: 未开始
 - [M4-7] Toast 全局组件 — status: `todo` · updated: 未开始
 - [M4-8] Scan Tab 占位页 — status: `todo` · updated: 未开始
@@ -104,7 +104,7 @@
 - M1 鉴权与账号 — status: `completed` · completed 12 / total 12 · blocked 0 · in_progress 0
 - M2 数据代理层 — status: `in_progress` · completed 7 / total 8 · blocked 0 · in_progress 0
 - M3 核心资产 CRUD — status: `completed` · completed 6 / total 6 · blocked 0 · in_progress 0
-- M4 三大页面 — status: `in_progress` · completed 4 / total 8 · blocked 0 · in_progress 0
+- M4 三大页面 — status: `in_progress` · completed 4 / total 8 · blocked 0 · in_progress 1
 - M5 卡牌详情 — status: `not_started` · completed 0 / total 5 · blocked 0 · in_progress 0
 - M6 Profile / 客服 / 启动引导 — status: `not_started` · completed 0 / total 6 · blocked 0 · in_progress 0
 - M7 管理后台 — status: `not_started` · completed 0 / total 7 · blocked 0 · in_progress 0
@@ -204,16 +204,17 @@
 - 2026-07-07 18:48:42 | 完成（验证通过） | [M4-3] Implement Search page
 - 2026-07-07 18:51:24 | 开始 | [M4-4] Design market change algorithm
 - 2026-07-07 19:11:14 | 完成（验证通过） | [M4-4] Design market change algorithm
+- 2026-07-07 19:14:33 | 开始 | [M4-5] Design currency conversion display
 
 <!-- task-status-state
 {
   "current": {
-    "status": "本轮完成（验证通过）",
-    "started_at": "2026-07-07 18:51:24",
+    "status": "进行中",
+    "started_at": "2026-07-07 19:14:33",
     "finished_at": "2026-07-07 19:11:14",
-    "plan_ref": "M4-4",
-    "summary": "Design market change algorithm",
-    "last_verification": "通过",
+    "plan_ref": "M4-5",
+    "summary": "Design currency conversion display",
+    "last_verification": "未记录",
     "note": "`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。"
   },
   "logs": [
@@ -696,6 +697,12 @@
       "phase": "完成（验证通过）",
       "summary": "Design market change algorithm",
       "plan_ref": "M4-4"
+    },
+    {
+      "time": "2026-07-07 19:14:33",
+      "phase": "开始",
+      "summary": "Design currency conversion display",
+      "plan_ref": "M4-5"
     }
   ],
   "plan": {
@@ -957,6 +964,13 @@
         "updated_at": "2026-07-07 19:11:14",
         "summary": "Design market change algorithm",
         "title": "涨跌算法实现",
+        "milestone": "M4"
+      },
+      "M4-5": {
+        "status": "in_progress",
+        "updated_at": "2026-07-07 19:14:33",
+        "summary": "Design currency conversion display",
+        "title": "货币换算展示",
         "milestone": "M4"
       }
     },
