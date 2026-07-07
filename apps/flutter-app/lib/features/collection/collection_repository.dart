@@ -1,0 +1,126 @@
+import 'collection_models.dart';
+
+abstract interface class CollectionRepository {
+  CollectionDashboard loadDashboard();
+}
+
+class MockCollectionRepository implements CollectionRepository {
+  const MockCollectionRepository();
+
+  @override
+  CollectionDashboard loadDashboard() {
+    return const CollectionDashboard(
+      folders: [
+        CollectionFolder(id: 'main', name: 'Main', isDefault: true),
+        CollectionFolder(id: 'sealed', name: 'Sealed', isDefault: false),
+        CollectionFolder(id: 'empty', name: 'Empty', isDefault: false),
+      ],
+      portfolioItems: [
+        CollectionItem(
+          id: 'item-charizard',
+          folderId: 'main',
+          name: 'Charizard ex',
+          setName: 'Obsidian Flames',
+          number: '#223',
+          game: 'Pokemon',
+          language: 'English',
+          finish: 'Holofoil',
+          grader: 'PSA',
+          condition: null,
+          grade: 10,
+          quantity: 1,
+          marketValueUsd: 780,
+          change30dPercent: 8.1,
+          createdAtSort: 3,
+        ),
+        CollectionItem(
+          id: 'item-umbreon',
+          folderId: 'main',
+          name: 'Umbreon VMAX',
+          setName: 'Evolving Skies',
+          number: '#215',
+          game: 'Pokemon',
+          language: 'English',
+          finish: 'Alternate Art',
+          grader: 'BGS',
+          condition: null,
+          grade: 9,
+          quantity: 1,
+          marketValueUsd: 410,
+          change30dPercent: 12.2,
+          createdAtSort: 2,
+        ),
+        CollectionItem(
+          id: 'item-pikachu',
+          folderId: 'main',
+          name: 'Pikachu Promo',
+          setName: 'Scarlet & Violet Promos',
+          number: '#088',
+          game: 'Pokemon',
+          language: 'Japanese',
+          finish: 'Promo',
+          grader: 'Raw',
+          condition: 'Near Mint',
+          grade: null,
+          quantity: 2,
+          marketValueUsd: 27.5,
+          change30dPercent: -1.4,
+          createdAtSort: 1,
+        ),
+        CollectionItem(
+          id: 'item-sealed-box',
+          folderId: 'sealed',
+          name: 'Evolving Skies Booster Box',
+          setName: 'Sword & Shield',
+          number: '36 Packs',
+          game: 'Pokemon',
+          language: 'English',
+          finish: 'Sealed',
+          grader: 'Raw',
+          condition: 'Sealed',
+          grade: null,
+          quantity: 1,
+          marketValueUsd: 620,
+          change30dPercent: 5.4,
+          createdAtSort: 4,
+        ),
+      ],
+      wishlistItems: [
+        CollectionItem(
+          id: 'wish-elsa',
+          folderId: null,
+          name: 'Lorcana Elsa',
+          setName: 'The First Chapter',
+          number: '#212',
+          game: 'Lorcana',
+          language: 'English',
+          finish: 'Enchanted',
+          grader: 'Raw',
+          condition: 'Near Mint',
+          grade: null,
+          quantity: 1,
+          marketValueUsd: 480,
+          change30dPercent: 6.7,
+          createdAtSort: 2,
+        ),
+        CollectionItem(
+          id: 'wish-luffy',
+          folderId: null,
+          name: 'One Piece Manga Luffy',
+          setName: 'Romance Dawn',
+          number: '#001',
+          game: 'One Piece',
+          language: 'Japanese',
+          finish: 'Manga',
+          grader: 'Raw',
+          condition: 'Near Mint',
+          grade: null,
+          quantity: 1,
+          marketValueUsd: 330,
+          change30dPercent: 7.6,
+          createdAtSort: 1,
+        ),
+      ],
+    );
+  }
+}
