@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'home_models.dart';
 import 'home_repository.dart';
@@ -15,19 +16,46 @@ final homeControllerProvider = NotifierProvider<HomeController, HomeState>(
 
 class HomeState {
   const HomeState({
-    required this.dashboard,
+    required HomeDashboard dashboard,
     required this.selectedFolderId,
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
-  });
+  }) : _dashboard = dashboard,
+       loadStatus = KandoLoadStatus.content;
 
-  final HomeDashboard dashboard;
+  const HomeState.unavailable({required this.currency})
+    : _dashboard = null,
+      selectedFolderId = '',
+      amountHidden = false,
+      chartRange = HomeChartRange.oneMonth,
+      loadStatus = KandoLoadStatus.failure;
+
+  const HomeState._({
+    required HomeDashboard? dashboard,
+    required this.selectedFolderId,
+    required this.currency,
+    required this.amountHidden,
+    required this.chartRange,
+    required this.loadStatus,
+  }) : _dashboard = dashboard;
+
+  final HomeDashboard? _dashboard;
   final String selectedFolderId;
   final AppCurrency currency;
   final bool amountHidden;
   final HomeChartRange chartRange;
+  final KandoLoadStatus loadStatus;
 
+  HomeDashboard get dashboard {
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      throw StateError('Home dashboard is unavailable.');
+    }
+    return dashboard;
+  }
+
+  bool get isUnavailable => loadStatus == KandoLoadStatus.failure;
   String get currencyCode => currency.code;
 
   HomeFolder get selectedFolder {
@@ -90,12 +118,13 @@ class HomeState {
     bool? amountHidden,
     HomeChartRange? chartRange,
   }) {
-    return HomeState(
-      dashboard: dashboard,
+    return HomeState._(
+      dashboard: _dashboard,
       selectedFolderId: selectedFolderId ?? this.selectedFolderId,
       currency: currency ?? this.currency,
       amountHidden: amountHidden ?? this.amountHidden,
       chartRange: chartRange ?? this.chartRange,
+      loadStatus: loadStatus,
     );
   }
 
@@ -113,17 +142,41 @@ class HomeController extends Notifier<HomeState> {
       state = state.copyWith(currency: next);
     });
 
-    final dashboard = ref.watch(homeRepositoryProvider).loadDashboard();
-    return HomeState(
-      dashboard: dashboard,
-      selectedFolderId: dashboard.defaultFolder.id,
-      currency: ref.read(selectedCurrencyProvider),
-      amountHidden: false,
-      chartRange: HomeChartRange.oneMonth,
-    );
+    final repository = ref.watch(homeRepositoryProvider);
+    return _loadDashboard(repository: repository);
+  }
+
+  void refresh() {
+    state = _loadDashboard(currency: state.currency);
+  }
+
+  HomeState _loadDashboard({
+    HomeRepository? repository,
+    AppCurrency? currency,
+  }) {
+    final AppCurrency selectedCurrency =
+        currency ?? ref.read(selectedCurrencyProvider);
+    try {
+      final HomeRepository source =
+          repository ?? ref.read(homeRepositoryProvider);
+      final dashboard = source.loadDashboard();
+      return HomeState(
+        dashboard: dashboard,
+        selectedFolderId: dashboard.defaultFolder.id,
+        currency: selectedCurrency,
+        amountHidden: false,
+        chartRange: HomeChartRange.oneMonth,
+      );
+    } catch (_) {
+      return HomeState.unavailable(currency: selectedCurrency);
+    }
   }
 
   void selectFolder(String folderId) {
+    if (state.isUnavailable) {
+      return;
+    }
+
     final exists = state.dashboard.folders.any(
       (folder) => folder.id == folderId,
     );

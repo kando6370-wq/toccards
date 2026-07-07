@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'home_controller.dart';
 import 'home_models.dart';
@@ -19,33 +20,38 @@ class HomePage extends ConsumerWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Header(
-                currencyCode: state.currencyCode,
-                onCurrencyPressed: () => _showCurrencySheet(context, ref),
+        child: state.isUnavailable
+            ? Padding(
+                padding: const EdgeInsets.all(16),
+                child: KandoFailureBlock(onRefresh: controller.refresh),
+              )
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Header(
+                      currencyCode: state.currencyCode,
+                      onCurrencyPressed: () => _showCurrencySheet(context, ref),
+                    ),
+                    const SizedBox(height: 16),
+                    _PortfolioCard(
+                      state: state,
+                      onFolderPressed: () => _showFolderSheet(context, ref),
+                      onHidePressed: controller.toggleAmountHidden,
+                    ),
+                    const SizedBox(height: 16),
+                    _ChartRangePicker(
+                      selected: state.chartRange,
+                      onSelected: controller.selectChartRange,
+                    ),
+                    const SizedBox(height: 16),
+                    _MostValuableSection(state: state),
+                    const SizedBox(height: 16),
+                    _TrendingSection(state: state),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-              _PortfolioCard(
-                state: state,
-                onFolderPressed: () => _showFolderSheet(context, ref),
-                onHidePressed: controller.toggleAmountHidden,
-              ),
-              const SizedBox(height: 16),
-              _ChartRangePicker(
-                selected: state.chartRange,
-                onSelected: controller.selectChartRange,
-              ),
-              const SizedBox(height: 16),
-              _MostValuableSection(state: state),
-              const SizedBox(height: 16),
-              _TrendingSection(state: state),
-            ],
-          ),
-        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,

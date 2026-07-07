@@ -4,6 +4,7 @@ import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
   test(
@@ -44,6 +45,31 @@ void main() {
         11100,
         12840,
       ]);
+    },
+  );
+
+  test(
+    'repository failure shows page failure and refresh restores dashboard',
+    () {
+      final repository = _FailingThenSuccessfulHomeRepository();
+      final container = ProviderContainer(
+        overrides: [homeRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+
+      final failed = container.read(homeControllerProvider);
+
+      expect(failed.loadStatus, KandoLoadStatus.failure);
+      expect(failed.isUnavailable, isTrue);
+      expect(repository.calls, 1);
+
+      container.read(homeControllerProvider.notifier).refresh();
+      final restored = container.read(homeControllerProvider);
+
+      expect(restored.loadStatus, KandoLoadStatus.content);
+      expect(restored.isUnavailable, isFalse);
+      expect(restored.totalAmountText, r'$12,840.00');
+      expect(repository.calls, 2);
     },
   );
 
@@ -227,5 +253,18 @@ class _NegativeChangeHomeRepository implements HomeRepository {
       mostValuableByFolderId: {'main': null},
       trending: [],
     );
+  }
+}
+
+class _FailingThenSuccessfulHomeRepository implements HomeRepository {
+  var calls = 0;
+
+  @override
+  HomeDashboard loadDashboard() {
+    calls += 1;
+    if (calls == 1) {
+      throw StateError('mock home unavailable');
+    }
+    return const MockHomeRepository().loadDashboard();
   }
 }

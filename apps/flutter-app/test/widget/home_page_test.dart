@@ -3,10 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
+import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_page.dart';
+import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
   testWidgets('Home shows the M4-1 dashboard information hierarchy', (
@@ -70,6 +74,31 @@ void main() {
     expect(find.text(hiddenMoneyText), findsWidgets);
     expect(find.text(r'$12,840.00'), findsNothing);
     expect(find.textContaining(r'$420.00'), findsNothing);
+  });
+
+  testWidgets('page failure shows Refresh and recovers without blanking nav', (
+    tester,
+  ) async {
+    final repository = _FailingThenSuccessfulHomeRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [homeRepositoryProvider.overrideWithValue(repository)],
+        child: const _HomeTestApp(),
+      ),
+    );
+
+    expect(find.text(noContentAvailableText), findsOneWidget);
+    expect(find.text(refreshText), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+    expect(repository.calls, 1);
+
+    await tester.tap(find.text(refreshText));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Overview'), findsOneWidget);
+    expect(find.text(r'$12,840.00'), findsOneWidget);
+    expect(repository.calls, 2);
   });
 
   testWidgets('empty folder shows Most Valuable empty copy', (tester) async {
@@ -160,5 +189,18 @@ class _HomeTestAppWithRoutes extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _FailingThenSuccessfulHomeRepository implements HomeRepository {
+  var calls = 0;
+
+  @override
+  HomeDashboard loadDashboard() {
+    calls += 1;
+    if (calls == 1) {
+      throw StateError('mock home unavailable');
+    }
+    return const MockHomeRepository().loadDashboard();
   }
 }
