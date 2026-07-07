@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
+import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
   test('defaults to Portfolio tab and Main folder summary', () {
@@ -46,6 +48,31 @@ void main() {
       expect(state.portfolioSummary.totalValueText, '€1,132.95');
       expect(state.visibleItems.first.valueText, '€709.80');
       expect(state.visibleItems.first.changeText, '+8.10%');
+    },
+  );
+
+  test(
+    'repository failure shows page failure and refresh restores collection',
+    () {
+      final repository = _FailingThenSuccessfulCollectionRepository();
+      final container = ProviderContainer(
+        overrides: [collectionRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+
+      final failed = container.read(collectionControllerProvider);
+
+      expect(failed.loadStatus, KandoLoadStatus.failure);
+      expect(failed.isUnavailable, isTrue);
+      expect(repository.calls, 1);
+
+      container.read(collectionControllerProvider.notifier).refresh();
+      final restored = container.read(collectionControllerProvider);
+
+      expect(restored.loadStatus, KandoLoadStatus.content);
+      expect(restored.isUnavailable, isFalse);
+      expect(restored.portfolioSummary.totalValueText, r'$1,245.00');
+      expect(repository.calls, 2);
     },
   );
 
@@ -137,4 +164,18 @@ void main() {
     expect(container.read(collectionControllerProvider).isEmpty, isFalse);
     expect(container.read(collectionControllerProvider).isNoMatch, isTrue);
   });
+}
+
+class _FailingThenSuccessfulCollectionRepository
+    implements CollectionRepository {
+  var calls = 0;
+
+  @override
+  CollectionDashboard loadDashboard() {
+    calls += 1;
+    if (calls == 1) {
+      throw StateError('mock collection unavailable');
+    }
+    return const MockCollectionRepository().loadDashboard();
+  }
 }

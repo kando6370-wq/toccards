@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'collection_models.dart';
 import 'collection_repository.dart';
@@ -49,7 +50,7 @@ class CollectionViewItem {
 
 class CollectionState {
   const CollectionState({
-    required this.dashboard,
+    required CollectionDashboard dashboard,
     required this.selectedTab,
     required this.selectedFolderId,
     required this.currency,
@@ -58,9 +59,46 @@ class CollectionState {
     required this.sortByTab,
     required this.gamesByTab,
     required this.languagesByTab,
-  });
+  }) : _dashboard = dashboard,
+       loadStatus = KandoLoadStatus.content;
 
-  final CollectionDashboard dashboard;
+  const CollectionState.unavailable({required this.currency})
+    : _dashboard = null,
+      selectedTab = CollectionTab.portfolio,
+      selectedFolderId = '',
+      amountHidden = false,
+      searchByTab = const {
+        CollectionTab.portfolio: '',
+        CollectionTab.wishlist: '',
+      },
+      sortByTab = const {
+        CollectionTab.portfolio: CollectionSort.newest,
+        CollectionTab.wishlist: CollectionSort.newest,
+      },
+      gamesByTab = const {
+        CollectionTab.portfolio: <String>{},
+        CollectionTab.wishlist: <String>{},
+      },
+      languagesByTab = const {
+        CollectionTab.portfolio: <String>{},
+        CollectionTab.wishlist: <String>{},
+      },
+      loadStatus = KandoLoadStatus.failure;
+
+  const CollectionState._({
+    required CollectionDashboard? dashboard,
+    required this.selectedTab,
+    required this.selectedFolderId,
+    required this.currency,
+    required this.amountHidden,
+    required this.searchByTab,
+    required this.sortByTab,
+    required this.gamesByTab,
+    required this.languagesByTab,
+    required this.loadStatus,
+  }) : _dashboard = dashboard;
+
+  final CollectionDashboard? _dashboard;
   final CollectionTab selectedTab;
   final String selectedFolderId;
   final AppCurrency currency;
@@ -69,6 +107,17 @@ class CollectionState {
   final Map<CollectionTab, CollectionSort> sortByTab;
   final Map<CollectionTab, Set<String>> gamesByTab;
   final Map<CollectionTab, Set<String>> languagesByTab;
+  final KandoLoadStatus loadStatus;
+
+  CollectionDashboard get dashboard {
+    final dashboard = _dashboard;
+    if (dashboard == null) {
+      throw StateError('Collection dashboard is unavailable.');
+    }
+    return dashboard;
+  }
+
+  bool get isUnavailable => loadStatus == KandoLoadStatus.failure;
 
   CollectionFolder get selectedFolder {
     return dashboard.folders.firstWhere(
@@ -168,8 +217,8 @@ class CollectionState {
     Map<CollectionTab, Set<String>>? gamesByTab,
     Map<CollectionTab, Set<String>>? languagesByTab,
   }) {
-    return CollectionState(
-      dashboard: dashboard,
+    return CollectionState._(
+      dashboard: _dashboard,
       selectedTab: selectedTab ?? this.selectedTab,
       selectedFolderId: selectedFolderId ?? this.selectedFolderId,
       currency: currency ?? this.currency,
@@ -178,6 +227,7 @@ class CollectionState {
       sortByTab: sortByTab ?? this.sortByTab,
       gamesByTab: gamesByTab ?? this.gamesByTab,
       languagesByTab: languagesByTab ?? this.languagesByTab,
+      loadStatus: loadStatus,
     );
   }
 
@@ -234,37 +284,65 @@ class CollectionController extends Notifier<CollectionState> {
       state = state.copyWith(currency: next);
     });
 
-    final dashboard = ref.watch(collectionRepositoryProvider).loadDashboard();
-    return CollectionState(
-      dashboard: dashboard,
-      selectedTab: CollectionTab.portfolio,
-      selectedFolderId: dashboard.defaultFolder.id,
-      currency: ref.read(selectedCurrencyProvider),
-      amountHidden: false,
-      searchByTab: const {
-        CollectionTab.portfolio: '',
-        CollectionTab.wishlist: '',
-      },
-      sortByTab: const {
-        CollectionTab.portfolio: CollectionSort.newest,
-        CollectionTab.wishlist: CollectionSort.newest,
-      },
-      gamesByTab: const {
-        CollectionTab.portfolio: <String>{},
-        CollectionTab.wishlist: <String>{},
-      },
-      languagesByTab: const {
-        CollectionTab.portfolio: <String>{},
-        CollectionTab.wishlist: <String>{},
-      },
-    );
+    final repository = ref.watch(collectionRepositoryProvider);
+    return _loadDashboard(repository: repository);
+  }
+
+  void refresh() {
+    state = _loadDashboard(currency: state.currency);
+  }
+
+  CollectionState _loadDashboard({
+    CollectionRepository? repository,
+    AppCurrency? currency,
+  }) {
+    final AppCurrency selectedCurrency =
+        currency ?? ref.read(selectedCurrencyProvider);
+    try {
+      final CollectionRepository source =
+          repository ?? ref.read(collectionRepositoryProvider);
+      final dashboard = source.loadDashboard();
+      return CollectionState(
+        dashboard: dashboard,
+        selectedTab: CollectionTab.portfolio,
+        selectedFolderId: dashboard.defaultFolder.id,
+        currency: selectedCurrency,
+        amountHidden: false,
+        searchByTab: const {
+          CollectionTab.portfolio: '',
+          CollectionTab.wishlist: '',
+        },
+        sortByTab: const {
+          CollectionTab.portfolio: CollectionSort.newest,
+          CollectionTab.wishlist: CollectionSort.newest,
+        },
+        gamesByTab: const {
+          CollectionTab.portfolio: <String>{},
+          CollectionTab.wishlist: <String>{},
+        },
+        languagesByTab: const {
+          CollectionTab.portfolio: <String>{},
+          CollectionTab.wishlist: <String>{},
+        },
+      );
+    } catch (_) {
+      return CollectionState.unavailable(currency: selectedCurrency);
+    }
   }
 
   void selectTab(CollectionTab tab) {
+    if (state.isUnavailable) {
+      return;
+    }
+
     state = state.copyWith(selectedTab: tab);
   }
 
   void selectFolder(String folderId) {
+    if (state.isUnavailable) {
+      return;
+    }
+
     final exists = state.dashboard.folders.any(
       (folder) => folder.id == folderId,
     );
@@ -276,6 +354,10 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void updateSearch(String value) {
+    if (state.isUnavailable) {
+      return;
+    }
+
     state = state.copyWith(
       searchByTab: {...state.searchByTab, state.selectedTab: value},
     );
@@ -286,6 +368,10 @@ class CollectionController extends Notifier<CollectionState> {
     required Set<String> games,
     required Set<String> languages,
   }) {
+    if (state.isUnavailable) {
+      return;
+    }
+
     state = state.copyWith(
       sortByTab: {...state.sortByTab, state.selectedTab: sort},
       gamesByTab: {...state.gamesByTab, state.selectedTab: games},
@@ -294,6 +380,10 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void clearFilters() {
+    if (state.isUnavailable) {
+      return;
+    }
+
     state = state.copyWith(
       sortByTab: {...state.sortByTab, state.selectedTab: CollectionSort.newest},
       gamesByTab: {...state.gamesByTab, state.selectedTab: <String>{}},
@@ -302,6 +392,10 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void toggleAmountHidden() {
+    if (state.isUnavailable) {
+      return;
+    }
+
     state = state.copyWith(amountHidden: !state.amountHidden);
   }
 }

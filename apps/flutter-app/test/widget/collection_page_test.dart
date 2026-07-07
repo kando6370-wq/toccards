@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/features/collection/collection_controller.dart';
+import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
+import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
   testWidgets('Collection shows Portfolio summary and rows by default', (
@@ -43,6 +47,31 @@ void main() {
     expect(find.text('€1,132.95'), findsOneWidget);
     expect(find.text('€709.80'), findsOneWidget);
     expect(find.text('+8.10%'), findsOneWidget);
+  });
+
+  testWidgets('page failure shows Refresh and restores collection content', (
+    tester,
+  ) async {
+    final repository = _FailingThenSuccessfulCollectionRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [collectionRepositoryProvider.overrideWithValue(repository)],
+        child: const _CollectionTestApp(),
+      ),
+    );
+
+    expect(find.text(noContentAvailableText), findsOneWidget);
+    expect(find.text(refreshText), findsOneWidget);
+    expect(find.text('Collection'), findsWidgets);
+    expect(repository.calls, 1);
+
+    await tester.tap(find.text(refreshText));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Portfolio'), findsWidgets);
+    expect(find.text(r'$1,245.00'), findsOneWidget);
+    expect(repository.calls, 2);
   });
 
   testWidgets('folder picker changes Portfolio list', (tester) async {
@@ -186,5 +215,19 @@ class _TestSelectedCurrencyController extends SelectedCurrencyController {
   @override
   AppCurrency build() {
     return initialCurrency;
+  }
+}
+
+class _FailingThenSuccessfulCollectionRepository
+    implements CollectionRepository {
+  var calls = 0;
+
+  @override
+  CollectionDashboard loadDashboard() {
+    calls += 1;
+    if (calls == 1) {
+      throw StateError('mock collection unavailable');
+    }
+    return const MockCollectionRepository().loadDashboard();
   }
 }

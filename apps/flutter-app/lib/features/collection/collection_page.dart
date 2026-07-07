@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'collection_controller.dart';
 import 'collection_models.dart';
@@ -24,45 +25,49 @@ class CollectionPage extends ConsumerWidget {
               onHidePressed: controller.toggleAmountHidden,
             ),
             const SizedBox(height: 16),
-            SegmentedButton<CollectionTab>(
-              segments: const [
-                ButtonSegment(
-                  value: CollectionTab.portfolio,
-                  label: Text('Portfolio'),
-                ),
-                ButtonSegment(
-                  value: CollectionTab.wishlist,
-                  label: Text('Wishlist'),
-                ),
-              ],
-              selected: {state.selectedTab},
-              onSelectionChanged: (selection) {
-                controller.selectTab(selection.single);
-              },
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: ValueKey(state.selectedTab),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Search cards',
-                border: OutlineInputBorder(),
+            if (state.isUnavailable)
+              KandoFailureBlock(onRefresh: controller.refresh)
+            else ...[
+              SegmentedButton<CollectionTab>(
+                segments: const [
+                  ButtonSegment(
+                    value: CollectionTab.portfolio,
+                    label: Text('Portfolio'),
+                  ),
+                  ButtonSegment(
+                    value: CollectionTab.wishlist,
+                    label: Text('Wishlist'),
+                  ),
+                ],
+                selected: {state.selectedTab},
+                onSelectionChanged: (selection) {
+                  controller.selectTab(selection.single);
+                },
               ),
-              onChanged: controller.updateSearch,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: _SummaryText(state: state)),
-                IconButton(
-                  key: const Key('collection-filter-button'),
-                  onPressed: () => _showFilterSheet(context, ref),
-                  icon: const Icon(Icons.tune),
+              const SizedBox(height: 12),
+              TextField(
+                key: ValueKey(state.selectedTab),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search cards',
+                  border: OutlineInputBorder(),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _CollectionContent(state: state),
+                onChanged: controller.updateSearch,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _SummaryText(state: state)),
+                  IconButton(
+                    key: const Key('collection-filter-button'),
+                    onPressed: () => _showFilterSheet(context, ref),
+                    icon: const Icon(Icons.tune),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _CollectionContent(state: state),
+            ],
           ],
         ),
       ),
@@ -134,16 +139,17 @@ class _CollectionHeader extends StatelessWidget {
                 'Collection',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
-              TextButton(
-                onPressed: onFolderPressed,
-                child: Text(state.selectedFolder.name),
-              ),
+              if (!state.isUnavailable)
+                TextButton(
+                  onPressed: onFolderPressed,
+                  child: Text(state.selectedFolder.name),
+                ),
             ],
           ),
         ),
         IconButton(
           key: const Key('collection-hide-amount'),
-          onPressed: onHidePressed,
+          onPressed: state.isUnavailable ? null : onHidePressed,
           icon: Icon(
             state.amountHidden
                 ? Icons.visibility_outlined
@@ -187,22 +193,25 @@ class _CollectionContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state.isNoMatch) {
-      return const _MessageBlock(title: 'No matching cards found.');
+      return const KandoEmptyBlock(title: 'No matching cards found.');
     }
     if (state.isEmpty && state.selectedTab == CollectionTab.portfolio) {
-      return const _MessageBlock(
+      return KandoEmptyBlock(
         title: 'No cards in this portfolio yet.',
         body: 'Scan or search cards to start tracking your collection.',
-        primary: 'Scan a Card',
-        secondary: 'Search Cards',
+        primaryLabel: 'Scan a Card',
+        onPrimary: () {},
+        secondaryLabel: 'Search Cards',
+        onSecondary: () {},
       );
     }
     if (state.isEmpty) {
-      return const _MessageBlock(
+      return KandoEmptyBlock(
         title: 'Your wishlist is empty.',
         body:
             'Save cards you want to collect later and keep an eye on their market value.',
-        primary: 'Search Cards',
+        primaryLabel: 'Search Cards',
+        onPrimary: () {},
       );
     }
 
@@ -261,42 +270,6 @@ class _CollectionCardRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [Text(item.valueText), Text(item.changeText)],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MessageBlock extends StatelessWidget {
-  const _MessageBlock({
-    required this.title,
-    this.body,
-    this.primary,
-    this.secondary,
-  });
-
-  final String title;
-  final String? body;
-  final String? primary;
-  final String? secondary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            if (body != null) ...[const SizedBox(height: 8), Text(body!)],
-            if (primary != null) ...[
-              const SizedBox(height: 12),
-              FilledButton(onPressed: () {}, child: Text(primary!)),
-            ],
-            if (secondary != null)
-              TextButton(onPressed: () {}, child: Text(secondary!)),
           ],
         ),
       ),
