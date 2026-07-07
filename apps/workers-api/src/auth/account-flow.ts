@@ -138,6 +138,39 @@ export async function completeOAuthAccountFlow(
   authorization: string | undefined,
   now: Date,
 ): Promise<OAuthAccountFlowResult> {
+  try {
+    return await completeOAuthAccountFlowOnce(
+      db,
+      identity,
+      jwtSecret,
+      anonymousId,
+      authorization,
+      now,
+    );
+  } catch (error) {
+    if (!isOAuthUniqueConstraintError(error)) {
+      throw error;
+    }
+
+    return completeOAuthAccountFlowOnce(
+      db,
+      identity,
+      jwtSecret,
+      anonymousId,
+      authorization,
+      now,
+    );
+  }
+}
+
+async function completeOAuthAccountFlowOnce(
+  db: D1Database,
+  identity: OAuthIdentity,
+  jwtSecret: string,
+  anonymousId: string | null,
+  authorization: string | undefined,
+  now: Date,
+): Promise<OAuthAccountFlowResult> {
   const existingIdentity = await db
     .prepare(SELECT_OAUTH_IDENTITY_SQL)
     .bind(identity.provider, identity.providerUid)
@@ -182,6 +215,16 @@ export async function completeOAuthAccountFlow(
     anonymousId,
     authorization,
     now,
+  );
+}
+
+function isOAuthUniqueConstraintError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.message.includes("UNIQUE constraint failed: user.email") ||
+      error.message.includes(
+        "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",
+      ))
   );
 }
 

@@ -1,6 +1,16 @@
 import 'auth_models.dart';
 import 'auth_storage.dart';
 
+const oauthAuthorizationFailedMessage =
+    'Authorization failed. Please try again.';
+
+class OAuthAuthorizationException implements Exception {
+  const OAuthAuthorizationException();
+
+  @override
+  String toString() => oauthAuthorizationFailedMessage;
+}
+
 abstract class AuthRepository {
   Future<AuthSession?> currentSessionFromStorage();
   Future<AuthSession?> previousAnonymousSessionFromStorage();
@@ -114,7 +124,7 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
     String? anonymousId,
   }) async {
     if (redirectUri.isEmpty) {
-      throw Exception('missing_redirect_uri');
+      throw const OAuthAuthorizationException();
     }
     final identity = _parseMockIdentity(code, 'mock-google');
     return _userSession(identity.email, userId: identity.providerUid);
@@ -127,7 +137,7 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
     String? anonymousId,
   }) async {
     if (code.isEmpty) {
-      throw Exception('missing_authorization_code');
+      throw const OAuthAuthorizationException();
     }
     final identity = _parseMockIdentity(idToken, 'mock-apple');
     return _userSession(identity.email, userId: identity.providerUid);
@@ -170,7 +180,7 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
         parts[1].isEmpty ||
         parts[2].isEmpty ||
         !parts[2].contains('@')) {
-      throw Exception('invalid_oauth_authorization');
+      throw const OAuthAuthorizationException();
     }
 
     return _MockOAuthIdentity(providerUid: parts[1], email: parts[2]);

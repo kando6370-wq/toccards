@@ -7,8 +7,7 @@ import 'oauth_authorizer.dart';
 import 'auth_repository.dart';
 import 'auth_storage.dart';
 
-const authAuthorizationFailedMessage =
-    'Authorization failed. Please try again.';
+const authAuthorizationFailedMessage = oauthAuthorizationFailedMessage;
 const _googleRedirectUri = 'kando://auth/google';
 
 class AuthActionException implements Exception {
@@ -184,18 +183,23 @@ class AuthController extends Notifier<AuthState> {
       final anonymousId = targetSession?.isAnonymous == true
           ? targetSession?.anonymousId
           : null;
-      final session = switch (provider) {
-        OAuthProvider.google => await _repository.googleCallback(
-          code: authorizationResult.code,
-          redirectUri: _googleRedirectUri,
-          anonymousId: anonymousId,
-        ),
-        OAuthProvider.apple => await _repository.appleCallback(
-          code: authorizationResult.code,
-          idToken: authorizationResult.idToken!,
-          anonymousId: anonymousId,
-        ),
-      };
+      final AuthSession session;
+      try {
+        session = switch (provider) {
+          OAuthProvider.google => await _repository.googleCallback(
+            code: authorizationResult.code,
+            redirectUri: _googleRedirectUri,
+            anonymousId: anonymousId,
+          ),
+          OAuthProvider.apple => await _repository.appleCallback(
+            code: authorizationResult.code,
+            idToken: authorizationResult.idToken!,
+            anonymousId: anonymousId,
+          ),
+        };
+      } on OAuthAuthorizationException {
+        throw const AuthActionException(authAuthorizationFailedMessage);
+      }
       await _repository.persistSession(session);
       state = AuthState.ready(session: session);
     });

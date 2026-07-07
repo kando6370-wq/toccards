@@ -313,6 +313,52 @@ void main() {
   }
 
   test(
+    'repository authorization failure uses retry copy and keeps guest state',
+    () async {
+      final anonymous = _anonymousSession('anon-existing');
+      final repository = _FakeAuthRepository(
+        storedSession: anonymous,
+        validatedSession: anonymous,
+        googleCallbackError: const OAuthAuthorizationException(),
+      );
+      final authorizer = _FakeOAuthAuthorizer(
+        result: const OAuthAuthorizationResult.google(
+          code: 'mock-google:flutter-google-user:flutter.google@example.com',
+        ),
+      );
+      final container = _createContainer(
+        repository,
+        deviceId,
+        authorizer: authorizer,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await expectLater(
+        container.read(authControllerProvider.notifier).continueWithGoogle(),
+        throwsA(
+          isA<AuthActionException>().having(
+            (error) => error.toString().replaceFirst('Exception: ', ''),
+            'retry copy',
+            authAuthorizationFailedMessage,
+          ),
+        ),
+      );
+      final state = container.read(authControllerProvider);
+
+      expect(repository.googleCallbackRequests, [
+        const _GoogleCallbackRequest(
+          code: 'mock-google:flutter-google-user:flutter.google@example.com',
+          redirectUri: 'kando://auth/google',
+          anonymousId: 'anon-existing',
+        ),
+      ]);
+      expect(repository.persistedSessions, isEmpty);
+      expect(state.session, same(anonymous));
+    },
+  );
+
+  test(
     'repository callback failure is not rewritten as authorization failure',
     () async {
       final anonymous = _anonymousSession('anon-existing');

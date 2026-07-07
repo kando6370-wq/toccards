@@ -240,6 +240,7 @@ class FakeD1 {
   failNextRun = false;
   failRunOnSql: string | null = null;
   createConflictingUserBeforeNextUserInsert = false;
+  createConflictingIdentityBeforeNextAuthIdentityInsert = false;
   concurrentResetCodeLookupBarrierSize = 0;
   concurrentResetCodeLookupResolutions: Array<() => void> = [];
   upgradeAnonymousBeforeUpgrade = false;
@@ -279,6 +280,13 @@ class FakeD1 {
           user.id === "concurrent-user" &&
           !snapshot.users.some((snapshotUser) => snapshotUser.id === user.id),
       );
+      const concurrentAuthIdentities = this.authIdentities.filter(
+        (identity) =>
+          identity.id === "concurrent-auth-identity" &&
+          !snapshot.authIdentities.some(
+            (snapshotIdentity) => snapshotIdentity.id === identity.id,
+          ),
+      );
       this.anonymousAccounts = snapshot.anonymousAccounts;
       this.portfolioFolders = snapshot.portfolioFolders;
       this.userPreferences = snapshot.userPreferences;
@@ -286,7 +294,10 @@ class FakeD1 {
       this.wishlistItems = snapshot.wishlistItems;
       this.sessions = snapshot.sessions;
       this.users = [...snapshot.users, ...concurrentUsers];
-      this.authIdentities = snapshot.authIdentities;
+      this.authIdentities = [
+        ...snapshot.authIdentities,
+        ...concurrentAuthIdentities,
+      ];
       this.verificationCodes = snapshot.verificationCodes;
       throw error;
     }
@@ -928,6 +939,19 @@ class FakeD1 {
         string,
       ];
 
+      if (this.createConflictingUserBeforeNextUserInsert) {
+        this.createConflictingUserBeforeNextUserInsert = false;
+        this.users.push({
+          id: "concurrent-user",
+          email,
+          password_hash: null,
+          display_name: "Concurrent User",
+          created_at: "2026-07-03T00:00:00.000Z",
+          updated_at: "2026-07-03T00:00:00.000Z",
+          deleted_at: null,
+        });
+      }
+
       if (this.users.some((row) => row.email === email)) {
         throw new Error("UNIQUE constraint failed: user.email");
       }
@@ -961,6 +985,17 @@ class FakeD1 {
         return okResult<T>(0);
       }
 
+      if (this.createConflictingIdentityBeforeNextAuthIdentityInsert) {
+        this.createConflictingIdentityBeforeNextAuthIdentityInsert = false;
+        this.authIdentities.push({
+          id: "concurrent-auth-identity",
+          user_id: userId,
+          provider,
+          provider_uid: providerUid,
+          created_at: "2026-07-03T00:00:00.000Z",
+        });
+      }
+
       if (
         this.authIdentities.some(
           (row) =>
@@ -988,6 +1023,19 @@ class FakeD1 {
 
       if (!this.hasUpgradedAnonymousAccount(anonymousId, upgradedUserId)) {
         return okResult<T>(0);
+      }
+
+      if (this.createConflictingUserBeforeNextUserInsert) {
+        this.createConflictingUserBeforeNextUserInsert = false;
+        this.users.push({
+          id: "concurrent-user",
+          email,
+          password_hash: null,
+          display_name: "Concurrent User",
+          created_at: "2026-07-03T00:00:00.000Z",
+          updated_at: "2026-07-03T00:00:00.000Z",
+          deleted_at: null,
+        });
       }
 
       if (this.users.some((row) => row.email === email)) {
@@ -1027,6 +1075,17 @@ class FakeD1 {
 
       if (!this.hasUpgradedAnonymousAccount(anonymousId, upgradedUserId)) {
         return okResult<T>(0);
+      }
+
+      if (this.createConflictingIdentityBeforeNextAuthIdentityInsert) {
+        this.createConflictingIdentityBeforeNextAuthIdentityInsert = false;
+        this.authIdentities.push({
+          id: "concurrent-auth-identity",
+          user_id: userId,
+          provider,
+          provider_uid: providerUid,
+          created_at: "2026-07-03T00:00:00.000Z",
+        });
       }
 
       if (
@@ -3183,6 +3242,93 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     ]);
     expect(db.wishlistItems).toEqual([
       expect.objectContaining({ owner_type: "anonymous", owner_id: anonymousId }),
+    ]);
+  });
+
+  it("google oauth signs in after a concurrent user email insert because duplicate callbacks must not become 500s", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    db.createConflictingUserBeforeNextUserInsert = true;
+
+    const response = await requestGoogleOAuthCallback(env, {
+      code: "mock-google:google-email-race:race@example.com",
+      redirect_uri: "kando://auth/google",
+    });
+    const body = (await response.json()) as OAuthSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual(
+      expect.objectContaining({
+        user_id: "concurrent-user",
+        email: "race@example.com",
+        is_new_user: false,
+        migrated: false,
+      }),
+    );
+    expect(db.users).toEqual([
+      expect.objectContaining({
+        id: "concurrent-user",
+        email: "race@example.com",
+      }),
+    ]);
+    expect(db.authIdentities).toEqual([
+      expect.objectContaining({
+        user_id: "concurrent-user",
+        provider: "google",
+        provider_uid: "google-email-race",
+      }),
+    ]);
+    expect(db.sessions).toEqual([
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: "concurrent-user",
+      }),
+    ]);
+  });
+
+  it("google oauth signs in after a concurrent identity bind because retried callbacks should use the stable provider key", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    db.users.push({
+      id: "identity-race-user",
+      email: "identity-race@example.com",
+      password_hash: await hashPassword("existing-password"),
+      display_name: null,
+      created_at: "2026-07-06T00:00:00.000Z",
+      updated_at: "2026-07-06T00:00:00.000Z",
+      deleted_at: null,
+    });
+    db.createConflictingIdentityBeforeNextAuthIdentityInsert = true;
+
+    const response = await requestGoogleOAuthCallback(env, {
+      code: "mock-google:google-identity-race:identity-race@example.com",
+      redirect_uri: "kando://auth/google",
+    });
+    const body = (await response.json()) as OAuthSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual(
+      expect.objectContaining({
+        user_id: "identity-race-user",
+        email: "identity-race@example.com",
+        is_new_user: false,
+        migrated: false,
+      }),
+    );
+    expect(db.users).toHaveLength(1);
+    expect(db.authIdentities).toEqual([
+      expect.objectContaining({
+        id: "concurrent-auth-identity",
+        user_id: "identity-race-user",
+        provider: "google",
+        provider_uid: "google-identity-race",
+      }),
+    ]);
+    expect(db.sessions).toEqual([
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: "identity-race-user",
+      }),
     ]);
   });
 
@@ -7801,7 +7947,8 @@ describe("GET /api/v1/auth/me", () => {
 
   it("returns the active user account for a valid access token because upgraded clients should identify the durable owner", async () => {
     const env = createTestEnv();
-    fakeD1(env).users.push({
+    const db = fakeD1(env);
+    db.users.push({
       id: "user-current",
       email: "owner@example.com",
       password_hash: null,
@@ -7809,6 +7956,15 @@ describe("GET /api/v1/auth/me", () => {
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
       deleted_at: null,
+    });
+    db.sessions.push({
+      id: "session-current",
+      owner_type: "user",
+      owner_id: "user-current",
+      refresh_token: await hashRefreshToken("current-refresh"),
+      expires_at: "2999-01-01T00:00:00.000Z",
+      created_at: "2026-07-02T00:00:00.000Z",
+      revoked_at: null,
     });
     const accessToken = await signAccessToken(
       {
@@ -7869,6 +8025,68 @@ describe("GET /api/v1/auth/me", () => {
     expectUnauthorized(body, response.status);
   });
 
+  it("returns 401 / UNAUTHORIZED when the access token session is missing because restored clients need live session proof", async () => {
+    const env = createTestEnv();
+    fakeD1(env).users.push({
+      id: "missing-session-user",
+      email: "missing-session@example.com",
+      password_hash: null,
+      display_name: null,
+      created_at: "2026-07-02T00:00:00.000Z",
+      updated_at: "2026-07-02T00:00:00.000Z",
+      deleted_at: null,
+    });
+    const accessToken = await signAccessToken(
+      {
+        owner_type: "user",
+        owner_id: "missing-session-user",
+        session_id: "missing-current-session",
+      },
+      env.JWT_SECRET,
+    );
+
+    const response = await requestCurrentAccount(env, `Bearer ${accessToken}`);
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
+  it("returns 401 / UNAUTHORIZED when the access token session is revoked because logout must invalidate account restore", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    db.users.push({
+      id: "revoked-current-user",
+      email: "revoked-current@example.com",
+      password_hash: null,
+      display_name: null,
+      created_at: "2026-07-02T00:00:00.000Z",
+      updated_at: "2026-07-02T00:00:00.000Z",
+      deleted_at: null,
+    });
+    db.sessions.push({
+      id: "revoked-current-session",
+      owner_type: "user",
+      owner_id: "revoked-current-user",
+      refresh_token: await hashRefreshToken("revoked-current-refresh"),
+      expires_at: "2999-01-01T00:00:00.000Z",
+      created_at: "2026-07-02T00:00:00.000Z",
+      revoked_at: "2026-07-02T01:00:00.000Z",
+    });
+    const accessToken = await signAccessToken(
+      {
+        owner_type: "user",
+        owner_id: "revoked-current-user",
+        session_id: "revoked-current-session",
+      },
+      env.JWT_SECRET,
+    );
+
+    const response = await requestCurrentAccount(env, `Bearer ${accessToken}`);
+    const body = await response.json();
+
+    expectUnauthorized(body, response.status);
+  });
+
   it("returns 500 / INTERNAL_ERROR when JWT_SECRET is blank because token verification depends on server configuration", async () => {
     const env = createTestEnv();
     const anonymousResponse = await requestAnonymous(
@@ -7918,11 +8136,20 @@ describe("GET /api/v1/auth/me", () => {
 
   it("returns 401 / UNAUTHORIZED when the token owner is missing because tokens are not a substitute for live accounts", async () => {
     const env = createTestEnv();
+    fakeD1(env).sessions.push({
+      id: "missing-owner-session",
+      owner_type: "anonymous",
+      owner_id: "missing-anonymous",
+      refresh_token: await hashRefreshToken("missing-owner-refresh"),
+      expires_at: "2999-01-01T00:00:00.000Z",
+      created_at: "2026-07-02T00:00:00.000Z",
+      revoked_at: null,
+    });
     const accessToken = await signAccessToken(
       {
         owner_type: "anonymous",
         owner_id: "missing-anonymous",
-        session_id: "missing-session",
+        session_id: "missing-owner-session",
       },
       env.JWT_SECRET,
     );

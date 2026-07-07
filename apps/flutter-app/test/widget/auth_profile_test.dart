@@ -161,6 +161,40 @@ void main() {
     expect(repository.googleCallbackRequests, isEmpty);
   });
 
+  testWidgets('oauth callback authorization failure shows retry copy', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+      googleCallbackError: const OAuthAuthorizationException(),
+    );
+    final authorizer = _WidgetOAuthAuthorizer(
+      result: const OAuthAuthorizationResult.google(
+        code: 'mock-google:flutter-google-user:flutter.google@example.com',
+      ),
+    );
+
+    await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
+    await tester.pumpAndSettle();
+    await _openAuthSheet(tester);
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Authorization failed. Please try again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Guest session'), findsOneWidget);
+    expect(find.text('anon-existing'), findsOneWidget);
+    expect(repository.googleCallbackRequests, [
+      const _GoogleCallbackRequest(
+        code: 'mock-google:flutter-google-user:flutter.google@example.com',
+        redirectUri: 'kando://auth/google',
+        anonymousId: 'anon-existing',
+      ),
+    ]);
+  });
+
   testWidgets(
     'login submit is disabled and deduped while request is in flight',
     (tester) async {
@@ -531,6 +565,7 @@ class _WidgetAuthRepository implements AuthRepository {
     this.registerError,
     this.forgotCodeError,
     this.loginCompleter,
+    this.googleCallbackError,
   }) : _currentSession = initialSession,
        _createdAnonymousIds = [...createdAnonymousIds];
 
@@ -539,6 +574,7 @@ class _WidgetAuthRepository implements AuthRepository {
   final Exception? registerError;
   final Exception? forgotCodeError;
   final Completer<AuthSession>? loginCompleter;
+  final Exception? googleCallbackError;
   var logoutRequests = 0;
   var deleteRequests = 0;
   final List<_LoginRequest> loginRequests = [];
@@ -643,6 +679,10 @@ class _WidgetAuthRepository implements AuthRepository {
         anonymousId: anonymousId,
       ),
     );
+    final error = googleCallbackError;
+    if (error != null) {
+      throw error;
+    }
     return _userSession(email: 'flutter.google@example.com');
   }
 
