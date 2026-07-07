@@ -20,6 +20,7 @@ void main() {
     expect(find.text('Squirtle'), findsOneWidget);
     expect(find.text(r'$32.13'), findsOneWidget);
     expect(find.text('+4.76%'), findsOneWidget);
+    expect(find.text('+8.10%'), findsOneWidget);
     expect(find.text('Qty: 0'), findsWidgets);
     expect(find.text('Collect'), findsWidgets);
   });

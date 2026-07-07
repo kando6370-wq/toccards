@@ -20,6 +20,8 @@ void main() {
       'Umbreon VMAX',
       'Pikachu Promo',
     ]);
+    expect(state.visibleItems.first.source.previous30dPriceUsd, 721.55);
+    expect(state.visibleItems.first.changeText, '+8.10%');
   });
 
   test('switching folders changes only Portfolio scoped items', () {
@@ -93,7 +95,7 @@ void main() {
 
     expect(state.portfolioSummary.totalValueText, '••••••');
     expect(state.visibleItems.first.valueText, '••••••');
-    expect(state.visibleItems.first.changeText, '+8.1%');
+    expect(state.visibleItems.first.changeText, '+8.10%');
   });
 
   test('empty and no-match states are distinct', () {

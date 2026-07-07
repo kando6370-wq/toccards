@@ -29,7 +29,7 @@ class CollectionItem {
     required this.grade,
     required this.quantity,
     required this.marketValueUsd,
-    required this.change30dPercent,
+    required this.previous30dPriceUsd,
     required this.createdAtSort,
   });
 
@@ -46,7 +46,7 @@ class CollectionItem {
   final double? grade;
   final int quantity;
   final double? marketValueUsd;
-  final double? change30dPercent;
+  final double? previous30dPriceUsd;
   final int createdAtSort;
 
   bool get isGraded => grader != 'Raw';

@@ -17,6 +17,10 @@ void main() {
       'Charizard ex',
       'Mystery Promo',
     ]);
+    expect(state.cardById('squirtle').previous30dPriceUsd, 30.67);
+    expect(state.cardById('squirtle').changeText, '+4.76%');
+    expect(state.cardById('charizard-ex').previous30dPriceUsd, 721.58);
+    expect(state.cardById('charizard-ex').changeText, '+8.10%');
     expect(state.visibleSets.map((set) => set.name), [
       'Mega Evolution Promos',
       'Obsidian Flames',
@@ -115,6 +119,7 @@ void main() {
         .cardById('mystery-promo');
 
     expect(card.priceText, '--');
+    expect(card.previous30dPriceUsd, isNull);
     expect(card.changeText, '-/-');
   });
 }

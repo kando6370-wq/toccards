@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/market/market_change.dart';
 
 import 'collection_models.dart';
 import 'collection_repository.dart';
@@ -116,8 +117,8 @@ class CollectionState {
           b.marketValueUsd,
         ),
         CollectionSort.changeDesc => _nullableDoubleDesc(
-          a.change30dPercent,
-          b.change30dPercent,
+          _changePercent(a),
+          _changePercent(b),
         ),
         CollectionSort.nameAsc => a.name.compareTo(b.name),
       };
@@ -128,7 +129,7 @@ class CollectionState {
         CollectionViewItem(
           source: item,
           valueText: _formatMoney(item.marketValueUsd, item.quantity),
-          changeText: _formatPercent(item.change30dPercent),
+          changeText: _formatChange(item),
         ),
     ];
   }
@@ -189,13 +190,18 @@ class CollectionState {
     return _formatUsd(valueUsd * quantity);
   }
 
-  String _formatPercent(double? value) {
-    if (value == null) {
-      return '-/-';
-    }
+  String _formatChange(CollectionItem item) {
+    return MarketChange.fromPrices(
+      current: item.marketValueUsd,
+      previous: item.previous30dPriceUsd,
+    ).percentText;
+  }
 
-    final sign = value > 0 ? '+' : '';
-    return '$sign${value.toStringAsFixed(1)}%';
+  double? _changePercent(CollectionItem item) {
+    return MarketChange.fromPrices(
+      current: item.marketValueUsd,
+      previous: item.previous30dPriceUsd,
+    ).percent;
   }
 
   static int _nullableDoubleDesc(double? left, double? right) {

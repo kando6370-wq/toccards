@@ -1,3 +1,5 @@
+import 'package:kando_app/shared/market/market_change.dart';
+
 enum SearchTab { cards, sets }
 
 enum SearchCardType { tcg, sports, sealed, other }
@@ -16,7 +18,7 @@ class SearchCard {
     required this.type,
     required this.name,
     required this.priceUsd,
-    required this.change30dPercent,
+    required this.previous30dPriceUsd,
     required this.setName,
     required this.metadataLine,
     required this.variantLine,
@@ -29,7 +31,7 @@ class SearchCard {
   final SearchCardType type;
   final String name;
   final double? priceUsd;
-  final double? change30dPercent;
+  final double? previous30dPriceUsd;
   final String setName;
   final String metadataLine;
   final String variantLine;
@@ -52,13 +54,10 @@ class SearchCard {
   }
 
   String get changeText {
-    final value = change30dPercent;
-    if (value == null) {
-      return '-/-';
-    }
-
-    final sign = value > 0 ? '+' : '';
-    return '$sign${value.toStringAsFixed(2)}%';
+    return MarketChange.fromPrices(
+      current: priceUsd,
+      previous: previous30dPriceUsd,
+    ).percentText;
   }
 
   SearchCard copyWith({int? quantity, bool? isWishlisted}) {
@@ -68,7 +67,7 @@ class SearchCard {
       type: type,
       name: name,
       priceUsd: priceUsd,
-      change30dPercent: change30dPercent,
+      previous30dPriceUsd: previous30dPriceUsd,
       setName: setName,
       metadataLine: metadataLine,
       variantLine: variantLine,

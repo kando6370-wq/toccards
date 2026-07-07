@@ -70,7 +70,7 @@ void main() {
 
     expect(find.text('••••••'), findsWidgets);
     expect(find.text(r'$1,245'), findsNothing);
-    expect(find.text('+8.1%'), findsOneWidget);
+    expect(find.text('+8.10%'), findsOneWidget);
   });
 
   testWidgets('filter sheet applies Game and Language filters', (tester) async {
