@@ -99,6 +99,36 @@ class _WidgetTestAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AuthSession> googleCallback({
+    required String code,
+    required String redirectUri,
+    String? anonymousId,
+  }) async {
+    return const AuthSession(
+      ownerType: OwnerType.user,
+      accessToken: 'user-access',
+      refreshToken: 'user-refresh',
+      userId: 'google-user',
+      email: 'google@example.com',
+    );
+  }
+
+  @override
+  Future<AuthSession> appleCallback({
+    required String code,
+    required String idToken,
+    String? anonymousId,
+  }) async {
+    return const AuthSession(
+      ownerType: OwnerType.user,
+      accessToken: 'user-access',
+      refreshToken: 'user-refresh',
+      userId: 'apple-user',
+      email: 'apple@example.com',
+    );
+  }
+
+  @override
   Future<void> sendForgotPasswordCode(String email) async {}
 
   @override

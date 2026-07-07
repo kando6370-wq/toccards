@@ -17,6 +17,16 @@ abstract class AuthRepository {
     String? anonymousId,
   });
   Future<AuthSession> login({required String email, required String password});
+  Future<AuthSession> googleCallback({
+    required String code,
+    required String redirectUri,
+    String? anonymousId,
+  });
+  Future<AuthSession> appleCallback({
+    required String code,
+    required String idToken,
+    String? anonymousId,
+  });
   Future<void> sendForgotPasswordCode(String email);
   Future<String> verifyForgotPasswordCode({
     required String email,
@@ -98,6 +108,32 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AuthSession> googleCallback({
+    required String code,
+    required String redirectUri,
+    String? anonymousId,
+  }) async {
+    if (redirectUri.isEmpty) {
+      throw Exception('missing_redirect_uri');
+    }
+    final identity = _parseMockIdentity(code, 'mock-google');
+    return _userSession(identity.email, userId: identity.providerUid);
+  }
+
+  @override
+  Future<AuthSession> appleCallback({
+    required String code,
+    required String idToken,
+    String? anonymousId,
+  }) async {
+    if (code.isEmpty) {
+      throw Exception('missing_authorization_code');
+    }
+    final identity = _parseMockIdentity(idToken, 'mock-apple');
+    return _userSession(identity.email, userId: identity.providerUid);
+  }
+
+  @override
   Future<void> sendForgotPasswordCode(String email) async {}
 
   @override
@@ -115,15 +151,35 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
     required String newPassword,
   }) async {}
 
-  AuthSession _userSession(String email) {
+  AuthSession _userSession(String email, {String? userId}) {
     final issuedAt = DateTime.now().microsecondsSinceEpoch;
 
     return AuthSession(
       ownerType: OwnerType.user,
       accessToken: 'local-user-access-$issuedAt',
       refreshToken: 'local-user-refresh-$issuedAt',
-      userId: 'local-user-$email',
+      userId: userId ?? 'local-user-$email',
       email: email,
     );
   }
+
+  _MockOAuthIdentity _parseMockIdentity(String value, String prefix) {
+    final parts = value.split(':');
+    if (parts.length != 3 ||
+        parts[0] != prefix ||
+        parts[1].isEmpty ||
+        parts[2].isEmpty ||
+        !parts[2].contains('@')) {
+      throw Exception('invalid_oauth_authorization');
+    }
+
+    return _MockOAuthIdentity(providerUid: parts[1], email: parts[2]);
+  }
+}
+
+class _MockOAuthIdentity {
+  const _MockOAuthIdentity({required this.providerUid, required this.email});
+
+  final String providerUid;
+  final String email;
 }

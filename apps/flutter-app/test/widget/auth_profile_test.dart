@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/app/app.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/auth/oauth_authorizer.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
 void main() {
@@ -72,6 +73,92 @@ void main() {
     ]);
     expect(find.text('Signed in'), findsOneWidget);
     expect(find.text('person@example.com'), findsWidgets);
+  });
+
+  testWidgets('google auth sheet button signs in with current guest id', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    final authorizer = _WidgetOAuthAuthorizer(
+      result: const OAuthAuthorizationResult.google(
+        code: 'mock-google:flutter-google-user:flutter.google@example.com',
+      ),
+    );
+
+    await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
+    await tester.pumpAndSettle();
+    await _openAuthSheet(tester);
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+
+    expect(authorizer.requests, [OAuthProvider.google]);
+    expect(repository.googleCallbackRequests, [
+      const _GoogleCallbackRequest(
+        code: 'mock-google:flutter-google-user:flutter.google@example.com',
+        redirectUri: 'kando://auth/google',
+        anonymousId: 'anon-existing',
+      ),
+    ]);
+    expect(find.text('Signed in'), findsOneWidget);
+    expect(find.text('flutter.google@example.com'), findsWidgets);
+  });
+
+  testWidgets('apple auth sheet button signs in with current guest id', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    final authorizer = _WidgetOAuthAuthorizer(
+      result: const OAuthAuthorizationResult.apple(
+        code: 'apple-auth-code',
+        idToken: 'mock-apple:flutter-apple-user:flutter.apple@example.com',
+      ),
+    );
+
+    await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
+    await tester.pumpAndSettle();
+    await _openAuthSheet(tester);
+    await tester.tap(find.text('Continue with Apple'));
+    await tester.pumpAndSettle();
+
+    expect(authorizer.requests, [OAuthProvider.apple]);
+    expect(repository.appleCallbackRequests, [
+      const _AppleCallbackRequest(
+        code: 'apple-auth-code',
+        idToken: 'mock-apple:flutter-apple-user:flutter.apple@example.com',
+        anonymousId: 'anon-existing',
+      ),
+    ]);
+    expect(find.text('Signed in'), findsOneWidget);
+    expect(find.text('flutter.apple@example.com'), findsWidgets);
+  });
+
+  testWidgets('oauth authorization failure shows retry copy and keeps guest', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    final authorizer = _WidgetOAuthAuthorizer(
+      error: Exception('provider failed'),
+    );
+
+    await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
+    await tester.pumpAndSettle();
+    await _openAuthSheet(tester);
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Authorization failed. Please try again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Guest session'), findsOneWidget);
+    expect(find.text('anon-existing'), findsOneWidget);
+    expect(repository.googleCallbackRequests, isEmpty);
   });
 
   testWidgets(
@@ -386,12 +473,16 @@ void main() {
 }
 
 Future<void> _openEmailAuth(WidgetTester tester) async {
+  await _openAuthSheet(tester);
+  await tester.tap(find.text('Continue with Email'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openAuthSheet(WidgetTester tester) async {
   await tester.tap(find.text('Sign in / Sign up'));
   await tester.pumpAndSettle();
   expect(find.text('Continue with Google'), findsOneWidget);
   expect(find.text('Continue with Apple'), findsOneWidget);
-  await tester.tap(find.text('Continue with Email'));
-  await tester.pumpAndSettle();
 }
 
 Future<void> _continueWithEmail(WidgetTester tester, String email) async {
@@ -400,9 +491,16 @@ Future<void> _continueWithEmail(WidgetTester tester, String email) async {
   await tester.pumpAndSettle();
 }
 
-ProviderScope _testApp(_WidgetAuthRepository repository) {
+ProviderScope _testApp(
+  _WidgetAuthRepository repository, {
+  OAuthAuthorizer? authorizer,
+}) {
   return ProviderScope(
-    overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    overrides: [
+      authRepositoryProvider.overrideWithValue(repository),
+      if (authorizer != null)
+        oauthAuthorizerProvider.overrideWithValue(authorizer),
+    ],
     child: const KandoApp(),
   );
 }
@@ -446,6 +544,8 @@ class _WidgetAuthRepository implements AuthRepository {
   final List<_LoginRequest> loginRequests = [];
   final List<String> registerCodeEmails = [];
   final List<_RegisterRequest> registerRequests = [];
+  final List<_GoogleCallbackRequest> googleCallbackRequests = [];
+  final List<_AppleCallbackRequest> appleCallbackRequests = [];
   final List<String> forgotCodeEmails = [];
   final List<_CodeRequest> forgotVerifications = [];
   final List<_ResetRequest> resetRequests = [];
@@ -531,6 +631,38 @@ class _WidgetAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AuthSession> googleCallback({
+    required String code,
+    required String redirectUri,
+    String? anonymousId,
+  }) async {
+    googleCallbackRequests.add(
+      _GoogleCallbackRequest(
+        code: code,
+        redirectUri: redirectUri,
+        anonymousId: anonymousId,
+      ),
+    );
+    return _userSession(email: 'flutter.google@example.com');
+  }
+
+  @override
+  Future<AuthSession> appleCallback({
+    required String code,
+    required String idToken,
+    String? anonymousId,
+  }) async {
+    appleCallbackRequests.add(
+      _AppleCallbackRequest(
+        code: code,
+        idToken: idToken,
+        anonymousId: anonymousId,
+      ),
+    );
+    return _userSession(email: 'flutter.apple@example.com');
+  }
+
+  @override
   Future<void> sendForgotPasswordCode(String email) async {
     forgotCodeEmails.add(email);
   }
@@ -555,6 +687,24 @@ class _WidgetAuthRepository implements AuthRepository {
     required String newPassword,
   }) async {
     resetRequests.add(_ResetRequest(email, resetToken, newPassword));
+  }
+}
+
+class _WidgetOAuthAuthorizer implements OAuthAuthorizer {
+  _WidgetOAuthAuthorizer({this.result, this.error});
+
+  final OAuthAuthorizationResult? result;
+  final Exception? error;
+  final List<OAuthProvider> requests = [];
+
+  @override
+  Future<OAuthAuthorizationResult?> authorize(OAuthProvider provider) async {
+    requests.add(provider);
+    final error = this.error;
+    if (error != null) {
+      throw error;
+    }
+    return result;
   }
 }
 
@@ -599,6 +749,52 @@ class _RegisterRequest {
 
   @override
   int get hashCode => Object.hash(email, code, password, anonymousId);
+}
+
+class _GoogleCallbackRequest {
+  const _GoogleCallbackRequest({
+    required this.code,
+    required this.redirectUri,
+    required this.anonymousId,
+  });
+
+  final String code;
+  final String redirectUri;
+  final String? anonymousId;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _GoogleCallbackRequest &&
+        other.code == code &&
+        other.redirectUri == redirectUri &&
+        other.anonymousId == anonymousId;
+  }
+
+  @override
+  int get hashCode => Object.hash(code, redirectUri, anonymousId);
+}
+
+class _AppleCallbackRequest {
+  const _AppleCallbackRequest({
+    required this.code,
+    required this.idToken,
+    required this.anonymousId,
+  });
+
+  final String code;
+  final String idToken;
+  final String? anonymousId;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _AppleCallbackRequest &&
+        other.code == code &&
+        other.idToken == idToken &&
+        other.anonymousId == anonymousId;
+  }
+
+  @override
+  int get hashCode => Object.hash(code, idToken, anonymousId);
 }
 
 class _CodeRequest {

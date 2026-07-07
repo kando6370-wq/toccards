@@ -3,8 +3,22 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'auth_models.dart';
+import 'oauth_authorizer.dart';
 import 'auth_repository.dart';
 import 'auth_storage.dart';
+
+const authAuthorizationFailedMessage =
+    'Authorization failed. Please try again.';
+const _googleRedirectUri = 'kando://auth/google';
+
+class AuthActionException implements Exception {
+  const AuthActionException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 final authStorageProvider = Provider<InMemoryAuthStorage>((ref) {
   return InMemoryAuthStorage();
@@ -12,6 +26,10 @@ final authStorageProvider = Provider<InMemoryAuthStorage>((ref) {
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return LocalPlaceholderAuthRepository(ref.watch(authStorageProvider));
+});
+
+final oauthAuthorizerProvider = Provider<OAuthAuthorizer>((ref) {
+  return const MockOAuthAuthorizer();
 });
 
 final authDeviceIdProvider = Provider<String>((ref) {
@@ -28,6 +46,7 @@ class AuthController extends Notifier<AuthState> {
   var _generation = 0;
 
   AuthRepository get _repository => ref.read(authRepositoryProvider);
+  OAuthAuthorizer get _oauthAuthorizer => ref.read(oauthAuthorizerProvider);
   String get _deviceId => ref.read(authDeviceIdProvider);
 
   Future<void> get startupComplete {
@@ -86,6 +105,14 @@ class AuthController extends Notifier<AuthState> {
     });
   }
 
+  Future<void> continueWithGoogle() {
+    return _continueWithOAuth(OAuthProvider.google);
+  }
+
+  Future<void> continueWithApple() {
+    return _continueWithOAuth(OAuthProvider.apple);
+  }
+
   Future<void> sendRegisterCode(String email) {
     return _repository.sendRegisterCode(email);
   }
@@ -131,6 +158,47 @@ class AuthController extends Notifier<AuthState> {
       resetToken: resetToken,
       newPassword: newPassword,
     );
+  }
+
+  Future<void> _continueWithOAuth(OAuthProvider provider) async {
+    final generation = _generation;
+    final targetSession = state.session;
+
+    final OAuthAuthorizationResult? authorization;
+    try {
+      authorization = await _oauthAuthorizer.authorize(provider);
+    } on Exception {
+      throw const AuthActionException(authAuthorizationFailedMessage);
+    }
+    if (authorization == null) {
+      return;
+    }
+    final authorizationResult = authorization;
+
+    await _enqueueMutation(() async {
+      if (generation != _generation ||
+          !identical(state.session, targetSession)) {
+        return;
+      }
+
+      final anonymousId = targetSession?.isAnonymous == true
+          ? targetSession?.anonymousId
+          : null;
+      final session = switch (provider) {
+        OAuthProvider.google => await _repository.googleCallback(
+          code: authorizationResult.code,
+          redirectUri: _googleRedirectUri,
+          anonymousId: anonymousId,
+        ),
+        OAuthProvider.apple => await _repository.appleCallback(
+          code: authorizationResult.code,
+          idToken: authorizationResult.idToken!,
+          anonymousId: anonymousId,
+        ),
+      };
+      await _repository.persistSession(session);
+      state = AuthState.ready(session: session);
+    });
   }
 
   Future<void> _loadInitialSession(int generation) async {

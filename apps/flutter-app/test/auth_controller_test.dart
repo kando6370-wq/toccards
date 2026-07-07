@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/auth/oauth_authorizer.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/auth_storage.dart';
 
@@ -96,6 +97,304 @@ void main() {
       expect(repository.validatedSessions, [same(storedAnonymous)]);
       expect(repository.createdDeviceIds, isEmpty);
       expect(repository.persistedSessions, isEmpty);
+    },
+  );
+
+  test(
+    'google authorization switches guest to user because OAuth proves a durable account',
+    () async {
+      final anonymous = _anonymousSession('anon-existing');
+      final googleUser = _userSession(
+        userId: 'flutter-google-user',
+        email: 'flutter.google@example.com',
+      );
+      final repository = _FakeAuthRepository(
+        storedSession: anonymous,
+        validatedSession: anonymous,
+        googleCallbackSessions: [googleUser],
+      );
+      final authorizer = _FakeOAuthAuthorizer(
+        result: const OAuthAuthorizationResult.google(
+          code: 'mock-google:flutter-google-user:flutter.google@example.com',
+        ),
+      );
+      final container = _createContainer(
+        repository,
+        deviceId,
+        authorizer: authorizer,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await container
+          .read(authControllerProvider.notifier)
+          .continueWithGoogle();
+      final state = container.read(authControllerProvider);
+
+      expect(authorizer.requests, [OAuthProvider.google]);
+      expect(repository.googleCallbackRequests, [
+        const _GoogleCallbackRequest(
+          code: 'mock-google:flutter-google-user:flutter.google@example.com',
+          redirectUri: 'kando://auth/google',
+          anonymousId: 'anon-existing',
+        ),
+      ]);
+      expect(repository.persistedSessions, [same(googleUser)]);
+      expect(state.session, same(googleUser));
+      expect(state.session!.isUser, isTrue);
+      expect(state.pendingMigrationAnonymousId, isNull);
+    },
+  );
+
+  test(
+    'apple authorization switches guest to user because id token proves identity',
+    () async {
+      final anonymous = _anonymousSession('anon-existing');
+      final appleUser = _userSession(
+        userId: 'flutter-apple-user',
+        email: 'flutter.apple@example.com',
+      );
+      final repository = _FakeAuthRepository(
+        storedSession: anonymous,
+        validatedSession: anonymous,
+        appleCallbackSessions: [appleUser],
+      );
+      final authorizer = _FakeOAuthAuthorizer(
+        result: const OAuthAuthorizationResult.apple(
+          code: 'apple-auth-code',
+          idToken: 'mock-apple:flutter-apple-user:flutter.apple@example.com',
+        ),
+      );
+      final container = _createContainer(
+        repository,
+        deviceId,
+        authorizer: authorizer,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await container.read(authControllerProvider.notifier).continueWithApple();
+      final state = container.read(authControllerProvider);
+
+      expect(authorizer.requests, [OAuthProvider.apple]);
+      expect(repository.appleCallbackRequests, [
+        const _AppleCallbackRequest(
+          code: 'apple-auth-code',
+          idToken: 'mock-apple:flutter-apple-user:flutter.apple@example.com',
+          anonymousId: 'anon-existing',
+        ),
+      ]);
+      expect(repository.persistedSessions, [same(appleUser)]);
+      expect(state.session, same(appleUser));
+      expect(state.session!.isUser, isTrue);
+      expect(state.pendingMigrationAnonymousId, isNull);
+    },
+  );
+
+  test(
+    'cancelled authorization leaves guest state untouched because no provider proof exists',
+    () async {
+      final anonymous = _anonymousSession('anon-existing');
+      final repository = _FakeAuthRepository(
+        storedSession: anonymous,
+        validatedSession: anonymous,
+      );
+      final authorizer = _FakeOAuthAuthorizer(result: null);
+      final container = _createContainer(
+        repository,
+        deviceId,
+        authorizer: authorizer,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await container
+          .read(authControllerProvider.notifier)
+          .continueWithGoogle();
+      final state = container.read(authControllerProvider);
+
+      expect(authorizer.requests, [OAuthProvider.google]);
+      expect(repository.googleCallbackRequests, isEmpty);
+      expect(repository.persistedSessions, isEmpty);
+      expect(state.session, same(anonymous));
+      expect(state.session!.isAnonymous, isTrue);
+    },
+  );
+
+  test(
+    'authorization failure keeps guest state and exposes retry copy',
+    () async {
+      final anonymous = _anonymousSession('anon-existing');
+      final repository = _FakeAuthRepository(
+        storedSession: anonymous,
+        validatedSession: anonymous,
+      );
+      final authorizer = _FakeOAuthAuthorizer(
+        error: Exception('provider failed'),
+      );
+      final container = _createContainer(
+        repository,
+        deviceId,
+        authorizer: authorizer,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await expectLater(
+        container.read(authControllerProvider.notifier).continueWithGoogle(),
+        throwsA(
+          isA<AuthActionException>().having(
+            (error) => error.toString().replaceFirst('Exception: ', ''),
+            'retry copy',
+            authAuthorizationFailedMessage,
+          ),
+        ),
+      );
+      final state = container.read(authControllerProvider);
+
+      expect(repository.googleCallbackRequests, isEmpty);
+      expect(repository.persistedSessions, isEmpty);
+      expect(state.session, same(anonymous));
+      expect(state.session!.isAnonymous, isTrue);
+    },
+  );
+
+  for (final actionName in ['logout', 'delete']) {
+    test(
+      '$actionName while OAuth authorization is pending prevents stale sign in',
+      () async {
+        final anonymous = _anonymousSession('anon-existing');
+        final actionAnonymous = _anonymousSession('anon-after-action');
+        final googleUser = _userSession(
+          userId: 'flutter-google-user',
+          email: 'flutter.google@example.com',
+        );
+        final authorization = Completer<OAuthAuthorizationResult?>();
+        final repository = _FakeAuthRepository(
+          storedSession: anonymous,
+          validatedSession: anonymous,
+          createdAnonymousSessions: [actionAnonymous],
+          googleCallbackSessions: [googleUser],
+        );
+        final authorizer = _FakeOAuthAuthorizer(
+          resultFuture: authorization.future,
+        );
+        final container = _createContainer(
+          repository,
+          deviceId,
+          authorizer: authorizer,
+        );
+        addTearDown(container.dispose);
+        await container.read(authControllerProvider.notifier).startupComplete;
+
+        final controller = container.read(authControllerProvider.notifier);
+        final oauth = controller.continueWithGoogle();
+        await Future<void>.delayed(Duration.zero);
+
+        final action = actionName == 'logout'
+            ? controller.logout()
+            : controller.deleteAccount();
+        await action;
+        authorization.complete(
+          const OAuthAuthorizationResult.google(
+            code: 'mock-google:flutter-google-user:flutter.google@example.com',
+          ),
+        );
+        await oauth;
+        final state = container.read(authControllerProvider);
+
+        expect(authorizer.requests, [OAuthProvider.google]);
+        expect(repository.googleCallbackRequests, isEmpty);
+        expect(repository.persistedSessions, [same(actionAnonymous)]);
+        expect(state.session, same(actionAnonymous));
+        expect(state.session!.isAnonymous, isTrue);
+      },
+    );
+  }
+
+  test(
+    'repository callback failure is not rewritten as authorization failure',
+    () async {
+      final anonymous = _anonymousSession('anon-existing');
+      final repository = _FakeAuthRepository(
+        storedSession: anonymous,
+        validatedSession: anonymous,
+        googleCallbackError: Exception('backend unavailable'),
+      );
+      final authorizer = _FakeOAuthAuthorizer(
+        result: const OAuthAuthorizationResult.google(
+          code: 'mock-google:flutter-google-user:flutter.google@example.com',
+        ),
+      );
+      final container = _createContainer(
+        repository,
+        deviceId,
+        authorizer: authorizer,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await expectLater(
+        container.read(authControllerProvider.notifier).continueWithGoogle(),
+        throwsA(
+          isA<Exception>()
+              .having(
+                (error) => error.toString(),
+                'message',
+                isNot(contains(authAuthorizationFailedMessage)),
+              )
+              .having(
+                (error) => error.toString(),
+                'message',
+                contains('backend unavailable'),
+              ),
+        ),
+      );
+      final state = container.read(authControllerProvider);
+
+      expect(repository.googleCallbackRequests, [
+        const _GoogleCallbackRequest(
+          code: 'mock-google:flutter-google-user:flutter.google@example.com',
+          redirectUri: 'kando://auth/google',
+          anonymousId: 'anon-existing',
+        ),
+      ]);
+      expect(repository.persistedSessions, isEmpty);
+      expect(state.session, same(anonymous));
+    },
+  );
+
+  test(
+    'existing account login preserves previous anonymous binding for logout continuity',
+    () async {
+      final storage = InMemoryAuthStorage();
+      final repository = LocalPlaceholderAuthRepository(storage);
+      final anonymous = _anonymousSession('anon-before-oauth');
+      await storage.writeSession(anonymous);
+      final authorizer = _FakeOAuthAuthorizer(
+        result: const OAuthAuthorizationResult.google(
+          code: 'mock-google:existing-google:existing@example.com',
+        ),
+      );
+      final container = _createContainer(
+        repository,
+        deviceId,
+        authorizer: authorizer,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await container
+          .read(authControllerProvider.notifier)
+          .continueWithGoogle();
+
+      expect(await storage.readPreviousAnonymousSession(), same(anonymous));
+
+      await container.read(authControllerProvider.notifier).logout();
+      final state = container.read(authControllerProvider);
+
+      expect(state.session, same(anonymous));
+      expect(state.session!.anonymousId, 'anon-before-oauth');
     },
   );
 
@@ -346,11 +645,17 @@ Future<AuthState> _startAuth(AuthRepository repository, String deviceId) async {
   return container.read(authControllerProvider);
 }
 
-ProviderContainer _createContainer(AuthRepository repository, String deviceId) {
+ProviderContainer _createContainer(
+  AuthRepository repository,
+  String deviceId, {
+  OAuthAuthorizer? authorizer,
+}) {
   return ProviderContainer(
     overrides: [
       authRepositoryProvider.overrideWithValue(repository),
       authDeviceIdProvider.overrideWithValue(deviceId),
+      if (authorizer != null)
+        oauthAuthorizerProvider.overrideWithValue(authorizer),
     ],
   );
 }
@@ -364,6 +669,39 @@ AuthSession _anonymousSession(String anonymousId) {
   );
 }
 
+AuthSession _userSession({required String userId, required String email}) {
+  return AuthSession(
+    ownerType: OwnerType.user,
+    accessToken: '$userId-access',
+    refreshToken: '$userId-refresh',
+    userId: userId,
+    email: email,
+  );
+}
+
+class _FakeOAuthAuthorizer implements OAuthAuthorizer {
+  _FakeOAuthAuthorizer({this.result, this.resultFuture, this.error});
+
+  final OAuthAuthorizationResult? result;
+  final Future<OAuthAuthorizationResult?>? resultFuture;
+  final Exception? error;
+  final List<OAuthProvider> requests = [];
+
+  @override
+  Future<OAuthAuthorizationResult?> authorize(OAuthProvider provider) async {
+    requests.add(provider);
+    final error = this.error;
+    if (error != null) {
+      throw error;
+    }
+    final resultFuture = this.resultFuture;
+    if (resultFuture != null) {
+      return resultFuture;
+    }
+    return result;
+  }
+}
+
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository({
     this.storedSession,
@@ -374,6 +712,9 @@ class _FakeAuthRepository implements AuthRepository {
     List<AuthSession>? createdAnonymousSessions,
     List<Future<AuthSession>>? createAnonymousResults,
     List<Future<void>>? persistResults,
+    List<AuthSession>? googleCallbackSessions,
+    List<AuthSession>? appleCallbackSessions,
+    this.googleCallbackError,
   }) : _createAnonymousResults = [
          ...?createAnonymousResults,
          ...?createdAnonymousSessions?.map(Future<AuthSession>.value),
@@ -385,7 +726,9 @@ class _FakeAuthRepository implements AuthRepository {
                  createdAnonymousSessions.isEmpty))
            Future<AuthSession>.value(_anonymousSession('anon-default')),
        ],
-       _persistResults = [...?persistResults];
+       _persistResults = [...?persistResults],
+       _googleCallbackSessions = [...?googleCallbackSessions],
+       _appleCallbackSessions = [...?appleCallbackSessions];
 
   final AuthSession? storedSession;
   final AuthSession? validatedSession;
@@ -393,10 +736,15 @@ class _FakeAuthRepository implements AuthRepository {
   final AuthSession? previousAnonymousSession;
   final List<Future<AuthSession>> _createAnonymousResults;
   final List<Future<void>> _persistResults;
+  final List<AuthSession> _googleCallbackSessions;
+  final List<AuthSession> _appleCallbackSessions;
+  final Exception? googleCallbackError;
 
   final List<AuthSession> validatedSessions = [];
   final List<String> createdDeviceIds = [];
   final List<AuthSession> persistedSessions = [];
+  final List<_GoogleCallbackRequest> googleCallbackRequests = [];
+  final List<_AppleCallbackRequest> appleCallbackRequests = [];
   var clearedUserSessions = 0;
   var clearedAnonymousSessions = 0;
   var previousAnonymousReads = 0;
@@ -477,6 +825,48 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AuthSession> googleCallback({
+    required String code,
+    required String redirectUri,
+    String? anonymousId,
+  }) async {
+    googleCallbackRequests.add(
+      _GoogleCallbackRequest(
+        code: code,
+        redirectUri: redirectUri,
+        anonymousId: anonymousId,
+      ),
+    );
+    final error = googleCallbackError;
+    if (error != null) {
+      throw error;
+    }
+    if (_googleCallbackSessions.isNotEmpty) {
+      return _googleCallbackSessions.removeAt(0);
+    }
+    return _userSession(userId: 'google-user', email: 'google@example.com');
+  }
+
+  @override
+  Future<AuthSession> appleCallback({
+    required String code,
+    required String idToken,
+    String? anonymousId,
+  }) async {
+    appleCallbackRequests.add(
+      _AppleCallbackRequest(
+        code: code,
+        idToken: idToken,
+        anonymousId: anonymousId,
+      ),
+    );
+    if (_appleCallbackSessions.isNotEmpty) {
+      return _appleCallbackSessions.removeAt(0);
+    }
+    return _userSession(userId: 'apple-user', email: 'apple@example.com');
+  }
+
+  @override
   Future<void> sendForgotPasswordCode(String email) async {}
 
   @override
@@ -493,4 +883,50 @@ class _FakeAuthRepository implements AuthRepository {
     required String resetToken,
     required String newPassword,
   }) async {}
+}
+
+class _GoogleCallbackRequest {
+  const _GoogleCallbackRequest({
+    required this.code,
+    required this.redirectUri,
+    required this.anonymousId,
+  });
+
+  final String code;
+  final String redirectUri;
+  final String? anonymousId;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _GoogleCallbackRequest &&
+        other.code == code &&
+        other.redirectUri == redirectUri &&
+        other.anonymousId == anonymousId;
+  }
+
+  @override
+  int get hashCode => Object.hash(code, redirectUri, anonymousId);
+}
+
+class _AppleCallbackRequest {
+  const _AppleCallbackRequest({
+    required this.code,
+    required this.idToken,
+    required this.anonymousId,
+  });
+
+  final String code;
+  final String idToken;
+  final String? anonymousId;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _AppleCallbackRequest &&
+        other.code == code &&
+        other.idToken == idToken &&
+        other.anonymousId == anonymousId;
+  }
+
+  @override
+  int get hashCode => Object.hash(code, idToken, anonymousId);
 }
