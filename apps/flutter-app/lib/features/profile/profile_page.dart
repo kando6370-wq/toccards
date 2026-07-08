@@ -78,7 +78,10 @@ class _ProfileContent extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
         ],
-        const _ProfileEntry(label: 'Customer Support'),
+        _ProfileEntry(
+          label: 'Customer Support',
+          onTap: () => context.push('/customer-support'),
+        ),
         const _ProfileEntry(label: 'Score'),
         const _ProfileEntry(label: 'Share With Friends'),
         const _ProfileEntry(label: 'Terms Of Use'),
@@ -120,12 +123,13 @@ class _ProfileContent extends ConsumerWidget {
 }
 
 class _ProfileEntry extends StatelessWidget {
-  const _ProfileEntry({required this.label});
+  const _ProfileEntry({required this.label, this.onTap});
 
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(title: Text(label));
+    return ListTile(title: Text(label), onTap: onTap);
   }
 }

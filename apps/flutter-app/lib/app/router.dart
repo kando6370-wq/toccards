@@ -5,6 +5,7 @@ import '../features/card_detail/card_detail_page.dart';
 import '../features/collection/collection_page.dart';
 import '../features/home/home_page.dart';
 import '../features/profile/account_page.dart';
+import '../features/profile/customer_support_page.dart';
 import '../features/profile/profile_page.dart';
 import '../features/scan/scan_page.dart';
 import '../features/search/search_page.dart';
@@ -32,6 +33,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/account',
         builder: (context, state) => const AccountPage(),
+      ),
+      GoRoute(
+        path: '/customer-support',
+        builder: (context, state) => const CustomerSupportPage(),
       ),
     ],
   );

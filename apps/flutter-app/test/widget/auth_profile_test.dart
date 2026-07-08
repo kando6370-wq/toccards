@@ -8,6 +8,7 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/oauth_authorizer.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/profile/feedback_repository.dart';
 
 void main() {
   testWidgets('email auth rejects empty and invalid email before continuing', (
@@ -473,6 +474,125 @@ void main() {
   });
 
   testWidgets(
+    'customer support submits signed-in feedback and returns to Profile',
+    (tester) async {
+      final authRepository = _WidgetAuthRepository(
+        initialSession: _userSession(),
+      );
+      final feedbackRepository = _WidgetFeedbackRepository();
+
+      await tester.pumpWidget(
+        _testApp(authRepository, feedbackRepository: feedbackRepository),
+      );
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      await tester.tap(find.text('Customer Support'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Customer Support'), findsWidgets);
+      expect(find.text('Bug Report'), findsOneWidget);
+      expect(find.text('Feature Request'), findsOneWidget);
+      expect(find.text('Improvement'), findsOneWidget);
+      expect(find.text('Other'), findsWidgets);
+      expect(find.text('Subscription'), findsNothing);
+      final emailField = tester.widget<TextFormField>(
+        find.byKey(const ValueKey('feedback-email-field')),
+      );
+      expect(emailField.controller?.text, 'person@example.com');
+
+      await tester.tap(find.text('Bug Report'));
+      await tester.tap(find.text('Search'));
+      await tester.enterText(
+        find.byKey(const ValueKey('feedback-message-field')),
+        'Prices look stale.',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Submit Feedback'));
+      await tester.pumpAndSettle();
+
+      expect(feedbackRepository.submissions, [
+        const _FeedbackSubmissionRecord(
+          email: 'person@example.com',
+          types: ['Bug Report'],
+          functions: ['Search'],
+          message: 'Prices look stale.',
+        ),
+      ]);
+      expect(find.text('Feedback submitted. Thank you.'), findsOneWidget);
+      expect(find.text('Profile'), findsOneWidget);
+    },
+  );
+
+  testWidgets('customer support validates guest feedback before submit', (
+    tester,
+  ) async {
+    final authRepository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    final feedbackRepository = _WidgetFeedbackRepository();
+
+    await tester.pumpWidget(
+      _testApp(authRepository, feedbackRepository: feedbackRepository),
+    );
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
+    await tester.tap(find.text('Customer Support'));
+    await tester.pumpAndSettle();
+
+    final emailField = tester.widget<TextFormField>(
+      find.byKey(const ValueKey('feedback-email-field')),
+    );
+    expect(emailField.controller?.text, isEmpty);
+
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Submit Feedback'),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Submit Feedback'));
+    await tester.pumpAndSettle();
+    expect(find.text('Please enter your email.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('feedback-email-field')),
+      'not-an-email',
+    );
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Submit Feedback'),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Submit Feedback'));
+    await tester.pumpAndSettle();
+    expect(find.text('Please enter a valid email address.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('feedback-email-field')),
+      'guest@example.com',
+    );
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Submit Feedback'),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Submit Feedback'));
+    await tester.pumpAndSettle();
+    expect(find.text('Please enter your feedback.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('feedback-message-field')),
+      'x' * 1001,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Message must be 1000 characters or less.'),
+      findsOneWidget,
+    );
+    final submitFinder = find
+        .widgetWithText(FilledButton, 'Submit Feedback')
+        .last;
+    await tester.drag(find.byType(ListView).last, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    final submitButton = tester.widget<FilledButton>(submitFinder);
+    expect(submitButton.onPressed, isNull);
+    expect(feedbackRepository.submissions, isEmpty);
+  });
+
+  testWidgets(
     'logout from account creates a guest profile without previous anonymous',
     (tester) async {
       final repository = _WidgetAuthRepository(
@@ -573,12 +693,15 @@ Future<void> _continueWithEmail(WidgetTester tester, String email) async {
 ProviderScope _testApp(
   _WidgetAuthRepository repository, {
   OAuthAuthorizer? authorizer,
+  FeedbackRepository? feedbackRepository,
 }) {
   return ProviderScope(
     overrides: [
       authRepositoryProvider.overrideWithValue(repository),
       if (authorizer != null)
         oauthAuthorizerProvider.overrideWithValue(authorizer),
+      if (feedbackRepository != null)
+        feedbackRepositoryProvider.overrideWithValue(feedbackRepository),
     ],
     child: const KandoApp(),
   );
@@ -791,6 +914,67 @@ class _WidgetOAuthAuthorizer implements OAuthAuthorizer {
     }
     return result;
   }
+}
+
+class _WidgetFeedbackRepository implements FeedbackRepository {
+  final List<_FeedbackSubmissionRecord> submissions = [];
+
+  @override
+  Future<FeedbackReceipt> submit(FeedbackSubmission submission) async {
+    submissions.add(
+      _FeedbackSubmissionRecord(
+        email: submission.email,
+        types: submission.types,
+        functions: submission.functions,
+        message: submission.message,
+      ),
+    );
+    return const FeedbackReceipt(id: 'feedback-1');
+  }
+}
+
+class _FeedbackSubmissionRecord {
+  const _FeedbackSubmissionRecord({
+    required this.email,
+    required this.types,
+    required this.functions,
+    required this.message,
+  });
+
+  final String email;
+  final List<String> types;
+  final List<String> functions;
+  final String message;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _FeedbackSubmissionRecord &&
+        other.email == email &&
+        _listEquals(other.types, types) &&
+        _listEquals(other.functions, functions) &&
+        other.message == message;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    email,
+    Object.hashAll(types),
+    Object.hashAll(functions),
+    message,
+  );
+}
+
+bool _listEquals(List<String> left, List<String> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+
+  for (var index = 0; index < left.length; index += 1) {
+    if (left[index] != right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 class _LoginRequest {
