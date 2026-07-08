@@ -1,175 +1,180 @@
-# Codex 最小交接上下文（2026-07-07）
+# Codex 最小交接上下文（2026-07-08）
 
-## 1. 当前阶段一句话
+## 1. 当前接力点
 
-**M0 / M1 已完成，后续主线从 M2 数据代理层开始。**
+**当前 worktree：`D:\Projects\kando-global-project\.worktrees\m2-data-adapter`。**
+
+**当前分支：`codex/m2-data-adapter`，已推送远程。**
+
+当前主线已经推进到：
+
+- M5 卡牌详情：`completed`，5 / 5
+- M6 Profile / 客服 / 启动引导：`in_progress`，1 / 6
+- M7 管理后台：`not_started`
+
+下一轮默认从 **M6-2 Profile 登录态** 继续，不要进入 M7/Admin。
 
 ## 2. 真源说明
 
 ### 规则真源
+
 - `CLAUDE.md`
 - `docs/superpowers/claude-harness-rules.md`
+- 本仓库 AGENTS 规则：始终简体中文、先思后码、外科手术式修改、TDD、关键步骤检查点、显式失败
 
 ### 计划真源
+
 - `docs/tcg-card/05-plan/dev-plan.md`
 
 ### 运行态覆盖层
+
 - `docs/superpowers/execution-status.md`
 
 明确约束：
-- `dev-plan.md` 是**只读计划真源**。
-- `execution-status.md` 只负责展示**当前运行态、状态覆盖层与执行日志**。
-- `docs/superpowers/plans` 与 `docs/superpowers/specs` 已落库完成，可作为**历史设计参考**，但后续开发主线仍以 `dev-plan.md` 当前里程碑顺序为准。
 
-## 3. 当前状态结论
+- `dev-plan.md` 是只读计划真源。
+- `execution-status.md` 只负责展示当前运行态、状态覆盖层与执行日志。
+- `docs/superpowers/plans` 与 `docs/superpowers/specs` 可作为历史设计和实施参考。
 
-基于 `docs/superpowers/execution-status.md` 当前内容：
-- M0 工程基建：`completed`
-- M1 鉴权与账号：`completed`
-- M2 数据代理层：`not_started`
-- M3 及之后：`not_started`
+## 3. 本轮最新完成内容
 
-因此不要把仓库当前状态理解为“已经进入功能全面开发后期”；真实情况是：
-- **工程底座已稳定**
-- **账号鉴权闭环已完成**
-- **数据代理、资产 CRUD、核心页面、后台、上线准备尚未启动**
+### M5-4 Collection Item 增删改
 
-## 4. 当前“已完成”的准确含义
+已完成并推送：
 
-### M0 已完成
-表示 Monorepo、Workers、D1 schema、CI、依赖方向校验、执行状态 hook/文档这类工程底座已具备继续开发条件。
+- `9edcdfa docs: design M5 CardDetail Collection Item CRUD`
+- `66e73e3 docs: plan M5 CardDetail Collection Item CRUD`
+- `27972c7 feat: add CardDetail collection item draft state`
+- `adf6be0 feat: render CardDetail collection item editor`
+- `1bab1d0 docs: complete M5 CardDetail Collection Item CRUD status`
 
-### M1 已完成
-表示账号鉴权开发闭环已完成，当前最真实的实现集中在：
-- Workers auth route modules
-- D1 schema
-- `packages/auth-core`
-- Flutter auth shell
+完成能力：
 
-但这里的“完成”并不等于“生产上线已打通”。M1 里仍有明显的 **mock-first / 凭证待补** 边界：
-- Apple / Google OAuth 真实凭证仍是 TBD
-- 邮件服务真实提供商 / API Key 仍是 TBD
-- 真正的上线接入收口在 **M8**，不是 M1
+- CardDetail Collection Item 新增、编辑、删除
+- Raw / graded 表单联动
+- inline validation
+- 删除二次确认
+- mock-first，状态仅局限于 CardDetail
 
-因此不要直接把当前仓库当作“已具备生产 OAuth / 邮件发送能力”的状态来推进。
+### M5-5 价格降级展示
 
-## 5. 当前真实实现重心
+已完成并推送：
 
-当前仓库里最成熟、最能代表既有实现风格的部分是：
-- `apps/workers-api/src/auth/*`
-- `apps/workers-api/src/db/schema.ts`
-- `packages/auth-core/src/*`
-- `apps/flutter-app/lib/features/auth/auth_controller.dart`
+- `1c4aeca docs: design M5 CardDetail price fallback states`
+- `b3d187a docs: plan M5 CardDetail price fallback states`
+- `fcb6cf5 feat: add CardDetail price fallback state`
+- `543622f feat: render CardDetail price fallback states`
+- `c55c4ca docs: complete M5 CardDetail price fallback status`
 
-同时要避免被以下内容误导：
-- `apps/admin-web` 当前仍主要是 M0 占位骨架
-- `packages/api-client` / `packages/ui-kit` / `packages/workers-common` 仍偏 placeholder / 未来扩展点
+完成能力：
 
-## 6. 下一步切入建议
+- Price Tab market price 缺失展示 `--`
+- 7D change 缺失展示 `-/-`
+- price series 无数据展示 `No price data available.`
+- sold listings 无数据展示 `No sold listings available.`
+- 现有有数据路径保持不变
 
-### 默认接力点
-**从 M2 数据代理层开始，不要跳去 M3 / M4 / M7。**
+### M6-1 Profile 游客态
 
-### M2 的推荐推进顺序
-优先按 `dev-plan.md` 的既有顺序理解与拆分：
-1. `M2-1 DataSourceAdapter 抽象层`
-2. `M2-3 Workers KV 缓存层`
-3. `M2-4 Cache API 缓存层`
-4. `M2-8 接口端点注册`
+已完成并推送：
 
-### M2 的实现策略
-- 优先 **mock / adapter-first**
-- 先搭接口骨架、缓存骨架、降级骨架
-- 不要一上来绑定真实第三方服务商
-- 不要先扩 schema，先尽量复用现有契约推进
-- 后端风格优先沿用现有 Workers auth 模块：**route module 内直接处理 request parsing、SQL/D1、response**，不要默认新建 repository layer
+- `e5d323b docs: design M6 Profile guest state`
+- `469eabb docs: plan M6 Profile guest state`
+- `36c937c feat: complete Profile guest state`
+- `c01f451 docs: complete M6 Profile guest state status`
 
-## 7. 高风险约束
+完成能力：
 
-以下改动默认先确认：
+- Profile 游客态显示 `Guest session`
+- 显示当前 anonymous id
+- 显示 `Sign in / Sign up`
+- 保留 Customer Support / Score / Share With Friends / Terms Of Use / Privacy Policy
+- 游客态显示 Delete account，且不显示 Log Out
+- 补齐底部 `Version 1.0.0`
+
+## 4. 最新验证记录
+
+M6-1 收口前已执行并通过：
+
+- `flutter test test/widget/auth_profile_test.dart`：18 / 18 passed
+- `flutter test test/auth_controller_test.dart`：21 / 21 passed
+- `flutter pub get`：成功
+- `dart run melos run test`：144 tests passed
+- `flutter analyze`：No issues found
+- `dart format --set-exit-if-changed lib test`：0 changed
+
+M5-5 收口前已执行并通过：
+
+- `flutter test test/card_detail_controller_test.dart`：14 / 14 passed
+- `flutter test test/widget/card_detail_page_test.dart`：11 / 11 passed
+- `flutter test test/widget/search_page_test.dart`：12 / 12 passed
+- `dart run melos run test`：144 tests passed
+- `flutter analyze`：No issues found
+- `dart format --set-exit-if-changed lib test`：0 changed
+
+## 5. 下一步建议：M6-2 Profile 登录态
+
+推荐从 `docs/tcg-card/05-plan/dev-plan.md` 的 M6-2 继续：
+
+> Profile 登录态：Account 详情（email / display_name）、评分 App、分享 App、删除账号；参见 `modules/profile.md`
+
+建议最小切片：
+
+1. 先读：
+   - `CLAUDE.md`
+   - `docs/superpowers/claude-harness-rules.md`
+   - `docs/superpowers/execution-status.md`
+   - `docs/tcg-card/05-plan/dev-plan.md`
+   - `docs/tcg-card/00-product/modules/profile.md`
+   - `apps/flutter-app/lib/features/profile/profile_page.dart`
+   - `apps/flutter-app/lib/features/profile/account_page.dart`
+   - `apps/flutter-app/lib/features/auth/auth_controller.dart`
+   - `apps/flutter-app/test/widget/auth_profile_test.dart`
+2. 先落设计文档：
+   - `docs/superpowers/specs/YYYY-MM-DD-m6-profile-signed-in-state-design.md`
+3. 再落实施计划：
+   - `docs/superpowers/plans/YYYY-MM-DD-m6-profile-signed-in-state.md`
+4. 再按 TDD 实现。
+
+M6-2 推荐边界：
+
+- 只补 Flutter Profile 登录态和 Account 详情可见字段。
+- 复用现有 `AuthSession.email` / `AuthSession.userId`。
+- 不接真实评分、真实分享、真实协议链接；这些受 TBD M6-A / M8 影响。
+- 不改后端，不改数据库，不碰 M7/Admin。
+
+## 6. 高风险约束
+
+以下路径不要动，除非用户明确要求并再次确认：
+
+- `docs/tcg-card/**`
+- `apps/admin-web/**`
 - `apps/workers-api/src/db/schema.ts`
 - `apps/workers-api/src/db/migrations/*`
 - `apps/workers-api/wrangler.toml`
 - `apps/workers-api/drizzle.config.ts`
-- `docs/tcg-card/**`
 
-补充约束：
-- 完成门默认遵循 `pnpm build` + 相关单测
-- 不要把 `execution-status.md` 当计划真源
-- 不要假设 placeholder package 已成熟可复用
+继续开发时保持：
 
-## 8. 最小阅读清单
+- 非琐碎改动必须 TDD：先写失败测试，确认失败，再实现。
+- Flutter tests 不要并发跑。
+- 每个阶段完成后验证、提交、推送。
+- 不要进入 M7 管理后台；M7 由另一个 worktree `m7-admin` 处理。
+- 避免与 M7 合并冲突：不碰 `apps/admin-web/**`、Admin API、Admin schema 初始化、Admin docs 实现。
 
-### 第一层：规则层（先读）
-- `/Users/git/kando/toC/kando-global-project/CLAUDE.md`
-- `/Users/git/kando/toC/kando-global-project/docs/superpowers/claude-harness-rules.md`
-
-### 第二层：状态与计划层（再读）
-- `/Users/git/kando/toC/kando-global-project/docs/superpowers/execution-status.md`
-- `/Users/git/kando/toC/kando-global-project/docs/tcg-card/05-plan/dev-plan.md`
-
-### 第三层：实现锚点层（最后读）
-- `/Users/git/kando/toC/kando-global-project/apps/workers-api/src/index.ts`
-- `/Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/anonymous.ts`
-- `/Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/register.ts`
-- `/Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/login.ts`
-- `/Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/session.ts`
-- `/Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/forgot-password.ts`
-- `/Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/account.ts`
-- `/Users/git/kando/toC/kando-global-project/apps/workers-api/src/db/schema.ts`
-- `/Users/git/kando/toC/kando-global-project/packages/auth-core/src/index.ts`
-- `/Users/git/kando/toC/kando-global-project/apps/flutter-app/lib/features/auth/auth_controller.dart`
-
-可选补充测试锚点：
-- `/Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/anonymous.test.ts`
-
-## 9. 可直接发给 Codex 的交接模板
+## 7. 新会话可直接使用的提示词
 
 ```text
-请基于以下最小上下文继续开发，不要先全仓漫游：
+请基于当前 worktree `D:\Projects\kando-global-project\.worktrees\m2-data-adapter`
+继续开发，遵守：
+- CLAUDE.md
+- docs/superpowers/claude-harness-rules.md
+- docs/superpowers/codex-handoff.md
+- docs/superpowers/execution-status.md
 
-1) 先读规则：
-- /Users/git/kando/toC/kando-global-project/CLAUDE.md
-- /Users/git/kando/toC/kando-global-project/docs/superpowers/claude-harness-rules.md
-
-2) 再读当前状态与计划真源：
-- /Users/git/kando/toC/kando-global-project/docs/superpowers/execution-status.md
-- /Users/git/kando/toC/kando-global-project/docs/tcg-card/05-plan/dev-plan.md
-
-关键信息先记住：
-- M0/M1 已完成，M2+ 未开始
-- dev-plan.md 是只读计划真源
-- execution-status.md 只是运行态覆盖层
-- docs/superpowers/plans 与 docs/superpowers/specs 内容都已完成，可作历史参考
-- 当前最真实实现集中在 workers auth / schema / flutter auth shell
-
-3) 再读当前实现锚点：
-- /Users/git/kando/toC/kando-global-project/apps/workers-api/src/index.ts
-- /Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/anonymous.ts
-- /Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/register.ts
-- /Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/login.ts
-- /Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/session.ts
-- /Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/forgot-password.ts
-- /Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/account.ts
-- /Users/git/kando/toC/kando-global-project/apps/workers-api/src/db/schema.ts
-- /Users/git/kando/toC/kando-global-project/packages/auth-core/src/index.ts
-- /Users/git/kando/toC/kando-global-project/apps/flutter-app/lib/features/auth/auth_controller.dart
-
-可选补充：
-- /Users/git/kando/toC/kando-global-project/apps/workers-api/src/auth/anonymous.test.ts
-
-继续开发时请遵守：
-- 默认从 M2 数据代理层开始，不要跳主线
-- 不要把 execution-status 当计划真源
-- 不要假设 packages/api-client / ui-kit / workers-common 已经成熟
-- 非必要不要改 schema.ts / migrations / wrangler.toml / drizzle.config.ts
-- 优先沿用现有 workers auth 的实现风格：route module 内直接处理 SQL、D1、response
-- 若做 M2，先按 dev-plan 用 mock adapter / cache / 降级骨架推进，再接真实第三方
+当前分支 `codex/m2-data-adapter` 已推送远程。
+M5 已全部完成，M6-1 Profile 游客态已完成。
+请从 M6-2 Profile 登录态继续，做到 M7 管理后台之前停止。
+不要触碰 docs/tcg-card/**、apps/admin-web/**、schema/migrations/wrangler/drizzle。
+按 TDD 执行，阶段完成后验证、提交并推送。
 ```
-
-## 10. 当前可附带说明的验证状态
-
-如需把当前代码可运行状态一起交接，可附带说明本轮已验证：
-- `pnpm build`
-- `pnpm --filter @kando/workers-api test`
-- `pnpm --filter @kando/auth-core test`
