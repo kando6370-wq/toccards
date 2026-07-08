@@ -38,8 +38,10 @@ class _ProfileContent extends ConsumerWidget {
     final session = authState.session;
     final isUser = session?.ownerType == OwnerType.user;
     final title = isUser ? 'Signed in' : 'Guest session';
+    final emailText = session?.email ?? 'Unknown email';
+    final userIdText = session?.userId ?? 'Unknown user';
     final identity = isUser
-        ? (session?.email ?? session?.userId ?? 'User')
+        ? emailText
         : (session?.anonymousId ?? 'Anonymous guest');
 
     return ListView(
@@ -47,6 +49,13 @@ class _ProfileContent extends ConsumerWidget {
         Text(title, style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
         Text(identity, style: Theme.of(context).textTheme.bodyLarge),
+        if (isUser) ...[
+          const SizedBox(height: 4),
+          Text(
+            'ID: $userIdText',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
         if (authState.pendingMigrationAnonymousId != null) ...[
           const SizedBox(height: 16),
           Text('Pending guest: ${authState.pendingMigrationAnonymousId}'),
@@ -74,7 +83,18 @@ class _ProfileContent extends ConsumerWidget {
         const _ProfileEntry(label: 'Share With Friends'),
         const _ProfileEntry(label: 'Terms Of Use'),
         const _ProfileEntry(label: 'Privacy Policy'),
-        if (!isUser) ...[
+        if (isUser) ...[
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: () async {
+              await ref.read(authControllerProvider.notifier).logout();
+              if (context.mounted) {
+                context.go('/');
+              }
+            },
+            child: const Text('Log Out'),
+          ),
+        ] else ...[
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: () {

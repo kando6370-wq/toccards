@@ -446,6 +446,21 @@ void main() {
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
 
+    expect(find.text('Signed in'), findsOneWidget);
+    expect(find.text('person@example.com'), findsWidgets);
+    expect(find.text('ID: user-1'), findsOneWidget);
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Customer Support'), findsOneWidget);
+    expect(find.text('Score'), findsOneWidget);
+    expect(find.text('Share With Friends'), findsOneWidget);
+    expect(find.text('Terms Of Use'), findsOneWidget);
+    expect(find.text('Privacy Policy'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Log Out'), 200);
+    expect(find.text('Log Out'), findsOneWidget);
+    expect(find.text('Sign in / Sign up'), findsNothing);
+    await tester.scrollUntilVisible(find.text('Version 1.0.0'), 200);
+    expect(find.text('Version 1.0.0'), findsOneWidget);
+    await tester.ensureVisible(find.text('Account'));
     await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
 
