@@ -407,6 +407,8 @@ void main() {
       await tester.pumpAndSettle();
       await _openProfileTab(tester);
 
+      expect(find.text('Guest session'), findsOneWidget);
+      expect(find.text('anon-existing'), findsOneWidget);
       expect(find.text('Sign in / Sign up'), findsOneWidget);
       expect(find.text('Customer Support'), findsOneWidget);
       expect(find.text('Score'), findsOneWidget);
@@ -415,7 +417,10 @@ void main() {
       expect(find.text('Privacy Policy'), findsOneWidget);
       expect(find.text('Delete account'), findsOneWidget);
       expect(find.text('Log Out'), findsNothing);
+      await tester.scrollUntilVisible(find.text('Version 1.0.0'), 200);
+      expect(find.text('Version 1.0.0'), findsOneWidget);
 
+      await tester.ensureVisible(find.text('Delete account'));
       await tester.tap(find.text('Delete account'));
       await tester.pumpAndSettle();
 

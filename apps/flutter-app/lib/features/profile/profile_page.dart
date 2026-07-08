@@ -7,6 +7,8 @@ import '../auth/auth_models.dart';
 import '../auth/ui/auth_sheet.dart';
 import 'account_page.dart';
 
+const profileVersionText = 'Version 1.0.0';
+
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
@@ -81,6 +83,8 @@ class _ProfileContent extends ConsumerWidget {
             child: const Text('Delete account'),
           ),
         ],
+        const SizedBox(height: 24),
+        Text(profileVersionText, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
