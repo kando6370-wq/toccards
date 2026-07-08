@@ -199,6 +199,7 @@ void main() {
     expect(find.text('Card Detail'), findsOneWidget);
     expect(find.text('Squirtle'), findsOneWidget);
     expect(find.text('Mega Evolution Promos'), findsOneWidget);
+    expect(find.text('Collect'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('Price overview'),
@@ -207,7 +208,6 @@ void main() {
     );
 
     expect(find.text('Price overview'), findsOneWidget);
-    expect(find.text('Collect'), findsOneWidget);
   });
 
   testWidgets('tapping an owned Search card opens owned CardDetail', (

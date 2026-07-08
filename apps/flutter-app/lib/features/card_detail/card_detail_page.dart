@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'card_detail_controller.dart';
+import 'card_detail_models.dart';
 
 class CardDetailPage extends ConsumerWidget {
   const CardDetailPage({required this.cardId, super.key});
@@ -40,9 +41,9 @@ class CardDetailPage extends ConsumerWidget {
                   _BasicInfo(state: state),
                   const SizedBox(height: 16),
                   if (state.detail.isCollected)
-                    _OwnedDetailTabs(state: state)
+                    _OwnedDetailTabs(state: state, controller: controller)
                   else
-                    _PriceOverview(state: state),
+                    _PriceOverview(state: state, controller: controller),
                 ],
               ),
       ),
@@ -170,9 +171,10 @@ class _BasicInfo extends StatelessWidget {
 }
 
 class _OwnedDetailTabs extends StatelessWidget {
-  const _OwnedDetailTabs({required this.state});
+  const _OwnedDetailTabs({required this.state, required this.controller});
 
   final CardDetailState state;
+  final CardDetailController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +194,9 @@ class _OwnedDetailTabs extends StatelessWidget {
             child: TabBarView(
               children: [
                 _CollectionItems(state: state),
-                SingleChildScrollView(child: _PriceOverview(state: state)),
+                SingleChildScrollView(
+                  child: _PriceOverview(state: state, controller: controller),
+                ),
               ],
             ),
           ),
@@ -242,22 +246,65 @@ class _CollectionItems extends StatelessWidget {
 }
 
 class _PriceOverview extends StatelessWidget {
-  const _PriceOverview({required this.state});
+  const _PriceOverview({required this.state, required this.controller});
 
   final CardDetailState state;
+  final CardDetailController controller;
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Price overview', style: Theme.of(context).textTheme.titleLarge),
+        Text('Price overview', style: textTheme.titleLarge),
         const SizedBox(height: 8),
-        for (final row in state.marketRows)
+        Text('Price range', style: textTheme.titleMedium),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<CardPriceRange>(
+            showSelectedIcon: false,
+            segments: [
+              for (final range in CardPriceRange.values)
+                ButtonSegment(value: range, label: Text(range.label)),
+            ],
+            selected: {state.selectedPriceRange},
+            onSelectionChanged: (selection) {
+              controller.selectPriceRange(selection.first);
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text('Price series', style: textTheme.titleMedium),
+        const SizedBox(height: 8),
+        for (final row in state.priceSeriesRows)
+          Card(
+            child: ListTile(
+              title: Text(row.dateLabel),
+              trailing: Text(row.priceText),
+            ),
+          ),
+        const SizedBox(height: 16),
+        Text('Market Prices', style: textTheme.titleMedium),
+        const SizedBox(height: 8),
+        for (final row in state.priceTabMarketRows)
           Card(
             child: ListTile(
               title: Text(row.label),
-              subtitle: Text('30D ${row.changeText}'),
+              subtitle: Text('7D ${row.changeText}'),
+              trailing: Text(row.priceText),
+            ),
+          ),
+        const SizedBox(height: 16),
+        Text('Sold listings', style: textTheme.titleMedium),
+        const SizedBox(height: 8),
+        for (final row in state.soldListingRows)
+          Card(
+            child: ListTile(
+              title: Text(row.title),
+              subtitle: Text('${row.dateText} - ${row.platform}'),
               trailing: Text(row.priceText),
             ),
           ),

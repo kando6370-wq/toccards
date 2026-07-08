@@ -19,14 +19,21 @@ void main() {
     expect(find.text('Promo #039'), findsOneWidget);
     expect(find.text('Holofoil'), findsOneWidget);
     expect(find.text('English'), findsOneWidget);
+    expect(find.text('Collect'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('Price overview'), 400);
 
     expect(find.text('Price overview'), findsOneWidget);
+    expect(find.text('Price range'), findsOneWidget);
+    expect(find.text('30D'), findsOneWidget);
+    expect(find.text('Price series'), findsOneWidget);
+    expect(find.text('30 days ago'), findsOneWidget);
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Market Prices'), findsOneWidget);
+    expect(find.text('Sold listings'), findsOneWidget);
     expect(find.text('Raw Near Mint'), findsOneWidget);
-    expect(find.text(r'$32.13'), findsOneWidget);
-    expect(find.text('30D +4.76%'), findsWidgets);
-    expect(find.text('Collect'), findsOneWidget);
+    expect(find.text(r'$32.13'), findsWidgets);
+    expect(find.text('7D +2.19%'), findsOneWidget);
     expect(find.text('Collection Item'), findsNothing);
     expect(find.text('Remove from Portfolio'), findsNothing);
   });
@@ -92,8 +99,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Price overview'), findsOneWidget);
+    expect(find.text('Price range'), findsOneWidget);
+    expect(find.text('Market Prices'), findsOneWidget);
+    expect(find.text('Sold listings'), findsOneWidget);
     expect(find.text('PSA 10'), findsOneWidget);
-    expect(find.text(r'$780.00'), findsOneWidget);
+    expect(find.text(r'$780.00'), findsWidgets);
+  });
+
+  testWidgets('owned Price Tab range selector updates visible series rows', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
+    );
+
+    await tester.scrollUntilVisible(find.text('Price'), 400);
+    await tester.tap(find.text('Price'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('7D'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('7 days ago'), findsOneWidget);
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Sold listings'), findsOneWidget);
   });
 
   testWidgets('unknown CardDetail shows shared failure copy', (tester) async {
