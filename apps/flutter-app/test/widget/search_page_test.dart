@@ -209,6 +209,30 @@ void main() {
     expect(find.text('Price overview'), findsOneWidget);
     expect(find.text('Collect'), findsOneWidget);
   });
+
+  testWidgets('tapping an owned Search card opens owned CardDetail', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _SearchTestAppWithRoutes()),
+    );
+
+    await tester.tap(find.byKey(const Key('search-card-charizard-ex')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Card Detail'), findsOneWidget);
+    expect(find.text('Charizard ex'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Collection Item'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+
+    expect(find.text('Collection Item'), findsOneWidget);
+    expect(find.text('Main'), findsOneWidget);
+    expect(find.text('PSA 10'), findsOneWidget);
+  });
 }
 
 class _SearchTestApp extends StatelessWidget {
