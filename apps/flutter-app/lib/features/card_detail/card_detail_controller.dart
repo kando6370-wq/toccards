@@ -44,6 +44,8 @@ const _quantityMinText = 'Quantity must be at least 1.';
 const _quantityWholeText = 'Quantity must be a whole number.';
 const _invalidPriceText = 'Please enter a valid price.';
 const _notesTooLongText = 'Notes must be 500 characters or less.';
+const _priceSeriesFallbackText = 'No price data available.';
+const _soldListingsFallbackText = 'No sold listings available.';
 const _cardDetailStateUnset = Object();
 
 class CardCollectionItemDraft {
@@ -223,6 +225,14 @@ class CardDetailState {
     }).toList();
   }
 
+  bool get hasPriceSeriesRows {
+    return priceSeriesRows.isNotEmpty;
+  }
+
+  String get priceSeriesFallbackText {
+    return _priceSeriesFallbackText;
+  }
+
   List<CardMarketRow> get priceTabMarketRows {
     return detail.marketPrices.map((price) {
       return CardMarketRow(
@@ -242,6 +252,14 @@ class CardDetailState {
         platform: listing.platform,
       );
     }).toList();
+  }
+
+  bool get hasSoldListingRows {
+    return soldListingRows.isNotEmpty;
+  }
+
+  String get soldListingsFallbackText {
+    return _soldListingsFallbackText;
   }
 
   CardMarketPrice get _primaryMarketPrice {

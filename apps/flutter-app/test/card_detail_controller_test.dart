@@ -62,6 +62,23 @@ void main() {
     expect(state.marketRows.single.changeText, '-/-');
   });
 
+  test('missing Price Tab data exposes section fallback state', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final state = container.read(cardDetailControllerProvider('mystery-promo'));
+
+    expect(state.priceTabMarketRows.single.label, 'Raw');
+    expect(state.priceTabMarketRows.single.priceText, '--');
+    expect(state.priceTabMarketRows.single.changeText, '-/-');
+    expect(state.priceSeriesRows, isEmpty);
+    expect(state.hasPriceSeriesRows, isFalse);
+    expect(state.priceSeriesFallbackText, 'No price data available.');
+    expect(state.soldListingRows, isEmpty);
+    expect(state.hasSoldListingRows, isFalse);
+    expect(state.soldListingsFallbackText, 'No sold listings available.');
+  });
+
   test('quick Collect marks card collected and clears Wishlist', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
