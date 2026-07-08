@@ -26,6 +26,13 @@ type WishlistRow = {
   created_at: string;
 };
 
+type CollectionItemRow = {
+  id: string;
+  owner_type: OwnerType;
+  owner_id: string;
+  card_ref: string;
+};
+
 const JWT_SECRET = "test-secret";
 const NOW = "2026-07-07T00:00:00.000Z";
 const LATER = "2099-01-01T00:00:00.000Z";
@@ -35,6 +42,7 @@ class FakeD1Database {
   users: OwnerRow[] = [];
   anonymousAccounts: OwnerRow[] = [];
   wishlist: WishlistRow[] = [];
+  collectionItems: CollectionItemRow[] = [];
 
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
@@ -72,6 +80,16 @@ class FakeD1Statement {
       const [ownerId] = this.args;
       return (this.db.users.find(
         (row) => row.id === ownerId && row.deleted_at === null,
+      ) ?? null) as T | null;
+    }
+
+    if (this.sql.includes("FROM collection_item")) {
+      const [ownerType, ownerId, cardRef] = this.args;
+      return (this.db.collectionItems.find(
+        (row) =>
+          row.owner_type === ownerType &&
+          row.owner_id === ownerId &&
+          row.card_ref === cardRef,
       ) ?? null) as T | null;
     }
 
@@ -239,6 +257,28 @@ describe("wishlist routes", () => {
     });
   });
 
+  it("returns CONFLICT when the card is already in Portfolio because owned cards must not also stay wanted", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.collectionItems.push(item({ card_ref: "card-a" }));
+
+    const response = await app.request(
+      "/api/v1/wishlist",
+      {
+        method: "POST",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({ card_ref: "card-a" }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      success: false,
+      error: { code: "CONFLICT", message: "Conflict." },
+    });
+    expect(db.wishlist).toEqual([]);
+  });
+
   it("rejects blank card_ref because wishlist rows must identify a third-party card", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
 
@@ -360,6 +400,16 @@ function wishlist(overrides: Partial<WishlistRow>): WishlistRow {
     owner_id: "anon-1",
     card_ref: "card-a",
     created_at: NOW,
+    ...overrides,
+  };
+}
+
+function item(overrides: Partial<CollectionItemRow>): CollectionItemRow {
+  return {
+    id: "item",
+    owner_type: "anonymous",
+    owner_id: "anon-1",
+    card_ref: "card-a",
     ...overrides,
   };
 }

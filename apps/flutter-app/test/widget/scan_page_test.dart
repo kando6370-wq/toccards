@@ -9,24 +9,65 @@ import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_page.dart';
 
 void main() {
-  testWidgets('Scan placeholder guides users to Search', (tester) async {
-    await _pumpScanTestApp(tester);
+  testWidgets(
+    'Scan creates reviewable matches because scans are not saved automatically',
+    (tester) async {
+      await _pumpScanTestApp(tester);
 
-    expect(find.text('扫描功能即将上线'), findsOneWidget);
-    expect(
-      find.text(
-        'Scan is coming soon. Use Search to find cards manually for now.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Search Cards'), findsOneWidget);
+      expect(find.text('Take Photo'), findsOneWidget);
+      expect(find.text('Choose from Library'), findsOneWidget);
+      expect(find.text('Review Your Matches'), findsOneWidget);
+      expect(
+        find.text(
+          'Scan is coming soon. Use Search to find cards manually for now.',
+        ),
+        findsNothing,
+      );
 
-    await tester.tap(find.text('Search Cards'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Take Photo'));
+      await tester.pump();
 
-    expect(find.text('Search cards, sets, or characters'), findsOneWidget);
-    expect(find.text('Squirtle'), findsOneWidget);
-  });
+      expect(find.text('Scanning'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('Matched'), findsOneWidget);
+      expect(find.text('Mega Lucario ex'), findsOneWidget);
+
+      await tester.tap(find.text('Review Your Matches'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adding to Main'), findsOneWidget);
+      expect(find.text('Collection Item'), findsOneWidget);
+      expect(find.text('Portfolio'), findsNothing);
+      expect(find.text('Near Mint (NM)'), findsOneWidget);
+
+      await tester.tap(find.text('Add this card'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Added to Portfolio'), findsOneWidget);
+      expect(find.text('Mega Lucario ex'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'No Match scan offers Search Manually because unmatched cards cannot enter review',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.text('Choose from Library'));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('No Match Found'), findsOneWidget);
+      expect(find.text('Search Manually'), findsOneWidget);
+
+      await tester.tap(find.text('Search Manually'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Search cards, sets, or characters'), findsOneWidget);
+      expect(find.text('Squirtle'), findsOneWidget);
+    },
+  );
 
   testWidgets('Scan bottom navigation can open app sections', (tester) async {
     await _pumpScanTestApp(tester);

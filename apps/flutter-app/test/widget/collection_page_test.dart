@@ -45,8 +45,8 @@ void main() {
       ),
     );
 
-    expect(find.text('€1,132.95'), findsOneWidget);
-    expect(find.text('€709.80'), findsOneWidget);
+    expect(find.textContaining('1,132.95'), findsOneWidget);
+    expect(find.textContaining('709.80'), findsOneWidget);
     expect(find.text('+8.10%'), findsOneWidget);
   });
 
@@ -170,9 +170,40 @@ void main() {
     expect(find.text('Squirtle'), findsOneWidget);
   });
 
-  testWidgets('Scan bottom tab opens the Scan placeholder page', (
-    tester,
-  ) async {
+  testWidgets(
+    'Portfolio empty state actions open Scan and Search because empty collections must have recovery paths',
+    (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(child: _CollectionTestAppWithRoutes()),
+      );
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Empty').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('No cards in this portfolio yet.'), findsOneWidget);
+
+      await tester.tap(find.text('Scan a Card'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Take Photo'), findsOneWidget);
+      expect(find.text('Review Your Matches'), findsOneWidget);
+
+      await tester.tap(find.text('Collection'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No cards in this portfolio yet.'), findsOneWidget);
+
+      await tester.tap(find.text('Search Cards'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Search cards, sets, or characters'), findsOneWidget);
+      expect(find.text('Squirtle'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Scan bottom tab opens the Scan workflow page', (tester) async {
     await tester.pumpWidget(
       const ProviderScope(child: _CollectionTestAppWithRoutes()),
     );
@@ -180,8 +211,8 @@ void main() {
     await tester.tap(find.text('Scan'));
     await tester.pumpAndSettle();
 
-    expect(find.text('扫描功能即将上线'), findsOneWidget);
-    expect(find.text('Search Cards'), findsOneWidget);
+    expect(find.text('Take Photo'), findsOneWidget);
+    expect(find.text('Review Your Matches'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
 }

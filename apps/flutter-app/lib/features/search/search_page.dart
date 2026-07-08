@@ -48,12 +48,7 @@ class SearchPage extends ConsumerWidget {
                           icon: const Icon(Icons.close),
                         ),
                       IconButton(
-                        onPressed: () {
-                          showKandoToast(
-                            context,
-                            message: 'This section is coming soon.',
-                          );
-                        },
+                        onPressed: () => context.go('/scan'),
                         icon: const Icon(Icons.qr_code_scanner_outlined),
                       ),
                     ],

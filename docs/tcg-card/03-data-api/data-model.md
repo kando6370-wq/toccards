@@ -327,7 +327,7 @@ CREATE TABLE app_config (
 | key | value 说明 |
 |---|---|
 | `onboarding_images` | 启动引导页图片 URL 数组（JSON） |
-| `upgrade_prompt` | 版本升级提示内容（JSON：最低版本 / 文案 / 链接） |
+| `upgrade_prompt` | 版本升级提示内容（JSON：目标版本 `latest_version` / 是否强更 `force_update` / 文案 / 链接；是否强更由后台配置决定） |
 | `announcement` | 首页公告内容（JSON：标题 / 正文 / 过期时间） |
 | `terms_url` | 服务条款链接（⚠️ TBD） |
 | `privacy_url` | 隐私政策链接（⚠️ TBD） |

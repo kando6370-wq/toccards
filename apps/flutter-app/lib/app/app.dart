@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/app_upgrade/app_upgrade_gate.dart';
 import 'router.dart';
 import 'theme.dart';
 
@@ -15,6 +16,9 @@ class KandoApp extends ConsumerWidget {
       title: 'Kando',
       theme: buildKandoTheme(),
       routerConfig: router,
+      builder: (context, child) {
+        return AppUpgradeGate(child: child ?? const SizedBox.shrink());
+      },
     );
   }
 }

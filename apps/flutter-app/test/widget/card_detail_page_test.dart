@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -19,7 +20,8 @@ void main() {
     expect(find.text('Promo #039'), findsOneWidget);
     expect(find.text('Holofoil'), findsOneWidget);
     expect(find.text('English'), findsOneWidget);
-    expect(find.text('Collect'), findsOneWidget);
+    expect(find.text('Add to Portfolio'), findsOneWidget);
+    expect(find.text('Collect'), findsNothing);
 
     await tester.scrollUntilVisible(find.text('Price overview'), 400);
 
@@ -31,7 +33,7 @@ void main() {
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Sold listings'), findsOneWidget);
-    expect(find.text('Raw Near Mint'), findsOneWidget);
+    expect(find.text('Raw Near Mint (NM)'), findsOneWidget);
     expect(find.text(r'$32.13'), findsWidgets);
     expect(find.text('7D +2.19%'), findsOneWidget);
     expect(find.text('Collection Item'), findsNothing);
@@ -56,31 +58,52 @@ void main() {
     expect(find.text(noContentAvailableText), findsNothing);
   });
 
-  testWidgets('quick Collect updates quantity and clears Wishlist state', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: _CardDetailTestApp(cardId: 'one-piece-luffy')),
-    );
+  testWidgets(
+    'Add to Portfolio uses item form because details need explicit ownership fields',
+    (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: _CardDetailTestApp(cardId: 'one-piece-luffy'),
+        ),
+      );
 
-    expect(find.byIcon(Icons.favorite), findsOneWidget);
+      expect(find.byIcon(Icons.favorite), findsOneWidget);
 
-    await tester.tap(find.text('Collect'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Add to Portfolio'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Collected'), findsOneWidget);
-    expect(find.text('Qty: 1'), findsOneWidget);
-    expect(find.byIcon(Icons.favorite), findsNothing);
-    expect(find.byIcon(Icons.favorite_border), findsNothing);
-    expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
+      expect(find.text('Ownership Summary'), findsOneWidget);
+      expect(find.text('Adding to Main'), findsOneWidget);
+      expect(find.byKey(const Key('card-detail-item-portfolio')), findsNothing);
+      expect(find.text('Near Mint (NM)'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+      await tester.drag(
+        find.byKey(const Key('card-detail-scroll')),
+        const Offset(0, -420),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add').last);
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      final savedState = container.read(
+        cardDetailControllerProvider('one-piece-luffy'),
+      );
+      final savedDetail = savedState.detail;
 
-    expect(find.text('Collection Item'), findsOneWidget);
-    expect(find.text('Main'), findsOneWidget);
-    expect(find.text('Raw / Near Mint'), findsOneWidget);
-    expect(find.text('--'), findsOneWidget);
-  });
+      expect(savedDetail.isCollected, isTrue);
+      expect(savedDetail.quantity, 1);
+      expect(savedDetail.isWishlisted, isFalse);
+      expect(find.text('Ownership Summary'), findsNothing);
+      expect(savedState.collectionItemRows.single.portfolioName, 'Main');
+      expect(
+        savedState.collectionItemRows.single.statusText,
+        'Raw / Near Mint (NM)',
+      );
+      expect(savedState.collectionItemRows.single.purchasePriceText, '--');
+    },
+  );
 
   testWidgets('owned CardDetail defaults to Collection Item content', (
     tester,
@@ -159,6 +182,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ownership Summary'), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-item-portfolio')), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('card-detail-item-quantity')),
       '3',
@@ -187,7 +211,7 @@ void main() {
 
     expect(find.text('Ownership Summary'), findsNothing);
     expect(find.text('Qty: 3'), findsOneWidget);
-    expect(find.text('Raw / Near Mint'), findsOneWidget);
+    expect(find.text('Raw / Near Mint (NM)'), findsOneWidget);
     expect(find.text('Cracked slab for binder.'), findsOneWidget);
   });
 
@@ -247,7 +271,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Collect'), findsOneWidget);
+    expect(find.text('Add to Portfolio'), findsOneWidget);
     expect(find.text('Collection Item'), findsNothing);
     expect(find.text('Price overview'), findsOneWidget);
   });

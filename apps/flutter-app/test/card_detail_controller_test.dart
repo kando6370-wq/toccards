@@ -123,7 +123,10 @@ void main() {
       expect(state.detail.isCollected, isTrue);
       expect(state.detail.isWishlisted, isFalse);
       expect(state.collectionItemRows.single.portfolioName, 'Main');
-      expect(state.collectionItemRows.single.statusText, 'Raw / Near Mint');
+      expect(
+        state.collectionItemRows.single.statusText,
+        'Raw / Near Mint (NM)',
+      );
       expect(state.collectionItemRows.single.purchasePriceText, '--');
     },
   );
@@ -139,7 +142,7 @@ void main() {
       quantityText: '2',
       portfolioName: 'Sealed',
       grader: 'Raw',
-      condition: 'Lightly Played',
+      condition: 'Near Mint (NM)',
       purchasePriceText: '12.50',
       notes: 'Second binder copy.',
     );
@@ -152,7 +155,7 @@ void main() {
     expect(state.detail.isWishlisted, isFalse);
     expect(state.collectionItemRows.single.portfolioName, 'Sealed');
     expect(state.collectionItemRows.single.quantityText, 'Qty: 2');
-    expect(state.collectionItemRows.single.statusText, 'Raw / Lightly Played');
+    expect(state.collectionItemRows.single.statusText, 'Raw / Near Mint (NM)');
     expect(state.collectionItemRows.single.purchasePriceText, r'$12.50');
     expect(state.collectionItemRows.single.notes, 'Second binder copy.');
     expect(state.collectionItemDraft, isNull);
@@ -168,7 +171,7 @@ void main() {
     controller.updateCollectionItemDraft(
       quantityText: '3',
       grader: 'Raw',
-      condition: 'Near Mint',
+      condition: 'Near Mint (NM)',
       purchasePriceText: '640',
       notes: 'Cracked slab for binder.',
     );
@@ -177,7 +180,7 @@ void main() {
     final row = container.read(provider).collectionItemRows.single;
 
     expect(row.quantityText, 'Qty: 3');
-    expect(row.statusText, 'Raw / Near Mint');
+    expect(row.statusText, 'Raw / Near Mint (NM)');
     expect(row.purchasePriceText, r'$640.00');
     expect(row.notes, 'Cracked slab for binder.');
   });

@@ -23,7 +23,7 @@ class MockCardDetailRepository implements CardDetailRepository {
         isWishlisted: false,
         marketPrices: [
           CardMarketPrice(
-            label: 'Raw Near Mint',
+            label: 'Raw Near Mint (NM)',
             priceUsd: 32.13,
             previous30dPriceUsd: 30.67,
             previous7dPriceUsd: 31.44,
@@ -85,7 +85,7 @@ class MockCardDetailRepository implements CardDetailRepository {
             previous7dPriceUsd: 760,
           ),
           CardMarketPrice(
-            label: 'Raw Near Mint',
+            label: 'Raw Near Mint (NM)',
             priceUsd: 215,
             previous30dPriceUsd: 204.5,
             previous7dPriceUsd: 209,
@@ -135,7 +135,7 @@ class MockCardDetailRepository implements CardDetailRepository {
           ),
           CardSoldListing(
             dateText: '2026-06-28',
-            title: 'Charizard ex Raw Near Mint',
+            title: 'Charizard ex Raw Near Mint (NM)',
             priceUsd: 215,
             platform: 'TCGplayer',
           ),
@@ -173,7 +173,7 @@ class MockCardDetailRepository implements CardDetailRepository {
         isWishlisted: true,
         marketPrices: [
           CardMarketPrice(
-            label: 'Raw Near Mint',
+            label: 'Raw Near Mint (NM)',
             priceUsd: 330,
             previous30dPriceUsd: 306.69,
           ),

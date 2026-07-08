@@ -252,7 +252,7 @@ open ──→ in_progress ──→ closed
 | 配置 Key | 展示名称 | value 说明 | 编辑形式 |
 |---|---|---|---|
 | `onboarding_images` | 启动引导图 | URL 数组（JSON），每项为一张引导图 URL | 多行 URL 输入列表；支持增删排序 |
-| `upgrade_prompt` | 版本升级提示 | JSON：`{ "min_version": "1.0.0", "title": "...", "message": "...", "store_url": "..." }` | 多字段表单 |
+| `upgrade_prompt` | 版本升级提示 | JSON：`{ "latest_version": "1.0.1", "force_update": true, "title": "...", "message": "...", "store_url": "..." }`；`force_update` 由运营决定本次升级是否强更 | 多字段表单 |
 | `announcement` | 首页公告 | JSON：`{ "title": "...", "body": "...", "expires_at": "ISO 8601" }` | 多字段表单 + 日期选择器 |
 | `terms_url` | 服务条款链接 | 字符串 URL（⚠️ TBD：实际值待确认） | 单行 URL 输入 |
 | `privacy_url` | 隐私政策链接 | 字符串 URL（⚠️ TBD：实际值待确认） | 单行 URL 输入 |

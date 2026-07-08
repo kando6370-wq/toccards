@@ -143,6 +143,33 @@ void main() {
     expect(find.text('flutter.apple@example.com'), findsWidgets);
   });
 
+  testWidgets(
+    'auth sheet shows agreement links because every sign-in method must disclose legal terms',
+    (tester) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      await _openAuthSheet(tester);
+
+      final agreement = find.byKey(const Key('auth-agreement-text'));
+      expect(agreement, findsOneWidget);
+      final agreementText = tester
+          .widget<RichText>(agreement)
+          .text
+          .toPlainText();
+      expect(
+        agreementText,
+        'By continuing, you agree to our Terms of Use and Privacy Policy.',
+      );
+      expect(agreementText, contains('Terms of Use'));
+      expect(agreementText, contains('Privacy Policy'));
+    },
+  );
+
   testWidgets('oauth authorization failure shows retry copy and keeps guest', (
     tester,
   ) async {

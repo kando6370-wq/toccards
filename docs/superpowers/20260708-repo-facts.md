@@ -1,0 +1,1063 @@
+# Business Fact Candidates
+
+- Scanned path: `D:\Projects\kando-global-project`
+- Text files scanned: 262
+
+## Candidate Entry Files
+
+- `apps/workers-api/src/owner-auth.ts`
+- `apps/workers-api/src/admin/routes.test.ts`
+- `apps/workers-api/src/admin/routes.ts`
+- `apps/workers-api/src/auth/account-flow.ts`
+- `apps/workers-api/src/auth/account.ts`
+- `apps/workers-api/src/auth/anonymous.test.ts`
+- `apps/workers-api/src/auth/anonymous.ts`
+- `apps/workers-api/src/auth/current.ts`
+- `apps/workers-api/src/auth/forgot-password.ts`
+- `apps/workers-api/src/auth/guest-migration.ts`
+- `apps/workers-api/src/auth/http-auth.ts`
+- `apps/workers-api/src/auth/login.ts`
+- `apps/workers-api/src/auth/oauth-provider.ts`
+- `apps/workers-api/src/auth/oauth.ts`
+- `apps/workers-api/src/auth/register.ts`
+- `apps/workers-api/src/auth/session.ts`
+- `apps/workers-api/src/auth/user-session.ts`
+- `apps/workers-api/src/data-source/routes.test.ts`
+- `apps/workers-api/src/data-source/routes.ts`
+- `apps/workers-api/src/db/schema.ts`
+- `apps/workers-api/src/db/migrations/0000_famous_vector.sql`
+- `apps/workers-api/src/db/migrations/meta/0000_snapshot.json`
+- `apps/workers-api/src/db/migrations/meta/_journal.json`
+- `apps/workers-api/src/portfolio/routes.ts`
+- `docs/superpowers/plans/2026-06-30-tcg-card-docs-authoring.md`
+- `docs/superpowers/plans/2026-07-02-m1-auth-verify-me.md`
+- `docs/superpowers/plans/2026-07-06-m1-auth-completion.md`
+- `docs/superpowers/specs/2026-07-06-m1-auth-completion-design.md`
+- `docs/tcg-card/00-product/modules/auth.md`
+- `docs/tcg-card/03-data-api/data-model.md`
+- `packages/auth-core/package.json`
+- `packages/auth-core/tsconfig.json`
+- `packages/auth-core/src/index.test.ts`
+- `packages/auth-core/src/index.ts`
+
+## roles_permissions
+
+- `CLAUDE.md:52: - `pnpm --filter @kando/workers-api test -- src/auth/anonymous.test.ts``
+- `CLAUDE.md:61: - `pnpm --filter @kando/auth-core build``
+- `CLAUDE.md:65: - Run shared auth tests:`
+- `CLAUDE.md:66: - `pnpm --filter @kando/auth-core test``
+- `CLAUDE.md:67: - Run a single shared auth test file:`
+- `CLAUDE.md:68: - `pnpm --filter @kando/auth-core test -- src/index.test.ts``
+- `CLAUDE.md:134: - `packages/auth-core`: shared auth primitives (JWT signing/verification, refresh token hashing, password hashing).`
+- `CLAUDE.md:152: - auth-related routes mounted from `src/auth/*``
+- `pnpm-lock.yaml:51: '@kando/auth-core':`
+- `pnpm-lock.yaml:53: version: link:../../packages/auth-core`
+- `pnpm-lock.yaml:86: packages/auth-core:`
+- `pnpm-lock.yaml:1776: rc-menu@9.16.1:`
+- `pnpm-lock.yaml:3158: rc-menu: 9.16.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)`
+- `pnpm-lock.yaml:3547: rc-menu: 9.16.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)`
+- `pnpm-lock.yaml:3553: rc-menu@9.16.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1):`
+- `pnpm-lock.yaml:3697: rc-menu: 9.16.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)`
+- `README.md:93: If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. So...`
+- `tsconfig.base.json:2: "$schema": "https://json.schemastore.org/tsconfig",`
+- `.claude\settings.json:2: "$schema": "https://json.schemastore.org/claude-code-settings.json",`
+- `.claude\settings.json:6: "permissions": {`
+- `.claude\settings.json:34: "Bash(pnpm --filter @kando/auth-core build)",`
+- `.claude\settings.json:35: "Bash(pnpm --filter @kando/auth-core test *)",`
+- `.claude\hooks\task_status.py:170: return normalize_plan_ref(match.group(1))`
+- `.claude\hooks\task_status.py:175: return normalize_plan_ref(match.group(0))`
+- `.claude\hooks\task_status.py:180: return normalize_plan_ref(match.group(0))`
+- `.claude\hooks\task_status.py:200: current_milestone = milestone_match.group(1)`
+- `.claude\hooks\task_status.py:307: plan_ref = normalize_plan_ref(extract_ref_from_text(match.group("summary")))`
+- `.claude\hooks\task_status.py:308: summary = sanitize_summary(match.group("summary"))`
+- `.claude\hooks\task_status.py:315: "time": match.group("time").strip(),`
+- `.claude\hooks\task_status.py:316: "phase": match.group("phase").strip(),`
+- `.turbo\cache\6e46f1085cf6b901-manifest.json:1: {"files":{"packages\\auth-core\\.turbo\\turbo-type-check.log":{"size":32,"mtime_nanos":1783489696396685700,"mode":420,"is_dir":false}},"order":["packages\\au...`
+- `.turbo\cache\7d062c8936504cef-manifest.json:1: {"files":{"packages\\auth-core\\.turbo\\turbo-build.log":{"size":23,"mtime_nanos":1783489696398193900,"mode":420,"is_dir":false},"packages\\auth-core\\dist\\...`
+- `apps\admin-web\src\App.tsx:3: Button,`
+- `apps\admin-web\src\App.tsx:9: Menu,`
+- `apps\admin-web\src\App.tsx:30: role: AdminRole;`
+- `apps\admin-web\src\App.tsx:132: role: AdminRole;`
+- `apps\admin-web\src\App.tsx:135: }>("/auth/login", { method: "POST", body: values });`
+- `apps\admin-web\src\App.tsx:139: role: body.role,`
+- `apps\admin-web\src\App.tsx:164: <Button type="primary" htmlType="submit" block loading={submitting}>`
+- `apps\admin-web\src\App.tsx:166: </Button>`
+- `apps\flutter-app\android\gradle.properties:1: org.gradle.jvmargs=-Xmx8G -XX:MaxMetaspaceSize=4G -XX:ReservedCodeCacheSize=512m -XX:+HeapDumpOnOutOfMemoryError`
+- `apps\flutter-app\android\app\src\debug\AndroidManifest.xml:2: <!-- The INTERNET permission is required for development. Specifically,`
+- `apps\flutter-app\android\app\src\debug\AndroidManifest.xml:6: <uses-permission android:name="android.permission.INTERNET"/>`
+- `apps\flutter-app\android\app\src\profile\AndroidManifest.xml:2: <!-- The INTERNET permission is required for development. Specifically,`
+- `apps\flutter-app\android\app\src\profile\AndroidManifest.xml:6: <uses-permission android:name="android.permission.INTERNET"/>`
+- `apps\flutter-app\android\gradle\wrapper\gradle-wrapper.properties:5: distributionUrl=https\://services.gradle.org/distributions/gradle-8.12-all.zip`
+- `apps\workers-api\package.json:16: "@kando/auth-core": "workspace:*",`
+- `apps\workers-api\src\index.ts:3: import { authRoutes } from "./auth/anonymous";`
+- `apps\workers-api\src\index.ts:15: api.route("/auth", authRoutes);`
+- `apps\workers-api\src\owner-auth.ts:1: import { verifyAccessToken } from "@kando/auth-core";`
+- `apps\workers-api\src\owner-auth.ts:3: import { getBearerToken, hasSigningSecret } from "./auth/http-auth";`
+- `apps\workers-api\src\owner-auth.ts:54: | { status: "ok"; owner: AuthenticatedOwner }`
+- `apps\workers-api\src\owner-auth.ts:86: const owner = await findOwner(env.DB, session);`
+- `apps\workers-api\src\owner-auth.ts:88: if (!owner) {`
+- `apps\workers-api\src\owner-auth.ts:94: owner: { owner_type: session.owner_type, owner_id: session.owner_id },`
+- `apps\workers-api\src\admin\routes.test.ts:1: import { hashPassword, signAccessToken } from "@kando/auth-core";`
+- `apps\workers-api\src\admin\routes.test.ts:15: role: AdminRole;`
+- `apps\workers-api\src\admin\routes.test.ts:89: role: AdminRole;`
+- `apps\workers-api\src\admin\routes.test.ts:391: it("issues isolated Admin tokens because App tokens must never authorize the back office", async () => {`
+- `apps\workers-api\src\admin\routes.test.ts:408: role: "super_admin",`
+- `apps\workers-api\src\admin\routes.test.ts:424: const refreshResponse = await requestAdmin(env, "/auth/refresh", "POST", {`
+- `apps\workers-api\src\admin\routes.test.ts:429: "/auth/logout",`
+- `apps\workers-api\src\admin\routes.test.ts:434: const refreshAfterLogoutResponse = await requestAdmin(env, "/auth/refresh", "POST", {`
+- `apps\workers-api\src\admin\routes.ts:7: } from "@kando/auth-core";`
+- `apps\workers-api\src\admin\routes.ts:12: import { getBearerToken, hasSigningSecret } from "../auth/http-auth";`
+- `apps\workers-api\src\admin\routes.ts:21: role: AdminRole;`
+- `apps\workers-api\src\admin\routes.ts:29: role: string;`
+- `apps\workers-api\src\admin\routes.ts:45: role: AdminRole;`
+- `apps\workers-api\src\admin\routes.ts:94: SELECT id, email, password_hash, role, status, created_at`
+- `apps\workers-api\src\admin\routes.ts:101: SELECT id, email, password_hash, role, status, created_at`
+- `apps\workers-api\src\admin\routes.ts:276: adminRoutes.post("/auth/login", async (c) => {`
+- `apps\workers-api\src\auth\account.ts:1: import { verifyAccessToken } from "@kando/auth-core";`
+- `apps\workers-api\src\auth\account.ts:5: import { getBearerToken, hasSigningSecret } from "./http-auth";`
+- `apps\workers-api\src\auth\account.ts:42: error: { code: "AUTH_REQUIRED", message: "Auth required." },`
+- `apps\workers-api\src\auth\account.ts:139: const auth = await authenticateOwner(`
+- `apps\workers-api\src\auth\account.ts:146: if (auth.status === "internal_error") {`
+- `apps\workers-api\src\auth\account.ts:150: if (auth.status === "unauthorized") {`
+- `apps\workers-api\src\auth\account.ts:157: if (auth.owner.owner_type === "user") {`
+- `apps\workers-api\src\auth\account.ts:162: auth.owner.owner_id,`
+- `apps\workers-api\src\auth\anonymous.test.ts:6: } from "@kando/auth-core";`
+- `apps\workers-api\src\auth\anonymous.test.ts:285: identity.id === "concurrent-auth-identity" &&`
+- `apps\workers-api\src\auth\anonymous.test.ts:991: id: "concurrent-auth-identity",`
+- `apps\workers-api\src\auth\anonymous.test.ts:1083: id: "concurrent-auth-identity",`
+- `apps\workers-api\src\auth\anonymous.test.ts:3032: describe("POST /api/v1/auth/oauth/google/callback", () => {`
+- `apps\workers-api\src\auth\anonymous.test.ts:3033: it("google oauth creates an OAuth-only user because a new provider identity starts durable auth", async () => {`
+- `apps\workers-api\src\auth\anonymous.test.ts:3039: redirect_uri: "kando://auth/google",`
+- `apps\workers-api\src\auth\anonymous.test.ts:3132: redirect_uri: "kando://auth/google",`
+- `apps\workers-api\src\auth\anonymous.ts:7: } from "@kando/auth-core";`
+- `apps\workers-api\src\auth\current.ts:1: import { verifyAccessToken } from "@kando/auth-core";`
+- `apps\workers-api\src\auth\forgot-password.ts:1: import { hashPassword } from "@kando/auth-core";`
+- `apps\workers-api\src\auth\guest-migration.ts:1: import { verifyAccessToken } from "@kando/auth-core";`
+- `apps\workers-api\src\auth\guest-migration.ts:2: import { getBearerToken } from "./http-auth";`
+- `apps\workers-api\src\auth\login.ts:8: } from "@kando/auth-core";`
+- `apps\workers-api\src\auth\oauth.ts:8: import { hasSigningSecret } from "./http-auth";`
+- `apps\workers-api\src\auth\register.ts:1: import { hashPassword } from "@kando/auth-core";`
+- `apps\workers-api\src\auth\register.ts:9: import { hasSigningSecret } from "./http-auth";`
+- `apps\workers-api\src\auth\session.ts:6: } from "@kando/auth-core";`
+- `apps\workers-api\src\auth\session.ts:102: const owner = await findOwner(c.env.DB, session);`
+- `apps\workers-api\src\auth\session.ts:104: if (!owner) {`
+- `apps\workers-api\src\auth\user-session.ts:7: } from "@kando/auth-core";`
+- `apps\workers-api\src\db\schema.ts:2: // 约定：ULID 主键 TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；金额 REAL；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。`
+- `apps\workers-api\src\db\schema.ts:163: role: text("role").notNull(), // 'super_admin' | 'operator'`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:5: `role` text NOT NULL,`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:31: "role": {`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:32: "name": "role",`
+- `apps\workers-api\src\portfolio\collect.test.ts:1: import { signAccessToken } from "@kando/auth-core";`
+- `apps\workers-api\src\portfolio\collect.test.ts:315: it("rejects invalid grading and another owner's folder because Collect must preserve collection item invariants", async () => {`
+- `apps\workers-api\src\portfolio\folders.test.ts:1: import { signAccessToken } from "@kando/auth-core";`
+- `apps\workers-api\src\portfolio\folders.test.ts:281: it("rejects missing bearer tokens because asset data must never be inferred without owner proof", async () => {`
+- `apps\workers-api\src\portfolio\folders.test.ts:295: it("lists only the authenticated owner's folders in sort order because portfolio data is owner isolated", async () => {`
+- `apps\workers-api\src\portfolio\folders.test.ts:321: it("creates a non-default folder after the current owner's last sort order because new folders should not disturb Main", async () => {`
+- `apps\workers-api\src\portfolio\folders.test.ts:357: it("returns CONFLICT when creating a duplicate folder name because owner folder names are unique", async () => {`
+- `apps\workers-api\src\portfolio\folders.test.ts:444: it("sets one default folder and reorders owned folders because folder state must remain consistent per owner", async () => {`
+- `apps\workers-api\src\portfolio\items.test.ts:1: import { signAccessToken } from "@kando/auth-core";`
+- `apps\workers-api\src\portfolio\items.test.ts:309: it("lists paged owner-isolated collection items because portfolios must not leak between owners", async () => {`
+- `apps\workers-api\src\portfolio\items.test.ts:434: it("gets, updates, moves, and deletes only owned collection items because item operations must stay inside the owner boundary", async () => {`
+- `apps\workers-api\src\portfolio\preferences.test.ts:1: import { signAccessToken } from "@kando/auth-core";`
+- `apps\workers-api\src\portfolio\preferences.test.ts:143: it("gets only the authenticated owner's preferences because display settings are owner scoped", async () => {`
+- `apps\workers-api\src\portfolio\preferences.test.ts:246: it("rejects another owner's folder as last_selected_folder_id because preferences must not bridge owner boundaries", async () => {`
+- `apps\workers-api\src\portfolio\routes.ts:4: import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";`
+- `apps\workers-api\src\portfolio\routes.ts:263: const auth = await authenticateOwner(`
+- `apps\workers-api\src\portfolio\routes.ts:268: if (auth.status === "internal_error") {`
+- `apps\workers-api\src\portfolio\routes.ts:272: if (auth.status === "unauthorized") {`
+- `apps\workers-api\src\portfolio\routes.ts:290: ? await findFolder(c.env.DB, auth.owner, requestedFolderId)`
+- `apps\workers-api\src\portfolio\routes.ts:291: : await findDefaultFolder(c.env.DB, auth.owner);`
+- `apps\workers-api\src\portfolio\routes.ts:309: auth.owner.owner_type,`
+- `apps\workers-api\src\portfolio\routes.ts:310: auth.owner.owner_id,`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:1: import { signAccessToken } from "@kando/auth-core";`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:156: it("lists paged owner-isolated wishlist rows because wanting a card is private asset intent", async () => {`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:188: it("creates a wishlist row because search and card detail need to persist owner intent without a folder", async () => {`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:221: it("returns CONFLICT for duplicate card_ref because one owner should have only one wishlist intent per card", async () => {`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:262: it("deletes only owned wishlist rows because removing intent must stay inside the owner boundary", async () => {`
+- `docs\superpowers\claude-harness-rules.md:77: - `pnpm --filter @kando/auth-core test``
+- `docs\superpowers\codex-handoff.md:52: - portfolio 测试夹具 session 过期时间修正：`dfba486 test: keep portfolio auth sessions valid``
+- `docs\superpowers\developer-onboarding.md:61: - `pnpm --filter @kando/auth-core test``
+- `docs\superpowers\developer-onboarding.md:132: - `pnpm --filter @kando/workers-api test -- src/auth/anonymous.test.ts``
+- `docs\superpowers\execution-status.md:24: - [M1-1] `packages/auth-core` 实现 — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:34: - [M1-11] Flutter Auth UI — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:52: - [M3-5] owner 多态隔离中间件 — status: `completed` · updated: 2026-07-07 14:36:35`
+- `docs\superpowers\execution-status.md:195: - 2026-07-07 14:35:44 | 开始 | [M3-5] Verify owner polymorphic isolation`
+- `docs\superpowers\execution-status.md:196: - 2026-07-07 14:36:35 | 完成（验证通过） | [M3-5] Verify owner polymorphic isolation`
+- `docs\superpowers\execution-status.md:237: - 2026-07-08 08:58:27 | 完成（验证通过） | [M7-1] Admin auth API`
+- `docs\superpowers\execution-status.md:669: "summary": "Verify owner polymorphic isolation",`
+- `docs\superpowers\execution-status.md:675: "summary": "Verify owner polymorphic isolation",`
+- `docs\superpowers\plans\2026-06-30-global-rules-sync.md:15: - 不得改动 `auth.md`、`search.md`、`api-spec.md`、`source-tcg-card-docs/`。`
+- `docs\superpowers\plans\2026-06-30-global-rules-sync.md:297: Expected: 仅 `global-rules.md`、`profile.md` 出现在改动中（以及未跟踪的 `updateby-global-rules.md`）；`auth.md`/`search.md`/`api-spec.md`/`source-tcg-card-docs/` 无改动。`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:35: │       ├── auth.md                   # Task 6`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:81: 章节：①产品定位（海外 TCG/球星卡收藏管理 App）②目标平台（v1.0 仅 iOS，Android 延后）③模块清单（Auth/Home/Collection/Search/Scan/CardDetail/Profile/启动引导/管理后台/后端）④v1.0 范围边界三张表，**逐项从 spec §5 抄入**：`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:121: 内容来自 spec §4.6：①顶层目录草案（`apps/`：flutter-app、admin-web、workers-api；`packages/`：auth-core、api-client、ui-kit、workers-common；Dart 侧共享包目录）②公有化模块边界——逐个说明 auth-core ...`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:159: - `portfolio_folder`（owner_id 指向 user 或 anonymous、name、is_default、sort_order、created_at；约束：同 owner 名称唯一、默认唯一）`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:263: ### Task 6: 模块 PRD 批 A —— auth.md + profile.md`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:266: - Create: `docs/tcg-card/00-product/modules/auth.md``
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:271: - Produces: Auth 与 Profile 模块完整 PRD。flows/state-machines 引用其流程。`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:273: - [ ] **Step 1: 撰写 auth.md**`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:44: - Flutter Auth UI.`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:150: Expected: exit code `0` and no lockfile rewrite. If the command fails due registry or network access, rerun it once with escalated permission as required by ...`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:166: @kando/auth-core`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:191: - Read: `packages/auth-core/package.json``
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:496: 'packages/auth-core/package.json',`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:5: **目标：** 实现 `POST /api/v1/auth/anonymous` 最小闭环，让 App 能创建或复用匿名账号，拿到 token，并在 D1 中初始化默认 Portfolio 文件夹和用户偏好。`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:7: **架构：** `packages/auth-core` 只负责通用鉴权能力，包括 access token 签发、refresh token 生成与哈希，不依赖 tcg-card 业务表。`apps/workers-api` 负责 HTTP 校验、D1 写入、session 持久化和 `/api/v1/auth...`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:15: - 只实现匿名账号创建/复用，不实现 Email 注册、OAuth、找回密码、Flutter Auth UI、token refresh、logout 或删除账号。`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:16: - 对外路径为 `POST /api/v1/auth/anonymous`，因为当前 Workers 已在 `apps/workers-api/src/index.ts` 挂载 `/api/v1`。`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:25: - 修改 `packages/auth-core/package.json`：增加 `vitest` 和 `test: vitest run` 脚本。`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:26: - 修改 `packages/auth-core/src/index.ts`：导出 owner/session 类型、access token 签发、refresh token 生成、refresh token 哈希和过期常量。`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:27: - 新增 `packages/auth-core/src/index.test.ts`：验证 access token payload/signature、refresh token 生成、哈希和过期时间。`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:28: - 修改 `packages/auth-core/tsconfig.json`：排除测试文件，避免构建输出测试代码。`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:5: **目标：** 实现 access token 验签基础能力和 `GET /api/v1/auth/me`，让匿名账号创建后返回的 token 能被后续受保护接口识别。`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:7: **架构：** `packages/auth-core` 负责 HS256 JWT 验签和 payload 校验，保持与 Workers 业务表解耦。`apps/workers-api` 增加 Bearer token 解析和当前 owner 查询逻辑，并在现有 `/api/v1/auth` 路由组内注册 `/m...`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:15: - 只实现 `verifyAccessToken`、Workers 鉴权 helper、`GET /api/v1/auth/me`。`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:16: - 不实现 `POST /auth/token/refresh`、`POST /auth/logout`、Email 注册、OAuth、密码哈希、Flutter UI。`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:19: - `/auth/me` 只需支持匿名账号和正式账号查询，但测试优先覆盖匿名账号；正式账号查询按 `user` 表结构返回。`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:20: - session 是否已吊销留给 refresh/logout 切片统一处理。本切片仅通过 access token 验签识别 owner，不查询 `session.revoked_at`。`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:24: - 修改 `packages/auth-core/src/index.ts`：导出 `VerifiedAccessTokenPayload` 和 `verifyAccessToken`。`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:25: - 修改 `packages/auth-core/src/index.test.ts`：补验签成功、签名错误、过期、结构错误测试。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:5: **Goal:** 实现 `POST /api/v1/auth/token/refresh` 与 `POST /api/v1/auth/logout`，补齐当前匿名账号 session 的刷新和吊销闭环。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:7: **Architecture:** `packages/auth-core` 继续只提供 token/hash helpers；`apps/workers-api` 新增独立 `session.ts` 路由模块负责 refresh/logout 的 HTTP 解析、D1 session 查询、owner 可用性校...`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:15: - 只实现 `POST /api/v1/auth/token/refresh` 与 `POST /api/v1/auth/logout`。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:20: - refresh 必须确认 owner 仍可用：匿名账号未升级，正式账号未软删。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:26: - 新增 `apps/workers-api/src/auth/session.ts`：refresh/logout 路由注册与 session 查询/吊销逻辑。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:27: - 修改 `apps/workers-api/src/auth/anonymous.ts`：导入并注册 `registerSessionRoutes(authRoutes)`。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:28: - 修改 `apps/workers-api/src/auth/anonymous.test.ts`：扩展 FakeD1 的 session 查询与更新能力，补 refresh/logout 集成测试。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:29: - 本计划默认不修改 `packages/auth-core`；如实现时发现 helper 缺口，先停止并报告具体缺口，不直接扩大范围。`
+- `docs\superpowers\plans\2026-07-03-brainstorming-app-i18n-rule.md:20: ## Scope Check`
+- `docs\superpowers\plans\2026-07-03-brainstorming-app-i18n-rule.md:81: - Before asking detailed questions, assess scope: if the request describes multiple independent subsystems (e.g., "build a platform with chat, file storage, ...`
+- `docs\superpowers\plans\2026-07-03-brainstorming-app-i18n-rule.md:165: Select-String scope-drift check`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:5: **Goal:** Implement `POST /api/v1/auth/login` so registered Email users can sign in with a PBKDF2 password hash and receive a user session.`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:7: **Architecture:** Add a focused `apps/workers-api/src/auth/login.ts` route module and register it from the existing auth route group. Reuse `@kando/auth-core...`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:9: **Tech Stack:** TypeScript, Hono, Cloudflare Workers D1, Vitest, `@kando/auth-core`.`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:15: - Create: `apps/workers-api/src/auth/login.ts``
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:16: - Owns `POST /auth/login`.`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:18: - Modify: `apps/workers-api/src/auth/anonymous.ts``
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:20: - Modify: `apps/workers-api/src/auth/anonymous.test.ts``
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:27: Do not modify database schema, migrations, `packages/auth-core`, Flutter UI, OAuth, or forgot-password behavior in this plan.`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:7: **Architecture:** Keep the current auth route shape. Add password hashing helpers to `packages/auth-core`, add a focused `apps/workers-api/src/auth/register....`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:15: - Modify: `packages/auth-core/src/index.ts``
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:17: - Modify: `packages/auth-core/src/index.test.ts``
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:19: - Create: `apps/workers-api/src/auth/register.ts``
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:20: - Own `POST /auth/register/send-code` and `POST /auth/register/verify`.`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:21: - Modify: `apps/workers-api/src/auth/anonymous.ts``
+
+## flow_status
+
+- `.gitlab-ci.yml:8: stage: ts`
+- `.gitlab-ci.yml:25: stage: dart`
+- `CLAUDE.md:111: ### Execution status document`
+- `CLAUDE.md:113: - 必须维护执行状态文档：`docs/superpowers/execution-status.md`。`
+- `CLAUDE.md:114: - `docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；`execution-status.md` 仅作为运行态覆盖层与执行日志，不直接回写 `dev-plan.md`。`
+- `CLAUDE.md:139: Important current-state note: `api-client`, `ui-kit`, and `workers-common` are still placeholders with comments describing their future responsibilities. Do ...`
+- `CLAUDE.md:172: - Auth/session state, portfolio folders, collection items, wishlist, preferences, admin users, overrides, trending pins, app config, and feedback tickets are...`
+- `CLAUDE.md:190: ### Frontend status`
+- `CLAUDE.md:197: ### Flutter status`
+- `CLAUDE.md:199: - `apps/flutter-app` is also still near scaffold state and still contains the default Flutter counter example in `lib/main.dart`.`
+- `README.md:31: - [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)`
+- `README.md:80: State if you are open to contributions and what your requirements are for accepting them.`
+- `README.md:92: ## Project status`
+- `.claude\settings.json:15: "Bash(git status *)",`
+- `.claude\settings.json:97: "timeout": 15,`
+- `.claude\settings.json:109: "timeout": 15,`
+- `.claude\settings.json:121: "timeout": 3600,`
+- `.claude\hooks\task_status.py:9: PHASE = sys.argv[1] if len(sys.argv) > 1 else "unknown"`
+- `.claude\hooks\task_status.py:14: else os.environ.get("TASK_STATUS_FILE", ROOT / "docs" / "superpowers" / "execution-status.md")`
+- `.claude\hooks\task_status.py:21: STATE_MARKER_START = "<!-- task-status-state"`
+- `.claude\hooks\task_status.py:33: "已完成：清理 execution-status 历史脏摘要",`
+- `.claude\hooks\task_status.py:34: "已完成：归一 execution-status 隐藏状态块",`
+- `.claude\hooks\task_status.py:54: STATE_BLOCK_RE = re.compile(r"<!-- task-status-state\n(.*?)\n-->", re.DOTALL)`
+- `.claude\hooks\task_status.py:55: LOG_LINE_RE = re.compile(r"^-\s+(?P<time>[^|]+)\|\s*(?P<phase>[^|]+)\|\s*(?P<summary>.*)$")`
+- `.claude\hooks\task_status.py:267: "status": "未开始",`
+- `apps\admin-web\src\App.tsx:49: status: "active" | "disabled" | "guest" | "upgraded";`
+- `apps\admin-web\src\App.tsx:60: status: FeedbackStatus;`
+- `apps\admin-web\src\App.tsx:164: <Button type="primary" htmlType="submit" block loading={submitting}>`
+- `apps\admin-web\src\App.tsx:245: { title: "状态", dataIndex: "status", render: renderUserStatus },`
+- `apps\admin-web\src\App.tsx:254: {session.role === "super_admin" && row.account_type === "user" && row.status !== "disabled" && (`
+- `apps\admin-web\src\App.tsx:296: const [status, setStatus] = useState<string>();`
+- `apps\admin-web\src\App.tsx:298: `/feedbacks${toQuery({ status })}`,`
+- `apps\admin-web\src\App.tsx:303: await mutate(session, `/feedbacks/${id}/status`, {`
+- `apps\flutter-app\pubspec.yaml:16: # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html`
+- `apps\workers-api\src\index.ts:14: api.get("/health", (c) => c.json({ status: "ok" }));`
+- `apps\workers-api\src\owner-auth.ts:54: | { status: "ok"; owner: AuthenticatedOwner }`
+- `apps\workers-api\src\owner-auth.ts:55: | { status: "unauthorized" }`
+- `apps\workers-api\src\owner-auth.ts:56: | { status: "internal_error" }`
+- `apps\workers-api\src\owner-auth.ts:61: return { status: "unauthorized" };`
+- `apps\workers-api\src\owner-auth.ts:65: return { status: "internal_error" };`
+- `apps\workers-api\src\owner-auth.ts:71: return { status: "unauthorized" };`
+- `apps\workers-api\src\owner-auth.ts:83: return { status: "unauthorized" };`
+- `apps\workers-api\src\owner-auth.ts:89: return { status: "unauthorized" };`
+- `apps\workers-api\src\admin\routes.test.ts:16: status: AdminStatus;`
+- `apps\workers-api\src\admin\routes.test.ts:53: status: FeedbackStatus;`
+- `apps\workers-api\src\admin\routes.test.ts:195: status: row.deleted_at ? "disabled" : "active",`
+- `apps\workers-api\src\admin\routes.test.ts:206: status: row.upgraded_user_id ? "upgraded" : "guest",`
+- `apps\workers-api\src\admin\routes.test.ts:212: const [status] = this.values as [FeedbackStatus | null];`
+- `apps\workers-api\src\admin\routes.test.ts:214: this.db.feedbackTickets.filter((row) => !status || row.status === status) as T[],`
+- `apps\workers-api\src\admin\routes.test.ts:271: if (sql.startsWith("UPDATE feedback_ticket SET status")) {`
+- `apps\workers-api\src\admin\routes.test.ts:272: const [status, updatedAt, id] = this.values as [FeedbackStatus, string, string];`
+- `apps\workers-api\src\admin\routes.ts:30: status: AdminStatus;`
+- `apps\workers-api\src\admin\routes.ts:94: SELECT id, email, password_hash, role, status, created_at`
+- `apps\workers-api\src\admin\routes.ts:101: SELECT id, email, password_hash, role, status, created_at`
+- `apps\workers-api\src\admin\routes.ts:134: CASE WHEN deleted_at IS NULL THEN 'active' ELSE 'disabled' END AS status`
+- `apps\workers-api\src\admin\routes.ts:140: CASE WHEN upgraded_user_id IS NULL THEN 'guest' ELSE 'upgraded' END AS status`
+- `apps\workers-api\src\admin\routes.ts:168: SELECT id, email, types, functions, message, status, created_at, updated_at`
+- `apps\workers-api\src\admin\routes.ts:170: WHERE (? IS NULL OR status = ?)`
+- `apps\workers-api\src\admin\routes.ts:176: SELECT id, email, types, functions, message, status, created_at, updated_at`
+- `apps\workers-api\src\auth\account.ts:146: if (auth.status === "internal_error") {`
+- `apps\workers-api\src\auth\account.ts:150: if (auth.status === "unauthorized") {`
+- `apps\workers-api\src\auth\account.ts:211: if (auth.status === "internal_error") {`
+- `apps\workers-api\src\auth\account.ts:215: if (auth.status === "unauthorized") {`
+- `apps\workers-api\src\auth\account.ts:284: | { status: "ok"; owner: AuthenticatedOwner }`
+- `apps\workers-api\src\auth\account.ts:285: | { status: "unauthorized" }`
+- `apps\workers-api\src\auth\account.ts:286: | { status: "internal_error" }`
+- `apps\workers-api\src\auth\account.ts:291: return { status: "unauthorized" };`
+- `apps\workers-api\src\auth\anonymous.test.ts:3043: expect(response.status).toBe(200);`
+- `apps\workers-api\src\auth\anonymous.test.ts:3139: expect(response.status).toBe(200);`
+- `apps\workers-api\src\auth\anonymous.test.ts:3217: expect(response.status).toBe(200);`
+- `apps\workers-api\src\auth\anonymous.test.ts:3259: expect(response.status).toBe(200);`
+- `apps\workers-api\src\auth\anonymous.test.ts:3309: expect(response.status).toBe(200);`
+- `apps\workers-api\src\auth\anonymous.test.ts:3368: expect(response.status).toBe(200);`
+- `apps\workers-api\src\auth\anonymous.test.ts:3447: expect(response.status).not.toBe(200);`
+- `apps\workers-api\src\auth\anonymous.test.ts:3500: expect(response.status).toBe(422);`
+- `apps\workers-api\src\data-source\adapter.ts:15: finish: string | null;`
+- `apps\workers-api\src\data-source\adapter.ts:67: finish: "Holofoil",`
+- `apps\workers-api\src\data-source\adapter.ts:79: finish: "Holofoil",`
+- `apps\workers-api\src\data-source\adapter.ts:91: finish: null,`
+- `apps\workers-api\src\data-source\kv-cache.test.ts:78: finish: "Holofoil",`
+- `apps\workers-api\src\data-source\routes.test.ts:156: expect(search.status).toBe(200);`
+- `apps\workers-api\src\data-source\routes.test.ts:171: expect(sets.status).toBe(200);`
+- `apps\workers-api\src\data-source\routes.test.ts:194: expect(detail.status).toBe(200);`
+- `apps\workers-api\src\data-source\routes.test.ts:202: expect(marketPrices.status).toBe(200);`
+- `apps\workers-api\src\data-source\routes.test.ts:214: expect(priceSeries.status).toBe(200);`
+- `apps\workers-api\src\data-source\routes.test.ts:229: expect(trending.status).toBe(200);`
+- `apps\workers-api\src\data-source\routes.test.ts:245: expect(soldListings.status).toBe(200);`
+- `apps\workers-api\src\data-source\routes.test.ts:261: expect(rates.status).toBe(200);`
+- `apps\workers-api\src\data-source\routes.ts:79: "finish",`
+- `apps\workers-api\src\data-source\routes.ts:404: finish: fields.finish ?? null,`
+- `apps\workers-api\src\db\schema.ts:111: finish: text("finish"),`
+- `apps\workers-api\src\db\schema.ts:164: status: text("status").notNull().default("active"), // 'active' | 'disabled'`
+- `apps\workers-api\src\db\schema.ts:211: status: text("status").notNull().default("open"), // 'open' | 'in_progress' | 'closed'`
+- `apps\workers-api\src\db\schema.ts:215: (t) => [index("idx_feedback_ticket_status").on(t.status, t.createdAt)],`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:6: `status` text DEFAULT 'active' NOT NULL,`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:58: `finish` text,`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:78: `status` text DEFAULT 'open' NOT NULL,`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:83: CREATE INDEX `idx_feedback_ticket_status` ON `feedback_ticket` (`status`,`created_at`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:38: "status": {`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:39: "name": "status",`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:358: "finish": {`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:359: "name": "finish",`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:495: "status": {`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:496: "name": "status",`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:522: "status",`
+- `apps\workers-api\src\portfolio\collect.test.ts:43: finish: string | null;`
+- `apps\workers-api\src\portfolio\collect.test.ts:159: finish,`
+- `apps\workers-api\src\portfolio\collect.test.ts:197: finish,`
+- `apps\workers-api\src\portfolio\collect.test.ts:246: finish: "Holofoil",`
+- `apps\workers-api\src\portfolio\collect.test.ts:256: expect(response.status).toBe(201);`
+- `apps\workers-api\src\portfolio\collect.test.ts:298: expect(response.status).toBe(201);`
+- `apps\workers-api\src\portfolio\collect.test.ts:307: finish: null,`
+- `apps\workers-api\src\portfolio\collect.test.ts:355: expect(invalidGrading.status).toBe(422);`
+- `apps\workers-api\src\portfolio\folders.test.ts:288: expect(response.status).toBe(401);`
+- `apps\workers-api\src\portfolio\folders.test.ts:309: expect(response.status).toBe(200);`
+- `apps\workers-api\src\portfolio\folders.test.ts:343: expect(response.status).toBe(201);`
+- `apps\workers-api\src\portfolio\folders.test.ts:371: expect(response.status).toBe(409);`
+- `apps\workers-api\src\portfolio\folders.test.ts:403: expect(rename.status).toBe(200);`
+- `apps\workers-api\src\portfolio\folders.test.ts:413: expect(deleteDefault.status).toBe(403);`
+- `apps\workers-api\src\portfolio\folders.test.ts:438: expect(response.status).toBe(200);`
+- `apps\workers-api\src\portfolio\folders.test.ts:444: it("sets one default folder and reorders owned folders because folder state must remain consistent per owner", async () => {`
+- `apps\workers-api\src\portfolio\items.test.ts:38: finish: string | null;`
+- `apps\workers-api\src\portfolio\items.test.ts:157: finish,`
+- `apps\workers-api\src\portfolio\items.test.ts:195: finish,`
+- `apps\workers-api\src\portfolio\items.test.ts:213: finish,`
+- `apps\workers-api\src\portfolio\items.test.ts:246: finish,`
+- `apps\workers-api\src\portfolio\items.test.ts:324: expect(response.status).toBe(200);`
+- `apps\workers-api\src\portfolio\items.test.ts:354: finish: "Holofoil",`
+- `apps\workers-api\src\portfolio\items.test.ts:364: expect(response.status).toBe(201);`
+- `apps\workers-api\src\portfolio\preferences.test.ts:162: expect(response.status).toBe(200);`
+- `apps\workers-api\src\portfolio\preferences.test.ts:194: expect(response.status).toBe(200);`
+- `apps\workers-api\src\portfolio\preferences.test.ts:234: expect(invalidCurrency.status).toBe(422);`
+- `apps\workers-api\src\portfolio\preferences.test.ts:239: expect(invalidHidden.status).toBe(422);`
+- `apps\workers-api\src\portfolio\preferences.test.ts:261: expect(response.status).toBe(404);`
+- `apps\workers-api\src\portfolio\routes.ts:29: finish: string | null;`
+- `apps\workers-api\src\portfolio\routes.ts:46: finish: string | null;`
+- `apps\workers-api\src\portfolio\routes.ts:172: finish, quantity, purchase_price, purchase_currency, notes, created_at, updated_at`
+- `apps\workers-api\src\portfolio\routes.ts:179: finish, quantity, purchase_price, purchase_currency, notes, created_at, updated_at`
+- `apps\workers-api\src\portfolio\routes.ts:188: grade, language, finish, quantity, purchase_price, purchase_currency, notes,`
+- `apps\workers-api\src\portfolio\routes.ts:195: SET grader = ?, condition = ?, grade = ?, language = ?, finish = ?, quantity = ?,`
+- `apps\workers-api\src\portfolio\routes.ts:268: if (auth.status === "internal_error") {`
+- `apps\workers-api\src\portfolio\routes.ts:272: if (auth.status === "unauthorized") {`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:170: expect(response.status).toBe(200);`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:201: expect(response.status).toBe(201);`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:235: expect(response.status).toBe(409);`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:255: expect(response.status).toBe(422);`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:286: expect(missing.status).toBe(404);`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:291: expect(remove.status).toBe(200);`
+- `docs\superpowers\claude-harness-rules.md:99: - `docs/superpowers/execution-status.md``
+- `docs\superpowers\claude-harness-rules.md:105: - `docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；`execution-status.md` 负责呈现当前执行态、计划状态覆盖层与执行日志`
+- `docs\superpowers\codex-handoff.md:18: 不要再沿用旧交接中“M7 未启动”或“从 M6-2 继续”的结论；这些已被合并后的 `execution-status.md` 覆盖。`
+- `docs\superpowers\codex-handoff.md:34: - `docs/superpowers/execution-status.md``
+- `docs\superpowers\codex-handoff.md:39: - `execution-status.md` 展示当前运行态、状态覆盖层与执行日志。`
+- `docs\superpowers\codex-handoff.md:75: - `docs/superpowers/execution-status.md``
+- `docs\superpowers\codex-handoff.md:94: - 多 worktree 并行时，`execution-status.md` 以最新真实任务状态为准，避免静默覆盖另一分支进度。`
+- `docs\superpowers\developer-onboarding.md:9: 3. `docs/superpowers/execution-status.md``
+- `docs\superpowers\developer-onboarding.md:15: - `execution-status.md`：当前任务推进状态`
+- `docs\superpowers\developer-onboarding.md:71: - `docs/superpowers/execution-status.md``
+- `docs\superpowers\developer-onboarding.md:75: - `execution-status.md` 负责展示运行态覆盖层与执行日志`
+- `docs\superpowers\developer-onboarding.md:153: 5. 是否更新了 `docs/superpowers/execution-status.md`？`
+- `docs\superpowers\developer-onboarding.md:162: > 先读 `CLAUDE.md` 和 `docs/superpowers/claude-harness-rules.md`。数据库相关改动必须先确认。每次任务完成后默认要执行 build + unit test。当前阶段优先走 Web/H5 风格轻验证，不要求每轮都做完整 App 打包与联调。任务状态记录在 `d...`
+- `docs\superpowers\execution-status.md:14: - [M0-1] 初始化 Monorepo 顶层结构 — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:15: - [M0-2] 初始化 `apps/workers-api` — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:16: - [M0-3] 初始化 `apps/flutter-app` — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:17: - [M0-4] 初始化 `apps/admin-web` — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:18: - [M0-5] 初始化 `packages/` 通用包 — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:19: - [M0-6] D1 Schema 初始化迁移 — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:20: - [M0-7] CI 流水线 — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:21: - [M0-8] 依赖方向 Lint — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\plans\2026-06-30-global-rules-sync.md:296: Run: `git status --porcelain docs/tcg-card``
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:44: │   └── state-machines.md             # Task 9`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:76: `Portfolio`（资产集合，参与总资产计算）、`Wishlist`（心愿单，不参与资产）、`Folder/Portfolio Folder`（文件夹，区分不同 Portfolio 集合）、`default folder`（星标默认文件夹，唯一、不可删）、`Collection Item`（用户持有记录，含数...`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:160: - `collection_item`（owner_id、folder_id、card_ref 第三方卡标识、object_type=tcg|sports|sealed|other、grader、condition、grade、language、finish、quantity、purchase_price、pur...`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:171: - `feedback_ticket`（客服工单：email、types[]、functions[]、message、status、created_at）`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:176: ①可插拔数据源适配层设计（不绑定具体厂商，定义统一接口口径：searchCards、getCard、getPriceSeries、getTrending、getSoldListings）②第三方原始字段 → App 展示字段的映射表（卡名、系列、编号、Finish、Raw/Graded 价、30D 序列、成交记录...`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:271: - Produces: Auth 与 Profile 模块完整 PRD。flows/state-machines 引用其流程。`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:361: ### Task 9: 业务流程与状态机 —— flows.md + state-machines.md`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:365: - Create: `docs/tcg-card/01-flows/state-machines.md``
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:7: **Architecture:** This is a layered verification pass, not a feature build. Each task validates one boundary: workspace state, package management, TS monorep...`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:78: - [ ] **Step 2: Capture current git status**`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:83: git status --short`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:102: git diff --cached --name-status`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:232: git status --short`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:255: Expected: exit code `0`; output should state that package dependencies do not reverse-depend on apps.`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:375: $status = [int]$response.StatusCode`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:377: $status = [int]$_.Exception.Response.StatusCode`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:329: api.get("/health", (c) => c.json({ status: "ok" }));`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:370: 预期：`git status --short` 不显示 `apps/workers-api/.dev.vars`。`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:434: git status --short`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:256: git status --short`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:151: expect(response.status).toBe(200);`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:167: expect(meResponse.status).toBe(200);`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:180: expect(response.status).toBe(422);`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:195: expectUnauthorized(body, response.status);`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:210: expectUnauthorized(body, response.status);`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:225: expectUnauthorized(body, response.status);`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:240: expectUnauthorized(body, response.status);`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:255: expect(response.status).toBe(500);`
+- `docs\superpowers\plans\2026-07-03-brainstorming-app-i18n-rule.md:80: - Check out the current project state first (files, docs, recent commits)`
+- `docs\superpowers\plans\2026-07-03-brainstorming-app-i18n-rule.md:141: - [ ] **Step 1: Check repository state**`
+
+## entities
+
+- `CLAUDE.md:3: This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.`
+- `CLAUDE.md:53: - Generate Drizzle migrations from schema:`
+- `CLAUDE.md:95: - 任何会新增或修改数据库结构、迁移、D1 绑定、schema 契约的改动，都必须先通知用户并得到确认后再做。`
+- `CLAUDE.md:97: - `apps/workers-api/src/db/schema.ts``
+- `CLAUDE.md:126: - Start with `docs/tcg-card/README.md`, which links the intended reading order for product, architecture, data model, API spec, admin behavior, and milestones.`
+- `CLAUDE.md:153: - There is no ORM-based repository layer yet; route modules currently own request parsing, SQL statements, D1 access, and HTTP responses directly. Keep new b...`
+- `CLAUDE.md:157: - `register.ts`: email verification + account creation + anonymous-to-user migration`
+- `CLAUDE.md:163: ### Data model and persistence`
+- `pnpm-lock.yaml:1296: '@standard-schema/spec@1.1.0':`
+- `pnpm-lock.yaml:1879: rc-table@7.54.0:`
+- `pnpm-lock.yaml:3010: '@standard-schema/spec@1.1.0': {}`
+- `pnpm-lock.yaml:3091: '@standard-schema/spec': 1.1.0`
+- `pnpm-lock.yaml:3171: rc-table: 7.54.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)`
+- `pnpm-lock.yaml:3681: rc-table@7.54.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1):`
+- `README.md:13: - [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/reposito...`
+- `README.md:14: - [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git re...`
+- `tsconfig.base.json:2: "$schema": "https://json.schemastore.org/tsconfig",`
+- `turbo.json:2: "$schema": "https://turbo.build/schema.json",`
+- `.claude\settings.json:2: "$schema": "https://json.schemastore.org/claude-code-settings.json",`
+- `.claude\settings.json:49: "Edit(/Users/git/kando/toC/kando-global-project/apps/workers-api/src/db/schema.ts)",`
+- `.claude\settings.json:50: "Write(/Users/git/kando/toC/kando-global-project/apps/workers-api/src/db/schema.ts)",`
+- `.claude\hooks\db_guard.py:14: "数据库原则上应优先复用已有结构；如果要新增或修改数据库/schema/migration，必须先通知用户并获得确认。"`
+- `apps\admin-web\src\App.tsx:15: Table,`
+- `apps\admin-web\src\App.tsx:21: import type { ColumnsType } from "antd/es/table";`
+- `apps\admin-web\src\App.tsx:287: <Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} />`
+- `apps\admin-web\src\App.tsx:348: <Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} />`
+- `apps\admin-web\src\App.tsx:392: <Table rowKey="key" columns={columns} dataSource={data?.configs ?? []} loading={loading} pagination={false} />`
+- `apps\admin-web\src\App.tsx:470: <Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} />`
+- `apps\admin-web\src\App.tsx:567: <Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} />`
+- `apps\workers-api\drizzle.config.ts:6: schema: "./src/db/schema.ts",`
+- `apps\workers-api\src\auth\account-flow.ts:5: } from "./guest-migration";`
+- `apps\workers-api\src\auth\account.ts:4: import { migrateGuestAssetsToExistingUser } from "./guest-migration";`
+- `apps\workers-api\src\auth\anonymous.test.ts:9: import { migrateGuestAssetsToUser } from "./guest-migration";`
+- `apps\workers-api\src\auth\anonymous.test.ts:2856: it("migrates only the requested live guest assets with an empty guard because standalone migration must not steal other anonymous work", async () => {`
+- `apps\workers-api\src\auth\anonymous.test.ts:2921: it("fails migration for an already upgraded guest because claimed guest assets must not move to another user", async () => {`
+- `apps\workers-api\src\auth\anonymous.test.ts:2961: it("rejects an incomplete guard because verification-gated migration must not silently downgrade to an unguarded path", async () => {`
+- `apps\workers-api\src\auth\anonymous.test.ts:2973: ).rejects.toThrow("Incomplete guest migration guard.");`
+- `apps\workers-api\src\auth\anonymous.test.ts:4783: it("creates default assets when the matching anonymous session is revoked because stale session proof must not authorize migration", async () => {`
+- `apps\workers-api\src\auth\anonymous.test.ts:4847: it("creates default assets when the matching anonymous session is expired because stale session proof must not authorize migration", async () => {`
+- `apps\workers-api\src\auth\anonymous.test.ts:4911: it("returns 422 when a live anonymous account is upgraded before the migration gate because stale guest state must not create durable credentials", async () ...`
+- `apps\workers-api\src\auth\guest-migration.ts:591: throw new Error("Incomplete guest migration guard.");`
+- `apps\workers-api\src\auth\register.ts:8: } from "./guest-migration";`
+- `apps\workers-api\src\db\schema.ts:1: // tcg-card D1 Schema —— 严格对齐 docs/tcg-card/03-data-api/data-model.md（14 张表）。`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:1: CREATE TABLE `admin_user` (`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:11: CREATE TABLE `anonymous_account` (`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:18: CREATE TABLE `app_config` (`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:25: CREATE TABLE `auth_identity` (`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:31: FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:35: CREATE TABLE `card_override` (`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:47: CREATE TABLE `collection_item` (`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:65: FOREIGN KEY (`folder_id`) REFERENCES `portfolio_folder`(`id`) ON UPDATE no action ON DELETE cascade,`
+- `docs\superpowers\claude-harness-rules.md:57: - 修改 `schema.ts``
+- `docs\superpowers\claude-harness-rules.md:58: - 新增或改动 migration`
+- `docs\superpowers\claude-harness-rules.md:63: - `apps/workers-api/src/db/schema.ts``
+- `docs\superpowers\claude-harness-rules.md:141: 1. 要修改数据库结构或 migration`
+- `docs\superpowers\codex-handoff.md:84: - `apps/workers-api/src/db/schema.ts``
+- `docs\superpowers\developer-onboarding.md:34: - `apps/workers-api/src/db/schema.ts` 与 `docs/tcg-card/**` 属于高契约面文件`
+- `docs\superpowers\developer-onboarding.md:46: - 修改 migration`
+- `docs\superpowers\developer-onboarding.md:47: - 修改 `schema.ts``
+- `docs\superpowers\developer-onboarding.md:51: - `apps/workers-api/src/db/schema.ts``
+- `docs\superpowers\execution-status.md:19: - [M0-6] D1 Schema 初始化迁移 — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:1007: "summary": "D1 Schema 初始化迁移",`
+- `docs\superpowers\execution-status.md:1008: "title": "D1 Schema 初始化迁移",`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:50: │   ├── data-model.md                 # Task 3`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:109: - Produces: 分层架构图、Workers 职责划分、两层数据策略、技术选型表、Monorepo 包划分与公有化边界。data-model / api-spec / dev-plan 引用本任务的分层与包结构。`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:136: ### Task 3: 数据模型与第三方接入 —— data-model.md + third-party.md`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:139: - Create: `docs/tcg-card/03-data-api/data-model.md``
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:146: - [ ] **Step 1: 撰写 data-model.md —— 用户/账号层**`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:156: - [ ] **Step 2: 撰写 data-model.md —— 资产层**`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:165: - [ ] **Step 3: 撰写 data-model.md —— 覆盖层 + 运营 + 反馈**`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:185: git add docs/tcg-card/03-data-api/data-model.md docs/tcg-card/03-data-api/third-party.md`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:43: - D1 business schema beyond M0 startup validation.`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:301: Expected: exit code `0` from the repository root.`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:341: - Read: `apps/workers-api/src/db/schema.ts``
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:457: - 已记录剩余风险：同 `device_id` 并发首启时，当前 schema 还没有“未升级匿名账号唯一”约束，可能创建多个未升级匿名账号；需后续 schema/迁移小切片处理。`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:285: - 剩余风险：上一切片记录的同 `device_id` 并发首启唯一性仍需后续 schema/迁移小切片处理。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:17: - 不实现 Email、OAuth、注册迁移、删除账号、Flutter token 管理或 schema 迁移。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:815: - 明确不实现 Email/OAuth/注册迁移/Flutter/schema。`
+- `docs\superpowers\plans\2026-07-03-brainstorming-app-i18n-rule.md:7: **Architecture:** This is a surgical documentation change to one local skill file. The new rule belongs in the `Understanding the idea` section because that ...`
+- `docs\superpowers\plans\2026-07-03-brainstorming-app-i18n-rule.md:141: - [ ] **Step 1: Check repository state**`
+- `docs\superpowers\plans\2026-07-03-brainstorming-app-i18n-rule.md:149: Expected: no new project source changes from the skill edit. The target skill file is outside the current repository, so it will not appear in this git statu...`
+- `docs\superpowers\plans\2026-07-03-brainstorming-app-i18n-rule.md:156: The edited skill file is in the local plugin cache, outside the current repository, so the skill edit itself is not captured by this repo's git history and m...`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:27: Do not modify database schema, migrations, `packages/auth-core`, Flutter UI, OAuth, or forgot-password behavior in this plan.`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:865: - [ ] **Step 3: Verify repository-level checks**`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:5: **Goal:** Build the M1 email registration slice: PBKDF2 password hashes, register verification codes, user creation, optional anonymous asset migration, and ...`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:28: This plan implements one approved slice. It does not implement login, password reset, OAuth, real email delivery, Flutter UI, schema changes, or bcrypt/argon...`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:362: it("returns 409 when the email already belongs to an active user because registration must not overwrite accounts", async () => {`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:1060: ## Task 4: Add Anonymous Asset Migration During Registration`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:1066: - [ ] **Step 1: Write failing migration tests**`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:1109: Add minimal row types and arrays for migration assertions:`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:1131: Extend FakeD1 for the migration SQL strings. Each update should mutate matching in-memory rows and return `okResult<T>()`.`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:1233: Expected: fail because verify ignores `anonymous_id` and migration SQL is unsupported.`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:26: Do not modify database schema, migrations, Flutter UI, OAuth behavior, or existing login/session behavior.`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:1291: - [ ] **Step 3: Verify repository-level checks**`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:5: **Goal:** Complete M1-6 through M1-12 with mock-first Google/Apple OAuth, account deletion, standalone guest migration, and a minimal Flutter Auth/Profile cl...`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:7: **Architecture:** Implement backend auth capabilities first, then wire Flutter against the stable API contract. OAuth uses replaceable mock providers in M1; ...`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:34: - Create: `apps/workers-api/src/auth/guest-migration.ts``
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:41: - Registers account deletion and standalone migration routes.`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:45: - Reuses shared user-session and guest-migration helpers without changing response shape.`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:47: - Extends fake D1 and adds OAuth, migration, and deletion tests.`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:75: - Create: `apps/workers-api/src/auth/guest-migration.ts``
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:153: - [ ] **Step 4: Create `guest-migration.ts` with focused helpers**`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:7: **Architecture:** Add a self-contained `features/collection` Flutter module with display models, a mock repository, a Riverpod controller, and a page. Keep a...`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:17: - Do not modify `apps/workers-api/src/db/schema.ts`, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:48: ### Task 1: Collection State Model and Controller`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:273: - [ ] **Step 4: Add the mock repository**`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:707: git commit -m "feat: add Collection state model"`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:1416: Run from repository root:`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:1446: Run from repository root:`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:1464: If any `apps/admin-web/**`, `apps/workers-api/src/db/**`, migration, `wrangler.toml`, `drizzle.config.ts`, or `docs/tcg-card/**` file appears, stop and inspe...`
+- `docs\superpowers\plans\2026-07-07-m4-currency-conversion.md:16: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:7: **Architecture:** Add a self-contained `features/home` Flutter module with display models, a mock repository, a Riverpod controller, and a UI page. Keep Home...`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:22: - Do not modify Workers D1 schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:52: ### Task 1: Home State Model and Controller`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:245: - [ ] **Step 4: Add the mock repository**`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:540: git commit -m "feat: add Home dashboard state model"`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:1288: Run from repository root:`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:1327: Run from repository root:`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:1363: - Mock repository and Riverpod state: Task 1.`
+- `docs\superpowers\plans\2026-07-07-m4-loading-failure-empty.md:7: **Architecture:** Add a small shared UI module with constants, a load status enum, and reusable loading/failure/empty widgets. Each existing synchronous mock...`
+- `docs\superpowers\plans\2026-07-07-m4-loading-failure-empty.md:16: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-07-m4-loading-failure-empty.md:82: Add controller test with a repository that throws once, then succeeds:`
+- `docs\superpowers\plans\2026-07-07-m4-loading-failure-empty.md:101: Add widget test overriding the repository to fail first and assert `No content available`, `Refresh`, no blank page, and Refresh restores `Overview`.`
+- `docs\superpowers\plans\2026-07-07-m4-market-change.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-07-m4-market-change.md:158: - Modify: Home model/repository/controller/page/tests listed above.`
+- `docs\superpowers\plans\2026-07-07-m4-market-change.md:285: Run from repository root:`
+- `docs\superpowers\plans\2026-07-07-m4-market-change.md:306: Run from repository root:`
+- `docs\superpowers\plans\2026-07-07-m4-market-change.md:341: - No M4-5 currency conversion, M4-6 loading/failure, M4-7 Toast, M7/admin, schema, migration, or `docs/tcg-card/**` changes.`
+- `docs\superpowers\plans\2026-07-07-m4-scan-placeholder.md:16: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-07-m4-search.md:7: **Architecture:** Add a self-contained `features/search` Flutter module with display models, deterministic mock repository, Riverpod controller, and Material...`
+- `docs\superpowers\plans\2026-07-07-m4-search.md:17: - Do not modify `apps/workers-api/src/db/schema.ts`, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-07-m4-search.md:52: ### Task 1: Search State Model and Controller`
+- `docs\superpowers\plans\2026-07-07-m4-search.md:285: - [ ] **Step 4: Add mock repository**`
+- `docs\superpowers\plans\2026-07-07-m4-search.md:349: git commit -m "feat: add Search state model"`
+- `docs\superpowers\plans\2026-07-07-m4-search.md:640: Run from repository root:`
+- `docs\superpowers\plans\2026-07-07-m4-search.md:670: Run from repository root:`
+- `docs\superpowers\plans\2026-07-07-m4-search.md:690: If any `apps/admin-web/**`, `apps/workers-api/src/db/**`, migration, `wrangler.toml`, `drizzle.config.ts`, or `docs/tcg-card/**` file appears, stop and inspe...`
+- `docs\superpowers\plans\2026-07-07-m4-toast.md:16: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-07-m5-card-detail-uncollected.md:7: **Architecture:** Add a new `features/card_detail` Flutter feature with small model, repository, controller, and page files. Register `/cards/:cardId` in GoR...`
+- `docs\superpowers\plans\2026-07-07-m5-card-detail-uncollected.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-07-m5-card-detail-uncollected.md:22: ## Task 1: Add CardDetail Models, Repository, and Controller`
+- `docs\superpowers\plans\2026-07-07-m5-card-detail-uncollected.md:37: - repository failure displays shared failure state and Refresh can recover.`
+- `docs\superpowers\plans\2026-07-07-m5-card-detail-uncollected.md:70: - [ ] **Step 3: Implement minimal model and repository**`
+- `docs\superpowers\plans\2026-07-07-m5-card-detail-uncollected.md:72: Create a model with these responsibilities:`
+- `docs\superpowers\plans\2026-07-07-m5-card-detail-uncollected.md:136: Mock repository data must include at least:`
+- `docs\superpowers\plans\2026-07-07-m5-card-detail-uncollected.md:164: - repository errors create `CardDetailState.unavailable(cardId: cardId)`.`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-collection-item-crud.md:7: **Architecture:** Extend the existing Flutter `features/card_detail` model, controller, and page. Keep persistence local to `CardDetailState`; no backend cli...`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-collection-item-crud.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-collection-item-crud.md:128: - [ ] **Step 3: Implement minimal model support**`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-owned.md:7: **Architecture:** Extend the existing Flutter `features/card_detail` model, repository, controller, and page created in M5-1. Keep owned state local and mock...`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-owned.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-owned.md:75: - [ ] **Step 3: Implement minimal owned model**`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-owned.md:217: Expected: FAIL until the owned repository/page behavior is implemented.`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-price-fallback.md:7: **Architecture:** Extend only the existing Flutter `features/card_detail` controller-derived state and page rendering. Keep `CardDetail` model and mock repos...`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-price-fallback.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-price-tab.md:7: **Architecture:** Extend the existing Flutter `features/card_detail` model, repository, controller, and page. Keep all data mock-first and local to CardDetai...`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-price-tab.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-08-m5-card-detail-price-tab.md:74: - [ ] **Step 3: Implement minimal model**`
+- `docs\superpowers\plans\2026-07-08-m6-customer-support-feedback.md:7: **Architecture:** Add a Profile-local feedback page and repository interface. Keep submission mock-first via `LocalFeedbackRepository`; do not touch Workers,...`
+- `docs\superpowers\plans\2026-07-08-m6-customer-support-feedback.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-08-m6-customer-support-feedback.md:76: Expected: FAIL because the route, page, and repository do not exist yet.`
+- `docs\superpowers\plans\2026-07-08-m6-customer-support-feedback.md:103: ## Task 3: Implement Repository And Page`
+- `docs\superpowers\plans\2026-07-08-m6-customer-support-feedback.md:111: - [ ] **Step 1: Add feedback repository**`
+- `docs\superpowers\plans\2026-07-08-m6-customer-support-feedback.md:113: Create a Riverpod provider and local placeholder implementation. The repository`
+- `docs\superpowers\plans\2026-07-08-m6-delete-account-flow.md:5: **Goal:** Complete M6-5 so confirmed delete account actions call an explicit auth repository delete operation, return to guest Profile on success, and show t...`
+- `docs\superpowers\plans\2026-07-08-m6-delete-account-flow.md:7: **Architecture:** Extend the existing Flutter auth repository/controller seam with `deleteCurrentAccount(AuthSession session)`. Keep the implementation local...`
+- `docs\superpowers\plans\2026-07-08-m6-delete-account-flow.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-08-m6-delete-account-flow.md:31: test('user delete calls repository delete and returns to a fresh guest', () async {`
+- `docs\superpowers\plans\2026-07-08-m6-delete-account-flow.md:32: final repository = _AuthRepository(`
+- `docs\superpowers\plans\2026-07-08-m6-delete-account-flow.md:36: final container = _container(repository);`
+- `docs\superpowers\plans\2026-07-08-m6-delete-account-flow.md:42: expect(repository.deletedSessions, [_userSession()]);`
+- `docs\superpowers\plans\2026-07-08-m6-delete-account-flow.md:47: final repository = _AuthRepository(`
+- `docs\superpowers\plans\2026-07-08-m6-onboarding.md:5: **Goal:** Complete M6-4 so Flutter shows first-launch onboarding from an app-config-shaped local repository and skips it after completion.`
+- `docs\superpowers\plans\2026-07-08-m6-onboarding.md:7: **Architecture:** Add a small `features/onboarding` module with repository, controller, page, and root-route gate. Keep storage in memory for this mock-first...`
+- `docs\superpowers\plans\2026-07-08-m6-onboarding.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-08-m6-onboarding.md:61: Expected: FAIL because onboarding storage, repository, and UI do not exist yet.`
+- `docs\superpowers\plans\2026-07-08-m6-onboarding.md:94: - [ ] **Step 1: Add repository and storage**`
+- `docs\superpowers\plans\2026-07-08-m6-onboarding.md:103: repository.`
+- `docs\superpowers\plans\2026-07-08-m6-profile-guest-state.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-08-m6-profile-signed-in-state.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\plans\2026-07-08-m6-subscription-removal.md:17: - Do not modify Workers schema, migrations, `wrangler.toml`, or `drizzle.config.ts`.`
+- `docs\superpowers\specs\2026-06-30-tcg-card-preparation-design.md:66: │   ├── data-model.md                 #   D1 表结构/ER、用户资产层 + 卡牌覆盖层`
+- `docs\superpowers\specs\2026-07-01-m0-baseline-verification-design.md:85: - D1 业务 schema 扩展。`
+- `docs\superpowers\specs\2026-07-02-m1-token-refresh-logout-design.md:28: - schema 迁移`
+- `docs\superpowers\specs\2026-07-03-m1-email-login-design.md:27: - 数据库 schema 或 migration 变更。`
+- `docs\superpowers\specs\2026-07-03-m1-email-login-design.md:155: - 不修改数据库 schema。`
+- `docs\superpowers\specs\2026-07-03-m1-email-registration-design.md:29: - 数据库 schema 或迁移变更。`
+- `docs\superpowers\specs\2026-07-03-m1-email-registration-design.md:126: - 不修改数据库 schema。`
+- `docs\superpowers\specs\2026-07-03-m1-forgot-password-design.md:26: - Database schema or migration changes`
+- `docs\superpowers\specs\2026-07-03-m1-forgot-password-design.md:35: ## Data Model`
+- `docs\superpowers\specs\2026-07-03-m1-forgot-password-design.md:37: Reuse the existing `verification_code` table:`
+- `docs\superpowers\specs\2026-07-03-m1-forgot-password-design.md:46: No new D1 table and no KV dependency are introduced.`
+- `docs\superpowers\specs\2026-07-03-m1-forgot-password-design.md:176: - No schema or migration changes are required.`
+- `docs\superpowers\specs\2026-07-06-m1-auth-completion-design.md:43: - Shared guest migration logic reused by Email registration, OAuth new-user registration, and the standalone migration endpoint.`
+- `docs\superpowers\specs\2026-07-06-m1-auth-completion-design.md:45: - Standalone `POST /auth/migrate-assets` for retrying guest asset migration after registration or OAuth success.`
+- `docs\superpowers\specs\2026-07-06-m1-auth-completion-design.md:58: - Database schema changes.`
+- `docs\superpowers\specs\2026-07-06-m1-auth-completion-design.md:66: - The remaining scope crosses backend auth, D1 writes, session behavior, guest migration, account deletion, and Flutter routing. Stabilizing API semantics fi...`
+- `docs\superpowers\specs\2026-07-06-m1-auth-completion-design.md:91: - `apps/workers-api/src/auth/guest-migration.ts``
+- `docs\superpowers\specs\2026-07-06-m1-auth-completion-design.md:92: - Extracts guest migration behavior currently embedded in Email registration.`
+- `docs\superpowers\specs\2026-07-06-m1-auth-completion-design.md:119: ### Standalone Migration`
+
+## rules_formulas
+
+- `CLAUDE.md:10: - Required runtimes from repo config:`
+- `pnpm-lock.yaml:185: '@babel/helper-validator-identifier@7.29.7':`
+- `pnpm-lock.yaml:189: '@babel/helper-validator-option@7.29.7':`
+- `pnpm-lock.yaml:1068: '@rc-component/async-validator@5.1.2':`
+- `pnpm-lock.yaml:1833: rc-rate@2.13.1:`
+- `pnpm-lock.yaml:2170: utf-8-validate: '>=5.0.2'`
+- `pnpm-lock.yaml:2174: utf-8-validate:`
+- `pnpm-lock.yaml:2239: '@babel/helper-validator-identifier': 7.29.7`
+- `pnpm-lock.yaml:2276: '@babel/helper-validator-option': 7.29.7`
+- `.claude\hooks\task_status.py:580: total = len(task_ids)`
+- `.claude\hooks\task_status.py:588: if total > 0 and counts["completed"] == total:`
+- `.claude\hooks\task_status.py:604: "total": total,`
+- `.claude\hooks\task_status.py:663: f"- {milestone}{title_suffix} — status: `{summary['status']}` · completed {summary['completed']} / total {summary['total']} · blocked {summary['blocked']} · ...`
+- `.turbo\cache\09b3c5bfee009f91-meta.json:1: {"hash":"09b3c5bfee009f91","duration":3793,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"e942fa48cb4fb5e546b1fab83b29901102d80bbe271632e432b...`
+- `.turbo\cache\0a78320b6ae877a9-meta.json:1: {"hash":"0a78320b6ae877a9","duration":4196,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"e6a86238687ad48566d5bed968a512a7d309317b90857983e1f...`
+- `.turbo\cache\10998f2d29bf6d68-meta.json:1: {"hash":"10998f2d29bf6d68","duration":2642,"sha":"f7b4c4b84cc4441babbf62727653ebc9e2818366","dirty_hash":null}`
+- `.turbo\cache\1bb444f7961e91a1-meta.json:1: {"hash":"1bb444f7961e91a1","duration":2747,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"525a56d9ab752818f55bc6b7f913961a9beeb4ff83ee1f78250...`
+- `.turbo\cache\28c7d4be2d39b579-meta.json:1: {"hash":"28c7d4be2d39b579","duration":8406,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"08d472e76f855583fd32317d643ee0cd8871a24e8f5ef7a59ea...`
+- `.turbo\cache\3099a9e9941ab989-meta.json:1: {"hash":"3099a9e9941ab989","duration":3397,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"4b1180d6ae8c41a5ed9b191c850e10ab32f3494d0e93808923d...`
+- `.turbo\cache\31e7fd53b6c7dcbd-meta.json:1: {"hash":"31e7fd53b6c7dcbd","duration":2855,"sha":"957cc0ef509e507b8427a319b0f86729c0f962e4","dirty_hash":"e11ba19db44881347c4b6187471e2aa4018f8ef7cc7ba3f31f9...`
+- `.turbo\cache\35b6396595fc3268-meta.json:1: {"hash":"35b6396595fc3268","duration":829,"sha":"2765f6ffa31e8c2cb7126bbe71c112d07a8de264","dirty_hash":null}`
+- `.turbo\cache\4e50df8d209c3e1b-meta.json:1: {"hash":"4e50df8d209c3e1b","duration":4659,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"d2bd03735047efb9a09a468ac11c5e44ee65e9f25a311b45cd0...`
+- `.turbo\cache\534c38d4fd9d041a-meta.json:1: {"hash":"534c38d4fd9d041a","duration":4124,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"dbffa2b9acc84178c4bc5dc18242bd1a37a91e8d9268672b3fe...`
+- `.turbo\cache\57fc4323caf42d5b-meta.json:1: {"hash":"57fc4323caf42d5b","duration":1963,"sha":"957cc0ef509e507b8427a319b0f86729c0f962e4","dirty_hash":"e11ba19db44881347c4b6187471e2aa4018f8ef7cc7ba3f31f9...`
+- `.turbo\cache\5dc4a6c665775efb-meta.json:1: {"hash":"5dc4a6c665775efb","duration":3401,"sha":"957cc0ef509e507b8427a319b0f86729c0f962e4","dirty_hash":null}`
+- `.turbo\cache\62f7d54560dc5491-meta.json:1: {"hash":"62f7d54560dc5491","duration":11955,"sha":"2765f6ffa31e8c2cb7126bbe71c112d07a8de264","dirty_hash":null}`
+- `.turbo\cache\6e46f1085cf6b901-meta.json:1: {"hash":"6e46f1085cf6b901","duration":1018,"sha":"2765f6ffa31e8c2cb7126bbe71c112d07a8de264","dirty_hash":null}`
+- `.turbo\cache\732bccfa49bbbcc0-meta.json:1: {"hash":"732bccfa49bbbcc0","duration":4135,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"ea6b0ad7bd062e877915a7294aaa6c26a9b27eacc0708092b83...`
+- `.turbo\cache\7d062c8936504cef-meta.json:1: {"hash":"7d062c8936504cef","duration":1001,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"dbffa2b9acc84178c4bc5dc18242bd1a37a91e8d9268672b3fe...`
+- `.turbo\cache\7f02422b8a76d499-meta.json:1: {"hash":"7f02422b8a76d499","duration":1818,"sha":"2765f6ffa31e8c2cb7126bbe71c112d07a8de264","dirty_hash":null}`
+- `.turbo\cache\85a638e308061763-meta.json:1: {"hash":"85a638e308061763","duration":811,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"dbffa2b9acc84178c4bc5dc18242bd1a37a91e8d9268672b3fed...`
+- `.turbo\cache\862302ff3963391c-meta.json:1: {"hash":"862302ff3963391c","duration":12150,"sha":"151ffe5a8da42398e9b1bbbf022ce90b3191bf8e","dirty_hash":null}`
+- `.turbo\cache\9768f9d28c28148d-meta.json:1: {"hash":"9768f9d28c28148d","duration":2363,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"525a56d9ab752818f55bc6b7f913961a9beeb4ff83ee1f78250...`
+- `.turbo\cache\9a861f676526834f-meta.json:1: {"hash":"9a861f676526834f","duration":4445,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"525a56d9ab752818f55bc6b7f913961a9beeb4ff83ee1f78250...`
+- `.turbo\cache\a0209da2158e5b9b-meta.json:1: {"hash":"a0209da2158e5b9b","duration":6868,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"525a56d9ab752818f55bc6b7f913961a9beeb4ff83ee1f78250...`
+- `.turbo\cache\a9314ec0dd6aeb98-meta.json:1: {"hash":"a9314ec0dd6aeb98","duration":2558,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"84b89df3b1d195595788f7baa8c90751facc8d4716ba65dac87...`
+- `.turbo\cache\a94ae028caaedfc3-meta.json:1: {"hash":"a94ae028caaedfc3","duration":1940,"sha":"c4133f7207f8ac946564b136df57378f9aab9b11","dirty_hash":null}`
+- `.turbo\cache\abc9011348c66b98-meta.json:1: {"hash":"abc9011348c66b98","duration":1008,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"dbffa2b9acc84178c4bc5dc18242bd1a37a91e8d9268672b3fe...`
+- `.turbo\cache\bd44591f5d4d5121-meta.json:1: {"hash":"bd44591f5d4d5121","duration":3682,"sha":"c4133f7207f8ac946564b136df57378f9aab9b11","dirty_hash":null}`
+- `.turbo\cache\beaafaf8e3551150-meta.json:1: {"hash":"beaafaf8e3551150","duration":3844,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"dc9e80651e1690e93de521ab571a22e9cb1c6d6af561a9a9325...`
+- `.turbo\cache\cc9fbf4b18b1fe0b-meta.json:1: {"hash":"cc9fbf4b18b1fe0b","duration":1898,"sha":"957cc0ef509e507b8427a319b0f86729c0f962e4","dirty_hash":null}`
+- `.turbo\cache\cd4c0bdfd1bcd3ce-meta.json:1: {"hash":"cd4c0bdfd1bcd3ce","duration":3532,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"4d20ead3ff388ddbd54d1c31f07dd8449f5194342913b314bd5...`
+- `.turbo\cache\d6107058e465a0cb-meta.json:1: {"hash":"d6107058e465a0cb","duration":3756,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"dbffa2b9acc84178c4bc5dc18242bd1a37a91e8d9268672b3fe...`
+- `.turbo\cache\e4e22d377009a488-meta.json:1: {"hash":"e4e22d377009a488","duration":2736,"sha":"f7b4c4b84cc4441babbf62727653ebc9e2818366","dirty_hash":null}`
+- `.turbo\cache\e5b9b70dc126a7d5-meta.json:1: {"hash":"e5b9b70dc126a7d5","duration":947,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"dbffa2b9acc84178c4bc5dc18242bd1a37a91e8d9268672b3fed...`
+- `.turbo\cache\e7ecbb8d3d507c68-meta.json:1: {"hash":"e7ecbb8d3d507c68","duration":894,"sha":"2765f6ffa31e8c2cb7126bbe71c112d07a8de264","dirty_hash":null}`
+- `.turbo\cache\e85a7f24c4825a17-meta.json:1: {"hash":"e85a7f24c4825a17","duration":4661,"sha":"fbfaf75a621cea6d79c0dc2a88d73052c627f9e9","dirty_hash":"2aaa6168cac007d9c9118e7f03e5cd9ee2b13255be6c06ba60f...`
+- `.turbo\cache\f5b86348dc4f88a2-meta.json:1: {"hash":"f5b86348dc4f88a2","duration":1838,"sha":"2765f6ffa31e8c2cb7126bbe71c112d07a8de264","dirty_hash":null}`
+- `.turbo\cache\fa613b1572e61529-meta.json:1: {"hash":"fa613b1572e61529","duration":789,"sha":"2765f6ffa31e8c2cb7126bbe71c112d07a8de264","dirty_hash":null}`
+- `apps\admin-web\src\App.tsx:158: <Form.Item name="email" label="邮箱" rules={[{ required: true }]}>`
+- `apps\admin-web\src\App.tsx:161: <Form.Item name="password" label="密码" rules={[{ required: true }]}>`
+- `apps\admin-web\src\App.tsx:433: render: (_, row) => <InputNumber min={1} value={row.rank} onPressEnter={(event) => patchPin(row, { rank: Number(event.currentTarget.value) })} />,`
+- `apps\admin-web\src\App.tsx:457: <Form.Item name="card_ref" rules={[{ required: true }]}>`
+- `apps\admin-web\src\App.tsx:460: <Form.Item name="rank" rules={[{ required: true }]} initialValue={1}>`
+- `apps\admin-web\src\App.tsx:461: <InputNumber min={1} placeholder="排序" />`
+- `apps\admin-web\src\App.tsx:551: <Form.Item name="card_ref" rules={[{ required: true }]}>`
+- `apps\flutter-app\android\app\src\debug\AndroidManifest.xml:2: <!-- The INTERNET permission is required for development. Specifically,`
+- `apps\flutter-app\android\app\src\main\AndroidManifest.xml:34: <!-- Required to query activities that can process text, see:`
+- `apps\flutter-app\android\app\src\profile\AndroidManifest.xml:2: <!-- The INTERNET permission is required for development. Specifically,`
+- `apps\workers-api\src\admin\routes.test.ts:664: duration: 0,`
+- `apps\workers-api\src\admin\routes.ts:428: const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);`
+- `apps\workers-api\src\admin\routes.ts:484: const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);`
+- `apps\workers-api\src\admin\routes.ts:580: const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);`
+- `apps\workers-api\src\auth\account-flow.ts:224: (error.message.includes("UNIQUE constraint failed: user.email") ||`
+- `apps\workers-api\src\auth\account-flow.ts:226: "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",`
+- `apps\workers-api\src\auth\account.ts:42: error: { code: "AUTH_REQUIRED", message: "Auth required." },`
+- `apps\workers-api\src\auth\account.ts:67: message: "anonymous_id is required.",`
+- `apps\workers-api\src\auth\anonymous.test.ts:736: throw new Error("UNIQUE constraint failed: user.email");`
+- `apps\workers-api\src\auth\anonymous.test.ts:795: throw new Error("UNIQUE constraint failed: user.email");`
+- `apps\workers-api\src\auth\anonymous.test.ts:956: throw new Error("UNIQUE constraint failed: user.email");`
+- `apps\workers-api\src\auth\anonymous.test.ts:1006: "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",`
+- `apps\workers-api\src\auth\anonymous.test.ts:1042: throw new Error("UNIQUE constraint failed: user.email");`
+- `apps\workers-api\src\auth\anonymous.test.ts:1098: "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",`
+- `apps\workers-api\src\auth\anonymous.test.ts:1687: "UNIQUE constraint failed: portfolio_folder.owner_type, portfolio_folder.owner_id, portfolio_folder.name",`
+- `apps\workers-api\src\auth\anonymous.test.ts:1750: "UNIQUE constraint failed: wishlist_item.owner_type, wishlist_item.owner_id, wishlist_item.card_ref",`
+- `apps\workers-api\src\auth\anonymous.ts:27: message: "device_id is required.",`
+- `apps\workers-api\src\auth\forgot-password.ts:638: const length = Math.max(left.length, right.length);`
+- `apps\workers-api\src\auth\guest-migration.ts:31: type CompleteGuestMigrationGuard = Required<GuestMigrationGuard>;`
+- `apps\workers-api\src\auth\register.ts:529: error.message.includes("UNIQUE constraint failed: user.email")`
+- `apps\workers-api\src\auth\session.ts:32: message: "refresh_token is required.",`
+- `apps\workers-api\src\data-source\adapter.ts:24: price: number;`
+- `apps\workers-api\src\data-source\adapter.ts:31: price: number | null;`
+- `apps\workers-api\src\data-source\adapter.ts:37: price: number;`
+- `apps\workers-api\src\data-source\adapter.ts:101: { grader: "Raw", grade: null, condition: "Near Mint", price: 1200 },`
+- `apps\workers-api\src\data-source\adapter.ts:102: { grader: "PSA", grade: 10, condition: null, price: 5000 },`
+- `apps\workers-api\src\data-source\adapter.ts:108: { date: "2026-06-01", price: 4800 },`
+- `apps\workers-api\src\data-source\adapter.ts:109: { date: "2026-06-30", price: 5000 },`
+- `apps\workers-api\src\data-source\adapter.ts:118: price: 5000,`
+- `apps\workers-api\src\data-source\cache-api.test.ts:55: price:`
+- `apps\workers-api\src\data-source\cache-api.test.ts:70: price: card_ref.length,`
+- `apps\workers-api\src\data-source\cache-api.test.ts:85: price: 5000,`
+- `apps\workers-api\src\data-source\cache-api.test.ts:94: it("serves repeated getMarketPrices calls from Cache API because current price requests should not hit providers repeatedly", async () => {`
+- `apps\workers-api\src\data-source\cache-api.test.ts:108: "public, max-age=1800",`
+- `apps\workers-api\src\data-source\cache-api.test.ts:112: it("keys getPriceSeries by grader grade condition and days because price chart dimensions must not share cached payloads", async () => {`
+- `apps\workers-api\src\data-source\cache-api.ts:89: "Cache-Control": `public, max-age=${CACHE_API_TTL_SECONDS}`,`
+- `apps\workers-api\src\data-source\routes.test.ts:71: throw new Error("Injected price series failure.");`
+- `apps\workers-api\src\data-source\routes.test.ts:138: )}/price-series?grader=Raw&condition=Near%20Mint&days=30`,`
+- `apps\workers-api\src\data-source\routes.test.ts:166: total: 1,`
+- `apps\workers-api\src\data-source\routes.test.ts:189: total: 2,`
+- `apps\workers-api\src\data-source\routes.test.ts:208: { grader: "Raw", grade: null, condition: "Near Mint", price: 1200, currency: "USD" },`
+- `apps\workers-api\src\data-source\routes.test.ts:209: { grader: "PSA", grade: 10, condition: null, price: 5000, currency: "USD" },`
+- `apps\workers-api\src\data-source\routes.test.ts:224: { date: "2026-06-01", price: 4800 },`
+- `apps\workers-api\src\data-source\routes.test.ts:225: { date: "2026-06-30", price: 5000 },`
+- `apps\workers-api\src\data-source\routes.ts:118: data: { items, total: items.length, page, page_size: pageSize },`
+- `apps\workers-api\src\data-source\routes.ts:139: data: { items, total: items.length, page, page_size: pageSize },`
+- `apps\workers-api\src\data-source\routes.ts:172: prices: prices.map((price) => ({ ...price, currency: "USD" })),`
+- `apps\workers-api\src\data-source\routes.ts:178: routes.get("/cards/:card_ref/price-series", async (c) => {`
+- `apps\workers-api\src\data-source\routes.ts:248: const rate = base === "USD" ? MOCK_USD_RATES[target] : undefined;`
+- `apps\workers-api\src\data-source\routes.ts:250: if (typeof rate === "number") {`
+- `apps\workers-api\src\data-source\routes.ts:251: rates[target] = rate;`
+- `apps\workers-api\src\data-source\routes.ts:475: max?: number,`
+- `apps\workers-api\src\db\schema.ts:11: unique,`
+- `apps\workers-api\src\db\schema.ts:18: email: text("email").notNull().unique(),`
+- `apps\workers-api\src\db\schema.ts:44: (t) => [unique("uq_auth_identity_provider").on(t.provider, t.providerUid)],`
+- `apps\workers-api\src\db\schema.ts:53: refreshToken: text("refresh_token").notNull().unique(),`
+- `apps\workers-api\src\db\schema.ts:90: unique("uq_portfolio_folder_name").on(t.ownerType, t.ownerId, t.name),`
+- `apps\workers-api\src\db\schema.ts:137: unique("uq_wishlist_item_card").on(t.ownerType, t.ownerId, t.cardRef),`
+- `apps\workers-api\src\db\schema.ts:154: (t) => [unique("uq_user_preference_owner").on(t.ownerType, t.ownerId)],`
+- `apps\workers-api\src\db\schema.ts:161: email: text("email").notNull().unique(),`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:10: CREATE UNIQUE INDEX `admin_user_email_unique` ON `admin_user` (`email`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:34: CREATE UNIQUE INDEX `uq_auth_identity_provider` ON `auth_identity` (`provider`,`provider_uid`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:46: CREATE UNIQUE INDEX `card_override_card_ref_unique` ON `card_override` (`card_ref`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:97: CREATE UNIQUE INDEX `uq_portfolio_folder_name` ON `portfolio_folder` (`owner_type`,`owner_id`,`name`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:108: CREATE UNIQUE INDEX `session_refresh_token_unique` ON `session` (`refresh_token`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:120: CREATE UNIQUE INDEX `trending_pin_card_ref_unique` ON `trending_pin` (`card_ref`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:132: CREATE UNIQUE INDEX `user_email_unique` ON `user` (`email`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:144: CREATE UNIQUE INDEX `uq_user_preference_owner` ON `user_preference` (`owner_type`,`owner_id`);--> statement-breakpoint`
+- `apps\workers-api\src\portfolio\folders.test.ts:131: throw new Error("UNIQUE constraint failed: portfolio_folder.name");`
+- `apps\workers-api\src\portfolio\folders.test.ts:165: throw new Error("UNIQUE constraint failed: portfolio_folder.name");`
+- `apps\workers-api\src\portfolio\folders.test.ts:357: it("returns CONFLICT when creating a duplicate folder name because owner folder names are unique", async () => {`
+- `apps\workers-api\src\portfolio\items.test.ts:329: total: 2,`
+- `apps\workers-api\src\portfolio\routes.ts:439: total: sortedItems.length,`
+- `apps\workers-api\src\portfolio\routes.ts:545: total: sortedItems.length,`
+- `apps\workers-api\src\portfolio\routes.ts:801: Math.max(0, ...existingFolders.map((folder) => folder.sort_order)) + 100;`
+- `apps\workers-api\src\portfolio\routes.ts:1489: max?: number,`
+- `apps\workers-api\src\portfolio\routes.ts:1501: return max ? Math.min(parsed, max) : parsed;`
+- `apps\workers-api\src\portfolio\routes.ts:1511: error.message.toLowerCase().includes("unique constraint")`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:122: throw new Error("UNIQUE constraint failed: wishlist_item.card_ref");`
+- `apps\workers-api\src\portfolio\wishlist.test.ts:181: total: 2,`
+- `docs\superpowers\codex-handoff.md:49: - M5 CardDetail 未加入态、已加入态、Price Tab、Collection Item 增删改、价格降级展示`
+- `docs\superpowers\execution-status.md:68: - [M5-3] Price Tab 实现 — status: `completed` · updated: 2026-07-08 08:59:18`
+- `docs\superpowers\execution-status.md:103: - M0 工程基建 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0`
+- `docs\superpowers\execution-status.md:104: - M1 鉴权与账号 — status: `completed` · completed 12 / total 12 · blocked 0 · in_progress 0`
+- `docs\superpowers\execution-status.md:105: - M2 数据代理层 — status: `in_progress` · completed 7 / total 8 · blocked 0 · in_progress 0`
+- `docs\superpowers\execution-status.md:106: - M3 核心资产 CRUD — status: `completed` · completed 6 / total 6 · blocked 0 · in_progress 0`
+- `docs\superpowers\execution-status.md:107: - M4 三大页面 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0`
+- `docs\superpowers\execution-status.md:108: - M5 卡牌详情 — status: `completed` · completed 5 / total 5 · blocked 0 · in_progress 0`
+- `docs\superpowers\execution-status.md:109: - M6 Profile / 客服 / 启动引导 — status: `in_progress` · completed 5 / total 6 · blocked 0 · in_progress 1`
+- `docs\superpowers\plans\2026-06-30-global-rules-sync.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:214: 搜索（Cards/Sets，带 Game/IP 与关键词）、卡牌详情（含 Price/Market Prices/Shop 分区）、价格序列（周期参数）、Trending Today、成交记录、汇率换算、Collect 快捷加入。明确这些走 third-party 适配层 + 缓存。`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:279: 以 `个人中心.md` 为底稿，结构化为：游客态页面、登录态页面、Account 详情、删除账号确认、Customer Support（反馈表单字段/校验/提交）、Score 评分、Share、Terms/Privacy、Log Out、账号与资产绑定规则、状态与异常。**删除订阅相关**（Upgrade/Sub...`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:342: 以 `卡牌详情.md` 为底稿：两态（未加入/已加入 Portfolio）、各对象类型基础信息、Price Tab（图表/Market Prices/Shop）、Collection Item 字段（四类）、编辑 Collection Item 页（表单/校验/规则）、Remove from Portfolio/...`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:51: - [ ] Before editing, classify the failure as either small fix or approval-required using the spec at `docs/superpowers/specs/2026-07-01-m0-baseline-verifica...`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:53: - [ ] For an approval-required issue, stop execution and report the exact blocker. Do not patch around it.`
+- `docs\superpowers\plans\2026-07-01-m0-baseline-verification.md:150: Expected: exit code `0` and no lockfile rewrite. If the command fails due registry or network access, rerun it once with escalated permission as required by ...`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:252: "message": "device_id is required."`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:81: - secret 为空时抛出 `JWT secret is required.`，与 `signAccessToken` 保持一致。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this...`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:299: message: "refresh_token is required.",`
+- `docs\superpowers\plans\2026-07-03-brainstorming-app-i18n-rule.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:1076: it("rate limits repeated reset code requests because users should not receive duplicate codes inside 60 seconds", async () => {`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:1081: id: "rate-reset-user",`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:1082: email: "rate-reset@example.com",`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:1091: email: "rate-reset@example.com",`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:1096: email: "rate-reset@example.com",`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:302: - `google oauth binds an existing live email because user.email is unique across auth methods``
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:650: error: { code: "AUTH_REQUIRED", message: "Auth required." },`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:738: required this.ownerType,`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:739: required this.accessToken,`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:740: required this.refreshToken,`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:761: required this.session,`
+- `docs\superpowers\plans\2026-07-06-m1-auth-completion.md:791: - validate it through repository,`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:5: **Goal:** Build the M4-2 Flutter Collection page with Portfolio/Wishlist tabs, mock-backed state, search, sort, filter, amount hiding, empty states, and bott...`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:30: - Riverpod providers, `CollectionState`, derived lists, search/sort/filter interactions, amount hiding.`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:146: test('amount hiding masks money but leaves percentages readable', () {`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:197: required this.id,`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:198: required this.name,`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:199: required this.isDefault,`
+- `docs\superpowers\plans\2026-07-07-m4-collection.md:209: required this.id,`
+- `docs\superpowers\plans\2026-07-07-m4-currency-conversion.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-07-07-m4-currency-conversion.md:7: **Architecture:** Introduce a small shared currency module with supported currencies, mock USD rates, formatting, and a Riverpod selected-currency provider. ...`
+- `docs\superpowers\plans\2026-07-07-m4-currency-conversion.md:31: - EUR `€11,684.40` from USD 12,840 at rate 0.91.`
+- `docs\superpowers\plans\2026-07-07-m4-currency-conversion.md:32: - Negative amount `-€382.20`.`
+- `docs\superpowers\plans\2026-07-07-m4-currency-conversion.md:33: - Missing amount `--`.`
+- `docs\superpowers\plans\2026-07-07-m4-currency-conversion.md:34: - Hidden amount `••••••`.`
+- `docs\superpowers\plans\2026-07-07-m4-currency-conversion.md:86: Read `selectedCurrencyProvider` in `HomeController.build`, remove private rate/symbol switch, and make the currency sheet list `AppCurrency.values`.`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:3: > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this pla...`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:44: - Unit tests for folder, currency, hidden amount, chart-range behavior.`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:111: test('hidden amount masks asset money without losing selected folder state', () {`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:133: controller.selectChartRange(HomeChartRange.max);`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:136: expect(state.chartRange, HomeChartRange.max);`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:163: max('MAX');`
+- `docs\superpowers\plans\2026-07-07-m4-home.md:172: required this.id,`
+
+## integrations
+
+- `CLAUDE.md:157: - `register.ts`: email verification + account creation + anonymous-to-user migration`
+- `CLAUDE.md:158: - `login.ts`: email/password login`
+- `README.md:74: Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.`
+- `apps\admin-web\vite.config.ts:4: export default defineConfig({`
+- `apps\admin-web\src\App.tsx:29: email: string;`
+- `apps\admin-web\src\App.tsx:46: email: string | null;`
+- `apps\admin-web\src\App.tsx:56: email: string;`
+- `apps\admin-web\src\App.tsx:105: export default function App() {`
+- `apps\admin-web\src\App.tsx:126: async function handleFinish(values: { email: string; password: string }) {`
+- `apps\admin-web\src\App.tsx:131: email: string;`
+- `apps\admin-web\src\App.tsx:138: email: body.email,`
+- `apps\admin-web\src\App.tsx:158: <Form.Item name="email" label="邮箱" rules={[{ required: true }]}>`
+- `apps\flutter-app\ios\Flutter\ephemeral\flutter_lldb_helper.py:27: # BreakpointCreateByName. For some reasons callback function does not`
+- `apps\workers-api\drizzle.config.ts:4: export default defineConfig({`
+- `apps\workers-api\src\env.ts:1: export interface Env {`
+- `apps\workers-api\src\index.ts:8: export type { Env } from "./env";`
+- `apps\workers-api\src\index.ts:21: export default app;`
+- `apps\workers-api\src\owner-auth.ts:5: export type OwnerType = "anonymous" | "user";`
+- `apps\workers-api\src\owner-auth.ts:7: export type AuthenticatedOwner = {`
+- `apps\workers-api\src\owner-auth.ts:49: export async function authenticateOwner(`
+- `apps\workers-api\src\admin\routes.test.ts:13: email: string;`
+- `apps\workers-api\src\admin\routes.test.ts:32: email: string;`
+- `apps\workers-api\src\admin\routes.test.ts:49: email: string;`
+- `apps\workers-api\src\admin\routes.test.ts:88: email: string;`
+- `apps\workers-api\src\admin\routes.test.ts:127: if (sql.includes("FROM admin_user") && sql.includes("WHERE email = ?")) {`
+- `apps\workers-api\src\admin\routes.test.ts:128: const [email] = this.values as [string];`
+- `apps\workers-api\src\admin\routes.test.ts:129: return (this.db.adminUsers.find((row) => row.email === email) ?? null) as T | null;`
+- `apps\workers-api\src\admin\routes.test.ts:188: .filter((row) => !query || row.email.toLowerCase().includes(query))`
+- `apps\workers-api\src\admin\routes.ts:20: email: string;`
+- `apps\workers-api\src\admin\routes.ts:27: email: string;`
+- `apps\workers-api\src\admin\routes.ts:94: SELECT id, email, password_hash, role, status, created_at`
+- `apps\workers-api\src\admin\routes.ts:96: WHERE email = ?`
+- `apps\workers-api\src\admin\routes.ts:101: SELECT id, email, password_hash, role, status, created_at`
+- `apps\workers-api\src\admin\routes.ts:133: SELECT 'user' AS account_type, id, email, NULL AS device_id, created_at,`
+- `apps\workers-api\src\admin\routes.ts:137: AND (? IS NULL OR lower(email) LIKE '%' || ? || '%')`
+- `apps\workers-api\src\admin\routes.ts:139: SELECT 'anonymous' AS account_type, id, NULL AS email, device_id, created_at,`
+- `apps\workers-api\src\auth\account-flow.ts:25: export type OAuthAccountFlowResult = {`
+- `apps\workers-api\src\auth\account-flow.ts:54: WHERE email = ?`
+- `apps\workers-api\src\auth\account-flow.ts:60: (id, email, password_hash, display_name, created_at, updated_at, deleted_at)`
+- `apps\workers-api\src\auth\account-flow.ts:72: (id, email, password_hash, display_name, created_at, updated_at, deleted_at)`
+- `apps\workers-api\src\auth\account-flow.ts:121: export function isOAuthAuthorizationFailedError(error: unknown): boolean {`
+- `apps\workers-api\src\auth\account-flow.ts:127: export function isGuestAccountUnavailableError(error: unknown): boolean {`
+- `apps\workers-api\src\auth\account-flow.ts:133: export async function completeOAuthAccountFlow(`
+- `apps\workers-api\src\auth\account-flow.ts:194: .bind(identity.email)`
+- `apps\workers-api\src\auth\account.ts:137: export function registerAccountRoutes(routes: Hono<{ Bindings: Env }>): void {`
+- `apps\workers-api\src\auth\anonymous.test.ts:78: email: string;`
+- `apps\workers-api\src\auth\anonymous.test.ts:96: email: string;`
+- `apps\workers-api\src\auth\anonymous.test.ts:128: email: string | null;`
+- `apps\workers-api\src\auth\anonymous.test.ts:155: email: string;`
+- `apps\workers-api\src\auth\anonymous.test.ts:167: email: string;`
+- `apps\workers-api\src\auth\anonymous.test.ts:178: email: string;`
+- `apps\workers-api\src\auth\anonymous.test.ts:349: email: user.email,`
+- `apps\workers-api\src\auth\anonymous.test.ts:357: const [email] = values as [string];`
+- `apps\workers-api\src\auth\anonymous.ts:70: export const authRoutes = new Hono<{ Bindings: Env }>();`
+- `apps\workers-api\src\auth\current.ts:12: email: string;`
+- `apps\workers-api\src\auth\current.ts:49: SELECT id, email, display_name, created_at`
+- `apps\workers-api\src\auth\current.ts:62: export function registerCurrentAccountRoutes(`
+- `apps\workers-api\src\auth\current.ts:112: email: null,`
+- `apps\workers-api\src\auth\current.ts:133: email: user.email,`
+- `apps\workers-api\src\auth\forgot-password.ts:26: email: string | null;`
+- `apps\workers-api\src\auth\forgot-password.ts:31: email: string | null;`
+- `apps\workers-api\src\auth\forgot-password.ts:37: email: string;`
+- `apps\workers-api\src\auth\forgot-password.ts:52: message: "Please enter your email.",`
+- `apps\workers-api\src\auth\forgot-password.ts:60: message: "Please enter a valid email address.",`
+- `apps\workers-api\src\auth\forgot-password.ts:68: message: "Email not registered. Please check your email or create a new account.",`
+- `apps\workers-api\src\auth\forgot-password.ts:115: WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL`
+- `apps\workers-api\src\auth\forgot-password.ts:121: (id, email, code, purpose, expires_at, used_at, created_at)`
+- `apps\workers-api\src\auth\guest-migration.ts:4: export type AnonymousAccountRow = { id: string };`
+- `apps\workers-api\src\auth\guest-migration.ts:5: export type SessionLookupRow = {`
+- `apps\workers-api\src\auth\guest-migration.ts:12: export type MigrationCounts = {`
+- `apps\workers-api\src\auth\guest-migration.ts:18: export type GuestMigrationGuard = {`
+- `apps\workers-api\src\auth\guest-migration.ts:23: export type GuestMigrationStatements = {`
+- `apps\workers-api\src\auth\guest-migration.ts:341: export async function findVerifiedAnonymousAccount(`
+- `apps\workers-api\src\auth\guest-migration.ts:383: export async function migrateGuestAssetsToUser(`
+- `apps\workers-api\src\auth\guest-migration.ts:409: export async function migrateGuestAssetsToExistingUser(`
+- `apps\workers-api\src\auth\http-auth.ts:1: export function getBearerToken(authorization: string | undefined): string | null {`
+- `apps\workers-api\src\auth\http-auth.ts:7: export function hasSigningSecret(secret: unknown): secret is string {`
+- `apps\workers-api\src\auth\login.ts:15: email: string;`
+- `apps\workers-api\src\auth\login.ts:20: email: string | null;`
+- `apps\workers-api\src\auth\login.ts:31: message: "Please enter your email.",`
+- `apps\workers-api\src\auth\login.ts:39: message: "Please enter a valid email address.",`
+- `apps\workers-api\src\auth\login.ts:63: SELECT id, email, password_hash`
+- `apps\workers-api\src\auth\login.ts:65: WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL`
+- `apps\workers-api\src\auth\login.ts:75: export function registerEmailLoginRoutes(`
+- `apps\workers-api\src\auth\login.ts:81: if (!input.email) {`
+- `apps\workers-api\src\auth\oauth-provider.ts:1: export type OAuthProviderName = "google" | "apple";`
+- `apps\workers-api\src\auth\oauth-provider.ts:3: export type OAuthIdentity = {`
+- `apps\workers-api\src\auth\oauth-provider.ts:6: email: string;`
+- `apps\workers-api\src\auth\oauth-provider.ts:9: export type GoogleOAuthInput = {`
+- `apps\workers-api\src\auth\oauth-provider.ts:14: export type AppleOAuthInput = {`
+- `apps\workers-api\src\auth\oauth-provider.ts:24: export function resolveMockGoogleIdentity(`
+- `apps\workers-api\src\auth\oauth-provider.ts:31: const email = normalizeEmail(parts[2]);`
+- `apps\workers-api\src\auth\oauth-provider.ts:32: if (!providerUid || !email) return null;`
+- `apps\workers-api\src\auth\oauth.ts:50: export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {`
+- `apps\workers-api\src\auth\oauth.ts:51: routes.post("/oauth/google/callback", async (c) => {`
+- `apps\workers-api\src\auth\oauth.ts:80: email: identity.email,`
+- `apps\workers-api\src\auth\oauth.ts:97: console.error("Failed to complete Google OAuth callback.", error);`
+- `apps\workers-api\src\auth\oauth.ts:102: routes.post("/oauth/apple/callback", async (c) => {`
+- `apps\workers-api\src\auth\oauth.ts:131: email: identity.email,`
+- `apps\workers-api\src\auth\oauth.ts:148: console.error("Failed to complete Apple OAuth callback.", error);`
+- `apps\workers-api\src\auth\register.ts:24: email: string | null;`
+- `apps\workers-api\src\auth\register.ts:40: message: "Please enter your email.",`
+- `apps\workers-api\src\auth\register.ts:48: message: "Please enter a valid email address.",`
+- `apps\workers-api\src\auth\register.ts:80: message: "Email is already registered.",`
+- `apps\workers-api\src\auth\register.ts:95: WHERE email = ?`
+- `apps\workers-api\src\auth\register.ts:101: (id, email, code, purpose, expires_at, used_at, created_at)`
+- `apps\workers-api\src\auth\register.ts:108: WHERE email = ? AND purpose = 'register'`
+- `apps\workers-api\src\auth\register.ts:115: (id, email, password_hash, display_name, created_at, updated_at, deleted_at)`
+- `apps\workers-api\src\auth\session.ts:79: export function registerSessionRoutes(routes: Hono<{ Bindings: Env }>): void {`
+- `apps\workers-api\src\auth\user-session.ts:10: export type CreatedUserSession = {`
+- `apps\workers-api\src\auth\user-session.ts:19: export async function createUserSessionValues(`
+- `apps\workers-api\src\data-source\adapter.ts:1: export type CardObjectType = "tcg" | "sports" | "sealed" | "other";`
+- `apps\workers-api\src\data-source\adapter.ts:3: export type CardSearchOptions = {`
+- `apps\workers-api\src\data-source\adapter.ts:9: export type CardSearchResult = {`
+- `apps\workers-api\src\data-source\adapter.ts:22: export type PricePoint = {`
+- `apps\workers-api\src\data-source\adapter.ts:27: export type MarketPrice = {`
+- `apps\workers-api\src\data-source\adapter.ts:34: export type SoldListing = {`
+- `apps\workers-api\src\data-source\adapter.ts:42: export interface DataSourceAdapter {`
+- `apps\workers-api\src\data-source\adapter.ts:125: export function createMockDataSourceAdapter(): DataSourceAdapter {`
+- `apps\workers-api\src\data-source\cache-api.ts:3: export type DataSourceCache = {`
+- `apps\workers-api\src\data-source\cache-api.ts:11: export function createCacheApiDataSourceAdapter(`
+- `apps\workers-api\src\data-source\kv-cache.ts:6: export type DataSourceKvNamespace = {`
+- `apps\workers-api\src\data-source\kv-cache.ts:20: export function createKvCachedDataSourceAdapter(`
+- `apps\workers-api\src\data-source\routes.ts:86: export function createDataSourceRoutes(`
+- `apps\workers-api\src\db\schema.ts:16: export const user = sqliteTable("user", {`
+- `apps\workers-api\src\db\schema.ts:18: email: text("email").notNull().unique(),`
+- `apps\workers-api\src\db\schema.ts:26: export const anonymousAccount = sqliteTable("anonymous_account", {`
+- `apps\workers-api\src\db\schema.ts:33: export const authIdentity = sqliteTable(`
+- `apps\workers-api\src\db\schema.ts:47: export const session = sqliteTable(`
+- `apps\workers-api\src\db\schema.ts:61: export const verificationCode = sqliteTable(`
+- `apps\workers-api\src\db\schema.ts:65: email: text("email").notNull(),`
+- `apps\workers-api\src\db\schema.ts:72: (t) => [index("idx_verification_code_email").on(t.email, t.purpose)],`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:3: `email` text NOT NULL,`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:10: CREATE UNIQUE INDEX `admin_user_email_unique` ON `admin_user` (`email`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:74: `email` text NOT NULL,`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:124: `email` text NOT NULL,`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:132: CREATE UNIQUE INDEX `user_email_unique` ON `user` (`email`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:147: `email` text NOT NULL,`
+- `apps\workers-api\src\db\migrations\0000_famous_vector.sql:155: CREATE INDEX `idx_verification_code_email` ON `verification_code` (`email`,`purpose`);--> statement-breakpoint`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:17: "email": {`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:18: "name": "email",`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:58: "email"`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:467: "email": {`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:468: "name": "email",`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:783: "email": {`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:784: "name": "email",`
+- `apps\workers-api\src\db\migrations\meta\0000_snapshot.json:830: "email"`
+- `apps\workers-api\src\portfolio\routes.ts:259: export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {`
+- `docs\superpowers\claude-harness-rules.md:132: ### 不要用 Cron 做代码主循环`
+- `docs\superpowers\claude-harness-rules.md:133: Cron 只适合墙钟周期检查，不适合作为代码实现的主推进方式。`
+- `docs\superpowers\codex-handoff.md:62: - D1 管理员初始化脚本：`pnpm --filter @kando/workers-api admin:init -- --email admin@example.com --password <password> [--local] [--execute]``
+- `docs\superpowers\execution-status.md:26: - [M1-3] Email 注册流程 — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:27: - [M1-4] Email 登录 — status: `completed` · updated: 历史回填（基于当前仓库状态）`
+- `docs\superpowers\execution-status.md:1042: "summary": "Email 注册流程",`
+- `docs\superpowers\execution-status.md:1043: "title": "Email 注册流程",`
+- `docs\superpowers\execution-status.md:1049: "summary": "Email 登录",`
+- `docs\superpowers\execution-status.md:1050: "title": "Email 登录",`
+- `docs\superpowers\plans\2026-06-30-global-rules-sync.md:13: - 设计依据：`docs/superpowers/specs/2026-06-30-global-rules-sync-design.md`。`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:149: - `user`（正式账号：id、email、password_hash、created_at…）`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:153: - `verification_code`（邮箱验证码：email、code、expires_at、purpose=register|reset）`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:171: - `feedback_ticket`（客服工单：email、types[]、functions[]、message、status、created_at）`
+- `docs\superpowers\plans\2026-06-30-tcg-card-docs-authoring.md:275: 以 `注册登录.md` 为底稿，结构化为：入口、注册/登录方式（Email/Google/Apple）、Email 注册流程、Email 登录流程、找回密码流程、邮箱校验规则、密码规则、验证码规则、成功 toast、全部错误文案。跨切面失败/网络/Toast **引用 global-rules**。接口处引用 a...`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:15: - 只实现匿名账号创建/复用，不实现 Email 注册、OAuth、找回密码、Flutter Auth UI、token refresh、logout 或删除账号。`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:140: export type OwnerType = "user" | "anonymous";`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:142: export interface AccessTokenPayload {`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:148: export const ACCESS_TOKEN_EXPIRES_IN_SECONDS = 900;`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:149: export const REFRESH_TOKEN_EXPIRES_IN_DAYS = 30;`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:151: export async function signAccessToken(`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:157: export function createRefreshToken(): string;`
+- `docs\superpowers\plans\2026-07-02-m1-anonymous-account.md:159: export async function hashRefreshToken(refreshToken: string): Promise<string>;`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:7: **架构：** `packages/auth-core` 负责 HS256 JWT 验签和 payload 校验，保持与 Workers 业务表解耦。`apps/workers-api` 增加 Bearer token 解析和当前 owner 查询逻辑，并在现有 `/api/v1/auth` 路由组内注册 `/m...`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:16: - 不实现 `POST /auth/token/refresh`、`POST /auth/logout`、Email 注册、OAuth、密码哈希、Flutter UI。`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:51: export interface VerifiedAccessTokenPayload extends AccessTokenPayload {`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:56: export type VerifyAccessTokenResult =`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:60: export async function verifyAccessToken(`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:122: "email": null,`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:149: export function registerCurrentAccountRoutes(`
+- `docs\superpowers\plans\2026-07-02-m1-auth-verify-me.md:186: SELECT id, email, display_name, created_at`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:17: - 不实现 Email、OAuth、注册迁移、删除账号、Flutter token 管理或 schema 迁移。`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:340: export function registerSessionRoutes(routes: Hono<{ Bindings: Env }>): void {`
+- `docs\superpowers\plans\2026-07-02-m1-token-refresh-logout.md:815: - 明确不实现 Email/OAuth/注册迁移/Flutter/schema。`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:1: # M1 Email Login Implementation Plan`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:5: **Goal:** Implement `POST /api/v1/auth/login` so registered Email users can sign in with a PBKDF2 password hash and receive a user session.`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:17: - Contains request parsing, email normalization, password verification, session insert, and response shaping for Email login only.`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:24: - Read-only reference: `docs/superpowers/specs/2026-07-03-m1-email-login-design.md``
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:31: ### Task 1: Add Failing Email Login Success Tests`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:45: email: string;`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:80: it("creates a new user session because registered email owners must be able to return after registration", async () => {`
+- `docs\superpowers\plans\2026-07-03-m1-email-login.md:86: email: "login.owner@example.com",`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:1: # M1 Email Registration Implementation Plan`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:5: **Goal:** Build the M1 email registration slice: PBKDF2 password hashes, register verification codes, user creation, optional anonymous asset migration, and ...`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:28: This plan implements one approved slice. It does not implement login, password reset, OAuth, real email delivery, Flutter UI, schema changes, or bcrypt/argon...`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:38: Append these tests inside the existing `describe("auth-core token helpers", ...)` block in `packages/auth-core/src/index.test.ts`, and add `hashPassword` and...`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:81: export const PASSWORD_HASH_ALGORITHM = "pbkdf2-sha256";`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:82: export const PASSWORD_HASH_VERSION = "v1";`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:83: export const PASSWORD_HASH_ITERATIONS = 210_000;`
+- `docs\superpowers\plans\2026-07-03-m1-email-registration.md:85: export async function hashPassword(password: string): Promise<string> {`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:5: **Goal:** Implement the Email forgot-password backend flow so Email-password users can request a reset code, exchange it for a short-lived reset token, and s...`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:7: **Architecture:** Add a focused `apps/workers-api/src/auth/forgot-password.ts` module and register it from the existing auth route group. Reuse `verification...`
+- `docs\superpowers\plans\2026-07-03-m1-forgot-password.md:17: - Contains input parsing, Email normalization, reset-code D1 access, reset-token signing/verification, and password update.`
+
+## Next Analysis Steps
+
+1. Read candidate route/menu/controller/service files directly.
+2. Reconstruct the main business object lifecycle and status transitions.
+3. Cross-check frontend permissions with backend authorization.
+4. Convert confirmed findings into the business-context template.

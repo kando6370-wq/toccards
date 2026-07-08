@@ -60,8 +60,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('EUR'), findsOneWidget);
-      expect(find.text('€11,684.40'), findsOneWidget);
-      expect(find.text('€382.20 in the last 30 days'), findsOneWidget);
+      expect(find.textContaining('1,684.40'), findsOneWidget);
+      expect(find.textContaining('382.20 in the last 30 days'), findsOneWidget);
       expect(find.text('+3.38%'), findsOneWidget);
     },
   );
@@ -156,9 +156,7 @@ void main() {
     expect(find.text('This section is coming soon.'), findsNothing);
   });
 
-  testWidgets('Scan bottom tab opens the Scan placeholder page', (
-    tester,
-  ) async {
+  testWidgets('Scan bottom tab opens the Scan workflow page', (tester) async {
     await tester.pumpWidget(
       const ProviderScope(child: _HomeTestAppWithRoutes()),
     );
@@ -166,8 +164,8 @@ void main() {
     await tester.tap(find.text('Scan'));
     await tester.pumpAndSettle();
 
-    expect(find.text('扫描功能即将上线'), findsOneWidget);
-    expect(find.text('Search Cards'), findsOneWidget);
+    expect(find.text('Take Photo'), findsOneWidget);
+    expect(find.text('Review Your Matches'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
 }

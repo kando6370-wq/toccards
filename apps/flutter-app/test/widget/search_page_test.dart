@@ -130,10 +130,10 @@ void main() {
     expect(find.text('No matching results found.'), findsOneWidget);
   });
 
-  testWidgets('scanner action shows the shared coming-soon Toast', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const ProviderScope(child: _SearchTestApp()));
+  testWidgets('scanner action opens Scan workflow', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _SearchTestAppWithRoutes()),
+    );
 
     await tester.tap(
       find.byWidgetPredicate((widget) {
@@ -142,11 +142,11 @@ void main() {
             (widget.icon as Icon).icon == Icons.qr_code_scanner_outlined;
       }),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('This section is coming soon.'), findsOneWidget);
-    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(snackBar.behavior, SnackBarBehavior.floating);
+    expect(find.text('Take Photo'), findsOneWidget);
+    expect(find.text('Review Your Matches'), findsOneWidget);
+    expect(find.text('This section is coming soon.'), findsNothing);
   });
 
   testWidgets(
@@ -174,9 +174,7 @@ void main() {
     },
   );
 
-  testWidgets('Scan bottom tab opens the Scan placeholder page', (
-    tester,
-  ) async {
+  testWidgets('Scan bottom tab opens the Scan workflow page', (tester) async {
     await tester.pumpWidget(
       const ProviderScope(child: _SearchTestAppWithRoutes()),
     );
@@ -184,8 +182,8 @@ void main() {
     await tester.tap(find.text('Scan'));
     await tester.pumpAndSettle();
 
-    expect(find.text('扫描功能即将上线'), findsOneWidget);
-    expect(find.text('Search Cards'), findsOneWidget);
+    expect(find.text('Take Photo'), findsOneWidget);
+    expect(find.text('Review Your Matches'), findsOneWidget);
   });
 
   testWidgets('tapping a Search card opens CardDetail', (tester) async {
@@ -199,7 +197,8 @@ void main() {
     expect(find.text('Card Detail'), findsOneWidget);
     expect(find.text('Squirtle'), findsOneWidget);
     expect(find.text('Mega Evolution Promos'), findsOneWidget);
-    expect(find.text('Collect'), findsOneWidget);
+    expect(find.text('Add to Portfolio'), findsOneWidget);
+    expect(find.text('Collect'), findsNothing);
 
     await tester.scrollUntilVisible(
       find.text('Price overview'),

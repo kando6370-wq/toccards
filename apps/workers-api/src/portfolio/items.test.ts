@@ -348,7 +348,7 @@ describe("collection item routes", () => {
           card_ref: "card-a",
           object_type: "tcg",
           grader: "Raw",
-          condition: "Near Mint",
+          condition: "Near Mint (NM)",
           grade: null,
           language: "English",
           finish: "Holofoil",
@@ -368,7 +368,7 @@ describe("collection item routes", () => {
         id: expect.any(String),
         folder_id: "main",
         card_ref: "card-a",
-        condition: "Near Mint",
+        condition: "Near Mint (NM)",
         quantity: 2,
         purchase_price: 50,
         purchase_currency: "USD",
@@ -378,6 +378,35 @@ describe("collection item routes", () => {
       }),
     });
     expect(db.wishlist).toEqual([]);
+  });
+
+  it("rejects the old Raw condition label because raw card condition must use the PRD canonical value", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+
+    const response = await app.request(
+      "/api/v1/portfolio/items",
+      {
+        method: "POST",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({
+          folder_id: "main",
+          card_ref: "card-a",
+          object_type: "tcg",
+          grader: "Raw",
+          condition: "Near Mint",
+          grade: null,
+          quantity: 1,
+        }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      success: false,
+      error: { code: "VALIDATION_ERROR", message: "Invalid request." },
+    });
   });
 
   it("rejects grader and folder validation failures because collection valuation depends on consistent grading state", async () => {
@@ -605,7 +634,7 @@ function item(overrides: Partial<CollectionItemRow>): CollectionItemRow {
     card_ref: "card-a",
     object_type: "tcg",
     grader: "Raw",
-    condition: "Near Mint",
+    condition: "Near Mint (NM)",
     grade: null,
     language: "English",
     finish: "Holofoil",
@@ -660,7 +689,7 @@ function itemResponse(
     card_ref: "card-a",
     object_type: "tcg",
     grader: "Raw",
-    condition: "Near Mint",
+    condition: "Near Mint (NM)",
     grade: null,
     language: "English",
     finish: "Holofoil",

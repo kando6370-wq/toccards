@@ -16,13 +16,8 @@ final cardDetailControllerProvider =
     );
 
 const cardCollectionPortfolioNames = ['Main', 'Sealed', 'Empty'];
-const cardCollectionGraders = ['Raw', 'PSA', 'BGS', 'SGC', 'TAG', 'CGC', 'AGS'];
-const cardCollectionConditions = [
-  'Near Mint',
-  'Lightly Played',
-  'Moderately Played',
-  'Damaged',
-];
+const cardCollectionGraders = ['Raw', 'PSA', 'BGS', 'SGC', 'CGC', 'TAG', 'AGS'];
+const cardCollectionConditions = ['Near Mint (NM)'];
 const cardCollectionGrades = [
   '10',
   '9',
@@ -37,7 +32,7 @@ const cardCollectionGrades = [
 ];
 
 const _defaultPortfolioName = 'Main';
-const _defaultCondition = 'Near Mint';
+const _defaultCondition = 'Near Mint (NM)';
 const _defaultGrade = '10';
 const _quantityRequiredText = 'Please enter a quantity.';
 const _quantityMinText = 'Quantity must be at least 1.';
@@ -616,7 +611,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       portfolioName: 'Main',
       quantity: 1,
       grader: 'Raw',
-      condition: 'Near Mint',
+      condition: _defaultCondition,
       grade: null,
       purchasePriceUsd: null,
       notes: 'Quick collected from CardDetail.',

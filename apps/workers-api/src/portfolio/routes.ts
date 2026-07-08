@@ -182,6 +182,14 @@ WHERE owner_type = ? AND owner_id = ? AND id = ?
 LIMIT 1
 `;
 
+const SELECT_COLLECTION_ITEM_BY_CARD_SQL = `
+SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
+  finish, quantity, purchase_price, purchase_currency, notes, created_at, updated_at
+FROM collection_item
+WHERE owner_type = ? AND owner_id = ? AND card_ref = ?
+LIMIT 1
+`;
+
 const INSERT_COLLECTION_ITEM_SQL = `
 INSERT INTO collection_item
   (id, owner_type, owner_id, folder_id, card_ref, object_type, grader, condition,
@@ -251,7 +259,8 @@ WHERE owner_type = ? AND owner_id = ?
 `;
 
 const SUPPORTED_OBJECT_TYPES = new Set(["tcg", "sports", "sealed", "other"]);
-const SUPPORTED_GRADERS = new Set(["Raw", "PSA", "BGS", "CGC", "SGC", "TAG", "AGS"]);
+const SUPPORTED_GRADERS = new Set(["Raw", "PSA", "BGS", "SGC", "CGC", "TAG", "AGS"]);
+const SUPPORTED_RAW_CONDITIONS = new Set(["Near Mint (NM)"]);
 const ITEM_SORT_FIELDS = new Set(["created_at", "updated_at", "card_ref"]);
 const WISHLIST_SORT_FIELDS = new Set(["created_at", "card_ref"]);
 const ISO_4217_CURRENCY_PATTERN = /^[A-Z]{3}$/;
@@ -461,6 +470,16 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
 
     if (!cardRef) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+
+    const existingCollectionItem = await findCollectionItemByCard(
+      c.env.DB,
+      auth.owner,
+      cardRef,
+    );
+
+    if (existingCollectionItem) {
+      return c.json(CONFLICT_RESPONSE, 409);
     }
 
     const now = new Date().toISOString();
@@ -1086,6 +1105,17 @@ async function findCollectionItem(
     .first<CollectionItemRow>();
 }
 
+async function findCollectionItemByCard(
+  db: D1Database,
+  owner: AuthenticatedOwner,
+  cardRef: string,
+): Promise<CollectionItemRow | null> {
+  return db
+    .prepare(SELECT_COLLECTION_ITEM_BY_CARD_SQL)
+    .bind(owner.owner_type, owner.owner_id, cardRef)
+    .first<CollectionItemRow>();
+}
+
 function collectionItemResponse(item: CollectionItemRow): Omit<
   CollectionItemRow,
   "owner_type" | "owner_id"
@@ -1287,7 +1317,11 @@ function normalizeCollectionItemDraft(
   }
 
   if (draft.grader === "Raw") {
-    return draft.condition && draft.grade === null ? draft : null;
+    return draft.condition &&
+      SUPPORTED_RAW_CONDITIONS.has(draft.condition) &&
+      draft.grade === null
+      ? draft
+      : null;
   }
 
   return draft.grade !== null && draft.condition === null ? draft : null;

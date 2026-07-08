@@ -38,6 +38,11 @@ class CardDetailPage extends ConsumerWidget {
                   const _CardImageStandIn(),
                   const SizedBox(height: 16),
                   _CardHeader(state: state, controller: controller),
+                  if (!state.detail.isCollected &&
+                      state.collectionItemDraft != null) ...[
+                    const SizedBox(height: 16),
+                    _CollectionItemForm(state: state, controller: controller),
+                  ],
                   const SizedBox(height: 16),
                   _BasicInfo(state: state),
                   const SizedBox(height: 16),
@@ -129,13 +134,15 @@ class _CardHeader extends StatelessWidget {
         Text('30D ${state.changeText}'),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: detail.isCollected ? null : controller.quickCollect,
+          onPressed: detail.isCollected
+              ? null
+              : controller.startAddingCollectionItem,
           icon: Icon(
             detail.isCollected
                 ? Icons.check_circle_outline
                 : Icons.add_circle_outline,
           ),
-          label: Text(detail.isCollected ? 'Collected' : 'Collect'),
+          label: Text(detail.isCollected ? 'Collected' : 'Add to Portfolio'),
         ),
         const SizedBox(height: 8),
         Text('Qty: ${detail.quantity}'),
@@ -300,6 +307,7 @@ class _CollectionItemForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final draft = state.collectionItemDraft;
+    final isEditing = state.editingCollectionItemId != null;
     if (draft == null) {
       return const SizedBox.shrink();
     }
@@ -315,6 +323,27 @@ class _CollectionItemForm extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
+            if (isEditing)
+              DropdownButtonFormField<String>(
+                key: const Key('card-detail-item-portfolio'),
+                initialValue: draft.portfolioName,
+                decoration: const InputDecoration(
+                  labelText: 'Portfolio',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final name in cardCollectionPortfolioNames)
+                    DropdownMenuItem(value: name, child: Text(name)),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    controller.updateCollectionItemDraft(portfolioName: value);
+                  }
+                },
+              )
+            else
+              Text('Adding to ${draft.portfolioName}'),
+            const SizedBox(height: 12),
             TextFormField(
               key: const Key('card-detail-item-quantity'),
               initialValue: draft.quantityText,
@@ -325,24 +354,6 @@ class _CollectionItemForm extends StatelessWidget {
               keyboardType: TextInputType.number,
               onChanged: (value) {
                 controller.updateCollectionItemDraft(quantityText: value);
-              },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              key: const Key('card-detail-item-portfolio'),
-              initialValue: draft.portfolioName,
-              decoration: const InputDecoration(
-                labelText: 'Portfolio',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                for (final name in cardCollectionPortfolioNames)
-                  DropdownMenuItem(value: name, child: Text(name)),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  controller.updateCollectionItemDraft(portfolioName: value);
-                }
               },
             ),
             const SizedBox(height: 12),
@@ -442,9 +453,10 @@ class _CollectionItemForm extends StatelessWidget {
                 ),
                 const Spacer(),
                 FilledButton.icon(
+                  key: const Key('card-detail-item-submit'),
                   onPressed: controller.saveCollectionItemDraft,
-                  icon: const Icon(Icons.save_outlined),
-                  label: const Text('Save changes'),
+                  icon: Icon(isEditing ? Icons.save_outlined : Icons.add),
+                  label: Text(isEditing ? 'Save changes' : 'Add'),
                 ),
               ],
             ),

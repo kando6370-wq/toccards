@@ -203,9 +203,9 @@ class _CollectionContent extends StatelessWidget {
         title: 'No cards in this portfolio yet.',
         body: 'Scan or search cards to start tracking your collection.',
         primaryLabel: 'Scan a Card',
-        onPrimary: () {},
+        onPrimary: () => context.go('/scan'),
         secondaryLabel: 'Search Cards',
-        onSecondary: () {},
+        onSecondary: () => context.go('/search'),
       );
     }
     if (state.isEmpty) {
@@ -214,7 +214,7 @@ class _CollectionContent extends StatelessWidget {
         body:
             'Save cards you want to collect later and keep an eye on their market value.',
         primaryLabel: 'Search Cards',
-        onPrimary: () {},
+        onPrimary: () => context.go('/search'),
       );
     }
 
