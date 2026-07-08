@@ -26,11 +26,43 @@ class MockCardDetailRepository implements CardDetailRepository {
             label: 'Raw Near Mint',
             priceUsd: 32.13,
             previous30dPriceUsd: 30.67,
+            previous7dPriceUsd: 31.44,
           ),
           CardMarketPrice(
             label: 'PSA 10',
             priceUsd: 124.5,
             previous30dPriceUsd: 117.2,
+            previous7dPriceUsd: 121.3,
+          ),
+        ],
+        priceSeriesByRange: {
+          CardPriceRange.seven: [
+            CardPricePoint(dateLabel: '7 days ago', priceUsd: 31.44),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
+          ],
+          CardPriceRange.thirty: [
+            CardPricePoint(dateLabel: '30 days ago', priceUsd: 30.67),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
+          ],
+          CardPriceRange.ninety: [
+            CardPricePoint(dateLabel: '90 days ago', priceUsd: 28.1),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
+          ],
+          CardPriceRange.oneEighty: [
+            CardPricePoint(dateLabel: '180 days ago', priceUsd: 25.4),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
+          ],
+          CardPriceRange.year: [
+            CardPricePoint(dateLabel: '365 days ago', priceUsd: 20.3),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
+          ],
+        },
+        soldListings: [
+          CardSoldListing(
+            dateText: '2026-07-02',
+            title: 'Squirtle Promo Holofoil',
+            priceUsd: 32.13,
+            platform: 'eBay',
           ),
         ],
       ),
@@ -50,11 +82,13 @@ class MockCardDetailRepository implements CardDetailRepository {
             label: 'PSA 10',
             priceUsd: 780,
             previous30dPriceUsd: 721.58,
+            previous7dPriceUsd: 760,
           ),
           CardMarketPrice(
             label: 'Raw Near Mint',
             priceUsd: 215,
             previous30dPriceUsd: 204.5,
+            previous7dPriceUsd: 209,
           ),
         ],
         collectionItems: [
@@ -67,6 +101,43 @@ class MockCardDetailRepository implements CardDetailRepository {
             grade: '10',
             purchasePriceUsd: 650,
             notes: 'Pulled from Obsidian Flames binder.',
+          ),
+        ],
+        priceSeriesByRange: {
+          CardPriceRange.seven: [
+            CardPricePoint(dateLabel: '7 days ago', priceUsd: 760),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+          ],
+          CardPriceRange.thirty: [
+            CardPricePoint(dateLabel: '30 days ago', priceUsd: 721.58),
+            CardPricePoint(dateLabel: '14 days ago', priceUsd: 750),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+          ],
+          CardPriceRange.ninety: [
+            CardPricePoint(dateLabel: '90 days ago', priceUsd: 690),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+          ],
+          CardPriceRange.oneEighty: [
+            CardPricePoint(dateLabel: '180 days ago', priceUsd: 640),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+          ],
+          CardPriceRange.year: [
+            CardPricePoint(dateLabel: '365 days ago', priceUsd: 520),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+          ],
+        },
+        soldListings: [
+          CardSoldListing(
+            dateText: '2026-07-03',
+            title: 'Charizard ex PSA 10',
+            priceUsd: 780,
+            platform: 'eBay',
+          ),
+          CardSoldListing(
+            dateText: '2026-06-28',
+            title: 'Charizard ex Raw Near Mint',
+            priceUsd: 215,
+            platform: 'TCGplayer',
           ),
         ],
       ),

@@ -1,15 +1,51 @@
 enum CardDetailType { tcg, sports, sealed, other }
 
+enum CardPriceRange {
+  seven(7, '7D'),
+  thirty(30, '30D'),
+  ninety(90, '90D'),
+  oneEighty(180, '180D'),
+  year(365, '365D');
+
+  const CardPriceRange(this.days, this.label);
+
+  final int days;
+  final String label;
+}
+
 class CardMarketPrice {
   const CardMarketPrice({
     required this.label,
     required this.priceUsd,
     required this.previous30dPriceUsd,
+    this.previous7dPriceUsd,
   });
 
   final String label;
   final double? priceUsd;
   final double? previous30dPriceUsd;
+  final double? previous7dPriceUsd;
+}
+
+class CardPricePoint {
+  const CardPricePoint({required this.dateLabel, required this.priceUsd});
+
+  final String dateLabel;
+  final double? priceUsd;
+}
+
+class CardSoldListing {
+  const CardSoldListing({
+    required this.dateText,
+    required this.title,
+    required this.priceUsd,
+    required this.platform,
+  });
+
+  final String dateText;
+  final String title;
+  final double? priceUsd;
+  final String platform;
 }
 
 class CardCollectionItem {
@@ -48,6 +84,8 @@ class CardDetail {
     required this.isWishlisted,
     required this.marketPrices,
     this.collectionItems = const [],
+    this.priceSeriesByRange = const {},
+    this.soldListings = const [],
   });
 
   final String id;
@@ -62,6 +100,8 @@ class CardDetail {
   final bool isWishlisted;
   final List<CardMarketPrice> marketPrices;
   final List<CardCollectionItem> collectionItems;
+  final Map<CardPriceRange, List<CardPricePoint>> priceSeriesByRange;
+  final List<CardSoldListing> soldListings;
 
   bool get isCollected => quantity > 0 || collectionItems.isNotEmpty;
 
@@ -83,6 +123,8 @@ class CardDetail {
       isWishlisted: isWishlisted ?? this.isWishlisted,
       marketPrices: marketPrices,
       collectionItems: collectionItems ?? this.collectionItems,
+      priceSeriesByRange: priceSeriesByRange,
+      soldListings: soldListings,
     );
   }
 }

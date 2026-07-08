@@ -111,6 +111,40 @@ void main() {
     },
   );
 
+  test(
+    'price tab exposes default range series, market rows, and sold listings',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final state = container.read(
+        cardDetailControllerProvider('charizard-ex'),
+      );
+
+      expect(state.selectedPriceRange, CardPriceRange.thirty);
+      expect(state.priceSeriesRows.last.dateLabel, 'Today');
+      expect(state.priceSeriesRows.last.priceText, r'$780.00');
+      expect(state.priceTabMarketRows.first.label, 'PSA 10');
+      expect(state.priceTabMarketRows.first.changeText, startsWith('+'));
+      expect(state.soldListingRows.first.platform, 'eBay');
+      expect(state.soldListingRows.first.priceText, r'$780.00');
+    },
+  );
+
+  test('selecting a price range changes only the visible series rows', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = cardDetailControllerProvider('charizard-ex');
+
+    container.read(provider.notifier).selectPriceRange(CardPriceRange.seven);
+    final state = container.read(provider);
+
+    expect(state.selectedPriceRange, CardPriceRange.seven);
+    expect(state.priceSeriesRows.first.dateLabel, '7 days ago');
+    expect(state.priceSeriesRows.last.priceText, r'$780.00');
+    expect(state.priceTabMarketRows.first.label, 'PSA 10');
+  });
+
   test('repository failure shows failure state and refresh recovers', () {
     final repository = _FailingThenSuccessfulCardDetailRepository();
     final container = ProviderContainer(
