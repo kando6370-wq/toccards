@@ -8,6 +8,7 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/oauth_authorizer.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 
 void main() {
@@ -695,9 +696,14 @@ ProviderScope _testApp(
   OAuthAuthorizer? authorizer,
   FeedbackRepository? feedbackRepository,
 }) {
+  final onboardingStorage = InMemoryOnboardingStorage(completed: true);
+
   return ProviderScope(
     overrides: [
       authRepositoryProvider.overrideWithValue(repository),
+      onboardingRepositoryProvider.overrideWithValue(
+        LocalOnboardingRepository(onboardingStorage),
+      ),
       if (authorizer != null)
         oauthAuthorizerProvider.overrideWithValue(authorizer),
       if (feedbackRepository != null)

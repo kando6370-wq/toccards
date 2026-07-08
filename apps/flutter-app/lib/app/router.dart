@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/card_detail/card_detail_page.dart';
 import '../features/collection/collection_page.dart';
 import '../features/home/home_page.dart';
+import '../features/onboarding/onboarding_gate.dart';
 import '../features/profile/account_page.dart';
 import '../features/profile/customer_support_page.dart';
 import '../features/profile/profile_page.dart';
@@ -13,7 +14,12 @@ import '../features/search/search_page.dart';
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const HomePage()),
+      GoRoute(
+        path: '/',
+        builder: (context, state) {
+          return const OnboardingGate(home: HomePage());
+        },
+      ),
       GoRoute(
         path: '/collection',
         builder: (context, state) => const CollectionPage(),

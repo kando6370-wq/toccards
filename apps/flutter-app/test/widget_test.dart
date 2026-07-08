@@ -4,34 +4,56 @@ import 'package:kando_app/app/app.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 
 void main() {
-  testWidgets('KandoApp shows the startup home page', (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(
-            _WidgetTestAuthRepository(
-              AuthSession(
-                ownerType: OwnerType.anonymous,
-                accessToken: 'guest-access',
-                refreshToken: 'guest-refresh',
-                anonymousId: 'guest-1',
-              ),
-            ),
-          ),
-        ],
-        child: const KandoApp(),
-      ),
-    );
+  testWidgets('KandoApp shows onboarding before the startup home page', (
+    tester,
+  ) async {
+    final storage = InMemoryOnboardingStorage();
 
+    await tester.pumpWidget(_testApp(storage));
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Track your collection'), findsOneWidget);
+    expect(find.text('Overview'), findsNothing);
+
+    await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
 
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('PORTFOLIO'), findsOneWidget);
     expect(find.text('Guest session'), findsNothing);
     expect(find.text('Delete account'), findsNothing);
+
+    await tester.pumpWidget(_testApp(storage));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Track your collection'), findsNothing);
+    expect(find.text('Overview'), findsOneWidget);
   });
+}
+
+ProviderScope _testApp(InMemoryOnboardingStorage storage) {
+  return ProviderScope(
+    overrides: [
+      authRepositoryProvider.overrideWithValue(
+        _WidgetTestAuthRepository(
+          AuthSession(
+            ownerType: OwnerType.anonymous,
+            accessToken: 'guest-access',
+            refreshToken: 'guest-refresh',
+            anonymousId: 'guest-1',
+          ),
+        ),
+      ),
+      onboardingRepositoryProvider.overrideWithValue(
+        LocalOnboardingRepository(storage),
+      ),
+    ],
+    child: const KandoApp(),
+  );
 }
 
 class _WidgetTestAuthRepository implements AuthRepository {

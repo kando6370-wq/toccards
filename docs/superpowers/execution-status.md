@@ -2,11 +2,11 @@
 
 ## 当前任务
 - 状态：本轮完成（验证通过）
-- 计划编号：M6-3
-- 最近开始：2026-07-08 10:18:49
-- 最近完成：2026-07-08 10:26:17
+- 计划编号：M6-4
+- 最近开始：2026-07-08 10:33:47
+- 最近完成：2026-07-08 10:44:09
 - 最近验证：通过
-- 最近任务摘要：Implement Customer Support feedback submission
+- 最近任务摘要：Implement onboarding mock-first before M7 admin.
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
 ## dev-plan 子任务状态
@@ -73,7 +73,7 @@
 - [M6-1] Profile 游客态 — status: `completed` · updated: 2026-07-08 10:01:06
 - [M6-2] Profile 登录态 — status: `completed` · updated: 2026-07-08 10:15:15
 - [M6-3] 客服反馈提交 — status: `completed` · updated: 2026-07-08 10:26:17
-- [M6-4] 启动引导页 — status: `todo` · updated: 未开始
+- [M6-4] 启动引导页 — status: `completed` · updated: 2026-07-08 10:44:09
 - [M6-5] 删除账号流程 — status: `todo` · updated: 未开始
 - [M6-6] 订阅相关内容删除/隐藏 — status: `todo` · updated: 未开始
 
@@ -106,7 +106,7 @@
 - M3 核心资产 CRUD — status: `completed` · completed 6 / total 6 · blocked 0 · in_progress 0
 - M4 三大页面 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
 - M5 卡牌详情 — status: `completed` · completed 5 / total 5 · blocked 0 · in_progress 0
-- M6 Profile / 客服 / 启动引导 — status: `in_progress` · completed 3 / total 6 · blocked 0 · in_progress 0
+- M6 Profile / 客服 / 启动引导 — status: `in_progress` · completed 4 / total 6 · blocked 0 · in_progress 0
 - M7 管理后台 — status: `not_started` · completed 0 / total 7 · blocked 0 · in_progress 0
 - M8 iOS 联调 / 上线准备 — status: `not_started` · completed 0 / total 11 · blocked 0 · in_progress 0
 
@@ -228,15 +228,17 @@
 - 2026-07-08 10:15:15 | 完成（验证通过） | [M6-2] Implement Profile signed-in state
 - 2026-07-08 10:18:49 | 开始 | [M6-3] Implement Customer Support feedback submission
 - 2026-07-08 10:26:17 | 完成（验证通过） | [M6-3] Implement Customer Support feedback submission
+- 2026-07-08 10:33:47 | 开始 | [M6-4] Implement onboarding mock-first before M7 admin.
+- 2026-07-08 10:44:09 | 完成（验证通过） | [M6-4] Implement onboarding mock-first before M7 admin.
 
 <!-- task-status-state
 {
   "current": {
     "status": "本轮完成（验证通过）",
-    "started_at": "2026-07-08 10:18:49",
-    "finished_at": "2026-07-08 10:26:17",
-    "plan_ref": "M6-3",
-    "summary": "Implement Customer Support feedback submission",
+    "started_at": "2026-07-08 10:33:47",
+    "finished_at": "2026-07-08 10:44:09",
+    "plan_ref": "M6-4",
+    "summary": "Implement onboarding mock-first before M7 admin.",
     "last_verification": "通过",
     "note": "`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。"
   },
@@ -864,6 +866,18 @@
       "phase": "完成（验证通过）",
       "summary": "Implement Customer Support feedback submission",
       "plan_ref": "M6-3"
+    },
+    {
+      "time": "2026-07-08 10:33:47",
+      "phase": "开始",
+      "summary": "Implement onboarding mock-first before M7 admin.",
+      "plan_ref": "M6-4"
+    },
+    {
+      "time": "2026-07-08 10:44:09",
+      "phase": "完成（验证通过）",
+      "summary": "Implement onboarding mock-first before M7 admin.",
+      "plan_ref": "M6-4"
     }
   ],
   "plan": {
@@ -1209,6 +1223,13 @@
         "updated_at": "2026-07-08 10:26:17",
         "summary": "Implement Customer Support feedback submission",
         "title": "客服反馈提交",
+        "milestone": "M6"
+      },
+      "M6-4": {
+        "status": "completed",
+        "updated_at": "2026-07-08 10:44:09",
+        "summary": "Implement onboarding mock-first before M7 admin.",
+        "title": "启动引导页",
         "milestone": "M6"
       }
     },
