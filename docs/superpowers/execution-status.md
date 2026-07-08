@@ -1,12 +1,12 @@
 # 执行状态文档
 
 ## 当前任务
-- 状态：本轮完成（验证通过）
-- 计划编号：M5-5
-- 最近开始：2026-07-08 09:39:08
+- 状态：进行中
+- 计划编号：M6-1
+- 最近开始：2026-07-08 09:54:15
 - 最近完成：2026-07-08 09:51:15
-- 最近验证：通过
-- 最近任务摘要：Design CardDetail price fallback states
+- 最近验证：未记录
+- 最近任务摘要：Design Profile guest state
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
 ## dev-plan 子任务状态
@@ -70,7 +70,7 @@
 - [M5-5] 价格降级展示 — status: `completed` · updated: 2026-07-08 09:51:15
 
 ### M6 Profile / 客服 / 启动引导
-- [M6-1] Profile 游客态 — status: `todo` · updated: 未开始
+- [M6-1] Profile 游客态 — status: `in_progress` · updated: 2026-07-08 09:54:15
 - [M6-2] Profile 登录态 — status: `todo` · updated: 未开始
 - [M6-3] 客服反馈提交 — status: `todo` · updated: 未开始
 - [M6-4] 启动引导页 — status: `todo` · updated: 未开始
@@ -106,7 +106,7 @@
 - M3 核心资产 CRUD — status: `completed` · completed 6 / total 6 · blocked 0 · in_progress 0
 - M4 三大页面 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
 - M5 卡牌详情 — status: `completed` · completed 5 / total 5 · blocked 0 · in_progress 0
-- M6 Profile / 客服 / 启动引导 — status: `not_started` · completed 0 / total 6 · blocked 0 · in_progress 0
+- M6 Profile / 客服 / 启动引导 — status: `in_progress` · completed 0 / total 6 · blocked 0 · in_progress 1
 - M7 管理后台 — status: `not_started` · completed 0 / total 7 · blocked 0 · in_progress 0
 - M8 iOS 联调 / 上线准备 — status: `not_started` · completed 0 / total 11 · blocked 0 · in_progress 0
 
@@ -222,16 +222,17 @@
 - 2026-07-08 09:36:01 | 完成（验证通过） | [M5-4] Design Collection Item create edit delete
 - 2026-07-08 09:39:08 | 开始 | [M5-5] Design CardDetail price fallback states
 - 2026-07-08 09:51:15 | 完成（验证通过） | [M5-5] Design CardDetail price fallback states
+- 2026-07-08 09:54:15 | 开始 | [M6-1] Design Profile guest state
 
 <!-- task-status-state
 {
   "current": {
-    "status": "本轮完成（验证通过）",
-    "started_at": "2026-07-08 09:39:08",
+    "status": "进行中",
+    "started_at": "2026-07-08 09:54:15",
     "finished_at": "2026-07-08 09:51:15",
-    "plan_ref": "M5-5",
-    "summary": "Design CardDetail price fallback states",
-    "last_verification": "通过",
+    "plan_ref": "M6-1",
+    "summary": "Design Profile guest state",
+    "last_verification": "未记录",
     "note": "`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。"
   },
   "logs": [
@@ -822,6 +823,12 @@
       "phase": "完成（验证通过）",
       "summary": "Design CardDetail price fallback states",
       "plan_ref": "M5-5"
+    },
+    {
+      "time": "2026-07-08 09:54:15",
+      "phase": "开始",
+      "summary": "Design Profile guest state",
+      "plan_ref": "M6-1"
     }
   ],
   "plan": {
@@ -1147,6 +1154,13 @@
         "summary": "Design CardDetail price fallback states",
         "title": "价格降级展示",
         "milestone": "M5"
+      },
+      "M6-1": {
+        "status": "in_progress",
+        "updated_at": "2026-07-08 09:54:15",
+        "summary": "Design Profile guest state",
+        "title": "Profile 游客态",
+        "milestone": "M6"
       }
     },
     "tbds": {
