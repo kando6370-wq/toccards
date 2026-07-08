@@ -1,11 +1,11 @@
 # 执行状态文档
 
 ## 当前任务
-- 状态：进行中
+- 状态：本轮完成（验证通过）
 - 计划编号：M5-3
 - 最近开始：2026-07-08 08:41:48
-- 最近完成：2026-07-08 08:29:26
-- 最近验证：未记录
+- 最近完成：2026-07-08 08:59:18
+- 最近验证：通过
 - 最近任务摘要：Design CardDetail Price Tab
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
@@ -65,7 +65,7 @@
 ### M5 卡牌详情
 - [M5-1] CardDetail 未加入态 — status: `completed` · updated: 2026-07-07 20:58:19
 - [M5-2] CardDetail 已加入态 — status: `completed` · updated: 2026-07-08 08:29:26
-- [M5-3] Price Tab 实现 — status: `in_progress` · updated: 2026-07-08 08:41:48
+- [M5-3] Price Tab 实现 — status: `completed` · updated: 2026-07-08 08:59:18
 - [M5-4] Collection Item 增删改 — status: `todo` · updated: 未开始
 - [M5-5] 价格降级展示 — status: `todo` · updated: 未开始
 
@@ -105,7 +105,7 @@
 - M2 数据代理层 — status: `in_progress` · completed 7 / total 8 · blocked 0 · in_progress 0
 - M3 核心资产 CRUD — status: `completed` · completed 6 / total 6 · blocked 0 · in_progress 0
 - M4 三大页面 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
-- M5 卡牌详情 — status: `in_progress` · completed 2 / total 5 · blocked 0 · in_progress 1
+- M5 卡牌详情 — status: `in_progress` · completed 3 / total 5 · blocked 0 · in_progress 0
 - M6 Profile / 客服 / 启动引导 — status: `not_started` · completed 0 / total 6 · blocked 0 · in_progress 0
 - M7 管理后台 — status: `not_started` · completed 0 / total 7 · blocked 0 · in_progress 0
 - M8 iOS 联调 / 上线准备 — status: `not_started` · completed 0 / total 11 · blocked 0 · in_progress 0
@@ -217,16 +217,17 @@
 - 2026-07-08 08:16:47 | 开始 | [M5-2] Design CardDetail owned state
 - 2026-07-08 08:29:26 | 完成（验证通过） | [M5-2] Design CardDetail owned state
 - 2026-07-08 08:41:48 | 开始 | [M5-3] Design CardDetail Price Tab
+- 2026-07-08 08:59:18 | 完成（验证通过） | [M5-3] Design CardDetail Price Tab
 
 <!-- task-status-state
 {
   "current": {
-    "status": "进行中",
+    "status": "本轮完成（验证通过）",
     "started_at": "2026-07-08 08:41:48",
-    "finished_at": "2026-07-08 08:29:26",
+    "finished_at": "2026-07-08 08:59:18",
     "plan_ref": "M5-3",
     "summary": "Design CardDetail Price Tab",
-    "last_verification": "未记录",
+    "last_verification": "通过",
     "note": "`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。"
   },
   "logs": [
@@ -787,6 +788,12 @@
       "phase": "开始",
       "summary": "Design CardDetail Price Tab",
       "plan_ref": "M5-3"
+    },
+    {
+      "time": "2026-07-08 08:59:18",
+      "phase": "完成（验证通过）",
+      "summary": "Design CardDetail Price Tab",
+      "plan_ref": "M5-3"
     }
   ],
   "plan": {
@@ -1093,8 +1100,8 @@
         "milestone": "M5"
       },
       "M5-3": {
-        "status": "in_progress",
-        "updated_at": "2026-07-08 08:41:48",
+        "status": "completed",
+        "updated_at": "2026-07-08 08:59:18",
         "summary": "Design CardDetail Price Tab",
         "title": "Price Tab 实现",
         "milestone": "M5"
