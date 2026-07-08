@@ -78,13 +78,13 @@
 - [M6-6] 订阅相关内容删除/隐藏 — status: `completed` · updated: 2026-07-08 11:45:26
 
 ### M7 管理后台
-- [M7-1] Admin 鉴权接口 — status: `todo` · updated: 未开始
-- [M7-2] Admin Token 中间件 — status: `todo` · updated: 未开始
-- [M7-3] 用户管理模块 — status: `todo` · updated: 未开始
-- [M7-4] 反馈工单模块 — status: `todo` · updated: 未开始
-- [M7-5] 运营配置模块 — status: `todo` · updated: 未开始
-- [M7-6] 卡牌数据运维模块 — status: `todo` · updated: 未开始
-- [M7-7] D1 管理员初始化 — status: `todo` · updated: 未开始
+- [M7-1] Admin 鉴权接口 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-2] Admin Token 中间件 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-3] 用户管理模块 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-4] 反馈工单模块 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-5] 运营配置模块 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-6] 卡牌数据运维模块 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-7] D1 管理员初始化 — status: `completed` · updated: 2026-07-08 08:58:27
 
 ### M8 iOS 联调 / 上线准备
 - [M8-1] OAuth 凭证填入 — status: `todo` · updated: 未开始
@@ -107,7 +107,7 @@
 - M4 三大页面 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
 - M5 卡牌详情 — status: `completed` · completed 5 / total 5 · blocked 0 · in_progress 0
 - M6 Profile / 客服 / 启动引导 — status: `completed` · completed 6 / total 6 · blocked 0 · in_progress 0
-- M7 管理后台 — status: `not_started` · completed 0 / total 7 · blocked 0 · in_progress 0
+- M7 管理后台 — status: `completed` · completed 7 / total 7 · blocked 0 · in_progress 0
 - M8 iOS 联调 / 上线准备 — status: `not_started` · completed 0 / total 11 · blocked 0 · in_progress 0
 
 ## TBD 状态
@@ -906,6 +906,48 @@
       "phase": "完成（验证通过）",
       "summary": "Verify subscription surfaces hidden before M7 admin.",
       "plan_ref": "M6-6"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "Admin auth API",
+      "plan_ref": "M7-1"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "Admin token middleware",
+      "plan_ref": "M7-2"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "User management module",
+      "plan_ref": "M7-3"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "Feedback ticket module",
+      "plan_ref": "M7-4"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "Operations config module",
+      "plan_ref": "M7-5"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "Card data operations module",
+      "plan_ref": "M7-6"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "D1 admin initialization",
+      "plan_ref": "M7-7"
     }
   ],
   "plan": {
@@ -1273,6 +1315,55 @@
         "summary": "Verify subscription surfaces hidden before M7 admin.",
         "title": "订阅相关内容删除/隐藏",
         "milestone": "M6"
+      },
+      "M7-1": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "Admin auth API",
+        "title": "Admin 鉴权接口",
+        "milestone": "M7"
+      },
+      "M7-2": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "Admin token middleware",
+        "title": "Admin Token 中间件",
+        "milestone": "M7"
+      },
+      "M7-3": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "User management module",
+        "title": "用户管理模块",
+        "milestone": "M7"
+      },
+      "M7-4": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "Feedback ticket module",
+        "title": "反馈工单模块",
+        "milestone": "M7"
+      },
+      "M7-5": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "Operations config module",
+        "title": "运营配置模块",
+        "milestone": "M7"
+      },
+      "M7-6": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "Card data operations module",
+        "title": "卡牌数据运维模块",
+        "milestone": "M7"
+      },
+      "M7-7": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "D1 admin initialization",
+        "title": "D1 管理员初始化",
+        "milestone": "M7"
       }
     },
     "tbds": {
