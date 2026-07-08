@@ -111,6 +111,93 @@ void main() {
     },
   );
 
+  test('adding a Collection Item appends an owned row and clears Wishlist', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = cardDetailControllerProvider('squirtle');
+    final controller = container.read(provider.notifier);
+
+    controller.startAddingCollectionItem();
+    controller.updateCollectionItemDraft(
+      quantityText: '2',
+      portfolioName: 'Sealed',
+      grader: 'Raw',
+      condition: 'Lightly Played',
+      purchasePriceText: '12.50',
+      notes: 'Second binder copy.',
+    );
+
+    expect(controller.saveCollectionItemDraft(), isTrue);
+    final state = container.read(provider);
+
+    expect(state.detail.isCollected, isTrue);
+    expect(state.detail.quantity, 2);
+    expect(state.detail.isWishlisted, isFalse);
+    expect(state.collectionItemRows.single.portfolioName, 'Sealed');
+    expect(state.collectionItemRows.single.quantityText, 'Qty: 2');
+    expect(state.collectionItemRows.single.statusText, 'Raw / Lightly Played');
+    expect(state.collectionItemRows.single.purchasePriceText, r'$12.50');
+    expect(state.collectionItemRows.single.notes, 'Second binder copy.');
+    expect(state.collectionItemDraft, isNull);
+  });
+
+  test('editing a Collection Item switches graded state to Raw state', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = cardDetailControllerProvider('charizard-ex');
+    final controller = container.read(provider.notifier);
+
+    controller.startEditingCollectionItem('item-charizard');
+    controller.updateCollectionItemDraft(
+      quantityText: '3',
+      grader: 'Raw',
+      condition: 'Near Mint',
+      purchasePriceText: '640',
+      notes: 'Cracked slab for binder.',
+    );
+
+    expect(controller.saveCollectionItemDraft(), isTrue);
+    final row = container.read(provider).collectionItemRows.single;
+
+    expect(row.quantityText, 'Qty: 3');
+    expect(row.statusText, 'Raw / Near Mint');
+    expect(row.purchasePriceText, r'$640.00');
+    expect(row.notes, 'Cracked slab for binder.');
+  });
+
+  test('invalid Collection Item draft stays open with validation copy', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = cardDetailControllerProvider('charizard-ex');
+    final controller = container.read(provider.notifier);
+
+    controller.startEditingCollectionItem('item-charizard');
+    controller.updateCollectionItemDraft(quantityText: '0');
+
+    expect(controller.saveCollectionItemDraft(), isFalse);
+    final state = container.read(provider);
+
+    expect(state.collectionItemDraft, isNotNull);
+    expect(state.collectionItemFormError, 'Quantity must be at least 1.');
+    expect(state.collectionItemRows.single.quantityText, 'Qty: 1');
+  });
+
+  test(
+    'removing the final Collection Item returns detail to uncollected state',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('charizard-ex');
+
+      container.read(provider.notifier).removeCollectionItem('item-charizard');
+      final state = container.read(provider);
+
+      expect(state.detail.isCollected, isFalse);
+      expect(state.detail.quantity, 0);
+      expect(state.collectionItemRows, isEmpty);
+    },
+  );
+
   test(
     'price tab exposes default range series, market rows, and sold listings',
     () {

@@ -15,6 +15,79 @@ final cardDetailControllerProvider =
       CardDetailController.new,
     );
 
+const cardCollectionPortfolioNames = ['Main', 'Sealed', 'Empty'];
+const cardCollectionGraders = ['Raw', 'PSA', 'BGS', 'SGC', 'TAG', 'CGC', 'AGS'];
+const cardCollectionConditions = [
+  'Near Mint',
+  'Lightly Played',
+  'Moderately Played',
+  'Damaged',
+];
+const cardCollectionGrades = [
+  '10',
+  '9',
+  '8',
+  '7',
+  '6',
+  '5',
+  '4',
+  '3',
+  '2',
+  '1',
+];
+
+const _defaultPortfolioName = 'Main';
+const _defaultCondition = 'Near Mint';
+const _defaultGrade = '10';
+const _quantityRequiredText = 'Please enter a quantity.';
+const _quantityMinText = 'Quantity must be at least 1.';
+const _quantityWholeText = 'Quantity must be a whole number.';
+const _invalidPriceText = 'Please enter a valid price.';
+const _notesTooLongText = 'Notes must be 500 characters or less.';
+const _cardDetailStateUnset = Object();
+
+class CardCollectionItemDraft {
+  const CardCollectionItemDraft({
+    required this.quantityText,
+    required this.portfolioName,
+    required this.grader,
+    required this.condition,
+    required this.grade,
+    required this.purchasePriceText,
+    required this.notes,
+  });
+
+  final String quantityText;
+  final String portfolioName;
+  final String grader;
+  final String condition;
+  final String grade;
+  final String purchasePriceText;
+  final String notes;
+
+  bool get isRaw => grader == 'Raw';
+
+  CardCollectionItemDraft copyWith({
+    String? quantityText,
+    String? portfolioName,
+    String? grader,
+    String? condition,
+    String? grade,
+    String? purchasePriceText,
+    String? notes,
+  }) {
+    return CardCollectionItemDraft(
+      quantityText: quantityText ?? this.quantityText,
+      portfolioName: portfolioName ?? this.portfolioName,
+      grader: grader ?? this.grader,
+      condition: condition ?? this.condition,
+      grade: grade ?? this.grade,
+      purchasePriceText: purchasePriceText ?? this.purchasePriceText,
+      notes: notes ?? this.notes,
+    );
+  }
+}
+
 class CardMarketRow {
   const CardMarketRow({
     required this.label,
@@ -29,6 +102,7 @@ class CardMarketRow {
 
 class CardCollectionItemRow {
   const CardCollectionItemRow({
+    required this.id,
     required this.portfolioName,
     required this.quantityText,
     required this.statusText,
@@ -36,6 +110,7 @@ class CardCollectionItemRow {
     required this.notes,
   });
 
+  final String id;
   final String portfolioName;
   final String quantityText;
   final String statusText;
@@ -70,6 +145,9 @@ class CardDetailState {
     required CardDetail detail,
     required this.currency,
     this.selectedPriceRange = CardPriceRange.thirty,
+    this.collectionItemDraft,
+    this.editingCollectionItemId,
+    this.collectionItemFormError,
   }) : _detail = detail,
        loadStatus = KandoLoadStatus.content;
 
@@ -77,6 +155,9 @@ class CardDetailState {
     required this.cardId,
     required this.currency,
     this.selectedPriceRange = CardPriceRange.thirty,
+    this.collectionItemDraft,
+    this.editingCollectionItemId,
+    this.collectionItemFormError,
   }) : _detail = null,
        loadStatus = KandoLoadStatus.failure;
 
@@ -84,6 +165,9 @@ class CardDetailState {
   final CardDetail? _detail;
   final AppCurrency currency;
   final CardPriceRange selectedPriceRange;
+  final CardCollectionItemDraft? collectionItemDraft;
+  final String? editingCollectionItemId;
+  final String? collectionItemFormError;
   final KandoLoadStatus loadStatus;
 
   bool get isUnavailable => loadStatus == KandoLoadStatus.failure;
@@ -117,6 +201,7 @@ class CardDetailState {
   List<CardCollectionItemRow> get collectionItemRows {
     return detail.collectionItems.map((item) {
       return CardCollectionItemRow(
+        id: item.id,
         portfolioName: item.portfolioName,
         quantityText: 'Qty: ${item.quantity}',
         statusText: _collectionStatusText(item),
@@ -193,12 +278,24 @@ class CardDetailState {
     CardDetail? detail,
     AppCurrency? currency,
     CardPriceRange? selectedPriceRange,
+    Object? collectionItemDraft = _cardDetailStateUnset,
+    Object? editingCollectionItemId = _cardDetailStateUnset,
+    Object? collectionItemFormError = _cardDetailStateUnset,
   }) {
     return CardDetailState(
       cardId: cardId,
       detail: detail ?? this.detail,
       currency: currency ?? this.currency,
       selectedPriceRange: selectedPriceRange ?? this.selectedPriceRange,
+      collectionItemDraft: collectionItemDraft == _cardDetailStateUnset
+          ? this.collectionItemDraft
+          : collectionItemDraft as CardCollectionItemDraft?,
+      editingCollectionItemId: editingCollectionItemId == _cardDetailStateUnset
+          ? this.editingCollectionItemId
+          : editingCollectionItemId as String?,
+      collectionItemFormError: collectionItemFormError == _cardDetailStateUnset
+          ? this.collectionItemFormError
+          : collectionItemFormError as String?,
     );
   }
 }
@@ -255,6 +352,171 @@ class CardDetailController extends Notifier<CardDetailState> {
     state = state.copyWith(selectedPriceRange: range);
   }
 
+  void startAddingCollectionItem() {
+    if (state.isUnavailable) {
+      return;
+    }
+
+    state = state.copyWith(
+      collectionItemDraft: const CardCollectionItemDraft(
+        quantityText: '1',
+        portfolioName: _defaultPortfolioName,
+        grader: 'Raw',
+        condition: _defaultCondition,
+        grade: '',
+        purchasePriceText: '',
+        notes: '',
+      ),
+      editingCollectionItemId: null,
+      collectionItemFormError: null,
+    );
+  }
+
+  void startEditingCollectionItem(String itemId) {
+    if (state.isUnavailable) {
+      return;
+    }
+
+    final item = _findCollectionItem(itemId);
+    if (item == null) {
+      return;
+    }
+
+    state = state.copyWith(
+      collectionItemDraft: CardCollectionItemDraft(
+        quantityText: item.quantity.toString(),
+        portfolioName: item.portfolioName,
+        grader: item.grader,
+        condition: item.condition ?? _defaultCondition,
+        grade: item.grade ?? _defaultGrade,
+        purchasePriceText: item.purchasePriceUsd?.toStringAsFixed(2) ?? '',
+        notes: item.notes,
+      ),
+      editingCollectionItemId: item.id,
+      collectionItemFormError: null,
+    );
+  }
+
+  void updateCollectionItemDraft({
+    String? quantityText,
+    String? portfolioName,
+    String? grader,
+    String? condition,
+    String? grade,
+    String? purchasePriceText,
+    String? notes,
+  }) {
+    final draft = state.collectionItemDraft;
+    if (state.isUnavailable || draft == null) {
+      return;
+    }
+
+    final nextGrader = grader ?? draft.grader;
+    final nextIsRaw = nextGrader == 'Raw';
+    state = state.copyWith(
+      collectionItemDraft: draft.copyWith(
+        quantityText: quantityText,
+        portfolioName: portfolioName,
+        grader: nextGrader,
+        condition: nextIsRaw
+            ? condition ?? (draft.isRaw ? draft.condition : _defaultCondition)
+            : '',
+        grade: nextIsRaw
+            ? ''
+            : grade ?? (draft.isRaw ? _defaultGrade : draft.grade),
+        purchasePriceText: purchasePriceText,
+        notes: notes,
+      ),
+      collectionItemFormError: null,
+    );
+  }
+
+  void cancelCollectionItemEdit() {
+    if (state.isUnavailable) {
+      return;
+    }
+
+    state = state.copyWith(
+      collectionItemDraft: null,
+      editingCollectionItemId: null,
+      collectionItemFormError: null,
+    );
+  }
+
+  bool saveCollectionItemDraft() {
+    final draft = state.collectionItemDraft;
+    if (state.isUnavailable || draft == null) {
+      return false;
+    }
+
+    final quantity = _parseQuantity(draft.quantityText);
+    if (quantity.error != null) {
+      _setCollectionItemFormError(quantity.error!);
+      return false;
+    }
+
+    final purchasePrice = _parsePurchasePrice(draft.purchasePriceText);
+    if (purchasePrice.error != null) {
+      _setCollectionItemFormError(purchasePrice.error!);
+      return false;
+    }
+
+    if (draft.notes.length > 500) {
+      _setCollectionItemFormError(_notesTooLongText);
+      return false;
+    }
+
+    final detail = state.detail;
+    final editingItemId = state.editingCollectionItemId;
+    final savedItem = CardCollectionItem(
+      id: editingItemId ?? _nextCollectionItemId(detail),
+      portfolioName: draft.portfolioName,
+      quantity: quantity.value!,
+      grader: draft.grader,
+      condition: draft.isRaw ? draft.condition : null,
+      grade: draft.isRaw ? null : draft.grade,
+      purchasePriceUsd: purchasePrice.value,
+      notes: draft.notes,
+    );
+
+    final nextItems = editingItemId == null
+        ? [...detail.collectionItems, savedItem]
+        : [
+            for (final item in detail.collectionItems)
+              if (item.id == editingItemId) savedItem else item,
+          ];
+
+    state = state.copyWith(
+      detail: _detailWithCollectionItems(
+        detail,
+        nextItems,
+        isWishlisted: false,
+      ),
+      collectionItemDraft: null,
+      editingCollectionItemId: null,
+      collectionItemFormError: null,
+    );
+    return true;
+  }
+
+  void removeCollectionItem(String itemId) {
+    if (state.isUnavailable) {
+      return;
+    }
+
+    final detail = state.detail;
+    final nextItems = detail.collectionItems
+        .where((item) => item.id != itemId)
+        .toList();
+
+    state = state.copyWith(
+      detail: _detailWithCollectionItems(detail, nextItems),
+      collectionItemDraft: null,
+      editingCollectionItemId: null,
+      collectionItemFormError: null,
+    );
+  }
+
   CardDetailState _load({required AppCurrency currency}) {
     try {
       final repository = ref.read(cardDetailRepositoryProvider);
@@ -266,6 +528,68 @@ class CardDetailController extends Notifier<CardDetailState> {
     } catch (_) {
       return CardDetailState.unavailable(cardId: cardId, currency: currency);
     }
+  }
+
+  CardCollectionItem? _findCollectionItem(String itemId) {
+    for (final item in state.detail.collectionItems) {
+      if (item.id == itemId) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  void _setCollectionItemFormError(String error) {
+    state = state.copyWith(collectionItemFormError: error);
+  }
+
+  _QuantityParseResult _parseQuantity(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return const _QuantityParseResult(error: _quantityRequiredText);
+    }
+
+    final parsed = int.tryParse(trimmed);
+    if (parsed == null) {
+      return const _QuantityParseResult(error: _quantityWholeText);
+    }
+    if (parsed < 1) {
+      return const _QuantityParseResult(error: _quantityMinText);
+    }
+
+    return _QuantityParseResult(value: parsed);
+  }
+
+  _PurchasePriceParseResult _parsePurchasePrice(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return const _PurchasePriceParseResult();
+    }
+
+    final parsed = double.tryParse(trimmed);
+    if (parsed == null || parsed < 0) {
+      return const _PurchasePriceParseResult(error: _invalidPriceText);
+    }
+
+    return _PurchasePriceParseResult(value: parsed);
+  }
+
+  String _nextCollectionItemId(CardDetail detail) {
+    return 'item-${detail.id}-${detail.collectionItems.length + 1}';
+  }
+
+  CardDetail _detailWithCollectionItems(
+    CardDetail detail,
+    List<CardCollectionItem> items, {
+    bool? isWishlisted,
+  }) {
+    final quantity = items.fold<int>(0, (sum, item) => sum + item.quantity);
+    return detail.copyWith(
+      quantity: quantity,
+      isWishlisted: isWishlisted ?? detail.isWishlisted,
+      collectionItems: items,
+    );
   }
 
   CardCollectionItem _defaultCollectionItem(CardDetail detail) {
@@ -280,4 +604,18 @@ class CardDetailController extends Notifier<CardDetailState> {
       notes: 'Quick collected from CardDetail.',
     );
   }
+}
+
+class _QuantityParseResult {
+  const _QuantityParseResult({this.value, this.error});
+
+  final int? value;
+  final String? error;
+}
+
+class _PurchasePriceParseResult {
+  const _PurchasePriceParseResult({this.value, this.error});
+
+  final double? value;
+  final String? error;
 }

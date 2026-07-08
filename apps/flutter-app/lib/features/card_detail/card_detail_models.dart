@@ -1,5 +1,7 @@
 enum CardDetailType { tcg, sports, sealed, other }
 
+const _cardCollectionItemUnset = Object();
+
 enum CardPriceRange {
   seven(7, '7D'),
   thirty(30, '30D'),
@@ -68,6 +70,31 @@ class CardCollectionItem {
   final String? grade;
   final double? purchasePriceUsd;
   final String notes;
+
+  CardCollectionItem copyWith({
+    String? portfolioName,
+    int? quantity,
+    String? grader,
+    Object? condition = _cardCollectionItemUnset,
+    Object? grade = _cardCollectionItemUnset,
+    Object? purchasePriceUsd = _cardCollectionItemUnset,
+    String? notes,
+  }) {
+    return CardCollectionItem(
+      id: id,
+      portfolioName: portfolioName ?? this.portfolioName,
+      quantity: quantity ?? this.quantity,
+      grader: grader ?? this.grader,
+      condition: condition == _cardCollectionItemUnset
+          ? this.condition
+          : condition as String?,
+      grade: grade == _cardCollectionItemUnset ? this.grade : grade as String?,
+      purchasePriceUsd: purchasePriceUsd == _cardCollectionItemUnset
+          ? this.purchasePriceUsd
+          : purchasePriceUsd as double?,
+      notes: notes ?? this.notes,
+    );
+  }
 }
 
 class CardDetail {
