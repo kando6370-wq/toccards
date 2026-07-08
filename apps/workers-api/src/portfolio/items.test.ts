@@ -52,7 +52,7 @@ type WishlistRow = {
 
 const JWT_SECRET = "test-secret";
 const NOW = "2026-07-07T00:00:00.000Z";
-const LATER = "2026-07-08T00:00:00.000Z";
+const LATER = "2099-01-01T00:00:00.000Z";
 
 class FakeD1Database {
   sessions: SessionRow[] = [];
