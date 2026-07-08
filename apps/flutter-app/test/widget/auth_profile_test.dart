@@ -660,10 +660,65 @@ void main() {
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('PORTFOLIO'), findsOneWidget);
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Guest session'), findsOneWidget);
+    expect(find.text('anon-after-delete'), findsOneWidget);
     expect(repository._currentSession?.anonymousId, 'anon-after-delete');
     expect(find.text('person@example.com'), findsNothing);
+  });
+
+  testWidgets('user delete failure keeps account details and shows failure', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _userSession(),
+      deleteError: Exception('delete failed'),
+    );
+
+    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
+
+    await tester.tap(find.text('Account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Unable to complete this action. Please try again later.'),
+      findsOneWidget,
+    );
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('person@example.com'), findsOneWidget);
+    expect(repository._currentSession?.userId, 'user-1');
+  });
+
+  testWidgets('guest delete failure keeps guest and shows failure', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-old'),
+      deleteError: Exception('delete failed'),
+    );
+
+    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
+
+    await tester.tap(find.text('Delete account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Unable to complete this action. Please try again later.'),
+      findsOneWidget,
+    );
+    expect(find.text('Guest session'), findsOneWidget);
+    expect(find.text('anon-old'), findsOneWidget);
+    expect(repository._currentSession?.anonymousId, 'anon-old');
   });
 }
 
@@ -740,6 +795,7 @@ class _WidgetAuthRepository implements AuthRepository {
     this.forgotCodeError,
     this.loginCompleter,
     this.googleCallbackError,
+    this.deleteError,
   }) : _currentSession = initialSession,
        _createdAnonymousIds = [...createdAnonymousIds];
 
@@ -749,6 +805,7 @@ class _WidgetAuthRepository implements AuthRepository {
   final Exception? forgotCodeError;
   final Completer<AuthSession>? loginCompleter;
   final Exception? googleCallbackError;
+  final Exception? deleteError;
   var logoutRequests = 0;
   var deleteRequests = 0;
   final List<_LoginRequest> loginRequests = [];
@@ -787,6 +844,10 @@ class _WidgetAuthRepository implements AuthRepository {
   @override
   Future<void> clearUserSession() async {
     if (_currentSession?.isUser ?? false) {
+      final error = deleteError;
+      if (error != null) {
+        throw error;
+      }
       logoutRequests++;
       _currentSession = null;
     }
@@ -794,8 +855,24 @@ class _WidgetAuthRepository implements AuthRepository {
 
   @override
   Future<void> clearAnonymousSession() async {
+    final error = deleteError;
+    if (error != null) {
+      throw error;
+    }
     deleteRequests++;
     if (_currentSession?.isAnonymous ?? false) {
+      _currentSession = null;
+    }
+  }
+
+  @override
+  Future<void> deleteCurrentAccount(AuthSession session) async {
+    final error = deleteError;
+    if (error != null) {
+      throw error;
+    }
+    deleteRequests++;
+    if (identical(_currentSession, session)) {
       _currentSession = null;
     }
   }

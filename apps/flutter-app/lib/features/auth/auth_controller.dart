@@ -8,6 +8,8 @@ import 'auth_repository.dart';
 import 'auth_storage.dart';
 
 const authAuthorizationFailedMessage = oauthAuthorizationFailedMessage;
+const authAccountActionFailedMessage =
+    'Unable to complete this action. Please try again later.';
 const _googleRedirectUri = 'kando://auth/google';
 
 class AuthActionException implements Exception {
@@ -86,11 +88,13 @@ class AuthController extends Notifier<AuthState> {
       }
 
       final session = state.session;
-      if (session?.isAnonymous ?? false) {
-        await _repository.clearAnonymousSession();
+      if (session == null) {
+        await _replaceWithAnonymous();
+      } else if (session.isAnonymous) {
+        await _repository.deleteCurrentAccount(session);
         await _replaceWithAnonymous();
       } else {
-        await _repository.clearUserSession();
+        await _repository.deleteCurrentAccount(session);
         await _restorePreviousAnonymousOrCreate();
       }
     });

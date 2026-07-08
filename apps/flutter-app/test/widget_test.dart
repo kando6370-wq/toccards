@@ -87,6 +87,9 @@ class _WidgetTestAuthRepository implements AuthRepository {
   Future<void> clearAnonymousSession() async {}
 
   @override
+  Future<void> deleteCurrentAccount(AuthSession session) async {}
+
+  @override
   Future<void> sendRegisterCode(String email) async {}
 
   @override

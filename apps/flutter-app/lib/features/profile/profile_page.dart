@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
 import '../auth/ui/auth_sheet.dart';
+import '../../shared/ui/toast.dart';
 import 'account_page.dart';
 
 const profileVersionText = 'Version 1.0.0';
@@ -118,7 +119,13 @@ class _ProfileContent extends ConsumerWidget {
       return;
     }
 
-    await ref.read(authControllerProvider.notifier).deleteAccount();
+    try {
+      await ref.read(authControllerProvider.notifier).deleteAccount();
+    } on Exception {
+      if (context.mounted) {
+        showKandoToast(context, message: authAccountActionFailedMessage);
+      }
+    }
   }
 }
 

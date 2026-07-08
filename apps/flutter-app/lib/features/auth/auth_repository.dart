@@ -19,6 +19,7 @@ abstract class AuthRepository {
   Future<void> persistSession(AuthSession session);
   Future<void> clearUserSession();
   Future<void> clearAnonymousSession();
+  Future<void> deleteCurrentAccount(AuthSession session);
   Future<void> sendRegisterCode(String email);
   Future<AuthSession> verifyRegister({
     required String email,
@@ -93,6 +94,14 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
 
   @override
   Future<void> clearAnonymousSession() {
+    return _storage.clearAnonymousSession();
+  }
+
+  @override
+  Future<void> deleteCurrentAccount(AuthSession session) {
+    if (session.isUser) {
+      return _storage.clearUserSession();
+    }
     return _storage.clearAnonymousSession();
   }
 

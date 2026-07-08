@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
+import '../../shared/ui/toast.dart';
 
 class AccountPage extends ConsumerWidget {
   const AccountPage({super.key});
@@ -64,9 +65,18 @@ class _AccountContent extends ConsumerWidget {
               return;
             }
 
-            await ref.read(authControllerProvider.notifier).deleteAccount();
-            if (context.mounted) {
-              context.go('/');
+            try {
+              await ref.read(authControllerProvider.notifier).deleteAccount();
+              if (context.mounted) {
+                context.go('/profile');
+              }
+            } on Exception {
+              if (context.mounted) {
+                showKandoToast(
+                  context,
+                  message: authAccountActionFailedMessage,
+                );
+              }
             }
           },
           child: const Text('Delete account'),

@@ -505,6 +505,63 @@ void main() {
   );
 
   test(
+    'user delete calls repository delete and returns to a fresh guest',
+    () async {
+      final storedUser = _userSession(
+        userId: 'user-1',
+        email: 'person@example.com',
+      );
+      final freshAnonymous = _anonymousSession('anon-after-delete');
+      final repository = _FakeAuthRepository(
+        storedSession: storedUser,
+        validatedSession: storedUser,
+        createdAnonymousSessions: [freshAnonymous],
+      );
+      final container = _createContainer(repository, deviceId);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await container.read(authControllerProvider.notifier).deleteAccount();
+      final state = container.read(authControllerProvider);
+
+      expect(repository.deletedSessions, [same(storedUser)]);
+      expect(repository.clearedUserSessions, 1);
+      expect(repository.createdDeviceIds, [deviceId]);
+      expect(repository.persistedSessions, [same(freshAnonymous)]);
+      expect(state.session, same(freshAnonymous));
+    },
+  );
+
+  test(
+    'delete failure keeps current user state because account deletion did not complete',
+    () async {
+      final storedUser = _userSession(
+        userId: 'user-1',
+        email: 'person@example.com',
+      );
+      final repository = _FakeAuthRepository(
+        storedSession: storedUser,
+        validatedSession: storedUser,
+        deleteError: Exception('delete failed'),
+      );
+      final container = _createContainer(repository, deviceId);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await expectLater(
+        container.read(authControllerProvider.notifier).deleteAccount(),
+        throwsException,
+      );
+      final state = container.read(authControllerProvider);
+
+      expect(repository.deletedSessions, [same(storedUser)]);
+      expect(repository.createdDeviceIds, isEmpty);
+      expect(repository.persistedSessions, isEmpty);
+      expect(state.session, same(storedUser));
+    },
+  );
+
+  test(
     'guest delete clears anonymous session and persists a fresh anonymous session',
     () async {
       final storedAnonymous = _anonymousSession('anon-existing');
@@ -522,6 +579,7 @@ void main() {
       final state = container.read(authControllerProvider);
 
       expect(repository.clearedUserSessions, 0);
+      expect(repository.deletedSessions, [same(storedAnonymous)]);
       expect(repository.clearedAnonymousSessions, 1);
       expect(repository.createdDeviceIds, [deviceId]);
       expect(repository.persistedSessions, [same(freshAnonymous)]);
@@ -761,6 +819,7 @@ class _FakeAuthRepository implements AuthRepository {
     List<AuthSession>? googleCallbackSessions,
     List<AuthSession>? appleCallbackSessions,
     this.googleCallbackError,
+    this.deleteError,
   }) : _createAnonymousResults = [
          ...?createAnonymousResults,
          ...?createdAnonymousSessions?.map(Future<AuthSession>.value),
@@ -785,10 +844,12 @@ class _FakeAuthRepository implements AuthRepository {
   final List<AuthSession> _googleCallbackSessions;
   final List<AuthSession> _appleCallbackSessions;
   final Exception? googleCallbackError;
+  final Exception? deleteError;
 
   final List<AuthSession> validatedSessions = [];
   final List<String> createdDeviceIds = [];
   final List<AuthSession> persistedSessions = [];
+  final List<AuthSession> deletedSessions = [];
   final List<_GoogleCallbackRequest> googleCallbackRequests = [];
   final List<_AppleCallbackRequest> appleCallbackRequests = [];
   var clearedUserSessions = 0;
@@ -834,6 +895,20 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> clearAnonymousSession() async {
+    clearedAnonymousSessions++;
+  }
+
+  @override
+  Future<void> deleteCurrentAccount(AuthSession session) async {
+    deletedSessions.add(session);
+    final error = deleteError;
+    if (error != null) {
+      throw error;
+    }
+    if (session.isUser) {
+      clearedUserSessions++;
+      return;
+    }
     clearedAnonymousSessions++;
   }
 
