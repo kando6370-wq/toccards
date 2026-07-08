@@ -594,6 +594,45 @@ void main() {
   });
 
   testWidgets(
+    'subscription copy is absent from Profile account and support surfaces',
+    (tester) async {
+      final guestRepository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+
+      await tester.pumpWidget(_testApp(guestRepository));
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      _expectNoSubscriptionCopy();
+
+      await tester.tap(find.text('Customer Support'));
+      await tester.pumpAndSettle();
+      _expectNoSubscriptionCopy();
+
+      final userRepository = _WidgetAuthRepository(
+        initialSession: _userSession(),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(_testApp(userRepository));
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      _expectNoSubscriptionCopy();
+
+      await tester.tap(find.text('Account'));
+      await tester.pumpAndSettle();
+      _expectNoSubscriptionCopy();
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Customer Support'));
+      await tester.pumpAndSettle();
+      _expectNoSubscriptionCopy();
+    },
+  );
+
+  testWidgets(
     'logout from account creates a guest profile without previous anonymous',
     (tester) async {
       final repository = _WidgetAuthRepository(
@@ -725,6 +764,22 @@ void main() {
 Future<void> _openProfileTab(WidgetTester tester) async {
   await tester.tap(find.text('Profile'));
   await tester.pumpAndSettle();
+}
+
+void _expectNoSubscriptionCopy() {
+  const subscriptionCopy = [
+    'Upgrade to Pro',
+    'Subscribe',
+    'Subscription',
+    'PRO',
+    'Unlock All',
+    'Go unlock',
+    'Restore',
+  ];
+
+  for (final copy in subscriptionCopy) {
+    expect(find.text(copy), findsNothing, reason: '$copy must stay hidden');
+  }
 }
 
 Future<void> _openEmailAuth(WidgetTester tester) async {
