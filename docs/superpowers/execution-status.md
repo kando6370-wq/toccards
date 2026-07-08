@@ -1,12 +1,12 @@
 # 执行状态文档
 
 ## 当前任务
-- 状态：本轮完成（验证通过）
-- 计划编号：无
-- 最近开始：2026-07-07 13:06:39
-- 最近完成：2026-07-07 13:07:44
-- 最近验证：通过
-- 最近任务摘要：实现 hook 去噪幂等化
+- 状态：进行中
+- 计划编号：M5-4
+- 最近开始：2026-07-08 09:01:14
+- 最近完成：2026-07-08 08:59:18
+- 最近验证：未记录
+- 最近任务摘要：Design Collection Item create edit delete
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
 ## dev-plan 子任务状态
@@ -35,38 +35,38 @@
 - [M1-12] 匿名 → 正式升级 Flutter 侧 — status: `completed` · updated: 历史回填（基于当前仓库状态）
 
 ### M2 数据代理层
-- [M2-1] `DataSourceAdapter` 抽象层 — status: `todo` · updated: 未开始
+- [M2-1] `DataSourceAdapter` 抽象层 — status: `completed` · updated: 2026-07-07 13:20:58
 - [M2-2] 第三方厂商适配实现 — status: `todo` · updated: 未开始
-- [M2-3] Workers KV 缓存层 — status: `todo` · updated: 未开始
-- [M2-4] Cache API 缓存层 — status: `todo` · updated: 未开始
-- [M2-5] 降级兜底逻辑 — status: `todo` · updated: 未开始
-- [M2-6] card_override 覆盖层合并 — status: `todo` · updated: 未开始
-- [M2-7] 汇率接口代理 — status: `todo` · updated: 未开始
-- [M2-8] 接口端点注册 — status: `todo` · updated: 未开始
+- [M2-3] Workers KV 缓存层 — status: `completed` · updated: 2026-07-07 13:31:42
+- [M2-4] Cache API 缓存层 — status: `completed` · updated: 2026-07-07 13:35:02
+- [M2-5] 降级兜底逻辑 — status: `completed` · updated: 2026-07-07 13:44:52
+- [M2-6] card_override 覆盖层合并 — status: `completed` · updated: 2026-07-07 13:51:48
+- [M2-7] 汇率接口代理 — status: `completed` · updated: 2026-07-07 13:52:54
+- [M2-8] 接口端点注册 — status: `completed` · updated: 2026-07-07 13:39:24
 
 ### M3 核心资产 CRUD
-- [M3-1] Portfolio 文件夹接口 — status: `todo` · updated: 未开始
-- [M3-2] Collection Item 接口 — status: `todo` · updated: 未开始
-- [M3-3] Wishlist 接口 — status: `todo` · updated: 未开始
-- [M3-4] 用户偏好接口 — status: `todo` · updated: 未开始
-- [M3-5] owner 多态隔离中间件 — status: `todo` · updated: 未开始
-- [M3-6] Collect 快捷端点 — status: `todo` · updated: 未开始
+- [M3-1] Portfolio 文件夹接口 — status: `completed` · updated: 2026-07-07 14:07:00
+- [M3-2] Collection Item 接口 — status: `completed` · updated: 2026-07-07 14:15:38
+- [M3-3] Wishlist 接口 — status: `completed` · updated: 2026-07-07 14:23:54
+- [M3-4] 用户偏好接口 — status: `completed` · updated: 2026-07-07 14:33:24
+- [M3-5] owner 多态隔离中间件 — status: `completed` · updated: 2026-07-07 14:36:35
+- [M3-6] Collect 快捷端点 — status: `completed` · updated: 2026-07-07 14:42:37
 
 ### M4 三大页面
-- [M4-1] Home 页面 — status: `todo` · updated: 未开始
-- [M4-2] Collection 页面 — status: `todo` · updated: 未开始
-- [M4-3] Search 页面 — status: `todo` · updated: 未开始
-- [M4-4] 涨跌算法实现 — status: `todo` · updated: 未开始
-- [M4-5] 货币换算展示 — status: `todo` · updated: 未开始
-- [M4-6] 加载/失败/空状态 — status: `todo` · updated: 未开始
-- [M4-7] Toast 全局组件 — status: `todo` · updated: 未开始
-- [M4-8] Scan Tab 占位页 — status: `todo` · updated: 未开始
+- [M4-1] Home 页面 — status: `completed` · updated: 2026-07-07 17:33:07
+- [M4-2] Collection 页面 — status: `completed` · updated: 2026-07-07 18:20:30
+- [M4-3] Search 页面 — status: `completed` · updated: 2026-07-07 18:48:42
+- [M4-4] 涨跌算法实现 — status: `completed` · updated: 2026-07-07 19:11:14
+- [M4-5] 货币换算展示 — status: `completed` · updated: 2026-07-07 19:35:25
+- [M4-6] 加载/失败/空状态 — status: `completed` · updated: 2026-07-07 20:03:35
+- [M4-7] Toast 全局组件 — status: `completed` · updated: 2026-07-07 20:16:17
+- [M4-8] Scan Tab 占位页 — status: `completed` · updated: 2026-07-07 20:31:55
 
 ### M5 卡牌详情
-- [M5-1] CardDetail 未加入态 — status: `todo` · updated: 未开始
-- [M5-2] CardDetail 已加入态 — status: `todo` · updated: 未开始
-- [M5-3] Price Tab 实现 — status: `todo` · updated: 未开始
-- [M5-4] Collection Item 增删改 — status: `todo` · updated: 未开始
+- [M5-1] CardDetail 未加入态 — status: `completed` · updated: 2026-07-07 20:58:19
+- [M5-2] CardDetail 已加入态 — status: `completed` · updated: 2026-07-08 08:29:26
+- [M5-3] Price Tab 实现 — status: `completed` · updated: 2026-07-08 08:59:18
+- [M5-4] Collection Item 增删改 — status: `in_progress` · updated: 2026-07-08 09:01:14
 - [M5-5] 价格降级展示 — status: `todo` · updated: 未开始
 
 ### M6 Profile / 客服 / 启动引导
@@ -78,13 +78,13 @@
 - [M6-6] 订阅相关内容删除/隐藏 — status: `todo` · updated: 未开始
 
 ### M7 管理后台
-- [M7-1] Admin 鉴权接口 — status: `todo` · updated: 未开始
-- [M7-2] Admin Token 中间件 — status: `todo` · updated: 未开始
-- [M7-3] 用户管理模块 — status: `todo` · updated: 未开始
-- [M7-4] 反馈工单模块 — status: `todo` · updated: 未开始
-- [M7-5] 运营配置模块 — status: `todo` · updated: 未开始
-- [M7-6] 卡牌数据运维模块 — status: `todo` · updated: 未开始
-- [M7-7] D1 管理员初始化 — status: `todo` · updated: 未开始
+- [M7-1] Admin 鉴权接口 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-2] Admin Token 中间件 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-3] 用户管理模块 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-4] 反馈工单模块 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-5] 运营配置模块 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-6] 卡牌数据运维模块 — status: `completed` · updated: 2026-07-08 08:58:27
+- [M7-7] D1 管理员初始化 — status: `completed` · updated: 2026-07-08 08:58:27
 
 ### M8 iOS 联调 / 上线准备
 - [M8-1] OAuth 凭证填入 — status: `todo` · updated: 未开始
@@ -102,12 +102,12 @@
 ## 里程碑汇总
 - M0 工程基建 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
 - M1 鉴权与账号 — status: `completed` · completed 12 / total 12 · blocked 0 · in_progress 0
-- M2 数据代理层 — status: `not_started` · completed 0 / total 8 · blocked 0 · in_progress 0
-- M3 核心资产 CRUD — status: `not_started` · completed 0 / total 6 · blocked 0 · in_progress 0
-- M4 三大页面 — status: `not_started` · completed 0 / total 8 · blocked 0 · in_progress 0
-- M5 卡牌详情 — status: `not_started` · completed 0 / total 5 · blocked 0 · in_progress 0
+- M2 数据代理层 — status: `in_progress` · completed 7 / total 8 · blocked 0 · in_progress 0
+- M3 核心资产 CRUD — status: `completed` · completed 6 / total 6 · blocked 0 · in_progress 0
+- M4 三大页面 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
+- M5 卡牌详情 — status: `in_progress` · completed 3 / total 5 · blocked 0 · in_progress 1
 - M6 Profile / 客服 / 启动引导 — status: `not_started` · completed 0 / total 6 · blocked 0 · in_progress 0
-- M7 管理后台 — status: `not_started` · completed 0 / total 7 · blocked 0 · in_progress 0
+- M7 管理后台 — status: `completed` · completed 7 / total 7 · blocked 0 · in_progress 0
 - M8 iOS 联调 / 上线准备 — status: `not_started` · completed 0 / total 11 · blocked 0 · in_progress 0
 
 ## TBD 状态
@@ -124,6 +124,13 @@
 - 已完成：归一 execution-status 隐藏状态块
 
 ## 执行日志
+- 2026-07-08 08:58:27 | 完成（验证通过） | [M7-1] Admin auth API
+- 2026-07-08 08:58:27 | 完成（验证通过） | [M7-2] Admin token middleware
+- 2026-07-08 08:58:27 | 完成（验证通过） | [M7-3] User management module
+- 2026-07-08 08:58:27 | 完成（验证通过） | [M7-4] Feedback ticket module
+- 2026-07-08 08:58:27 | 完成（验证通过） | [M7-5] Operations config module
+- 2026-07-08 08:58:27 | 完成（验证通过） | [M7-6] Card data operations module
+- 2026-07-08 08:58:27 | 完成（验证通过） | [M7-7] D1 admin initialization
 - 2026-07-06 00:00:00 | 开始 | 为仓库落地 Claude Code harness 规则：共享 settings、规则文档、执行状态文档与完成后自动验证
 - 2026-07-06 00:05:00 | 进展 | 已创建 `.claude/settings.json`、`.claude/hooks/task_status.py`、`.claude/hooks/task_complete_verify.sh`
 - 2026-07-06 00:10:00 | 进展 | 已补充 `CLAUDE.md` 的 harness 规则，并新增 `docs/superpowers/claude-harness-rules.md`
@@ -170,19 +177,110 @@
 - 2026-07-07 13:05:10 | 完成（验证通过） | 实现 hook 去噪幂等化
 - 2026-07-07 13:06:08 | 开始 | 实现 hook 去噪幂等化
 - 2026-07-07 13:07:35 | 完成（验证通过） | 实现 hook 去噪幂等化
+- 2026-07-07 13:16:43 | 开始 | [M2-1] Add DataSourceAdapter contract and mock adapter
+- 2026-07-07 13:20:58 | 完成（验证通过） | [M2-1] Add DataSourceAdapter contract and mock adapter
+- 2026-07-07 13:23:48 | 开始 | [M2-3] Add Workers KV cache wrapper for data source adapter
+- 2026-07-07 13:31:42 | 完成（验证通过） | [M2-3] Add Workers KV cache wrapper for data source adapter
+- 2026-07-07 13:31:57 | 开始 | [M2-4] Add Cache API wrapper for data source adapter
+- 2026-07-07 13:35:02 | 完成（验证通过） | [M2-4] Add Cache API wrapper for data source adapter
+- 2026-07-07 13:35:56 | 开始 | [M2-8] Register mock data proxy endpoints
+- 2026-07-07 13:39:24 | 完成（验证通过） | [M2-8] Register mock data proxy endpoints
+- 2026-07-07 13:43:10 | 开始 | [M2-5] Complete data proxy fallback behavior
+- 2026-07-07 13:44:52 | 完成（验证通过） | [M2-5] Complete data proxy fallback behavior
+- 2026-07-07 13:45:07 | 开始 | [M2-6] Merge card_override into card data proxy responses
+- 2026-07-07 13:51:48 | 完成（验证通过） | [M2-6] Merge card_override into card data proxy responses
+- 2026-07-07 13:52:37 | 开始 | [M2-7] Confirm mock rates endpoint response
+- 2026-07-07 13:52:54 | 完成（验证通过） | [M2-7] Confirm mock rates endpoint response
+- 2026-07-07 14:01:06 | 开始 | [M3-1] Implement portfolio folder routes
+- 2026-07-07 14:07:00 | 完成（验证通过） | [M3-1] Implement portfolio folder routes
+- 2026-07-07 14:09:38 | 开始 | [M3-2] Implement collection item routes
+- 2026-07-07 14:15:38 | 完成（验证通过） | [M3-2] Implement collection item routes
+- 2026-07-07 14:19:29 | 开始 | [M3-3] Implement wishlist routes
+- 2026-07-07 14:23:54 | 完成（验证通过） | [M3-3] Implement wishlist routes
+- 2026-07-07 14:29:16 | 开始 | [M3-4] Implement user preference routes
+- 2026-07-07 14:33:24 | 完成（验证通过） | [M3-4] Implement user preference routes
+- 2026-07-07 14:35:44 | 开始 | [M3-5] Verify owner polymorphic isolation
+- 2026-07-07 14:36:35 | 完成（验证通过） | [M3-5] Verify owner polymorphic isolation
+- 2026-07-07 14:38:22 | 开始 | [M3-6] Implement collect shortcut endpoint
+- 2026-07-07 14:42:37 | 完成（验证通过） | [M3-6] Implement collect shortcut endpoint
+- 2026-07-07 15:18:53 | 开始 | [M4-1] Implement Home page
+- 2026-07-07 17:33:07 | 完成（验证通过） | [M4-1] Implement Home page
+- 2026-07-07 17:56:45 | 开始 | [M4-2] Design Collection page
+- 2026-07-07 18:20:30 | 完成（验证通过） | [M4-2] Implement Collection page
+- 2026-07-07 18:26:33 | 开始 | [M4-3] Design Search page
+- 2026-07-07 18:48:42 | 完成（验证通过） | [M4-3] Implement Search page
+- 2026-07-07 18:51:24 | 开始 | [M4-4] Design market change algorithm
+- 2026-07-07 19:11:14 | 完成（验证通过） | [M4-4] Design market change algorithm
+- 2026-07-07 19:14:33 | 开始 | [M4-5] Design currency conversion display
+- 2026-07-07 19:35:25 | 完成（验证通过） | [M4-5] Design currency conversion display
+- 2026-07-07 19:38:24 | 开始 | [M4-6] Design loading failure empty states
+- 2026-07-07 20:03:35 | 完成（验证通过） | [M4-6] Design loading failure empty states
+- 2026-07-07 20:06:20 | 开始 | [M4-7] Design global Toast component
+- 2026-07-07 20:16:17 | 完成（验证通过） | [M4-7] Design global Toast component
+- 2026-07-07 20:17:53 | 开始 | [M4-8] Design Scan Tab placeholder
+- 2026-07-07 20:31:55 | 完成（验证通过） | [M4-8] Design Scan Tab placeholder
+- 2026-07-07 20:35:01 | 开始 | [M5-1] Design CardDetail uncollected state
+- 2026-07-07 20:58:19 | 完成（验证通过） | [M5-1] Design CardDetail uncollected state
+- 2026-07-08 08:16:47 | 开始 | [M5-2] Design CardDetail owned state
+- 2026-07-08 08:29:26 | 完成（验证通过） | [M5-2] Design CardDetail owned state
+- 2026-07-08 08:41:48 | 开始 | [M5-3] Design CardDetail Price Tab
+- 2026-07-08 08:59:18 | 完成（验证通过） | [M5-3] Design CardDetail Price Tab
+- 2026-07-08 09:01:14 | 开始 | [M5-4] Design Collection Item create edit delete
 
 <!-- task-status-state
 {
   "current": {
-    "status": "本轮完成（验证通过）",
-    "started_at": "2026-07-07 13:06:39",
-    "finished_at": "2026-07-07 13:07:44",
-    "plan_ref": null,
-    "summary": "实现 hook 去噪幂等化",
-    "last_verification": "通过",
+    "status": "进行中",
+    "started_at": "2026-07-08 09:01:14",
+    "finished_at": "2026-07-08 08:59:18",
+    "plan_ref": "M5-4",
+    "summary": "Design Collection Item create edit delete",
+    "last_verification": "未记录",
     "note": "`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。"
   },
   "logs": [
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "Admin auth API",
+      "plan_ref": "M7-1"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "Admin token middleware",
+      "plan_ref": "M7-2"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "User management module",
+      "plan_ref": "M7-3"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "Feedback ticket module",
+      "plan_ref": "M7-4"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "Operations config module",
+      "plan_ref": "M7-5"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "Card data operations module",
+      "plan_ref": "M7-6"
+    },
+    {
+      "time": "2026-07-08 08:58:27",
+      "phase": "完成（验证通过）",
+      "summary": "D1 admin initialization",
+      "plan_ref": "M7-7"
+    },
     {
       "time": "2026-07-06 00:00:00",
       "phase": "开始",
@@ -458,10 +556,353 @@
       "phase": "完成（验证通过）",
       "summary": "实现 hook 去噪幂等化",
       "plan_ref": null
+    },
+    {
+      "time": "2026-07-07 13:16:43",
+      "phase": "开始",
+      "summary": "Add DataSourceAdapter contract and mock adapter",
+      "plan_ref": "M2-1"
+    },
+    {
+      "time": "2026-07-07 13:20:58",
+      "phase": "完成（验证通过）",
+      "summary": "Add DataSourceAdapter contract and mock adapter",
+      "plan_ref": "M2-1"
+    },
+    {
+      "time": "2026-07-07 13:23:48",
+      "phase": "开始",
+      "summary": "Add Workers KV cache wrapper for data source adapter",
+      "plan_ref": "M2-3"
+    },
+    {
+      "time": "2026-07-07 13:31:42",
+      "phase": "完成（验证通过）",
+      "summary": "Add Workers KV cache wrapper for data source adapter",
+      "plan_ref": "M2-3"
+    },
+    {
+      "time": "2026-07-07 13:31:57",
+      "phase": "开始",
+      "summary": "Add Cache API wrapper for data source adapter",
+      "plan_ref": "M2-4"
+    },
+    {
+      "time": "2026-07-07 13:35:02",
+      "phase": "完成（验证通过）",
+      "summary": "Add Cache API wrapper for data source adapter",
+      "plan_ref": "M2-4"
+    },
+    {
+      "time": "2026-07-07 13:35:56",
+      "phase": "开始",
+      "summary": "Register mock data proxy endpoints",
+      "plan_ref": "M2-8"
+    },
+    {
+      "time": "2026-07-07 13:39:24",
+      "phase": "完成（验证通过）",
+      "summary": "Register mock data proxy endpoints",
+      "plan_ref": "M2-8"
+    },
+    {
+      "time": "2026-07-07 13:43:10",
+      "phase": "开始",
+      "summary": "Complete data proxy fallback behavior",
+      "plan_ref": "M2-5"
+    },
+    {
+      "time": "2026-07-07 13:44:52",
+      "phase": "完成（验证通过）",
+      "summary": "Complete data proxy fallback behavior",
+      "plan_ref": "M2-5"
+    },
+    {
+      "time": "2026-07-07 13:45:07",
+      "phase": "开始",
+      "summary": "Merge card_override into card data proxy responses",
+      "plan_ref": "M2-6"
+    },
+    {
+      "time": "2026-07-07 13:51:48",
+      "phase": "完成（验证通过）",
+      "summary": "Merge card_override into card data proxy responses",
+      "plan_ref": "M2-6"
+    },
+    {
+      "time": "2026-07-07 13:52:37",
+      "phase": "开始",
+      "summary": "Confirm mock rates endpoint response",
+      "plan_ref": "M2-7"
+    },
+    {
+      "time": "2026-07-07 13:52:54",
+      "phase": "完成（验证通过）",
+      "summary": "Confirm mock rates endpoint response",
+      "plan_ref": "M2-7"
+    },
+    {
+      "time": "2026-07-07 14:01:06",
+      "phase": "开始",
+      "summary": "Implement portfolio folder routes",
+      "plan_ref": "M3-1"
+    },
+    {
+      "time": "2026-07-07 14:07:00",
+      "phase": "完成（验证通过）",
+      "summary": "Implement portfolio folder routes",
+      "plan_ref": "M3-1"
+    },
+    {
+      "time": "2026-07-07 14:09:38",
+      "phase": "开始",
+      "summary": "Implement collection item routes",
+      "plan_ref": "M3-2"
+    },
+    {
+      "time": "2026-07-07 14:15:38",
+      "phase": "完成（验证通过）",
+      "summary": "Implement collection item routes",
+      "plan_ref": "M3-2"
+    },
+    {
+      "time": "2026-07-07 14:19:29",
+      "phase": "开始",
+      "summary": "Implement wishlist routes",
+      "plan_ref": "M3-3"
+    },
+    {
+      "time": "2026-07-07 14:23:54",
+      "phase": "完成（验证通过）",
+      "summary": "Implement wishlist routes",
+      "plan_ref": "M3-3"
+    },
+    {
+      "time": "2026-07-07 14:29:16",
+      "phase": "开始",
+      "summary": "Implement user preference routes",
+      "plan_ref": "M3-4"
+    },
+    {
+      "time": "2026-07-07 14:33:24",
+      "phase": "完成（验证通过）",
+      "summary": "Implement user preference routes",
+      "plan_ref": "M3-4"
+    },
+    {
+      "time": "2026-07-07 14:35:44",
+      "phase": "开始",
+      "summary": "Verify owner polymorphic isolation",
+      "plan_ref": "M3-5"
+    },
+    {
+      "time": "2026-07-07 14:36:35",
+      "phase": "完成（验证通过）",
+      "summary": "Verify owner polymorphic isolation",
+      "plan_ref": "M3-5"
+    },
+    {
+      "time": "2026-07-07 14:38:22",
+      "phase": "开始",
+      "summary": "Implement collect shortcut endpoint",
+      "plan_ref": "M3-6"
+    },
+    {
+      "time": "2026-07-07 14:42:37",
+      "phase": "完成（验证通过）",
+      "summary": "Implement collect shortcut endpoint",
+      "plan_ref": "M3-6"
+    },
+    {
+      "time": "2026-07-07 15:18:53",
+      "phase": "开始",
+      "summary": "Implement Home page",
+      "plan_ref": "M4-1"
+    },
+    {
+      "time": "2026-07-07 17:33:07",
+      "phase": "完成（验证通过）",
+      "summary": "Implement Home page",
+      "plan_ref": "M4-1"
+    },
+    {
+      "time": "2026-07-07 17:56:45",
+      "phase": "开始",
+      "summary": "Design Collection page",
+      "plan_ref": "M4-2"
+    },
+    {
+      "time": "2026-07-07 18:20:30",
+      "phase": "完成（验证通过）",
+      "summary": "Implement Collection page",
+      "plan_ref": "M4-2"
+    },
+    {
+      "time": "2026-07-07 18:26:33",
+      "phase": "开始",
+      "summary": "Design Search page",
+      "plan_ref": "M4-3"
+    },
+    {
+      "time": "2026-07-07 18:48:42",
+      "phase": "完成（验证通过）",
+      "summary": "Implement Search page",
+      "plan_ref": "M4-3"
+    },
+    {
+      "time": "2026-07-07 18:51:24",
+      "phase": "开始",
+      "summary": "Design market change algorithm",
+      "plan_ref": "M4-4"
+    },
+    {
+      "time": "2026-07-07 19:11:14",
+      "phase": "完成（验证通过）",
+      "summary": "Design market change algorithm",
+      "plan_ref": "M4-4"
+    },
+    {
+      "time": "2026-07-07 19:14:33",
+      "phase": "开始",
+      "summary": "Design currency conversion display",
+      "plan_ref": "M4-5"
+    },
+    {
+      "time": "2026-07-07 19:35:25",
+      "phase": "完成（验证通过）",
+      "summary": "Design currency conversion display",
+      "plan_ref": "M4-5"
+    },
+    {
+      "time": "2026-07-07 19:38:24",
+      "phase": "开始",
+      "summary": "Design loading failure empty states",
+      "plan_ref": "M4-6"
+    },
+    {
+      "time": "2026-07-07 20:03:35",
+      "phase": "完成（验证通过）",
+      "summary": "Design loading failure empty states",
+      "plan_ref": "M4-6"
+    },
+    {
+      "time": "2026-07-07 20:06:20",
+      "phase": "开始",
+      "summary": "Design global Toast component",
+      "plan_ref": "M4-7"
+    },
+    {
+      "time": "2026-07-07 20:16:17",
+      "phase": "完成（验证通过）",
+      "summary": "Design global Toast component",
+      "plan_ref": "M4-7"
+    },
+    {
+      "time": "2026-07-07 20:17:53",
+      "phase": "开始",
+      "summary": "Design Scan Tab placeholder",
+      "plan_ref": "M4-8"
+    },
+    {
+      "time": "2026-07-07 20:31:55",
+      "phase": "完成（验证通过）",
+      "summary": "Design Scan Tab placeholder",
+      "plan_ref": "M4-8"
+    },
+    {
+      "time": "2026-07-07 20:35:01",
+      "phase": "开始",
+      "summary": "Design CardDetail uncollected state",
+      "plan_ref": "M5-1"
+    },
+    {
+      "time": "2026-07-07 20:58:19",
+      "phase": "完成（验证通过）",
+      "summary": "Design CardDetail uncollected state",
+      "plan_ref": "M5-1"
+    },
+    {
+      "time": "2026-07-08 08:16:47",
+      "phase": "开始",
+      "summary": "Design CardDetail owned state",
+      "plan_ref": "M5-2"
+    },
+    {
+      "time": "2026-07-08 08:29:26",
+      "phase": "完成（验证通过）",
+      "summary": "Design CardDetail owned state",
+      "plan_ref": "M5-2"
+    },
+    {
+      "time": "2026-07-08 08:41:48",
+      "phase": "开始",
+      "summary": "Design CardDetail Price Tab",
+      "plan_ref": "M5-3"
+    },
+    {
+      "time": "2026-07-08 08:59:18",
+      "phase": "完成（验证通过）",
+      "summary": "Design CardDetail Price Tab",
+      "plan_ref": "M5-3"
+    },
+    {
+      "time": "2026-07-08 09:01:14",
+      "phase": "开始",
+      "summary": "Design Collection Item create edit delete",
+      "plan_ref": "M5-4"
     }
   ],
   "plan": {
     "tasks": {
+      "M7-1": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "Admin auth API",
+        "title": "Admin 鉴权接口",
+        "milestone": "M7"
+      },
+      "M7-2": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "Admin token middleware",
+        "title": "Admin Token 中间件",
+        "milestone": "M7"
+      },
+      "M7-3": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "User management module",
+        "title": "用户管理模块",
+        "milestone": "M7"
+      },
+      "M7-4": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "Feedback ticket module",
+        "title": "反馈工单模块",
+        "milestone": "M7"
+      },
+      "M7-5": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "Operations config module",
+        "title": "运营配置模块",
+        "milestone": "M7"
+      },
+      "M7-6": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "Card data operations module",
+        "title": "卡牌数据运维模块",
+        "milestone": "M7"
+      },
+      "M7-7": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:58:27",
+        "summary": "D1 admin initialization",
+        "title": "D1 管理员初始化",
+        "milestone": "M7"
+      },
       "M0-1": {
         "status": "completed",
         "updated_at": "历史回填（基于当前仓库状态）",
@@ -601,6 +1042,181 @@
         "summary": "匿名 → 正式升级 Flutter 侧",
         "title": "匿名 → 正式升级 Flutter 侧",
         "milestone": "M1"
+      },
+      "M2-1": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:20:58",
+        "summary": "Add DataSourceAdapter contract and mock adapter",
+        "title": "`DataSourceAdapter` 抽象层",
+        "milestone": "M2"
+      },
+      "M2-3": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:31:42",
+        "summary": "Add Workers KV cache wrapper for data source adapter",
+        "title": "Workers KV 缓存层",
+        "milestone": "M2"
+      },
+      "M2-4": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:35:02",
+        "summary": "Add Cache API wrapper for data source adapter",
+        "title": "Cache API 缓存层",
+        "milestone": "M2"
+      },
+      "M2-8": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:39:24",
+        "summary": "Register mock data proxy endpoints",
+        "title": "接口端点注册",
+        "milestone": "M2"
+      },
+      "M2-5": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:44:52",
+        "summary": "Complete data proxy fallback behavior",
+        "title": "降级兜底逻辑",
+        "milestone": "M2"
+      },
+      "M2-6": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:51:48",
+        "summary": "Merge card_override into card data proxy responses",
+        "title": "card_override 覆盖层合并",
+        "milestone": "M2"
+      },
+      "M2-7": {
+        "status": "completed",
+        "updated_at": "2026-07-07 13:52:54",
+        "summary": "Confirm mock rates endpoint response",
+        "title": "汇率接口代理",
+        "milestone": "M2"
+      },
+      "M3-1": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:07:00",
+        "summary": "Implement portfolio folder routes",
+        "title": "Portfolio 文件夹接口",
+        "milestone": "M3"
+      },
+      "M3-2": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:15:38",
+        "summary": "Implement collection item routes",
+        "title": "Collection Item 接口",
+        "milestone": "M3"
+      },
+      "M3-3": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:23:54",
+        "summary": "Implement wishlist routes",
+        "title": "Wishlist 接口",
+        "milestone": "M3"
+      },
+      "M3-4": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:33:24",
+        "summary": "Implement user preference routes",
+        "title": "用户偏好接口",
+        "milestone": "M3"
+      },
+      "M3-5": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:36:35",
+        "summary": "Verify owner polymorphic isolation",
+        "title": "owner 多态隔离中间件",
+        "milestone": "M3"
+      },
+      "M3-6": {
+        "status": "completed",
+        "updated_at": "2026-07-07 14:42:37",
+        "summary": "Implement collect shortcut endpoint",
+        "title": "Collect 快捷端点",
+        "milestone": "M3"
+      },
+      "M4-1": {
+        "status": "completed",
+        "updated_at": "2026-07-07 17:33:07",
+        "summary": "Implement Home page",
+        "title": "Home 页面",
+        "milestone": "M4"
+      },
+      "M4-2": {
+        "status": "completed",
+        "updated_at": "2026-07-07 18:20:30",
+        "summary": "Implement Collection page",
+        "title": "Collection 页面",
+        "milestone": "M4"
+      },
+      "M4-3": {
+        "status": "completed",
+        "updated_at": "2026-07-07 18:48:42",
+        "summary": "Implement Search page",
+        "title": "Search 页面",
+        "milestone": "M4"
+      },
+      "M4-4": {
+        "status": "completed",
+        "updated_at": "2026-07-07 19:11:14",
+        "summary": "Design market change algorithm",
+        "title": "涨跌算法实现",
+        "milestone": "M4"
+      },
+      "M4-5": {
+        "status": "completed",
+        "updated_at": "2026-07-07 19:35:25",
+        "summary": "Design currency conversion display",
+        "title": "货币换算展示",
+        "milestone": "M4"
+      },
+      "M4-6": {
+        "status": "completed",
+        "updated_at": "2026-07-07 20:03:35",
+        "summary": "Design loading failure empty states",
+        "title": "加载/失败/空状态",
+        "milestone": "M4"
+      },
+      "M4-7": {
+        "status": "completed",
+        "updated_at": "2026-07-07 20:16:17",
+        "summary": "Design global Toast component",
+        "title": "Toast 全局组件",
+        "milestone": "M4"
+      },
+      "M4-8": {
+        "status": "completed",
+        "updated_at": "2026-07-07 20:31:55",
+        "summary": "Design Scan Tab placeholder",
+        "title": "Scan Tab 占位页",
+        "milestone": "M4"
+      },
+      "M5-1": {
+        "status": "completed",
+        "updated_at": "2026-07-07 20:58:19",
+        "summary": "Design CardDetail uncollected state",
+        "title": "CardDetail 未加入态",
+        "milestone": "M5"
+      },
+      "M5-2": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:29:26",
+        "summary": "Design CardDetail owned state",
+        "title": "CardDetail 已加入态",
+        "milestone": "M5"
+      },
+      "M5-3": {
+        "status": "completed",
+        "updated_at": "2026-07-08 08:59:18",
+        "summary": "Design CardDetail Price Tab",
+        "title": "Price Tab 实现",
+        "milestone": "M5"
+      },
+      "M5-4": {
+        "status": "in_progress",
+        "updated_at": "2026-07-08 09:01:14",
+        "summary": "Design Collection Item create edit delete",
+        "title": "Collection Item 增删改",
+        "milestone": "M5"
       }
     },
     "tbds": {
