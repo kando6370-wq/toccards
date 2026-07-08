@@ -38,6 +38,24 @@ void main() {
     expect(find.text('Remove from Portfolio'), findsNothing);
   });
 
+  testWidgets('Price Tab missing data renders fallback copy', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _CardDetailTestApp(cardId: 'mystery-promo')),
+    );
+
+    await tester.scrollUntilVisible(find.text('Price overview'), 400);
+
+    expect(find.text('Price series'), findsOneWidget);
+    expect(find.text('No price data available.'), findsOneWidget);
+    expect(find.text('Market Prices'), findsOneWidget);
+    expect(find.text('Raw'), findsWidgets);
+    expect(find.text('--'), findsWidgets);
+    expect(find.text('7D -/-'), findsOneWidget);
+    expect(find.text('Sold listings'), findsOneWidget);
+    expect(find.text('No sold listings available.'), findsOneWidget);
+    expect(find.text(noContentAvailableText), findsNothing);
+  });
+
   testWidgets('quick Collect updates quantity and clears Wishlist state', (
     tester,
   ) async {

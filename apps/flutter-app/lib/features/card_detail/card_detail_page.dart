@@ -489,13 +489,16 @@ class _PriceOverview extends StatelessWidget {
         const SizedBox(height: 16),
         Text('Price series', style: textTheme.titleMedium),
         const SizedBox(height: 8),
-        for (final row in state.priceSeriesRows)
-          Card(
-            child: ListTile(
-              title: Text(row.dateLabel),
-              trailing: Text(row.priceText),
+        if (state.hasPriceSeriesRows) ...[
+          for (final row in state.priceSeriesRows)
+            Card(
+              child: ListTile(
+                title: Text(row.dateLabel),
+                trailing: Text(row.priceText),
+              ),
             ),
-          ),
+        ] else
+          Text(state.priceSeriesFallbackText),
         const SizedBox(height: 16),
         Text('Market Prices', style: textTheme.titleMedium),
         const SizedBox(height: 8),
@@ -510,14 +513,17 @@ class _PriceOverview extends StatelessWidget {
         const SizedBox(height: 16),
         Text('Sold listings', style: textTheme.titleMedium),
         const SizedBox(height: 8),
-        for (final row in state.soldListingRows)
-          Card(
-            child: ListTile(
-              title: Text(row.title),
-              subtitle: Text('${row.dateText} - ${row.platform}'),
-              trailing: Text(row.priceText),
+        if (state.hasSoldListingRows) ...[
+          for (final row in state.soldListingRows)
+            Card(
+              child: ListTile(
+                title: Text(row.title),
+                subtitle: Text('${row.dateText} - ${row.platform}'),
+                trailing: Text(row.priceText),
+              ),
             ),
-          ),
+        ] else
+          Text(state.soldListingsFallbackText),
       ],
     );
   }
