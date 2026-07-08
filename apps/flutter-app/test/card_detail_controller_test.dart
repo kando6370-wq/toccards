@@ -78,6 +78,39 @@ void main() {
     expect(collected.isWishlisted, isFalse);
   });
 
+  test('owned detail exposes collection item rows', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final state = container.read(cardDetailControllerProvider('charizard-ex'));
+
+    expect(state.detail.isCollected, isTrue);
+    expect(state.detail.quantity, 1);
+    expect(state.collectionItemRows.single.portfolioName, 'Main');
+    expect(state.collectionItemRows.single.quantityText, 'Qty: 1');
+    expect(state.collectionItemRows.single.statusText, 'PSA 10');
+    expect(state.collectionItemRows.single.purchasePriceText, r'$650.00');
+    expect(state.collectionItemRows.single.notes, contains('Obsidian Flames'));
+  });
+
+  test(
+    'quick Collect creates a default collection item and clears Wishlist',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('one-piece-luffy');
+
+      container.read(provider.notifier).quickCollect();
+      final state = container.read(provider);
+
+      expect(state.detail.isCollected, isTrue);
+      expect(state.detail.isWishlisted, isFalse);
+      expect(state.collectionItemRows.single.portfolioName, 'Main');
+      expect(state.collectionItemRows.single.statusText, 'Raw / Near Mint');
+      expect(state.collectionItemRows.single.purchasePriceText, '--');
+    },
+  );
+
   test('repository failure shows failure state and refresh recovers', () {
     final repository = _FailingThenSuccessfulCardDetailRepository();
     final container = ProviderContainer(

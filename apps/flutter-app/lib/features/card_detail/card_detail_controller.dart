@@ -27,6 +27,22 @@ class CardMarketRow {
   final String changeText;
 }
 
+class CardCollectionItemRow {
+  const CardCollectionItemRow({
+    required this.portfolioName,
+    required this.quantityText,
+    required this.statusText,
+    required this.purchasePriceText,
+    required this.notes,
+  });
+
+  final String portfolioName;
+  final String quantityText;
+  final String statusText;
+  final String purchasePriceText;
+  final String notes;
+}
+
 class CardDetailState {
   const CardDetailState({
     required this.cardId,
@@ -74,6 +90,18 @@ class CardDetailState {
     }).toList();
   }
 
+  List<CardCollectionItemRow> get collectionItemRows {
+    return detail.collectionItems.map((item) {
+      return CardCollectionItemRow(
+        portfolioName: item.portfolioName,
+        quantityText: 'Qty: ${item.quantity}',
+        statusText: _collectionStatusText(item),
+        purchasePriceText: _formatter.formatUsd(item.purchasePriceUsd),
+        notes: item.notes,
+      );
+    }).toList();
+  }
+
   CardMarketPrice get _primaryMarketPrice {
     return detail.marketPrices.first;
   }
@@ -87,6 +115,14 @@ class CardDetailState {
       current: price.priceUsd,
       previous: price.previous30dPriceUsd,
     );
+  }
+
+  String _collectionStatusText(CardCollectionItem item) {
+    if (item.grader == 'Raw') {
+      return 'Raw / ${item.condition ?? '-'}';
+    }
+
+    return '${item.grader} ${item.grade ?? '-'}';
   }
 
   CardDetailState copyWith({CardDetail? detail, AppCurrency? currency}) {
@@ -118,8 +154,17 @@ class CardDetailController extends Notifier<CardDetailState> {
       return;
     }
 
+    final detail = state.detail;
+    if (detail.isCollected) {
+      return;
+    }
+
     state = state.copyWith(
-      detail: state.detail.copyWith(quantity: 1, isWishlisted: false),
+      detail: detail.copyWith(
+        quantity: 1,
+        isWishlisted: false,
+        collectionItems: [_defaultCollectionItem(detail)],
+      ),
     );
   }
 
@@ -144,5 +189,18 @@ class CardDetailController extends Notifier<CardDetailState> {
     } catch (_) {
       return CardDetailState.unavailable(cardId: cardId, currency: currency);
     }
+  }
+
+  CardCollectionItem _defaultCollectionItem(CardDetail detail) {
+    return CardCollectionItem(
+      id: 'item-${detail.id}',
+      portfolioName: 'Main',
+      quantity: 1,
+      grader: 'Raw',
+      condition: 'Near Mint',
+      grade: null,
+      purchasePriceUsd: null,
+      notes: 'Quick collected from CardDetail.',
+    );
   }
 }

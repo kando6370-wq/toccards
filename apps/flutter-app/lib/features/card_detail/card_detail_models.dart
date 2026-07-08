@@ -12,6 +12,28 @@ class CardMarketPrice {
   final double? previous30dPriceUsd;
 }
 
+class CardCollectionItem {
+  const CardCollectionItem({
+    required this.id,
+    required this.portfolioName,
+    required this.quantity,
+    required this.grader,
+    required this.condition,
+    required this.grade,
+    required this.purchasePriceUsd,
+    required this.notes,
+  });
+
+  final String id;
+  final String portfolioName;
+  final int quantity;
+  final String grader;
+  final String? condition;
+  final String? grade;
+  final double? purchasePriceUsd;
+  final String notes;
+}
+
 class CardDetail {
   const CardDetail({
     required this.id,
@@ -25,6 +47,7 @@ class CardDetail {
     required this.quantity,
     required this.isWishlisted,
     required this.marketPrices,
+    this.collectionItems = const [],
   });
 
   final String id;
@@ -38,10 +61,15 @@ class CardDetail {
   final int quantity;
   final bool isWishlisted;
   final List<CardMarketPrice> marketPrices;
+  final List<CardCollectionItem> collectionItems;
 
-  bool get isCollected => quantity > 0;
+  bool get isCollected => quantity > 0 || collectionItems.isNotEmpty;
 
-  CardDetail copyWith({int? quantity, bool? isWishlisted}) {
+  CardDetail copyWith({
+    int? quantity,
+    bool? isWishlisted,
+    List<CardCollectionItem>? collectionItems,
+  }) {
     return CardDetail(
       id: id,
       type: type,
@@ -54,6 +82,7 @@ class CardDetail {
       quantity: quantity ?? this.quantity,
       isWishlisted: isWishlisted ?? this.isWishlisted,
       marketPrices: marketPrices,
+      collectionItems: collectionItems ?? this.collectionItems,
     );
   }
 }

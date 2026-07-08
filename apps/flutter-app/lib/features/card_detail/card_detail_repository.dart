@@ -34,6 +34,42 @@ class MockCardDetailRepository implements CardDetailRepository {
           ),
         ],
       ),
+      'charizard-ex' => const CardDetail(
+        id: 'charizard-ex',
+        type: CardDetailType.tcg,
+        name: 'Charizard ex',
+        game: 'Pokemon',
+        setName: 'Obsidian Flames',
+        identityLine: 'Special Illustration Rare #223/197',
+        finish: 'Holofoil',
+        language: 'English',
+        quantity: 1,
+        isWishlisted: false,
+        marketPrices: [
+          CardMarketPrice(
+            label: 'PSA 10',
+            priceUsd: 780,
+            previous30dPriceUsd: 721.58,
+          ),
+          CardMarketPrice(
+            label: 'Raw Near Mint',
+            priceUsd: 215,
+            previous30dPriceUsd: 204.5,
+          ),
+        ],
+        collectionItems: [
+          CardCollectionItem(
+            id: 'item-charizard',
+            portfolioName: 'Main',
+            quantity: 1,
+            grader: 'PSA',
+            condition: null,
+            grade: '10',
+            purchasePriceUsd: 650,
+            notes: 'Pulled from Obsidian Flames binder.',
+          ),
+        ],
+      ),
       'mystery-promo' => const CardDetail(
         id: 'mystery-promo',
         type: CardDetailType.other,
