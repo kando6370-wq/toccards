@@ -46,7 +46,54 @@ void main() {
     expect(find.text('Collected'), findsOneWidget);
     expect(find.text('Qty: 1'), findsOneWidget);
     expect(find.byIcon(Icons.favorite), findsNothing);
-    expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+    expect(find.byIcon(Icons.favorite_border), findsNothing);
+    expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+
+    expect(find.text('Collection Item'), findsOneWidget);
+    expect(find.text('Main'), findsOneWidget);
+    expect(find.text('Raw / Near Mint'), findsOneWidget);
+    expect(find.text('--'), findsOneWidget);
+  });
+
+  testWidgets('owned CardDetail defaults to Collection Item content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
+    );
+
+    expect(find.text('Charizard ex'), findsOneWidget);
+    expect(find.text('Collected'), findsOneWidget);
+    expect(find.text('Collect'), findsNothing);
+    expect(find.byIcon(Icons.favorite), findsNothing);
+    expect(find.byIcon(Icons.favorite_border), findsNothing);
+    expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+
+    expect(find.text('Collection Item'), findsOneWidget);
+    expect(find.text('Main'), findsOneWidget);
+    expect(find.text('PSA 10'), findsOneWidget);
+    expect(find.text('Purchase price'), findsOneWidget);
+    expect(find.text(r'$650.00'), findsOneWidget);
+    expect(find.text('Pulled from Obsidian Flames binder.'), findsOneWidget);
+    expect(find.text('Price overview'), findsNothing);
+  });
+
+  testWidgets('owned CardDetail can switch to Price overview', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
+    );
+
+    await tester.scrollUntilVisible(find.text('Price'), 400);
+    await tester.tap(find.text('Price'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Price overview'), findsOneWidget);
+    expect(find.text('PSA 10'), findsOneWidget);
+    expect(find.text(r'$780.00'), findsOneWidget);
   });
 
   testWidgets('unknown CardDetail shows shared failure copy', (tester) async {

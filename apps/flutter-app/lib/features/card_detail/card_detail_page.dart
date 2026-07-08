@@ -39,7 +39,10 @@ class CardDetailPage extends ConsumerWidget {
                   const SizedBox(height: 16),
                   _BasicInfo(state: state),
                   const SizedBox(height: 16),
-                  _PriceOverview(state: state),
+                  if (state.detail.isCollected)
+                    _OwnedDetailTabs(state: state)
+                  else
+                    _PriceOverview(state: state),
                 ],
               ),
       ),
@@ -104,13 +107,20 @@ class _CardHeader extends StatelessWidget {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
             ),
-            IconButton(
-              key: Key('card-detail-wishlist-${detail.id}'),
-              onPressed: controller.toggleWishlist,
-              icon: Icon(
-                detail.isWishlisted ? Icons.favorite : Icons.favorite_border,
+            if (detail.isCollected)
+              IconButton(
+                key: Key('card-detail-share-${detail.id}'),
+                onPressed: () {},
+                icon: const Icon(Icons.ios_share_outlined),
+              )
+            else
+              IconButton(
+                key: Key('card-detail-wishlist-${detail.id}'),
+                onPressed: controller.toggleWishlist,
+                icon: Icon(
+                  detail.isWishlisted ? Icons.favorite : Icons.favorite_border,
+                ),
               ),
-            ),
           ],
         ),
         Text('Market price ${state.marketPriceText}'),
@@ -154,6 +164,78 @@ class _BasicInfo extends StatelessWidget {
         _InfoRow(label: 'Identity', value: detail.identityLine),
         _InfoRow(label: 'Finish', value: detail.finish),
         _InfoRow(label: 'Language', value: detail.language),
+      ],
+    );
+  }
+}
+
+class _OwnedDetailTabs extends StatelessWidget {
+  const _OwnedDetailTabs({required this.state});
+
+  final CardDetailState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const TabBar(
+            tabs: [
+              Tab(text: 'Collection Item'),
+              Tab(text: 'Price'),
+            ],
+          ),
+          SizedBox(
+            height: 360,
+            child: TabBarView(
+              children: [
+                _CollectionItems(state: state),
+                SingleChildScrollView(child: _PriceOverview(state: state)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionItems extends StatelessWidget {
+  const _CollectionItems({required this.state});
+
+  final CardDetailState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.only(top: 8),
+      children: [
+        for (final item in state.collectionItemRows)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.portfolioName,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  _InfoRow(label: 'Quantity', value: item.quantityText),
+                  _InfoRow(label: 'Status', value: item.statusText),
+                  _InfoRow(
+                    label: 'Purchase price',
+                    value: item.purchasePriceText,
+                  ),
+                  if (item.notes.isNotEmpty)
+                    _InfoRow(label: 'Notes', value: item.notes),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
