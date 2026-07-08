@@ -124,6 +124,116 @@ void main() {
     expect(find.text('Sold listings'), findsOneWidget);
   });
 
+  testWidgets('owned Collection Item can be edited from CardDetail', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
+    );
+
+    await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+    await tester.drag(
+      find.byKey(const Key('card-detail-scroll')),
+      const Offset(0, -180),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit item'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ownership Summary'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('card-detail-item-quantity')),
+      '3',
+    );
+    await tester.tap(find.byKey(const Key('card-detail-item-grader')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Raw').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Condition'), findsOneWidget);
+    expect(find.text('Grade'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('card-detail-item-notes')),
+      'Cracked slab for binder.',
+    );
+    await tester.drag(
+      find.byKey(const Key('card-detail-collection-items')),
+      const Offset(0, -320),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save changes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save changes'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ownership Summary'), findsNothing);
+    expect(find.text('Qty: 3'), findsOneWidget);
+    expect(find.text('Raw / Near Mint'), findsOneWidget);
+    expect(find.text('Cracked slab for binder.'), findsOneWidget);
+  });
+
+  testWidgets('owned Collection Item shows validation without losing draft', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
+    );
+
+    await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+    await tester.drag(
+      find.byKey(const Key('card-detail-scroll')),
+      const Offset(0, -180),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit item'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('card-detail-item-quantity')),
+      '0',
+    );
+    await tester.drag(
+      find.byKey(const Key('card-detail-collection-items')),
+      const Offset(0, -320),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save changes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save changes'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Quantity must be at least 1.'), findsOneWidget);
+    expect(find.text('Ownership Summary'), findsOneWidget);
+  });
+
+  testWidgets('owned Collection Item can be removed after confirmation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
+    );
+
+    await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+    await tester.drag(
+      find.byKey(const Key('card-detail-scroll')),
+      const Offset(0, -180),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove from Portfolio'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove'));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const Key('card-detail-scroll')),
+      const Offset(0, 400),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Collect'), findsOneWidget);
+    expect(find.text('Collection Item'), findsNothing);
+    expect(find.text('Price overview'), findsOneWidget);
+  });
+
   testWidgets('unknown CardDetail shows shared failure copy', (tester) async {
     await tester.pumpWidget(
       const ProviderScope(child: _CardDetailTestApp(cardId: 'missing-card')),

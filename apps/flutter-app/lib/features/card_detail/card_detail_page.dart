@@ -32,6 +32,7 @@ class CardDetailPage extends ConsumerWidget {
                 child: KandoFailureBlock(onRefresh: controller.refresh),
               )
             : ListView(
+                key: const Key('card-detail-scroll'),
                 padding: const EdgeInsets.all(16),
                 children: [
                   const _CardImageStandIn(),
@@ -193,7 +194,7 @@ class _OwnedDetailTabs extends StatelessWidget {
             height: 360,
             child: TabBarView(
               children: [
-                _CollectionItems(state: state),
+                _CollectionItems(state: state, controller: controller),
                 SingleChildScrollView(
                   child: _PriceOverview(state: state, controller: controller),
                 ),
@@ -207,40 +208,249 @@ class _OwnedDetailTabs extends StatelessWidget {
 }
 
 class _CollectionItems extends StatelessWidget {
-  const _CollectionItems({required this.state});
+  const _CollectionItems({required this.state, required this.controller});
 
   final CardDetailState state;
+  final CardDetailController controller;
 
   @override
   Widget build(BuildContext context) {
+    final draft = state.collectionItemDraft;
+
     return ListView(
+      key: const Key('card-detail-collection-items'),
       padding: const EdgeInsets.only(top: 8),
       children: [
-        for (final item in state.collectionItemRows)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.portfolioName,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  _InfoRow(label: 'Quantity', value: item.quantityText),
-                  _InfoRow(label: 'Status', value: item.statusText),
-                  _InfoRow(
-                    label: 'Purchase price',
-                    value: item.purchasePriceText,
-                  ),
-                  if (item.notes.isNotEmpty)
-                    _InfoRow(label: 'Notes', value: item.notes),
-                ],
-              ),
+        if (draft != null && state.editingCollectionItemId == null) ...[
+          _CollectionItemForm(state: state, controller: controller),
+          const SizedBox(height: 8),
+        ] else if (draft == null) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: controller.startAddingCollectionItem,
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Add item'),
             ),
           ),
+          const SizedBox(height: 8),
+        ],
+        for (final item in state.collectionItemRows)
+          if (state.editingCollectionItemId == item.id)
+            _CollectionItemForm(state: state, controller: controller)
+          else
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.portfolioName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    _InfoRow(label: 'Quantity', value: item.quantityText),
+                    _InfoRow(label: 'Status', value: item.statusText),
+                    _InfoRow(
+                      label: 'Purchase price',
+                      value: item.purchasePriceText,
+                    ),
+                    if (item.notes.isNotEmpty)
+                      _InfoRow(label: 'Notes', value: item.notes),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () {
+                            controller.startEditingCollectionItem(item.id);
+                          },
+                          icon: const Icon(Icons.edit_outlined),
+                          label: const Text('Edit item'),
+                        ),
+                        TextButton.icon(
+                          onPressed: () {
+                            _confirmRemoveCollectionItem(
+                              context,
+                              controller,
+                              item.id,
+                            );
+                          },
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text('Remove from Portfolio'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
       ],
+    );
+  }
+}
+
+class _CollectionItemForm extends StatelessWidget {
+  const _CollectionItemForm({required this.state, required this.controller});
+
+  final CardDetailState state;
+  final CardDetailController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final draft = state.collectionItemDraft;
+    if (draft == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Ownership Summary',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              key: const Key('card-detail-item-quantity'),
+              initialValue: draft.quantityText,
+              decoration: const InputDecoration(
+                labelText: 'Quantity',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              onChanged: (value) {
+                controller.updateCollectionItemDraft(quantityText: value);
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: const Key('card-detail-item-portfolio'),
+              initialValue: draft.portfolioName,
+              decoration: const InputDecoration(
+                labelText: 'Portfolio',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final name in cardCollectionPortfolioNames)
+                  DropdownMenuItem(value: name, child: Text(name)),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  controller.updateCollectionItemDraft(portfolioName: value);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: const Key('card-detail-item-grader'),
+              initialValue: draft.grader,
+              decoration: const InputDecoration(
+                labelText: 'Grader',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final grader in cardCollectionGraders)
+                  DropdownMenuItem(value: grader, child: Text(grader)),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  controller.updateCollectionItemDraft(grader: value);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            if (draft.isRaw)
+              DropdownButtonFormField<String>(
+                key: const Key('card-detail-item-condition'),
+                initialValue: draft.condition,
+                decoration: const InputDecoration(
+                  labelText: 'Condition',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final condition in cardCollectionConditions)
+                    DropdownMenuItem(value: condition, child: Text(condition)),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    controller.updateCollectionItemDraft(condition: value);
+                  }
+                },
+              )
+            else
+              DropdownButtonFormField<String>(
+                key: const Key('card-detail-item-grade'),
+                initialValue: draft.grade,
+                decoration: const InputDecoration(
+                  labelText: 'Grade',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final grade in cardCollectionGrades)
+                    DropdownMenuItem(value: grade, child: Text(grade)),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    controller.updateCollectionItemDraft(grade: value);
+                  }
+                },
+              ),
+            const SizedBox(height: 12),
+            TextFormField(
+              key: const Key('card-detail-item-purchase-price'),
+              initialValue: draft.purchasePriceText,
+              decoration: const InputDecoration(
+                labelText: 'Purchase price',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              onChanged: (value) {
+                controller.updateCollectionItemDraft(purchasePriceText: value);
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              key: const Key('card-detail-item-notes'),
+              initialValue: draft.notes,
+              decoration: const InputDecoration(
+                labelText: 'Notes',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+              onChanged: (value) {
+                controller.updateCollectionItemDraft(notes: value);
+              },
+            ),
+            if (state.collectionItemFormError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                state.collectionItemFormError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: controller.cancelCollectionItemEdit,
+                  child: const Text('Cancel'),
+                ),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: controller.saveCollectionItemDraft,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Save changes'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -311,6 +521,36 @@ class _PriceOverview extends StatelessWidget {
       ],
     );
   }
+}
+
+Future<void> _confirmRemoveCollectionItem(
+  BuildContext context,
+  CardDetailController controller,
+  String itemId,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Remove from Portfolio'),
+        content: const Text('Remove this Collection Item from your portfolio?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              controller.removeCollectionItem(itemId);
+              Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Remove'),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _InfoRow extends StatelessWidget {
