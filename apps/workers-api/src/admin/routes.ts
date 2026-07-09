@@ -1,6 +1,7 @@
 import {
   ACCESS_TOKEN_EXPIRES_IN_SECONDS,
   createRefreshToken,
+  hashPassword,
   hashRefreshToken,
   refreshTokenExpiresAt,
   verifyPassword,
@@ -13,7 +14,10 @@ import { createId } from "../id";
 
 type AdminRole = "super_admin" | "operator";
 type AdminStatus = "active" | "disabled";
-type FeedbackStatus = "open" | "in_progress" | "closed";
+type FeedbackStatus = "pending" | "processed" | "ignored";
+type FeedbackStorageStatus = FeedbackStatus | "open" | "in_progress" | "closed";
+type AppVersionPlatform = "iOS" | "Google";
+type AppVersionStatus = "enabled" | "disabled";
 
 type AdminPrincipal = {
   admin_id: string;
@@ -29,6 +33,43 @@ type AdminUserRow = {
   role: string;
   status: AdminStatus;
   created_at: string;
+};
+
+type InstallationSourceRow = {
+  install_type: "user" | "anonymous";
+  uid: string;
+  platform: string;
+  country: string;
+  environment: string;
+  created_at: string;
+};
+
+type FeedbackTicketRow = {
+  id: string;
+  email: string;
+  types: string;
+  functions: string;
+  message: string;
+  status: FeedbackStorageStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+type AppConfigRow = {
+  key: string;
+  value: string;
+  updated_by: string | null;
+  updated_at: string;
+};
+
+type AppVersionRecord = {
+  platform: AppVersionPlatform;
+  min_supported_version: string;
+  recommended_version: string;
+  recommended_update_message: string;
+  forced_update_message: string;
+  status: AppVersionStatus;
+  updated_at: string;
 };
 
 type SessionRow = {
@@ -54,11 +95,17 @@ type AdminContext = Context<AdminBindings>;
 const EMAIL_MAX_LENGTH = 254;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = new Set<AdminRole>(["super_admin", "operator"]);
-const VALID_FEEDBACK_STATUSES = new Set<FeedbackStatus>([
-  "open",
-  "in_progress",
-  "closed",
-]);
+const VALID_ADMIN_STATUSES = new Set<AdminStatus>(["active", "disabled"]);
+const VALID_FEEDBACK_STATUSES = new Set<FeedbackStatus>(["pending", "processed", "ignored"]);
+const LEGACY_FEEDBACK_STATUS_MAP: Record<string, FeedbackStatus> = {
+  open: "pending",
+  in_progress: "pending",
+  closed: "processed",
+};
+const VALID_APP_VERSION_STATUSES = new Set<AppVersionStatus>(["enabled", "disabled"]);
+const APP_VERSION_PLATFORMS: AppVersionPlatform[] = ["iOS", "Google"];
+const APP_VERSION_CONFIG_PREFIX = "admin.app_version.";
+const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const DUMMY_PASSWORD_HASH =
   "pbkdf2-sha256$v1$100000$AAECAwQFBgcICQoLDA0ODw$n9d-PfgjYCpuBQORe6IZg6Op-rlL_-TOqIyWwG54xHI";
 
@@ -104,6 +151,25 @@ const SELECT_ADMIN_BY_ID_SQL = `
   LIMIT 1
 `;
 
+const SELECT_ADMIN_PERMISSIONS_SQL = `
+  SELECT id, email, password_hash, role, status, created_at
+  FROM admin_user
+  WHERE (? IS NULL OR lower(email) LIKE '%' || ? || '%')
+    AND (? IS NULL OR status = ?)
+  ORDER BY created_at DESC
+  LIMIT ? OFFSET ?
+`;
+
+const INSERT_ADMIN_PERMISSION_SQL = `
+  INSERT INTO admin_user (id, email, password_hash, role, status, created_at)
+  VALUES (?, ?, ?, ?, ?, ?)
+`;
+
+const UPDATE_ADMIN_PERMISSION_SQL = `
+  UPDATE admin_user SET role = ?, status = ?
+  WHERE id = ?
+`;
+
 const INSERT_ADMIN_SESSION_SQL = `
   INSERT INTO session
     (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
@@ -143,6 +209,18 @@ const SELECT_ADMIN_USERS_SQL = `
     AND (? IS NULL OR lower(device_id) LIKE '%' || ? || '%')
   ORDER BY created_at DESC
   LIMIT ? OFFSET ?
+`;
+
+const SELECT_INSTALLATION_SOURCES_SQL = `
+  SELECT 'user' AS install_type, id AS uid, 'iOS' AS platform,
+    'Unknown' AS country, 'production' AS environment, created_at
+  FROM user
+  WHERE deleted_at IS NULL
+  UNION ALL
+  SELECT 'anonymous' AS install_type, id AS uid, 'iOS' AS platform,
+    'Unknown' AS country, 'production' AS environment, created_at
+  FROM anonymous_account
+  ORDER BY created_at ASC
 `;
 
 const SELECT_USER_DETAIL_SQL = `
@@ -189,6 +267,56 @@ const SELECT_APP_CONFIG_SQL = `
   FROM app_config
   ORDER BY key ASC
 `;
+
+const SAMPLE_SCAN_RECORDS = [
+  {
+    scan_id: "scan_20260708_001",
+    image_url: "https://images.pokemontcg.io/sv4/198_hires.png",
+    uid: "UID-100284",
+    platform: "iOS",
+    app_version: "1.9.0",
+    scan_time: "2026-07-08T10:18:00.000Z",
+    recognition_status: "success",
+    user_confirmation_status: "confirmed",
+    modified_result: true,
+    device_model: "iPhone 15 Pro",
+    os_version: "iOS 18.5",
+    system_result: {
+      status: "success",
+      name: "Charizard ex",
+      ip_game: "Pokemon",
+      set: "Obsidian Flames",
+      number: "223/197",
+      finish_variant: "Special Illustration Rare",
+      graded: "Raw",
+      confidence: 0.94,
+      candidate_count: 3,
+    },
+    user_result: {
+      confirmation_status: "confirmed",
+      final_card: "Charizard ex - Obsidian Flames 223/197",
+      modified_result: true,
+      added_to_inventory: true,
+      added_to_wishlist: false,
+    },
+    candidates: [
+      {
+        rank: 1,
+        name: "Charizard ex",
+        set: "Obsidian Flames",
+        number: "223/197",
+        confidence: 0.94,
+      },
+      {
+        rank: 2,
+        name: "Charizard ex",
+        set: "Obsidian Flames",
+        number: "125/197",
+        confidence: 0.71,
+      },
+    ],
+  },
+] as const;
 
 const UPSERT_APP_CONFIG_SQL = `
   INSERT INTO app_config (key, value, updated_by, updated_at)
@@ -423,6 +551,43 @@ adminRoutes.post("/auth/logout", async (c) => {
   return c.json({ success: true, data: {} });
 });
 
+adminRoutes.get("/analytics/installations", async (c) => {
+  const page = readPositiveInt(c.req.query("page"), 1);
+  const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
+  const dateFrom = readDateOnly(c.req.query("date_from"));
+  const dateTo = readDateOnly(c.req.query("date_to"));
+  const platform = normalizeQuery(c.req.query("platform"));
+  const country = normalizeQuery(c.req.query("country"));
+  const environment = normalizeQuery(c.req.query("environment"));
+  const offset = (page - 1) * pageSize;
+
+  const { results = [] } = await c.env.DB.prepare(SELECT_INSTALLATION_SOURCES_SQL)
+    .all<InstallationSourceRow>();
+  const installs = results
+    .map(toInstallationRecord)
+    .filter((item) => isWithinDateRange(item.date, dateFrom, dateTo))
+    .filter((item) => !platform || item.platform.toLowerCase() === platform)
+    .filter((item) => !country || item.country.toLowerCase() === country)
+    .filter((item) => !environment || item.environment.toLowerCase() === environment);
+  const trend = buildInstallationTrend(installs, dateFrom, dateTo);
+  const rows = buildInstallationRows(installs);
+
+  return c.json({
+    success: true,
+    data: {
+      summary: {
+        total_installations: installs.length,
+        countries: new Set(installs.map((item) => item.country)).size,
+        platforms: new Set(installs.map((item) => item.platform)).size,
+      },
+      trend,
+      rows: rows.slice(offset, offset + pageSize),
+      page,
+      page_size: pageSize,
+    },
+  });
+});
+
 adminRoutes.get("/users", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
@@ -485,17 +650,20 @@ adminRoutes.get("/feedbacks", async (c) => {
   const status = readFeedbackStatus(c.req.query("status"));
   const offset = (page - 1) * pageSize;
   const { results = [] } = await c.env.DB.prepare(SELECT_FEEDBACKS_SQL)
-    .bind(status, status, pageSize, offset)
-    .all();
+    .bind(null, null, pageSize, offset)
+    .all<FeedbackTicketRow>();
+  const items = results
+    .map(toAdminFeedbackTicket)
+    .filter((item) => !status || item.status === status);
 
-  return c.json({ success: true, data: { items: results, page, page_size: pageSize } });
+  return c.json({ success: true, data: { items, page, page_size: pageSize } });
 });
 
 adminRoutes.get("/feedbacks/:ticketId", async (c) => {
   const row = await c.env.DB.prepare(SELECT_FEEDBACK_BY_ID_SQL)
     .bind(c.req.param("ticketId"))
-    .first();
-  return row ? c.json({ success: true, data: row }) : c.json(NOT_FOUND_RESPONSE, 404);
+    .first<FeedbackTicketRow>();
+  return row ? c.json({ success: true, data: toAdminFeedbackTicket(row) }) : c.json(NOT_FOUND_RESPONSE, 404);
 });
 
 adminRoutes.patch("/feedbacks/:ticketId/status", async (c) => {
@@ -507,9 +675,140 @@ adminRoutes.patch("/feedbacks/:ticketId/status", async (c) => {
   await c.env.DB.prepare(UPDATE_FEEDBACK_STATUS_SQL)
     .bind(status, new Date().toISOString(), id)
     .run();
-  const row = await c.env.DB.prepare(SELECT_FEEDBACK_BY_ID_SQL).bind(id).first();
+  const row = await c.env.DB.prepare(SELECT_FEEDBACK_BY_ID_SQL).bind(id).first<FeedbackTicketRow>();
 
+  return row ? c.json({ success: true, data: toAdminFeedbackTicket(row) }) : c.json(NOT_FOUND_RESPONSE, 404);
+});
+
+adminRoutes.get("/scans", (c) => {
+  const page = readPositiveInt(c.req.query("page"), 1);
+  const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
+  const uid = normalizeQuery(c.req.query("uid"));
+  const platform = normalizeQuery(c.req.query("platform"));
+  const appVersion = normalizeQuery(c.req.query("app_version"));
+  const recognitionStatus = normalizeQuery(c.req.query("recognition_status"));
+  const confirmationStatus = normalizeQuery(c.req.query("user_confirmation_status"));
+  const modifiedResult = readBooleanQuery(c.req.query("modified_result"));
+  const offset = (page - 1) * pageSize;
+  const items = SAMPLE_SCAN_RECORDS
+    .filter((item) => !uid || item.uid.toLowerCase().includes(uid))
+    .filter((item) => !platform || item.platform.toLowerCase() === platform)
+    .filter((item) => !appVersion || item.app_version.toLowerCase() === appVersion)
+    .filter((item) => !recognitionStatus || item.recognition_status === recognitionStatus)
+    .filter((item) => !confirmationStatus || item.user_confirmation_status === confirmationStatus)
+    .filter((item) => modifiedResult === null || item.modified_result === modifiedResult)
+    .map(toScanListItem);
+
+  return c.json({
+    success: true,
+    data: { items: items.slice(offset, offset + pageSize), page, page_size: pageSize },
+  });
+});
+
+adminRoutes.get("/scans/:scanId", (c) => {
+  const row = SAMPLE_SCAN_RECORDS.find((item) => item.scan_id === c.req.param("scanId"));
   return row ? c.json({ success: true, data: row }) : c.json(NOT_FOUND_RESPONSE, 404);
+});
+
+adminRoutes.get("/permissions", async (c) => {
+  const page = readPositiveInt(c.req.query("page"), 1);
+  const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
+  const q = normalizeQuery(c.req.query("q") ?? c.req.query("email"));
+  const status = readAdminStatus(c.req.query("status"));
+  const offset = (page - 1) * pageSize;
+  const { results = [] } = await c.env.DB.prepare(SELECT_ADMIN_PERMISSIONS_SQL)
+    .bind(q, q, status, status, pageSize, offset)
+    .all<AdminUserRow>();
+
+  return c.json({
+    success: true,
+    data: { items: results.map(toPermissionRecord), page, page_size: pageSize },
+  });
+});
+
+adminRoutes.post("/permissions", async (c) => {
+  if (c.get("admin").role !== "super_admin") {
+    return c.json(FORBIDDEN_RESPONSE, 403);
+  }
+
+  const input = await readJsonObject(c.req);
+  const email = normalizeEmail(input.email);
+  const role = readAdminRole(input.role) ?? "operator";
+  const status = readAdminStatus(input.status) ?? "active";
+  const password = readRequiredString(input.password);
+  if (!email || !isValidEmail(email) || !password) {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
+
+  const id = createId();
+  const createdAt = new Date().toISOString();
+  await c.env.DB.prepare(INSERT_ADMIN_PERMISSION_SQL)
+    .bind(id, email, await hashPassword(password), role, status, createdAt)
+    .run();
+  const row = await c.env.DB.prepare(SELECT_ADMIN_BY_ID_SQL).bind(id).first<AdminUserRow>();
+
+  return c.json({ success: true, data: row ? toPermissionRecord(row) : null });
+});
+
+adminRoutes.patch("/permissions/:adminId", async (c) => {
+  if (c.get("admin").role !== "super_admin") {
+    return c.json(FORBIDDEN_RESPONSE, 403);
+  }
+
+  const id = c.req.param("adminId");
+  const existing = await c.env.DB.prepare(SELECT_ADMIN_BY_ID_SQL).bind(id).first<AdminUserRow>();
+  if (!existing) return c.json(NOT_FOUND_RESPONSE, 404);
+
+  const input = await readJsonObject(c.req);
+  const role = readAdminRole(input.role) ?? (existing.role as AdminRole);
+  const status = readAdminStatus(input.status) ?? existing.status;
+  await c.env.DB.prepare(UPDATE_ADMIN_PERMISSION_SQL).bind(role, status, id).run();
+  const row = await c.env.DB.prepare(SELECT_ADMIN_BY_ID_SQL).bind(id).first<AdminUserRow>();
+
+  return row ? c.json({ success: true, data: toPermissionRecord(row) }) : c.json(NOT_FOUND_RESPONSE, 404);
+});
+
+adminRoutes.get("/app-versions", async (c) => {
+  const { results = [] } = await c.env.DB.prepare(SELECT_APP_CONFIG_SQL).all<AppConfigRow>();
+  return c.json({ success: true, data: { items: buildAppVersionRecords(results) } });
+});
+
+adminRoutes.patch("/app-versions/:platform", async (c) => {
+  const platform = readAppVersionPlatform(c.req.param("platform"));
+  if (!platform) return c.json(NOT_FOUND_RESPONSE, 404);
+
+  const input = await readJsonObject(c.req);
+  const minSupportedVersion = readRequiredString(input.min_supported_version);
+  const recommendedVersion = readRequiredString(input.recommended_version);
+  const status = readAppVersionStatus(input.status) ?? "enabled";
+  if (
+    !minSupportedVersion ||
+    !recommendedVersion ||
+    !VERSION_PATTERN.test(minSupportedVersion) ||
+    !VERSION_PATTERN.test(recommendedVersion)
+  ) {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
+
+  const now = new Date().toISOString();
+  const record: AppVersionRecord = {
+    platform,
+    min_supported_version: minSupportedVersion,
+    recommended_version: recommendedVersion,
+    recommended_update_message: typeof input.recommended_update_message === "string"
+      ? input.recommended_update_message
+      : "",
+    forced_update_message: typeof input.forced_update_message === "string"
+      ? input.forced_update_message
+      : "",
+    status,
+    updated_at: now,
+  };
+  await c.env.DB.prepare(UPSERT_APP_CONFIG_SQL)
+    .bind(appVersionConfigKey(platform), JSON.stringify(record), c.get("admin").admin_id, now)
+    .run();
+
+  return c.json({ success: true, data: record });
 });
 
 adminRoutes.get("/app-config", async (c) => {
@@ -764,20 +1063,41 @@ function isAdminRole(value: string): value is AdminRole {
   return VALID_ROLES.has(value as AdminRole);
 }
 
+function readAdminRole(value: unknown): AdminRole | null {
+  return typeof value === "string" && isAdminRole(value) ? value : null;
+}
+
+function readAdminStatus(value: unknown): AdminStatus | null {
+  return typeof value === "string" && VALID_ADMIN_STATUSES.has(value as AdminStatus)
+    ? (value as AdminStatus)
+    : null;
+}
+
 function readUserType(value: string | undefined): "user" | "anonymous" | null {
   return value === "user" || value === "anonymous" ? value : null;
 }
 
 function readFeedbackStatus(value: unknown): FeedbackStatus | null {
-  return typeof value === "string" && VALID_FEEDBACK_STATUSES.has(value as FeedbackStatus)
-    ? (value as FeedbackStatus)
-    : null;
+  if (typeof value !== "string") return null;
+  if (VALID_FEEDBACK_STATUSES.has(value as FeedbackStatus)) return value as FeedbackStatus;
+  return LEGACY_FEEDBACK_STATUS_MAP[value] ?? null;
 }
 
 function readBooleanFilter(value: string | undefined): number | null {
   if (value === "true") return 1;
   if (value === "false") return 0;
   return null;
+}
+
+function readBooleanQuery(value: string | undefined): boolean | null {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return null;
+}
+
+function readDateOnly(value: string | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  return Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)) ? null : value;
 }
 
 function normalizeQuery(value: string | undefined): string | null {
@@ -799,6 +1119,195 @@ function readRequiredString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function toInstallationRecord(row: InstallationSourceRow) {
+  return {
+    uid: row.uid,
+    install_type: row.install_type,
+    platform: row.platform || "Unknown",
+    country: row.country || "Unknown",
+    environment: row.environment || "production",
+    date: row.created_at.slice(0, 10),
+    created_at: row.created_at,
+  };
+}
+
+function isWithinDateRange(date: string, dateFrom: string | null, dateTo: string | null): boolean {
+  if (dateFrom && date < dateFrom) return false;
+  if (dateTo && date > dateTo) return false;
+  return true;
+}
+
+function buildInstallationTrend(
+  installs: Array<ReturnType<typeof toInstallationRecord>>,
+  dateFrom: string | null,
+  dateTo: string | null,
+) {
+  const dates = dateFrom && dateTo ? enumerateDates(dateFrom, dateTo) : [...new Set(installs.map((item) => item.date))].sort();
+  const totals = new Map<string, number>();
+  for (const item of installs) {
+    totals.set(item.date, (totals.get(item.date) ?? 0) + 1);
+  }
+  return dates.map((date) => ({ date, total: totals.get(date) ?? 0 }));
+}
+
+function buildInstallationRows(installs: Array<ReturnType<typeof toInstallationRecord>>) {
+  const groups = new Map<string, {
+    date: string;
+    country: string;
+    platform: string;
+    environment: string;
+    installs: number;
+  }>();
+
+  for (const item of installs) {
+    const key = [item.date, item.country, item.platform, item.environment].join("|");
+    const existing = groups.get(key);
+    if (existing) {
+      existing.installs += 1;
+    } else {
+      groups.set(key, {
+        date: item.date,
+        country: item.country,
+        platform: item.platform,
+        environment: item.environment,
+        installs: 1,
+      });
+    }
+  }
+
+  return [...groups.values()].sort((left, right) => left.date.localeCompare(right.date));
+}
+
+function enumerateDates(dateFrom: string, dateTo: string): string[] {
+  const start = new Date(`${dateFrom}T00:00:00.000Z`);
+  const end = new Date(`${dateTo}T00:00:00.000Z`);
+  if (start.getTime() > end.getTime()) return [];
+  const dates: string[] = [];
+  for (const current = start; current.getTime() <= end.getTime(); current.setUTCDate(current.getUTCDate() + 1)) {
+    dates.push(current.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+function normalizeFeedbackStorageStatus(value: FeedbackStorageStatus): FeedbackStatus {
+  return VALID_FEEDBACK_STATUSES.has(value as FeedbackStatus)
+    ? (value as FeedbackStatus)
+    : LEGACY_FEEDBACK_STATUS_MAP[value] ?? "pending";
+}
+
+function toAdminFeedbackTicket(row: FeedbackTicketRow) {
+  const types = parseJsonArray(row.types);
+  const functions = parseJsonArray(row.functions);
+  return {
+    ...row,
+    status: normalizeFeedbackStorageStatus(row.status),
+    issue_type: types[0] ?? "其他",
+    module: functions[0] ?? "App",
+    uid: row.id,
+    platform: "iOS",
+    app_version: "1.9.0",
+    device_model: "Unknown",
+    os_version: "Unknown",
+    environment: "production",
+  };
+}
+
+function toScanListItem(row: (typeof SAMPLE_SCAN_RECORDS)[number]) {
+  return {
+    scan_id: row.scan_id,
+    image_url: row.image_url,
+    uid: row.uid,
+    platform: row.platform,
+    app_version: row.app_version,
+    scan_time: row.scan_time,
+    recognition_status: row.recognition_status,
+    user_confirmation_status: row.user_confirmation_status,
+    modified_result: row.modified_result,
+  };
+}
+
+function toPermissionRecord(row: AdminUserRow) {
+  return {
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    status: row.status,
+    permission_status: row.status,
+    created_at: row.created_at,
+    updated_at: row.created_at,
+  };
+}
+
+function readAppVersionPlatform(value: string): AppVersionPlatform | null {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "ios") return "iOS";
+  if (normalized === "google" || normalized === "android") return "Google";
+  return null;
+}
+
+function readAppVersionStatus(value: unknown): AppVersionStatus | null {
+  return typeof value === "string" && VALID_APP_VERSION_STATUSES.has(value as AppVersionStatus)
+    ? (value as AppVersionStatus)
+    : null;
+}
+
+function appVersionConfigKey(platform: AppVersionPlatform): string {
+  return `${APP_VERSION_CONFIG_PREFIX}${platform.toLowerCase()}`;
+}
+
+function buildAppVersionRecords(configs: AppConfigRow[]): AppVersionRecord[] {
+  const records = new Map<AppVersionPlatform, AppVersionRecord>(
+    APP_VERSION_PLATFORMS.map((platform) => [platform, defaultAppVersionRecord(platform)]),
+  );
+
+  for (const config of configs) {
+    if (!config.key.startsWith(APP_VERSION_CONFIG_PREFIX)) continue;
+    const parsed = parseAppVersionRecord(config.value, config.updated_at);
+    if (parsed) records.set(parsed.platform, parsed);
+  }
+
+  return APP_VERSION_PLATFORMS.map((platform) => records.get(platform) ?? defaultAppVersionRecord(platform));
+}
+
+function defaultAppVersionRecord(platform: AppVersionPlatform): AppVersionRecord {
+  return {
+    platform,
+    min_supported_version: "1.0.0",
+    recommended_version: "1.9.0",
+    recommended_update_message: "优化首页加载速度",
+    forced_update_message: "请更新至最新版本后继续使用。",
+    status: platform === "iOS" ? "disabled" : "enabled",
+    updated_at: "2025-04-30T00:00:00.000Z",
+  };
+}
+
+function parseAppVersionRecord(value: string, updatedAt: string): AppVersionRecord | null {
+  try {
+    const parsed = JSON.parse(value);
+    if (!isRecord(parsed)) return null;
+    const platform = typeof parsed.platform === "string" ? readAppVersionPlatform(parsed.platform) : null;
+    const minSupportedVersion = readRequiredString(parsed.min_supported_version);
+    const recommendedVersion = readRequiredString(parsed.recommended_version);
+    const status = readAppVersionStatus(parsed.status) ?? "enabled";
+    if (!platform || !minSupportedVersion || !recommendedVersion) return null;
+    return {
+      platform,
+      min_supported_version: minSupportedVersion,
+      recommended_version: recommendedVersion,
+      recommended_update_message: typeof parsed.recommended_update_message === "string"
+        ? parsed.recommended_update_message
+        : "",
+      forced_update_message: typeof parsed.forced_update_message === "string"
+        ? parsed.forced_update_message
+        : "",
+      status,
+      updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : updatedAt,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function insertCardOverride(
@@ -846,6 +1355,15 @@ function stringifyJsonObject(value: unknown): string | null {
   if (typeof value === "string") return value;
   if (isRecord(value)) return JSON.stringify(value);
   return null;
+}
+
+function parseJsonArray(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,28 +1,32 @@
 import {
   Alert,
+  Badge,
   Button,
+  DatePicker,
+  Descriptions,
   Drawer,
   Form,
   Input,
-  InputNumber,
   Layout,
   Menu,
   Modal,
-  Popconfirm,
   Select,
+  Segmented,
   Space,
-  Switch,
   Table,
-  Tabs,
   Tag,
   Typography,
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
+import "./App.css";
 
 type AdminRole = "super_admin" | "operator";
-type MenuKey = "users" | "feedbacks" | "app-config" | "trending-pins" | "card-overrides";
+type MenuKey = "installations" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions";
+type FeedbackStatus = "pending" | "processed" | "ignored";
+type PermissionStatus = "active" | "disabled";
+type AppVersionStatus = "enabled" | "disabled";
 
 type AdminSession = {
   adminId: string;
@@ -40,70 +44,110 @@ type AdminRequestInit = Omit<RequestInit, "body"> & {
   token?: string;
 };
 
+type InstallationAnalytics = {
+  summary: { total_installations: number; countries: number; platforms: number };
+  trend: Array<{ date: string; total: number }>;
+  rows: InstallationRow[];
+};
+
+type InstallationRow = {
+  date: string;
+  country: string;
+  platform: string;
+  environment: string;
+  installs: number;
+};
+
 type UserItem = {
   account_type: "user" | "anonymous";
   id: string;
   email: string | null;
   device_id: string | null;
   created_at: string;
-  status: "active" | "disabled" | "guest" | "upgraded";
+  status: string;
+  platform?: string;
+  identity?: string;
+  environment?: string;
 };
-
-type FeedbackStatus = "open" | "in_progress" | "closed";
 
 type FeedbackTicket = {
   id: string;
   email: string;
-  types: string;
-  functions: string;
   message: string;
   status: FeedbackStatus;
+  created_at: string;
+  issue_type: string;
+  module: string;
+  uid: string;
+  platform: string;
+  app_version: string;
+  device_model: string;
+  os_version: string;
+};
+
+type ScanListItem = {
+  scan_id: string;
+  image_url: string;
+  uid: string;
+  platform: string;
+  app_version: string;
+  scan_time: string;
+  recognition_status: string;
+  user_confirmation_status: string;
+  modified_result: boolean;
+};
+
+type ScanDetail = ScanListItem & {
+  device_model: string;
+  os_version: string;
+  system_result: Record<string, unknown>;
+  user_result: Record<string, unknown>;
+  candidates: Array<Record<string, unknown>>;
+};
+
+type PermissionItem = {
+  id: string;
+  email: string;
+  role: AdminRole;
+  permission_status: PermissionStatus;
   created_at: string;
   updated_at: string;
 };
 
-type AppConfigItem = {
-  key: string;
-  value: string;
-  updated_by: string | null;
+type AppVersionItem = {
+  platform: "iOS" | "Google";
+  min_supported_version: string;
+  recommended_version: string;
+  recommended_update_message: string;
+  forced_update_message: string;
+  status: AppVersionStatus;
   updated_at: string;
 };
 
-type TrendingPin = {
-  id: string;
-  card_ref: string;
-  rank: number;
-  active: number;
-  updated_by: string | null;
-  updated_at: string;
-};
-
-type CardOverride = {
-  id: string;
-  card_ref: string;
-  override_fields: string | null;
-  image_url: string | null;
-  is_missing_card: number;
-  updated_by: string | null;
-  updated_at: string;
-};
-
-const { Header, Sider, Content } = Layout;
+const { Sider, Content } = Layout;
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 const API_BASE = "/api/v1/admin";
 const SESSION_STORAGE_KEY = "kando_admin_session";
+const PERIOD_OPTIONS = ["1d", "7d", "15d", "1m", "3m"];
 
-const menuItems: Array<{ key: MenuKey; label: string }> = [
-  { key: "users", label: "用户管理" },
-  { key: "feedbacks", label: "反馈工单" },
-  { key: "app-config", label: "运营配置" },
-  { key: "trending-pins", label: "Trending Pin" },
-  { key: "card-overrides", label: "卡牌覆盖" },
+const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: string }> }> = [
+  { title: "数据统计", items: [{ key: "installations", label: "安装统计" }] },
+  {
+    title: "用户管理",
+    items: [
+      { key: "users", label: "用户列表" },
+      { key: "feedbacks", label: "用户反馈" },
+      { key: "permissions", label: "权限管理" },
+    ],
+  },
+  { title: "卡牌管理", items: [{ key: "scans", label: "扫描记录管理" }] },
+  { title: "App 版本管理", items: [{ key: "app-versions", label: "版本管理" }] },
 ];
 
 export default function App() {
   const [session, setSession] = useState<AdminSession | null>(() => readStoredSession());
+  const [authView, setAuthView] = useState<"login" | "password" | "denied">("login");
 
   useEffect(() => {
     if (session) {
@@ -114,13 +158,23 @@ export default function App() {
   }, [session]);
 
   if (!session) {
-    return <LoginView onLogin={setSession} />;
+    if (authView === "password") return <PasswordSetupView onBack={() => setAuthView("login")} />;
+    if (authView === "denied") return <AccessDeniedView onBack={() => setAuthView("login")} />;
+    return <LoginView onLogin={setSession} onPassword={() => setAuthView("password")} onDenied={() => setAuthView("denied")} />;
   }
 
   return <AdminShell session={session} onLogout={() => setSession(null)} />;
 }
 
-function LoginView({ onLogin }: { onLogin: (session: AdminSession) => void }) {
+function LoginView({
+  onLogin,
+  onPassword,
+  onDenied,
+}: {
+  onLogin: (session: AdminSession) => void;
+  onPassword: () => void;
+  onDenied: () => void;
+}) {
   const [submitting, setSubmitting] = useState(false);
 
   async function handleFinish(values: { email: string; password: string }) {
@@ -141,6 +195,7 @@ function LoginView({ onLogin }: { onLogin: (session: AdminSession) => void }) {
         refreshToken: body.refresh_token,
       });
     } catch (error) {
+      if (error instanceof AdminApiError && error.code === "FORBIDDEN") onDenied();
       message.error(errorMessage(error));
     } finally {
       setSubmitting(false);
@@ -148,452 +203,591 @@ function LoginView({ onLogin }: { onLogin: (session: AdminSession) => void }) {
   }
 
   return (
-    <Layout style={{ minHeight: "100vh", background: "#f5f7fb" }}>
-      <Content style={{ display: "grid", placeItems: "center", padding: 24 }}>
-        <div style={{ width: "100%", maxWidth: 360 }}>
-          <Title level={3} style={{ marginBottom: 24 }}>
-            Kando Admin
-          </Title>
-          <Form layout="vertical" onFinish={handleFinish} requiredMark={false}>
-            <Form.Item name="email" label="邮箱" rules={[{ required: true }]}>
-              <Input autoComplete="email" />
-            </Form.Item>
-            <Form.Item name="password" label="密码" rules={[{ required: true }]}>
-              <Input.Password autoComplete="current-password" />
-            </Form.Item>
-            <Button type="primary" htmlType="submit" block loading={submitting}>
-              登录
-            </Button>
-          </Form>
+    <main className="auth-page">
+      <section className="login-card">
+        <div className="brand-lockup">
+          <span className="brand-mark">◆</span>
+          <div>
+            <Title level={3}>TCG Admin</Title>
+            <Text>BACKEND PORTAL</Text>
+          </div>
         </div>
-      </Content>
-    </Layout>
+        <Title level={4}>登录后台</Title>
+        <Text className="auth-subtitle">请输入已授权的邮箱账号和密码。</Text>
+        <Form layout="vertical" onFinish={handleFinish} requiredMark={false}>
+          <Form.Item name="email" label="邮箱账号" rules={[{ required: true, type: "email", message: "请输入正确的邮箱格式" }]}>
+            <Input size="large" placeholder="请输入邮箱账号" />
+          </Form.Item>
+          <Form.Item name="password" label="密码" rules={[{ required: true, message: "请输入密码" }]}>
+            <Input.Password size="large" placeholder="请输入密码" />
+          </Form.Item>
+          <div className="login-link-row">
+            <Button type="link" onClick={onPassword}>
+              忘记密码?
+            </Button>
+            <Button type="link" onClick={onPassword}>
+              设置密码
+            </Button>
+          </div>
+          <Button className="cyan-button" htmlType="submit" block loading={submitting}>
+            登录
+          </Button>
+        </Form>
+        <div className="auth-footer">只有已授权的邮箱账号可以访问后台</div>
+      </section>
+      <aside className="auth-alerts">
+        <Alert type="error" showIcon message="验证提示" description="请输入正确的邮箱格式" />
+        <Alert type="error" showIcon message="登录失败" description="邮箱或密码错误，请重试" />
+        <Alert showIcon message="系统提示" description="登录功能已锁定至企业内网环境。如无法访问，请联系 IT 管理部门。" />
+      </aside>
+      <div className="portal-watermark">PORTAL</div>
+    </main>
   );
 }
 
-function AdminShell({
-  session,
-  onLogout,
-}: {
-  session: AdminSession;
-  onLogout: () => void;
-}) {
-  const [selected, setSelected] = useState<MenuKey>("users");
+function PasswordSetupView({ onBack }: { onBack: () => void }) {
+  const [form] = Form.useForm();
+
+  function handleFinish(values: { password: string; confirm: string }) {
+    if (values.password !== values.confirm) {
+      message.error("两次输入的密码不一致");
+      return;
+    }
+    form.resetFields();
+    message.info("请联系超级管理员完成密码开通");
+  }
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
-      <Sider breakpoint="lg" collapsedWidth={0} theme="light">
-        <div style={{ height: 56, display: "flex", alignItems: "center", padding: "0 20px" }}>
-          <Text strong>Kando Admin</Text>
+    <main className="password-page">
+      <section className="security-panel">
+        <Text className="eyebrow">SECURITY CENTER</Text>
+        <Title level={2}>TCG Admin Backend Portal</Title>
+        <Text>后台账号由超级管理员授权后生效。</Text>
+      </section>
+      <section className="password-card">
+        <Title level={4}>设置密码</Title>
+        <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false}>
+          <Form.Item name="email" label="邮箱账号" rules={[{ required: true, type: "email" }]}>
+            <Input size="large" placeholder="请输入邮箱账号" />
+          </Form.Item>
+          <Form.Item name="password" label="新密码" rules={[{ required: true }]}>
+            <Input.Password size="large" placeholder="请输入新密码" />
+          </Form.Item>
+          <Form.Item name="confirm" label="确认密码" rules={[{ required: true }]}>
+            <Input.Password size="large" placeholder="请再次输入新密码" />
+          </Form.Item>
+          <Space>
+            <Button className="cyan-button" htmlType="submit">
+              保存密码
+            </Button>
+            <Button onClick={onBack}>返回登录</Button>
+          </Space>
+        </Form>
+      </section>
+    </main>
+  );
+}
+
+function AccessDeniedView({ onBack }: { onBack: () => void }) {
+  return (
+    <main className="denied-page">
+      <section className="denied-card">
+        <div className="denied-icon">!</div>
+        <Title level={3}>访问权限受限</Title>
+        <Text>当前账号没有后台访问权限，请联系管理员开通权限。</Text>
+        <Space>
+          <Button onClick={onBack}>退出登录</Button>
+          <Button className="cyan-button" onClick={onBack}>
+            重试登录
+          </Button>
+        </Space>
+        <Button type="link">联系技术支持</Button>
+      </section>
+    </main>
+  );
+}
+
+function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: () => void }) {
+  const [selected, setSelected] = useState<MenuKey>("installations");
+  const selectedTitle = menuGroups.flatMap((group) => group.items).find((item) => item.key === selected)?.label ?? "";
+
+  return (
+    <Layout className="admin-layout">
+      <Sider width={186} className="admin-sider">
+        <div className="sidebar-brand">
+          <strong>TCG Admin</strong>
+          <span>Backend Portal</span>
         </div>
         <Menu
           mode="inline"
           selectedKeys={[selected]}
-          items={menuItems}
           onClick={(item) => setSelected(item.key as MenuKey)}
+          items={menuGroups.map((group) => ({
+            key: group.title,
+            label: group.title,
+            children: group.items,
+          }))}
         />
+        <div className="sidebar-account">
+          <span className="avatar">{session.email.slice(0, 2).toUpperCase()}</span>
+          <div>
+            <strong>{session.email}</strong>
+            <span>{session.role === "super_admin" ? "超级管理员" : "运营管理员"}</span>
+          </div>
+          <Button type="link" danger onClick={onLogout}>
+            Logout
+          </Button>
+        </div>
       </Sider>
       <Layout>
-        <Header
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "#fff",
-            paddingInline: 24,
-            borderBottom: "1px solid #edf0f5",
-          }}
-        >
-          <Space>
-            <Text strong>{session.email}</Text>
-            <RoleTag role={session.role} />
-          </Space>
-          <Button onClick={onLogout}>退出</Button>
-        </Header>
-        <Content style={{ padding: 24, background: "#f5f7fb" }}>
+        <Content className="admin-content">
+          <div className="page-title-row">
+            <Title level={3}>{selectedTitle}</Title>
+            <Text>{new Date().toLocaleDateString()}</Text>
+          </div>
+          {selected === "installations" && <InstallationsPage session={session} />}
           {selected === "users" && <UsersPage session={session} />}
           {selected === "feedbacks" && <FeedbackPage session={session} />}
-          {selected === "app-config" && <AppConfigPage session={session} />}
-          {selected === "trending-pins" && <TrendingPinsPage session={session} />}
-          {selected === "card-overrides" && <CardOverridesPage session={session} />}
+          {selected === "scans" && <ScansPage session={session} />}
+          {selected === "permissions" && <PermissionsPage session={session} />}
+          {selected === "app-versions" && <AppVersionsPage session={session} />}
         </Content>
       </Layout>
     </Layout>
   );
 }
 
-function UsersPage({ session }: { session: AdminSession }) {
-  const [type, setType] = useState<string>();
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<UserItem | null>(null);
-  const { data, loading, reload, error } = useAdminData<{ items: UserItem[] }>(
-    `/users${toQuery({ type, q: query })}`,
-    session,
-  );
-
-  async function disableUser(id: string) {
-    await mutate(session, `/users/user/${id}/disable`, { method: "PATCH", body: {} });
-    message.success("账号已禁用");
-    reload();
-  }
-
-  const columns: ColumnsType<UserItem> = [
-    { title: "账号类型", dataIndex: "account_type", render: renderAccountType },
-    { title: "账号 ID", dataIndex: "id", ellipsis: true },
-    { title: "邮箱", dataIndex: "email", render: dash },
-    { title: "设备 ID", dataIndex: "device_id", render: dash },
-    { title: "状态", dataIndex: "status", render: renderUserStatus },
-    { title: "注册时间", dataIndex: "created_at", render: formatTime },
-    {
-      title: "操作",
-      render: (_, row) => (
-        <Space>
-          <Button size="small" onClick={() => setSelected(row)}>
-            详情
-          </Button>
-          {session.role === "super_admin" && row.account_type === "user" && row.status !== "disabled" && (
-            <Popconfirm title="禁用账号" description="确认禁用该用户？" onConfirm={() => disableUser(row.id)}>
-              <Button size="small" danger>
-                禁用
-              </Button>
-            </Popconfirm>
-          )}
-        </Space>
-      ),
-    },
+function InstallationsPage({ session }: { session: AdminSession }) {
+  const [period, setPeriod] = useState<string>("7d");
+  const { data, loading, reload, error } = useAdminData<InstallationAnalytics>("/analytics/installations?page_size=100", session);
+  const rows = data?.rows ?? [];
+  const trend = data?.trend ?? [];
+  const columns: ColumnsType<InstallationRow> = [
+    { title: "日期", dataIndex: "date" },
+    { title: "国家", dataIndex: "country" },
+    { title: "平台", dataIndex: "platform" },
+    { title: "环境", dataIndex: "environment" },
+    { title: "安装量", dataIndex: "installs" },
   ];
 
   return (
-    <Section title="用户管理" error={error} onRefresh={reload}>
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select
-          allowClear
-          value={type}
-          placeholder="账号类型"
-          style={{ width: 180 }}
-          options={[
-            { value: "user", label: "正式账号" },
-            { value: "anonymous", label: "匿名账号" },
-          ]}
-          onChange={setType}
-        />
-        <Input.Search
-          allowClear
-          placeholder="email / device_id"
-          style={{ width: 260 }}
-          onSearch={setQuery}
-        />
-      </Space>
-      <Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} />
-      <Drawer open={!!selected} onClose={() => setSelected(null)} title="用户详情" width={420}>
-        {selected && <DescriptionRows rows={Object.entries(selected)} />}
-      </Drawer>
-    </Section>
+    <PagePanel error={error} onRefresh={reload}>
+      <FilterBar>
+        <DatePicker.RangePicker />
+        <Select mode="multiple" placeholder="国家" className="filter-control" options={countryOptions} />
+        <Select placeholder="环境" className="filter-control" options={environmentOptions} />
+        <Button className="cyan-button">搜索</Button>
+        <Button>重置</Button>
+      </FilterBar>
+      <div className="stats-row">
+        <Metric label="安装总量" value={data?.summary.total_installations ?? 0} />
+        <Metric label="国家数" value={data?.summary.countries ?? 0} />
+        <Metric label="平台数" value={data?.summary.platforms ?? 0} />
+      </div>
+      <section className="chart-panel">
+        <div className="panel-heading">
+          <Title level={4}>安装趋势</Title>
+          <Segmented value={period} onChange={(value) => setPeriod(String(value))} options={PERIOD_OPTIONS} />
+        </div>
+        <LineChart data={trend} />
+      </section>
+      <section className="table-panel">
+        <div className="panel-heading">
+          <Title level={4}>安装数据</Title>
+        </div>
+        <Table rowKey={(row) => `${row.date}-${row.country}-${row.platform}`} columns={columns} dataSource={rows} loading={loading} pagination={{ pageSize: 8 }} />
+      </section>
+    </PagePanel>
+  );
+}
+
+function UsersPage({ session }: { session: AdminSession }) {
+  const { data, loading, reload, error } = useAdminData<{ items: UserItem[] }>("/users?page_size=100", session);
+  const columns: ColumnsType<UserItem> = [
+    { title: "UID", dataIndex: "id", ellipsis: true },
+    { title: "平台", render: () => "iOS" },
+    { title: "首次安装日期", dataIndex: "created_at", render: formatDate },
+    { title: "用户身份", render: (_, row) => (row.account_type === "anonymous" ? <Tag>游客</Tag> : <Tag color="cyan">邮箱</Tag>) },
+    { title: "登录账号", render: (_, row) => row.email ?? row.device_id ?? "-" },
+  ];
+
+  return (
+    <PagePanel error={error} onRefresh={reload}>
+      <FilterBar>
+        <Input placeholder="UID" className="filter-control" />
+        <Select placeholder="平台" className="filter-control" options={platformOptions} />
+        <Select placeholder="用户身份" className="filter-control" options={identityOptions} />
+        <Select placeholder="环境" className="filter-control" options={environmentOptions} />
+        <DatePicker.RangePicker />
+        <Button className="cyan-button">查询</Button>
+        <Button>重置</Button>
+      </FilterBar>
+      <section className="table-panel">
+        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={{ pageSize: 8 }} />
+      </section>
+    </PagePanel>
   );
 }
 
 function FeedbackPage({ session }: { session: AdminSession }) {
-  const [status, setStatus] = useState<string>();
-  const { data, loading, reload, error } = useAdminData<{ items: FeedbackTicket[] }>(
-    `/feedbacks${toQuery({ status })}`,
-    session,
-  );
+  const { data, loading, reload, error } = useAdminData<{ items: FeedbackTicket[] }>("/feedbacks?page_size=100", session);
 
-  async function updateStatus(id: string, nextStatus: FeedbackStatus) {
-    await mutate(session, `/feedbacks/${id}/status`, {
-      method: "PATCH",
-      body: { status: nextStatus },
-    });
-    message.success("状态已更新");
+  async function updateStatus(ticket: FeedbackTicket, status: FeedbackStatus) {
+    await mutate(session, `/feedbacks/${ticket.id}/status`, { method: "PATCH", body: { status } });
+    message.success("处理状态已更新");
     reload();
   }
 
-  const columns: ColumnsType<FeedbackTicket> = [
-    { title: "工单 ID", dataIndex: "id", ellipsis: true },
-    { title: "联系邮箱", dataIndex: "email" },
-    { title: "反馈类型", dataIndex: "types", render: renderJsonTags },
-    { title: "功能模块", dataIndex: "functions", render: renderJsonTags },
-    { title: "状态", dataIndex: "status", render: renderFeedbackStatus },
-    { title: "提交时间", dataIndex: "created_at", render: formatTime },
-    {
-      title: "流转",
-      render: (_, row) => (
-        <Select
-          size="small"
-          value={row.status}
-          style={{ width: 150 }}
-          options={[
-            { value: "open", label: "Open" },
-            { value: "in_progress", label: "In Progress" },
-            { value: "closed", label: "Closed" },
-          ]}
-          onChange={(value) => updateStatus(row.id, value)}
-        />
-      ),
-    },
-  ];
-
   return (
-    <Section title="反馈工单" error={error} onRefresh={reload}>
-      <Tabs
-        activeKey={status ?? "all"}
-        onChange={(key) => setStatus(key === "all" ? undefined : key)}
-        items={[
-          { key: "all", label: "全部" },
-          { key: "open", label: "Open" },
-          { key: "in_progress", label: "In Progress" },
-          { key: "closed", label: "Closed" },
-        ]}
-      />
-      <Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} />
-    </Section>
+    <PagePanel error={error} onRefresh={reload}>
+      <FilterBar>
+        <DatePicker placeholder="开始时间" />
+        <DatePicker placeholder="结束时间" />
+        <Select placeholder="平台" className="filter-control" options={platformOptions} />
+        <Select placeholder="问题类型" className="filter-control" options={feedbackTypeOptions} />
+        <Select placeholder="处理状态" className="filter-control" options={feedbackStatusOptions} />
+        <Input placeholder="UID 搜索" className="filter-control" />
+        <Button className="cyan-button">查询</Button>
+        <Button>重置</Button>
+      </FilterBar>
+      {loading && <Alert message="正在加载反馈" type="info" showIcon />}
+      <div className="feedback-list">
+        {(data?.items ?? []).map((ticket) => (
+          <article className="feedback-card" key={ticket.id}>
+            <div className="feedback-card-head">
+              <Space>
+                <FeedbackStatusTag status={ticket.status} />
+                <Tag>{ticket.issue_type}</Tag>
+                <Tag>{ticket.module}</Tag>
+              </Space>
+              <Text>{formatTime(ticket.created_at)}</Text>
+            </div>
+            <div className="feedback-meta">
+              <span>UID：{ticket.uid}</span>
+              <span>版本：{ticket.app_version}</span>
+              <span>平台：{ticket.platform}</span>
+              <span>设备：{ticket.device_model}</span>
+              <span>系统：{ticket.os_version}</span>
+              <span>邮箱：{ticket.email}</span>
+            </div>
+            <p>{ticket.message}</p>
+            <Space>
+              <Button size="small" className="cyan-button" onClick={() => updateStatus(ticket, "processed")}>
+                标记为已处理
+              </Button>
+              <Button size="small" onClick={() => updateStatus(ticket, "ignored")}>
+                无需处理
+              </Button>
+            </Space>
+          </article>
+        ))}
+      </div>
+    </PagePanel>
   );
 }
 
-function AppConfigPage({ session }: { session: AdminSession }) {
-  const [editing, setEditing] = useState<AppConfigItem | null>(null);
-  const [value, setValue] = useState("");
-  const { data, loading, reload, error } = useAdminData<{ configs: AppConfigItem[] }>("/app-config", session);
+function ScansPage({ session }: { session: AdminSession }) {
+  const [selected, setSelected] = useState<ScanDetail | null>(null);
+  const { data, loading, reload, error } = useAdminData<{ items: ScanListItem[] }>("/scans?page_size=100", session);
 
-  async function saveConfig() {
-    if (!editing) return;
-    await mutate(session, `/app-config/${editing.key}`, {
-      method: "PATCH",
-      body: { value },
-    });
-    message.success("配置已保存");
-    setEditing(null);
-    reload();
+  async function openDetail(scanId: string) {
+    const detail = await adminRequest<ScanDetail>(`/scans/${scanId}`, { token: session.accessToken });
+    setSelected(detail);
   }
 
-  const columns: ColumnsType<AppConfigItem> = [
-    { title: "Key", dataIndex: "key" },
-    { title: "Value", dataIndex: "value", ellipsis: true },
-    { title: "Updated By", dataIndex: "updated_by", render: dash },
-    { title: "更新时间", dataIndex: "updated_at", render: formatTime },
-    {
-      title: "操作",
-      render: (_, row) => (
-        <Button
-          size="small"
-          onClick={() => {
-            setEditing(row);
-            setValue(row.value);
-          }}
-        >
-          编辑
-        </Button>
-      ),
-    },
+  const columns: ColumnsType<ScanListItem> = [
+    { title: "SCAN ID", dataIndex: "scan_id", ellipsis: true },
+    { title: "卡牌图片", dataIndex: "image_url", render: (value: string) => <img className="scan-thumb" src={value} alt="card" /> },
+    { title: "UID", dataIndex: "uid" },
+    { title: "APP版本", dataIndex: "app_version" },
+    { title: "扫描时间", dataIndex: "scan_time", render: formatTime },
+    { title: "识别状态", dataIndex: "recognition_status", render: renderRecognitionStatus },
+    { title: "是否修改结果", dataIndex: "modified_result", render: (value: boolean) => (value ? "是" : "否") },
+    { title: "操作", render: (_, row) => <Button type="link" onClick={() => openDetail(row.scan_id)}>查看详情</Button> },
   ];
 
   return (
-    <Section title="运营配置" error={error} onRefresh={reload}>
-      <Table rowKey="key" columns={columns} dataSource={data?.configs ?? []} loading={loading} pagination={false} />
-      <Modal open={!!editing} title={editing?.key} onCancel={() => setEditing(null)} onOk={saveConfig}>
-        <TextArea value={value} onChange={(event) => setValue(event.target.value)} rows={8} />
-      </Modal>
-    </Section>
+    <PagePanel error={error} onRefresh={reload}>
+      <FilterBar>
+        <DatePicker.RangePicker placeholder={["扫描开始", "扫描结束"]} />
+        <Input placeholder="UID" className="filter-control" />
+        <Select placeholder="平台" className="filter-control" options={platformOptions} />
+        <Input placeholder="App 版本" className="filter-control" />
+        <Select placeholder="识别状态" className="filter-control" options={recognitionOptions} />
+        <Select placeholder="用户确认状态" className="filter-control" options={confirmationOptions} />
+        <Button className="cyan-button">查询</Button>
+        <Button>重置</Button>
+      </FilterBar>
+      <section className="table-panel">
+        <Table rowKey="scan_id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={{ pageSize: 8 }} />
+      </section>
+      <ScanDetailDrawer scan={selected} onClose={() => setSelected(null)} />
+    </PagePanel>
   );
 }
 
-function TrendingPinsPage({ session }: { session: AdminSession }) {
+function PermissionsPage({ session }: { session: AdminSession }) {
+  const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
-  const { data, loading, reload, error } = useAdminData<{ items: TrendingPin[] }>("/trending-pins", session);
+  const { data, loading, reload, error } = useAdminData<{ items: PermissionItem[] }>("/permissions?page_size=100", session);
 
-  async function createPin(values: { card_ref: string; rank: number; active: boolean }) {
-    await mutate(session, "/trending-pins", { method: "POST", body: values });
+  async function savePermission(values: { email: string; role: AdminRole; password: string }) {
+    await mutate(session, "/permissions", { method: "POST", body: values });
+    setModalOpen(false);
     form.resetFields();
-    message.success("置顶已创建");
     reload();
   }
 
-  async function patchPin(row: TrendingPin, changes: Partial<TrendingPin>) {
-    await mutate(session, `/trending-pins/${row.id}`, {
+  async function togglePermission(row: PermissionItem) {
+    await mutate(session, `/permissions/${row.id}`, {
       method: "PATCH",
-      body: {
-        rank: changes.rank ?? row.rank,
-        active: (changes.active ?? row.active) === 1,
-      },
+      body: { status: row.permission_status === "active" ? "disabled" : "active" },
     });
     reload();
   }
 
-  async function deletePin(id: string) {
-    await mutate(session, `/trending-pins/${id}`, { method: "DELETE" });
-    message.success("置顶已删除");
-    reload();
-  }
-
-  const columns: ColumnsType<TrendingPin> = [
-    { title: "卡牌标识", dataIndex: "card_ref", ellipsis: true },
-    {
-      title: "排序",
-      dataIndex: "rank",
-      render: (_, row) => <InputNumber min={1} value={row.rank} onPressEnter={(event) => patchPin(row, { rank: Number(event.currentTarget.value) })} />,
-    },
-    {
-      title: "状态",
-      dataIndex: "active",
-      render: (_, row) => <Switch checked={row.active === 1} onChange={(active) => patchPin(row, { active: active ? 1 : 0 })} />,
-    },
-    { title: "更新时间", dataIndex: "updated_at", render: formatTime },
-    {
-      title: "操作",
-      render: (_, row) =>
-        session.role === "super_admin" ? (
-          <Popconfirm title="删除置顶" onConfirm={() => deletePin(row.id)}>
-            <Button size="small" danger>
-              删除
-            </Button>
-          </Popconfirm>
-        ) : null,
-    },
-  ];
-
-  return (
-    <Section title="Trending Pin" error={error} onRefresh={reload}>
-      <Form form={form} layout="inline" onFinish={createPin} style={{ marginBottom: 16 }}>
-        <Form.Item name="card_ref" rules={[{ required: true }]}>
-          <Input placeholder="card_ref" />
-        </Form.Item>
-        <Form.Item name="rank" rules={[{ required: true }]} initialValue={1}>
-          <InputNumber min={1} placeholder="排序" />
-        </Form.Item>
-        <Form.Item name="active" valuePropName="checked" initialValue>
-          <Switch />
-        </Form.Item>
-        <Button type="primary" htmlType="submit">
-          新增
-        </Button>
-      </Form>
-      <Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} />
-    </Section>
-  );
-}
-
-function CardOverridesPage({ session }: { session: AdminSession }) {
-  const [form] = Form.useForm();
-  const [imageTarget, setImageTarget] = useState<CardOverride | null>(null);
-  const [imageUrl, setImageUrl] = useState("");
-  const { data, loading, reload, error } = useAdminData<{ items: CardOverride[] }>("/card-overrides", session);
-
-  async function createOverride(values: {
-    card_ref: string;
-    override_fields?: string;
-    image_url?: string;
-    is_missing_card?: boolean;
-  }) {
-    await mutate(session, "/card-overrides", {
-      method: "POST",
-      body: {
-        ...values,
-        override_fields: parseJsonObject(values.override_fields),
-      },
-    });
-    form.resetFields();
-    message.success("覆盖已保存");
-    reload();
-  }
-
-  async function uploadImage() {
-    if (!imageTarget) return;
-    await mutate(session, "/card-overrides/image-upload", {
-      method: "POST",
-      body: { card_ref: imageTarget.card_ref, image_url: imageUrl },
-    });
-    setImageTarget(null);
-    setImageUrl("");
-    message.success("图片已更新");
-    reload();
-  }
-
-  async function deleteOverride(id: string) {
-    await mutate(session, `/card-overrides/${id}`, { method: "DELETE" });
-    message.success("覆盖已删除");
-    reload();
-  }
-
-  const columns: ColumnsType<CardOverride> = [
-    { title: "卡牌标识", dataIndex: "card_ref", ellipsis: true },
-    { title: "覆盖字段", dataIndex: "override_fields", ellipsis: true, render: renderOverrideKeys },
-    { title: "图片", dataIndex: "image_url", render: dash },
-    { title: "缺失卡", dataIndex: "is_missing_card", render: (value: number) => (value === 1 ? "是" : "否") },
-    { title: "更新时间", dataIndex: "updated_at", render: formatTime },
+  const columns: ColumnsType<PermissionItem> = [
+    { title: "邮箱账号", dataIndex: "email" },
+    { title: "权限状态", dataIndex: "permission_status", render: renderPermissionStatus },
+    { title: "添加时间", dataIndex: "created_at", render: formatDate },
+    { title: "更新时间", dataIndex: "updated_at", render: formatDate },
     {
       title: "操作",
       render: (_, row) => (
         <Space>
-          <Button
-            size="small"
-            onClick={() => {
-              setImageTarget(row);
-              setImageUrl(row.image_url ?? "");
-            }}
-          >
-            补图
+          <Button type="link">编辑</Button>
+          <Button type="link" danger={row.permission_status === "active"} onClick={() => togglePermission(row)}>
+            {row.permission_status === "active" ? "停用" : "启用"}
           </Button>
-          {session.role === "super_admin" && (
-            <Popconfirm title="删除覆盖" onConfirm={() => deleteOverride(row.id)}>
-              <Button size="small" danger>
-                删除
-              </Button>
-            </Popconfirm>
-          )}
         </Space>
       ),
     },
   ];
 
   return (
-    <Section title="卡牌覆盖" error={error} onRefresh={reload}>
-      <Form form={form} layout="inline" onFinish={createOverride} style={{ marginBottom: 16 }}>
-        <Form.Item name="card_ref" rules={[{ required: true }]}>
-          <Input placeholder="card_ref" />
-        </Form.Item>
-        <Form.Item name="override_fields">
-          <Input placeholder='{"name":"..."}' />
-        </Form.Item>
-        <Form.Item name="image_url">
-          <Input placeholder="image_url" />
-        </Form.Item>
-        <Form.Item name="is_missing_card" valuePropName="checked">
-          <Switch checkedChildren="缺失" unCheckedChildren="覆盖" />
-        </Form.Item>
-        <Button type="primary" htmlType="submit">
-          新增
+    <PagePanel error={error} onRefresh={reload}>
+      <section className="rules-box">
+        <Title level={5}>权限规则说明</Title>
+        <Text>只有授权账号可登录后台；停用账号将无法访问后台。</Text>
+      </section>
+      <div className="toolbar-row">
+        <FilterBar>
+          <Input placeholder="邮箱账号" className="filter-control" />
+          <Select placeholder="权限状态" className="filter-control" options={permissionStatusOptions} />
+          <Button className="cyan-button">查询</Button>
+          <Button>重置</Button>
+        </FilterBar>
+        <Button className="cyan-button" onClick={() => setModalOpen(true)}>
+          新增授权账号
         </Button>
-      </Form>
-      <Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} />
-      <Modal open={!!imageTarget} title="补图" onCancel={() => setImageTarget(null)} onOk={uploadImage}>
-        <Input value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="image_url" />
+      </div>
+      <section className="table-panel">
+        <Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={{ pageSize: 8 }} />
+      </section>
+      <Modal open={modalOpen} title="新增授权账号" onCancel={() => setModalOpen(false)} onOk={form.submit}>
+        <Form form={form} layout="vertical" onFinish={savePermission} initialValues={{ role: "operator" }}>
+          <Form.Item name="email" label="邮箱账号" rules={[{ required: true, type: "email" }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="role" label="账号角色" rules={[{ required: true }]}>
+            <Select options={[{ value: "operator", label: "运营管理员" }, { value: "super_admin", label: "超级管理员" }]} />
+          </Form.Item>
+          <Form.Item name="password" label="初始密码" rules={[{ required: true }]}>
+            <Input.Password />
+          </Form.Item>
+        </Form>
       </Modal>
-    </Section>
+    </PagePanel>
   );
 }
 
-function Section({
-  title,
-  error,
-  onRefresh,
-  children,
-}: {
-  title: string;
-  error: string | null;
-  onRefresh: () => void;
-  children: React.ReactNode;
-}) {
+function AppVersionsPage({ session }: { session: AdminSession }) {
+  const [editing, setEditing] = useState<AppVersionItem | null>(null);
+  const [form] = Form.useForm<AppVersionItem>();
+  const { data, loading, reload, error } = useAdminData<{ items: AppVersionItem[] }>("/app-versions", session);
+
+  useEffect(() => {
+    if (editing) form.setFieldsValue(editing);
+  }, [editing, form]);
+
+  async function saveVersion(values: AppVersionItem) {
+    if (!editing) return;
+    await mutate(session, `/app-versions/${editing.platform}`, { method: "PATCH", body: values });
+    setEditing(null);
+    reload();
+  }
+
+  async function toggleVersion(row: AppVersionItem) {
+    await mutate(session, `/app-versions/${row.platform}`, {
+      method: "PATCH",
+      body: { ...row, status: row.status === "enabled" ? "disabled" : "enabled" },
+    });
+    reload();
+  }
+
+  const columns: ColumnsType<AppVersionItem> = [
+    { title: "操作平台", dataIndex: "platform" },
+    { title: "最低支持版本", dataIndex: "min_supported_version" },
+    { title: "建议更新版本", dataIndex: "recommended_version", render: (value: string) => <Text className="accent-text">{value}</Text> },
+    { title: "更新时间", dataIndex: "updated_at", render: formatDate },
+    { title: "状态", dataIndex: "status", render: renderAppVersionStatus },
+    {
+      title: "操作",
+      render: (_, row) => (
+        <Space>
+          <Button type="link" onClick={() => setEditing(row)}>
+            编辑
+          </Button>
+          <Button type="link" danger={row.status === "enabled"} onClick={() => toggleVersion(row)}>
+            {row.status === "enabled" ? "禁用" : "启用"}
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
   return (
-    <div style={{ background: "#fff", border: "1px solid #edf0f5", borderRadius: 8, padding: 20 }}>
-      <Space style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-        <Title level={4} style={{ margin: 0 }}>
-          {title}
-        </Title>
+    <PagePanel error={error} onRefresh={reload}>
+      <div className="top-tabs">
+        <span>销售数据</span>
+        <span>订单查询</span>
+        <strong>版本管理</strong>
+      </div>
+      <section className="table-panel narrow-table">
+        <Table rowKey="platform" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} />
+      </section>
+      <Drawer
+        open={!!editing}
+        title="编辑版本管理"
+        width={520}
+        closable={false}
+        onClose={() => setEditing(null)}
+        extra={<Button type="text" onClick={() => setEditing(null)}>×</Button>}
+      >
+        <Form form={form} layout="vertical" onFinish={saveVersion} requiredMark={false}>
+          <Form.Item name="platform" label="操作平台">
+            <Input disabled />
+          </Form.Item>
+          <div className="two-col-form">
+            <Form.Item name="min_supported_version" label="最低支持版本" rules={[{ pattern: /^\d+\.\d+\.\d+$/, message: "请输入数字或英文点号" }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="recommended_version" label="建议更新版本" rules={[{ pattern: /^\d+\.\d+\.\d+$/, message: "请输入数字或英文点号" }]}>
+              <Input />
+            </Form.Item>
+          </div>
+          <Form.Item name="recommended_update_message" label="建议更新文案">
+            <TextArea rows={5} />
+          </Form.Item>
+          <Form.Item name="forced_update_message" label="强制更新文案">
+            <TextArea rows={5} />
+          </Form.Item>
+          <Form.Item name="status" label="状态">
+            <Select options={[{ value: "enabled", label: "生效中" }, { value: "disabled", label: "已停用" }]} />
+          </Form.Item>
+          <div className="drawer-footer">
+            <Button onClick={() => setEditing(null)}>取消</Button>
+            <Button className="cyan-button" htmlType="submit">
+              保存
+            </Button>
+          </div>
+        </Form>
+      </Drawer>
+    </PagePanel>
+  );
+}
+
+function ScanDetailDrawer({ scan, onClose }: { scan: ScanDetail | null; onClose: () => void }) {
+  return (
+    <Drawer open={!!scan} onClose={onClose} title="扫描详情" width={520}>
+      {scan && (
+        <Space direction="vertical" size={20} className="drawer-stack">
+          <img className="scan-preview" src={scan.image_url} alt="scan" />
+          <Input value={scan.image_url} readOnly addonAfter="复制链接" />
+          <Descriptions column={1} size="small" title="基础信息" items={[
+            { key: "scan", label: "Scan ID", children: scan.scan_id },
+            { key: "uid", label: "UID", children: scan.uid },
+            { key: "platform", label: "平台", children: scan.platform },
+            { key: "version", label: "App 版本", children: scan.app_version },
+            { key: "device", label: "设备型号", children: scan.device_model },
+            { key: "os", label: "系统版本", children: scan.os_version },
+            { key: "time", label: "扫描时间", children: formatTime(scan.scan_time) },
+          ]} />
+          <ResultBlock title="系统识别结果" value={scan.system_result} />
+          <ResultBlock title="用户确认结果" value={scan.user_result} />
+          <section>
+            <Title level={5}>候选识别结果</Title>
+            {scan.candidates.map((candidate, index) => (
+              <pre className="candidate-row" key={index}>{JSON.stringify(candidate, null, 2)}</pre>
+            ))}
+          </section>
+        </Space>
+      )}
+    </Drawer>
+  );
+}
+
+function ResultBlock({ title, value }: { title: string; value: Record<string, unknown> }) {
+  return (
+    <section className="result-block">
+      <Title level={5}>{title}</Title>
+      <pre>{JSON.stringify(value, null, 2)}</pre>
+    </section>
+  );
+}
+
+function PagePanel({ error, onRefresh, children }: { error: string | null; onRefresh: () => void; children: React.ReactNode }) {
+  return (
+    <div className="page-panel">
+      <div className="refresh-row">
+        <span />
         <Button onClick={onRefresh}>刷新</Button>
-      </Space>
-      {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
+      </div>
+      {error && <Alert type="error" showIcon message={error} />}
       {children}
     </div>
+  );
+}
+
+function FilterBar({ children }: { children: React.ReactNode }) {
+  return <section className="filter-bar">{children}</section>;
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="metric-box">
+      <Text>{label}</Text>
+      <strong>{value.toLocaleString()}</strong>
+    </div>
+  );
+}
+
+function LineChart({ data }: { data: Array<{ date: string; total: number }> }) {
+  const points = data.length > 0 ? data : [{ date: "1d", total: 0 }, { date: "7d", total: 0 }, { date: "15d", total: 0 }, { date: "1m", total: 0 }, { date: "3m", total: 0 }];
+  const max = Math.max(...points.map((item) => item.total), 1);
+  const path = points
+    .map((item, index) => {
+      const x = 36 + (index * 672) / Math.max(points.length - 1, 1);
+      const y = 180 - (item.total / max) * 120;
+      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+
+  return (
+    <svg className="line-chart" viewBox="0 0 760 220" role="img" aria-label="安装趋势">
+      {[40, 80, 120, 160, 200].map((y) => <line key={y} x1="28" x2="728" y1={y} y2={y} />)}
+      <path d={path} />
+      {points.map((item, index) => {
+        const x = 36 + (index * 672) / Math.max(points.length - 1, 1);
+        const y = 180 - (item.total / max) * 120;
+        return (
+          <g key={`${item.date}-${index}`}>
+            <circle cx={x} cy={y} r="4" />
+            <text x={x} y="208">{index < PERIOD_OPTIONS.length ? PERIOD_OPTIONS[index] : item.date.slice(5)}</text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
@@ -622,20 +816,18 @@ function useAdminData<T>(path: string, session: AdminSession) {
     };
   }, [path, session.accessToken, version]);
 
-  return useMemo(
-    () => ({ data, loading, error, reload: () => setVersion((value) => value + 1) }),
-    [data, error, loading],
-  );
+  return useMemo(() => ({ data, loading, error, reload: () => setVersion((value) => value + 1) }), [data, error, loading]);
 }
 
 function mutate(session: AdminSession, path: string, init: AdminRequestInit) {
   return adminRequest(path, { ...init, token: session.accessToken });
 }
 
-async function adminRequest<T>(
-  path: string,
-  init: AdminRequestInit = {},
-): Promise<T> {
+async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promise<T> {
+  if (isViteDev() && init.token === "local-token") {
+    return demoAdminResponse(path, init) as T;
+  }
+
   const headers = new Headers(init.headers);
   if (init.token) headers.set("Authorization", `Bearer ${init.token}`);
   if (init.body !== undefined) headers.set("Content-Type", "application/json");
@@ -647,21 +839,44 @@ async function adminRequest<T>(
   });
   const payload = (await response.json()) as ApiResponse<T>;
   if (!response.ok || !payload.success) {
-    throw new Error(payload.success ? "请求失败" : payload.error.message);
+    if (payload.success) throw new AdminApiError("REQUEST_FAILED", "请求失败");
+    throw new AdminApiError(payload.error.code, payload.error.message);
   }
   return payload.data;
 }
 
-function toQuery(values: Record<string, string | undefined>) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(values)) {
-    if (value) params.set(key, value);
+function demoAdminResponse(path: string, init: AdminRequestInit): unknown {
+  if (path.startsWith("/feedbacks/") && path.endsWith("/status")) {
+    return { ...demoFeedbacks[0], status: (init.body as { status?: FeedbackStatus })?.status ?? "processed" };
   }
-  const query = params.toString();
-  return query ? `?${query}` : "";
+  if (path.startsWith("/scans/")) return demoScanDetail;
+  if (path.startsWith("/permissions/")) return { ...demoPermissions[1], permission_status: "disabled" };
+  if (path.startsWith("/app-versions/")) return { ...demoAppVersions[0], ...(init.body as Partial<AppVersionItem>) };
+  if (path.startsWith("/analytics/installations")) return demoInstallationAnalytics;
+  if (path.startsWith("/users")) return { items: demoUsers };
+  if (path.startsWith("/feedbacks")) return { items: demoFeedbacks };
+  if (path.startsWith("/scans")) return { items: [demoScanDetail] };
+  if (path.startsWith("/permissions")) return { items: demoPermissions };
+  if (path.startsWith("/app-versions")) return { items: demoAppVersions };
+  return {};
+}
+
+class AdminApiError extends Error {
+  constructor(readonly code: string, messageText: string) {
+    super(messageText);
+  }
 }
 
 function readStoredSession(): AdminSession | null {
+  if (isViteDev() && new URLSearchParams(window.location.search).get("demo_admin") === "1") {
+    return {
+      adminId: "local-admin",
+      email: "admin@example.com",
+      role: "super_admin",
+      accessToken: "local-token",
+      refreshToken: "local-refresh",
+    };
+  }
   try {
     const value = window.localStorage.getItem(SESSION_STORAGE_KEY);
     return value ? (JSON.parse(value) as AdminSession) : null;
@@ -670,83 +885,137 @@ function readStoredSession(): AdminSession | null {
   }
 }
 
-function renderAccountType(value: UserItem["account_type"]) {
-  return value === "user" ? "正式账号" : "匿名账号";
+function isViteDev(): boolean {
+  return Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
 }
 
-function renderUserStatus(value: UserItem["status"]) {
-  const color = value === "active" || value === "guest" ? "green" : value === "disabled" ? "red" : "blue";
-  return <Tag color={color}>{value}</Tag>;
+function FeedbackStatusTag({ status }: { status: FeedbackStatus }) {
+  const map = {
+    pending: { color: "gold", text: "待处理" },
+    processed: { color: "green", text: "已处理" },
+    ignored: { color: "default", text: "无需处理" },
+  } satisfies Record<FeedbackStatus, { color: string; text: string }>;
+  return <Tag color={map[status].color}>{map[status].text}</Tag>;
 }
 
-function renderFeedbackStatus(value: FeedbackStatus) {
-  const color = value === "open" ? "blue" : value === "in_progress" ? "orange" : "default";
-  return <Tag color={color}>{value}</Tag>;
+function renderPermissionStatus(value: PermissionStatus) {
+  return value === "active" ? <Badge status="success" text="启用" /> : <Badge status="default" text="停用" />;
 }
 
-function RoleTag({ role }: { role: AdminRole }) {
-  return <Tag color={role === "super_admin" ? "red" : "blue"}>{role}</Tag>;
+function renderAppVersionStatus(value: AppVersionStatus) {
+  return value === "enabled" ? <Tag color="green">生效中</Tag> : <Tag>已停用</Tag>;
 }
 
-function renderJsonTags(value: string) {
-  const values = parseJsonArray(value);
-  return (
-    <Space wrap size={[4, 4]}>
-      {values.map((item) => (
-        <Tag key={item}>{item}</Tag>
-      ))}
-    </Space>
-  );
+function renderRecognitionStatus(value: string) {
+  return value === "success" ? <Tag color="green">识别成功</Tag> : <Tag color="red">识别失败</Tag>;
 }
 
-function renderOverrideKeys(value: string | null) {
-  if (!value) return "—";
-  const parsed = parseJsonObject(value);
-  return parsed ? Object.keys(parsed).join(", ") : value;
-}
-
-function DescriptionRows({ rows }: { rows: Array<[string, unknown]> }) {
-  return (
-    <Space direction="vertical" style={{ width: "100%" }}>
-      {rows.map(([key, value]) => (
-        <div key={key} style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 12 }}>
-          <Text type="secondary">{key}</Text>
-          <Text>{String(value ?? "—")}</Text>
-        </div>
-      ))}
-    </Space>
-  );
-}
-
-function parseJsonArray(value: string) {
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
-  }
-}
-
-function parseJsonObject(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== "string" || value.trim().length === 0) return null;
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
+function formatDate(value: string | null) {
+  return value ? value.slice(0, 10) : "-";
 }
 
 function formatTime(value: string | null) {
-  return value ? new Date(value).toLocaleString() : "—";
-}
-
-function dash(value: unknown) {
-  return value || "—";
+  return value ? new Date(value).toLocaleString() : "-";
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Something went wrong. Please try again.";
+  return error instanceof Error ? error.message : "请求失败，请稍后重试";
 }
+
+const countryOptions = ["United States", "Canada", "United Kingdom", "Japan", "Australia"].map((value) => ({ value, label: value }));
+const platformOptions = ["iOS", "Google"].map((value) => ({ value, label: value }));
+const environmentOptions = [{ value: "production", label: "Production" }, { value: "staging", label: "Staging" }];
+const identityOptions = ["Google", "游客", "Apple", "邮箱"].map((value) => ({ value, label: value }));
+const feedbackTypeOptions = ["Bug Report", "Feature Request", "Account", "Other"].map((value) => ({ value, label: value }));
+const feedbackStatusOptions = [
+  { value: "pending", label: "待处理" },
+  { value: "processed", label: "已处理" },
+  { value: "ignored", label: "无需处理" },
+];
+const recognitionOptions = [{ value: "success", label: "识别成功" }, { value: "failed", label: "识别失败" }];
+const confirmationOptions = [{ value: "confirmed", label: "已确认" }, { value: "pending", label: "待确认" }];
+const permissionStatusOptions = [{ value: "active", label: "启用" }, { value: "disabled", label: "停用" }];
+
+const demoInstallationAnalytics: InstallationAnalytics = {
+  summary: { total_installations: 19842, countries: 5, platforms: 2 },
+  trend: [
+    { date: "2026-07-04", total: 1200 },
+    { date: "2026-07-05", total: 1840 },
+    { date: "2026-07-06", total: 1680 },
+    { date: "2026-07-07", total: 2380 },
+    { date: "2026-07-08", total: 2960 },
+  ],
+  rows: [
+    { date: "2026-07-08", country: "United States", platform: "iOS", environment: "production", installs: 1280 },
+    { date: "2026-07-08", country: "Canada", platform: "Google", environment: "production", installs: 420 },
+    { date: "2026-07-07", country: "United Kingdom", platform: "iOS", environment: "production", installs: 368 },
+    { date: "2026-07-07", country: "Japan", platform: "Google", environment: "production", installs: 512 },
+  ],
+};
+
+const demoUsers: UserItem[] = [
+  { account_type: "user", id: "UID-100284", email: "collector@example.com", device_id: null, created_at: "2026-07-08T10:18:00.000Z", status: "active" },
+  { account_type: "anonymous", id: "UID-100285", email: null, device_id: "ios-device-72", created_at: "2026-07-08T09:42:00.000Z", status: "guest" },
+  { account_type: "user", id: "UID-100286", email: "apple-user@example.com", device_id: null, created_at: "2026-07-07T18:30:00.000Z", status: "active" },
+];
+
+const demoFeedbacks: FeedbackTicket[] = [
+  {
+    id: "FB-20260708-001",
+    email: "player@example.com",
+    message: "扫描后候选结果不准确，最终卡牌需要手动修改。",
+    status: "pending",
+    created_at: "2026-07-08T11:20:00.000Z",
+    issue_type: "Bug Report",
+    module: "Card Scanner",
+    uid: "UID-100284",
+    platform: "iOS",
+    app_version: "1.9.0",
+    device_model: "iPhone 15 Pro",
+    os_version: "iOS 18.5",
+  },
+  {
+    id: "FB-20260708-002",
+    email: "collector@example.com",
+    message: "希望愿望单支持批量移动到库存。",
+    status: "processed",
+    created_at: "2026-07-08T09:16:00.000Z",
+    issue_type: "Feature Request",
+    module: "Wishlist",
+    uid: "UID-100286",
+    platform: "Google",
+    app_version: "1.9.0",
+    device_model: "Pixel 9",
+    os_version: "Android 16",
+  },
+];
+
+const demoScanDetail: ScanDetail = {
+  scan_id: "scan_20260708_001",
+  image_url: "https://images.pokemontcg.io/sv4/198_hires.png",
+  uid: "UID-100284",
+  platform: "iOS",
+  app_version: "1.9.0",
+  scan_time: "2026-07-08T10:18:00.000Z",
+  recognition_status: "success",
+  user_confirmation_status: "confirmed",
+  modified_result: true,
+  device_model: "iPhone 15 Pro",
+  os_version: "iOS 18.5",
+  system_result: { status: "success", name: "Charizard ex", ip_game: "Pokemon", set: "Obsidian Flames", number: "223/197", confidence: 0.94, candidate_count: 3 },
+  user_result: { confirmation_status: "confirmed", final_card: "Charizard ex - Obsidian Flames 223/197", modified_result: true, added_to_inventory: true, added_to_wishlist: false },
+  candidates: [
+    { rank: 1, name: "Charizard ex", set: "Obsidian Flames", number: "223/197", confidence: 0.94 },
+    { rank: 2, name: "Charizard ex", set: "Obsidian Flames", number: "125/197", confidence: 0.71 },
+  ],
+};
+
+const demoPermissions: PermissionItem[] = [
+  { id: "admin-1", email: "admin@example.com", role: "super_admin", permission_status: "active", created_at: "2026-07-01T00:00:00.000Z", updated_at: "2026-07-08T00:00:00.000Z" },
+  { id: "ops-1", email: "ops@example.com", role: "operator", permission_status: "active", created_at: "2026-07-03T00:00:00.000Z", updated_at: "2026-07-08T00:00:00.000Z" },
+];
+
+const demoAppVersions: AppVersionItem[] = [
+  { platform: "iOS", min_supported_version: "1.0.0", recommended_version: "1.9.0", recommended_update_message: "优化首页加载速度\n修复已知的部分闪退问题\n适配最新的系统特性", forced_update_message: "由于系统架构重大升级，您需要更新至最新版本才能继续使用核心功能。", status: "disabled", updated_at: "2025-04-30T00:00:00.000Z" },
+  { platform: "Google", min_supported_version: "1.0.0", recommended_version: "1.9.0", recommended_update_message: "优化首页加载速度\n增强数据同步安全性", forced_update_message: "请更新至最新版本后继续使用。", status: "enabled", updated_at: "2025-04-30T00:00:00.000Z" },
+];

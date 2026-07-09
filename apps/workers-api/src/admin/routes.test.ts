@@ -6,7 +6,7 @@ type TestEnv = AppEnv & { JWT_SECRET: string };
 
 type AdminRole = "super_admin" | "operator";
 type AdminStatus = "active" | "disabled";
-type FeedbackStatus = "open" | "in_progress" | "closed";
+type FeedbackStatus = "open" | "in_progress" | "closed" | "pending" | "processed" | "ignored";
 
 type AdminUserRow = {
   id: string;
@@ -180,6 +180,38 @@ class FakeD1Statement {
   async all<T = unknown>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
 
+    if (sql.includes("AS install_type")) {
+      const formalUsers = this.db.users
+        .filter((row) => row.deleted_at === null)
+        .map((row) => ({
+          install_type: "user",
+          uid: row.id,
+          platform: "iOS",
+          country: "Unknown",
+          environment: "production",
+          created_at: row.created_at,
+        }));
+      const anonymousUsers = this.db.anonymousAccounts.map((row) => ({
+        install_type: "anonymous",
+        uid: row.id,
+        platform: "iOS",
+        country: "Unknown",
+        environment: "production",
+        created_at: row.created_at,
+      }));
+      return okResult<T>([...formalUsers, ...anonymousUsers] as T[]);
+    }
+
+    if (sql.includes("FROM admin_user")) {
+      const [q, , status] = this.values as [string | null, string | null, AdminStatus | null];
+      const query = q?.toLowerCase() ?? "";
+      return okResult<T>(
+        this.db.adminUsers
+          .filter((row) => !query || row.email.toLowerCase().includes(query))
+          .filter((row) => !status || row.status === status) as T[],
+      );
+    }
+
     if (sql.includes("FROM user") && sql.includes("UNION ALL")) {
       const [type, q] = this.values as [string | null, string | null];
       const query = q?.toLowerCase() ?? "";
@@ -232,6 +264,36 @@ class FakeD1Statement {
 
   async run<T = unknown>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
+
+    if (sql.startsWith("INSERT INTO admin_user")) {
+      const [id, email, passwordHash, role, status, createdAt] = this.values as [
+        string,
+        string,
+        string,
+        AdminRole,
+        AdminStatus,
+        string,
+      ];
+      this.db.adminUsers.push({
+        id,
+        email,
+        password_hash: passwordHash,
+        role,
+        status,
+        created_at: createdAt,
+      });
+      return okResult<T>();
+    }
+
+    if (sql.startsWith("UPDATE admin_user SET")) {
+      const [role, status, id] = this.values as [AdminRole, AdminStatus, string];
+      const admin = this.db.adminUsers.find((row) => row.id === id);
+      if (admin) {
+        admin.role = role;
+        admin.status = status;
+      }
+      return okResult<T>(undefined, admin ? 1 : 0);
+    }
 
     if (sql.startsWith("INSERT INTO session")) {
       const [id, ownerType, ownerId, refreshToken, expiresAt, createdAt] = this.values as [
@@ -498,7 +560,7 @@ describe("admin routes", () => {
     expect(env.DB.users[0]?.deleted_at).not.toBeNull();
   });
 
-  it("lets operators advance feedback and app config because daily operations should not need super_admin", async () => {
+  it("lets operators advance feedback with UI processing states because the new console has only pending, processed, and ignored", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "operator-2", "daily@example.com", "correct-password", "operator");
     env.DB.feedbackTickets.push({
@@ -517,9 +579,29 @@ describe("admin routes", () => {
       env,
       "/feedbacks/ticket-1/status",
       "PATCH",
-      { status: "in_progress" },
+      { status: "processed" },
       login.data.access_token,
     );
+    const feedbackBody = await feedbackResponse.json();
+
+    expect(feedbackResponse.status).toBe(200);
+    expect(feedbackBody).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        id: "ticket-1",
+        status: "processed",
+        issue_type: "Bug Report",
+        module: "Search",
+      }),
+    });
+    expect(env.DB.feedbackTickets[0]?.status).toBe("processed");
+  });
+
+  it("lets operators update app config because daily operations should not need super_admin", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "operator-2b", "daily-config@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "daily-config@example.com", "correct-password");
+
     const configResponse = await requestAdmin(
       env,
       "/app-config/announcement",
@@ -528,12 +610,156 @@ describe("admin routes", () => {
       login.data.access_token,
     );
 
-    expect(feedbackResponse.status).toBe(200);
     expect(configResponse.status).toBe(200);
-    expect(env.DB.feedbackTickets[0]?.status).toBe("in_progress");
     expect(env.DB.appConfigs[0]).toEqual(
-      expect.objectContaining({ key: "announcement", updated_by: "operator-2" }),
+      expect.objectContaining({ key: "announcement", updated_by: "operator-2b" }),
     );
+  });
+
+  it("returns installation analytics derived from accounts because the admin trend chart needs an install source", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-install", "install@example.com", "correct-password", "operator");
+    env.DB.users.push(userRow("user-install-1", "one@example.com", "2026-07-07T08:00:00.000Z"));
+    env.DB.anonymousAccounts.push({
+      id: "anon-install-1",
+      device_id: "ios-device-install",
+      created_at: "2026-07-08T08:00:00.000Z",
+      upgraded_user_id: null,
+    });
+    const login = await loginAdmin(env, "install@example.com", "correct-password");
+
+    const response = await requestAdmin(
+      env,
+      "/analytics/installations?date_from=2026-07-07&date_to=2026-07-08",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        summary: expect.objectContaining({ total_installations: 2 }),
+        trend: [
+          expect.objectContaining({ date: "2026-07-07", total: 1 }),
+          expect.objectContaining({ date: "2026-07-08", total: 1 }),
+        ],
+        rows: expect.arrayContaining([
+          expect.objectContaining({ date: "2026-07-07", platform: "iOS", installs: 1 }),
+          expect.objectContaining({ date: "2026-07-08", platform: "iOS", installs: 1 }),
+        ]),
+      }),
+    });
+  });
+
+  it("lists scan records with detail fields because support must audit recognition and user confirmation", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-scan", "scan@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "scan@example.com", "correct-password");
+
+    const listResponse = await requestAdmin(env, "/scans", "GET", undefined, login.data.access_token);
+    const listBody = await listResponse.json() as {
+      success: boolean;
+      data?: { items: Array<{ scan_id: string }> };
+    };
+    const scanId = listBody.success ? listBody.data?.items[0]?.scan_id : "";
+    const detailResponse = await requestAdmin(env, `/scans/${scanId}`, "GET", undefined, login.data.access_token);
+    const detailBody = await detailResponse.json();
+
+    expect(listResponse.status).toBe(200);
+    expect(listBody).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            scan_id: expect.any(String),
+            image_url: expect.any(String),
+            recognition_status: expect.any(String),
+            user_confirmation_status: expect.any(String),
+            modified_result: expect.any(Boolean),
+          }),
+        ],
+      }),
+    });
+    expect(detailResponse.status).toBe(200);
+    expect(detailBody).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        scan_id: scanId,
+        system_result: expect.objectContaining({ confidence: expect.any(Number) }),
+        user_result: expect.objectContaining({ added_to_inventory: expect.any(Boolean) }),
+        candidates: expect.any(Array),
+      }),
+    });
+  });
+
+  it("manages permission records through admin users because only authorized emails may enter the console", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "super-permission", "permission@example.com", "correct-password", "super_admin");
+    await seedAdmin(env, "operator-permission", "ops-permission@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "permission@example.com", "correct-password");
+
+    const listResponse = await requestAdmin(env, "/permissions", "GET", undefined, login.data.access_token);
+    const patchResponse = await requestAdmin(
+      env,
+      "/permissions/operator-permission",
+      "PATCH",
+      { status: "disabled" },
+      login.data.access_token,
+    );
+    const patchBody = await patchResponse.json();
+
+    expect(listResponse.status).toBe(200);
+    expect(patchResponse.status).toBe(200);
+    expect(patchBody).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        id: "operator-permission",
+        email: "ops-permission@example.com",
+        permission_status: "disabled",
+      }),
+    });
+    expect(env.DB.adminUsers.find((row) => row.id === "operator-permission")?.status).toBe("disabled");
+  });
+
+  it("stores app version rules as structured config because the version drawer edits platform-specific rollout copy", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-version", "version@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "version@example.com", "correct-password");
+
+    const patchResponse = await requestAdmin(
+      env,
+      "/app-versions/iOS",
+      "PATCH",
+      {
+        min_supported_version: "1.0.0",
+        recommended_version: "1.9.0",
+        recommended_update_message: "优化首页加载速度",
+        forced_update_message: "请更新至最新版本后继续使用。",
+        status: "enabled",
+      },
+      login.data.access_token,
+    );
+    const listResponse = await requestAdmin(env, "/app-versions", "GET", undefined, login.data.access_token);
+    const listBody = await listResponse.json();
+
+    expect(patchResponse.status).toBe(200);
+    expect(listResponse.status).toBe(200);
+    expect(listBody).toEqual({
+      success: true,
+      data: {
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            platform: "iOS",
+            min_supported_version: "1.0.0",
+            recommended_version: "1.9.0",
+            status: "enabled",
+          }),
+        ]),
+      },
+    });
   });
 
   it("guards destructive ops while still allowing card and trending maintenance", async () => {
@@ -640,14 +866,18 @@ function createTestEnv(): TestEnvWithFakeDb {
   };
 }
 
-function userRow(id: string, email: string): UserRow {
+function userRow(
+  id: string,
+  email: string,
+  createdAt = "2026-07-07T00:00:00.000Z",
+): UserRow {
   return {
     id,
     email,
     password_hash: null,
     display_name: null,
-    created_at: "2026-07-07T00:00:00.000Z",
-    updated_at: "2026-07-07T00:00:00.000Z",
+    created_at: createdAt,
+    updated_at: createdAt,
     deleted_at: null,
   };
 }
