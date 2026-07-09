@@ -1,10 +1,9 @@
 enum HomeChartRange {
-  oneDay('1D'),
-  sevenDays('7D'),
-  oneMonth('1M'),
-  threeMonths('3M'),
-  sixMonths('6M'),
-  max('MAX');
+  oneDay('1d'),
+  sevenDays('7d'),
+  fifteenDays('15d'),
+  oneMonth('1m'),
+  threeMonths('3m');
 
   const HomeChartRange(this.label);
 

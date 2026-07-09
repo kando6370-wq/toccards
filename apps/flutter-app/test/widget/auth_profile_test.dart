@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,7 @@ import 'package:kando_app/features/auth/oauth_authorizer.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
+import 'package:kando_app/features/profile/profile_actions.dart';
 
 void main() {
   testWidgets('email auth rejects empty and invalid email before continuing', (
@@ -32,6 +34,24 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
     expect(find.text('Please enter a valid email address.'), findsOneWidget);
+
+    for (final email in [
+      'person@@example.com',
+      'person@example',
+      'person @example.com',
+      '@example.com',
+      'person@.com',
+      '${List.filled(250, 'a').join()}@example.com',
+    ]) {
+      await tester.enterText(find.byType(TextFormField), email);
+      await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Please enter a valid email address.'),
+        findsOneWidget,
+        reason: '$email must be rejected by PRD email validation',
+      );
+    }
   });
 
   testWidgets('short login password blocks submit', (tester) async {
@@ -149,8 +169,11 @@ void main() {
       final repository = _WidgetAuthRepository(
         initialSession: _anonymousSession('anon-existing'),
       );
+      final profileActions = _WidgetProfileActions();
 
-      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpWidget(
+        _testApp(repository, profileActions: profileActions),
+      );
       await tester.pumpAndSettle();
       await _openProfileTab(tester);
       await _openAuthSheet(tester);
@@ -167,6 +190,16 @@ void main() {
       );
       expect(agreementText, contains('Terms of Use'));
       expect(agreementText, contains('Privacy Policy'));
+
+      final spans = (tester.widget<RichText>(agreement).text as TextSpan)
+          .children!
+          .cast<TextSpan>();
+      (spans[1].recognizer! as TapGestureRecognizer).onTap!();
+      await tester.pumpAndSettle();
+      (spans[3].recognizer! as TapGestureRecognizer).onTap!();
+      await tester.pumpAndSettle();
+
+      expect(profileActions.calls, ['terms', 'privacy']);
     },
   );
 
@@ -502,6 +535,59 @@ void main() {
   });
 
   testWidgets(
+    'Profile utility actions call native/share/browser services from their list entries',
+    (tester) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+      final profileActions = _WidgetProfileActions();
+
+      await tester.pumpWidget(
+        _testApp(repository, profileActions: profileActions),
+      );
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+
+      await tester.tap(find.text('Score'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Share With Friends'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Terms Of Use'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Privacy Policy'));
+      await tester.pumpAndSettle();
+
+      expect(profileActions.calls, ['score', 'share', 'terms', 'privacy']);
+    },
+  );
+
+  testWidgets(
+    'Profile utility action failure shows the PRD generic failure toast',
+    (tester) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+      final profileActions = _WidgetProfileActions(
+        failure: Exception('native share unavailable'),
+      );
+
+      await tester.pumpWidget(
+        _testApp(repository, profileActions: profileActions),
+      );
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+
+      await tester.tap(find.text('Share With Friends'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Unable to open this page. Please try again later.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'customer support submits signed-in feedback and returns to Profile',
     (tester) async {
       final authRepository = _WidgetAuthRepository(
@@ -832,6 +918,7 @@ ProviderScope _testApp(
   _WidgetAuthRepository repository, {
   OAuthAuthorizer? authorizer,
   FeedbackRepository? feedbackRepository,
+  ProfileActions? profileActions,
 }) {
   final onboardingStorage = InMemoryOnboardingStorage(completed: true);
 
@@ -845,6 +932,8 @@ ProviderScope _testApp(
         oauthAuthorizerProvider.overrideWithValue(authorizer),
       if (feedbackRepository != null)
         feedbackRepositoryProvider.overrideWithValue(feedbackRepository),
+      if (profileActions != null)
+        profileActionsProvider.overrideWithValue(profileActions),
     ],
     child: const KandoApp(),
   );
@@ -1095,6 +1184,33 @@ class _WidgetFeedbackRepository implements FeedbackRepository {
       ),
     );
     return const FeedbackReceipt(id: 'feedback-1');
+  }
+}
+
+class _WidgetProfileActions implements ProfileActions {
+  _WidgetProfileActions({this.failure});
+
+  final Exception? failure;
+  final List<String> calls = [];
+
+  @override
+  Future<void> openPrivacy() => _record('privacy');
+
+  @override
+  Future<void> openTerms() => _record('terms');
+
+  @override
+  Future<void> requestScore() => _record('score');
+
+  @override
+  Future<void> shareWithFriends() => _record('share');
+
+  Future<void> _record(String call) async {
+    calls.add(call);
+    final failure = this.failure;
+    if (failure != null) {
+      throw failure;
+    }
   }
 }
 

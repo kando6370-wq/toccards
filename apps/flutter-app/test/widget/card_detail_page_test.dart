@@ -27,7 +27,15 @@ void main() {
 
     expect(find.text('Price overview'), findsOneWidget);
     expect(find.text('Price range'), findsOneWidget);
-    expect(find.text('30D'), findsOneWidget);
+    expect(find.text('1d'), findsOneWidget);
+    expect(find.text('7d'), findsOneWidget);
+    expect(find.text('15d'), findsOneWidget);
+    expect(find.text('1m'), findsOneWidget);
+    expect(find.text('3m'), findsOneWidget);
+    expect(find.text('6M'), findsNothing);
+    expect(find.text('12M'), findsNothing);
+    expect(find.text('MAX'), findsNothing);
+    expect(find.text('30D'), findsNothing);
     expect(find.text('Price series'), findsOneWidget);
     expect(find.text('30 days ago'), findsOneWidget);
     expect(find.text('Today'), findsOneWidget);
@@ -75,14 +83,28 @@ void main() {
       expect(find.text('Ownership Summary'), findsOneWidget);
       expect(find.text('Adding to Main'), findsOneWidget);
       expect(find.byKey(const Key('card-detail-item-portfolio')), findsNothing);
+      expect(find.text('Language'), findsOneWidget);
+      expect(find.text('Finish'), findsOneWidget);
+      expect(find.text('Total'), findsOneWidget);
       expect(find.text('Near Mint (NM)'), findsOneWidget);
+      await tester.drag(
+        find.byKey(const Key('card-detail-scroll')),
+        const Offset(0, -240),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('card-detail-item-condition')));
+      await tester.pumpAndSettle();
+      expect(find.text('Lightly Played (LP)'), findsOneWidget);
+      expect(find.text('Nearly Mint (NM)'), findsNothing);
+      await tester.tap(find.text('Near Mint (NM)').last);
+      await tester.pumpAndSettle();
 
       await tester.drag(
         find.byKey(const Key('card-detail-scroll')),
-        const Offset(0, -420),
+        const Offset(0, -500),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add').last);
+      await tester.tap(find.byKey(const Key('card-detail-item-submit')));
       await tester.pumpAndSettle();
       final container = ProviderScope.containerOf(
         tester.element(find.byType(CardDetailPage)),
@@ -125,7 +147,13 @@ void main() {
     expect(find.text('Main'), findsOneWidget);
     expect(find.text('PSA 10'), findsOneWidget);
     expect(find.text('Purchase price'), findsOneWidget);
-    expect(find.text(r'$650.00'), findsOneWidget);
+    expect(find.text(r'$650.00'), findsWidgets);
+    expect(find.text('Language'), findsWidgets);
+    expect(find.text('English'), findsWidgets);
+    expect(find.text('Finish'), findsWidgets);
+    expect(find.text('Holofoil'), findsWidgets);
+    expect(find.text('Total'), findsOneWidget);
+    expect(find.text(r'$650.00'), findsWidgets);
     expect(find.text('Pulled from Obsidian Flames binder.'), findsOneWidget);
     expect(find.text('Price overview'), findsNothing);
   });
@@ -140,14 +168,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Price overview'), findsOneWidget);
+    expect(find.text('RAW'), findsOneWidget);
+    expect(find.text('GRADED'), findsOneWidget);
     expect(find.text('Price range'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Sold listings'), findsOneWidget);
     expect(find.text('PSA 10'), findsOneWidget);
-    expect(find.text(r'$780.00'), findsWidgets);
+    expect(find.text(r'$215.00'), findsWidgets);
   });
 
-  testWidgets('owned Price Tab range selector updates visible series rows', (
+  testWidgets('owned Price Tab selectors update visible series rows', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -157,11 +187,14 @@ void main() {
     await tester.scrollUntilVisible(find.text('Price'), 400);
     await tester.tap(find.text('Price'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('7D'));
+    await tester.tap(find.text('GRADED'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3m'));
     await tester.pumpAndSettle();
 
-    expect(find.text('7 days ago'), findsOneWidget);
+    expect(find.text('90 days ago'), findsOneWidget);
     expect(find.text('Today'), findsOneWidget);
+    expect(find.text(r'$780.00'), findsWidgets);
     expect(find.text('Sold listings'), findsOneWidget);
   });
 
@@ -173,10 +206,7 @@ void main() {
     );
 
     await tester.scrollUntilVisible(find.text('Collection Item'), 400);
-    await tester.drag(
-      find.byKey(const Key('card-detail-scroll')),
-      const Offset(0, -180),
-    );
+    await tester.ensureVisible(find.text('Edit item'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit item'));
     await tester.pumpAndSettle();
@@ -195,18 +225,18 @@ void main() {
     expect(find.text('Condition'), findsOneWidget);
     expect(find.text('Grade'), findsNothing);
 
+    await tester.ensureVisible(find.byKey(const Key('card-detail-item-notes')));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('card-detail-item-notes')),
       'Cracked slab for binder.',
     );
     await tester.drag(
       find.byKey(const Key('card-detail-collection-items')),
-      const Offset(0, -320),
+      const Offset(0, -500),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Save changes'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Save changes'));
+    await tester.tap(find.byKey(const Key('card-detail-item-submit')));
     await tester.pumpAndSettle();
 
     expect(find.text('Ownership Summary'), findsNothing);
@@ -223,10 +253,7 @@ void main() {
     );
 
     await tester.scrollUntilVisible(find.text('Collection Item'), 400);
-    await tester.drag(
-      find.byKey(const Key('card-detail-scroll')),
-      const Offset(0, -180),
-    );
+    await tester.ensureVisible(find.text('Edit item'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit item'));
     await tester.pumpAndSettle();
@@ -234,14 +261,15 @@ void main() {
       find.byKey(const Key('card-detail-item-quantity')),
       '0',
     );
-    await tester.drag(
-      find.byKey(const Key('card-detail-collection-items')),
-      const Offset(0, -320),
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CardDetailPage)),
     );
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Save changes'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Save changes'));
+    expect(
+      container
+          .read(cardDetailControllerProvider('charizard-ex').notifier)
+          .saveCollectionItemDraft(),
+      isFalse,
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Quantity must be at least 1.'), findsOneWidget);
@@ -256,10 +284,7 @@ void main() {
     );
 
     await tester.scrollUntilVisible(find.text('Collection Item'), 400);
-    await tester.drag(
-      find.byKey(const Key('card-detail-scroll')),
-      const Offset(0, -180),
-    );
+    await tester.ensureVisible(find.text('Remove from Portfolio'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Remove from Portfolio'));
     await tester.pumpAndSettle();

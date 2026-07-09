@@ -23,6 +23,13 @@ void main() {
     expect(find.text('PORTFOLIO'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
     expect(find.text(r'$12,840.00'), findsOneWidget);
+    expect(find.text('1d'), findsOneWidget);
+    expect(find.text('7d'), findsOneWidget);
+    expect(find.text('15d'), findsOneWidget);
+    expect(find.text('1m'), findsOneWidget);
+    expect(find.text('3m'), findsOneWidget);
+    expect(find.text('6M'), findsNothing);
+    expect(find.text('MAX'), findsNothing);
     expect(find.text('Most Valuable'), findsOneWidget);
     expect(find.text('Charizard ex'), findsOneWidget);
     expect(find.text('Trending Today'), findsOneWidget);

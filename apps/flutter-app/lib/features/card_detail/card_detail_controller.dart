@@ -17,17 +17,51 @@ final cardDetailControllerProvider =
 
 const cardCollectionPortfolioNames = ['Main', 'Sealed', 'Empty'];
 const cardCollectionGraders = ['Raw', 'PSA', 'BGS', 'SGC', 'CGC', 'TAG', 'AGS'];
-const cardCollectionConditions = ['Near Mint (NM)'];
-const cardCollectionGrades = [
+const cardCollectionConditions = [
+  'Near Mint (NM)',
+  'Lightly Played (LP)',
+  'Moderately Played (MP)',
+  'Heavily Played (HP)',
+  'Damaged (D)',
+];
+const cardCollectionLanguages = [
+  'English',
+  'Japanese',
+  'Chinese',
+  'Korean',
+  'French',
+  'German',
+  'Spanish',
+  'Italian',
+  'Portuguese',
+];
+const cardCollectionFinishes = [
+  'Normal',
+  'Holofoil',
+  'Reverse Holofoil',
+  'Cold Foil',
+  'Foil',
+  'Non-Foil',
+];
+const cardCollectionGradeValues = [
   '10',
+  '9.5',
   '9',
+  '8.5',
   '8',
+  '7.5',
   '7',
+  '6.5',
   '6',
+  '5.5',
   '5',
+  '4.5',
   '4',
+  '3.5',
   '3',
+  '2.5',
   '2',
+  '1.5',
   '1',
 ];
 
@@ -43,6 +77,10 @@ const _priceSeriesFallbackText = 'No price data available.';
 const _soldListingsFallbackText = 'No sold listings available.';
 const _cardDetailStateUnset = Object();
 
+List<String> cardCollectionGradeLabelsFor(String grader) {
+  return cardCollectionGradeValues.map((grade) => '$grader $grade').toList();
+}
+
 class CardCollectionItemDraft {
   const CardCollectionItemDraft({
     required this.quantityText,
@@ -50,6 +88,8 @@ class CardCollectionItemDraft {
     required this.grader,
     required this.condition,
     required this.grade,
+    required this.language,
+    required this.finish,
     required this.purchasePriceText,
     required this.notes,
   });
@@ -59,10 +99,23 @@ class CardCollectionItemDraft {
   final String grader;
   final String condition;
   final String grade;
+  final String language;
+  final String finish;
   final String purchasePriceText;
   final String notes;
 
   bool get isRaw => grader == 'Raw';
+
+  String get totalText {
+    final quantity = int.tryParse(quantityText.trim());
+    final price = double.tryParse(purchasePriceText.trim());
+
+    if (quantity == null || quantity < 1 || price == null || price < 0) {
+      return '--';
+    }
+
+    return r'$' + (quantity * price).toStringAsFixed(2);
+  }
 
   CardCollectionItemDraft copyWith({
     String? quantityText,
@@ -70,6 +123,8 @@ class CardCollectionItemDraft {
     String? grader,
     String? condition,
     String? grade,
+    String? language,
+    String? finish,
     String? purchasePriceText,
     String? notes,
   }) {
@@ -79,6 +134,8 @@ class CardCollectionItemDraft {
       grader: grader ?? this.grader,
       condition: condition ?? this.condition,
       grade: grade ?? this.grade,
+      language: language ?? this.language,
+      finish: finish ?? this.finish,
       purchasePriceText: purchasePriceText ?? this.purchasePriceText,
       notes: notes ?? this.notes,
     );
@@ -103,7 +160,10 @@ class CardCollectionItemRow {
     required this.portfolioName,
     required this.quantityText,
     required this.statusText,
+    required this.languageText,
+    required this.finishText,
     required this.purchasePriceText,
+    required this.totalText,
     required this.notes,
   });
 
@@ -111,7 +171,10 @@ class CardCollectionItemRow {
   final String portfolioName;
   final String quantityText;
   final String statusText;
+  final String languageText;
+  final String finishText;
   final String purchasePriceText;
+  final String totalText;
   final String notes;
 }
 
@@ -141,7 +204,8 @@ class CardDetailState {
     required this.cardId,
     required CardDetail detail,
     required this.currency,
-    this.selectedPriceRange = CardPriceRange.thirty,
+    this.selectedPriceChartMode = CardPriceChartMode.raw,
+    this.selectedPriceRange = CardPriceRange.oneMonth,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -151,7 +215,8 @@ class CardDetailState {
   const CardDetailState.unavailable({
     required this.cardId,
     required this.currency,
-    this.selectedPriceRange = CardPriceRange.thirty,
+    this.selectedPriceChartMode = CardPriceChartMode.raw,
+    this.selectedPriceRange = CardPriceRange.oneMonth,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -161,6 +226,7 @@ class CardDetailState {
   final String cardId;
   final CardDetail? _detail;
   final AppCurrency currency;
+  final CardPriceChartMode selectedPriceChartMode;
   final CardPriceRange selectedPriceRange;
   final CardCollectionItemDraft? collectionItemDraft;
   final String? editingCollectionItemId;
@@ -202,16 +268,25 @@ class CardDetailState {
         portfolioName: item.portfolioName,
         quantityText: 'Qty: ${item.quantity}',
         statusText: _collectionStatusText(item),
+        languageText: item.language ?? '-',
+        finishText: item.finish ?? '-',
         purchasePriceText: _formatter.formatUsd(item.purchasePriceUsd),
+        totalText: _formatter.formatUsd(
+          item.purchasePriceUsd == null
+              ? null
+              : item.purchasePriceUsd! * item.quantity,
+        ),
         notes: item.notes,
       );
     }).toList();
   }
 
   List<CardPricePointRow> get priceSeriesRows {
+    final seriesByRange = selectedPriceChartMode == CardPriceChartMode.raw
+        ? detail.priceSeriesByRange
+        : detail.gradedPriceSeriesByRange;
     final points =
-        detail.priceSeriesByRange[selectedPriceRange] ??
-        const <CardPricePoint>[];
+        seriesByRange[selectedPriceRange] ?? const <CardPricePoint>[];
     return points.map((point) {
       return CardPricePointRow(
         dateLabel: point.dateLabel,
@@ -290,6 +365,7 @@ class CardDetailState {
   CardDetailState copyWith({
     CardDetail? detail,
     AppCurrency? currency,
+    CardPriceChartMode? selectedPriceChartMode,
     CardPriceRange? selectedPriceRange,
     Object? collectionItemDraft = _cardDetailStateUnset,
     Object? editingCollectionItemId = _cardDetailStateUnset,
@@ -299,6 +375,8 @@ class CardDetailState {
       cardId: cardId,
       detail: detail ?? this.detail,
       currency: currency ?? this.currency,
+      selectedPriceChartMode:
+          selectedPriceChartMode ?? this.selectedPriceChartMode,
       selectedPriceRange: selectedPriceRange ?? this.selectedPriceRange,
       collectionItemDraft: collectionItemDraft == _cardDetailStateUnset
           ? this.collectionItemDraft
@@ -365,6 +443,14 @@ class CardDetailController extends Notifier<CardDetailState> {
     state = state.copyWith(selectedPriceRange: range);
   }
 
+  void selectPriceChartMode(CardPriceChartMode mode) {
+    if (state.isUnavailable) {
+      return;
+    }
+
+    state = state.copyWith(selectedPriceChartMode: mode);
+  }
+
   void startAddingCollectionItem() {
     if (state.isUnavailable) {
       return;
@@ -377,9 +463,11 @@ class CardDetailController extends Notifier<CardDetailState> {
         grader: 'Raw',
         condition: _defaultCondition,
         grade: '',
+        language: '',
+        finish: '',
         purchasePriceText: '',
         notes: '',
-      ),
+      ).copyWith(language: state.detail.language, finish: state.detail.finish),
       editingCollectionItemId: null,
       collectionItemFormError: null,
     );
@@ -401,7 +489,9 @@ class CardDetailController extends Notifier<CardDetailState> {
         portfolioName: item.portfolioName,
         grader: item.grader,
         condition: item.condition ?? _defaultCondition,
-        grade: item.grade ?? _defaultGrade,
+        grade: item.grade ?? _defaultGradeForGrader(item.grader),
+        language: item.language ?? state.detail.language,
+        finish: item.finish ?? state.detail.finish,
         purchasePriceText: item.purchasePriceUsd?.toStringAsFixed(2) ?? '',
         notes: item.notes,
       ),
@@ -416,6 +506,8 @@ class CardDetailController extends Notifier<CardDetailState> {
     String? grader,
     String? condition,
     String? grade,
+    String? language,
+    String? finish,
     String? purchasePriceText,
     String? notes,
   }) {
@@ -436,7 +528,12 @@ class CardDetailController extends Notifier<CardDetailState> {
             : '',
         grade: nextIsRaw
             ? ''
-            : grade ?? (draft.isRaw ? _defaultGrade : draft.grade),
+            : grade ??
+                  (draft.isRaw || grader != null
+                      ? _defaultGradeForGrader(nextGrader)
+                      : draft.grade),
+        language: language,
+        finish: finish,
         purchasePriceText: purchasePriceText,
         notes: notes,
       ),
@@ -488,6 +585,8 @@ class CardDetailController extends Notifier<CardDetailState> {
       grader: draft.grader,
       condition: draft.isRaw ? draft.condition : null,
       grade: draft.isRaw ? null : draft.grade,
+      language: draft.language,
+      finish: draft.finish,
       purchasePriceUsd: purchasePrice.value,
       notes: draft.notes,
     );
@@ -613,10 +712,18 @@ class CardDetailController extends Notifier<CardDetailState> {
       grader: 'Raw',
       condition: _defaultCondition,
       grade: null,
+      language: detail.language,
+      finish: detail.finish,
       purchasePriceUsd: null,
       notes: 'Quick collected from CardDetail.',
     );
   }
+}
+
+String _defaultGradeForGrader(String grader) {
+  return cardCollectionGraders.contains(grader) && grader != 'Raw'
+      ? cardCollectionGradeValues.first
+      : _defaultGrade;
 }
 
 class _QuantityParseResult {

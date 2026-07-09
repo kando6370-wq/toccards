@@ -142,7 +142,9 @@ void main() {
       quantityText: '2',
       portfolioName: 'Sealed',
       grader: 'Raw',
-      condition: 'Near Mint (NM)',
+      condition: 'Lightly Played (LP)',
+      language: 'Japanese',
+      finish: 'Reverse Holofoil',
       purchasePriceText: '12.50',
       notes: 'Second binder copy.',
     );
@@ -155,10 +157,59 @@ void main() {
     expect(state.detail.isWishlisted, isFalse);
     expect(state.collectionItemRows.single.portfolioName, 'Sealed');
     expect(state.collectionItemRows.single.quantityText, 'Qty: 2');
-    expect(state.collectionItemRows.single.statusText, 'Raw / Near Mint (NM)');
+    expect(
+      state.collectionItemRows.single.statusText,
+      'Raw / Lightly Played (LP)',
+    );
+    expect(state.collectionItemRows.single.languageText, 'Japanese');
+    expect(state.collectionItemRows.single.finishText, 'Reverse Holofoil');
     expect(state.collectionItemRows.single.purchasePriceText, r'$12.50');
+    expect(state.collectionItemRows.single.totalText, r'$25.00');
     expect(state.collectionItemRows.single.notes, 'Second binder copy.');
     expect(state.collectionItemDraft, isNull);
+  });
+
+  test(
+    'new Collection Item draft follows PRD field defaults and condition list',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('squirtle');
+
+      container.read(provider.notifier).startAddingCollectionItem();
+      final draft = container.read(provider).collectionItemDraft!;
+
+      expect(cardCollectionConditions, [
+        'Near Mint (NM)',
+        'Lightly Played (LP)',
+        'Moderately Played (MP)',
+        'Heavily Played (HP)',
+        'Damaged (D)',
+      ]);
+      expect(cardCollectionConditions, isNot(contains('Nearly Mint (NM)')));
+      expect(draft.portfolioName, 'Main');
+      expect(draft.language, 'English');
+      expect(draft.finish, 'Holofoil');
+      expect(draft.totalText, '--');
+    },
+  );
+
+  test('changing grader resets grade options to the selected grader scale', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = cardDetailControllerProvider('squirtle');
+    final controller = container.read(provider.notifier);
+
+    controller.startAddingCollectionItem();
+    controller.updateCollectionItemDraft(grader: 'BGS');
+    final draft = container.read(provider).collectionItemDraft!;
+
+    expect(draft.grade, '10');
+    expect(cardCollectionGradeLabelsFor('BGS').take(3), [
+      'BGS 10',
+      'BGS 9.5',
+      'BGS 9',
+    ]);
   });
 
   test('editing a Collection Item switches graded state to Raw state', () {
@@ -228,9 +279,17 @@ void main() {
         cardDetailControllerProvider('charizard-ex'),
       );
 
-      expect(state.selectedPriceRange, CardPriceRange.thirty);
+      expect(CardPriceRange.values.map((range) => range.label), [
+        '1d',
+        '7d',
+        '15d',
+        '1m',
+        '3m',
+      ]);
+      expect(state.selectedPriceChartMode, CardPriceChartMode.raw);
+      expect(state.selectedPriceRange, CardPriceRange.oneMonth);
       expect(state.priceSeriesRows.last.dateLabel, 'Today');
-      expect(state.priceSeriesRows.last.priceText, r'$780.00');
+      expect(state.priceSeriesRows.last.priceText, r'$215.00');
       expect(state.priceTabMarketRows.first.label, 'PSA 10');
       expect(state.priceTabMarketRows.first.changeText, startsWith('+'));
       expect(state.soldListingRows.first.platform, 'eBay');
@@ -243,11 +302,17 @@ void main() {
     addTearDown(container.dispose);
     final provider = cardDetailControllerProvider('charizard-ex');
 
-    container.read(provider.notifier).selectPriceRange(CardPriceRange.seven);
+    container
+        .read(provider.notifier)
+        .selectPriceChartMode(CardPriceChartMode.graded);
+    container
+        .read(provider.notifier)
+        .selectPriceRange(CardPriceRange.threeMonths);
     final state = container.read(provider);
 
-    expect(state.selectedPriceRange, CardPriceRange.seven);
-    expect(state.priceSeriesRows.first.dateLabel, '7 days ago');
+    expect(state.selectedPriceChartMode, CardPriceChartMode.graded);
+    expect(state.selectedPriceRange, CardPriceRange.threeMonths);
+    expect(state.priceSeriesRows.first.dateLabel, '90 days ago');
     expect(state.priceSeriesRows.last.priceText, r'$780.00');
     expect(state.priceTabMarketRows.first.label, 'PSA 10');
   });

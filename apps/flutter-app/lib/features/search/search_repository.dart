@@ -40,6 +40,7 @@ class MockSearchRepository implements SearchRepository {
           metadataLine: 'Special Illustration Rare · 223',
           variantLine: 'PSA 10',
           quantity: 1,
+          collectionItemCount: 1,
           isWishlisted: false,
         ),
         SearchCard(

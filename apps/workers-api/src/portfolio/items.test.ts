@@ -409,6 +409,84 @@ describe("collection item routes", () => {
     });
   });
 
+  it("accepts every PRD Raw condition and rejects the deprecated Nearly Mint spelling because raw valuation depends on canonical condition buckets", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+
+    for (const condition of [
+      "Near Mint (NM)",
+      "Lightly Played (LP)",
+      "Moderately Played (MP)",
+      "Heavily Played (HP)",
+      "Damaged (D)",
+    ]) {
+      const response = await app.request(
+        "/api/v1/portfolio/items",
+        {
+          method: "POST",
+          headers: await authHeaders("anonymous", "anon-1"),
+          body: JSON.stringify({
+            folder_id: "main",
+            card_ref: `card-${condition}`,
+            object_type: "tcg",
+            grader: "Raw",
+            condition,
+            grade: null,
+            quantity: 1,
+          }),
+        },
+        createTestEnv(db),
+      );
+
+      expect(response.status).toBe(201);
+    }
+
+    const deprecated = await app.request(
+      "/api/v1/portfolio/items",
+      {
+        method: "POST",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({
+          folder_id: "main",
+          card_ref: "deprecated",
+          object_type: "tcg",
+          grader: "Raw",
+          condition: "Nearly Mint (NM)",
+          grade: null,
+          quantity: 1,
+        }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(deprecated.status).toBe(422);
+  });
+
+  it("rejects impossible graded values because grader-specific prices require a valid 1 to 10 grade scale", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+
+    const response = await app.request(
+      "/api/v1/portfolio/items",
+      {
+        method: "POST",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({
+          folder_id: "main",
+          card_ref: "card-a",
+          object_type: "tcg",
+          grader: "PSA",
+          condition: null,
+          grade: 10.25,
+          quantity: 1,
+        }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(422);
+  });
+
   it("rejects grader and folder validation failures because collection valuation depends on consistent grading state", async () => {
     const db = createDbForOwner("user", "user-1");
     db.folders.push(folder({ id: "main", owner_type: "user", owner_id: "user-1" }));

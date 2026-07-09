@@ -11,6 +11,8 @@ final searchRepositoryProvider = Provider<SearchRepository>((ref) {
 final searchControllerProvider =
     NotifierProvider<SearchController, SearchState>(SearchController.new);
 
+enum SearchCollectAction { updated, openDetail, ignored }
+
 class SearchState {
   const SearchState({
     required SearchCatalog catalog,
@@ -197,16 +199,32 @@ class SearchController extends Notifier<SearchState> {
     );
   }
 
-  void toggleCollect(String cardId) {
+  SearchCollectAction toggleCollect(String cardId) {
     if (state.isUnavailable) {
-      return;
+      return SearchCollectAction.ignored;
     }
 
     final card = state.cardById(cardId);
-    final next = card.isCollected
-        ? card.copyWith(quantity: 0)
-        : card.copyWith(quantity: 1, isWishlisted: false);
+    if (card.isCollected) {
+      final collectionItemCount = card.collectionItemCount > 0
+          ? card.collectionItemCount
+          : 1;
+
+      if (collectionItemCount > 1) {
+        return SearchCollectAction.openDetail;
+      }
+
+      _replaceCard(card.copyWith(quantity: 0, collectionItemCount: 0));
+      return SearchCollectAction.updated;
+    }
+
+    final next = card.copyWith(
+      quantity: 1,
+      collectionItemCount: 1,
+      isWishlisted: false,
+    );
     _replaceCard(next);
+    return SearchCollectAction.updated;
   }
 
   void toggleWishlist(String cardId) {

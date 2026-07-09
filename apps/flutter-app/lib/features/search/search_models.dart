@@ -24,6 +24,7 @@ class SearchCard {
     required this.variantLine,
     required this.quantity,
     required this.isWishlisted,
+    this.collectionItemCount = 0,
   });
 
   final String id;
@@ -37,6 +38,7 @@ class SearchCard {
   final String variantLine;
   final int quantity;
   final bool isWishlisted;
+  final int collectionItemCount;
 
   bool get isCollected => quantity > 0;
 
@@ -60,7 +62,11 @@ class SearchCard {
     ).percentText;
   }
 
-  SearchCard copyWith({int? quantity, bool? isWishlisted}) {
+  SearchCard copyWith({
+    int? quantity,
+    bool? isWishlisted,
+    int? collectionItemCount,
+  }) {
     return SearchCard(
       id: id,
       gameId: gameId,
@@ -73,6 +79,7 @@ class SearchCard {
       variantLine: variantLine,
       quantity: quantity ?? this.quantity,
       isWishlisted: isWishlisted ?? this.isWishlisted,
+      collectionItemCount: collectionItemCount ?? this.collectionItemCount,
     );
   }
 }

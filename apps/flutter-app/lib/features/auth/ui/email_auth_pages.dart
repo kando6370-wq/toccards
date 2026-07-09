@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/validation/email.dart';
 
 import '../auth_controller.dart';
 
-const _emptyEmailMessage = 'Please enter your email.';
-const _invalidEmailMessage = 'Please enter a valid email address.';
 const _shortPasswordMessage = 'Password must be at least 8 characters.';
 const _passwordMismatchMessage = 'Passwords do not match.';
 const _incorrectCodeMessage = 'Incorrect verification code.';
@@ -292,7 +291,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
     }
   }
 
-  String _normalizedEmail() => _emailController.text.trim().toLowerCase();
+  String _normalizedEmail() => normalizedEmail(_emailController.text);
 
   bool _validateEmail(String email) {
     final message = _emailValidationMessage(email);
@@ -301,13 +300,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
   }
 
   String? _emailValidationMessage(String email) {
-    if (email.isEmpty) {
-      return _emptyEmailMessage;
-    }
-    if (!email.contains('@') || !email.split('@').last.contains('.')) {
-      return _invalidEmailMessage;
-    }
-    return null;
+    return emailValidationMessage(email);
   }
 
   bool _validatePassword(String password) {

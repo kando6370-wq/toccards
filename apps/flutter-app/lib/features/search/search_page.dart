@@ -158,7 +158,10 @@ class _SearchResults extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (state.isNoMatch) {
-      return const KandoEmptyBlock(title: 'No matching results found.');
+      return const KandoEmptyBlock(
+        title: 'No results found',
+        body: 'Try a different keyword',
+      );
     }
 
     if (state.selectedTab == SearchTab.sets) {
@@ -246,7 +249,12 @@ class _SearchCardTile extends ConsumerWidget {
               Row(
                 children: [
                   TextButton(
-                    onPressed: () => controller.toggleCollect(card.id),
+                    onPressed: () {
+                      final action = controller.toggleCollect(card.id);
+                      if (action == SearchCollectAction.openDetail) {
+                        context.go('/cards/${card.id}');
+                      }
+                    },
                     child: Text(card.isCollected ? 'Collected' : 'Collect'),
                   ),
                   const Spacer(),

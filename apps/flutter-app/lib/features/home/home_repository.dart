@@ -23,10 +23,9 @@ class MockHomeRepository implements HomeRepository {
           chartValuesByRange: {
             HomeChartRange.oneDay: [12520, 12680, 12840],
             HomeChartRange.sevenDays: [11980, 12140, 12460, 12840],
+            HomeChartRange.fifteenDays: [11600, 12040, 12420, 12680, 12840],
             HomeChartRange.oneMonth: [10800, 11320, 11940, 12420, 12840],
             HomeChartRange.threeMonths: [9400, 10200, 11100, 12100, 12840],
-            HomeChartRange.sixMonths: [7600, 9100, 10500, 11800, 12840],
-            HomeChartRange.max: [6400, 8200, 9800, 11100, 12840],
           },
         ),
         'sealed': PortfolioSummary(
@@ -36,10 +35,9 @@ class MockHomeRepository implements HomeRepository {
           chartValuesByRange: {
             HomeChartRange.oneDay: [8500, 8580, 8640],
             HomeChartRange.sevenDays: [8100, 8240, 8460, 8640],
+            HomeChartRange.fifteenDays: [7900, 8120, 8330, 8520, 8640],
             HomeChartRange.oneMonth: [7200, 7600, 8040, 8320, 8640],
             HomeChartRange.threeMonths: [6100, 6800, 7400, 8100, 8640],
-            HomeChartRange.sixMonths: [5200, 6100, 7000, 7900, 8640],
-            HomeChartRange.max: [4200, 5600, 6900, 7800, 8640],
           },
         ),
         'empty': PortfolioSummary(
@@ -49,10 +47,9 @@ class MockHomeRepository implements HomeRepository {
           chartValuesByRange: {
             HomeChartRange.oneDay: [0],
             HomeChartRange.sevenDays: [0],
+            HomeChartRange.fifteenDays: [0],
             HomeChartRange.oneMonth: [0],
             HomeChartRange.threeMonths: [0],
-            HomeChartRange.sixMonths: [0],
-            HomeChartRange.max: [0],
           },
         ),
       },

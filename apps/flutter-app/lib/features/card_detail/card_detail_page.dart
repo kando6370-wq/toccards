@@ -259,10 +259,13 @@ class _CollectionItems extends StatelessWidget {
                     const SizedBox(height: 8),
                     _InfoRow(label: 'Quantity', value: item.quantityText),
                     _InfoRow(label: 'Status', value: item.statusText),
+                    _InfoRow(label: 'Language', value: item.languageText),
+                    _InfoRow(label: 'Finish', value: item.finishText),
                     _InfoRow(
                       label: 'Purchase price',
                       value: item.purchasePriceText,
                     ),
+                    _InfoRow(label: 'Total', value: item.totalText),
                     if (item.notes.isNotEmpty)
                       _InfoRow(label: 'Notes', value: item.notes),
                     const SizedBox(height: 8),
@@ -311,6 +314,15 @@ class _CollectionItemForm extends StatelessWidget {
     if (draft == null) {
       return const SizedBox.shrink();
     }
+    final languageValue = cardCollectionLanguages.contains(draft.language)
+        ? draft.language
+        : cardCollectionLanguages.first;
+    final finishValue = cardCollectionFinishes.contains(draft.finish)
+        ? draft.finish
+        : cardCollectionFinishes.first;
+    final gradeValue = cardCollectionGradeValues.contains(draft.grade)
+        ? draft.grade
+        : cardCollectionGradeValues.first;
 
     return Card(
       child: Padding(
@@ -396,14 +408,17 @@ class _CollectionItemForm extends StatelessWidget {
             else
               DropdownButtonFormField<String>(
                 key: const Key('card-detail-item-grade'),
-                initialValue: draft.grade,
+                initialValue: gradeValue,
                 decoration: const InputDecoration(
                   labelText: 'Grade',
                   border: OutlineInputBorder(),
                 ),
                 items: [
-                  for (final grade in cardCollectionGrades)
-                    DropdownMenuItem(value: grade, child: Text(grade)),
+                  for (final grade in cardCollectionGradeValues)
+                    DropdownMenuItem(
+                      value: grade,
+                      child: Text('${draft.grader} $grade'),
+                    ),
                 ],
                 onChanged: (value) {
                   if (value != null) {
@@ -411,6 +426,42 @@ class _CollectionItemForm extends StatelessWidget {
                   }
                 },
               ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: const Key('card-detail-item-language'),
+              initialValue: languageValue,
+              decoration: const InputDecoration(
+                labelText: 'Language',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final language in cardCollectionLanguages)
+                  DropdownMenuItem(value: language, child: Text(language)),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  controller.updateCollectionItemDraft(language: value);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: const Key('card-detail-item-finish'),
+              initialValue: finishValue,
+              decoration: const InputDecoration(
+                labelText: 'Finish',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final finish in cardCollectionFinishes)
+                  DropdownMenuItem(value: finish, child: Text(finish)),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  controller.updateCollectionItemDraft(finish: value);
+                }
+              },
+            ),
             const SizedBox(height: 12),
             TextFormField(
               key: const Key('card-detail-item-purchase-price'),
@@ -424,6 +475,8 @@ class _CollectionItemForm extends StatelessWidget {
                 controller.updateCollectionItemDraft(purchasePriceText: value);
               },
             ),
+            const SizedBox(height: 8),
+            _InfoRow(label: 'Total', value: draft.totalText),
             const SizedBox(height: 12),
             TextFormField(
               key: const Key('card-detail-item-notes'),
@@ -482,6 +535,23 @@ class _PriceOverview extends StatelessWidget {
       children: [
         Text('Price overview', style: textTheme.titleLarge),
         const SizedBox(height: 8),
+        Text('Price type', style: textTheme.titleMedium),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<CardPriceChartMode>(
+            showSelectedIcon: false,
+            segments: [
+              for (final mode in CardPriceChartMode.values)
+                ButtonSegment(value: mode, label: Text(mode.label)),
+            ],
+            selected: {state.selectedPriceChartMode},
+            onSelectionChanged: (selection) {
+              controller.selectPriceChartMode(selection.first);
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
         Text('Price range', style: textTheme.titleMedium),
         const SizedBox(height: 8),
         SingleChildScrollView(

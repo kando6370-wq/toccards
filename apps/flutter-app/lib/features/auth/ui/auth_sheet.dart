@@ -5,6 +5,7 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import '../auth_controller.dart';
 import 'email_auth_pages.dart';
+import '../../profile/profile_actions.dart';
 
 Future<void> showAuthSheet(BuildContext context) {
   return showModalBottomSheet<void>(
@@ -32,9 +33,11 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   void initState() {
     super.initState();
     _termsRecognizer = TapGestureRecognizer()
-      ..onTap = _showLegalLinkUnavailable;
+      ..onTap = () =>
+          _openLegalLink(ref.read(profileActionsProvider).openTerms);
     _privacyRecognizer = TapGestureRecognizer()
-      ..onTap = _showLegalLinkUnavailable;
+      ..onTap = () =>
+          _openLegalLink(ref.read(profileActionsProvider).openPrivacy);
   }
 
   @override
@@ -144,11 +147,14 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
     return error.toString().replaceFirst('Exception: ', '');
   }
 
-  void _showLegalLinkUnavailable() {
-    showKandoToast(
-      context,
-      message: 'Unable to open this page. Please try again later.',
-    );
+  Future<void> _openLegalLink(Future<void> Function() action) async {
+    try {
+      await action();
+    } on Exception {
+      if (mounted) {
+        showKandoToast(context, message: profileActionFailureText);
+      }
+    }
   }
 }
 

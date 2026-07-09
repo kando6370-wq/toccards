@@ -18,15 +18,22 @@ void main() {
       final mainPortfolio = dashboard.portfoliosByFolderId['main']!;
       final mainHighlight = dashboard.mostValuableByFolderId['main']!;
 
+      expect(HomeChartRange.values.map((range) => range.label), [
+        '1d',
+        '7d',
+        '15d',
+        '1m',
+        '3m',
+      ]);
       expect(dashboard.defaultFolder.id, 'main');
       expect(dashboard.defaultFolder.isDefault, isTrue);
       expect(mainPortfolio.totalValueUsd, 12840);
       expect(mainPortfolio.previous30dValueUsd, 12420);
-      expect(mainPortfolio.chartValuesByRange[HomeChartRange.max], [
-        6400,
-        8200,
-        9800,
-        11100,
+      expect(mainPortfolio.chartValuesByRange[HomeChartRange.fifteenDays], [
+        11600,
+        12040,
+        12420,
+        12680,
         12840,
       ]);
       expect(mainHighlight.title, 'Charizard ex');
@@ -38,13 +45,10 @@ void main() {
       expect(state.totalAmountText, r'$12,840.00');
       expect(state.changeAmountText, r'$420.00 in the last 30 days');
       expect(state.changePercentText, '+3.38%');
-      expect(state.selectedPortfolio.chartValuesByRange[HomeChartRange.max], [
-        6400,
-        8200,
-        9800,
-        11100,
-        12840,
-      ]);
+      expect(
+        state.selectedPortfolio.chartValuesByRange[HomeChartRange.fifteenDays],
+        [11600, 12040, 12420, 12680, 12840],
+      );
     },
   );
 
@@ -225,11 +229,11 @@ void main() {
       HomeChartRange.oneMonth,
     );
 
-    controller.selectChartRange(HomeChartRange.max);
+    controller.selectChartRange(HomeChartRange.fifteenDays);
 
     final state = container.read(homeControllerProvider);
-    expect(state.chartRange, HomeChartRange.max);
-    expect(state.chartValues, [6400, 8200, 9800, 11100, 12840]);
+    expect(state.chartRange, HomeChartRange.fifteenDays);
+    expect(state.chartValues, [11600, 12040, 12420, 12680, 12840]);
   });
 }
 

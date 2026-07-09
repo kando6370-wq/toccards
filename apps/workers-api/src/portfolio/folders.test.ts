@@ -375,6 +375,41 @@ describe("portfolio folder routes", () => {
     });
   });
 
+  it("rejects folder names over 50 characters because Portfolio folders must stay readable in the mobile UI", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+
+    const create = await app.request(
+      "/api/v1/portfolio/folders",
+      {
+        method: "POST",
+        headers: { ...(await authHeaders("anonymous", "anon-1")) },
+        body: JSON.stringify({ name: "A".repeat(51) }),
+      },
+      createTestEnv(db),
+    );
+    db.folders.push(folder({ id: "trade", name: "Trade" }));
+    const rename = await app.request(
+      "/api/v1/portfolio/folders/trade",
+      {
+        method: "PATCH",
+        headers: { ...(await authHeaders("anonymous", "anon-1")) },
+        body: JSON.stringify({ name: "B".repeat(51) }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(create.status).toBe(422);
+    expect(await create.json()).toEqual({
+      success: false,
+      error: { code: "VALIDATION_ERROR", message: "Invalid request." },
+    });
+    expect(rename.status).toBe(422);
+    expect(await rename.json()).toEqual({
+      success: false,
+      error: { code: "VALIDATION_ERROR", message: "Invalid request." },
+    });
+  });
+
   it("renames an owned folder and rejects deleting the default folder because Main must stay protected", async () => {
     const db = createDbForOwner("user", "user-1");
     db.folders.push(

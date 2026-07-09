@@ -121,7 +121,7 @@ void main() {
       isTrue,
     );
 
-    controller.toggleCollect('squirtle');
+    expect(controller.toggleCollect('squirtle'), SearchCollectAction.updated);
     final collected = container
         .read(searchControllerProvider)
         .cardById('squirtle');
@@ -130,12 +130,36 @@ void main() {
     expect(collected.isCollected, isTrue);
     expect(collected.isWishlisted, isFalse);
 
-    controller.toggleCollect('squirtle');
+    expect(controller.toggleCollect('squirtle'), SearchCollectAction.updated);
     expect(
       container.read(searchControllerProvider).cardById('squirtle').quantity,
       0,
     );
   });
+
+  test(
+    'Collect on a card with multiple collection items requests detail management',
+    () {
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            const _MultiCollectionSearchRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+
+      final action = controller.toggleCollect('multi-owned');
+      final card = container
+          .read(searchControllerProvider)
+          .cardById('multi-owned');
+
+      expect(action, SearchCollectAction.openDetail);
+      expect(card.quantity, 2);
+      expect(card.collectionItemCount, 2);
+    },
+  );
 
   test('missing price and change use PRD fallback text', () {
     final container = ProviderContainer();
@@ -161,5 +185,33 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
       throw StateError('mock search unavailable');
     }
     return const MockSearchRepository().loadCatalog();
+  }
+}
+
+class _MultiCollectionSearchRepository implements SearchRepository {
+  const _MultiCollectionSearchRepository();
+
+  @override
+  SearchCatalog loadCatalog() {
+    return const SearchCatalog(
+      games: [SearchGame(id: 'pokemon', label: 'Pokemon')],
+      cards: [
+        SearchCard(
+          id: 'multi-owned',
+          gameId: 'pokemon',
+          type: SearchCardType.tcg,
+          name: 'Multi Owned',
+          priceUsd: 10,
+          previous30dPriceUsd: 9,
+          setName: 'Test Set',
+          metadataLine: 'Promo 001',
+          variantLine: 'Raw Near Mint (NM)',
+          quantity: 2,
+          collectionItemCount: 2,
+          isWishlisted: false,
+        ),
+      ],
+      sets: [],
+    );
   }
 }

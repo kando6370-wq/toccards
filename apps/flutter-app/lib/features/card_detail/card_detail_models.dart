@@ -3,15 +3,24 @@ enum CardDetailType { tcg, sports, sealed, other }
 const _cardCollectionItemUnset = Object();
 
 enum CardPriceRange {
-  seven(7, '7D'),
-  thirty(30, '30D'),
-  ninety(90, '90D'),
-  oneEighty(180, '180D'),
-  year(365, '365D');
+  oneDay(1, '1d'),
+  sevenDays(7, '7d'),
+  fifteenDays(15, '15d'),
+  oneMonth(30, '1m'),
+  threeMonths(90, '3m');
 
   const CardPriceRange(this.days, this.label);
 
   final int days;
+  final String label;
+}
+
+enum CardPriceChartMode {
+  raw('RAW'),
+  graded('GRADED');
+
+  const CardPriceChartMode(this.label);
+
   final String label;
 }
 
@@ -58,6 +67,8 @@ class CardCollectionItem {
     required this.grader,
     required this.condition,
     required this.grade,
+    required this.language,
+    required this.finish,
     required this.purchasePriceUsd,
     required this.notes,
   });
@@ -68,6 +79,8 @@ class CardCollectionItem {
   final String grader;
   final String? condition;
   final String? grade;
+  final String? language;
+  final String? finish;
   final double? purchasePriceUsd;
   final String notes;
 
@@ -77,6 +90,8 @@ class CardCollectionItem {
     String? grader,
     Object? condition = _cardCollectionItemUnset,
     Object? grade = _cardCollectionItemUnset,
+    Object? language = _cardCollectionItemUnset,
+    Object? finish = _cardCollectionItemUnset,
     Object? purchasePriceUsd = _cardCollectionItemUnset,
     String? notes,
   }) {
@@ -89,6 +104,12 @@ class CardCollectionItem {
           ? this.condition
           : condition as String?,
       grade: grade == _cardCollectionItemUnset ? this.grade : grade as String?,
+      language: language == _cardCollectionItemUnset
+          ? this.language
+          : language as String?,
+      finish: finish == _cardCollectionItemUnset
+          ? this.finish
+          : finish as String?,
       purchasePriceUsd: purchasePriceUsd == _cardCollectionItemUnset
           ? this.purchasePriceUsd
           : purchasePriceUsd as double?,
@@ -112,6 +133,7 @@ class CardDetail {
     required this.marketPrices,
     this.collectionItems = const [],
     this.priceSeriesByRange = const {},
+    this.gradedPriceSeriesByRange = const {},
     this.soldListings = const [],
   });
 
@@ -128,6 +150,7 @@ class CardDetail {
   final List<CardMarketPrice> marketPrices;
   final List<CardCollectionItem> collectionItems;
   final Map<CardPriceRange, List<CardPricePoint>> priceSeriesByRange;
+  final Map<CardPriceRange, List<CardPricePoint>> gradedPriceSeriesByRange;
   final List<CardSoldListing> soldListings;
 
   bool get isCollected => quantity > 0 || collectionItems.isNotEmpty;
@@ -151,6 +174,7 @@ class CardDetail {
       marketPrices: marketPrices,
       collectionItems: collectionItems ?? this.collectionItems,
       priceSeriesByRange: priceSeriesByRange,
+      gradedPriceSeriesByRange: gradedPriceSeriesByRange,
       soldListings: soldListings,
     );
   }

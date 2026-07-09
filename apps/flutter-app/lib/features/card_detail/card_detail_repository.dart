@@ -36,25 +36,47 @@ class MockCardDetailRepository implements CardDetailRepository {
           ),
         ],
         priceSeriesByRange: {
-          CardPriceRange.seven: [
+          CardPriceRange.oneDay: [
+            CardPricePoint(dateLabel: 'Yesterday', priceUsd: 31.92),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
+          ],
+          CardPriceRange.sevenDays: [
             CardPricePoint(dateLabel: '7 days ago', priceUsd: 31.44),
             CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
           ],
-          CardPriceRange.thirty: [
+          CardPriceRange.fifteenDays: [
+            CardPricePoint(dateLabel: '15 days ago', priceUsd: 31.02),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
+          ],
+          CardPriceRange.oneMonth: [
             CardPricePoint(dateLabel: '30 days ago', priceUsd: 30.67),
             CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
           ],
-          CardPriceRange.ninety: [
+          CardPriceRange.threeMonths: [
             CardPricePoint(dateLabel: '90 days ago', priceUsd: 28.1),
             CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
           ],
-          CardPriceRange.oneEighty: [
-            CardPricePoint(dateLabel: '180 days ago', priceUsd: 25.4),
-            CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
+        },
+        gradedPriceSeriesByRange: {
+          CardPriceRange.oneDay: [
+            CardPricePoint(dateLabel: 'Yesterday', priceUsd: 123),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 124.5),
           ],
-          CardPriceRange.year: [
-            CardPricePoint(dateLabel: '365 days ago', priceUsd: 20.3),
-            CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
+          CardPriceRange.sevenDays: [
+            CardPricePoint(dateLabel: '7 days ago', priceUsd: 121.3),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 124.5),
+          ],
+          CardPriceRange.fifteenDays: [
+            CardPricePoint(dateLabel: '15 days ago', priceUsd: 119.6),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 124.5),
+          ],
+          CardPriceRange.oneMonth: [
+            CardPricePoint(dateLabel: '30 days ago', priceUsd: 117.2),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 124.5),
+          ],
+          CardPriceRange.threeMonths: [
+            CardPricePoint(dateLabel: '90 days ago', priceUsd: 108),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 124.5),
           ],
         },
         soldListings: [
@@ -99,30 +121,55 @@ class MockCardDetailRepository implements CardDetailRepository {
             grader: 'PSA',
             condition: null,
             grade: '10',
+            language: 'English',
+            finish: 'Holofoil',
             purchasePriceUsd: 650,
             notes: 'Pulled from Obsidian Flames binder.',
           ),
         ],
         priceSeriesByRange: {
-          CardPriceRange.seven: [
+          CardPriceRange.oneDay: [
+            CardPricePoint(dateLabel: 'Yesterday', priceUsd: 212),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 215),
+          ],
+          CardPriceRange.sevenDays: [
+            CardPricePoint(dateLabel: '7 days ago', priceUsd: 209),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 215),
+          ],
+          CardPriceRange.fifteenDays: [
+            CardPricePoint(dateLabel: '15 days ago', priceUsd: 207),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 215),
+          ],
+          CardPriceRange.oneMonth: [
+            CardPricePoint(dateLabel: '30 days ago', priceUsd: 204.5),
+            CardPricePoint(dateLabel: '14 days ago', priceUsd: 209),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 215),
+          ],
+          CardPriceRange.threeMonths: [
+            CardPricePoint(dateLabel: '90 days ago', priceUsd: 180),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 215),
+          ],
+        },
+        gradedPriceSeriesByRange: {
+          CardPriceRange.oneDay: [
+            CardPricePoint(dateLabel: 'Yesterday', priceUsd: 770),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+          ],
+          CardPriceRange.sevenDays: [
             CardPricePoint(dateLabel: '7 days ago', priceUsd: 760),
             CardPricePoint(dateLabel: 'Today', priceUsd: 780),
           ],
-          CardPriceRange.thirty: [
+          CardPriceRange.fifteenDays: [
+            CardPricePoint(dateLabel: '15 days ago', priceUsd: 744),
+            CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+          ],
+          CardPriceRange.oneMonth: [
             CardPricePoint(dateLabel: '30 days ago', priceUsd: 721.58),
             CardPricePoint(dateLabel: '14 days ago', priceUsd: 750),
             CardPricePoint(dateLabel: 'Today', priceUsd: 780),
           ],
-          CardPriceRange.ninety: [
+          CardPriceRange.threeMonths: [
             CardPricePoint(dateLabel: '90 days ago', priceUsd: 690),
-            CardPricePoint(dateLabel: 'Today', priceUsd: 780),
-          ],
-          CardPriceRange.oneEighty: [
-            CardPricePoint(dateLabel: '180 days ago', priceUsd: 640),
-            CardPricePoint(dateLabel: 'Today', priceUsd: 780),
-          ],
-          CardPriceRange.year: [
-            CardPricePoint(dateLabel: '365 days ago', priceUsd: 520),
             CardPricePoint(dateLabel: 'Today', priceUsd: 780),
           ],
         },
@@ -167,7 +214,7 @@ class MockCardDetailRepository implements CardDetailRepository {
         game: 'One Piece',
         setName: 'Romance Dawn',
         identityLine: 'Manga Rare #001',
-        finish: 'Japanese',
+        finish: 'Normal',
         language: 'Japanese',
         quantity: 0,
         isWishlisted: true,

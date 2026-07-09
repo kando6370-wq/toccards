@@ -7,6 +7,7 @@ import '../auth/auth_models.dart';
 import '../auth/ui/auth_sheet.dart';
 import '../../shared/ui/toast.dart';
 import 'account_page.dart';
+import 'profile_actions.dart';
 
 const profileVersionText = 'Version 1.0.0';
 
@@ -83,10 +84,34 @@ class _ProfileContent extends ConsumerWidget {
           label: 'Customer Support',
           onTap: () => context.push('/customer-support'),
         ),
-        const _ProfileEntry(label: 'Score'),
-        const _ProfileEntry(label: 'Share With Friends'),
-        const _ProfileEntry(label: 'Terms Of Use'),
-        const _ProfileEntry(label: 'Privacy Policy'),
+        _ProfileEntry(
+          label: 'Score',
+          onTap: () => _runProfileAction(
+            context,
+            () => ref.read(profileActionsProvider).requestScore(),
+          ),
+        ),
+        _ProfileEntry(
+          label: 'Share With Friends',
+          onTap: () => _runProfileAction(
+            context,
+            () => ref.read(profileActionsProvider).shareWithFriends(),
+          ),
+        ),
+        _ProfileEntry(
+          label: 'Terms Of Use',
+          onTap: () => _runProfileAction(
+            context,
+            () => ref.read(profileActionsProvider).openTerms(),
+          ),
+        ),
+        _ProfileEntry(
+          label: 'Privacy Policy',
+          onTap: () => _runProfileAction(
+            context,
+            () => ref.read(profileActionsProvider).openPrivacy(),
+          ),
+        ),
         if (isUser) ...[
           const SizedBox(height: 12),
           FilledButton(
@@ -111,6 +136,19 @@ class _ProfileContent extends ConsumerWidget {
         Text(profileVersionText, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
+  }
+
+  Future<void> _runProfileAction(
+    BuildContext context,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+    } on Exception {
+      if (context.mounted) {
+        showKandoToast(context, message: profileActionFailureText);
+      }
+    }
   }
 
   Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref) async {

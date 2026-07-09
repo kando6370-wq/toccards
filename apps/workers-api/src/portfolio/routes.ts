@@ -260,7 +260,13 @@ WHERE owner_type = ? AND owner_id = ?
 
 const SUPPORTED_OBJECT_TYPES = new Set(["tcg", "sports", "sealed", "other"]);
 const SUPPORTED_GRADERS = new Set(["Raw", "PSA", "BGS", "SGC", "CGC", "TAG", "AGS"]);
-const SUPPORTED_RAW_CONDITIONS = new Set(["Near Mint (NM)"]);
+const SUPPORTED_RAW_CONDITIONS = new Set([
+  "Near Mint (NM)",
+  "Lightly Played (LP)",
+  "Moderately Played (MP)",
+  "Heavily Played (HP)",
+  "Damaged (D)",
+]);
 const ITEM_SORT_FIELDS = new Set(["created_at", "updated_at", "card_ref"]);
 const WISHLIST_SORT_FIELDS = new Set(["created_at", "card_ref"]);
 const ISO_4217_CURRENCY_PATTERN = /^[A-Z]{3}$/;
@@ -1324,7 +1330,11 @@ function normalizeCollectionItemDraft(
       : null;
   }
 
-  return draft.grade !== null && draft.condition === null ? draft : null;
+  return draft.grade !== null &&
+    isValidGrade(draft.grade) &&
+    draft.condition === null
+    ? draft
+    : null;
 }
 
 function sortCollectionItems(
@@ -1382,7 +1392,16 @@ function folderNameFromBody(body: unknown): string | null {
 
   const name = body.name.trim();
 
-  return name.length > 0 ? name : null;
+  return name.length > 0 && name.length <= 50 ? name : null;
+}
+
+function isValidGrade(grade: number): boolean {
+  return (
+    Number.isFinite(grade) &&
+    grade > 0 &&
+    grade <= 10 &&
+    Number.isSafeInteger(grade * 2)
+  );
 }
 
 function folderOrdersFromBody(body: unknown): FolderOrder[] | null {

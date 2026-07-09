@@ -127,7 +127,9 @@ void main() {
     await tester.enterText(find.byType(TextFormField), 'missing');
     await tester.pumpAndSettle();
 
-    expect(find.text('No matching results found.'), findsOneWidget);
+    expect(find.text('No results found'), findsOneWidget);
+    expect(find.text('Try a different keyword'), findsOneWidget);
+    expect(find.text('No matching results found.'), findsNothing);
   });
 
   testWidgets('scanner action opens Scan workflow', (tester) async {

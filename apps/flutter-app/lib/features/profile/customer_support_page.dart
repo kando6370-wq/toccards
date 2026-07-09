@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/validation/email.dart';
 
 import '../../shared/ui/toast.dart';
 import '../auth/auth_controller.dart';
@@ -157,7 +158,7 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
           .read(feedbackRepositoryProvider)
           .submit(
             FeedbackSubmission(
-              email: _emailController.text.trim().toLowerCase(),
+              email: normalizedEmail(_emailController.text),
               types: _selectedOrOther(_selectedTypes),
               functions: _selectedOrOther(_selectedFunctions),
               message: _messageController.text.trim(),
@@ -183,16 +184,10 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
   }
 
   bool _validate() {
-    final email = _emailController.text.trim().toLowerCase();
+    final email = normalizedEmail(_emailController.text);
     final message = _messageController.text.trim();
-    String? emailError;
+    final emailError = emailValidationMessage(email);
     String? messageError;
-
-    if (email.isEmpty) {
-      emailError = 'Please enter your email.';
-    } else if (!email.contains('@') || !email.split('@').last.contains('.')) {
-      emailError = 'Please enter a valid email address.';
-    }
 
     if (message.isEmpty) {
       messageError = 'Please enter your feedback.';
