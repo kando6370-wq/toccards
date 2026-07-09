@@ -3,13 +3,13 @@ import {
   Badge,
   Button,
   DatePicker,
-  Descriptions,
   Drawer,
   Form,
   Input,
   Layout,
   Menu,
   Modal,
+  Pagination,
   Select,
   Segmented,
   Space,
@@ -145,6 +145,15 @@ const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: str
   { title: "App 版本管理", items: [{ key: "app-versions", label: "版本管理" }] },
 ];
 
+const pageMeta: Record<MenuKey, { title: string; description: string }> = {
+  installations: { title: "安装分析", description: "查看各国家与平台安装趋势及明细数据。" },
+  users: { title: "用户列表", description: "查看 App 用户的基础信息、登录身份和首次安装时间。" },
+  feedbacks: { title: "用户反馈", description: "查看用户提交的反馈内容，并标记处理状态。" },
+  scans: { title: "扫描记录管理", description: "查看用户扫描图片、系统识别结果和用户最终确认结果。" },
+  permissions: { title: "权限管理", description: "管理允许访问后台的邮箱账号。" },
+  "app-versions": { title: "版本管理", description: "管理 iOS 与 Google 端最低支持版本和更新提示。" },
+};
+
 export default function App() {
   const [session, setSession] = useState<AdminSession | null>(() => readStoredSession());
   const [authView, setAuthView] = useState<"login" | "password" | "denied">("login");
@@ -235,11 +244,6 @@ function LoginView({
         </Form>
         <div className="auth-footer">只有已授权的邮箱账号可以访问后台</div>
       </section>
-      <aside className="auth-alerts">
-        <Alert type="error" showIcon message="验证提示" description="请输入正确的邮箱格式" />
-        <Alert type="error" showIcon message="登录失败" description="邮箱或密码错误，请重试" />
-        <Alert showIcon message="系统提示" description="登录功能已锁定至企业内网环境。如无法访问，请联系 IT 管理部门。" />
-      </aside>
       <div className="portal-watermark">PORTAL</div>
     </main>
   );
@@ -296,20 +300,23 @@ function AccessDeniedView({ onBack }: { onBack: () => void }) {
         <Title level={3}>访问权限受限</Title>
         <Text>当前账号没有后台访问权限，请联系管理员开通权限。</Text>
         <Space>
-          <Button onClick={onBack}>退出登录</Button>
           <Button className="cyan-button" onClick={onBack}>
+            退出登录
+          </Button>
+          <Button onClick={onBack}>
             重试登录
           </Button>
         </Space>
-        <Button type="link">联系技术支持</Button>
+        <div className="denied-footer">© TCG ADMIN BACKEND PORTAL</div>
       </section>
+      <Button className="support-button">联系技术支持</Button>
     </main>
   );
 }
 
 function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: () => void }) {
   const [selected, setSelected] = useState<MenuKey>("installations");
-  const selectedTitle = menuGroups.flatMap((group) => group.items).find((item) => item.key === selected)?.label ?? "";
+  const selectedMeta = pageMeta[selected];
 
   return (
     <Layout className="admin-layout">
@@ -342,7 +349,10 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
       <Layout>
         <Content className="admin-content">
           <div className="page-title-row">
-            <Title level={3}>{selectedTitle}</Title>
+            <div className="page-title-copy">
+              <Title level={3}>{selectedMeta.title}</Title>
+              <Text>{selectedMeta.description}</Text>
+            </div>
             <Text>{new Date().toLocaleDateString()}</Text>
           </div>
           {selected === "installations" && <InstallationsPage session={session} />}
@@ -391,18 +401,16 @@ function InstallationsPage({ session }: { session: AdminSession }) {
         </div>
         <LineChart data={trend} />
       </section>
-      <section className="table-panel">
-        <div className="panel-heading">
-          <Title level={4}>安装数据</Title>
-        </div>
+      <DataPanel title="安装数据" count={rows.length}>
         <Table rowKey={(row) => `${row.date}-${row.country}-${row.platform}`} columns={columns} dataSource={rows} loading={loading} pagination={{ pageSize: 8 }} />
-      </section>
+      </DataPanel>
     </PagePanel>
   );
 }
 
 function UsersPage({ session }: { session: AdminSession }) {
   const { data, loading, reload, error } = useAdminData<{ items: UserItem[] }>("/users?page_size=100", session);
+  const users = data?.items ?? [];
   const columns: ColumnsType<UserItem> = [
     { title: "UID", dataIndex: "id", ellipsis: true },
     { title: "平台", render: () => "iOS" },
@@ -422,15 +430,16 @@ function UsersPage({ session }: { session: AdminSession }) {
         <Button className="cyan-button">查询</Button>
         <Button>重置</Button>
       </FilterBar>
-      <section className="table-panel">
-        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={{ pageSize: 8 }} />
-      </section>
+      <DataPanel title="用户数据" count={users.length}>
+        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} pagination={{ pageSize: 8 }} />
+      </DataPanel>
     </PagePanel>
   );
 }
 
 function FeedbackPage({ session }: { session: AdminSession }) {
   const { data, loading, reload, error } = useAdminData<{ items: FeedbackTicket[] }>("/feedbacks?page_size=100", session);
+  const tickets = data?.items ?? [];
 
   async function updateStatus(ticket: FeedbackTicket, status: FeedbackStatus) {
     await mutate(session, `/feedbacks/${ticket.id}/status`, { method: "PATCH", body: { status } });
@@ -452,7 +461,7 @@ function FeedbackPage({ session }: { session: AdminSession }) {
       </FilterBar>
       {loading && <Alert message="正在加载反馈" type="info" showIcon />}
       <div className="feedback-list">
-        {(data?.items ?? []).map((ticket) => (
+        {tickets.map((ticket) => (
           <article className="feedback-card" key={ticket.id}>
             <div className="feedback-card-head">
               <Space>
@@ -482,6 +491,10 @@ function FeedbackPage({ session }: { session: AdminSession }) {
           </article>
         ))}
       </div>
+      <div className="feedback-footer">
+        <Text>{rangeSummary(tickets.length, "条反馈")}</Text>
+        <Pagination size="small" current={1} pageSize={5} total={tickets.length} showSizeChanger={false} />
+      </div>
     </PagePanel>
   );
 }
@@ -489,6 +502,7 @@ function FeedbackPage({ session }: { session: AdminSession }) {
 function ScansPage({ session }: { session: AdminSession }) {
   const [selected, setSelected] = useState<ScanDetail | null>(null);
   const { data, loading, reload, error } = useAdminData<{ items: ScanListItem[] }>("/scans?page_size=100", session);
+  const scans = data?.items ?? [];
 
   async function openDetail(scanId: string) {
     const detail = await adminRequest<ScanDetail>(`/scans/${scanId}`, { token: session.accessToken });
@@ -518,9 +532,9 @@ function ScansPage({ session }: { session: AdminSession }) {
         <Button className="cyan-button">查询</Button>
         <Button>重置</Button>
       </FilterBar>
-      <section className="table-panel">
-        <Table rowKey="scan_id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={{ pageSize: 8 }} />
-      </section>
+      <DataPanel title="扫描数据" count={scans.length}>
+        <Table rowKey="scan_id" columns={columns} dataSource={scans} loading={loading} pagination={{ pageSize: 8 }} />
+      </DataPanel>
       <ScanDetailDrawer scan={selected} onClose={() => setSelected(null)} />
     </PagePanel>
   );
@@ -530,6 +544,7 @@ function PermissionsPage({ session }: { session: AdminSession }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
   const { data, loading, reload, error } = useAdminData<{ items: PermissionItem[] }>("/permissions?page_size=100", session);
+  const permissions = data?.items ?? [];
 
   async function savePermission(values: { email: string; role: AdminRole; password: string }) {
     await mutate(session, "/permissions", { method: "POST", body: values });
@@ -581,9 +596,9 @@ function PermissionsPage({ session }: { session: AdminSession }) {
           新增授权账号
         </Button>
       </div>
-      <section className="table-panel">
-        <Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={{ pageSize: 8 }} />
-      </section>
+      <DataPanel title="授权账号" count={permissions.length}>
+        <Table rowKey="id" columns={columns} dataSource={permissions} loading={loading} pagination={{ pageSize: 8 }} />
+      </DataPanel>
       <Modal open={modalOpen} title="新增授权账号" onCancel={() => setModalOpen(false)} onOk={form.submit}>
         <Form form={form} layout="vertical" onFinish={savePermission} initialValues={{ role: "operator" }}>
           <Form.Item name="email" label="邮箱账号" rules={[{ required: true, type: "email" }]}>
@@ -699,39 +714,93 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
 
 function ScanDetailDrawer({ scan, onClose }: { scan: ScanDetail | null; onClose: () => void }) {
   return (
-    <Drawer open={!!scan} onClose={onClose} title="扫描详情" width={520}>
+    <Drawer open={!!scan} onClose={onClose} title="扫描详情" width={560} className="scan-detail-drawer">
       {scan && (
         <Space direction="vertical" size={20} className="drawer-stack">
-          <img className="scan-preview" src={scan.image_url} alt="scan" />
-          <Input value={scan.image_url} readOnly addonAfter="复制链接" />
-          <Descriptions column={1} size="small" title="基础信息" items={[
-            { key: "scan", label: "Scan ID", children: scan.scan_id },
-            { key: "uid", label: "UID", children: scan.uid },
-            { key: "platform", label: "平台", children: scan.platform },
-            { key: "version", label: "App 版本", children: scan.app_version },
-            { key: "device", label: "设备型号", children: scan.device_model },
-            { key: "os", label: "系统版本", children: scan.os_version },
-            { key: "time", label: "扫描时间", children: formatTime(scan.scan_time) },
-          ]} />
-          <ResultBlock title="系统识别结果" value={scan.system_result} />
-          <ResultBlock title="用户确认结果" value={scan.user_result} />
-          <section>
-            <Title level={5}>候选识别结果</Title>
-            {scan.candidates.map((candidate, index) => (
-              <pre className="candidate-row" key={index}>{JSON.stringify(candidate, null, 2)}</pre>
-            ))}
-          </section>
+          <DetailSection title="扫描图片">
+            <img className="scan-preview" src={scan.image_url} alt="scan" />
+            <Input value={scan.image_url} readOnly addonAfter="复制链接" />
+          </DetailSection>
+          <DetailSection title="基础信息">
+            <InfoGrid items={[
+              { label: "Scan ID", value: scan.scan_id },
+              { label: "UID", value: scan.uid },
+              { label: "平台", value: scan.platform },
+              { label: "App 版本", value: scan.app_version },
+              { label: "设备型号", value: scan.device_model },
+              { label: "系统版本", value: scan.os_version },
+              { label: "扫描时间", value: formatTime(scan.scan_time) },
+            ]} />
+          </DetailSection>
+          <DetailSection title="系统识别结果">
+            <InfoGrid items={[
+              { label: "状态", value: renderRecognitionStatus(String(scan.system_result.status ?? scan.recognition_status)) },
+              { label: "名称", value: displayValue(scan.system_result.name) },
+              { label: "IP / Game", value: displayValue(scan.system_result.ip_game) },
+              { label: "Set", value: displayValue(scan.system_result.set) },
+              { label: "Number", value: displayValue(scan.system_result.number) },
+              { label: "置信度", value: confidenceText(scan.system_result.confidence) },
+              { label: "候选数量", value: displayValue(scan.system_result.candidate_count) },
+            ]} />
+          </DetailSection>
+          <DetailSection title="用户确认结果">
+            <InfoGrid items={[
+              { label: "确认状态", value: displayValue(scan.user_result.confirmation_status ?? scan.user_confirmation_status) },
+              { label: "最终卡牌", value: displayValue(scan.user_result.final_card) },
+              { label: "是否修改", value: displayValue(scan.user_result.modified_result ?? scan.modified_result) },
+              { label: "加入库存", value: displayValue(scan.user_result.added_to_inventory) },
+              { label: "加入愿望单", value: displayValue(scan.user_result.added_to_wishlist) },
+            ]} />
+          </DetailSection>
+          <DetailSection title="候选识别结果">
+            <div className="candidate-list">
+              {scan.candidates.map((candidate, index) => (
+                <div className="candidate-card" key={index}>
+                  <span className="candidate-thumb" />
+                  <div>
+                    <strong>{displayValue(candidate.name)}</strong>
+                    <Text>{displayValue(candidate.set)} {displayValue(candidate.number)} · {confidenceText(candidate.confidence)}</Text>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DetailSection>
         </Space>
       )}
     </Drawer>
   );
 }
 
-function ResultBlock({ title, value }: { title: string; value: Record<string, unknown> }) {
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="result-block">
+    <section className="detail-section">
       <Title level={5}>{title}</Title>
-      <pre>{JSON.stringify(value, null, 2)}</pre>
+      {children}
+    </section>
+  );
+}
+
+function InfoGrid({ items }: { items: Array<{ label: string; value: React.ReactNode }> }) {
+  return (
+    <div className="info-grid">
+      {items.map((item) => (
+        <div className="info-item" key={item.label}>
+          <Text>{item.label}</Text>
+          <strong>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DataPanel({ title, count, children, className = "" }: { title: string; count?: number; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={`table-panel ${className}`.trim()}>
+      <div className="panel-heading">
+        <Title level={4}>{title}</Title>
+        {count !== undefined && <Text>共 {count.toLocaleString()} 条结果</Text>}
+      </div>
+      {children}
     </section>
   );
 }
@@ -916,6 +985,23 @@ function formatDate(value: string | null) {
 
 function formatTime(value: string | null) {
   return value ? new Date(value).toLocaleString() : "-";
+}
+
+function displayValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "boolean") return value ? "是" : "否";
+  return String(value);
+}
+
+function confidenceText(value: unknown) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return displayValue(value);
+  return numeric <= 1 ? `${(numeric * 100).toFixed(1)}%` : `${numeric}%`;
+}
+
+function rangeSummary(count: number, unit: string) {
+  if (count === 0) return `显示 0 条，共 0 ${unit}`;
+  return `显示 1 到 ${count} 条，共 ${count.toLocaleString()} ${unit}`;
 }
 
 function errorMessage(error: unknown) {

@@ -14,10 +14,12 @@ void main() {
     (tester) async {
       await _pumpScanTestApp(tester);
 
-      expect(find.text('Take Photo'), findsOneWidget);
-      expect(find.text('Choose from Library'), findsOneWidget);
-      expect(find.text('Review Your Matches'), findsOneWidget);
-      expect(find.text('Done'), findsOneWidget);
+      expect(find.text('ALIGN CARD HERE'), findsOneWidget);
+      expect(find.text('GALLERY'), findsOneWidget);
+      expect(find.text('DONE'), findsOneWidget);
+      expect(find.byTooltip('Take Photo'), findsOneWidget);
+      expect(find.byTooltip('Choose from Library'), findsOneWidget);
+      expect(find.text('Review Your Matches'), findsNothing);
       expect(
         find.text(
           'Scan is coming soon. Use Search to find cards manually for now.',
@@ -25,12 +27,12 @@ void main() {
         findsNothing,
       );
 
-      await tester.tap(find.text('Take Photo'));
+      await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
 
       expect(find.text('Scanning'), findsOneWidget);
-      final scanningDone = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Done'),
+      final scanningDone = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'DONE'),
       );
       expect(scanningDone.onPressed, isNull);
 
@@ -39,7 +41,7 @@ void main() {
       expect(find.text('Matched'), findsOneWidget);
       expect(find.text('Mega Lucario ex'), findsWidgets);
 
-      await tester.tap(find.text('Review Your Matches'));
+      await tester.tap(find.text('DONE'));
       await tester.pumpAndSettle();
 
       expect(find.text('Adding to Main'), findsOneWidget);
@@ -65,13 +67,13 @@ void main() {
     (tester) async {
       await _pumpScanTestApp(tester);
 
-      await tester.tap(find.text('Choose from Library'));
+      await tester.tap(find.byTooltip('Choose from Library'));
       await tester.pump(const Duration(seconds: 1));
 
       expect(find.text('No Match Found'), findsOneWidget);
       expect(find.text('Search Manually'), findsOneWidget);
-      final noMatchDone = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Done'),
+      final noMatchDone = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'DONE'),
       );
       expect(noMatchDone.onPressed, isNull);
 
@@ -88,15 +90,15 @@ void main() {
     (tester) async {
       await _pumpScanTestApp(tester);
 
-      await tester.tap(find.text('Take Photo'));
+      await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
-      await tester.tap(find.text('Take Photo'));
+      await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
-      await tester.tap(find.text('Choose from Library'));
+      await tester.tap(find.byTooltip('Choose from Library'));
       await tester.pump();
 
       expect(find.text('Scanning'), findsNWidgets(3));
-      expect(find.text('Take Photo'), findsOneWidget);
+      expect(find.byTooltip('Take Photo'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 1));
 
@@ -107,14 +109,14 @@ void main() {
       expect(find.text('Delete'), findsWidgets);
       expect(find.text('Search Manually'), findsOneWidget);
 
-      final doneWithMatched = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Done'),
+      final doneWithMatched = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'DONE'),
       );
       expect(doneWithMatched.onPressed, isNotNull);
 
-      await tester.tap(find.text('Take Photo'));
+      await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump(const Duration(seconds: 1));
-      await tester.tap(find.text('Done'));
+      await tester.tap(find.text('DONE'));
       await tester.pumpAndSettle();
 
       expect(find.text('Review Your Matches'), findsOneWidget);
@@ -136,30 +138,24 @@ void main() {
     },
   );
 
-  testWidgets('Scan bottom navigation can open app sections', (tester) async {
+  testWidgets('Scan camera chrome can exit and open manual Search', (
+    tester,
+  ) async {
     await _pumpScanTestApp(tester);
-    await tester.tap(find.text('Home'));
+    await tester.tap(find.byTooltip('Close Scan'));
     await tester.pumpAndSettle();
     expect(find.text('Overview'), findsOneWidget);
 
     await _pumpScanTestApp(tester);
-    await tester.tap(find.text('Collection'));
-    await tester.pumpAndSettle();
-    expect(find.text('Portfolio'), findsWidgets);
-
-    await _pumpScanTestApp(tester);
-    await tester.tap(find.text('Search'));
+    await tester.tap(find.byTooltip('Search Cards'));
     await tester.pumpAndSettle();
     expect(find.text('Squirtle'), findsOneWidget);
-
-    await _pumpScanTestApp(tester);
-    await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
-    expect(find.text('Guest session'), findsOneWidget);
   });
 }
 
 Future<void> _pumpScanTestApp(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pumpAndSettle();
   await tester.pumpWidget(const ProviderScope(child: _ScanTestAppWithRoutes()));
   await tester.pumpAndSettle();
 }

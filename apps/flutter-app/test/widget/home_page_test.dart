@@ -171,8 +171,8 @@ void main() {
     await tester.tap(find.text('Scan'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Take Photo'), findsOneWidget);
-    expect(find.text('Review Your Matches'), findsOneWidget);
+    expect(find.text('ALIGN CARD HERE'), findsOneWidget);
+    expect(find.byTooltip('Take Photo'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
 }

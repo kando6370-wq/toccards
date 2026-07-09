@@ -224,9 +224,10 @@ class _ScanPageState extends State<ScanPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: _reviewing
-            ? _ReviewMatches(
+      backgroundColor: const Color(0xFF10100B),
+      body: _reviewing
+          ? SafeArea(
+              child: _ReviewMatches(
                 items: _matchedItems,
                 selectedItemId: _selectedReviewItemId,
                 onSelectItem: (item) {
@@ -234,75 +235,185 @@ class _ScanPageState extends State<ScanPage> {
                 },
                 onAddThisCard: _addSelectedItem,
                 onAddAllCards: _addAllMatchedItems,
-              )
-            : ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  const SizedBox(height: 16),
-                  Icon(
-                    Icons.qr_code_scanner_outlined,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 20),
-                  _ScanActions(
-                    canReview: _canReview,
-                    onPhotoPressed: _startPhotoScan,
-                    onLibraryPressed: _startLibraryScan,
-                    onReviewPressed: _openReview,
-                  ),
-                  const SizedBox(height: 20),
-                  _ScanResults(
-                    items: _items,
-                    addedItems: _addedItems,
-                    lastAddedCount: _lastAddedCount,
-                    onReviewItem: _openReview,
-                    onRetryItem: _retryScan,
-                    onDeleteItem: _deleteScan,
-                    onSearchPressed: (item) {
-                      _deleteScan(item);
-                      context.go('/search');
-                    },
-                  ),
+              ),
+            )
+          : _ScanCameraView(
+              items: _items,
+              addedItems: _addedItems,
+              lastAddedCount: _lastAddedCount,
+              canReview: _canReview,
+              onClosePressed: () => context.go('/'),
+              onSearchPressed: () => context.go('/search'),
+              onPhotoPressed: _startPhotoScan,
+              onLibraryPressed: _startLibraryScan,
+              onReviewPressed: _openReview,
+              onReviewItem: _openReview,
+              onRetryItem: _retryScan,
+              onDeleteItem: _deleteScan,
+              onSearchItem: (item) {
+                _deleteScan(item);
+                context.go('/search');
+              },
+            ),
+    );
+  }
+}
+
+class _ScanCameraView extends StatelessWidget {
+  const _ScanCameraView({
+    required this.items,
+    required this.addedItems,
+    required this.lastAddedCount,
+    required this.canReview,
+    required this.onClosePressed,
+    required this.onSearchPressed,
+    required this.onPhotoPressed,
+    required this.onLibraryPressed,
+    required this.onReviewPressed,
+    required this.onReviewItem,
+    required this.onRetryItem,
+    required this.onDeleteItem,
+    required this.onSearchItem,
+  });
+
+  final List<_ScanItem> items;
+  final List<_ScanItem> addedItems;
+  final int? lastAddedCount;
+
+  final bool canReview;
+  final VoidCallback onClosePressed;
+  final VoidCallback onSearchPressed;
+  final VoidCallback onPhotoPressed;
+  final VoidCallback onLibraryPressed;
+  final VoidCallback onReviewPressed;
+  final ValueChanged<int?> onReviewItem;
+  final ValueChanged<_ScanItem> onRetryItem;
+  final ValueChanged<_ScanItem> onDeleteItem;
+  final ValueChanged<_ScanItem> onSearchItem;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const Positioned.fill(child: _CameraBackdrop()),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                radius: 0.86,
+                colors: [
+                  Colors.transparent,
+                  const Color(0xFF0D0F08).withValues(alpha: 0.86),
                 ],
               ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 2,
-        onDestinationSelected: (index) {
-          if (index == 0) {
-            context.go('/');
-            return;
-          }
-          if (index == 1) {
-            context.go('/collection');
-            return;
-          }
-          if (index == 3) {
-            context.go('/search');
-            return;
-          }
-          if (index == 4) {
-            context.go('/profile');
-          }
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(
-            icon: Icon(Icons.collections_bookmark_outlined),
-            label: 'Collection',
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            label: 'Scan',
+        ),
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+            child: Column(
+              children: [
+                _ScanTopBar(
+                  onClosePressed: onClosePressed,
+                  onSearchPressed: onSearchPressed,
+                ),
+                const SizedBox(height: 8),
+                const _AlignCardPill(),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            label: 'Search',
+        ),
+        const Positioned.fill(
+          top: 150,
+          bottom: 252,
+          child: Center(child: _ViewfinderCorners()),
+        ),
+        if (items.isNotEmpty)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 144,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 292),
+              child: SingleChildScrollView(
+                child: _ScanResults(
+                  items: items,
+                  addedItems: addedItems,
+                  lastAddedCount: lastAddedCount,
+                  onReviewItem: onReviewItem,
+                  onRetryItem: onRetryItem,
+                  onDeleteItem: onDeleteItem,
+                  onSearchPressed: onSearchItem,
+                ),
+              ),
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 22,
+          child: SafeArea(
+            top: false,
+            child: _ScanBottomControls(
+              canReview: canReview,
+              onPhotoPressed: onPhotoPressed,
+              onLibraryPressed: onLibraryPressed,
+              onReviewPressed: onReviewPressed,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ScanTopBar extends StatelessWidget {
+  const _ScanTopBar({
+    required this.onClosePressed,
+    required this.onSearchPressed,
+  });
+
+  final VoidCallback onClosePressed;
+  final VoidCallback onSearchPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              tooltip: 'Close Scan',
+              onPressed: onClosePressed,
+              color: const Color(0xFFEEECD8),
+              icon: const Icon(Icons.close),
+            ),
+          ),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: const Color(0xFF222222).withValues(alpha: 0.82),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.flash_on,
+              color: Color(0xFFEEECD8),
+              size: 18,
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: 'Search Cards',
+              onPressed: onSearchPressed,
+              color: const Color(0xFFEEECD8),
+              icon: const Icon(Icons.search),
+            ),
           ),
         ],
       ),
@@ -310,8 +421,46 @@ class _ScanPageState extends State<ScanPage> {
   }
 }
 
-class _ScanActions extends StatelessWidget {
-  const _ScanActions({
+class _AlignCardPill extends StatelessWidget {
+  const _AlignCardPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF222222).withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0x1A394E2C)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 15,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.center_focus_strong, color: Color(0xFFF0FE6F), size: 16),
+          SizedBox(width: 10),
+          Text(
+            'ALIGN CARD HERE',
+            style: TextStyle(
+              color: Color(0xFFE4E3D3),
+              fontSize: 13,
+              height: 16 / 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanBottomControls extends StatelessWidget {
+  const _ScanBottomControls({
     required this.canReview,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
@@ -325,34 +474,232 @@ class _ScanActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        FilledButton.icon(
-          onPressed: onPhotoPressed,
-          icon: const Icon(Icons.photo_camera_outlined),
-          label: const Text('Take Photo'),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
+        _ScanSideAction(
+          label: 'GALLERY',
+          tooltip: 'Choose from Library',
+          icon: Icons.photo_library_outlined,
           onPressed: onLibraryPressed,
-          icon: const Icon(Icons.photo_library_outlined),
-          label: const Text('Choose from Library'),
         ),
-        const SizedBox(height: 8),
-        FilledButton.tonalIcon(
-          onPressed: canReview ? onReviewPressed : null,
-          icon: const Icon(Icons.fact_check_outlined),
-          label: const Text('Review Your Matches'),
+        Tooltip(
+          message: 'Take Photo',
+          child: InkResponse(
+            onTap: onPhotoPressed,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 88,
+              height: 88,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0x14FFFFFF), width: 4),
+              ),
+              child: Container(
+                width: 68,
+                height: 68,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(color: Color(0x66FFFFFF), blurRadius: 30),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
-        FilledButton(
-          onPressed: canReview ? onReviewPressed : null,
-          child: const Text('Done'),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(
+                  0xFF222222,
+                ).withValues(alpha: canReview ? 0.92 : 0.48),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0x1A394E2C)),
+              ),
+              child: Icon(
+                Icons.check,
+                color: canReview
+                    ? const Color(0xFFEEECD8)
+                    : const Color(0x66EEECD8),
+              ),
+            ),
+            TextButton(
+              onPressed: canReview ? onReviewPressed : null,
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFEEECD8),
+                disabledForegroundColor: const Color(0x66EEECD8),
+                minimumSize: const Size(62, 28),
+                padding: EdgeInsets.zero,
+              ),
+              child: const Text(
+                'DONE',
+                style: TextStyle(fontSize: 13, height: 16 / 13),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
+}
+
+class _ScanSideAction extends StatelessWidget {
+  const _ScanSideAction({
+    required this.label,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 72,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Tooltip(
+            message: tooltip,
+            child: IconButton(
+              onPressed: onPressed,
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFF222222),
+                foregroundColor: const Color(0xFFEEECD8),
+                fixedSize: const Size(48, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: Icon(icon),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFFEEECD8),
+              fontSize: 13,
+              height: 16 / 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ViewfinderCorners extends StatelessWidget {
+  const _ViewfinderCorners();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 280,
+      height: 400,
+      child: CustomPaint(painter: _ViewfinderPainter()),
+    );
+  }
+}
+
+class _ViewfinderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFF0FE6F)
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.square;
+
+    const corner = 40.0;
+    final path = Path()
+      ..moveTo(0, corner)
+      ..lineTo(0, 12)
+      ..quadraticBezierTo(0, 0, 12, 0)
+      ..lineTo(corner, 0)
+      ..moveTo(size.width - corner, 0)
+      ..lineTo(size.width - 12, 0)
+      ..quadraticBezierTo(size.width, 0, size.width, 12)
+      ..lineTo(size.width, corner)
+      ..moveTo(0, size.height - corner)
+      ..lineTo(0, size.height - 12)
+      ..quadraticBezierTo(0, size.height, 12, size.height)
+      ..lineTo(corner, size.height)
+      ..moveTo(size.width - corner, size.height)
+      ..lineTo(size.width - 12, size.height)
+      ..quadraticBezierTo(size.width, size.height, size.width, size.height - 12)
+      ..lineTo(size.width, size.height - corner);
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _CameraBackdrop extends StatelessWidget {
+  const _CameraBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _CameraBackdropPainter(),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _CameraBackdropPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final background = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF201E16), Color(0xFF080907)],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, background);
+
+    final binderPaint = Paint()..color = const Color(0x8033382E);
+    for (var row = 0; row < 3; row += 1) {
+      for (var column = 0; column < 2; column += 1) {
+        final rect = Rect.fromLTWH(
+          22 + column * (size.width / 2),
+          70 + row * 224,
+          size.width / 2 - 36,
+          188,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, const Radius.circular(12)),
+          binderPaint,
+        );
+      }
+    }
+
+    final streakPaint = Paint()
+      ..color = const Color(0x26EEECD8)
+      ..strokeWidth = 1;
+    for (var index = 0; index < 18; index += 1) {
+      final y = 40.0 + index * 46;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y + 28), streakPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ScanResults extends StatelessWidget {

@@ -187,10 +187,19 @@ void main() {
       await tester.tap(find.text('Scan a Card'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Take Photo'), findsOneWidget);
-      expect(find.text('Review Your Matches'), findsOneWidget);
+      expect(find.text('ALIGN CARD HERE'), findsOneWidget);
+      expect(find.byTooltip('Take Photo'), findsOneWidget);
 
-      await tester.tap(find.text('Collection'));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        const ProviderScope(child: _CollectionTestAppWithRoutes()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Empty').last);
       await tester.pumpAndSettle();
 
       expect(find.text('No cards in this portfolio yet.'), findsOneWidget);
@@ -211,8 +220,8 @@ void main() {
     await tester.tap(find.text('Scan'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Take Photo'), findsOneWidget);
-    expect(find.text('Review Your Matches'), findsOneWidget);
+    expect(find.text('ALIGN CARD HERE'), findsOneWidget);
+    expect(find.byTooltip('Take Photo'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
 }
