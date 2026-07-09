@@ -5,7 +5,7 @@ import {
   refreshTokenExpiresAt,
   signAccessToken,
 } from "@kando/auth-core";
-import { ulid } from "ulid";
+import { createId } from "../id";
 
 export type CreatedUserSession = {
   sessionId: string;
@@ -21,7 +21,7 @@ export async function createUserSessionValues(
   jwtSecret: string,
   now: Date,
 ): Promise<CreatedUserSession> {
-  const sessionId = ulid();
+  const sessionId = createId();
   const refreshToken = createRefreshToken();
   const hashedRefreshToken = await hashRefreshToken(refreshToken);
   const accessToken = await signAccessToken(

@@ -1,7 +1,7 @@
 import { hashPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
-import { ulid } from "ulid";
 import type { Env } from "../env";
+import { createId } from "../id";
 
 type LiveEmailPasswordUserRow = {
   id: string;
@@ -199,7 +199,7 @@ export function registerForgotPasswordRoutes(
 
       const result = await c.env.DB.prepare(INSERT_RESET_CODE_SQL)
         .bind(
-          ulid(),
+          createId(),
           email,
           createVerificationCode(),
           expiresAt,

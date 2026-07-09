@@ -6,8 +6,8 @@ import {
   signAccessToken,
 } from "@kando/auth-core";
 import { Hono } from "hono";
-import { ulid } from "ulid";
 import type { Env } from "../env";
+import { createId } from "../id";
 import { registerAccountRoutes } from "./account";
 import { registerCurrentAccountRoutes } from "./current";
 import { registerForgotPasswordRoutes } from "./forgot-password";
@@ -118,7 +118,7 @@ authRoutes.post("/anonymous", async (c) => {
       deviceId,
       createdAt,
     );
-    const sessionId = ulid();
+    const sessionId = createId();
     const refreshToken = createRefreshToken();
     const hashedRefreshToken = await hashRefreshToken(refreshToken);
     const expiresAt = refreshTokenExpiresAt(now);
@@ -166,7 +166,7 @@ async function findOrCreateAnonymousAccount(
     return existing.id;
   }
 
-  const anonymousId = ulid();
+  const anonymousId = createId();
 
   await db.batch([
     db
@@ -174,10 +174,10 @@ async function findOrCreateAnonymousAccount(
       .bind(anonymousId, deviceId, createdAt),
     db
       .prepare(INSERT_PORTFOLIO_FOLDER_SQL)
-      .bind(ulid(), anonymousId, createdAt, createdAt),
+      .bind(createId(), anonymousId, createdAt, createdAt),
     db
       .prepare(INSERT_USER_PREFERENCE_SQL)
-      .bind(ulid(), anonymousId, createdAt, createdAt),
+      .bind(createId(), anonymousId, createdAt, createdAt),
   ]);
 
   return anonymousId;

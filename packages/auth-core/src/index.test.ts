@@ -570,6 +570,10 @@ describe("auth-core token helpers", () => {
     expect(storedHash).not.toContain(password);
   });
 
+  it("keeps password hashing within the Cloudflare Workers PBKDF2 limit so edge login can verify credentials", () => {
+    expect(PASSWORD_HASH_ITERATIONS).toBeLessThanOrEqual(100_000);
+  });
+
   it("uses a random salt for each password hash while keeping both hashes verifiable", async () => {
     const password = "correct password";
 

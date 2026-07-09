@@ -53,8 +53,8 @@ function parseArgs(values) {
 
 function hashPassword(value) {
   const salt = randomBytes(16);
-  const hash = pbkdf2Sync(value, salt, 210_000, 32, "sha256");
-  return ["pbkdf2-sha256", "v1", "210000", base64Url(salt), base64Url(hash)].join("$");
+  const hash = pbkdf2Sync(value, salt, 100_000, 32, "sha256");
+  return ["pbkdf2-sha256", "v1", "100000", base64Url(salt), base64Url(hash)].join("$");
 }
 
 function base64Url(buffer) {

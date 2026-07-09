@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { ulid } from "ulid";
 import type { Env } from "../env";
+import { createId } from "../id";
 import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
 
 type PortfolioFolderRow = {
@@ -316,7 +316,7 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
     }
 
     const now = new Date().toISOString();
-    const itemId = ulid();
+    const itemId = createId();
 
     await c.env.DB.batch([
       c.env.DB.prepare(INSERT_COLLECTION_ITEM_SQL).bind(
@@ -489,7 +489,7 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
     }
 
     const now = new Date().toISOString();
-    const itemId = ulid();
+    const itemId = createId();
 
     try {
       await c.env.DB.prepare(INSERT_WISHLIST_ITEM_SQL)
@@ -601,7 +601,7 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
     }
 
     const now = new Date().toISOString();
-    const itemId = ulid();
+    const itemId = createId();
 
     await c.env.DB.batch([
       c.env.DB.prepare(INSERT_COLLECTION_ITEM_SQL).bind(
@@ -825,7 +825,7 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
     const sortOrder =
       Math.max(0, ...existingFolders.map((folder) => folder.sort_order)) + 100;
     const now = new Date().toISOString();
-    const folderId = ulid();
+    const folderId = createId();
 
     try {
       await c.env.DB.prepare(INSERT_FOLDER_SQL)

@@ -7,9 +7,9 @@ import {
 } from "@kando/auth-core";
 import { Hono } from "hono";
 import type { Context, Next } from "hono";
-import { ulid } from "ulid";
 import type { Env } from "../env";
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
+import { createId } from "../id";
 
 type AdminRole = "super_admin" | "operator";
 type AdminStatus = "active" | "disabled";
@@ -60,7 +60,7 @@ const VALID_FEEDBACK_STATUSES = new Set<FeedbackStatus>([
   "closed",
 ]);
 const DUMMY_PASSWORD_HASH =
-  "pbkdf2-sha256$v1$210000$AAECAwQFBgcICQoLDA0ODw$5n_O9-8D7zbhW7HPSP6NZf4STgnvUR115Y1j4dCrwHo";
+  "pbkdf2-sha256$v1$100000$AAECAwQFBgcICQoLDA0ODw$n9d-PfgjYCpuBQORe6IZg6Op-rlL_-TOqIyWwG54xHI";
 
 const UNAUTHORIZED_RESPONSE = {
   success: false,
@@ -322,7 +322,7 @@ adminRoutes.post("/auth/login", async (c) => {
 
   const now = new Date();
   const createdAt = now.toISOString();
-  const sessionId = ulid();
+  const sessionId = createId();
   const refreshToken = createRefreshToken();
   const hashedRefreshToken = await hashRefreshToken(refreshToken);
 
@@ -545,7 +545,7 @@ adminRoutes.post("/trending-pins", async (c) => {
   const active = input.active === false ? 0 : 1;
   if (!cardRef || rank <= 0) return c.json(VALIDATION_ERROR_RESPONSE, 422);
 
-  const id = ulid();
+  const id = createId();
   await c.env.DB.prepare(INSERT_TRENDING_PIN_SQL)
     .bind(id, cardRef, rank, active, c.get("admin").admin_id, new Date().toISOString())
     .run();
@@ -592,7 +592,7 @@ adminRoutes.post("/card-overrides", async (c) => {
   const cardRef = readRequiredString(input.card_ref);
   if (!cardRef) return c.json(VALIDATION_ERROR_RESPONSE, 422);
 
-  const id = ulid();
+  const id = createId();
   await insertCardOverride(c, id, cardRef, input);
   const row = await c.env.DB.prepare(SELECT_CARD_OVERRIDE_BY_ID_SQL).bind(id).first();
   return c.json({ success: true, data: row });
@@ -645,7 +645,7 @@ adminRoutes.post("/card-overrides/image-upload", async (c) => {
     return c.json({ success: true, data: row });
   }
 
-  const id = ulid();
+  const id = createId();
   await c.env.DB.prepare(INSERT_CARD_OVERRIDE_SQL)
     .bind(id, cardRef, null, imageUrl, 0, c.get("admin").admin_id, new Date().toISOString())
     .run();

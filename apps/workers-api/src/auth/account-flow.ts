@@ -1,4 +1,4 @@
-import { ulid } from "ulid";
+import { createId } from "../id";
 import {
   createGuestMigrationStatements,
   findVerifiedAnonymousAccount,
@@ -263,7 +263,7 @@ async function bindIdentityAndSignIn(
   const results = await db.batch([
     db
       .prepare(INSERT_AUTH_IDENTITY_SQL)
-      .bind(ulid(), userId, identity.provider, identity.providerUid, createdAt),
+      .bind(createId(), userId, identity.provider, identity.providerUid, createdAt),
     db
       .prepare(INSERT_USER_SESSION_SQL)
       .bind(
@@ -291,7 +291,7 @@ async function createOAuthUser(
   now: Date,
 ): Promise<OAuthAccountFlowResult> {
   const createdAt = now.toISOString();
-  const userId = ulid();
+  const userId = createId();
   const session = await createUserSessionValues(userId, jwtSecret, now);
   const anonymousAccount = await findVerifiedAnonymousAccount(
     db,
@@ -322,7 +322,7 @@ async function createOAuthUser(
       db
         .prepare(INSERT_AUTH_IDENTITY_FOR_UPGRADED_GUEST_SQL)
         .bind(
-          ulid(),
+          createId(),
           userId,
           identity.provider,
           identity.providerUid,
@@ -372,13 +372,13 @@ async function createOAuthUser(
     ),
     db
       .prepare(INSERT_AUTH_IDENTITY_SQL)
-      .bind(ulid(), userId, identity.provider, identity.providerUid, createdAt),
+      .bind(createId(), userId, identity.provider, identity.providerUid, createdAt),
     db
       .prepare(INSERT_USER_PORTFOLIO_FOLDER_SQL)
-      .bind(ulid(), userId, createdAt, createdAt),
+      .bind(createId(), userId, createdAt, createdAt),
     db
       .prepare(INSERT_USER_PREFERENCE_SQL)
-      .bind(ulid(), userId, createdAt, createdAt),
+      .bind(createId(), userId, createdAt, createdAt),
     db
       .prepare(INSERT_USER_SESSION_SQL)
       .bind(

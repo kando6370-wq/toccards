@@ -1,7 +1,7 @@
 import { hashPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
-import { ulid } from "ulid";
 import type { Env } from "../env";
+import { createId } from "../id";
 import {
   createGuestMigrationStatements,
   findVerifiedAnonymousAccount,
@@ -222,7 +222,7 @@ export function registerEmailRegistrationRoutes(
       ).toISOString();
 
       await c.env.DB.prepare(INSERT_VERIFICATION_CODE_SQL)
-        .bind(ulid(), email, createVerificationCode(), expiresAt, createdAt)
+        .bind(createId(), email, createVerificationCode(), expiresAt, createdAt)
         .run();
 
       return c.json({
@@ -289,7 +289,7 @@ export function registerEmailRegistrationRoutes(
         now,
       );
       const createdAt = now.toISOString();
-      const userId = ulid();
+      const userId = createId();
       const passwordHash = await hashPassword(input.password);
       const session = await createUserSessionValues(
         userId,
@@ -392,7 +392,7 @@ export function registerEmailRegistrationRoutes(
             createdAt,
           ),
           c.env.DB.prepare(INSERT_USER_PORTFOLIO_FOLDER_SQL).bind(
-            ulid(),
+            createId(),
             userId,
             createdAt,
             createdAt,
@@ -400,7 +400,7 @@ export function registerEmailRegistrationRoutes(
             createdAt,
           ),
           c.env.DB.prepare(INSERT_USER_PREFERENCE_SQL).bind(
-            ulid(),
+            createId(),
             userId,
             createdAt,
             createdAt,

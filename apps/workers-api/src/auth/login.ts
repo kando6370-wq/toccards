@@ -7,8 +7,8 @@ import {
   verifyPassword,
 } from "@kando/auth-core";
 import type { Hono } from "hono";
-import { ulid } from "ulid";
 import type { Env } from "../env";
+import { createId } from "../id";
 
 type LoginUserRow = {
   id: string;
@@ -49,7 +49,7 @@ const INCORRECT_PASSWORD_RESPONSE = {
 } as const;
 
 const DUMMY_LOGIN_PASSWORD_HASH =
-  "pbkdf2-sha256$v1$210000$AAECAwQFBgcICQoLDA0ODw$5n_O9-8D7zbhW7HPSP6NZf4STgnvUR115Y1j4dCrwHo";
+  "pbkdf2-sha256$v1$100000$AAECAwQFBgcICQoLDA0ODw$n9d-PfgjYCpuBQORe6IZg6Op-rlL_-TOqIyWwG54xHI";
 
 const INTERNAL_ERROR_RESPONSE = {
   success: false,
@@ -110,7 +110,7 @@ export function registerEmailLoginRoutes(
 
       const now = new Date();
       const createdAt = now.toISOString();
-      const sessionId = ulid();
+      const sessionId = createId();
       const refreshToken = createRefreshToken();
       const hashedRefreshToken = await hashRefreshToken(refreshToken);
 
