@@ -25,8 +25,17 @@ final authStorageProvider = Provider<InMemoryAuthStorage>((ref) {
   return InMemoryAuthStorage();
 });
 
+final authDioProvider = Provider((ref) {
+  final dio = createAuthDio();
+  ref.onDispose(dio.close);
+  return dio;
+});
+
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return LocalPlaceholderAuthRepository(ref.watch(authStorageProvider));
+  return HttpAuthRepository(
+    ref.watch(authDioProvider),
+    ref.watch(authStorageProvider),
+  );
 });
 
 final oauthAuthorizerProvider = Provider<OAuthAuthorizer>((ref) {

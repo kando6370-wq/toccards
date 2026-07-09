@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
@@ -125,7 +128,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const ProviderScope(child: _HomeTestAppWithRoutes()),
+      ProviderScope(
+        overrides: _localAuthOverrides(),
+        child: const _HomeTestAppWithRoutes(),
+      ),
     );
 
     await tester.tap(find.text('Profile'));
@@ -175,6 +181,15 @@ void main() {
     expect(find.byTooltip('Take Photo'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
+}
+
+_localAuthOverrides() {
+  final storage = InMemoryAuthStorage();
+  return [
+    authRepositoryProvider.overrideWithValue(
+      LocalPlaceholderAuthRepository(storage),
+    ),
+  ];
 }
 
 class _HomeTestApp extends StatelessWidget {

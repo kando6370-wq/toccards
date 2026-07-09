@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
@@ -155,7 +158,10 @@ void main() {
     'Search bottom navigation can open Home, Collection, and Profile',
     (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(child: _SearchTestAppWithRoutes()),
+        ProviderScope(
+          overrides: _localAuthOverrides(),
+          child: const _SearchTestAppWithRoutes(),
+        ),
       );
 
       await tester.tap(find.text('Home'));
@@ -234,6 +240,15 @@ void main() {
     expect(find.text('Main'), findsOneWidget);
     expect(find.text('PSA 10'), findsOneWidget);
   });
+}
+
+_localAuthOverrides() {
+  final storage = InMemoryAuthStorage();
+  return [
+    authRepositoryProvider.overrideWithValue(
+      LocalPlaceholderAuthRepository(storage),
+    ),
+  ];
 }
 
 class _SearchTestApp extends StatelessWidget {
