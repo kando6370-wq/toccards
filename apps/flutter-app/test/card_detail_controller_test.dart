@@ -423,6 +423,26 @@ void main() {
   );
 
   test(
+    'adding a Collection Item uses backend folder ids because folder names are presentation only',
+    () async {
+      final repository = _FolderAwareCardDetailRepository();
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('squirtle');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'squirtle');
+
+      controller.startAddingCollectionItem();
+      controller.updateCollectionItemDraft(portfolioName: 'Sealed');
+
+      expect(await controller.saveCollectionItemDraft(), isTrue);
+
+      expect(repository.createdItems.single.folderId, 'folder-sealed-db');
+      expect(container.read(provider).collectionItemRows.single.portfolioName, 'Sealed');
+    },
+  );
+
+  test(
     'new Collection Item draft follows PRD field defaults and condition list',
     () async {
       final container = _cardDetailContainer();
@@ -688,6 +708,7 @@ class _RecordingCardDetailRepository implements CardDetailRepository {
   final List<String> addedWishlistCardRefs = [];
   final List<String> deletedWishlistItemIds = [];
   final List<String> createdItemCardRefs = [];
+  final List<CardCollectionItem> createdItems = [];
   final List<String> updatedItemIds = [];
   final List<String> deletedCollectionItemIds = [];
 
@@ -725,6 +746,7 @@ class _RecordingCardDetailRepository implements CardDetailRepository {
     required CardCollectionItem item,
   }) async {
     createdItemCardRefs.add(detail.id);
+    createdItems.add(item);
     return item.copyWith(cardRef: detail.id, folderId: item.folderId ?? 'main');
   }
 
@@ -800,6 +822,19 @@ class _BlockingQuickCollectCardDetailRepository
         purchasePriceUsd: null,
         notes: 'Stale quick collect result.',
       ),
+    );
+  }
+}
+
+class _FolderAwareCardDetailRepository extends _RecordingCardDetailRepository {
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    final detail = await super.loadDetail(session, cardId);
+    return detail.copyWith(
+      portfolioFolders: const [
+        CardPortfolioFolder(id: 'folder-main-db', name: 'Main', isDefault: true),
+        CardPortfolioFolder(id: 'folder-sealed-db', name: 'Sealed'),
+      ],
     );
   }
 }

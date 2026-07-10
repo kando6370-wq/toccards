@@ -59,6 +59,18 @@ class CardSoldListing {
   final String platform;
 }
 
+class CardPortfolioFolder {
+  const CardPortfolioFolder({
+    required this.id,
+    required this.name,
+    this.isDefault = false,
+  });
+
+  final String id;
+  final String name;
+  final bool isDefault;
+}
+
 class CardCollectionItem {
   const CardCollectionItem({
     required this.id,
@@ -142,6 +154,7 @@ class CardDetail {
     required this.isWishlisted,
     this.wishlistItemId,
     required this.marketPrices,
+    this.portfolioFolders = const [],
     this.collectionItems = const [],
     this.priceSeriesByRange = const {},
     this.gradedPriceSeriesByRange = const {},
@@ -160,6 +173,7 @@ class CardDetail {
   final bool isWishlisted;
   final String? wishlistItemId;
   final List<CardMarketPrice> marketPrices;
+  final List<CardPortfolioFolder> portfolioFolders;
   final List<CardCollectionItem> collectionItems;
   final Map<CardPriceRange, List<CardPricePoint>> priceSeriesByRange;
   final Map<CardPriceRange, List<CardPricePoint>> gradedPriceSeriesByRange;
@@ -171,6 +185,7 @@ class CardDetail {
     int? quantity,
     bool? isWishlisted,
     Object? wishlistItemId = _cardCollectionItemUnset,
+    List<CardPortfolioFolder>? portfolioFolders,
     List<CardCollectionItem>? collectionItems,
   }) {
     return CardDetail(
@@ -188,6 +203,7 @@ class CardDetail {
           ? this.wishlistItemId
           : wishlistItemId as String?,
       marketPrices: marketPrices,
+      portfolioFolders: portfolioFolders ?? this.portfolioFolders,
       collectionItems: collectionItems ?? this.collectionItems,
       priceSeriesByRange: priceSeriesByRange,
       gradedPriceSeriesByRange: gradedPriceSeriesByRange,
