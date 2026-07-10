@@ -6,7 +6,9 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
+import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
+import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
@@ -159,7 +161,12 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: _localAuthOverrides(),
+          overrides: [
+            ..._localAuthOverrides(),
+            collectionRepositoryProvider.overrideWithValue(
+              const MockCollectionRepository(),
+            ),
+          ],
           child: const _SearchTestAppWithRoutes(),
         ),
       );
