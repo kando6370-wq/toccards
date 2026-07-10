@@ -173,6 +173,58 @@ void main() {
   );
 
   test(
+    'createCollectionItem posts bearer payload and maps response because manual adds create backend rows',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'POST');
+        expect(request.path, '/portfolio/items');
+        expect(request.authorization, 'Bearer owner-access');
+        expect(request.body, {
+          'card_ref': 'squirtle',
+          'folder_id': 'main',
+          'object_type': 'tcg',
+          'grader': 'Raw',
+          'condition': 'Near Mint (NM)',
+          'grade': null,
+          'language': 'English',
+          'finish': 'Holofoil',
+          'quantity': 1,
+          'purchase_price': 12.5,
+          'purchase_currency': 'USD',
+          'notes': 'binder copy',
+        });
+        return _json(201, {
+          'success': true,
+          'data': _portfolioItemJson(id: 'item-squirtle', cardRef: 'squirtle'),
+        });
+      });
+
+      final item = await PortfolioApiClient(_dio(adapter)).createCollectionItem(
+        _session,
+        const PortfolioItemDraftDto(
+          folderId: 'main',
+          cardRef: 'squirtle',
+          objectType: 'tcg',
+          grader: 'Raw',
+          condition: 'Near Mint (NM)',
+          grade: null,
+          language: 'English',
+          finish: 'Holofoil',
+          quantity: 1,
+          purchasePrice: 12.5,
+          purchaseCurrency: 'USD',
+          notes: 'binder copy',
+        ),
+      );
+
+      expect(item.id, 'item-squirtle');
+      expect(item.folderId, 'main');
+      expect(item.cardRef, 'squirtle');
+      expect(item.purchasePrice, 12.5);
+    },
+  );
+
+  test(
     'updateCollectionItem sends only mutable fields because Workers PATCH rejects identity fields',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -219,6 +271,24 @@ void main() {
       );
 
       expect(item.id, 'item-squirtle');
+    },
+  );
+
+  test(
+    'deleteCollectionItem sends backend item id because portfolio deletes are row scoped',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'DELETE');
+        expect(request.path, '/portfolio/items/item-squirtle');
+        expect(request.authorization, 'Bearer owner-access');
+        return _json(200, {'success': true, 'data': <String, Object?>{}});
+      });
+
+      await PortfolioApiClient(
+        _dio(adapter),
+      ).deleteCollectionItem(_session, 'item-squirtle');
+
+      expect(adapter.requests.single.path, '/portfolio/items/item-squirtle');
     },
   );
 
