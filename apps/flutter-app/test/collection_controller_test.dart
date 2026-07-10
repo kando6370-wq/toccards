@@ -1,17 +1,60 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
-  test('defaults to Portfolio tab and Main folder summary', () {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
+  test(
+    'http repository maps real portfolio rows into collection dashboard because Collection must show backend-owned assets',
+    () async {
+      final api = _FakePortfolioApiClient(
+        folders: const [
+          PortfolioFolderDto(
+            id: 'main',
+            name: 'Main',
+            isDefault: true,
+            sortOrder: 100,
+          ),
+        ],
+        items: [
+          _portfolioItem(
+            id: 'item-squirtle',
+            folderId: 'main',
+            cardRef: 'squirtle',
+          ),
+        ],
+        wishlist: [
+          WishlistItemDto(
+            id: 'wish-luffy',
+            cardRef: 'one-piece-luffy',
+            createdAt: DateTime.parse('2026-01-02T00:00:00.000Z'),
+          ),
+        ],
+      );
 
-    final state = container.read(collectionControllerProvider);
+      final dashboard = await HttpCollectionRepository(
+        api,
+      ).loadDashboard(_session);
+
+      expect(dashboard.defaultFolder.id, 'main');
+      expect(dashboard.portfolioItems.single.cardRef, 'squirtle');
+      expect(dashboard.portfolioItems.single.name, 'Squirtle');
+      expect(dashboard.wishlistItems.single.cardRef, 'one-piece-luffy');
+    },
+  );
+
+  test('defaults to Portfolio tab and Main folder summary', () async {
+    final container = _collectionContainer();
+    addTearDown(container.dispose);
+    final state = await _loadedState(container);
 
     expect(state.selectedTab, CollectionTab.portfolio);
     expect(state.selectedFolder.name, 'Main');
@@ -30,9 +73,10 @@ void main() {
 
   test(
     'shared selected currency converts collection money while preserving percentages',
-    () {
-      final container = ProviderContainer();
+    () async {
+      final container = _collectionContainer();
       addTearDown(container.dispose);
+      await _loadedState(container);
 
       expect(
         container
@@ -43,6 +87,7 @@ void main() {
       );
 
       container.read(selectedCurrencyProvider.notifier).select(AppCurrency.eur);
+      await container.read(collectionControllerProvider.notifier).loadComplete;
       final state = container.read(collectionControllerProvider);
 
       expect(state.portfolioSummary.totalValueText, '€1,132.95');
@@ -53,20 +98,20 @@ void main() {
 
   test(
     'repository failure shows page failure and refresh restores collection',
-    () {
+    () async {
       final repository = _FailingThenSuccessfulCollectionRepository();
-      final container = ProviderContainer(
+      final container = _collectionContainer(
         overrides: [collectionRepositoryProvider.overrideWithValue(repository)],
       );
       addTearDown(container.dispose);
 
-      final failed = container.read(collectionControllerProvider);
+      final failed = await _loadedState(container);
 
       expect(failed.loadStatus, KandoLoadStatus.failure);
       expect(failed.isUnavailable, isTrue);
       expect(repository.calls, 1);
 
-      container.read(collectionControllerProvider.notifier).refresh();
+      await container.read(collectionControllerProvider.notifier).refresh();
       final restored = container.read(collectionControllerProvider);
 
       expect(restored.loadStatus, KandoLoadStatus.content);
@@ -76,9 +121,10 @@ void main() {
     },
   );
 
-  test('switching folders changes only Portfolio scoped items', () {
-    final container = ProviderContainer();
+  test('switching folders changes only Portfolio scoped items', () async {
+    final container = _collectionContainer();
     addTearDown(container.dispose);
+    await _loadedState(container);
     final controller = container.read(collectionControllerProvider.notifier);
 
     controller.selectFolder('sealed');
@@ -98,9 +144,10 @@ void main() {
     ]);
   });
 
-  test('search is scoped per tab and current folder', () {
-    final container = ProviderContainer();
+  test('search is scoped per tab and current folder', () async {
+    final container = _collectionContainer();
     addTearDown(container.dispose);
+    await _loadedState(container);
     final controller = container.read(collectionControllerProvider.notifier);
 
     controller.updateSearch('umbreon');
@@ -119,9 +166,10 @@ void main() {
     );
   });
 
-  test('sort and filters combine for the selected tab', () {
-    final container = ProviderContainer();
+  test('sort and filters combine for the selected tab', () async {
+    final container = _collectionContainer();
     addTearDown(container.dispose);
+    await _loadedState(container);
     final controller = container.read(collectionControllerProvider.notifier);
 
     controller.applySortAndFilters(
@@ -137,9 +185,10 @@ void main() {
     ]);
   });
 
-  test('amount hiding masks money but leaves percentages readable', () {
-    final container = ProviderContainer();
+  test('amount hiding masks money but leaves percentages readable', () async {
+    final container = _collectionContainer();
     addTearDown(container.dispose);
+    await _loadedState(container);
     final controller = container.read(collectionControllerProvider.notifier);
 
     controller.toggleAmountHidden();
@@ -150,9 +199,10 @@ void main() {
     expect(state.visibleItems.first.changeText, '+8.10%');
   });
 
-  test('empty and no-match states are distinct', () {
-    final container = ProviderContainer();
+  test('empty and no-match states are distinct', () async {
+    final container = _collectionContainer();
     addTearDown(container.dispose);
+    await _loadedState(container);
     final controller = container.read(collectionControllerProvider.notifier);
 
     controller.selectFolder('empty');
@@ -166,16 +216,139 @@ void main() {
   });
 }
 
+ProviderContainer _collectionContainer({overrides = const []}) {
+  final storage = InMemoryAuthStorage();
+  return ProviderContainer(
+    overrides: [
+      authRepositoryProvider.overrideWithValue(
+        LocalPlaceholderAuthRepository(storage),
+      ),
+      ...overrides,
+    ],
+  );
+}
+
+Future<CollectionState> _loadedState(ProviderContainer container) async {
+  await container.read(authControllerProvider.notifier).startupComplete;
+  await container.read(collectionControllerProvider.notifier).loadComplete;
+  return container.read(collectionControllerProvider);
+}
+
 class _FailingThenSuccessfulCollectionRepository
     implements CollectionRepository {
   var calls = 0;
 
   @override
-  CollectionDashboard loadDashboard() {
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
     calls += 1;
     if (calls == 1) {
       throw StateError('mock collection unavailable');
     }
-    return const MockCollectionRepository().loadDashboard();
+    return const MockCollectionRepository().loadDashboard(session);
   }
 }
+
+class _FakePortfolioApiClient implements PortfolioApi {
+  const _FakePortfolioApiClient({
+    required this.folders,
+    required this.items,
+    required this.wishlist,
+  });
+
+  final List<PortfolioFolderDto> folders;
+  final List<PortfolioItemDto> items;
+  final List<WishlistItemDto> wishlist;
+
+  @override
+  Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
+    return folders;
+  }
+
+  @override
+  Future<List<PortfolioItemDto>> listCollectionItems(
+    AuthSession session,
+  ) async {
+    return items;
+  }
+
+  @override
+  Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) async {
+    return wishlist;
+  }
+
+  @override
+  Future<WishlistItemDto> addWishlist(
+    AuthSession session,
+    String cardRef,
+  ) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<PortfolioItemDto> createCollectionItem(
+    AuthSession session,
+    PortfolioItemDraftDto draft,
+  ) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteCollectionItem(AuthSession session, String itemId) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteWishlist(AuthSession session, String itemId) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<PortfolioItemDto> quickCollect(
+    AuthSession session, {
+    required String cardRef,
+    required PortfolioItemDraftDto draft,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<PortfolioItemDto> updateCollectionItem(
+    AuthSession session, {
+    required String itemId,
+    required PortfolioItemDraftDto draft,
+  }) async {
+    throw UnimplementedError();
+  }
+}
+
+PortfolioItemDto _portfolioItem({
+  required String id,
+  required String folderId,
+  required String cardRef,
+}) {
+  final now = DateTime.parse('2026-01-01T00:00:00.000Z');
+  return PortfolioItemDto(
+    id: id,
+    folderId: folderId,
+    cardRef: cardRef,
+    objectType: 'tcg',
+    grader: 'Raw',
+    condition: 'Near Mint (NM)',
+    grade: null,
+    language: 'English',
+    finish: 'Holofoil',
+    quantity: 1,
+    purchasePrice: null,
+    purchaseCurrency: null,
+    notes: null,
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
+const _session = AuthSession(
+  ownerType: OwnerType.anonymous,
+  accessToken: 'owner-access',
+  refreshToken: 'owner-refresh',
+  anonymousId: 'owner',
+);

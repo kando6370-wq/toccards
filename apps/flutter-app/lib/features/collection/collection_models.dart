@@ -17,6 +17,7 @@ class CollectionFolder {
 class CollectionItem {
   const CollectionItem({
     required this.id,
+    required this.cardRef,
     required this.folderId,
     required this.name,
     required this.setName,
@@ -34,6 +35,7 @@ class CollectionItem {
   });
 
   final String id;
+  final String cardRef;
   final String? folderId;
   final String name;
   final String setName;

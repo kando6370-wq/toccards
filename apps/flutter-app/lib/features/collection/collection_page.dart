@@ -26,7 +26,9 @@ class CollectionPage extends ConsumerWidget {
               onHidePressed: controller.toggleAmountHidden,
             ),
             const SizedBox(height: 16),
-            if (state.isUnavailable)
+            if (state.loadStatus == KandoLoadStatus.loading)
+              const KandoLoadingBlock()
+            else if (state.isUnavailable)
               KandoFailureBlock(onRefresh: controller.refresh)
             else ...[
               SegmentedButton<CollectionTab>(
@@ -142,7 +144,7 @@ class _CollectionHeader extends StatelessWidget {
                 'Collection',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
-              if (!state.isUnavailable)
+              if (!state.isUnavailable && !state.isLoading)
                 TextButton(
                   onPressed: onFolderPressed,
                   child: Text(state.selectedFolder.name),
@@ -152,7 +154,9 @@ class _CollectionHeader extends StatelessWidget {
         ),
         IconButton(
           key: const Key('collection-hide-amount'),
-          onPressed: state.isUnavailable ? null : onHidePressed,
+          onPressed: state.isUnavailable || state.isLoading
+              ? null
+              : onHidePressed,
           icon: Icon(
             state.amountHidden
                 ? Icons.visibility_outlined

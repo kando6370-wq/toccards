@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -85,6 +89,29 @@ class CollectionState {
       },
       loadStatus = KandoLoadStatus.failure;
 
+  const CollectionState.loading({required this.currency})
+    : _dashboard = null,
+      selectedTab = CollectionTab.portfolio,
+      selectedFolderId = '',
+      amountHidden = false,
+      searchByTab = const {
+        CollectionTab.portfolio: '',
+        CollectionTab.wishlist: '',
+      },
+      sortByTab = const {
+        CollectionTab.portfolio: CollectionSort.newest,
+        CollectionTab.wishlist: CollectionSort.newest,
+      },
+      gamesByTab = const {
+        CollectionTab.portfolio: <String>{},
+        CollectionTab.wishlist: <String>{},
+      },
+      languagesByTab = const {
+        CollectionTab.portfolio: <String>{},
+        CollectionTab.wishlist: <String>{},
+      },
+      loadStatus = KandoLoadStatus.loading;
+
   const CollectionState._({
     required CollectionDashboard? dashboard,
     required this.selectedTab,
@@ -118,6 +145,7 @@ class CollectionState {
   }
 
   bool get isUnavailable => loadStatus == KandoLoadStatus.failure;
+  bool get isLoading => loadStatus == KandoLoadStatus.loading;
 
   CollectionFolder get selectedFolder {
     return dashboard.folders.firstWhere(
@@ -278,60 +306,100 @@ class CollectionState {
 }
 
 class CollectionController extends Notifier<CollectionState> {
+  Completer<void>? _loadCompleter;
+  var _loadGeneration = 0;
+
+  Future<void> get loadComplete {
+    return _loadCompleter?.future ?? Future<void>.value();
+  }
+
   @override
   CollectionState build() {
     ref.listen<AppCurrency>(selectedCurrencyProvider, (previous, next) {
       state = state.copyWith(currency: next);
     });
 
-    final repository = ref.watch(collectionRepositoryProvider);
-    return _loadDashboard(repository: repository);
+    final currency = ref.watch(selectedCurrencyProvider);
+    final authState = ref.watch(authControllerProvider);
+    final session = authState.session;
+    if (authState.isLoading || session == null) {
+      return CollectionState.loading(currency: currency);
+    }
+
+    _startLoad(session: session, currency: currency);
+    return CollectionState.loading(currency: currency);
   }
 
-  void refresh() {
-    state = _loadDashboard(currency: state.currency);
+  Future<void> refresh() {
+    final session = ref.read(authControllerProvider).session;
+    if (session == null) {
+      state = CollectionState.loading(currency: state.currency);
+      return Future<void>.value();
+    }
+
+    state = CollectionState.loading(currency: state.currency);
+    _startLoad(session: session, currency: state.currency);
+    return loadComplete;
   }
 
-  CollectionState _loadDashboard({
-    CollectionRepository? repository,
-    AppCurrency? currency,
+  void _startLoad({
+    required AuthSession session,
+    required AppCurrency currency,
   }) {
-    final AppCurrency selectedCurrency =
-        currency ?? ref.read(selectedCurrencyProvider);
+    final completer = Completer<void>();
+    final generation = ++_loadGeneration;
+    _loadCompleter = completer;
+    unawaited(_loadDashboard(session, currency, generation, completer));
+  }
+
+  Future<void> _loadDashboard(
+    AuthSession session,
+    AppCurrency currency,
+    int generation,
+    Completer<void> completer,
+  ) async {
     try {
-      final CollectionRepository source =
-          repository ?? ref.read(collectionRepositoryProvider);
-      final dashboard = source.loadDashboard();
-      return CollectionState(
-        dashboard: dashboard,
-        selectedTab: CollectionTab.portfolio,
-        selectedFolderId: dashboard.defaultFolder.id,
-        currency: selectedCurrency,
-        amountHidden: false,
-        searchByTab: const {
-          CollectionTab.portfolio: '',
-          CollectionTab.wishlist: '',
-        },
-        sortByTab: const {
-          CollectionTab.portfolio: CollectionSort.newest,
-          CollectionTab.wishlist: CollectionSort.newest,
-        },
-        gamesByTab: const {
-          CollectionTab.portfolio: <String>{},
-          CollectionTab.wishlist: <String>{},
-        },
-        languagesByTab: const {
-          CollectionTab.portfolio: <String>{},
-          CollectionTab.wishlist: <String>{},
-        },
-      );
+      final dashboard = await ref
+          .read(collectionRepositoryProvider)
+          .loadDashboard(session);
+      if (generation == _loadGeneration) {
+        state = CollectionState(
+          dashboard: dashboard,
+          selectedTab: CollectionTab.portfolio,
+          selectedFolderId: dashboard.defaultFolder.id,
+          currency: currency,
+          amountHidden: false,
+          searchByTab: const {
+            CollectionTab.portfolio: '',
+            CollectionTab.wishlist: '',
+          },
+          sortByTab: const {
+            CollectionTab.portfolio: CollectionSort.newest,
+            CollectionTab.wishlist: CollectionSort.newest,
+          },
+          gamesByTab: const {
+            CollectionTab.portfolio: <String>{},
+            CollectionTab.wishlist: <String>{},
+          },
+          languagesByTab: const {
+            CollectionTab.portfolio: <String>{},
+            CollectionTab.wishlist: <String>{},
+          },
+        );
+      }
     } catch (_) {
-      return CollectionState.unavailable(currency: selectedCurrency);
+      if (generation == _loadGeneration) {
+        state = CollectionState.unavailable(currency: currency);
+      }
+    } finally {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
     }
   }
 
   void selectTab(CollectionTab tab) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -339,7 +407,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void selectFolder(String folderId) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -354,7 +422,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void updateSearch(String value) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -368,7 +436,7 @@ class CollectionController extends Notifier<CollectionState> {
     required Set<String> games,
     required Set<String> languages,
   }) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -380,7 +448,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void clearFilters() {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -392,7 +460,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void toggleAmountHidden() {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 

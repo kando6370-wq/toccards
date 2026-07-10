@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
@@ -20,7 +21,7 @@ void main() {
   testWidgets('Collection shows Portfolio summary and rows by default', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: _CollectionTestApp()));
+    await _pumpCollection(tester);
 
     expect(find.text('Collection'), findsWidgets);
     expect(find.text('Portfolio'), findsWidgets);
@@ -40,6 +41,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ..._localAuthOverrides(),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
           selectedCurrencyProvider.overrideWith(
             () => _TestSelectedCurrencyController(AppCurrency.eur),
           ),
@@ -47,6 +52,7 @@ void main() {
         child: const _CollectionTestApp(),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.textContaining('1,132.95'), findsOneWidget);
     expect(find.textContaining('709.80'), findsOneWidget);
@@ -60,10 +66,14 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [collectionRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          ..._localAuthOverrides(),
+          collectionRepositoryProvider.overrideWithValue(repository),
+        ],
         child: const _CollectionTestApp(),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
@@ -79,7 +89,7 @@ void main() {
   });
 
   testWidgets('folder picker changes Portfolio list', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: _CollectionTestApp()));
+    await _pumpCollection(tester);
 
     await tester.tap(find.text('Main'));
     await tester.pumpAndSettle();
@@ -94,7 +104,7 @@ void main() {
   testWidgets('Wishlist tab uses wishlist copy and hides quantity', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: _CollectionTestApp()));
+    await _pumpCollection(tester);
 
     await tester.tap(find.text('Wishlist'));
     await tester.pumpAndSettle();
@@ -107,7 +117,7 @@ void main() {
   testWidgets('search no-match state is distinct from empty state', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: _CollectionTestApp()));
+    await _pumpCollection(tester);
 
     await tester.enterText(find.byType(TextField), 'missing');
     await tester.pumpAndSettle();
@@ -117,7 +127,7 @@ void main() {
   });
 
   testWidgets('amount toggle masks collection money', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: _CollectionTestApp()));
+    await _pumpCollection(tester);
 
     await tester.tap(find.byKey(const Key('collection-hide-amount')));
     await tester.pumpAndSettle();
@@ -128,7 +138,7 @@ void main() {
   });
 
   testWidgets('filter sheet applies Game and Language filters', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: _CollectionTestApp()));
+    await _pumpCollection(tester);
 
     await tester.tap(find.byKey(const Key('collection-filter-button')));
     await tester.pumpAndSettle();
@@ -148,10 +158,16 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: _localAuthOverrides(),
+        overrides: [
+          ..._localAuthOverrides(),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
+        ],
         child: const _CollectionTestAppWithRoutes(),
       ),
     );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
@@ -166,8 +182,17 @@ void main() {
 
   testWidgets('Collection bottom navigation can open Search', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(child: _CollectionTestAppWithRoutes()),
+      ProviderScope(
+        overrides: [
+          ..._localAuthOverrides(),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
+        ],
+        child: const _CollectionTestAppWithRoutes(),
+      ),
     );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Search'));
     await tester.pumpAndSettle();
@@ -180,8 +205,17 @@ void main() {
     'Portfolio empty state actions open Scan and Search because empty collections must have recovery paths',
     (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(child: _CollectionTestAppWithRoutes()),
+        ProviderScope(
+          overrides: [
+            ..._localAuthOverrides(),
+            collectionRepositoryProvider.overrideWithValue(
+              const MockCollectionRepository(),
+            ),
+          ],
+          child: const _CollectionTestAppWithRoutes(),
+        ),
       );
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Main'));
       await tester.pumpAndSettle();
@@ -199,7 +233,15 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
       await tester.pumpWidget(
-        const ProviderScope(child: _CollectionTestAppWithRoutes()),
+        ProviderScope(
+          overrides: [
+            ..._localAuthOverrides(),
+            collectionRepositoryProvider.overrideWithValue(
+              const MockCollectionRepository(),
+            ),
+          ],
+          child: const _CollectionTestAppWithRoutes(),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -220,8 +262,17 @@ void main() {
 
   testWidgets('Scan bottom tab opens the Scan workflow page', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(child: _CollectionTestAppWithRoutes()),
+      ProviderScope(
+        overrides: [
+          ..._localAuthOverrides(),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
+        ],
+        child: const _CollectionTestAppWithRoutes(),
+      ),
     );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Scan'));
     await tester.pumpAndSettle();
@@ -230,6 +281,21 @@ void main() {
     expect(find.byTooltip('Take Photo'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
+}
+
+Future<void> _pumpCollection(WidgetTester tester) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ..._localAuthOverrides(),
+        collectionRepositoryProvider.overrideWithValue(
+          const MockCollectionRepository(),
+        ),
+      ],
+      child: const _CollectionTestApp(),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 _localAuthOverrides() {
@@ -295,11 +361,11 @@ class _FailingThenSuccessfulCollectionRepository
   var calls = 0;
 
   @override
-  CollectionDashboard loadDashboard() {
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
     calls += 1;
     if (calls == 1) {
       throw StateError('mock collection unavailable');
     }
-    return const MockCollectionRepository().loadDashboard();
+    return const MockCollectionRepository().loadDashboard(session);
   }
 }
