@@ -1,12 +1,111 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
+  test(
+    'http detail repository overlays backend collection rows onto local card detail because ownership state is backend-owned',
+    () async {
+      final api = _FakePortfolioApiClient(
+        folders: const [
+          PortfolioFolderDto(
+            id: 'main',
+            name: 'Main',
+            isDefault: true,
+            sortOrder: 100,
+          ),
+        ],
+        items: [
+          _portfolioItem(
+            id: 'backend-item',
+            folderId: 'main',
+            cardRef: 'squirtle',
+            quantity: 2,
+          ),
+        ],
+        wishlist: const [],
+      );
+
+      final detail = await HttpCardDetailRepository(
+        api: api,
+        presentationRepository: const MockCardDetailRepository(),
+      ).loadDetail(_session, 'squirtle');
+
+      expect(detail.name, 'Squirtle');
+      expect(detail.quantity, 2);
+      expect(detail.collectionItems.single.id, 'backend-item');
+      expect(detail.collectionItems.single.cardRef, 'squirtle');
+      expect(detail.collectionItems.single.folderId, 'main');
+      expect(detail.collectionItems.single.portfolioName, 'Main');
+      expect(detail.isWishlisted, isFalse);
+      expect(detail.wishlistItemId, isNull);
+    },
+  );
+
+  test(
+    'http detail repository overlays wishlist id because wishlist deletion needs the backend row id',
+    () async {
+      final detail = await HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: [
+            WishlistItemDto(
+              id: 'wish-squirtle',
+              cardRef: 'squirtle',
+              createdAt: DateTime.parse('2026-01-02T00:00:00.000Z'),
+            ),
+          ],
+        ),
+      ).loadDetail(_session, 'squirtle');
+
+      expect(detail.isWishlisted, isTrue);
+      expect(detail.wishlistItemId, 'wish-squirtle');
+    },
+  );
+
+  test(
+    'quick collect delegates to portfolio api because Card Detail must not invent item ids',
+    () async {
+      final api = _FakePortfolioApiClient(
+        folders: const [
+          PortfolioFolderDto(
+            id: 'main',
+            name: 'Main',
+            isDefault: true,
+            sortOrder: 100,
+          ),
+        ],
+        items: const [],
+        wishlist: const [],
+        quickCollectResult: _portfolioItem(
+          id: 'backend-item-squirtle',
+          folderId: 'main',
+          cardRef: 'squirtle',
+        ),
+      );
+      final detail = await const MockCardDetailRepository().loadDetail(
+        _session,
+        'squirtle',
+      );
+
+      final saved = await HttpCardDetailRepository(
+        api: api,
+      ).quickCollect(_session, detail);
+
+      expect(api.quickCollectCardRefs, ['squirtle']);
+      expect(api.quickCollectDrafts.single.folderId, 'main');
+      expect(saved.id, 'backend-item-squirtle');
+      expect(saved.cardRef, 'squirtle');
+    },
+  );
+
   test('uncollected detail exposes card identity and price overview', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -346,11 +445,196 @@ class _FailingThenSuccessfulCardDetailRepository
   var calls = 0;
 
   @override
-  CardDetail loadDetail(String cardId) {
+  dynamic loadDetail(Object sessionOrCardId, [String? cardId]) {
     calls += 1;
     if (calls == 1) {
       throw StateError('mock detail unavailable');
     }
-    return const MockCardDetailRepository().loadDetail(cardId);
+    return const MockCardDetailRepository().loadDetail(sessionOrCardId, cardId);
+  }
+
+  @override
+  Future<CardCollectionItem> quickCollect(
+    AuthSession session,
+    CardDetail detail,
+  ) {
+    return const MockCardDetailRepository().quickCollect(session, detail);
+  }
+
+  @override
+  Future<CardCollectionItem> createCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+  }) {
+    return const MockCardDetailRepository().createCollectionItem(
+      session,
+      detail: detail,
+      item: item,
+    );
+  }
+
+  @override
+  Future<CardCollectionItem> updateCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+  }) {
+    return const MockCardDetailRepository().updateCollectionItem(
+      session,
+      detail: detail,
+      item: item,
+    );
+  }
+
+  @override
+  Future<void> deleteCollectionItem(AuthSession session, String itemId) {
+    return const MockCardDetailRepository().deleteCollectionItem(
+      session,
+      itemId,
+    );
+  }
+
+  @override
+  Future<String> addWishlist(AuthSession session, String cardRef) {
+    return const MockCardDetailRepository().addWishlist(session, cardRef);
+  }
+
+  @override
+  Future<void> deleteWishlist(AuthSession session, String wishlistItemId) {
+    return const MockCardDetailRepository().deleteWishlist(
+      session,
+      wishlistItemId,
+    );
   }
 }
+
+class _FakePortfolioApiClient implements PortfolioApi {
+  _FakePortfolioApiClient({
+    required this.folders,
+    required this.items,
+    required this.wishlist,
+    this.quickCollectResult,
+    this.createResult,
+    this.updateResult,
+    this.addWishlistResult,
+  });
+
+  final List<PortfolioFolderDto> folders;
+  final List<PortfolioItemDto> items;
+  final List<WishlistItemDto> wishlist;
+  final PortfolioItemDto? quickCollectResult;
+  final PortfolioItemDto? createResult;
+  final PortfolioItemDto? updateResult;
+  final WishlistItemDto? addWishlistResult;
+  final List<String> quickCollectCardRefs = [];
+  final List<PortfolioItemDraftDto> quickCollectDrafts = [];
+
+  @override
+  Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
+    return folders;
+  }
+
+  @override
+  Future<List<PortfolioItemDto>> listCollectionItems(
+    AuthSession session,
+  ) async {
+    return items;
+  }
+
+  @override
+  Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) async {
+    return wishlist;
+  }
+
+  @override
+  Future<PortfolioItemDto> quickCollect(
+    AuthSession session, {
+    required String cardRef,
+    required PortfolioItemDraftDto draft,
+  }) async {
+    quickCollectCardRefs.add(cardRef);
+    quickCollectDrafts.add(draft);
+    return quickCollectResult ??
+        _portfolioItem(id: 'quick-item', cardRef: cardRef);
+  }
+
+  @override
+  Future<PortfolioItemDto> createCollectionItem(
+    AuthSession session,
+    PortfolioItemDraftDto draft,
+  ) async {
+    return createResult ??
+        _portfolioItem(
+          id: 'created-item',
+          folderId: draft.folderId,
+          cardRef: draft.cardRef,
+        );
+  }
+
+  @override
+  Future<PortfolioItemDto> updateCollectionItem(
+    AuthSession session, {
+    required String itemId,
+    required PortfolioItemDraftDto draft,
+  }) async {
+    return updateResult ??
+        _portfolioItem(
+          id: itemId,
+          folderId: draft.folderId,
+          cardRef: draft.cardRef,
+        );
+  }
+
+  @override
+  Future<void> deleteCollectionItem(AuthSession session, String itemId) async {}
+
+  @override
+  Future<WishlistItemDto> addWishlist(
+    AuthSession session,
+    String cardRef,
+  ) async {
+    return addWishlistResult ??
+        WishlistItemDto(
+          id: 'wish-$cardRef',
+          cardRef: cardRef,
+          createdAt: DateTime.parse('2026-01-02T00:00:00.000Z'),
+        );
+  }
+
+  @override
+  Future<void> deleteWishlist(AuthSession session, String itemId) async {}
+}
+
+PortfolioItemDto _portfolioItem({
+  required String id,
+  String folderId = 'main',
+  required String cardRef,
+  int quantity = 1,
+}) {
+  final now = DateTime.parse('2026-01-01T00:00:00.000Z');
+  return PortfolioItemDto(
+    id: id,
+    folderId: folderId,
+    cardRef: cardRef,
+    objectType: 'tcg',
+    grader: 'Raw',
+    condition: 'Near Mint (NM)',
+    grade: null,
+    language: 'English',
+    finish: 'Holofoil',
+    quantity: quantity,
+    purchasePrice: null,
+    purchaseCurrency: null,
+    notes: null,
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
+const _session = AuthSession(
+  ownerType: OwnerType.anonymous,
+  accessToken: 'owner-access',
+  refreshToken: 'owner-refresh',
+  anonymousId: 'owner',
+);

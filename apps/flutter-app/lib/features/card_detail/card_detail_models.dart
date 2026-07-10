@@ -62,6 +62,8 @@ class CardSoldListing {
 class CardCollectionItem {
   const CardCollectionItem({
     required this.id,
+    this.cardRef = '',
+    this.folderId,
     required this.portfolioName,
     required this.quantity,
     required this.grader,
@@ -74,6 +76,8 @@ class CardCollectionItem {
   });
 
   final String id;
+  final String cardRef;
+  final String? folderId;
   final String portfolioName;
   final int quantity;
   final String grader;
@@ -85,6 +89,8 @@ class CardCollectionItem {
   final String notes;
 
   CardCollectionItem copyWith({
+    String? cardRef,
+    Object? folderId = _cardCollectionItemUnset,
     String? portfolioName,
     int? quantity,
     String? grader,
@@ -97,6 +103,10 @@ class CardCollectionItem {
   }) {
     return CardCollectionItem(
       id: id,
+      cardRef: cardRef ?? this.cardRef,
+      folderId: folderId == _cardCollectionItemUnset
+          ? this.folderId
+          : folderId as String?,
       portfolioName: portfolioName ?? this.portfolioName,
       quantity: quantity ?? this.quantity,
       grader: grader ?? this.grader,
@@ -130,6 +140,7 @@ class CardDetail {
     required this.language,
     required this.quantity,
     required this.isWishlisted,
+    this.wishlistItemId,
     required this.marketPrices,
     this.collectionItems = const [],
     this.priceSeriesByRange = const {},
@@ -147,6 +158,7 @@ class CardDetail {
   final String language;
   final int quantity;
   final bool isWishlisted;
+  final String? wishlistItemId;
   final List<CardMarketPrice> marketPrices;
   final List<CardCollectionItem> collectionItems;
   final Map<CardPriceRange, List<CardPricePoint>> priceSeriesByRange;
@@ -158,6 +170,7 @@ class CardDetail {
   CardDetail copyWith({
     int? quantity,
     bool? isWishlisted,
+    Object? wishlistItemId = _cardCollectionItemUnset,
     List<CardCollectionItem>? collectionItems,
   }) {
     return CardDetail(
@@ -171,6 +184,9 @@ class CardDetail {
       language: language,
       quantity: quantity ?? this.quantity,
       isWishlisted: isWishlisted ?? this.isWishlisted,
+      wishlistItemId: wishlistItemId == _cardCollectionItemUnset
+          ? this.wishlistItemId
+          : wishlistItemId as String?,
       marketPrices: marketPrices,
       collectionItems: collectionItems ?? this.collectionItems,
       priceSeriesByRange: priceSeriesByRange,
