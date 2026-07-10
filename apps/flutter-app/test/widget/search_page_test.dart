@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/auth_storage.dart';
+import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
+import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/collection/collection_repository.dart';
@@ -203,7 +205,10 @@ void main() {
 
   testWidgets('tapping a Search card opens CardDetail', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(child: _SearchTestAppWithRoutes()),
+      ProviderScope(
+        overrides: [..._cardDetailOverrides()],
+        child: const _SearchTestAppWithRoutes(),
+      ),
     );
 
     await tester.tap(find.byKey(const Key('search-card-squirtle')));
@@ -228,7 +233,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const ProviderScope(child: _SearchTestAppWithRoutes()),
+      ProviderScope(
+        overrides: [..._cardDetailOverrides()],
+        child: const _SearchTestAppWithRoutes(),
+      ),
     );
 
     await tester.tap(find.byKey(const Key('search-card-charizard-ex')));
@@ -254,6 +262,15 @@ _localAuthOverrides() {
   return [
     authRepositoryProvider.overrideWithValue(
       LocalPlaceholderAuthRepository(storage),
+    ),
+  ];
+}
+
+_cardDetailOverrides() {
+  return [
+    ..._localAuthOverrides(),
+    cardDetailRepositoryProvider.overrideWithValue(
+      const MockCardDetailRepository(),
     ),
   ];
 }
