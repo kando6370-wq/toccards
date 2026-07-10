@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
-import 'package:kando_app/shared/ui/toast.dart';
 
 import 'search_controller.dart';
 import 'search_models.dart';
@@ -15,7 +16,8 @@ class SearchPage extends ConsumerWidget {
     final state = ref.watch(searchControllerProvider);
     final controller = ref.read(searchControllerProvider.notifier);
 
-    return Scaffold(
+    return KandoTabScaffold(
+      currentTab: KandoMainTab.search,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -74,49 +76,6 @@ class SearchPage extends ConsumerWidget {
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 3,
-        onDestinationSelected: (index) {
-          if (index == 0) {
-            context.go('/');
-            return;
-          }
-          if (index == 1) {
-            context.go('/collection');
-            return;
-          }
-          if (index == 2) {
-            context.go('/scan');
-            return;
-          }
-          if (index == 4) {
-            context.go('/profile');
-            return;
-          }
-          if (index != 3) {
-            showKandoToast(context, message: 'This section is coming soon.');
-          }
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(
-            icon: Icon(Icons.collections_bookmark_outlined),
-            label: 'Collection',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            label: 'Scan',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            label: 'Search',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-        ],
-      ),
     );
   }
 }
@@ -137,7 +96,10 @@ class _SearchHeader extends StatelessWidget {
         Expanded(
           child: Text(
             'Search',
-            style: Theme.of(context).textTheme.headlineMedium,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: KandoColors.text,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         OutlinedButton.icon(
@@ -211,6 +173,7 @@ class _SearchCardTile extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.secondaryContainer,
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: KandoColors.border),
                   ),
                   child: Icon(
                     Icons.style_outlined,

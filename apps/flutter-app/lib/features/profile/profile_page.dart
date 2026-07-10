@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
@@ -18,13 +20,15 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: authState.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _ProfileContent(authState: authState),
+    return KandoTabScaffold(
+      currentTab: KandoMainTab.profile,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: authState.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _ProfileContent(authState: authState),
+        ),
       ),
     );
   }
@@ -47,8 +51,15 @@ class _ProfileContent extends ConsumerWidget {
         : (session?.anonymousId ?? 'Anonymous guest');
 
     return ListView(
+      padding: const EdgeInsets.only(bottom: 96),
       children: [
-        Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: KandoColors.text,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         const SizedBox(height: 8),
         Text(identity, style: Theme.of(context).textTheme.bodyLarge),
         if (isUser) ...[
@@ -62,23 +73,25 @@ class _ProfileContent extends ConsumerWidget {
           const SizedBox(height: 16),
           Text('Pending guest: ${authState.pendingMigrationAnonymousId}'),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
         if (isUser) ...[
           Card(
             child: ListTile(
+              dense: true,
+              visualDensity: VisualDensity.compact,
               title: const Text('Account'),
               subtitle: Text(identity),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/account'),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
         ] else ...[
           FilledButton(
             onPressed: () => showAuthSheet(context),
             child: const Text('Sign in / Sign up'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
         ],
         _ProfileEntry(
           label: 'Customer Support',
@@ -113,7 +126,7 @@ class _ProfileContent extends ConsumerWidget {
           ),
         ),
         if (isUser) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           FilledButton(
             onPressed: () async {
               await ref.read(authControllerProvider.notifier).logout();
@@ -124,7 +137,7 @@ class _ProfileContent extends ConsumerWidget {
             child: const Text('Log Out'),
           ),
         ] else ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           OutlinedButton(
             onPressed: () {
               _confirmAndDelete(context, ref);
@@ -132,7 +145,7 @@ class _ProfileContent extends ConsumerWidget {
             child: const Text('Delete account'),
           ),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
         Text(profileVersionText, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
@@ -175,6 +188,12 @@ class _ProfileEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(title: Text(label), onTap: onTap);
+    return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      title: Text(label),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    );
   }
 }

@@ -2,11 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
-import 'package:kando_app/shared/ui/toast.dart';
 
 import 'home_controller.dart';
 import 'home_models.dart';
@@ -19,7 +19,8 @@ class HomePage extends ConsumerWidget {
     final state = ref.watch(homeControllerProvider);
     final controller = ref.read(homeControllerProvider.notifier);
 
-    return Scaffold(
+    return KandoTabScaffold(
+      currentTab: KandoMainTab.home,
       body: SafeArea(
         child: state.isUnavailable
             ? Padding(
@@ -53,49 +54,6 @@ class HomePage extends ConsumerWidget {
                   ],
                 ),
               ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
-        onDestinationSelected: (index) {
-          if (index == 1) {
-            context.go('/collection');
-            return;
-          }
-          if (index == 2) {
-            context.go('/scan');
-            return;
-          }
-          if (index == 3) {
-            context.go('/search');
-            return;
-          }
-          if (index == 4) {
-            context.go('/profile');
-            return;
-          }
-          if (index != 0) {
-            showKandoToast(context, message: 'This section is coming soon.');
-          }
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(
-            icon: Icon(Icons.collections_bookmark_outlined),
-            label: 'Collection',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            label: 'Scan',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            label: 'Search',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }
@@ -176,10 +134,17 @@ class _Header extends StatelessWidget {
         Expanded(
           child: Text(
             'Overview',
-            style: Theme.of(context).textTheme.headlineMedium,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: KandoColors.text,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
-        OutlinedButton(onPressed: onCurrencyPressed, child: Text(currencyCode)),
+        OutlinedButton.icon(
+          onPressed: onCurrencyPressed,
+          icon: const Icon(Icons.payments_outlined, size: 18),
+          label: Text(currencyCode),
+        ),
       ],
     );
   }
@@ -225,14 +190,20 @@ class _PortfolioCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               state.totalAmountText,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: KandoColors.text,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Text(state.changeAmountText),
                 const SizedBox(width: 8),
-                Text(state.changePercentText),
+                Text(
+                  state.changePercentText,
+                  style: const TextStyle(color: KandoColors.accent),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -381,11 +352,11 @@ class _ChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final linePaint = Paint()
-      ..color = Colors.teal
+      ..color = KandoColors.accent
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
     final axisPaint = Paint()
-      ..color = Colors.black12
+      ..color = KandoColors.border
       ..strokeWidth = 1;
 
     canvas.drawLine(

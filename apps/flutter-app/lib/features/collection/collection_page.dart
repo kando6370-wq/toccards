@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
-import 'package:kando_app/shared/ui/toast.dart';
 
 import 'collection_controller.dart';
 import 'collection_models.dart';
@@ -15,7 +16,8 @@ class CollectionPage extends ConsumerWidget {
     final state = ref.watch(collectionControllerProvider);
     final controller = ref.read(collectionControllerProvider.notifier);
 
-    return Scaffold(
+    return KandoTabScaffold(
+      currentTab: KandoMainTab.collection,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -74,49 +76,6 @@ class CollectionPage extends ConsumerWidget {
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 1,
-        onDestinationSelected: (index) {
-          if (index == 0) {
-            context.go('/');
-            return;
-          }
-          if (index == 2) {
-            context.go('/scan');
-            return;
-          }
-          if (index == 3) {
-            context.go('/search');
-            return;
-          }
-          if (index == 4) {
-            context.go('/profile');
-            return;
-          }
-          if (index != 1) {
-            showKandoToast(context, message: 'This section is coming soon.');
-          }
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(
-            icon: Icon(Icons.collections_bookmark_outlined),
-            label: 'Collection',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            label: 'Scan',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            label: 'Search',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-        ],
-      ),
     );
   }
 }
@@ -142,7 +101,10 @@ class _CollectionHeader extends StatelessWidget {
             children: [
               Text(
                 'Collection',
-                style: Theme.of(context).textTheme.headlineMedium,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: KandoColors.text,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               if (!state.isUnavailable && !state.isLoading)
                 TextButton(
@@ -253,6 +215,7 @@ class _CollectionCardRow extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: KandoColors.border),
               ),
             ),
             const SizedBox(width: 12),
