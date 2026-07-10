@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -235,6 +237,54 @@ void main() {
       expect(repository.deletedWishlistItemIds, ['backend-wish-squirtle']);
       expect(container.read(provider).detail.isWishlisted, isFalse);
       expect(container.read(provider).detail.wishlistItemId, isNull);
+    },
+  );
+
+  test(
+    'wishlist toggle keeps state when backend wishlist id is missing because delete needs a row id',
+    () async {
+      final repository = _WishlistWithoutIdCardDetailRepository();
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('squirtle');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'squirtle');
+
+      expect(container.read(provider).detail.isWishlisted, isTrue);
+      expect(container.read(provider).detail.wishlistItemId, isNull);
+
+      await controller.toggleWishlist();
+
+      expect(repository.deletedWishlistItemIds, isEmpty);
+      expect(container.read(provider).detail.isWishlisted, isTrue);
+      expect(container.read(provider).detail.wishlistItemId, isNull);
+    },
+  );
+
+  test(
+    'quick Collect drops stale result after refresh because backend state may have changed while mutation was in flight',
+    () async {
+      final repository = _BlockingQuickCollectCardDetailRepository();
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('one-piece-luffy');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'one-piece-luffy');
+
+      final mutation = controller.quickCollect();
+      await repository.quickCollectStarted.future;
+
+      await controller.refresh();
+      expect(container.read(provider).detail.isCollected, isFalse);
+      expect(container.read(provider).detail.isWishlisted, isTrue);
+
+      repository.completeQuickCollect();
+      await mutation;
+
+      final detail = container.read(provider).detail;
+      expect(detail.isCollected, isFalse);
+      expect(detail.collectionItems, isEmpty);
+      expect(detail.isWishlisted, isTrue);
     },
   );
 
@@ -661,6 +711,52 @@ class _RecordingCardDetailRepository implements CardDetailRepository {
   }
 }
 
+class _WishlistWithoutIdCardDetailRepository
+    extends _RecordingCardDetailRepository {
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    final detail = await super.loadDetail(session, cardId);
+    return detail.copyWith(isWishlisted: true, wishlistItemId: null);
+  }
+}
+
+class _BlockingQuickCollectCardDetailRepository
+    extends _RecordingCardDetailRepository {
+  final quickCollectStarted = Completer<void>();
+  final _quickCollectCompleter = Completer<CardCollectionItem>();
+
+  @override
+  Future<CardCollectionItem> quickCollect(
+    AuthSession session,
+    CardDetail detail,
+  ) {
+    quickCollectCardRefs.add(detail.id);
+    if (!quickCollectStarted.isCompleted) {
+      quickCollectStarted.complete();
+    }
+    return _quickCollectCompleter.future;
+  }
+
+  void completeQuickCollect() {
+    _quickCollectCompleter.complete(
+      const CardCollectionItem(
+        id: 'stale-backend-item-one-piece-luffy',
+        cardRef: 'one-piece-luffy',
+        folderId: 'main',
+        portfolioName: 'Main',
+        quantity: 1,
+        grader: 'Raw',
+        condition: 'Near Mint (NM)',
+        grade: null,
+        language: 'Japanese',
+        finish: 'Normal',
+        purchasePriceUsd: null,
+        notes: 'Stale quick collect result.',
+      ),
+    );
+  }
+}
+
 ProviderContainer _cardDetailContainer({
   CardDetailRepository repository = const MockCardDetailRepository(),
 }) {
@@ -692,18 +788,12 @@ class _FakePortfolioApiClient implements PortfolioApi {
     required this.items,
     required this.wishlist,
     this.quickCollectResult,
-    this.createResult,
-    this.updateResult,
-    this.addWishlistResult,
   });
 
   final List<PortfolioFolderDto> folders;
   final List<PortfolioItemDto> items;
   final List<WishlistItemDto> wishlist;
   final PortfolioItemDto? quickCollectResult;
-  final PortfolioItemDto? createResult;
-  final PortfolioItemDto? updateResult;
-  final WishlistItemDto? addWishlistResult;
   final List<String> quickCollectCardRefs = [];
   final List<PortfolioItemDraftDto> quickCollectDrafts = [];
 
@@ -741,12 +831,11 @@ class _FakePortfolioApiClient implements PortfolioApi {
     AuthSession session,
     PortfolioItemDraftDto draft,
   ) async {
-    return createResult ??
-        _portfolioItem(
-          id: 'created-item',
-          folderId: draft.folderId,
-          cardRef: draft.cardRef,
-        );
+    return _portfolioItem(
+      id: 'created-item',
+      folderId: draft.folderId,
+      cardRef: draft.cardRef,
+    );
   }
 
   @override
@@ -755,12 +844,11 @@ class _FakePortfolioApiClient implements PortfolioApi {
     required String itemId,
     required PortfolioItemDraftDto draft,
   }) async {
-    return updateResult ??
-        _portfolioItem(
-          id: itemId,
-          folderId: draft.folderId,
-          cardRef: draft.cardRef,
-        );
+    return _portfolioItem(
+      id: itemId,
+      folderId: draft.folderId,
+      cardRef: draft.cardRef,
+    );
   }
 
   @override
@@ -771,12 +859,11 @@ class _FakePortfolioApiClient implements PortfolioApi {
     AuthSession session,
     String cardRef,
   ) async {
-    return addWishlistResult ??
-        WishlistItemDto(
-          id: 'wish-$cardRef',
-          cardRef: cardRef,
-          createdAt: DateTime.parse('2026-01-02T00:00:00.000Z'),
-        );
+    return WishlistItemDto(
+      id: 'wish-$cardRef',
+      cardRef: cardRef,
+      createdAt: DateTime.parse('2026-01-02T00:00:00.000Z'),
+    );
   }
 
   @override

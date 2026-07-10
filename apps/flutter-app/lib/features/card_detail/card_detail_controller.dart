@@ -431,6 +431,7 @@ class CardDetailController extends Notifier<CardDetailState> {
     final authState = ref.watch(authControllerProvider);
     final session = authState.session;
     if (authState.isLoading || session == null) {
+      _invalidateLoad();
       return CardDetailState.loading(cardId: cardId, currency: currency);
     }
 
@@ -441,6 +442,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   Future<void> refresh() {
     final session = ref.read(authControllerProvider).session;
     if (session == null) {
+      _invalidateLoad();
       state = CardDetailState.loading(cardId: cardId, currency: state.currency);
       return Future<void>.value();
     }
@@ -463,12 +465,20 @@ class CardDetailController extends Notifier<CardDetailState> {
     if (detail.isCollected) {
       return;
     }
+    final mutationGeneration = _loadGeneration;
 
     final savedItem = await _repository.quickCollect(session, detail);
+    if (!_canApplyMutation(session, mutationGeneration)) {
+      return;
+    }
+    final currentDetail = state.detail;
+    if (currentDetail.id != detail.id || currentDetail.isCollected) {
+      return;
+    }
     state = state.copyWith(
       detail: _detailWithCollectionItems(
-        detail,
-        [...detail.collectionItems, savedItem],
+        currentDetail,
+        [...currentDetail.collectionItems, savedItem],
         isWishlisted: false,
         wishlistItemId: null,
       ),
@@ -487,18 +497,41 @@ class CardDetailController extends Notifier<CardDetailState> {
     final detail = state.detail;
     if (detail.isWishlisted) {
       final wishlistItemId = detail.wishlistItemId;
-      if (wishlistItemId != null) {
-        await _repository.deleteWishlist(session, wishlistItemId);
+      if (wishlistItemId == null) {
+        return;
+      }
+      final mutationGeneration = _loadGeneration;
+      await _repository.deleteWishlist(session, wishlistItemId);
+      if (!_canApplyMutation(session, mutationGeneration)) {
+        return;
+      }
+      final currentDetail = state.detail;
+      if (!currentDetail.isWishlisted ||
+          currentDetail.wishlistItemId != wishlistItemId) {
+        return;
       }
       state = state.copyWith(
-        detail: detail.copyWith(isWishlisted: false, wishlistItemId: null),
+        detail: currentDetail.copyWith(
+          isWishlisted: false,
+          wishlistItemId: null,
+        ),
       );
       return;
     }
 
+    final mutationGeneration = _loadGeneration;
     final wishlistItemId = await _repository.addWishlist(session, detail.id);
+    if (!_canApplyMutation(session, mutationGeneration)) {
+      return;
+    }
+    final currentDetail = state.detail;
+    if (currentDetail.id != detail.id ||
+        currentDetail.isCollected ||
+        currentDetail.isWishlisted) {
+      return;
+    }
     state = state.copyWith(
-      detail: detail.copyWith(
+      detail: currentDetail.copyWith(
         isWishlisted: true,
         wishlistItemId: wishlistItemId,
       ),
@@ -652,6 +685,7 @@ class CardDetailController extends Notifier<CardDetailState> {
 
     final detail = state.detail;
     final editingItemId = state.editingCollectionItemId;
+    final mutationGeneration = _loadGeneration;
     final draftItem = CardCollectionItem(
       id: editingItemId ?? '',
       cardRef: detail.id,
@@ -678,16 +712,23 @@ class CardDetailController extends Notifier<CardDetailState> {
             item: draftItem,
           );
 
+    if (!_canApplyMutation(session, mutationGeneration) ||
+        state.editingCollectionItemId != editingItemId ||
+        state.collectionItemDraft == null ||
+        state.detail.id != detail.id) {
+      return false;
+    }
+    final currentDetail = state.detail;
     final nextItems = editingItemId == null
-        ? [...detail.collectionItems, savedItem]
+        ? [...currentDetail.collectionItems, savedItem]
         : [
-            for (final item in detail.collectionItems)
+            for (final item in currentDetail.collectionItems)
               if (item.id == editingItemId) savedItem else item,
           ];
 
     state = state.copyWith(
       detail: _detailWithCollectionItems(
-        detail,
+        currentDetail,
         nextItems,
         isWishlisted: false,
         wishlistItemId: null,
@@ -709,13 +750,22 @@ class CardDetailController extends Notifier<CardDetailState> {
       return;
     }
     final detail = state.detail;
+    final mutationGeneration = _loadGeneration;
     await _repository.deleteCollectionItem(session, itemId);
-    final nextItems = detail.collectionItems
+    if (!_canApplyMutation(session, mutationGeneration)) {
+      return;
+    }
+    final currentDetail = state.detail;
+    if (currentDetail.id != detail.id ||
+        !currentDetail.collectionItems.any((item) => item.id == itemId)) {
+      return;
+    }
+    final nextItems = currentDetail.collectionItems
         .where((item) => item.id != itemId)
         .toList();
 
     state = state.copyWith(
-      detail: _detailWithCollectionItems(detail, nextItems),
+      detail: _detailWithCollectionItems(currentDetail, nextItems),
       collectionItemDraft: null,
       editingCollectionItemId: null,
       collectionItemFormError: null,
@@ -726,6 +776,23 @@ class CardDetailController extends Notifier<CardDetailState> {
       ref.read(cardDetailRepositoryProvider);
 
   AuthSession? get _session => ref.read(authControllerProvider).session;
+
+  bool _canApplyMutation(AuthSession session, int generation) {
+    return generation == _loadGeneration &&
+        identical(_session, session) &&
+        !state.isUnavailable &&
+        !state.isLoading &&
+        state.detail.id == cardId;
+  }
+
+  void _invalidateLoad() {
+    _loadGeneration += 1;
+    final completer = _loadCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
+    _loadCompleter = null;
+  }
 
   void _startLoad({
     required AuthSession session,
@@ -806,10 +873,6 @@ class CardDetailController extends Notifier<CardDetailState> {
     }
 
     return _PurchasePriceParseResult(value: parsed);
-  }
-
-  String _nextCollectionItemId(CardDetail detail) {
-    return 'item-${detail.id}-${detail.collectionItems.length + 1}';
   }
 
   CardDetail _detailWithCollectionItems(

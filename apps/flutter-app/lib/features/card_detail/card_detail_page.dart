@@ -639,6 +639,9 @@ Future<void> _confirmRemoveCollectionItem(
           FilledButton.icon(
             onPressed: () async {
               await controller.removeCollectionItem(itemId);
+              if (!context.mounted) {
+                return;
+              }
               Navigator.of(context).pop();
             },
             icon: const Icon(Icons.delete_outline),
