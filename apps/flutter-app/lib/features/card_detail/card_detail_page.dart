@@ -26,7 +26,12 @@ class CardDetailPage extends ConsumerWidget {
         title: const Text('Card Detail'),
       ),
       body: SafeArea(
-        child: state.isUnavailable
+        child: state.loadStatus == KandoLoadStatus.loading
+            ? const Padding(
+                padding: EdgeInsets.all(16),
+                child: KandoLoadingBlock(),
+              )
+            : state.isUnavailable
             ? Padding(
                 padding: const EdgeInsets.all(16),
                 child: KandoFailureBlock(onRefresh: controller.refresh),
@@ -123,7 +128,9 @@ class _CardHeader extends StatelessWidget {
             else
               IconButton(
                 key: Key('card-detail-wishlist-${detail.id}'),
-                onPressed: controller.toggleWishlist,
+                onPressed: () async {
+                  await controller.toggleWishlist();
+                },
                 icon: Icon(
                   detail.isWishlisted ? Icons.favorite : Icons.favorite_border,
                 ),
@@ -507,7 +514,9 @@ class _CollectionItemForm extends StatelessWidget {
                 const Spacer(),
                 FilledButton.icon(
                   key: const Key('card-detail-item-submit'),
-                  onPressed: controller.saveCollectionItemDraft,
+                  onPressed: () async {
+                    await controller.saveCollectionItemDraft();
+                  },
                   icon: Icon(isEditing ? Icons.save_outlined : Icons.add),
                   label: Text(isEditing ? 'Save changes' : 'Add'),
                 ),
@@ -628,8 +637,8 @@ Future<void> _confirmRemoveCollectionItem(
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
-            onPressed: () {
-              controller.removeCollectionItem(itemId);
+            onPressed: () async {
+              await controller.removeCollectionItem(itemId);
               Navigator.of(context).pop();
             },
             icon: const Icon(Icons.delete_outline),

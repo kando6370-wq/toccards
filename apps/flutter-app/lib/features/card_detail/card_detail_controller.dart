@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'card_detail_models.dart';
 import 'card_detail_repository.dart';
 
 final cardDetailRepositoryProvider = Provider<CardDetailRepository>((ref) {
-  return const MockCardDetailRepository();
+  return HttpCardDetailRepository(api: ref.watch(portfolioApiClientProvider));
 });
 
 final cardDetailControllerProvider =
@@ -223,6 +228,17 @@ class CardDetailState {
   }) : _detail = null,
        loadStatus = KandoLoadStatus.failure;
 
+  const CardDetailState.loading({
+    required this.cardId,
+    required this.currency,
+    this.selectedPriceChartMode = CardPriceChartMode.raw,
+    this.selectedPriceRange = CardPriceRange.oneMonth,
+    this.collectionItemDraft,
+    this.editingCollectionItemId,
+    this.collectionItemFormError,
+  }) : _detail = null,
+       loadStatus = KandoLoadStatus.loading;
+
   final String cardId;
   final CardDetail? _detail;
   final AppCurrency currency;
@@ -234,6 +250,7 @@ class CardDetailState {
   final KandoLoadStatus loadStatus;
 
   bool get isUnavailable => loadStatus == KandoLoadStatus.failure;
+  bool get isLoading => loadStatus == KandoLoadStatus.loading;
 
   CardDetail get detail {
     final detail = _detail;
@@ -395,48 +412,101 @@ class CardDetailController extends Notifier<CardDetailState> {
   CardDetailController(this.cardId);
 
   final String cardId;
+  Completer<void>? _loadCompleter;
+  var _loadGeneration = 0;
+
+  Future<void> get loadComplete {
+    return _loadCompleter?.future ?? Future<void>.value();
+  }
 
   @override
   CardDetailState build() {
+    ref.listen<AppCurrency>(selectedCurrencyProvider, (previous, next) {
+      if (!state.isLoading && !state.isUnavailable) {
+        state = state.copyWith(currency: next);
+      }
+    });
+
     final currency = ref.watch(selectedCurrencyProvider);
-    return _load(currency: currency);
+    final authState = ref.watch(authControllerProvider);
+    final session = authState.session;
+    if (authState.isLoading || session == null) {
+      return CardDetailState.loading(cardId: cardId, currency: currency);
+    }
+
+    _startLoad(session: session, currency: currency);
+    return CardDetailState.loading(cardId: cardId, currency: currency);
   }
 
-  void refresh() {
-    state = _load(currency: ref.read(selectedCurrencyProvider));
+  Future<void> refresh() {
+    final session = ref.read(authControllerProvider).session;
+    if (session == null) {
+      state = CardDetailState.loading(cardId: cardId, currency: state.currency);
+      return Future<void>.value();
+    }
+
+    state = CardDetailState.loading(cardId: cardId, currency: state.currency);
+    _startLoad(session: session, currency: state.currency);
+    return loadComplete;
   }
 
-  void quickCollect() {
-    if (state.isUnavailable) {
+  Future<void> quickCollect() async {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
+    final session = _session;
+    if (session == null) {
+      return;
+    }
     final detail = state.detail;
     if (detail.isCollected) {
       return;
     }
 
+    final savedItem = await _repository.quickCollect(session, detail);
     state = state.copyWith(
-      detail: detail.copyWith(
-        quantity: 1,
+      detail: _detailWithCollectionItems(
+        detail,
+        [...detail.collectionItems, savedItem],
         isWishlisted: false,
-        collectionItems: [_defaultCollectionItem(detail)],
+        wishlistItemId: null,
       ),
     );
   }
 
-  void toggleWishlist() {
-    if (state.isUnavailable || state.detail.isCollected) {
+  Future<void> toggleWishlist() async {
+    if (state.isUnavailable || state.isLoading || state.detail.isCollected) {
       return;
     }
 
+    final session = _session;
+    if (session == null) {
+      return;
+    }
+    final detail = state.detail;
+    if (detail.isWishlisted) {
+      final wishlistItemId = detail.wishlistItemId;
+      if (wishlistItemId != null) {
+        await _repository.deleteWishlist(session, wishlistItemId);
+      }
+      state = state.copyWith(
+        detail: detail.copyWith(isWishlisted: false, wishlistItemId: null),
+      );
+      return;
+    }
+
+    final wishlistItemId = await _repository.addWishlist(session, detail.id);
     state = state.copyWith(
-      detail: state.detail.copyWith(isWishlisted: !state.detail.isWishlisted),
+      detail: detail.copyWith(
+        isWishlisted: true,
+        wishlistItemId: wishlistItemId,
+      ),
     );
   }
 
   void selectPriceRange(CardPriceRange range) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -444,7 +514,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   }
 
   void selectPriceChartMode(CardPriceChartMode mode) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -452,7 +522,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   }
 
   void startAddingCollectionItem() {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -474,7 +544,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   }
 
   void startEditingCollectionItem(String itemId) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -512,7 +582,7 @@ class CardDetailController extends Notifier<CardDetailState> {
     String? notes,
   }) {
     final draft = state.collectionItemDraft;
-    if (state.isUnavailable || draft == null) {
+    if (state.isUnavailable || state.isLoading || draft == null) {
       return;
     }
 
@@ -542,7 +612,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   }
 
   void cancelCollectionItemEdit() {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -553,9 +623,13 @@ class CardDetailController extends Notifier<CardDetailState> {
     );
   }
 
-  bool saveCollectionItemDraft() {
+  Future<bool> saveCollectionItemDraft() async {
     final draft = state.collectionItemDraft;
-    if (state.isUnavailable || draft == null) {
+    if (state.isUnavailable || state.isLoading || draft == null) {
+      return false;
+    }
+    final session = _session;
+    if (session == null) {
       return false;
     }
 
@@ -578,8 +652,10 @@ class CardDetailController extends Notifier<CardDetailState> {
 
     final detail = state.detail;
     final editingItemId = state.editingCollectionItemId;
-    final savedItem = CardCollectionItem(
-      id: editingItemId ?? _nextCollectionItemId(detail),
+    final draftItem = CardCollectionItem(
+      id: editingItemId ?? '',
+      cardRef: detail.id,
+      folderId: _folderIdForPortfolioName(draft.portfolioName),
       portfolioName: draft.portfolioName,
       quantity: quantity.value!,
       grader: draft.grader,
@@ -590,6 +666,17 @@ class CardDetailController extends Notifier<CardDetailState> {
       purchasePriceUsd: purchasePrice.value,
       notes: draft.notes,
     );
+    final savedItem = editingItemId == null
+        ? await _repository.createCollectionItem(
+            session,
+            detail: detail,
+            item: draftItem,
+          )
+        : await _repository.updateCollectionItem(
+            session,
+            detail: detail,
+            item: draftItem,
+          );
 
     final nextItems = editingItemId == null
         ? [...detail.collectionItems, savedItem]
@@ -603,6 +690,7 @@ class CardDetailController extends Notifier<CardDetailState> {
         detail,
         nextItems,
         isWishlisted: false,
+        wishlistItemId: null,
       ),
       collectionItemDraft: null,
       editingCollectionItemId: null,
@@ -611,12 +699,17 @@ class CardDetailController extends Notifier<CardDetailState> {
     return true;
   }
 
-  void removeCollectionItem(String itemId) {
-    if (state.isUnavailable) {
+  Future<void> removeCollectionItem(String itemId) async {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
+    final session = _session;
+    if (session == null) {
+      return;
+    }
     final detail = state.detail;
+    await _repository.deleteCollectionItem(session, itemId);
     final nextItems = detail.collectionItems
         .where((item) => item.id != itemId)
         .toList();
@@ -629,16 +722,44 @@ class CardDetailController extends Notifier<CardDetailState> {
     );
   }
 
-  CardDetailState _load({required AppCurrency currency}) {
+  CardDetailRepository get _repository =>
+      ref.read(cardDetailRepositoryProvider);
+
+  AuthSession? get _session => ref.read(authControllerProvider).session;
+
+  void _startLoad({
+    required AuthSession session,
+    required AppCurrency currency,
+  }) {
+    final completer = Completer<void>();
+    final generation = ++_loadGeneration;
+    _loadCompleter = completer;
+    unawaited(_loadDetail(session, currency, generation, completer));
+  }
+
+  Future<void> _loadDetail(
+    AuthSession session,
+    AppCurrency currency,
+    int generation,
+    Completer<void> completer,
+  ) async {
     try {
-      final repository = ref.read(cardDetailRepositoryProvider);
-      return CardDetailState(
-        cardId: cardId,
-        detail: repository.loadDetail(cardId),
-        currency: currency,
-      );
+      final detail = await _repository.loadDetail(session, cardId);
+      if (generation == _loadGeneration) {
+        state = CardDetailState(
+          cardId: cardId,
+          detail: detail,
+          currency: currency,
+        );
+      }
     } catch (_) {
-      return CardDetailState.unavailable(cardId: cardId, currency: currency);
+      if (generation == _loadGeneration) {
+        state = CardDetailState.unavailable(cardId: cardId, currency: currency);
+      }
+    } finally {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
     }
   }
 
@@ -695,27 +816,14 @@ class CardDetailController extends Notifier<CardDetailState> {
     CardDetail detail,
     List<CardCollectionItem> items, {
     bool? isWishlisted,
+    Object? wishlistItemId = _cardDetailStateUnset,
   }) {
     final quantity = items.fold<int>(0, (sum, item) => sum + item.quantity);
     return detail.copyWith(
       quantity: quantity,
       isWishlisted: isWishlisted ?? detail.isWishlisted,
+      wishlistItemId: wishlistItemId,
       collectionItems: items,
-    );
-  }
-
-  CardCollectionItem _defaultCollectionItem(CardDetail detail) {
-    return CardCollectionItem(
-      id: 'item-${detail.id}',
-      portfolioName: 'Main',
-      quantity: 1,
-      grader: 'Raw',
-      condition: _defaultCondition,
-      grade: null,
-      language: detail.language,
-      finish: detail.finish,
-      purchasePriceUsd: null,
-      notes: 'Quick collected from CardDetail.',
     );
   }
 }
@@ -724,6 +832,14 @@ String _defaultGradeForGrader(String grader) {
   return cardCollectionGraders.contains(grader) && grader != 'Raw'
       ? cardCollectionGradeValues.first
       : _defaultGrade;
+}
+
+String _folderIdForPortfolioName(String portfolioName) {
+  return switch (portfolioName) {
+    'Sealed' => 'sealed',
+    'Empty' => 'empty',
+    _ => 'main',
+  };
 }
 
 class _QuantityParseResult {

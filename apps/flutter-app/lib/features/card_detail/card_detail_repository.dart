@@ -4,7 +4,7 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'card_detail_models.dart';
 
 abstract interface class CardDetailRepository {
-  dynamic loadDetail(Object sessionOrCardId, [String? cardId]);
+  Future<CardDetail> loadDetail(AuthSession session, String cardId);
   Future<CardCollectionItem> quickCollect(
     AuthSession session,
     CardDetail detail,
@@ -28,10 +28,8 @@ class MockCardDetailRepository implements CardDetailRepository {
   const MockCardDetailRepository();
 
   @override
-  dynamic loadDetail(Object sessionOrCardId, [String? cardId]) {
-    final resolvedCardId = cardId ?? sessionOrCardId as String;
-    final detail = _mockDetail(resolvedCardId);
-    return cardId == null ? detail : Future<CardDetail>.value(detail);
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) {
+    return Future<CardDetail>.value(_mockDetail(cardId));
   }
 
   @override
@@ -100,15 +98,7 @@ class HttpCardDetailRepository implements CardDetailRepository {
   final CardDetailRepository _presentationRepository;
 
   @override
-  Future<CardDetail> loadDetail(
-    Object sessionOrCardId, [
-    String? cardId,
-  ]) async {
-    if (sessionOrCardId is! AuthSession || cardId == null) {
-      throw StateError('HttpCardDetailRepository requires an AuthSession.');
-    }
-
-    final session = sessionOrCardId;
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
     final detail = await _presentationRepository.loadDetail(session, cardId);
     final results = await Future.wait([
       _api.listFolders(session),

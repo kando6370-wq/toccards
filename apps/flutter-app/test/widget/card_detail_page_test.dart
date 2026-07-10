@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
+import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
   testWidgets('uncollected CardDetail renders identity and price overview', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: _CardDetailTestApp(cardId: 'squirtle')),
-    );
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'squirtle'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Squirtle'), findsOneWidget);
     expect(find.text('Pokemon'), findsOneWidget);
@@ -49,9 +52,8 @@ void main() {
   });
 
   testWidgets('Price Tab missing data renders fallback copy', (tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: _CardDetailTestApp(cardId: 'mystery-promo')),
-    );
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'mystery-promo'));
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Price overview'), 400);
 
@@ -70,10 +72,9 @@ void main() {
     'Add to Portfolio uses item form because details need explicit ownership fields',
     (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: _CardDetailTestApp(cardId: 'one-piece-luffy'),
-        ),
+        const _CardDetailTestApp(cardId: 'one-piece-luffy'),
       );
+      await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.favorite), findsOneWidget);
 
@@ -130,9 +131,8 @@ void main() {
   testWidgets('owned CardDetail defaults to Collection Item content', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
-    );
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Charizard ex'), findsOneWidget);
     expect(find.text('Collected'), findsOneWidget);
@@ -159,9 +159,8 @@ void main() {
   });
 
   testWidgets('owned CardDetail can switch to Price overview', (tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
-    );
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Price'), 400);
     await tester.tap(find.text('Price'));
@@ -180,9 +179,8 @@ void main() {
   testWidgets('owned Price Tab selectors update visible series rows', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
-    );
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Price'), 400);
     await tester.tap(find.text('Price'));
@@ -201,9 +199,8 @@ void main() {
   testWidgets('owned Collection Item can be edited from CardDetail', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
-    );
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Collection Item'), 400);
     await tester.ensureVisible(find.text('Edit item'));
@@ -248,9 +245,8 @@ void main() {
   testWidgets('owned Collection Item shows validation without losing draft', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
-    );
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Collection Item'), 400);
     await tester.ensureVisible(find.text('Edit item'));
@@ -265,7 +261,7 @@ void main() {
       tester.element(find.byType(CardDetailPage)),
     );
     expect(
-      container
+      await container
           .read(cardDetailControllerProvider('charizard-ex').notifier)
           .saveCollectionItemDraft(),
       isFalse,
@@ -279,9 +275,8 @@ void main() {
   testWidgets('owned Collection Item can be removed after confirmation', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: _CardDetailTestApp(cardId: 'charizard-ex')),
-    );
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Collection Item'), 400);
     await tester.ensureVisible(find.text('Remove from Portfolio'));
@@ -302,16 +297,27 @@ void main() {
   });
 
   testWidgets('unknown CardDetail shows shared failure copy', (tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: _CardDetailTestApp(cardId: 'missing-card')),
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'missing-card'));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CardDetailPage)),
     );
+    await container.read(authControllerProvider.notifier).startupComplete;
+    await container
+        .read(cardDetailControllerProvider('missing-card').notifier)
+        .refresh();
+    expect(
+      container.read(cardDetailControllerProvider('missing-card')).loadStatus,
+      KandoLoadStatus.failure,
+    );
+    await tester.pump();
 
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
   });
 
   testWidgets('CardDetail route reads cardId from path', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: _CardDetailRouteApp()));
+    await tester.pumpWidget(const _CardDetailRouteApp());
+    await tester.pumpAndSettle();
 
     expect(find.text('Squirtle'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Price overview'), 400);
@@ -326,7 +332,10 @@ class _CardDetailTestApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: CardDetailPage(cardId: cardId));
+    return ProviderScope(
+      overrides: _cardDetailOverrides,
+      child: MaterialApp(home: CardDetailPage(cardId: cardId)),
+    );
   }
 }
 
@@ -335,20 +344,35 @@ class _CardDetailRouteApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      routerConfig: GoRouter(
-        initialLocation: '/cards/squirtle',
-        routes: [
-          GoRoute(
-            path: '/cards/:cardId',
-            builder: (context, state) {
-              return CardDetailPage(
-                cardId: state.pathParameters['cardId'] ?? '',
-              );
-            },
-          ),
-        ],
+    return ProviderScope(
+      overrides: _cardDetailOverrides,
+      child: MaterialApp.router(
+        routerConfig: GoRouter(
+          initialLocation: '/cards/squirtle',
+          routes: [
+            GoRoute(
+              path: '/cards/:cardId',
+              builder: (context, state) {
+                return CardDetailPage(
+                  cardId: state.pathParameters['cardId'] ?? '',
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+final _cardDetailAuthStorage = InMemoryAuthStorage();
+final _cardDetailAuthRepository = LocalPlaceholderAuthRepository(
+  _cardDetailAuthStorage,
+);
+
+final _cardDetailOverrides = [
+  authRepositoryProvider.overrideWithValue(_cardDetailAuthRepository),
+  cardDetailRepositoryProvider.overrideWithValue(
+    const MockCardDetailRepository(),
+  ),
+];
