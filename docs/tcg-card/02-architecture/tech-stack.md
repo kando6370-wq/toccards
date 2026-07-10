@@ -53,10 +53,10 @@
 
 | 依赖 | 理由 |
 |---|---|
-| **Workers KV** | 全球分布式 KV 存储，适合 Trending Today、搜索结果等读多写少的第三方数据缓存 |
+| **Workers KV** | 全球分布式 KV 存储，适合 Trending Today、搜索结果等读多写少的卡牌数据响应缓存 |
 | **Cache API** | Workers 内置 HTTP 缓存，适合价格、成交记录等有 HTTP 语义（`Cache-Control`）的响应缓存 |
 
-两者配合使用，降低第三方 API 调用频次，并提供降级兜底（详见 [`architecture.md §5`](architecture.md)）。
+两者配合使用，降低 D1 基础表重复查询，并提供降级兜底（详见 [`architecture.md §5`](architecture.md)）。
 
 ### 2.5 Monorepo 工具：pnpm workspaces + Turborepo + Melos
 
@@ -82,6 +82,6 @@
 | # | 待定项 | 影响范围 | 说明 |
 |---|---|---|---|
 | 1 | **汇率接口提供方** | 货币换算展示（Home / Collection / CardDetail） | 按统一汇率服务接口抽象，厂商待定；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #2 |
-| 2 | **第三方数据源厂商**（TCGplayer / eBay / PriceCharting 等） | 搜索、价格、Trending、成交记录全部能力 | 按可插拔数据源适配层设计，不绑定具体厂商；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #1 |
+| 2 | **卡牌基础表导入任务与刷新频率** | 搜索、价格、Trending 非置顶、成交记录降级口径 | 当前数据源为同一个 D1 中的 `cards_all` / `games` / `sets` / `tcgplayer_skus`；需与采集程序联调刷新节奏 |
 | 3 | **Apple / Google OAuth 开发者账号与凭证** | Auth 第三方登录（Apple Login、Google OAuth） | 文档写流程，凭证待开发者账号配置后填入；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #4 |
 | 4 | **邮件服务 Resend vs SES 最终选择** | 验证码发送、找回密码 | 默认 Resend，最终选型根据发送量和成本确认；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #3 |

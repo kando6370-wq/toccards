@@ -6,7 +6,9 @@ import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
+import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/features/search/search_repository.dart';
 
 void main() {
   testWidgets(
@@ -156,8 +158,19 @@ void main() {
 Future<void> _pumpScanTestApp(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pumpAndSettle();
-  await tester.pumpWidget(const ProviderScope(child: _ScanTestAppWithRoutes()));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: _searchOverrides(),
+      child: const _ScanTestAppWithRoutes(),
+    ),
+  );
   await tester.pumpAndSettle();
+}
+
+_searchOverrides() {
+  return [
+    searchRepositoryProvider.overrideWithValue(const MockSearchRepository()),
+  ];
 }
 
 class _ScanTestAppWithRoutes extends StatelessWidget {

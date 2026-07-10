@@ -496,8 +496,8 @@ Qty 表示当前账号在当前选中文件夹中的持有数量。
 Sets Tab 用于搜索 / 浏览系列。
 
 1. Sets Tab 展示当前 Game / IP 范围内的系列列表。
-2. Sets 默认排列顺序**以第三方聚合数据为准**（见 `global-rules.md §十五 冲突3`）。
-3. 搜索时接口参考 `searchCards(query, options)` 内部 set 层级结果（见 api-spec；⚠️ TBD：取决于厂商是否提供 Sets 专用搜索接口）。
+2. Sets 默认排列顺序**以后端数据源返回顺序为准**（见 `global-rules.md §十五 冲突3`）。
+3. 搜索时接口参考 `searchCards(query, options)` 内部 set 层级结果；后续如需完整系列浏览，可直接查询 `sets` 表。
 4. Cards 和 Sets 的搜索结果、列表状态互不关联。
 5. Sets 加载失败时，按 `global-rules.md §二` 局部失败规则展示 `No content available` + `Refresh`。
 

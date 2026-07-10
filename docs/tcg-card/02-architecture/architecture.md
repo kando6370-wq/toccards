@@ -12,17 +12,17 @@
 graph TD
     A["Flutter App (iOS 先行)"] -->|REST / JWT| C["Cloudflare Workers\n(API 网关 / BFF)"]
     B["管理后台 Web\n(React + Vite)"] -->|REST / JWT| C
-    C -->|用户资产 CRUD\n覆盖层读写| D["D1\n(用户资产 + 卡牌覆盖层)"]
-    C -->|搜索 / 价格 / Trending / 成交| E["第三方聚合 API\n⚠️ TBD 厂商"]
+    G["外部采集程序"] -->|写入/刷新卡牌基础表| D["D1\n(用户资产 + 卡牌基础表 + 覆盖层)"]
+    C -->|用户资产 CRUD\n基础表只读查询\n覆盖层读写| D
     C -->|缓存读写 + 回填| F["Workers KV + Cache API"]
 ```
 
 **说明**：
 
-- App 和管理后台均通过 Cloudflare Workers 统一接入，**不直连第三方 API**。
+- App 和管理后台均通过 Cloudflare Workers 统一接入，**不直连采集程序或外部数据源**。
 - Workers 是唯一出口，对外暴露 REST 接口（鉴权由 JWT 校验）。
-- 数据写入路径：用户资产 → D1；第三方数据 → Workers KV / Cache API（不落 D1 长期存储）。
-- **缓存回填由 Workers 完成**：Workers 收到第三方响应后写入 KV / Cache API；第三方 API 不直连缓存层（符合 spec §4.2"Workers 做代理+缓存"）。
+- 数据写入路径：用户资产 → D1；卡牌基础数据由外部采集程序写入同一个 D1；Workers 只读查询基础表并写入 KV / Cache API 缓存。
+- **缓存回填由 Workers 完成**：Workers 读取 D1 基础表并组装响应后写入 KV / Cache API；采集程序不直连缓存层。
 
 ---
 
@@ -43,41 +43,41 @@ Workers 作为统一 API 网关（BFF），对内分两类职责：
 
 操作结果落 D1，不经过第三方。
 
-### 2.2 第三方数据代理 + 缓存（不落 D1）
+### 2.2 D1 卡牌基础数据代理 + 缓存
 
 | 代理类型 | 说明 |
 |---|---|
-| 卡牌搜索 | 搜索 Cards / Sets，转发第三方，写 KV 缓存 |
-| 卡牌价格 | 获取 Raw / Graded / Sealed 市场价，写 Cache API |
-| Trending Today | 获取当日涨幅榜，写 KV 缓存 |
-| 成交记录 | 获取卡牌历史成交，写 Cache API |
+| 卡牌搜索 | 查询 `cards_all`，写 KV 缓存 |
+| 卡牌价格 | 从 `tcgplayer_skus.price_history` 解析 Raw / Sealed 价格，写 Cache API |
+| Trending Today | 先查 `trending_pin` 并回查 `cards_all`，写 KV 缓存 |
+| 成交记录 | 当前基础表无真实成交记录，接口按空列表降级，写 Cache API |
 
-**关键约束**：App 和管理后台的所有数据请求均经 Workers 代理，第三方 API Key 仅存于 Workers 环境变量，客户端不可见。
+**关键约束**：App 和管理后台的所有卡牌数据请求均经 Workers 代理；客户端不可直接访问 D1 或采集程序。
 
 ---
 
 ## 3. 两层数据策略
 
-### 3.1 第三方实时层
+### 3.1 D1 卡牌基础数据层
 
-- **数据来源**：第三方聚合 API（⚠️ TBD：具体厂商待定，见 spec §6）
-- **存储**：不落 D1 长期存储；经 Workers KV / Cache API 短期缓存
-- **内容**：卡牌目录、市场价格、Trending Today、成交记录
+- **数据来源**：同一个 D1 数据库中的 `cards_all` / `games` / `sets` / `tcgplayer_skus`，由外部采集程序写入。
+- **存储**：基础表长期存储在 D1；Workers KV / Cache API 只保存接口响应缓存。
+- **内容**：卡牌目录、SKU 维度价格历史；Trending 非置顶和成交记录若基础表无数据则按接口降级。
 - **性质**：只读，不允许 App 或管理后台写入
 
 ### 3.2 D1 覆盖层（override layer）
 
 - **存储**：D1 `card_overrides` 表
 - **内容**：
-  - ① 补充第三方数据源缺失的卡牌
-  - ② 纠正第三方数据错误（价格异常、图片错误等）
-  - ③ 补充卡牌图片（第三方无图时兜底）
+  - ① 补充基础表缺失的卡牌
+  - ② 纠正基础表数据错误（名称、系列、图片等）
+  - ③ 补充卡牌图片（基础表无图时兜底）
   - ④ 运营数据（如 Trending 置顶、特殊标注）
 - **维护入口**：管理后台"卡牌数据运维"模块
 
 ### 3.3 读取规则
 
-> **覆盖层优先，回落第三方实时数据。**
+> **覆盖层优先，回落 D1 卡牌基础数据。**
 
 ```mermaid
 graph LR
@@ -85,12 +85,12 @@ graph LR
     OVR -->|Yes| RES1["返回覆盖层数据"]
     OVR -->|No| CACHE{"KV / Cache\n命中？"}
     CACHE -->|Yes| RES2["返回缓存数据"]
-    CACHE -->|No| THIRD["请求第三方 API"]
-    THIRD --> RES3["返回并回填缓存"]
-    THIRD -->|失败| FALL["降级：读过期缓存\n或返回占位符"]
+    CACHE -->|No| BASE["读取 D1 卡牌基础表"]
+    BASE --> RES3["返回并回填缓存"]
+    BASE -->|失败| FALL["降级：读过期缓存\n或返回占位符"]
 ```
 
-该规则适用于：卡牌详情、价格、Trending、成交记录等所有需要聚合第三方数据的场景。
+该规则适用于：卡牌详情、价格、Trending、成交记录等所有卡牌数据代理场景。
 
 ---
 
@@ -121,7 +121,7 @@ graph LR
 
 ### 5.2 降级策略
 
-第三方 API 请求失败时，按以下顺序降级：
+D1 基础表读取或缓存读取失败时，按以下顺序降级：
 
 1. **读取有效缓存**（KV / Cache API 中未过期数据）
 2. **读取过期缓存**（stale-while-revalidate 策略，如有）
@@ -131,7 +131,7 @@ graph LR
 
 ### 5.3 缓存回填时机
 
-- Workers 成功获取第三方响应后，**同步写入**对应缓存层。
+- Workers 成功读取 D1 基础表并组装响应后，**同步写入**对应缓存层。
 - 缓存 Key 设计原则：包含卡牌 ID + 数据类型 + 时间粒度，避免跨类型污染。
 
 ---

@@ -21,7 +21,7 @@ tcg-card 是一款 iOS 集卡管理应用，支持 TCG 单卡、体育卡、Seal
 5. [`02-architecture/monorepo.md`](02-architecture/monorepo.md) — Monorepo 结构
 6. [`03-data-api/data-model.md`](03-data-api/data-model.md) — 数据模型（D1 Schema）
 7. [`03-data-api/api-spec.md`](03-data-api/api-spec.md) — REST API 规范（含管理员鉴权）
-8. [`03-data-api/third-party.md`](03-data-api/third-party.md) — 第三方适配层
+8. [`03-data-api/third-party.md`](03-data-api/third-party.md) — 卡牌数据源适配层
 9. [`00-product/modules/global-rules.md`](00-product/modules/global-rules.md) — 全局跨切面规则（文案/错误码/金额/图片）
 10. [`00-product/modules/auth.md`](00-product/modules/auth.md) — 注册登录模块
 11. [`00-product/modules/profile.md`](00-product/modules/profile.md) — 个人中心模块
@@ -61,14 +61,14 @@ docs/tcg-card/
 │   └── state-machines.md                  状态机（Collection Item 状态流转）
 │
 ├── 02-architecture/
-│   ├── architecture.md                    系统架构（Workers/D1/Flutter/第三方）
+│   ├── architecture.md                    系统架构（Workers/D1/Flutter/采集程序）
 │   ├── tech-stack.md                      技术选型（Cloudflare/Flutter/Dart/Resend）
 │   └── monorepo.md                        Monorepo 结构（目录规范/包管理/类型共享）
 │
 ├── 03-data-api/
 │   ├── data-model.md                      D1 数据库 Schema（全表定义+关联）
 │   ├── api-spec.md                        REST API 规范（鉴权/资产/代理/后台）
-│   └── third-party.md                     第三方适配层接口（DataSourceAdapter）
+│   └── third-party.md                     卡牌数据源适配层接口（DataSourceAdapter）
 │
 ├── 04-admin/
 │   └── admin.md                           后台管理系统（运营配置/工单/用户/卡牌覆盖）
@@ -85,10 +85,10 @@ docs/tcg-card/
 
 - **Collection Item**：用户在 Portfolio 中持有的一条收藏记录（对应 D1 `collection_item` 表）。
 - **Portfolio**：用户的收藏文件夹，可多个并存，每个 Collection Item 归属一个文件夹。
-- **card_ref**：第三方卡牌唯一标识符，格式由接入厂商确定（⚠️ TBD）。
+- **card_ref**：系统内卡牌唯一引用，统一使用 `cards_all.product_id`。
 - **Sealed Product**：未拆封产品（Booster Box、ETB 等），区别于 TCG 单卡与体育卡。
 - **Graded / Raw**：已评级卡（有 Grader + Grade）/ 未评级卡（Condition）。
-- **Trending Today**：当天涨幅排行，数据来源第三方聚合 API，经 Workers 缓存。
+- **Trending Today**：当天趋势列表；v1.0 先支持 `trending_pin` 运营置顶，卡牌详情回查 `cards_all`，非置顶趋势取决于后续本地算法或采集数据。
 
 完整术语列表见 glossary.md，跨切面规则（如金额格式、图片占位）见 [`global-rules.md`](00-product/modules/global-rules.md)。
 
@@ -102,13 +102,13 @@ docs/tcg-card/
 
 | 编号 | 待定项 | 影响文档 / 端点 | 决策方 |
 |---|---|---|---|
-| TBD-1 | 第三方卡牌数据源厂商（TCGplayer / eBay / PriceCharting 等）及 API Key | `third-party.md`、`api-spec.md §4.1–§4.7`、`data-model.md`（card_ref 格式） | 产品/商务 |
-| TBD-2 | 汇率接口提供方 | `api-spec.md §4.8`、`architecture.md §3.2`、`tech-stack.md §3` | 产品/研发 |
-| TBD-3 | 邮件服务（Resend / SES）账号与 API Key | `api-spec.md §2.2`、`tech-stack.md §2.6` | 研发/运营 |
-| TBD-4a | Apple OAuth 凭证（Service ID / Team ID / Key ID） | `api-spec.md §2.9`、`auth.md §五` | 研发/苹果开发者账号 |
-| TBD-4b | Google OAuth 凭证（Client ID / Secret） | `api-spec.md §2.8`、`auth.md §四` | 研发 |
-| TBD-5 | `terms_url` / `privacy_url` / `app_store_url` 实际值 | `api-spec.md §5.3.1`、`data-model.md §6.3`、`profile.md §十二` | 产品/法务 |
-| TBD-6 | Admin Refresh Token 存储方案（复用 `session` 表 `owner_type='admin'` 还是独立表） | `api-spec.md §5.0.1–5.0.3` | 研发 |
+| TBD-1 | 汇率接口提供方 | `api-spec.md §4.8`、`architecture.md §3.2`、`tech-stack.md §3` | 产品/研发 |
+| TBD-2 | 邮件服务（Resend / SES）账号与 API Key | `api-spec.md §2.2`、`tech-stack.md §2.6` | 研发/运营 |
+| TBD-3a | Apple OAuth 凭证（Service ID / Team ID / Key ID） | `api-spec.md §2.9`、`auth.md §五` | 研发/苹果开发者账号 |
+| TBD-3b | Google OAuth 凭证（Client ID / Secret） | `api-spec.md §2.8`、`auth.md §四` | 研发 |
+| TBD-4 | `terms_url` / `privacy_url` / `app_store_url` 实际值 | `api-spec.md §5.3.1`、`data-model.md §6.3`、`profile.md §十二` | 产品/法务 |
+| TBD-5 | Admin Refresh Token 存储方案（复用 `session` 表 `owner_type='admin'` 还是独立表） | `api-spec.md §5.0.1–5.0.3` | 研发 |
+| TBD-6 | 卡牌基础表导入任务与刷新频率 | `third-party.md`、`api-spec.md §4.1–§4.7`、`data-model.md` | 研发/数据采集 |
 
 ### 产品决策
 
@@ -126,12 +126,12 @@ docs/tcg-card/
 
 | 编号 | 待定项 | 影响文档 | 决策方 |
 |---|---|---|---|
-| TBD-14 | condition / finish 枚举合法值（取决于第三方厂商） | `api-spec.md §3.2.2`、`third-party.md §4` | 研发（接入厂商后确认） |
-| TBD-15 | 各代理接口最终 TTL（取决于厂商限速策略） | `api-spec.md §4.1–§4.7`、`third-party.md §5` | 研发（接入厂商后确认） |
+| TBD-14 | condition / finish 枚举合法值（取决于 `tcgplayer_skus` 实际枚举） | `api-spec.md §3.2.2`、`third-party.md §4` | 研发（采集数据稳定后确认） |
+| TBD-15 | 各代理接口最终 TTL（取决于基础表刷新频率） | `api-spec.md §4.1–§4.7`、`third-party.md §5` | 研发（采集策略确认后调整） |
 | TBD-16 | Workers KV / Cache API TTL 最终值 | `architecture.md §4.3` | 研发 |
 | TBD-17 | TS→Dart 类型共享工具选型（JSON Schema / OpenAPI 代码生成） | `monorepo.md §六` | 研发 |
 | TBD-18 | 账号删除后资产数据隐私合规留存/清除策略 | `api-spec.md §2.12`、`profile.md §六.3` | 研发/法务 |
-| TBD-19 | Sets 搜索接口是否由厂商原生支持（影响 Sets Tab 实现方式） | `api-spec.md §4.3`、`search.md §十二` | 研发（接入厂商后确认） |
+| TBD-19 | Sets Tab 是否改为直接查询 `sets` 表（当前可由搜索结果聚合） | `api-spec.md §4.2`、`search.md §十二` | 研发 |
 
 ---
 

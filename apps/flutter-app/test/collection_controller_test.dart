@@ -7,6 +7,7 @@ import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_repository.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -26,28 +27,165 @@ void main() {
         ],
         items: [
           _portfolioItem(
-            id: 'item-squirtle',
+            id: 'item-pikachu',
             folderId: 'main',
-            cardRef: 'squirtle',
+            cardRef: 'catalog:pikachu-025',
+          ),
+          _portfolioItem(
+            id: 'item-pikachu-psa',
+            folderId: 'main',
+            cardRef: 'catalog:pikachu-025',
+            grader: 'PSA',
+            condition: null,
+            grade: 10,
           ),
         ],
         wishlist: [
           WishlistItemDto(
             id: 'wish-luffy',
-            cardRef: 'one-piece-luffy',
+            cardRef: 'catalog:luffy-001',
             createdAt: DateTime.parse('2026-01-02T00:00:00.000Z'),
           ),
         ],
       );
+      final cardDataApi = _FakeCardDataApi(
+        cards: const {
+          'catalog:pikachu-025': CardDataCardDto(
+            cardRef: 'catalog:pikachu-025',
+            name: 'Pikachu',
+            setName: 'Base Set',
+            setCode: 'BS',
+            cardNumber: '025',
+            finish: 'Holofoil',
+            language: 'English',
+            objectType: 'tcg',
+            imageUrl: null,
+            rarity: 'Common',
+          ),
+          'catalog:luffy-001': CardDataCardDto(
+            cardRef: 'catalog:luffy-001',
+            name: 'Monkey D. Luffy',
+            setName: 'Romance Dawn',
+            setCode: 'OP01',
+            cardNumber: '001',
+            finish: 'Normal',
+            language: 'Japanese',
+            objectType: 'tcg',
+            imageUrl: null,
+            rarity: 'Manga Rare',
+          ),
+        },
+        prices: const {
+          'catalog:pikachu-025': [
+            CardDataMarketPriceDto(
+              grader: 'Raw',
+              grade: null,
+              condition: 'Near Mint (NM)',
+              price: 12.5,
+            ),
+            CardDataMarketPriceDto(
+              grader: 'PSA',
+              grade: 10,
+              condition: null,
+              price: 90,
+            ),
+          ],
+          'catalog:luffy-001': [
+            CardDataMarketPriceDto(
+              grader: 'Raw',
+              grade: null,
+              condition: 'Near Mint (NM)',
+              price: 330,
+            ),
+          ],
+        },
+      );
 
       final dashboard = await HttpCollectionRepository(
         api,
+        cardDataApi: cardDataApi,
       ).loadDashboard(_session);
 
       expect(dashboard.defaultFolder.id, 'main');
-      expect(dashboard.portfolioItems.single.cardRef, 'squirtle');
-      expect(dashboard.portfolioItems.single.name, 'Squirtle');
-      expect(dashboard.wishlistItems.single.cardRef, 'one-piece-luffy');
+      expect(cardDataApi.cardRefs, [
+        'catalog:pikachu-025',
+        'catalog:luffy-001',
+      ]);
+      expect(cardDataApi.marketPriceRefs, [
+        'catalog:pikachu-025',
+        'catalog:luffy-001',
+      ]);
+      expect(dashboard.portfolioItems.first.cardRef, 'catalog:pikachu-025');
+      expect(dashboard.portfolioItems.first.name, 'Pikachu');
+      expect(dashboard.portfolioItems.first.setName, 'Base Set');
+      expect(dashboard.portfolioItems.first.number, '#025');
+      expect(dashboard.portfolioItems.first.game, 'TCG');
+      expect(dashboard.portfolioItems.first.marketValueUsd, 12.5);
+      expect(dashboard.portfolioItems.first.previous30dPriceUsd, isNull);
+      expect(dashboard.portfolioItems.last.marketValueUsd, 90);
+      expect(dashboard.wishlistItems.single.cardRef, 'catalog:luffy-001');
+      expect(dashboard.wishlistItems.single.name, 'Monkey D. Luffy');
+      expect(dashboard.wishlistItems.single.marketValueUsd, 330);
+    },
+  );
+
+  test(
+    'http repository keeps owned rows when card-data enrichment partially fails because portfolio is the source of truth',
+    () async {
+      final api = _FakePortfolioApiClient(
+        folders: const [
+          PortfolioFolderDto(
+            id: 'main',
+            name: 'Main',
+            isDefault: true,
+            sortOrder: 100,
+          ),
+        ],
+        items: [
+          _portfolioItem(
+            id: 'item-charizard',
+            folderId: 'main',
+            cardRef: 'charizard-ex',
+          ),
+          _portfolioItem(
+            id: 'item-pikachu',
+            folderId: 'main',
+            cardRef: 'catalog:pikachu-025',
+          ),
+        ],
+        wishlist: const [],
+      );
+      final cardDataApi = _FakeCardDataApi(
+        cards: const {
+          'catalog:pikachu-025': CardDataCardDto(
+            cardRef: 'catalog:pikachu-025',
+            name: 'Pikachu',
+            setName: 'Base Set',
+            setCode: 'BS',
+            cardNumber: '025',
+            finish: 'Holofoil',
+            language: 'English',
+            objectType: 'tcg',
+            imageUrl: null,
+            rarity: 'Common',
+          ),
+        },
+        prices: const {},
+        cardFailures: {'charizard-ex'},
+        priceFailures: {'catalog:pikachu-025'},
+      );
+
+      final dashboard = await HttpCollectionRepository(
+        api,
+        cardDataApi: cardDataApi,
+      ).loadDashboard(_session);
+
+      expect(dashboard.portfolioItems.map((item) => item.name), [
+        'Charizard ex',
+        'Pikachu',
+      ]);
+      expect(dashboard.portfolioItems.first.marketValueUsd, 780);
+      expect(dashboard.portfolioItems.last.marketValueUsd, isNull);
     },
   );
 
@@ -321,10 +459,78 @@ class _FakePortfolioApiClient implements PortfolioApi {
   }
 }
 
+class _FakeCardDataApi implements CardDataApi {
+  _FakeCardDataApi({
+    required this.cards,
+    required this.prices,
+    this.cardFailures = const {},
+    this.priceFailures = const {},
+  });
+
+  final Map<String, CardDataCardDto> cards;
+  final Map<String, List<CardDataMarketPriceDto>> prices;
+  final Set<String> cardFailures;
+  final Set<String> priceFailures;
+  final List<String> cardRefs = [];
+  final List<String> marketPriceRefs = [];
+
+  @override
+  Future<List<CardDataCardDto>> searchCards(String query) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<CardDataSetDto>> searchSets(String query) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<CardDataCardDto>> trendingCards() async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<CardDataCardDto> getCard(String cardRef) async {
+    cardRefs.add(cardRef);
+    if (cardFailures.contains(cardRef)) {
+      throw StateError('card-data card unavailable');
+    }
+    return cards[cardRef]!;
+  }
+
+  @override
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+    marketPriceRefs.add(cardRef);
+    if (priceFailures.contains(cardRef)) {
+      throw StateError('card-data prices unavailable');
+    }
+    return prices[cardRef] ?? const [];
+  }
+
+  @override
+  Future<List<CardDataPricePointDto>> getPriceSeries(
+    String cardRef, {
+    required int days,
+    String grader = 'Raw',
+    double? grade,
+    String? condition,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef) async {
+    throw UnimplementedError();
+  }
+}
+
 PortfolioItemDto _portfolioItem({
   required String id,
   required String folderId,
   required String cardRef,
+  String grader = 'Raw',
+  String? condition = 'Near Mint (NM)',
+  double? grade,
 }) {
   final now = DateTime.parse('2026-01-01T00:00:00.000Z');
   return PortfolioItemDto(
@@ -332,9 +538,9 @@ PortfolioItemDto _portfolioItem({
     folderId: folderId,
     cardRef: cardRef,
     objectType: 'tcg',
-    grader: 'Raw',
-    condition: 'Near Mint (NM)',
-    grade: null,
+    grader: grader,
+    condition: condition,
+    grade: grade,
     language: 'English',
     finish: 'Holofoil',
     quantity: 1,

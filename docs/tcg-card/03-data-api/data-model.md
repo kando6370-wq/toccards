@@ -1,6 +1,6 @@
 # tcg-card D1 数据模型
 
-> **定位**：定义 tcg-card v1.0 的全量 D1 表结构（表名 / 字段 / 类型 / 约束 / 说明），是 API 规范、管理后台、模块 PRD 的引用基础。第三方实时数据（目录 / 价格）不落 D1，不在此定义。
+> **定位**：定义 tcg-card v1.0 的全量 D1 表结构（表名 / 字段 / 类型 / 约束 / 说明），是 API 规范、管理后台、模块 PRD 的引用基础。卡牌基础数据表由外部采集程序写入同一个 D1 数据库，Workers 只读使用。
 > **日期**：2026-06-30
 > **来源**：
 > - Spec [`docs/superpowers/specs/2026-06-30-tcg-card-preparation-design.md`](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §4.3、§4.5、§8
@@ -17,9 +17,25 @@ tcg-card 的数据分为两层，本文档只定义写入 D1 的部分：
 | 层 | 存储位置 | 说明 |
 |---|---|---|
 | **D1 用户资产 + 覆盖层** | Cloudflare D1 | 用户账号、资产、偏好、卡牌覆盖层、运营配置——本文档全部覆盖 |
-| 第三方实时层 | Workers KV / Cache API | 卡牌目录 / 价格，不落 D1，见 [`third-party.md`](./third-party.md) |
+| **D1 卡牌基础数据源** | Cloudflare D1 | `cards_all` / `games` / `sets` / `tcgplayer_skus`，由外部采集程序维护，Workers 只读 |
 
-读取规则：**D1 覆盖层优先，回落第三方实时数据**（见架构文档 §3.3）。
+读取规则：**D1 覆盖层优先，回落 D1 卡牌基础数据源**（见架构文档 §3.3）。`card_ref` 统一使用 `cards_all.product_id`；价格历史来自 `tcgplayer_skus.price_history` JSON 字段。
+
+### 1.1 卡牌基础数据源表
+
+以下表来自 `docs/tcg-card/source-tcg-card-docs/20260708/cards_basic_information_ddl.md`，已整合进当前项目 D1。它们不承载用户资产写入，默认由采集程序批量导入/更新。
+
+| 表 | 用途 | 关键字段 |
+|---|---|---|
+| `cards_all` | 卡牌/商品基础元数据 | `product_id` 主键、`game_id`、`game`、`set_name`、`set_code`、`name`、`rarity`、`product_type_name`、`image_url` |
+| `games` | 已加载游戏/产品线 | `id`、`game_id`、`name`、`total_cards` |
+| `sets` | 系列/扩展包信息 | `id` 主键、`game`、`name`、`set_code`、`set_id` |
+| `tcgplayer_skus` | SKU 维度价格历史 | `sku_id` 主键、`product_id`、`condition_*`、`language_*`、`variant_*`、`price_history` |
+
+建模注意：
+- `cards_all.product_id` 是 TEXT，`tcgplayer_skus.product_id` 是 INTEGER，查询时需要显式转换或在应用层分别按字符串/数字处理。
+- `cards_all` 当前没有 `card_number`，数据代理响应该字段为空字符串。
+- `price_history` 是 JSON 数组字符串，结构如 `[{"price":"0.13","date":"2026-07-07"}]`，应用层必须使用 JSON parser。
 
 ---
 
@@ -174,7 +190,7 @@ CREATE TABLE collection_item (
     owner_type        TEXT NOT NULL,         -- 'user' | 'anonymous'
     owner_id          TEXT NOT NULL,
     folder_id         TEXT NOT NULL REFERENCES portfolio_folder(id) ON DELETE CASCADE,
-    card_ref          TEXT NOT NULL,         -- 第三方卡牌唯一标识（⚠️ TBD：格式由接入厂商确定）
+    card_ref          TEXT NOT NULL,         -- cards_all.product_id
     object_type       TEXT NOT NULL,         -- 'tcg' | 'sports' | 'sealed' | 'other'
     grader            TEXT NOT NULL,         -- 'Raw' | 'PSA' | 'BGS' | 'CGC' | 'SGC' | 'TAG' | 'AGS'
     condition         TEXT,                  -- Raw 品相；grader = 'Raw' 时使用；其余 NULL
@@ -199,7 +215,7 @@ CREATE INDEX idx_collection_item_card ON collection_item(card_ref);
 - `grader` 为评级机构时，`grade` 必填，`condition` 为 NULL。
 - `object_type = 'sealed'` 时，`grader` 固定为 `'Raw'`（Sealed 无评级），`condition` / `grade` 均为 NULL。
 - `purchase_price` 存原始货币原值，不参与市场价值计算，只作成本记录；展示时按 `purchase_currency` 换算显示货币（见架构文档 §4.1）。
-- `card_ref` 格式取决于接入的第三方厂商（⚠️ TBD）。
+- `card_ref` 使用 `cards_all.product_id`。该字段在基础表中为 TEXT；与 `tcgplayer_skus.product_id` 关联时由 Workers 显式转换为数字。
 
 ### 4.3 wishlist_item（心愿单）
 
@@ -208,7 +224,7 @@ CREATE TABLE wishlist_item (
     id         TEXT PRIMARY KEY,
     owner_type TEXT NOT NULL,                -- 'user' | 'anonymous'
     owner_id   TEXT NOT NULL,
-    card_ref   TEXT NOT NULL,                -- 第三方卡牌唯一标识
+    card_ref   TEXT NOT NULL,                -- cards_all.product_id
     created_at TEXT NOT NULL,
     UNIQUE (owner_type, owner_id, card_ref)  -- 同一卡不可重复加入心愿单
 );
@@ -274,20 +290,20 @@ CREATE TABLE admin_user (
 ```sql
 CREATE TABLE card_override (
     id              TEXT PRIMARY KEY,
-    card_ref        TEXT NOT NULL UNIQUE,    -- 第三方卡牌唯一标识，或管理员自定义 ID（缺失卡）
+    card_ref        TEXT NOT NULL UNIQUE,    -- cards_all.product_id，或管理员自定义 ID（缺失卡）
     override_fields TEXT,                    -- JSON：字段级覆盖（卡名、系列、编号等）
-    image_url       TEXT,                    -- 覆盖图片 URL；NULL = 使用第三方图片
+    image_url       TEXT,                    -- 覆盖图片 URL；NULL = 使用基础表图片
     is_missing_card INTEGER NOT NULL DEFAULT 0 CHECK (is_missing_card IN (0,1)),
-                                             -- 1 = 第三方无此卡，手动录入
+                                             -- 1 = 基础表无此卡，手动录入
     updated_by      TEXT,                    -- 软引用 admin_user.id（操作管理员），无 DB 级 FK
     updated_at      TEXT NOT NULL
 );
 ```
 
 说明：
-- `override_fields` 为 JSON 对象，只存需要覆盖的字段，其余字段仍由第三方数据提供。
-- `is_missing_card = 1` 表示该卡在第三方无数据，完全依赖覆盖层提供信息（图片、名称、系列等）。
-- 读取时：先查此表，有记录则用覆盖字段覆盖第三方数据；无记录则直接用第三方数据。
+- `override_fields` 为 JSON 对象，只存需要覆盖的字段，其余字段仍由 `cards_all` 提供。
+- `is_missing_card = 1` 表示该卡在基础表无数据，完全依赖覆盖层提供信息（图片、名称、系列等）。
+- 读取时：先查此表，有记录则用覆盖字段覆盖基础表数据；无记录则直接用基础表数据。
 - `updated_by` **软引用 `admin_user.id`**，可空、不设 DB 级 FK，由 Workers 层在后台写入时填充。
 - 由管理后台"卡牌数据运维"模块维护。
 
@@ -307,7 +323,7 @@ CREATE INDEX idx_trending_pin_rank ON trending_pin(active, rank);
 ```
 
 说明：
-- Workers 在返回 Trending Today 时，先查此表；`active = 1` 的卡牌按 `rank` 置于列表首位，后接第三方返回的涨幅数据。
+- Workers 在返回 Trending Today 时，先查此表；`active = 1` 的卡牌按 `rank` 置于列表首位，并按 `card_ref` 回查 `cards_all`。本地基础表没有算法 Trending 时，非置顶列表可为空。
 - `updated_by` **软引用 `admin_user.id`**，可空、不设 DB 级 FK，与 `card_override.updated_by` 处理一致。
 - 运营可通过管理后台随时启停置顶。
 

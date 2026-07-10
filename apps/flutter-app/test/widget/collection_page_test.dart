@@ -13,7 +13,9 @@ import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
+import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -42,6 +44,7 @@ void main() {
       ProviderScope(
         overrides: [
           ..._localAuthOverrides(),
+          ..._searchOverrides(),
           collectionRepositoryProvider.overrideWithValue(
             const MockCollectionRepository(),
           ),
@@ -160,6 +163,7 @@ void main() {
       ProviderScope(
         overrides: [
           ..._localAuthOverrides(),
+          ..._searchOverrides(),
           collectionRepositoryProvider.overrideWithValue(
             const MockCollectionRepository(),
           ),
@@ -185,6 +189,7 @@ void main() {
       ProviderScope(
         overrides: [
           ..._localAuthOverrides(),
+          ..._searchOverrides(),
           collectionRepositoryProvider.overrideWithValue(
             const MockCollectionRepository(),
           ),
@@ -208,6 +213,7 @@ void main() {
         ProviderScope(
           overrides: [
             ..._localAuthOverrides(),
+            ..._searchOverrides(),
             collectionRepositoryProvider.overrideWithValue(
               const MockCollectionRepository(),
             ),
@@ -236,6 +242,7 @@ void main() {
         ProviderScope(
           overrides: [
             ..._localAuthOverrides(),
+            ..._searchOverrides(),
             collectionRepositoryProvider.overrideWithValue(
               const MockCollectionRepository(),
             ),
@@ -296,6 +303,12 @@ Future<void> _pumpCollection(WidgetTester tester) async {
     ),
   );
   await tester.pumpAndSettle();
+}
+
+_searchOverrides() {
+  return [
+    searchRepositoryProvider.overrideWithValue(const MockSearchRepository()),
+  ];
 }
 
 _localAuthOverrides() {

@@ -1,4 +1,5 @@
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import 'collection_models.dart';
@@ -135,9 +136,11 @@ class MockCollectionRepository implements CollectionRepository {
 }
 
 class HttpCollectionRepository implements CollectionRepository {
-  const HttpCollectionRepository(this._api);
+  const HttpCollectionRepository(this._api, {CardDataApi? cardDataApi})
+    : _cardDataApi = cardDataApi;
 
   final PortfolioApi _api;
+  final CardDataApi? _cardDataApi;
 
   @override
   Future<CollectionDashboard> loadDashboard(AuthSession session) async {
@@ -149,12 +152,58 @@ class HttpCollectionRepository implements CollectionRepository {
     final folders = results[0] as List<PortfolioFolderDto>;
     final items = results[1] as List<PortfolioItemDto>;
     final wishlist = results[2] as List<WishlistItemDto>;
+    final presentations = await _loadPresentations(items, wishlist);
 
     return CollectionDashboard(
       folders: folders.map(_folderFromDto).toList(),
-      portfolioItems: items.map(_collectionItemFromPortfolioDto).toList(),
-      wishlistItems: wishlist.map(_collectionItemFromWishlistDto).toList(),
+      portfolioItems: items
+          .map(
+            (item) => _collectionItemFromPortfolioDto(
+              item,
+              presentations[item.cardRef],
+            ),
+          )
+          .toList(),
+      wishlistItems: wishlist
+          .map(
+            (item) => _collectionItemFromWishlistDto(
+              item,
+              presentations[item.cardRef],
+            ),
+          )
+          .toList(),
     );
+  }
+
+  Future<Map<String, _CollectionPresentation>> _loadPresentations(
+    List<PortfolioItemDto> items,
+    List<WishlistItemDto> wishlist,
+  ) async {
+    final api = _cardDataApi;
+    if (api == null) {
+      return const {};
+    }
+
+    final cardRefs = <String>{
+      for (final item in items) item.cardRef,
+      for (final item in wishlist) item.cardRef,
+    };
+    final presentations = <String, _CollectionPresentation>{};
+    for (final cardRef in cardRefs) {
+      final CardDataCardDto card;
+      try {
+        card = await api.getCard(cardRef);
+      } catch (_) {
+        continue;
+      }
+      var prices = const <CardDataMarketPriceDto>[];
+      try {
+        prices = await api.getMarketPrices(cardRef);
+      } catch (_) {
+      }
+      presentations[cardRef] = _presentationFromCardData(card, prices);
+    }
+    return presentations;
   }
 }
 
@@ -162,8 +211,17 @@ CollectionFolder _folderFromDto(PortfolioFolderDto dto) {
   return CollectionFolder(id: dto.id, name: dto.name, isDefault: dto.isDefault);
 }
 
-CollectionItem _collectionItemFromPortfolioDto(PortfolioItemDto dto) {
-  final fallback = _presentationFor(dto.cardRef);
+CollectionItem _collectionItemFromPortfolioDto(
+  PortfolioItemDto dto,
+  _CollectionPresentation? presentation,
+) {
+  final fallback = presentation ?? _presentationFor(dto.cardRef);
+  final marketValue = _marketValueFor(
+    fallback.prices,
+    grader: dto.grader,
+    grade: dto.grade,
+    condition: dto.condition,
+  );
   return CollectionItem(
     id: dto.id,
     cardRef: dto.cardRef,
@@ -178,14 +236,23 @@ CollectionItem _collectionItemFromPortfolioDto(PortfolioItemDto dto) {
     condition: dto.condition,
     grade: dto.grade,
     quantity: dto.quantity,
-    marketValueUsd: fallback.marketValueUsd,
+    marketValueUsd: marketValue ?? fallback.marketValueUsd,
     previous30dPriceUsd: fallback.previous30dPriceUsd,
     createdAtSort: dto.createdAt.millisecondsSinceEpoch,
   );
 }
 
-CollectionItem _collectionItemFromWishlistDto(WishlistItemDto dto) {
-  final fallback = _presentationFor(dto.cardRef);
+CollectionItem _collectionItemFromWishlistDto(
+  WishlistItemDto dto,
+  _CollectionPresentation? presentation,
+) {
+  final fallback = presentation ?? _presentationFor(dto.cardRef);
+  final marketValue = _marketValueFor(
+    fallback.prices,
+    grader: 'Raw',
+    grade: null,
+    condition: 'Near Mint (NM)',
+  );
   return CollectionItem(
     id: dto.id,
     cardRef: dto.cardRef,
@@ -200,10 +267,85 @@ CollectionItem _collectionItemFromWishlistDto(WishlistItemDto dto) {
     condition: 'Near Mint (NM)',
     grade: null,
     quantity: 1,
-    marketValueUsd: fallback.marketValueUsd,
+    marketValueUsd: marketValue ?? fallback.marketValueUsd,
     previous30dPriceUsd: fallback.previous30dPriceUsd,
     createdAtSort: dto.createdAt.millisecondsSinceEpoch,
   );
+}
+
+_CollectionPresentation _presentationFromCardData(
+  CardDataCardDto card,
+  List<CardDataMarketPriceDto> prices,
+) {
+  return _CollectionPresentation(
+    name: card.name,
+    setName: card.setName,
+    number: '#${card.cardNumber}',
+    game: _gameLabelFromObjectType(card.objectType),
+    language: card.language ?? 'Unknown',
+    finish: card.finish ?? 'Unknown',
+    marketValueUsd: null,
+    previous30dPriceUsd: null,
+    prices: prices,
+  );
+}
+
+double? _marketValueFor(
+  List<CardDataMarketPriceDto> prices, {
+  required String grader,
+  required double? grade,
+  required String? condition,
+}) {
+  if (prices.isEmpty) {
+    return null;
+  }
+
+  for (final price in prices) {
+    if (_matchesMarketPrice(
+      price,
+      grader: grader,
+      grade: grade,
+      condition: condition,
+    )) {
+      return price.price;
+    }
+  }
+
+  for (final price in prices) {
+    if (price.grader.toLowerCase() == 'raw') {
+      return price.price;
+    }
+  }
+
+  return prices.first.price;
+}
+
+bool _matchesMarketPrice(
+  CardDataMarketPriceDto price, {
+  required String grader,
+  required double? grade,
+  required String? condition,
+}) {
+  if (price.grader.toLowerCase() != grader.toLowerCase()) {
+    return false;
+  }
+  if (grade != null && price.grade != grade) {
+    return false;
+  }
+  if (condition != null &&
+      price.condition?.toLowerCase() != condition.toLowerCase()) {
+    return false;
+  }
+  return true;
+}
+
+String _gameLabelFromObjectType(String objectType) {
+  return switch (objectType.trim().toLowerCase()) {
+    'tcg' => 'TCG',
+    'sports' => 'Sports',
+    'sealed' => 'Sealed',
+    _ => 'Other',
+  };
 }
 
 _CollectionPresentation _presentationFor(String cardRef) {
@@ -217,6 +359,7 @@ _CollectionPresentation _presentationFor(String cardRef) {
         finish: 'Standard',
         marketValueUsd: null,
         previous30dPriceUsd: null,
+        prices: const [],
       );
 }
 
@@ -311,6 +454,7 @@ class _CollectionPresentation {
     required this.finish,
     required this.marketValueUsd,
     required this.previous30dPriceUsd,
+    this.prices = const [],
   });
 
   final String name;
@@ -321,4 +465,5 @@ class _CollectionPresentation {
   final String finish;
   final double? marketValueUsd;
   final double? previous30dPriceUsd;
+  final List<CardDataMarketPriceDto> prices;
 }

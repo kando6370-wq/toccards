@@ -1,4 +1,4 @@
-// tcg-card D1 Schema —— 严格对齐 docs/tcg-card/03-data-api/data-model.md（14 张表）。
+// tcg-card D1 Schema —— 严格对齐 docs/tcg-card/03-data-api/data-model.md。
 // 约定：ULID 主键 TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；金额 REAL；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。
 import { sql } from "drizzle-orm";
 import {
@@ -10,6 +10,99 @@ import {
   text,
   unique,
 } from "drizzle-orm/sqlite-core";
+
+// ── 卡牌基础数据源层 ──────────────────────────────────────────
+
+export const cardsAll = sqliteTable(
+  "cards_all",
+  {
+    productId: text("product_id").primaryKey(),
+    gameId: integer("game_id").notNull(),
+    game: text("game"),
+    setName: text("set_name"),
+    setCode: text("set_code"),
+    setId: text("set_id"),
+    name: text("name"),
+    rarity: text("rarity"),
+    description: text("description"),
+    productTypeName: text("product_type_name"),
+    foilOnly: integer("foil_only").default(0),
+    normalOnly: integer("normal_only").default(0),
+    imageUrl: text("image_url"),
+    createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
+    cardType: text("card_type"),
+    fullType: text("full_type"),
+    color: text("color"),
+    convertedCost: text("converted_cost"),
+    flavorText: text("flavor_text"),
+    power: text("power"),
+    powerNumber: text("power_number"),
+    toughness: text("toughness"),
+  },
+  (t) => [
+    index("idx_cards_all_game_id").on(t.gameId),
+    index("idx_cards_all_game_product").on(t.gameId, t.productId),
+  ],
+);
+
+export const games = sqliteTable("games", {
+  id: integer("id"),
+  gameId: real("game_id"),
+  name: text("name"),
+  totalCards: integer("total_cards"),
+  imageSource: text("image_source"),
+  imagesEnabled: integer("images_enabled"),
+  createdAt: text("created_at"),
+  load: integer("load"),
+});
+
+export const sets = sqliteTable(
+  "sets",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    game: text("game").notNull(),
+    name: text("name").notNull(),
+    setName: text("set_name"),
+    setCode: text("set_code"),
+    setId: text("set_id"),
+    series: text("series"),
+    totalCards: integer("total_cards").default(0),
+    releaseDate: text("release_date"),
+    createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    unique("uq_sets_game_name").on(t.game, t.name),
+    index("idx_sets_set_id").on(t.setId),
+  ],
+);
+
+export const tcgplayerSkus = sqliteTable(
+  "tcgplayer_skus",
+  {
+    skuId: integer("sku_id").primaryKey(),
+    productId: integer("product_id").notNull(),
+    skuKey: text("sku_key").notNull(),
+    conditionCode: text("condition_code"),
+    conditionName: text("condition_name"),
+    languageCode: text("language_code"),
+    languageName: text("language_name"),
+    variantCode: text("variant_code"),
+    variantName: text("variant_name"),
+    createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
+    priceHistory: text("price_history").notNull().default("[]"),
+  },
+  (t) => [
+    index("idx_tcgplayer_skus_product_id").on(t.productId),
+    index("idx_tcgplayer_skus_lookup").on(
+      t.productId,
+      t.languageCode,
+      t.variantCode,
+      t.conditionCode,
+    ),
+  ],
+);
 
 // ── 用户 / 账号层 ──────────────────────────────────────────────
 
@@ -102,7 +195,7 @@ export const collectionItem = sqliteTable(
     folderId: text("folder_id")
       .notNull()
       .references(() => portfolioFolder.id, { onDelete: "cascade" }),
-    cardRef: text("card_ref").notNull(), // 第三方卡牌标识（格式 TBD）
+    cardRef: text("card_ref").notNull(), // cards_all.product_id
     objectType: text("object_type").notNull(), // 'tcg' | 'sports' | 'sealed' | 'other'
     grader: text("grader").notNull(), // 'Raw' | 'PSA' | 'BGS' | 'CGC' | 'SGC' | 'TAG' | 'AGS'
     condition: text("condition"), // grader = 'Raw' 时使用

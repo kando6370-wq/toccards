@@ -1,4 +1,5 @@
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import 'card_detail_models.dart';
@@ -89,17 +90,22 @@ class MockCardDetailRepository implements CardDetailRepository {
 class HttpCardDetailRepository implements CardDetailRepository {
   const HttpCardDetailRepository({
     required PortfolioApi api,
+    CardDataApi? cardDataApi,
     CardDetailRepository presentationRepository =
         const MockCardDetailRepository(),
   }) : _api = api,
+       _cardDataApi = cardDataApi,
        _presentationRepository = presentationRepository;
 
   final PortfolioApi _api;
+  final CardDataApi? _cardDataApi;
   final CardDetailRepository _presentationRepository;
 
   @override
   Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
-    final detail = await _presentationRepository.loadDetail(session, cardId);
+    final detail = _cardDataApi == null
+        ? await _presentationRepository.loadDetail(session, cardId)
+        : await _loadCardDataDetail(cardId);
     final results = await Future.wait([
       _api.listFolders(session),
       _api.listCollectionItems(session),
@@ -182,6 +188,164 @@ class HttpCardDetailRepository implements CardDetailRepository {
   Future<void> deleteWishlist(AuthSession session, String wishlistItemId) {
     return _api.deleteWishlist(session, wishlistItemId);
   }
+
+  Future<CardDetail> _loadCardDataDetail(String cardId) async {
+    final api = _cardDataApi!;
+    final card = await api.getCard(cardId);
+    final prices = await api.getMarketPrices(cardId);
+    final seriesByPrice =
+        <CardDataMarketPriceDto, Map<CardPriceRange, List<CardPricePoint>>>{};
+
+    for (final price in prices) {
+      seriesByPrice[price] = await _loadSeriesByRange(card.cardRef, price);
+    }
+
+    final rawPrice = _firstWhereOrNull(
+      prices,
+      (price) => price.grader.toLowerCase() == 'raw',
+    );
+    final gradedPrice = _firstWhereOrNull(
+      prices,
+      (price) => price.grader.toLowerCase() != 'raw',
+    );
+    final rawSeries = rawPrice == null
+        ? const <CardPriceRange, List<CardPricePoint>>{}
+        : seriesByPrice[rawPrice]!;
+    final gradedSeries = gradedPrice == null
+        ? const <CardPriceRange, List<CardPricePoint>>{}
+        : seriesByPrice[gradedPrice]!;
+    final marketPrices = prices
+        .map((price) => _marketPriceFromDto(price, seriesByPrice[price]!))
+        .toList();
+    final soldListings = await api.getSoldListings(card.cardRef);
+
+    return CardDetail(
+      id: card.cardRef,
+      type: _detailTypeFromObjectType(card.objectType),
+      name: card.name,
+      game: _gameLabelFromObjectType(card.objectType),
+      setName: card.setName,
+      identityLine: _identityLine(card),
+      finish: card.finish ?? 'Unknown',
+      language: card.language ?? 'Unknown',
+      quantity: 0,
+      isWishlisted: false,
+      marketPrices: marketPrices.isEmpty
+          ? const [
+              CardMarketPrice(
+                label: 'Raw',
+                priceUsd: null,
+                previous30dPriceUsd: null,
+              ),
+            ]
+          : marketPrices,
+      priceSeriesByRange: rawSeries,
+      gradedPriceSeriesByRange: gradedSeries,
+      soldListings: soldListings
+          .map(
+            (listing) => CardSoldListing(
+              dateText: listing.date,
+              title: listing.title,
+              priceUsd: listing.price,
+              platform: listing.platform,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Future<Map<CardPriceRange, List<CardPricePoint>>> _loadSeriesByRange(
+    String cardRef,
+    CardDataMarketPriceDto price,
+  ) async {
+    final api = _cardDataApi!;
+    final result = <CardPriceRange, List<CardPricePoint>>{};
+    for (final range in CardPriceRange.values) {
+      final series = await api.getPriceSeries(
+        cardRef,
+        days: range.days,
+        grader: price.grader,
+        grade: price.grade,
+        condition: price.condition,
+      );
+      result[range] = series
+          .map(
+            (point) =>
+                CardPricePoint(dateLabel: point.date, priceUsd: point.price),
+          )
+          .toList();
+    }
+    return result;
+  }
+}
+
+CardMarketPrice _marketPriceFromDto(
+  CardDataMarketPriceDto dto,
+  Map<CardPriceRange, List<CardPricePoint>> seriesByRange,
+) {
+  return CardMarketPrice(
+    label: _marketPriceLabel(dto),
+    priceUsd: dto.price,
+    previous30dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.oneMonth]),
+    previous7dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.sevenDays]),
+  );
+}
+
+double? _previousPrice(List<CardPricePoint>? points) {
+  if (points == null || points.length < 2) {
+    return null;
+  }
+  return points.first.priceUsd;
+}
+
+String _marketPriceLabel(CardDataMarketPriceDto dto) {
+  if (dto.grader.toLowerCase() == 'raw') {
+    return ['Raw', if (dto.condition != null) dto.condition!].join(' ');
+  }
+
+  return [dto.grader, if (dto.grade != null) _gradeText(dto.grade!)].join(' ');
+}
+
+String _gradeText(double grade) {
+  if (grade == grade.truncateToDouble()) {
+    return grade.toInt().toString();
+  }
+  return grade.toString();
+}
+
+CardDetailType _detailTypeFromObjectType(String objectType) {
+  return switch (objectType.trim().toLowerCase()) {
+    'tcg' => CardDetailType.tcg,
+    'sports' => CardDetailType.sports,
+    'sealed' => CardDetailType.sealed,
+    _ => CardDetailType.other,
+  };
+}
+
+String _gameLabelFromObjectType(String objectType) {
+  return switch (objectType.trim().toLowerCase()) {
+    'tcg' => 'TCG',
+    'sports' => 'Sports',
+    'sealed' => 'Sealed',
+    _ => 'Other',
+  };
+}
+
+String _identityLine(CardDataCardDto card) {
+  final parts = [
+    if (card.rarity != null) card.rarity!,
+    if (card.cardNumber.trim().isNotEmpty) '#${card.cardNumber}',
+  ];
+  return parts.isEmpty ? card.setCode : parts.join(' ');
+}
+
+T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T item) test) {
+  for (final item in items) {
+    if (test(item)) {
+      return item;
+    }
+  }
+  return null;
 }
 
 CardDetail _mockDetail(String cardId) {

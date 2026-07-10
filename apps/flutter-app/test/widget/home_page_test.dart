@@ -14,7 +14,9 @@ import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
+import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -168,7 +170,10 @@ void main() {
 
   testWidgets('Search bottom tab navigates to Search page', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(child: _HomeTestAppWithRoutes()),
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _HomeTestAppWithRoutes(),
+      ),
     );
 
     await tester.tap(find.text('Search'));
@@ -191,6 +196,12 @@ void main() {
     expect(find.byTooltip('Take Photo'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
+}
+
+_searchOverrides() {
+  return [
+    searchRepositoryProvider.overrideWithValue(const MockSearchRepository()),
+  ];
 }
 
 _localAuthOverrides() {

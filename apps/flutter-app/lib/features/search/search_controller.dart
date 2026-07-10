@@ -1,15 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'search_models.dart';
 import 'search_repository.dart';
 
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  return const MockSearchRepository();
+  return HttpSearchRepository(ref.watch(cardDataApiClientProvider));
 });
 
 final searchControllerProvider =
     NotifierProvider<SearchController, SearchState>(SearchController.new);
+
+const searchDebounceDuration = Duration(milliseconds: 300);
 
 enum SearchCollectAction { updated, openDetail, ignored }
 
@@ -30,6 +35,14 @@ class SearchState {
       searchByTab = const {SearchTab.cards: '', SearchTab.sets: ''},
       cardOverrides = const {},
       loadStatus = KandoLoadStatus.failure;
+
+  const SearchState.loading()
+    : _catalog = null,
+      selectedTab = SearchTab.cards,
+      selectedGameId = '',
+      searchByTab = const {SearchTab.cards: '', SearchTab.sets: ''},
+      cardOverrides = const {},
+      loadStatus = KandoLoadStatus.loading;
 
   const SearchState._({
     required SearchCatalog? catalog,
@@ -56,6 +69,7 @@ class SearchState {
   }
 
   bool get isUnavailable => loadStatus == KandoLoadStatus.failure;
+  bool get isLoading => loadStatus == KandoLoadStatus.loading;
 
   SearchGame get selectedGame {
     return catalog.games.firstWhere(
@@ -128,35 +142,63 @@ class SearchState {
 }
 
 class SearchController extends Notifier<SearchState> {
+  Completer<void>? _loadCompleter;
+  Timer? _searchDebounce;
+  var _loadGeneration = 0;
+
+  Future<void> get loadComplete {
+    return _loadCompleter?.future ?? Future<void>.value();
+  }
+
   @override
   SearchState build() {
-    final repository = ref.watch(searchRepositoryProvider);
-    return _loadCatalog(repository: repository);
+    ref.onDispose(() {
+      _searchDebounce?.cancel();
+    });
+    _startLoad();
+    return const SearchState.loading();
   }
 
-  void refresh() {
-    state = _loadCatalog();
+  Future<void> refresh() {
+    state = const SearchState.loading();
+    _startLoad();
+    return loadComplete;
   }
 
-  SearchState _loadCatalog({SearchRepository? repository}) {
+  void _startLoad({SearchState? preserveState}) {
+    _searchDebounce?.cancel();
+    final completer = Completer<void>();
+    final generation = ++_loadGeneration;
+    _loadCompleter = completer;
+    unawaited(_loadCatalog(generation, completer, preserveState));
+  }
+
+  Future<void> _loadCatalog(
+    int generation,
+    Completer<void> completer,
+    SearchState? preserveState,
+  ) async {
     try {
-      final SearchRepository source =
-          repository ?? ref.read(searchRepositoryProvider);
-      final catalog = source.loadCatalog();
-      return SearchState(
-        catalog: catalog,
-        selectedTab: SearchTab.cards,
-        selectedGameId: catalog.defaultGame.id,
-        searchByTab: const {SearchTab.cards: '', SearchTab.sets: ''},
-        cardOverrides: const {},
-      );
+      final catalog = await ref.read(searchRepositoryProvider).loadCatalog();
+      if (catalog.games.isEmpty) {
+        throw StateError('Search catalog needs at least one game.');
+      }
+      if (generation == _loadGeneration) {
+        state = _stateForCatalog(catalog, preserveState: preserveState);
+      }
     } catch (_) {
-      return const SearchState.unavailable();
+      if (generation == _loadGeneration) {
+        state = const SearchState.unavailable();
+      }
+    } finally {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
     }
   }
 
   void selectTab(SearchTab tab) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -164,27 +206,28 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void updateSearch(String value) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
-    state = state.copyWith(
-      searchByTab: {...state.searchByTab, state.selectedTab: value},
-    );
+    final tab = state.selectedTab;
+    state = state.copyWith(searchByTab: {...state.searchByTab, tab: value});
+    _scheduleSearch(tab: tab, query: value);
   }
 
   void clearSearch() {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
     state = state.copyWith(
       searchByTab: {...state.searchByTab, state.selectedTab: ''},
     );
+    _startLoad(preserveState: state);
   }
 
   void selectGame(String gameId) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -200,7 +243,7 @@ class SearchController extends Notifier<SearchState> {
   }
 
   SearchCollectAction toggleCollect(String cardId) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return SearchCollectAction.ignored;
     }
 
@@ -228,7 +271,7 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void toggleWishlist(String cardId) {
-    if (state.isUnavailable) {
+    if (state.isUnavailable || state.isLoading) {
       return;
     }
 
@@ -243,5 +286,116 @@ class SearchController extends Notifier<SearchState> {
     state = state.copyWith(
       cardOverrides: {...state.cardOverrides, card.id: card},
     );
+  }
+
+  void _scheduleSearch({required SearchTab tab, required String query}) {
+    _searchDebounce?.cancel();
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      _startLoad(preserveState: state);
+      return;
+    }
+
+    final completer = Completer<void>();
+    final generation = ++_loadGeneration;
+    _loadCompleter = completer;
+    _searchDebounce = Timer(searchDebounceDuration, () {
+      unawaited(_loadSearch(tab, trimmed, generation, completer));
+    });
+  }
+
+  Future<void> _loadSearch(
+    SearchTab tab,
+    String query,
+    int generation,
+    Completer<void> completer,
+  ) async {
+    try {
+      final repository = ref.read(searchRepositoryProvider);
+      final currentCatalog = state.catalog;
+      final catalog = switch (tab) {
+        SearchTab.cards => _catalogWithCards(
+          currentCatalog,
+          await repository.searchCards(query),
+        ),
+        SearchTab.sets => _catalogWithSets(
+          currentCatalog,
+          await repository.searchSets(query),
+        ),
+      };
+      if (generation == _loadGeneration) {
+        state = _stateForCatalog(catalog, preserveState: state);
+      }
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = const SearchState.unavailable();
+      }
+    } finally {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+    }
+  }
+
+  SearchState _stateForCatalog(
+    SearchCatalog catalog, {
+    SearchState? preserveState,
+  }) {
+    final selectedTab = preserveState?.selectedTab ?? SearchTab.cards;
+    final selectedGameId = _selectedGameIdFor(catalog, preserveState);
+    return SearchState(
+      catalog: catalog,
+      selectedTab: selectedTab,
+      selectedGameId: selectedGameId,
+      searchByTab:
+          preserveState?.searchByTab ??
+          const {SearchTab.cards: '', SearchTab.sets: ''},
+      cardOverrides: preserveState?.cardOverrides ?? const {},
+    );
+  }
+
+  String _selectedGameIdFor(SearchCatalog catalog, SearchState? preserveState) {
+    final previousGameId = preserveState?.selectedGameId;
+    if (previousGameId != null &&
+        catalog.games.any((game) => game.id == previousGameId)) {
+      return previousGameId;
+    }
+    return catalog.defaultGame.id;
+  }
+
+  SearchCatalog _catalogWithCards(
+    SearchCatalog currentCatalog,
+    List<SearchCard> cards,
+  ) {
+    final games = _gamesFromCards(cards);
+    return SearchCatalog(
+      games: games.isEmpty ? currentCatalog.games : games,
+      cards: cards,
+      sets: currentCatalog.sets,
+    );
+  }
+
+  SearchCatalog _catalogWithSets(
+    SearchCatalog currentCatalog,
+    List<SearchSet> sets,
+  ) {
+    return SearchCatalog(
+      games: currentCatalog.games,
+      cards: currentCatalog.cards,
+      sets: sets,
+    );
+  }
+
+  List<SearchGame> _gamesFromCards(List<SearchCard> cards) {
+    final gamesById = <String, SearchGame>{};
+    for (final card in cards) {
+      final existing = state.catalog.games.where(
+        (game) => game.id == card.gameId,
+      );
+      gamesById[card.gameId] = existing.isEmpty
+          ? SearchGame(id: card.gameId, label: card.gameId)
+          : existing.first;
+    }
+    return gamesById.values.toList();
   }
 }

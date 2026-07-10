@@ -22,7 +22,11 @@ class SearchPage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (state.isUnavailable) ...[
+            if (state.isLoading) ...[
+              Text('Search', style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 16),
+              const KandoLoadingBlock(),
+            ] else if (state.isUnavailable) ...[
               Text('Search', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 16),
               KandoFailureBlock(onRefresh: controller.refresh),

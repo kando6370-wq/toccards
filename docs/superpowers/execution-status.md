@@ -1,12 +1,12 @@
 # 执行状态文档
 
 ## 当前任务
-- 状态：进行中
-- 计划编号：M6-6
-- 最近开始：2026-07-08 14:22:25
-- 最近完成：2026-07-08 11:45:26
-- 最近验证：未记录
-- 最近任务摘要：锘縶"summary":"20260708 PRD ???????????"}
+- 状态：本轮完成（验证通过）
+- 计划编号：M2-2
+- 最近开始：2026-07-09 15:02:59
+- 最近完成：2026-07-09 15:05:14
+- 最近验证：通过
+- 最近任务摘要：Implement D1 card catalog adapter from cards_basic_information DDL
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
 ## dev-plan 子任务状态
@@ -36,7 +36,7 @@
 
 ### M2 数据代理层
 - [M2-1] `DataSourceAdapter` 抽象层 — status: `completed` · updated: 2026-07-07 13:20:58
-- [M2-2] 第三方厂商适配实现 — status: `todo` · updated: 未开始
+- [M2-2] D1 卡牌基础数据适配实现 — status: `completed` · updated: 2026-07-09 15:05:14
 - [M2-3] Workers KV 缓存层 — status: `completed` · updated: 2026-07-07 13:31:42
 - [M2-4] Cache API 缓存层 — status: `completed` · updated: 2026-07-07 13:35:02
 - [M2-5] 降级兜底逻辑 — status: `completed` · updated: 2026-07-07 13:44:52
@@ -75,7 +75,7 @@
 - [M6-3] 客服反馈提交 — status: `completed` · updated: 2026-07-08 10:26:17
 - [M6-4] 启动引导页 — status: `completed` · updated: 2026-07-08 10:44:09
 - [M6-5] 删除账号流程 — status: `completed` · updated: 2026-07-08 11:36:40
-- [M6-6] 订阅相关内容删除/隐藏 — status: `in_progress` · updated: 2026-07-08 14:22:25
+- [M6-6] 订阅相关内容删除/隐藏 — status: `completed` · updated: 2026-07-09 15:02:52
 
 ### M7 管理后台
 - [M7-1] Admin 鉴权接口 — status: `completed` · updated: 2026-07-08 08:58:27
@@ -89,12 +89,12 @@
 ### M8 iOS 联调 / 上线准备
 - [M8-1] OAuth 凭证填入 — status: `todo` · updated: 未开始
 - [M8-2] 邮件服务上线 — status: `todo` · updated: 未开始
-- [M8-3] 第三方数据源联调 — status: `todo` · updated: 未开始
+- [M8-3] 卡牌基础数据导入联调 — status: `todo` · updated: 未开始
 - [M8-4] 汇率接口接入 — status: `todo` · updated: 未开始
 - [M8-5] 协议链接配置 — status: `todo` · updated: 未开始
 - [M8-6] Restore 按钮审核决策 — status: `todo` · updated: 未开始
 - [M8-7] iOS 真机联调 — status: `todo` · updated: 未开始
-- [M8-8] TTL / 限速确认 — status: `todo` · updated: 未开始
+- [M8-8] TTL / 刷新频率确认 — status: `todo` · updated: 未开始
 - [M8-9] 性能与安全 review — status: `todo` · updated: 未开始
 - [M8-10] App Store 审核材料 — status: `todo` · updated: 未开始
 - [M8-11] 生产环境配置 — status: `todo` · updated: 未开始
@@ -102,11 +102,11 @@
 ## 里程碑汇总
 - M0 工程基建 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
 - M1 鉴权与账号 — status: `completed` · completed 12 / total 12 · blocked 0 · in_progress 0
-- M2 数据代理层 — status: `in_progress` · completed 7 / total 8 · blocked 0 · in_progress 0
+- M2 数据代理层 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
 - M3 核心资产 CRUD — status: `completed` · completed 6 / total 6 · blocked 0 · in_progress 0
 - M4 三大页面 — status: `completed` · completed 8 / total 8 · blocked 0 · in_progress 0
 - M5 卡牌详情 — status: `completed` · completed 5 / total 5 · blocked 0 · in_progress 0
-- M6 Profile / 客服 / 启动引导 — status: `in_progress` · completed 5 / total 6 · blocked 0 · in_progress 1
+- M6 Profile / 客服 / 启动引导 — status: `completed` · completed 6 / total 6 · blocked 0 · in_progress 0
 - M7 管理后台 — status: `completed` · completed 7 / total 7 · blocked 0 · in_progress 0
 - M8 iOS 联调 / 上线准备 — status: `not_started` · completed 0 / total 11 · blocked 0 · in_progress 0
 
@@ -241,17 +241,20 @@
 - 2026-07-08 08:58:27 | 完成（验证通过） | [M7-5] Operations config module
 - 2026-07-08 08:58:27 | 完成（验证通过） | [M7-6] Card data operations module
 - 2026-07-08 08:58:27 | 完成（验证通过） | [M7-7] D1 admin initialization
-- 2026-07-08 14:22:25 | 开始 | [M6-6] 锘縶"summary":"20260708 PRD ???????????"}
+- 2026-07-08 14:22:25 | 开始 | [M6-6] Verify subscription surfaces hidden before M7 admin.
+- 2026-07-09 15:02:52 | 完成（验证通过） | [M6-6] Verify subscription surfaces hidden before M7 admin.
+- 2026-07-09 15:02:59 | 开始 | [M2-2] Implement D1 card catalog adapter from cards_basic_information DDL
+- 2026-07-09 15:05:14 | 完成（验证通过） | [M2-2] Implement D1 card catalog adapter from cards_basic_information DDL
 
 <!-- task-status-state
 {
   "current": {
-    "status": "进行中",
-    "started_at": "2026-07-08 14:22:25",
-    "finished_at": "2026-07-08 11:45:26",
-    "plan_ref": "M6-6",
-    "summary": "锘縶\"summary\":\"20260708 PRD ???????????\"}",
-    "last_verification": "未记录",
+    "status": "本轮完成（验证通过）",
+    "started_at": "2026-07-09 15:02:59",
+    "finished_at": "2026-07-09 15:05:14",
+    "plan_ref": "M2-2",
+    "summary": "Implement D1 card catalog adapter from cards_basic_information DDL",
+    "last_verification": "通过",
     "note": "`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。"
   },
   "logs": [
@@ -960,8 +963,26 @@
     {
       "time": "2026-07-08 14:22:25",
       "phase": "开始",
-      "summary": "锘縶\"summary\":\"20260708 PRD ???????????\"}",
+      "summary": "Verify subscription surfaces hidden before M7 admin.",
       "plan_ref": "M6-6"
+    },
+    {
+      "time": "2026-07-09 15:02:52",
+      "phase": "完成（验证通过）",
+      "summary": "Verify subscription surfaces hidden before M7 admin.",
+      "plan_ref": "M6-6"
+    },
+    {
+      "time": "2026-07-09 15:02:59",
+      "phase": "开始",
+      "summary": "Implement D1 card catalog adapter from cards_basic_information DDL",
+      "plan_ref": "M2-2"
+    },
+    {
+      "time": "2026-07-09 15:05:14",
+      "phase": "完成（验证通过）",
+      "summary": "Implement D1 card catalog adapter from cards_basic_information DDL",
+      "plan_ref": "M2-2"
     }
   ],
   "plan": {
@@ -1324,9 +1345,9 @@
         "milestone": "M6"
       },
       "M6-6": {
-        "status": "in_progress",
-        "updated_at": "2026-07-08 14:22:25",
-        "summary": "锘縶\"summary\":\"20260708 PRD ???????????\"}",
+        "status": "completed",
+        "updated_at": "2026-07-09 15:02:52",
+        "summary": "Verify subscription surfaces hidden before M7 admin.",
         "title": "订阅相关内容删除/隐藏",
         "milestone": "M6"
       },
@@ -1378,6 +1399,13 @@
         "summary": "D1 admin initialization",
         "title": "D1 管理员初始化",
         "milestone": "M7"
+      },
+      "M2-2": {
+        "status": "completed",
+        "updated_at": "2026-07-09 15:05:14",
+        "summary": "Implement D1 card catalog adapter from cards_basic_information DDL",
+        "title": "D1 卡牌基础数据适配实现",
+        "milestone": "M2"
       }
     },
     "tbds": {

@@ -24,7 +24,13 @@ void main() {
   testWidgets('Search shows Cards tab with Pokemon results by default', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: _SearchTestApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     expect(find.text('Search'), findsWidgets);
     expect(find.text('Pokemon'), findsOneWidget);
@@ -49,6 +55,7 @@ void main() {
         child: const _SearchTestApp(),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
@@ -63,7 +70,13 @@ void main() {
   });
 
   testWidgets('search and clear update current tab results', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: _SearchTestApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField), 'charizard');
     await tester.pumpAndSettle();
@@ -76,7 +89,13 @@ void main() {
   });
 
   testWidgets('Sets tab keeps its own search state', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: _SearchTestApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField), 'charizard');
     await tester.pumpAndSettle();
@@ -94,7 +113,13 @@ void main() {
   });
 
   testWidgets('Game selector refreshes cards', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: _SearchTestApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Pokemon'));
     await tester.pumpAndSettle();
@@ -108,7 +133,13 @@ void main() {
   testWidgets('Collect and Wishlist actions update local card state', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: _SearchTestApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('search-wishlist-squirtle')));
     await tester.pumpAndSettle();
@@ -129,7 +160,13 @@ void main() {
   });
 
   testWidgets('no matching results state is shown', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: _SearchTestApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField), 'missing');
     await tester.pumpAndSettle();
@@ -141,8 +178,12 @@ void main() {
 
   testWidgets('scanner action opens Scan workflow', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(child: _SearchTestAppWithRoutes()),
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestAppWithRoutes(),
+      ),
     );
+    await tester.pumpAndSettle();
 
     await tester.tap(
       find.byWidgetPredicate((widget) {
@@ -164,6 +205,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ..._searchOverrides(),
             ..._localAuthOverrides(),
             collectionRepositoryProvider.overrideWithValue(
               const MockCollectionRepository(),
@@ -193,8 +235,12 @@ void main() {
 
   testWidgets('Scan bottom tab opens the Scan workflow page', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(child: _SearchTestAppWithRoutes()),
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestAppWithRoutes(),
+      ),
     );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Scan'));
     await tester.pumpAndSettle();
@@ -206,10 +252,11 @@ void main() {
   testWidgets('tapping a Search card opens CardDetail', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [..._cardDetailOverrides()],
+        overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
         child: const _SearchTestAppWithRoutes(),
       ),
     );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('search-card-squirtle')));
     await tester.pumpAndSettle();
@@ -234,10 +281,11 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [..._cardDetailOverrides()],
+        overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
         child: const _SearchTestAppWithRoutes(),
       ),
     );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('search-card-charizard-ex')));
     await tester.pumpAndSettle();
@@ -325,11 +373,27 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
   var calls = 0;
 
   @override
-  SearchCatalog loadCatalog() {
+  Future<SearchCatalog> loadCatalog() async {
     calls += 1;
     if (calls == 1) {
       throw StateError('mock search unavailable');
     }
     return const MockSearchRepository().loadCatalog();
   }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query) {
+    return const MockSearchRepository().searchCards(query);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query) {
+    return const MockSearchRepository().searchSets(query);
+  }
+}
+
+_searchOverrides() {
+  return [
+    searchRepositoryProvider.overrideWithValue(const MockSearchRepository()),
+  ];
 }

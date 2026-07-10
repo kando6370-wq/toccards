@@ -30,31 +30,120 @@ type CardOverrideRow = {
   is_missing_card: number;
 };
 
-class FakeD1Database {
-  constructor(private readonly cardOverrides: CardOverrideRow[] = []) {}
+type CardCatalogRow = {
+  product_id: string;
+  game_id: number;
+  game: string | null;
+  set_name: string | null;
+  set_code: string | null;
+  name: string | null;
+  rarity: string | null;
+  product_type_name: string | null;
+  image_url: string | null;
+};
 
-  prepare(): FakeD1Statement {
-    return new FakeD1Statement(this.cardOverrides);
+type TrendingPinRow = {
+  card_ref: string;
+  rank: number;
+  active: number;
+};
+
+class FakeD1Database {
+  constructor(
+    private readonly cardOverrides: CardOverrideRow[] = [],
+    private readonly cards: CardCatalogRow[] = [],
+    private readonly trendingPins: TrendingPinRow[] = [],
+  ) {}
+
+  prepare(sql: string): FakeD1Statement {
+    return new FakeD1Statement(sql, this.cardOverrides, this.cards, this.trendingPins);
   }
 }
 
 class FakeD1Statement {
-  constructor(private readonly cardOverrides: CardOverrideRow[]) {}
+  constructor(
+    private readonly sql: string,
+    private readonly cardOverrides: CardOverrideRow[],
+    private readonly cards: CardCatalogRow[],
+    private readonly trendingPins: TrendingPinRow[],
+  ) {}
 
-  bind(cardRef: string): FakeD1BoundStatement {
-    return new FakeD1BoundStatement(this.cardOverrides, cardRef);
+  bind(...values: unknown[]): FakeD1BoundStatement {
+    return new FakeD1BoundStatement(
+      this.sql,
+      this.cardOverrides,
+      this.cards,
+      this.trendingPins,
+      values,
+    );
+  }
+
+  all<T>(): Promise<{ results: T[] }> {
+    return new FakeD1BoundStatement(
+      this.sql,
+      this.cardOverrides,
+      this.cards,
+      this.trendingPins,
+      [],
+    ).all<T>();
   }
 }
 
 class FakeD1BoundStatement {
   constructor(
+    private readonly sql: string,
     private readonly cardOverrides: CardOverrideRow[],
-    private readonly cardRef: string,
+    private readonly cards: CardCatalogRow[],
+    private readonly trendingPins: TrendingPinRow[],
+    private readonly values: unknown[],
   ) {}
 
   async first<T>(): Promise<T | null> {
-    return (this.cardOverrides.find((row) => row.card_ref === this.cardRef) ??
-      null) as T | null;
+    const cardRef = String(this.values[0]);
+
+    if (this.sql.includes("FROM cards_all")) {
+      const card = this.cards.find((row) => row.product_id === cardRef);
+
+      if (card) {
+        return card as T;
+      }
+
+      return null;
+    }
+
+    if (this.sql.includes("FROM card_override")) {
+      return (this.cardOverrides.find((row) => row.card_ref === cardRef) ??
+        null) as T | null;
+    }
+
+    return null;
+  }
+
+  async all<T>(): Promise<{ results: T[] }> {
+    if (this.sql.includes("FROM trending_pin")) {
+      return {
+        results: this.trendingPins
+          .filter((pin) => pin.active === 1)
+          .sort((left, right) => left.rank - right.rank) as T[],
+      };
+    }
+
+    if (!this.sql.includes("FROM cards_all")) {
+      return { results: [] };
+    }
+
+    const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
+    const limit = Number(this.values[1]);
+    const offset = Number(this.values[2]);
+    const results = this.cards
+      .filter((card) =>
+        [card.name, card.set_name, card.set_code, card.rarity, card.game]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(query)),
+      )
+      .slice(offset, offset + limit);
+
+    return { results: results as T[] };
   }
 }
 
@@ -111,44 +200,128 @@ class MissingCardDataSourceAdapter implements DataSourceAdapter {
 }
 
 describe("data source routes", () => {
-  it("registers mock-backed M2 data proxy endpoints under /api/v1 because app pages need stable contracts before real providers", async () => {
+  it("uses current D1 card catalog tables by default because M2 no longer depends on third-party mock data", async () => {
+    const response = await app.request(
+      "/api/v1/cards/search?q=pikachu",
+      {},
+      createTestEnv([], [
+        {
+          product_id: "300",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Base Set",
+          set_code: "BS",
+          name: "Pikachu",
+          rarity: "Common",
+          product_type_name: "Cards",
+          image_url: "https://img.example/300.jpg",
+        },
+      ]),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        items: [
+          expect.objectContaining({
+            card_ref: "300",
+            name: "Pikachu",
+            set_name: "Base Set",
+            object_type: "tcg",
+          }),
+        ],
+        total: 1,
+        page: 1,
+        page_size: 20,
+      },
+    });
+  });
+
+  it("builds trending from active D1 pins and local card rows because the local catalog has no third-party trending feed", async () => {
+    const response = await app.request(
+      "/api/v1/cards/trending",
+      {},
+      createTestEnv(
+        [],
+        [
+          {
+            product_id: "300",
+            game_id: 3,
+            game: "Pokemon",
+            set_name: "Base Set",
+            set_code: "BS",
+            name: "Pikachu",
+            rarity: "Common",
+            product_type_name: "Cards",
+            image_url: "https://img.example/300.jpg",
+          },
+        ],
+        [{ card_ref: "300", rank: 1, active: 1 }],
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        items: [
+          expect.objectContaining({
+            card_ref: "300",
+            name: "Pikachu",
+            pinned: true,
+            override_applied: false,
+          }),
+        ],
+      },
+    });
+  });
+
+  it("keeps mock-backed M2 data proxy endpoints injectable because tests need a stable provider-independent contract", async () => {
+    const routeApp = new Hono<{ Bindings: Env }>();
+    routeApp.route(
+      "/",
+      createDataSourceRoutes({
+        createAdapter: () => createMockDataSourceAdapter(),
+      }),
+    );
     const env = createTestEnv();
 
-    const search = await app.request(
-      "/api/v1/cards/search?q=charizard&page=1&page_size=1",
+    const search = await routeApp.request(
+      "/cards/search?q=charizard&page=1&page_size=1",
       {},
       env,
     );
-    const sets = await app.request("/api/v1/sets/search?q=charizard", {}, env);
-    const detail = await app.request(
-      `/api/v1/cards/${encodeURIComponent("mock:tcg:charizard-base-4")}`,
+    const sets = await routeApp.request("/sets/search?q=charizard", {}, env);
+    const detail = await routeApp.request(
+      `/cards/${encodeURIComponent("mock:tcg:charizard-base-4")}`,
       {},
       env,
     );
-    const marketPrices = await app.request(
-      `/api/v1/cards/${encodeURIComponent(
+    const marketPrices = await routeApp.request(
+      `/cards/${encodeURIComponent(
         "mock:tcg:charizard-base-4",
       )}/market-prices`,
       {},
       env,
     );
-    const priceSeries = await app.request(
-      `/api/v1/cards/${encodeURIComponent(
+    const priceSeries = await routeApp.request(
+      `/cards/${encodeURIComponent(
         "mock:tcg:charizard-base-4",
       )}/price-series?grader=Raw&condition=Near%20Mint&days=30`,
       {},
       env,
     );
-    const trending = await app.request("/api/v1/cards/trending", {}, env);
-    const soldListings = await app.request(
-      `/api/v1/cards/${encodeURIComponent(
+    const trending = await routeApp.request("/cards/trending", {}, env);
+    const soldListings = await routeApp.request(
+      `/cards/${encodeURIComponent(
         "mock:tcg:charizard-base-4",
       )}/sold-listings`,
       {},
       env,
     );
-    const rates = await app.request(
-      "/api/v1/rates?base=USD&targets=JPY,EUR",
+    const rates = await routeApp.request(
+      "/rates?base=USD&targets=JPY,EUR",
       {},
       env,
     );
@@ -271,8 +444,16 @@ describe("data source routes", () => {
 
   it("applies card_override to card detail because admin corrections must take precedence over provider data", async () => {
     const cardRef = "mock:tcg:charizard-base-4";
-    const detail = await app.request(
-      `/api/v1/cards/${encodeURIComponent(cardRef)}`,
+    const routeApp = new Hono<{ Bindings: Env }>();
+    routeApp.route(
+      "/",
+      createDataSourceRoutes({
+        createAdapter: () => createMockDataSourceAdapter(),
+      }),
+    );
+
+    const detail = await routeApp.request(
+      `/cards/${encodeURIComponent(cardRef)}`,
       {},
       createTestEnv([
         {
@@ -493,9 +674,13 @@ describe("data source routes", () => {
   });
 });
 
-function createTestEnv(cardOverrides: CardOverrideRow[] = []): Env {
+function createTestEnv(
+  cardOverrides: CardOverrideRow[] = [],
+  cards: CardCatalogRow[] = [],
+  trendingPins: TrendingPinRow[] = [],
+): Env {
   return {
-    DB: new FakeD1Database(cardOverrides) as unknown as D1Database,
+    DB: new FakeD1Database(cardOverrides, cards, trendingPins) as unknown as D1Database,
     CACHE_KV: new FakeKvNamespace() as unknown as KVNamespace,
     JWT_SECRET: "test-secret",
   };

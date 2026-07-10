@@ -10,10 +10,57 @@ import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
+  test(
+    'http detail repository loads card-data presentation rows before portfolio overlay because card identity and prices are catalog-owned',
+    () async {
+      final cardDataApi = _FakeCardDataApi();
+      final detail = await HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      ).loadDetail(_session, 'catalog:pikachu-025');
+
+      expect(cardDataApi.cardRefs, ['catalog:pikachu-025']);
+      expect(detail.id, 'catalog:pikachu-025');
+      expect(detail.type, CardDetailType.tcg);
+      expect(detail.name, 'Pikachu');
+      expect(detail.game, 'TCG');
+      expect(detail.setName, 'Base Set');
+      expect(detail.identityLine, 'Common #025');
+      expect(detail.finish, 'Holofoil');
+      expect(detail.language, 'English');
+      expect(detail.marketPrices.map((price) => price.label), [
+        'Raw Near Mint',
+        'PSA 10',
+      ]);
+      expect(detail.marketPrices.first.priceUsd, 15);
+      expect(detail.marketPrices.first.previous30dPriceUsd, 10);
+      expect(detail.marketPrices.first.previous7dPriceUsd, 14);
+      expect(
+        detail.priceSeriesByRange[CardPriceRange.oneMonth]!.first.dateLabel,
+        '2026-06-10',
+      );
+      expect(
+        detail
+            .gradedPriceSeriesByRange[CardPriceRange.threeMonths]!
+            .last
+            .priceUsd,
+        70,
+      );
+      expect(detail.soldListings.single.platform, 'eBay');
+      expect(detail.isCollected, isFalse);
+      expect(detail.isWishlisted, isFalse);
+    },
+  );
+
   test(
     'http detail repository overlays backend collection rows onto local card detail because ownership state is backend-owned',
     () async {
@@ -868,6 +915,95 @@ class _FakePortfolioApiClient implements PortfolioApi {
 
   @override
   Future<void> deleteWishlist(AuthSession session, String itemId) async {}
+}
+
+class _FakeCardDataApi implements CardDataApi {
+  final List<String> cardRefs = [];
+
+  @override
+  Future<List<CardDataCardDto>> searchCards(String query) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<CardDataSetDto>> searchSets(String query) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<CardDataCardDto>> trendingCards() async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<CardDataCardDto> getCard(String cardRef) async {
+    cardRefs.add(cardRef);
+    return const CardDataCardDto(
+      cardRef: 'catalog:pikachu-025',
+      name: 'Pikachu',
+      setName: 'Base Set',
+      setCode: 'BS',
+      cardNumber: '025',
+      finish: 'Holofoil',
+      language: 'English',
+      objectType: 'tcg',
+      imageUrl: 'https://img.example/pikachu.jpg',
+      rarity: 'Common',
+    );
+  }
+
+  @override
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+    return const [
+      CardDataMarketPriceDto(
+        grader: 'Raw',
+        grade: null,
+        condition: 'Near Mint',
+        price: 15,
+      ),
+      CardDataMarketPriceDto(
+        grader: 'PSA',
+        grade: 10,
+        condition: null,
+        price: 70,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<CardDataPricePointDto>> getPriceSeries(
+    String cardRef, {
+    required int days,
+    String grader = 'Raw',
+    double? grade,
+    String? condition,
+  }) async {
+    final current = grader == 'Raw' ? 15.0 : 70.0;
+    final previous = switch ((grader, days)) {
+      ('Raw', 7) => 14.0,
+      ('Raw', 30) => 10.0,
+      ('PSA', 90) => 40.0,
+      ('PSA', 30) => 50.0,
+      ('PSA', 7) => 65.0,
+      _ => current,
+    };
+    return [
+      CardDataPricePointDto(date: '2026-06-10', price: previous),
+      CardDataPricePointDto(date: '2026-07-10', price: current),
+    ];
+  }
+
+  @override
+  Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef) async {
+    return const [
+      CardDataSoldListingDto(
+        date: '2026-07-09',
+        title: 'Pikachu Base Set Holofoil',
+        price: 15,
+        platform: 'eBay',
+      ),
+    ];
+  }
 }
 
 PortfolioItemDto _portfolioItem({

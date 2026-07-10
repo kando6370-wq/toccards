@@ -4,7 +4,7 @@
 > **日期**：2026-06-30
 > **来源**：
 > - 数据模型 [`docs/tcg-card/03-data-api/data-model.md`](./data-model.md)
-> - 第三方适配层 [`docs/tcg-card/03-data-api/third-party.md`](./third-party.md)
+> - 卡牌数据源适配层 [`docs/tcg-card/03-data-api/third-party.md`](./third-party.md)
 > - 架构 [`docs/tcg-card/02-architecture/architecture.md`](../02-architecture/architecture.md)
 > - 跨切面规则 [`docs/tcg-card/00-product/modules/global-rules.md`](../00-product/modules/global-rules.md)（文案/错误码/金额规则见此，本文档不重复定义）
 > - 原始 PRD：`docs/tcg-card/source-tcg-card-docs/注册登录.md`、`个人中心.md`、`全局用其他补充事项.md`
@@ -877,10 +877,10 @@ POST /portfolio/items
 ```json
 {
   "folder_id": "string",          // 必填；portfolio_folder.id，必须属于当前 owner
-  "card_ref": "string",           // 必填；第三方卡牌唯一标识
+  "card_ref": "string",           // 必填；cards_all.product_id
   "object_type": "tcg",           // 必填；'tcg' | 'sports' | 'sealed' | 'other'
   "grader": "Raw",                // 必填；'Raw' | 'PSA' | 'BGS' | 'CGC' | 'SGC' | 'TAG' | 'AGS'
-  "condition": "Near Mint",       // grader='Raw' 时必填，其他情况为 null（⚠️ TBD：condition 枚举见 third-party TBD #4）
+  "condition": "Near Mint",       // grader='Raw' 时必填，其他情况为 null（⚠️ TBD：枚举见 §6 #5）
   "grade": null,                  // grader≠'Raw' 时必填；Raw 时为 null
   "language": "English",          // 可选
   "finish": "Holofoil",           // 可选
@@ -1121,7 +1121,9 @@ PATCH /preferences
 
 ## 4. 数据代理接口
 
-> 所有数据代理端点均经 Workers **适配层（DataSourceAdapter）+ 缓存**（KV / Cache API）代理，不直连第三方。端点可无 JWT 访问（仅需合法来源请求），但若携带 JWT，Workers 可根据账号偏好换算货币。
+> 所有数据代理端点均经 Workers **适配层（DataSourceAdapter）+ 缓存**（KV / Cache API）读取当前 D1 中的卡牌基础数据表，不直连采集程序或外部数据源。端点可无 JWT 访问（仅需合法来源请求），但若携带 JWT，Workers 可根据账号偏好换算货币。
+>
+> 当前默认数据源：`cards_all` / `games` / `sets` / `tcgplayer_skus`。这些表由外部采集程序写入同一个 D1 数据库，Workers 只读查询。`card_ref` 统一使用 `cards_all.product_id`。
 >
 > 缓存策略、TTL、降级行为见 [`third-party.md`](./third-party.md) §4、§5；占位展示文案见 `global-rules.md`。
 
@@ -1171,13 +1173,13 @@ Query 参数：
 }
 ```
 
-降级行为：第三方/缓存均失败时返回 `items: []`；客户端展示 "No content available" + Refresh。
+降级行为：D1 基础表读取失败且无缓存时返回 `items: []`；客户端展示 "No content available" + Refresh。
 
 ---
 
 ### 4.2 搜索系列（Sets）
 
-**适配层接口**：`searchCards(query, options)` 内部筛选 set 层级结果（⚠️ TBD：取决于厂商是否提供 Sets 搜索接口）。
+**适配层接口**：`searchCards(query, options)` 内部从 `cards_all` 搜索结果聚合 set 层级结果；后续如需更完整的 Set Tab，可直接查询 `sets` 表。
 
 ```
 GET /sets/search
@@ -1188,7 +1190,7 @@ Query 参数：
 | 参数 | 说明 |
 |---|---|
 | `q` | 搜索关键词，必填 |
-| `game` | 可选；Game/IP 过滤（如 `pokemon`）（⚠️ TBD：枚举取决于厂商） |
+| `game` | 可选；Game/IP 过滤（如 `pokemon`）（枚举来自 `games` / `cards_all.game`） |
 | `page` / `page_size` | 分页 |
 
 成功响应（200）：
@@ -1246,7 +1248,7 @@ GET /cards/{card_ref}
 }
 ```
 
-降级行为：第三方/缓存均失败且无 `card_override` 时，返回 404；客户端展示整页失败状态。
+降级行为：D1 基础表读取失败且无 `card_override` 时，返回 404；客户端展示整页失败状态。
 
 ---
 
@@ -1306,7 +1308,7 @@ Query 参数：
 |---|---|---|
 | `grader` | string | 必填；`Raw` \| `PSA` \| `BGS` \| `CGC` \| `SGC` \| `TAG` \| `AGS` |
 | `grade` | number | grader≠Raw 时必填 |
-| `condition` | string | grader=Raw 时必填（⚠️ TBD：枚举见 third-party TBD #4） |
+| `condition` | string | grader=Raw 时必填（枚举来自 `tcgplayer_skus.condition_code` / `condition_name`） |
 | `days` | integer | 必填；`7` \| `30` \| `90` \| `180` \| `365` |
 
 > 缓存：Cache API，TTL 30 分钟（⚠️ TBD）。
@@ -1343,7 +1345,7 @@ GET /cards/trending
 ```
 
 > 缓存：Workers KV，TTL 15 分钟（⚠️ TBD）。
-> Workers 合并逻辑：先从 D1 `trending_pin`（active=1）取置顶卡牌，按 `rank` 排序置于列表首位；后接第三方 `getTrending()` 返回结果（过滤掉已置顶的卡牌，避免重复）；每张卡牌数据经 `card_override` 覆盖层合并。
+> Workers 合并逻辑：先从 D1 `trending_pin`（active=1）取置顶卡牌，按 `rank` 排序置于列表首位，并按 `card_ref` 回查 `cards_all`；后接适配器 `getTrending()` 返回结果（过滤掉已置顶的卡牌，避免重复）；每张卡牌数据经 `card_override` 覆盖层合并。当前本地基础表没有算法 Trending 来源时，非置顶列表可为空。
 
 成功响应（200）：
 
@@ -1912,7 +1914,7 @@ POST /admin/trending-pins
 
 ```json
 {
-  "card_ref": "string",   // 必填；第三方卡牌唯一标识
+  "card_ref": "string",   // 必填；cards_all.product_id
   "rank": 1,              // 必填；从 1 开始
   "active": true
 }
@@ -2097,10 +2099,10 @@ POST /admin/card-overrides/image-upload
 | 1 | OAuth Client ID / Secret（Google / Apple） | §2.8、§2.9 |
 | 2 | 邮件服务提供商（Resend / SES） | §2.2、§2.5 |
 | 3 | 汇率接口提供方 | §4.8、§3.4.2（currency 枚举） |
-| 4 | 第三方卡牌数据源厂商及 card_ref 格式 | 所有引用 card_ref 的端点 |
-| 5 | condition / finish 枚举合法值（取决于厂商） | §3.2.2、§4.5 |
+| 4 | 卡牌基础表导入任务与数据刷新频率 | 所有读取卡牌目录、价格历史和 card_ref 的端点 |
+| 5 | condition / finish 枚举合法值（取决于 `tcgplayer_skus` 实际枚举） | §3.2.2、§4.5 |
 | 6 | Admin Refresh Token 存储方案（复用 `session` 表 `owner_type='admin'` 或独立表，实现阶段确认） | §5.0.1–5.0.3 |
 | 7 | terms_url / privacy_url / app_store_url 实际值 | §5.3.1（app_config key） |
 | 8 | 资产隐私合规留存/清除策略（登录态删号 + 游客态 anonymous_account 删除统一口径） | §2.12 删除账号、profile §6.3 |
-| 9 | 各接口最终 TTL（取决于厂商限速策略） | §4.1–§4.7 |
+| 9 | 各接口最终 TTL（取决于基础表刷新频率） | §4.1–§4.7 |
 | 10 | 游客态删除账号端点：复用 §2.12（扩展接受匿名 JWT）或新增 anonymous_account 独立删除端点 | §2.12、profile §6.3 |

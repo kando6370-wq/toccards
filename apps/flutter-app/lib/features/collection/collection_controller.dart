@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
@@ -12,7 +13,10 @@ import 'collection_models.dart';
 import 'collection_repository.dart';
 
 final collectionRepositoryProvider = Provider<CollectionRepository>((ref) {
-  return HttpCollectionRepository(ref.watch(portfolioApiClientProvider));
+  return HttpCollectionRepository(
+    ref.watch(portfolioApiClientProvider),
+    cardDataApi: ref.watch(cardDataApiClientProvider),
+  );
 });
 
 final collectionControllerProvider =
