@@ -15,6 +15,13 @@
       "when": 1783580400000,
       "tag": "0001_card_catalog_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1783677000000,
+      "tag": "0002_scan_record",
+      "breakpoints": true
     }
   ]
 }

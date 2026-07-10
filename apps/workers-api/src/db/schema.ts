@@ -232,6 +232,34 @@ export const wishlistItem = sqliteTable(
   ],
 );
 
+export const scanRecord = sqliteTable(
+  "scan_record",
+  {
+    id: text("id").primaryKey(),
+    ownerType: text("owner_type").notNull(),
+    ownerId: text("owner_id").notNull(),
+    imageUrl: text("image_url"),
+    filename: text("filename").notNull(),
+    platform: text("platform").notNull(),
+    appVersion: text("app_version").notNull(),
+    deviceModel: text("device_model"),
+    osVersion: text("os_version"),
+    recognitionStatus: text("recognition_status").notNull(),
+    userConfirmationStatus: text("user_confirmation_status").notNull(),
+    modifiedResult: integer("modified_result").notNull().default(0),
+    systemResult: text("system_result").notNull(),
+    userResult: text("user_result").notNull(),
+    candidates: text("candidates").notNull(),
+    rawResponse: text("raw_response").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_scan_record_owner").on(t.ownerType, t.ownerId),
+    index("idx_scan_record_created_at").on(t.createdAt),
+    check("ck_scan_record_modified_result", sql`${t.modifiedResult} IN (0, 1)`),
+  ],
+);
+
 export const userPreference = sqliteTable(
   "user_preference",
   {

@@ -55,6 +55,25 @@ type FeedbackTicketRow = {
   updated_at: string;
 };
 
+type ScanRecordRow = {
+  id: string;
+  owner_type: string;
+  owner_id: string;
+  image_url: string | null;
+  filename: string;
+  platform: string;
+  app_version: string;
+  device_model: string | null;
+  os_version: string | null;
+  recognition_status: string;
+  user_confirmation_status: string;
+  modified_result: number;
+  system_result: string;
+  user_result: string;
+  candidates: string;
+  created_at: string;
+};
+
 type AppConfigRow = {
   key: string;
   value: string;
@@ -268,55 +287,29 @@ const SELECT_APP_CONFIG_SQL = `
   ORDER BY key ASC
 `;
 
-const SAMPLE_SCAN_RECORDS = [
-  {
-    scan_id: "scan_20260708_001",
-    image_url: "https://images.pokemontcg.io/sv4/198_hires.png",
-    uid: "UID-100284",
-    platform: "iOS",
-    app_version: "1.9.0",
-    scan_time: "2026-07-08T10:18:00.000Z",
-    recognition_status: "success",
-    user_confirmation_status: "confirmed",
-    modified_result: true,
-    device_model: "iPhone 15 Pro",
-    os_version: "iOS 18.5",
-    system_result: {
-      status: "success",
-      name: "Charizard ex",
-      ip_game: "Pokemon",
-      set: "Obsidian Flames",
-      number: "223/197",
-      finish_variant: "Special Illustration Rare",
-      graded: "Raw",
-      confidence: 0.94,
-      candidate_count: 3,
-    },
-    user_result: {
-      confirmation_status: "confirmed",
-      final_card: "Charizard ex - Obsidian Flames 223/197",
-      modified_result: true,
-      added_to_inventory: true,
-      added_to_wishlist: false,
-    },
-    candidates: [
-      {
-        rank: 1,
-        name: "Charizard ex",
-        set: "Obsidian Flames",
-        number: "223/197",
-        confidence: 0.94,
-      },
-      {
-        rank: 2,
-        name: "Charizard ex",
-        set: "Obsidian Flames",
-        number: "125/197",
-        confidence: 0.71,
-      },
-    ],
-  },
-] as const;
+const SELECT_SCAN_RECORDS_SQL = `
+  SELECT id, owner_type, owner_id, image_url, filename, platform, app_version,
+    device_model, os_version, recognition_status, user_confirmation_status,
+    modified_result, system_result, user_result, candidates, created_at
+  FROM scan_record
+  WHERE (? IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
+    AND (? IS NULL OR lower(platform) = ?)
+    AND (? IS NULL OR lower(app_version) = ?)
+    AND (? IS NULL OR recognition_status = ?)
+    AND (? IS NULL OR user_confirmation_status = ?)
+    AND (? IS NULL OR modified_result = ?)
+  ORDER BY created_at DESC
+  LIMIT ? OFFSET ?
+`;
+
+const SELECT_SCAN_RECORD_BY_ID_SQL = `
+  SELECT id, owner_type, owner_id, image_url, filename, platform, app_version,
+    device_model, os_version, recognition_status, user_confirmation_status,
+    modified_result, system_result, user_result, candidates, created_at
+  FROM scan_record
+  WHERE id = ?
+  LIMIT 1
+`;
 
 const UPSERT_APP_CONFIG_SQL = `
   INSERT INTO app_config (key, value, updated_by, updated_at)
@@ -680,7 +673,7 @@ adminRoutes.patch("/feedbacks/:ticketId/status", async (c) => {
   return row ? c.json({ success: true, data: toAdminFeedbackTicket(row) }) : c.json(NOT_FOUND_RESPONSE, 404);
 });
 
-adminRoutes.get("/scans", (c) => {
+adminRoutes.get("/scans", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
   const uid = normalizeQuery(c.req.query("uid"));
@@ -689,25 +682,39 @@ adminRoutes.get("/scans", (c) => {
   const recognitionStatus = normalizeQuery(c.req.query("recognition_status"));
   const confirmationStatus = normalizeQuery(c.req.query("user_confirmation_status"));
   const modifiedResult = readBooleanQuery(c.req.query("modified_result"));
+  const modifiedResultValue = modifiedResult === null ? null : modifiedResult ? 1 : 0;
   const offset = (page - 1) * pageSize;
-  const items = SAMPLE_SCAN_RECORDS
-    .filter((item) => !uid || item.uid.toLowerCase().includes(uid))
-    .filter((item) => !platform || item.platform.toLowerCase() === platform)
-    .filter((item) => !appVersion || item.app_version.toLowerCase() === appVersion)
-    .filter((item) => !recognitionStatus || item.recognition_status === recognitionStatus)
-    .filter((item) => !confirmationStatus || item.user_confirmation_status === confirmationStatus)
-    .filter((item) => modifiedResult === null || item.modified_result === modifiedResult)
-    .map(toScanListItem);
+  const { results = [] } = await c.env.DB.prepare(SELECT_SCAN_RECORDS_SQL)
+    .bind(
+      uid,
+      uid,
+      platform,
+      platform,
+      appVersion,
+      appVersion,
+      recognitionStatus,
+      recognitionStatus,
+      confirmationStatus,
+      confirmationStatus,
+      modifiedResultValue,
+      modifiedResultValue,
+      pageSize,
+      offset,
+    )
+    .all<ScanRecordRow>();
+  const items = results.map(toScanListItem);
 
   return c.json({
     success: true,
-    data: { items: items.slice(offset, offset + pageSize), page, page_size: pageSize },
+    data: { items, page, page_size: pageSize },
   });
 });
 
-adminRoutes.get("/scans/:scanId", (c) => {
-  const row = SAMPLE_SCAN_RECORDS.find((item) => item.scan_id === c.req.param("scanId"));
-  return row ? c.json({ success: true, data: row }) : c.json(NOT_FOUND_RESPONSE, 404);
+adminRoutes.get("/scans/:scanId", async (c) => {
+  const row = await c.env.DB.prepare(SELECT_SCAN_RECORD_BY_ID_SQL)
+    .bind(c.req.param("scanId"))
+    .first<ScanRecordRow>();
+  return row ? c.json({ success: true, data: toScanDetail(row) }) : c.json(NOT_FOUND_RESPONSE, 404);
 });
 
 adminRoutes.get("/permissions", async (c) => {
@@ -1214,17 +1221,28 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
   };
 }
 
-function toScanListItem(row: (typeof SAMPLE_SCAN_RECORDS)[number]) {
+function toScanListItem(row: ScanRecordRow) {
   return {
-    scan_id: row.scan_id,
-    image_url: row.image_url,
-    uid: row.uid,
+    scan_id: row.id,
+    image_url: row.image_url ?? "",
+    uid: row.owner_id,
     platform: row.platform,
     app_version: row.app_version,
-    scan_time: row.scan_time,
+    scan_time: row.created_at,
     recognition_status: row.recognition_status,
     user_confirmation_status: row.user_confirmation_status,
-    modified_result: row.modified_result,
+    modified_result: row.modified_result === 1,
+  };
+}
+
+function toScanDetail(row: ScanRecordRow) {
+  return {
+    ...toScanListItem(row),
+    device_model: row.device_model ?? "Unknown",
+    os_version: row.os_version ?? "Unknown",
+    system_result: parseJsonObject(row.system_result),
+    user_result: parseJsonObject(row.user_result),
+    candidates: parseJsonObjectArray(row.candidates),
   };
 }
 
@@ -1361,6 +1379,24 @@ function parseJsonArray(value: string): string[] {
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseJsonObject(value: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(value);
+    return isRecord(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function parseJsonObjectArray(value: string): Array<Record<string, unknown>> {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(isRecord) : [];
   } catch {
     return [];
   }

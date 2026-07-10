@@ -5,6 +5,7 @@ import { authRoutes } from "./auth/anonymous";
 import { createDataSourceRoutes } from "./data-source/routes";
 import type { Env } from "./env";
 import { createPortfolioRoutes } from "./portfolio/routes";
+import { createScanRoutes } from "./scan/routes";
 
 export type { Env } from "./env";
 
@@ -17,6 +18,7 @@ api.route("/auth", authRoutes);
 api.route("/", createAppConfigRoutes());
 api.route("/", createDataSourceRoutes());
 api.route("/", createPortfolioRoutes());
+api.route("/", createScanRoutes());
 
 app.notFound((c) => c.json({ error: "NOT_FOUND" }, 404));
 

@@ -511,7 +511,7 @@ function ScansPage({ session }: { session: AdminSession }) {
 
   const columns: ColumnsType<ScanListItem> = [
     { title: "SCAN ID", dataIndex: "scan_id", ellipsis: true },
-    { title: "卡牌图片", dataIndex: "image_url", render: (value: string) => <img className="scan-thumb" src={value} alt="card" /> },
+    { title: "卡牌图片", dataIndex: "image_url", render: (value: string) => value ? <img className="scan-thumb" src={value} alt="card" /> : <Tag>未存储</Tag> },
     { title: "UID", dataIndex: "uid" },
     { title: "APP版本", dataIndex: "app_version" },
     { title: "扫描时间", dataIndex: "scan_time", render: formatTime },
@@ -718,8 +718,8 @@ function ScanDetailDrawer({ scan, onClose }: { scan: ScanDetail | null; onClose:
       {scan && (
         <Space direction="vertical" size={20} className="drawer-stack">
           <DetailSection title="扫描图片">
-            <img className="scan-preview" src={scan.image_url} alt="scan" />
-            <Input value={scan.image_url} readOnly addonAfter="复制链接" />
+            {scan.image_url ? <img className="scan-preview" src={scan.image_url} alt="scan" /> : <Alert message="图片未存储" type="info" showIcon />}
+            <Input value={scan.image_url || "-"} readOnly addonAfter="复制链接" />
           </DetailSection>
           <DetailSection title="基础信息">
             <InfoGrid items={[

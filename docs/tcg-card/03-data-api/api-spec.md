@@ -1474,6 +1474,69 @@ POST /cards/{card_ref}/collect
 
 ---
 
+### 4.10 扫描识别代理
+
+**用途**：App 上传卡牌图片到 Workers，由 Workers 鉴权、转发 OCR 服务并保存扫描审计记录，供后台扫描记录管理查询。
+
+> Workers 运行环境需配置 `OCR_SERVICE_BASE_URL`，指向 `scanHTTP接口对接说明.md` 中的识别服务地址。Workers 默认向 OCR 服务提交 `retrieval=phash`、`top=5`，避免 App 直接暴露 OCR 服务拓扑。
+
+```
+POST /scan/recognize
+Content-Type: multipart/form-data
+Authorization: Bearer <access_token>
+```
+
+表单字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `image` | file | 是 | 待识别卡牌图片 |
+| `platform` | string | 否 | App 平台，默认 `iOS` |
+| `app_version` | string | 否 | App 版本，默认 `unknown` |
+| `device_model` | string | 否 | 设备型号 |
+| `os_version` | string | 否 | 系统版本 |
+| `image_url` | string | 否 | 若 App/存储层已保存图片，可传后台展示 URL |
+
+成功响应（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "scan_id": "01JXXXXXX",
+    "recognition_status": "success",
+    "cards_detected": 1,
+    "results": [
+      {
+        "index": 1,
+        "matched": true,
+        "candidates": [
+          {
+            "rank": 1,
+            "card_ref": "11958",
+            "name": "Bushi Tenderfoot",
+            "game": "Magic: The Gathering",
+            "set_code": "CHK",
+            "card_number": "1",
+            "confidence": 86.2
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+错误：
+
+| code | HTTP 状态 | 触发条件 |
+|---|---|---|
+| `UNAUTHORIZED` | 401 | 缺少或无效 App JWT |
+| `VALIDATION_ERROR` | 422 | 未上传 `image` |
+| `OCR_SERVICE_UNAVAILABLE` | 502 / 503 | OCR 服务未配置、不可达或返回失败 |
+
+---
+
 ## 5. 后台接口
 
 > 所有后台端点路径前缀为 `/admin`，需要 **Admin Token**（JWT，由 `/admin/auth/login` 签发）。鉴权基于独立 `admin_user` 表（见 data-model §5.1），与 App `user` / `session` 完全分离。匿名账号无权访问后台。
@@ -2092,6 +2155,60 @@ POST /admin/card-overrides/image-upload
 
 ---
 
+### 5.5 扫描记录管理
+
+#### 5.5.1 获取扫描记录列表
+
+```
+GET /admin/scans
+```
+
+Query：
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `uid` | string | 按 owner_id 模糊搜索 |
+| `platform` | string | 平台，如 `iOS` |
+| `app_version` | string | App 版本 |
+| `recognition_status` | string | `success` / `no_match` / `failed` |
+| `user_confirmation_status` | string | `pending` / `confirmed` 等 |
+| `modified_result` | boolean | 用户是否修改识别结果 |
+
+成功响应（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "scan_id": "01JXXXXXX",
+        "image_url": "",
+        "uid": "anon-1",
+        "platform": "iOS",
+        "app_version": "1.0.0",
+        "scan_time": "2026-07-10T09:00:00.000Z",
+        "recognition_status": "success",
+        "user_confirmation_status": "pending",
+        "modified_result": false
+      }
+    ],
+    "page": 1,
+    "page_size": 20
+  }
+}
+```
+
+#### 5.5.2 获取扫描记录详情
+
+```
+GET /admin/scans/{scan_id}
+```
+
+成功响应（200）：在列表字段基础上返回 `device_model`、`os_version`、`system_result`、`user_result`、`candidates`。
+
+---
+
 ## 6. TBD 汇总
 
 | # | 待定项 | 影响端点 |
@@ -2106,3 +2223,4 @@ POST /admin/card-overrides/image-upload
 | 8 | 资产隐私合规留存/清除策略（登录态删号 + 游客态 anonymous_account 删除统一口径） | §2.12 删除账号、profile §6.3 |
 | 9 | 各接口最终 TTL（取决于基础表刷新频率） | §4.1–§4.7 |
 | 10 | 游客态删除账号端点：复用 §2.12（扩展接受匿名 JWT）或新增 anonymous_account 独立删除端点 | §2.12、profile §6.3 |
+| 11 | 扫描图片长期存储（如 R2）与后台图片留存策略 | §4.10、§5.5 |

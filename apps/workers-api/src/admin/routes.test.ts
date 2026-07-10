@@ -81,6 +81,25 @@ type CardOverrideRow = {
   updated_at: string;
 };
 
+type ScanRecordRow = {
+  id: string;
+  owner_type: "anonymous" | "user";
+  owner_id: string;
+  image_url: string | null;
+  filename: string;
+  platform: string;
+  app_version: string;
+  device_model: string | null;
+  os_version: string | null;
+  recognition_status: string;
+  user_confirmation_status: string;
+  modified_result: number;
+  system_result: string;
+  user_result: string;
+  candidates: string;
+  created_at: string;
+};
+
 type AdminLoginResponse = {
   success: true;
   data: {
@@ -102,6 +121,7 @@ class FakeD1 {
   appConfigs: AppConfigRow[] = [];
   trendingPins: TrendingPinRow[] = [];
   cardOverrides: CardOverrideRow[] = [];
+  scanRecords: ScanRecordRow[] = [];
 
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
@@ -172,6 +192,11 @@ class FakeD1Statement {
     if (sql.includes("FROM card_override") && sql.includes("WHERE card_ref = ?")) {
       const [cardRef] = this.values as [string];
       return (this.db.cardOverrides.find((row) => row.card_ref === cardRef) ?? null) as T | null;
+    }
+
+    if (sql.includes("FROM scan_record") && sql.includes("WHERE id = ?")) {
+      const [id] = this.values as [string];
+      return (this.db.scanRecords.find((row) => row.id === id) ?? null) as T | null;
     }
 
     throw new Error(`Unsupported first SQL: ${sql}`);
@@ -257,6 +282,10 @@ class FakeD1Statement {
 
     if (sql.includes("FROM card_override")) {
       return okResult<T>(this.db.cardOverrides as T[]);
+    }
+
+    if (sql.includes("FROM scan_record")) {
+      return okResult<T>(this.db.scanRecords as T[]);
     }
 
     throw new Error(`Unsupported all SQL: ${sql}`);
@@ -657,6 +686,47 @@ describe("admin routes", () => {
   it("lists scan records with detail fields because support must audit recognition and user confirmation", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "admin-scan", "scan@example.com", "correct-password", "operator");
+    env.DB.scanRecords.push({
+      id: "scan-db-1",
+      owner_type: "anonymous",
+      owner_id: "UID-100284",
+      image_url: "https://images.example/scan.jpg",
+      filename: "scan.jpg",
+      platform: "iOS",
+      app_version: "1.0.0",
+      device_model: "iPhone 15 Pro",
+      os_version: "iOS 18.5",
+      recognition_status: "success",
+      user_confirmation_status: "confirmed",
+      modified_result: 0,
+      system_result: JSON.stringify({
+        status: "success",
+        name: "Bushi Tenderfoot",
+        ip_game: "Magic: The Gathering",
+        set: "CHK",
+        number: "1",
+        confidence: 86.2,
+        candidate_count: 1,
+      }),
+      user_result: JSON.stringify({
+        confirmation_status: "confirmed",
+        final_card: "Bushi Tenderfoot - CHK 1",
+        modified_result: false,
+        added_to_inventory: true,
+        added_to_wishlist: false,
+      }),
+      candidates: JSON.stringify([
+        {
+          rank: 1,
+          card_ref: "11958",
+          name: "Bushi Tenderfoot",
+          set: "CHK",
+          number: "1",
+          confidence: 86.2,
+        },
+      ]),
+      created_at: "2026-07-10T09:00:00.000Z",
+    });
     const login = await loginAdmin(env, "scan@example.com", "correct-password");
 
     const listResponse = await requestAdmin(env, "/scans", "GET", undefined, login.data.access_token);
@@ -674,11 +744,11 @@ describe("admin routes", () => {
       data: expect.objectContaining({
         items: [
           expect.objectContaining({
-            scan_id: expect.any(String),
-            image_url: expect.any(String),
-            recognition_status: expect.any(String),
-            user_confirmation_status: expect.any(String),
-            modified_result: expect.any(Boolean),
+            scan_id: "scan-db-1",
+            image_url: "https://images.example/scan.jpg",
+            recognition_status: "success",
+            user_confirmation_status: "confirmed",
+            modified_result: false,
           }),
         ],
       }),
@@ -688,9 +758,9 @@ describe("admin routes", () => {
       success: true,
       data: expect.objectContaining({
         scan_id: scanId,
-        system_result: expect.objectContaining({ confidence: expect.any(Number) }),
+        system_result: expect.objectContaining({ name: "Bushi Tenderfoot", confidence: 86.2 }),
         user_result: expect.objectContaining({ added_to_inventory: expect.any(Boolean) }),
-        candidates: expect.any(Array),
+        candidates: [expect.objectContaining({ card_ref: "11958" })],
       }),
     });
   });
