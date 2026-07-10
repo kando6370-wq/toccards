@@ -100,9 +100,7 @@ void main() {
     'repository failure shows page failure and refresh restores collection',
     () async {
       final repository = _FailingThenSuccessfulCollectionRepository();
-      final container = _collectionContainer(
-        overrides: [collectionRepositoryProvider.overrideWithValue(repository)],
-      );
+      final container = _collectionContainer(repository: repository);
       addTearDown(container.dispose);
 
       final failed = await _loadedState(container);
@@ -216,14 +214,16 @@ void main() {
   });
 }
 
-ProviderContainer _collectionContainer({overrides = const []}) {
+ProviderContainer _collectionContainer({
+  CollectionRepository repository = const MockCollectionRepository(),
+}) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
     overrides: [
       authRepositoryProvider.overrideWithValue(
         LocalPlaceholderAuthRepository(storage),
       ),
-      ...overrides,
+      collectionRepositoryProvider.overrideWithValue(repository),
     ],
   );
 }
