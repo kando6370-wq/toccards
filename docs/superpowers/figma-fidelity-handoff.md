@@ -110,11 +110,12 @@ flutter test
 
 ## 5. 功能缺口（直接影响"可用"）
 
-### 5.1 🔴 scan 扫描模块（最大功能缺口）
-- **现状**：`lib/features/scan/scan_page.dart` 只有占位页（无 controller/repository）。
-- **Figma**：完整 **19 屏** 拍照识卡流（section `131:19436`「扫描页」）——相机取景、拍摄、识别中、识别结果、批量入库等。
-- **要做成可用**：需新建 `scan_controller.dart` / `scan_repository.dart` / 模型；接入相机（如 `camera` 插件）；对接识别 API（后端是否已有识别端点需确认，见 `docs/tcg-card/03-data-api/`）；串联入库到 collection。
-- **这是"UI 精修"覆盖不到的净新增功能**，需单独立项（建议作为一个里程碑）。
+### 5.1 🟡 scan 扫描模块（功能缺口 —— 但比想象中小）
+> 📄 独立任务书：`docs/superpowers/scan-module-taskbook.md`
+- **现状（已核对代码，非占位）**：`scan_page.dart`（1055 行）已是完整 UI 原型（相机取景/结果 5 态/Review 匹配页）；`lib/shared/scan/scan_api_client.dart` 的 `recognizeImage()` 已实现对接 `/scan/recognize`；`scan_providers.dart` 已暴露 provider。
+- **真实缺口**：现有 UI 全是**假数据模拟**（本地 Timer mock + 画出来的假相机 + 加入只改本地态）。需接：**真相机采集**（引 image_picker/camera 插件）+ **Riverpod controller**（调已有 ScanApi）+ **真入库 collection**（M3-6 collect 端点）+ **按 Figma 精修**（硬编码色改走 KandoColors）。
+- **前置确认**：后端 `POST /scan/recognize` 是否已上线；若需改 D1/schema 走数据库 gate。
+- 详见任务书 T1–T6 与验收。
 
 ### 5.2 弹窗（🟡 分散待系统化）
 - Figma section `221:2139`「弹窗」有 7 类通用弹窗；代码里散落在各模块。建议抽一套共享弹窗组件对齐 Figma。
