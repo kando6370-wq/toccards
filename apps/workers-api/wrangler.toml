@@ -1,6 +1,6 @@
 # Cloudflare Workers 配置 —— tcg-card 后端 API
 # 真实 database_id / KV id 在创建对应资源后填入（TBD，见 dev-plan §12 / README §TBD总清单）。
-name = "kando-workers-api"
+name = "toccards"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
@@ -11,10 +11,10 @@ run_worker_first = ["/api/*"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "kando-db"
-database_id = "a89512d0-661d-43d0-8742-1b8cfc41efbd" # Cloudflare D1: kando-db
+database_name = "cards_basic_information"
+database_id = "6096d92e-571b-4668-9e83-543f64300de4" # Cloudflare D1: cards_basic_information
 migrations_dir = "src/db/migrations"
 
 [[kv_namespaces]]
 binding = "CACHE_KV"
-id = "35846076e5a74d279bf75e3c6b7d18d4" # Cloudflare KV: CACHE_KV
+id = "c90e2c87b2c042ea93c58d38095973c7" # Cloudflare KV: CACHE_KV
