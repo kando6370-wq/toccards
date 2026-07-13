@@ -1,0 +1,28 @@
+# IDE
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Worktrees
+.worktrees/
+.superpowers/
+
+# Node / TS monorepo
+node_modules/
+.pnpm-store/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Cloudflare Workers
+.wrangler/
+apps/workers-api/.dev.vars
+
+# Vite
+apps/admin-web/dist/
+
+# Dart / Flutter（根工作区）
+.dart_tool/
+build/

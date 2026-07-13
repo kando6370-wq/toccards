@@ -1,0 +1,31 @@
+# GitLab CI —— tcg-card monorepo（M0-7）
+# TS/Node 侧（ts）+ Dart/Flutter 侧（dart）双 Job。
+stages:
+  - ts
+  - dart
+
+ts:
+  stage: ts
+  image: node:22
+  before_script:
+    - corepack enable
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm run build
+    - pnpm run type-check
+    - pnpm run lint
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store/
+
+dart:
+  stage: dart
+  image: ghcr.io/cirruslabs/flutter:3.35.5
+  before_script:
+    - flutter pub get # 解析根 pub workspace（含 melos dev 依赖）
+  script:
+    - dart run melos run analyze
+    - dart run melos run test

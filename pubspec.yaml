@@ -1,0 +1,23 @@
+# Dart pub workspace 根（melos 8 / Dart 3.6+ 工作区模型）。
+# 仅用于 Dart/Flutter 侧；TS/Node 侧由 pnpm-workspace.yaml 管理，两者互不影响。
+name: kando_workspace
+publish_to: none
+environment:
+  sdk: ^3.9.2
+workspace:
+  - apps/flutter-app
+  # dart-packages/* 等 Dart 共享包后续按需加入（显式路径）。
+dev_dependencies:
+  melos: ^8.0.0
+
+# Melos 任务编排（参见 monorepo.md）。melos 8 + pub workspace 下配置随根 pubspec.yaml，
+# 不再使用独立 melos.yaml；包来源于上方 workspace 声明。
+melos:
+  name: kando
+  scripts:
+    analyze:
+      description: 静态分析所有 Dart/Flutter 包
+      exec: flutter analyze
+    test:
+      description: 运行所有 Dart/Flutter 包测试
+      exec: flutter test

@@ -1,0 +1,199 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
+
+import '../auth/auth_controller.dart';
+import '../auth/auth_models.dart';
+import '../auth/ui/auth_sheet.dart';
+import '../../shared/ui/toast.dart';
+import 'account_page.dart';
+import 'profile_actions.dart';
+
+const profileVersionText = 'Version 1.0.0';
+
+class ProfilePage extends ConsumerWidget {
+  const ProfilePage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authControllerProvider);
+
+    return KandoTabScaffold(
+      currentTab: KandoMainTab.profile,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: authState.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _ProfileContent(authState: authState),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileContent extends ConsumerWidget {
+  const _ProfileContent({required this.authState});
+
+  final AuthState authState;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = authState.session;
+    final isUser = session?.ownerType == OwnerType.user;
+    final title = isUser ? 'Signed in' : 'Guest session';
+    final emailText = session?.email ?? 'Unknown email';
+    final userIdText = session?.userId ?? 'Unknown user';
+    final identity = isUser
+        ? emailText
+        : (session?.anonymousId ?? 'Anonymous guest');
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 96),
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: KandoColors.text,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(identity, style: Theme.of(context).textTheme.bodyLarge),
+        if (isUser) ...[
+          const SizedBox(height: 4),
+          Text(
+            'ID: $userIdText',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+        if (authState.pendingMigrationAnonymousId != null) ...[
+          const SizedBox(height: 16),
+          Text('Pending guest: ${authState.pendingMigrationAnonymousId}'),
+        ],
+        const SizedBox(height: 16),
+        if (isUser) ...[
+          Card(
+            child: ListTile(
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              title: const Text('Account'),
+              subtitle: Text(identity),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/account'),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ] else ...[
+          FilledButton(
+            onPressed: () => showAuthSheet(context),
+            child: const Text('Sign in / Sign up'),
+          ),
+          const SizedBox(height: 8),
+        ],
+        _ProfileEntry(
+          label: 'Customer Support',
+          onTap: () => context.push('/customer-support'),
+        ),
+        _ProfileEntry(
+          label: 'Score',
+          onTap: () => _runProfileAction(
+            context,
+            () => ref.read(profileActionsProvider).requestScore(),
+          ),
+        ),
+        _ProfileEntry(
+          label: 'Share With Friends',
+          onTap: () => _runProfileAction(
+            context,
+            () => ref.read(profileActionsProvider).shareWithFriends(),
+          ),
+        ),
+        _ProfileEntry(
+          label: 'Terms Of Use',
+          onTap: () => _runProfileAction(
+            context,
+            () => ref.read(profileActionsProvider).openTerms(),
+          ),
+        ),
+        _ProfileEntry(
+          label: 'Privacy Policy',
+          onTap: () => _runProfileAction(
+            context,
+            () => ref.read(profileActionsProvider).openPrivacy(),
+          ),
+        ),
+        if (isUser) ...[
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: () async {
+              await ref.read(authControllerProvider.notifier).logout();
+              if (context.mounted) {
+                context.go('/');
+              }
+            },
+            child: const Text('Log Out'),
+          ),
+        ] else ...[
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () {
+              _confirmAndDelete(context, ref);
+            },
+            child: const Text('Delete account'),
+          ),
+        ],
+        const SizedBox(height: 16),
+        Text(profileVersionText, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    );
+  }
+
+  Future<void> _runProfileAction(
+    BuildContext context,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+    } on Exception {
+      if (context.mounted) {
+        showKandoToast(context, message: profileActionFailureText);
+      }
+    }
+  }
+
+  Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDeleteAccountConfirmation(context);
+    if (!context.mounted || !confirmed) {
+      return;
+    }
+
+    try {
+      await ref.read(authControllerProvider.notifier).deleteAccount();
+    } on Exception {
+      if (context.mounted) {
+        showKandoToast(context, message: authAccountActionFailedMessage);
+      }
+    }
+  }
+}
+
+class _ProfileEntry extends StatelessWidget {
+  const _ProfileEntry({required this.label, this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      title: Text(label),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    );
+  }
+}

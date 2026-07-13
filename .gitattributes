@@ -1,0 +1,5 @@
+# CI 在 Linux 跑，强制 CI/脚本相关文本文件用 LF，避免 CRLF 触发问题。
+*.yml text eol=lf
+*.yaml text eol=lf
+*.mjs text eol=lf
+*.sh text eol=lf

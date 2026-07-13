@@ -1,0 +1,18 @@
+{
+  "name": "kando-global-project",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo build",
+    "type-check": "turbo type-check",
+    "lint": "node scripts/check-dep-direction.mjs"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  }
+}
