@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 
 import 'onboarding_controller.dart';
 import 'onboarding_repository.dart';
@@ -41,6 +42,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: KandoColors.mutedText,
+                  ),
                   onPressed: _complete,
                   child: const Text('Skip'),
                 ),
@@ -69,12 +73,19 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 ],
               ),
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: isLast ? _complete : _next,
-                  child: Text(isLast ? 'Get Started' : 'Next'),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(56),
+                  shape: const StadiumBorder(),
+                  backgroundColor: KandoColors.accent,
+                  foregroundColor: KandoColors.ink,
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
+                onPressed: isLast ? _complete : _next,
+                child: Text(isLast ? 'Get Started' : 'Next'),
               ),
             ],
           ),

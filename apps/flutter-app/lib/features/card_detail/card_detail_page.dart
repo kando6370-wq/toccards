@@ -1,10 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'card_detail_controller.dart';
 import 'card_detail_models.dart';
+
+/// Figma spacing/radius tokens for the card detail module.
+const double _kRadiusLg = 16;
+const double _kRadiusXl = 24;
+
+/// Section heading style (Figma: Fraunces SemiBold 24/32).
+const TextStyle _kSectionTitleStyle = TextStyle(
+  fontSize: 22,
+  fontWeight: FontWeight.w600,
+  height: 1.2,
+  color: KandoColors.text,
+);
+
+/// Small uppercase label style used on field/table headers.
+const TextStyle _kFieldLabelStyle = TextStyle(
+  fontSize: 12,
+  height: 1.5,
+  letterSpacing: 0.4,
+  color: KandoColors.mutedText,
+);
+
+/// Bordered panel surface shared across the detail sections.
+BoxDecoration _kPanel({double radius = _kRadiusLg, bool strong = false}) {
+  return BoxDecoration(
+    color: strong
+        ? KandoColors.elevatedSurface
+        : KandoColors.elevatedSurface.withValues(alpha: 0.4),
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: KandoColors.border.withValues(alpha: 0.7)),
+  );
+}
+
+/// Themes the collection-item form fields to match the Figma inputs
+/// (filled surface, rounded borders, accent focus) without touching each
+/// field's binding.
+ThemeData _formFieldTheme(BuildContext context) {
+  OutlineInputBorder border(Color color, [double width = 1]) =>
+      OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: color, width: width),
+      );
+  return Theme.of(context).copyWith(
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: KandoColors.surface,
+      isDense: true,
+      labelStyle: const TextStyle(color: KandoColors.mutedText),
+      floatingLabelStyle: const TextStyle(color: KandoColors.accent),
+      enabledBorder: border(KandoColors.border.withValues(alpha: 0.7)),
+      focusedBorder: border(KandoColors.accent, 1.5),
+    ),
+  );
+}
 
 class CardDetailPage extends ConsumerWidget {
   const CardDetailPage({required this.cardId, super.key});
@@ -18,7 +72,11 @@ class CardDetailPage extends ConsumerWidget {
     final controller = ref.read(provider.notifier);
 
     return Scaffold(
+      backgroundColor: KandoColors.ink,
       appBar: AppBar(
+        backgroundColor: KandoColors.ink,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           onPressed: () => _goBack(context),
           icon: const Icon(Icons.arrow_back),
@@ -28,29 +86,29 @@ class CardDetailPage extends ConsumerWidget {
       body: SafeArea(
         child: state.loadStatus == KandoLoadStatus.loading
             ? const Padding(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(20),
                 child: KandoLoadingBlock(),
               )
             : state.isUnavailable
             ? Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: KandoFailureBlock(onRefresh: controller.refresh),
               )
             : ListView(
                 key: const Key('card-detail-scroll'),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                 children: [
                   const _CardImageStandIn(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   _CardHeader(state: state, controller: controller),
                   if (!state.detail.isCollected &&
                       state.collectionItemDraft != null) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     _CollectionItemForm(state: state, controller: controller),
                   ],
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 28),
                   _BasicInfo(state: state),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 28),
                   if (state.detail.isCollected)
                     _OwnedDetailTabs(state: state, controller: controller)
                   else
@@ -77,21 +135,25 @@ class _CardImageStandIn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 180,
+      height: 360,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.style_outlined,
-            size: 56,
-            color: Theme.of(context).colorScheme.onSecondaryContainer,
+        color: KandoColors.elevatedSurface,
+        borderRadius: BorderRadius.circular(_kRadiusXl),
+        border: Border.all(color: KandoColors.border.withValues(alpha: 0.7)),
+        boxShadow: [
+          BoxShadow(
+            color: KandoColors.accent.withValues(alpha: 0.08),
+            blurRadius: 40,
           ),
         ],
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.style_outlined,
+          size: 72,
+          color: KandoColors.mutedText,
+        ),
       ),
     );
   }
@@ -107,6 +169,13 @@ class _CardHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail = state.detail;
 
+    final iconButtonStyle = IconButton.styleFrom(
+      backgroundColor: KandoColors.elevatedSurface,
+      foregroundColor: KandoColors.text,
+      side: BorderSide(color: KandoColors.border.withValues(alpha: 0.7)),
+      shape: const CircleBorder(),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -116,13 +185,20 @@ class _CardHeader extends StatelessWidget {
             Expanded(
               child: Text(
                 detail.name,
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w600,
+                  height: 1.15,
+                  color: KandoColors.text,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             if (detail.isCollected)
               IconButton(
                 key: Key('card-detail-share-${detail.id}'),
                 onPressed: () {},
+                style: iconButtonStyle,
                 icon: const Icon(Icons.ios_share_outlined),
               )
             else
@@ -131,28 +207,68 @@ class _CardHeader extends StatelessWidget {
                 onPressed: () async {
                   await controller.toggleWishlist();
                 },
+                style: iconButtonStyle,
                 icon: Icon(
                   detail.isWishlisted ? Icons.favorite : Icons.favorite_border,
+                  color: detail.isWishlisted ? KandoColors.accent : null,
                 ),
               ),
           ],
         ),
-        Text('Market price ${state.marketPriceText}'),
-        Text('30D ${state.changeText}'),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: detail.isCollected
-              ? null
-              : controller.startAddingCollectionItem,
-          icon: Icon(
-            detail.isCollected
-                ? Icons.check_circle_outline
-                : Icons.add_circle_outline,
-          ),
-          label: Text(detail.isCollected ? 'Collected' : 'Add to Portfolio'),
+        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            const Text('Market price', style: _kFieldLabelStyle),
+            const SizedBox(width: 8),
+            Text(
+              state.marketPriceText,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: KandoColors.accent,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '30D ${state.changeText}',
+              style: const TextStyle(fontSize: 13, color: KandoColors.mutedText),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text('Qty: ${detail.quantity}'),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: KandoColors.accent,
+              foregroundColor: KandoColors.ink,
+              disabledBackgroundColor: KandoColors.elevatedSurface,
+              disabledForegroundColor: KandoColors.mutedText,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: const StadiumBorder(),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            onPressed: detail.isCollected
+                ? null
+                : controller.startAddingCollectionItem,
+            icon: Icon(
+              detail.isCollected
+                  ? Icons.check_circle_outline
+                  : Icons.add_circle_outline,
+            ),
+            label: Text(detail.isCollected ? 'Collected' : 'Add to Portfolio'),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Qty: ${detail.quantity}',
+          style: const TextStyle(fontSize: 13, color: KandoColors.mutedText),
+        ),
       ],
     );
   }
@@ -170,16 +286,23 @@ class _BasicInfo extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Basic information',
-          style: Theme.of(context).textTheme.titleLarge,
+        const Text('Basic information', style: _kSectionTitleStyle),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: _kPanel(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _InfoRow(label: 'Game', value: detail.game),
+              _InfoRow(label: 'Set', value: detail.setName),
+              _InfoRow(label: 'Identity', value: detail.identityLine),
+              _InfoRow(label: 'Finish', value: detail.finish),
+              _InfoRow(label: 'Language', value: detail.language),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
-        _InfoRow(label: 'Game', value: detail.game),
-        _InfoRow(label: 'Set', value: detail.setName),
-        _InfoRow(label: 'Identity', value: detail.identityLine),
-        _InfoRow(label: 'Finish', value: detail.finish),
-        _InfoRow(label: 'Language', value: detail.language),
       ],
     );
   }
@@ -198,12 +321,37 @@ class _OwnedDetailTabs extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const TabBar(
-            tabs: [
-              Tab(text: 'Collection Item'),
-              Tab(text: 'Price'),
-            ],
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: KandoColors.elevatedSurface.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: KandoColors.border.withValues(alpha: 0.7)),
+            ),
+            child: TabBar(
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              indicator: BoxDecoration(
+                color: KandoColors.accent.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: KandoColors.accent.withValues(alpha: 0.5),
+                ),
+              ),
+              labelColor: KandoColors.accent,
+              unselectedLabelColor: KandoColors.mutedText,
+              labelStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: const TextStyle(fontSize: 14),
+              tabs: const [
+                Tab(text: 'Collection Item'),
+                Tab(text: 'Price'),
+              ],
+            ),
           ),
+          const SizedBox(height: 16),
           SizedBox(
             height: 360,
             child: TabBarView(
@@ -239,29 +387,45 @@ class _CollectionItems extends StatelessWidget {
           _CollectionItemForm(state: state, controller: controller),
           const SizedBox(height: 8),
         ] else if (draft == null) ...[
-          Align(
-            alignment: Alignment.centerLeft,
+          SizedBox(
+            width: double.infinity,
             child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: KandoColors.accent,
+                foregroundColor: KandoColors.ink,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: const StadiumBorder(),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               onPressed: controller.startAddingCollectionItem,
               icon: const Icon(Icons.add_circle_outline),
               label: const Text('Add item'),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
         ],
         for (final item in state.collectionItemRows)
           if (state.editingCollectionItemId == item.id)
             _CollectionItemForm(state: state, controller: controller)
           else
-            Card(
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: _kPanel(),
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       item.portfolioName,
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: KandoColors.text,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     _InfoRow(label: 'Quantity', value: item.quantityText),
@@ -275,11 +439,15 @@ class _CollectionItems extends StatelessWidget {
                     _InfoRow(label: 'Total', value: item.totalText),
                     if (item.notes.isNotEmpty)
                       _InfoRow(label: 'Notes', value: item.notes),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
+                      runSpacing: 8,
                       children: [
                         TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: KandoColors.accent,
+                          ),
                           onPressed: () {
                             controller.startEditingCollectionItem(item.id);
                           },
@@ -287,6 +455,9 @@ class _CollectionItems extends StatelessWidget {
                           label: const Text('Edit item'),
                         ),
                         TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: KandoColors.mutedText,
+                          ),
                           onPressed: () {
                             _confirmRemoveCollectionItem(
                               context,
@@ -331,15 +502,21 @@ class _CollectionItemForm extends StatelessWidget {
         ? draft.grade
         : cardCollectionGradeValues.first;
 
-    return Card(
+    return Container(
+      decoration: _kPanel(strong: true),
       child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
+        padding: const EdgeInsets.all(16),
+        child: Theme(
+          data: _formFieldTheme(context),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Ownership Summary',
-              style: Theme.of(context).textTheme.titleMedium,
+              'OWNERSHIP SUMMARY',
+              style: _kFieldLabelStyle.copyWith(
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+              ),
             ),
             const SizedBox(height: 12),
             if (isEditing)
@@ -508,12 +685,28 @@ class _CollectionItemForm extends StatelessWidget {
             Row(
               children: [
                 TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: KandoColors.mutedText,
+                  ),
                   onPressed: controller.cancelCollectionItemEdit,
                   child: const Text('Cancel'),
                 ),
                 const Spacer(),
                 FilledButton.icon(
                   key: const Key('card-detail-item-submit'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: KandoColors.accent,
+                    foregroundColor: KandoColors.ink,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: const StadiumBorder(),
+                    textStyle: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   onPressed: () async {
                     await controller.saveCollectionItemDraft();
                   },
@@ -523,6 +716,7 @@ class _CollectionItemForm extends StatelessWidget {
               ],
             ),
           ],
+          ),
         ),
       ),
     );
@@ -537,19 +731,27 @@ class _PriceOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final segStyle = SegmentedButton.styleFrom(
+      backgroundColor: KandoColors.elevatedSurface.withValues(alpha: 0.4),
+      foregroundColor: KandoColors.mutedText,
+      selectedBackgroundColor: KandoColors.accent,
+      selectedForegroundColor: KandoColors.ink,
+      side: BorderSide(color: KandoColors.border.withValues(alpha: 0.7)),
+      shape: const StadiumBorder(),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Price overview', style: textTheme.titleLarge),
-        const SizedBox(height: 8),
-        Text('Price type', style: textTheme.titleMedium),
+        const Text('Price overview', style: _kSectionTitleStyle),
+        const SizedBox(height: 12),
+        const _PriceSubLabel('Price type'),
         const SizedBox(height: 8),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SegmentedButton<CardPriceChartMode>(
             showSelectedIcon: false,
+            style: segStyle,
             segments: [
               for (final mode in CardPriceChartMode.values)
                 ButtonSegment(value: mode, label: Text(mode.label)),
@@ -561,12 +763,13 @@ class _PriceOverview extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        Text('Price range', style: textTheme.titleMedium),
+        const _PriceSubLabel('Price range'),
         const SizedBox(height: 8),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SegmentedButton<CardPriceRange>(
             showSelectedIcon: false,
+            style: segStyle,
             segments: [
               for (final range in CardPriceRange.values)
                 ButtonSegment(value: range, label: Text(range.label)),
@@ -577,45 +780,103 @@ class _PriceOverview extends StatelessWidget {
             },
           ),
         ),
-        const SizedBox(height: 16),
-        Text('Price series', style: textTheme.titleMedium),
+        const SizedBox(height: 20),
+        const _PriceSubLabel('Price series'),
         const SizedBox(height: 8),
         if (state.hasPriceSeriesRows) ...[
           for (final row in state.priceSeriesRows)
-            Card(
-              child: ListTile(
-                title: Text(row.dateLabel),
-                trailing: Text(row.priceText),
-              ),
-            ),
+            _PriceRowTile(title: row.dateLabel, trailing: row.priceText),
         ] else
-          Text(state.priceSeriesFallbackText),
-        const SizedBox(height: 16),
-        Text('Market Prices', style: textTheme.titleMedium),
-        const SizedBox(height: 8),
-        for (final row in state.priceTabMarketRows)
-          Card(
-            child: ListTile(
-              title: Text(row.label),
-              subtitle: Text('7D ${row.changeText}'),
-              trailing: Text(row.priceText),
-            ),
+          Text(
+            state.priceSeriesFallbackText,
+            style: const TextStyle(color: KandoColors.mutedText),
           ),
-        const SizedBox(height: 16),
-        Text('Sold listings', style: textTheme.titleMedium),
-        const SizedBox(height: 8),
+        const SizedBox(height: 20),
+        const Text('Market Prices', style: _kSectionTitleStyle),
+        const SizedBox(height: 12),
+        for (final row in state.priceTabMarketRows)
+          _PriceRowTile(
+            title: row.label,
+            subtitle: '7D ${row.changeText}',
+            trailing: row.priceText,
+          ),
+        const SizedBox(height: 20),
+        const Text('Sold listings', style: _kSectionTitleStyle),
+        const SizedBox(height: 12),
         if (state.hasSoldListingRows) ...[
           for (final row in state.soldListingRows)
-            Card(
-              child: ListTile(
-                title: Text(row.title),
-                subtitle: Text('${row.dateText} - ${row.platform}'),
-                trailing: Text(row.priceText),
-              ),
+            _PriceRowTile(
+              title: row.title,
+              subtitle: '${row.dateText} - ${row.platform}',
+              trailing: row.priceText,
             ),
         ] else
-          Text(state.soldListingsFallbackText),
+          Text(
+            state.soldListingsFallbackText,
+            style: const TextStyle(color: KandoColors.mutedText),
+          ),
       ],
+    );
+  }
+}
+
+class _PriceSubLabel extends StatelessWidget {
+  const _PriceSubLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: KandoColors.text,
+      ),
+    );
+  }
+}
+
+class _PriceRowTile extends StatelessWidget {
+  const _PriceRowTile({
+    required this.title,
+    required this.trailing,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final String trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: _kPanel(radius: 12),
+      child: ListTile(
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 15, color: KandoColors.text),
+        ),
+        subtitle: subtitle == null
+            ? null
+            : Text(
+                subtitle!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: KandoColors.mutedText,
+                ),
+              ),
+        trailing: Text(
+          trailing,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: KandoColors.text,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -633,10 +894,18 @@ Future<void> _confirmRemoveCollectionItem(
         content: const Text('Remove this Collection Item from your portfolio?'),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: KandoColors.mutedText,
+            ),
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: KandoColors.accent,
+              foregroundColor: KandoColors.ink,
+              shape: const StadiumBorder(),
+            ),
             onPressed: () async {
               await controller.removeCollectionItem(itemId);
               if (!context.mounted) {
@@ -662,14 +931,31 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 88,
-            child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+            width: 96,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                color: KandoColors.mutedText,
+              ),
+            ),
           ),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: KandoColors.text,
+              ),
+            ),
+          ),
         ],
       ),
     );

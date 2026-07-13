@@ -13,6 +13,9 @@ import 'profile_actions.dart';
 
 const profileVersionText = 'Version 1.0.0';
 
+// Destructive action red from the Figma spec (no matching design token exists).
+const _dangerColor = Color(0xFFFF8989);
+
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
@@ -23,12 +26,9 @@ class ProfilePage extends ConsumerWidget {
     return KandoTabScaffold(
       currentTab: KandoMainTab.profile,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: authState.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _ProfileContent(authState: authState),
-        ),
+        child: authState.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _ProfileContent(authState: authState),
       ),
     );
   }
@@ -43,110 +43,143 @@ class _ProfileContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = authState.session;
     final isUser = session?.ownerType == OwnerType.user;
-    final title = isUser ? 'Signed in' : 'Guest session';
     final emailText = session?.email ?? 'Unknown email';
     final userIdText = session?.userId ?? 'Unknown user';
-    final identity = isUser
-        ? emailText
-        : (session?.anonymousId ?? 'Anonymous guest');
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: 96),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 96),
       children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: KandoColors.text,
-            fontWeight: FontWeight.w700,
+        _SectionLabel('Account'),
+        if (isUser)
+          _MenuCard(
+            children: [
+              _AccountRow(
+                email: emailText,
+                userId: userIdText,
+                onTap: () => context.push('/account'),
+              ),
+            ],
+          )
+        else
+          _MenuCard(
+            children: [
+              _MenuRow(
+                icon: Icons.person_outline,
+                label: 'Sign in / Sign up',
+                onTap: () => showAuthSheet(context),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(identity, style: Theme.of(context).textTheme.bodyLarge),
-        if (isUser) ...[
-          const SizedBox(height: 4),
-          Text(
-            'ID: $userIdText',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
         if (authState.pendingMigrationAnonymousId != null) ...[
-          const SizedBox(height: 16),
-          Text('Pending guest: ${authState.pendingMigrationAnonymousId}'),
-        ],
-        const SizedBox(height: 16),
-        if (isUser) ...[
-          Card(
-            child: ListTile(
-              dense: true,
-              visualDensity: VisualDensity.compact,
-              title: const Text('Account'),
-              subtitle: Text(identity),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/account'),
+          const SizedBox(height: 12),
+          Text(
+            'Pending guest: ${authState.pendingMigrationAnonymousId}',
+            style: const TextStyle(
+              color: KandoColors.mutedText,
+              fontSize: 12,
             ),
           ),
-          const SizedBox(height: 8),
-        ] else ...[
-          FilledButton(
-            onPressed: () => showAuthSheet(context),
-            child: const Text('Sign in / Sign up'),
-          ),
-          const SizedBox(height: 8),
         ],
-        _ProfileEntry(
-          label: 'Customer Support',
-          onTap: () => context.push('/customer-support'),
+        const SizedBox(height: 24),
+        _SectionLabel('Support'),
+        _MenuCard(
+          children: [
+            _MenuRow(
+              icon: Icons.mail_outline,
+              label: 'Customer Support',
+              onTap: () => context.push('/customer-support'),
+            ),
+            _MenuRow(
+              icon: Icons.star_outline,
+              label: 'Score',
+              onTap: () => _runProfileAction(
+                context,
+                () => ref.read(profileActionsProvider).requestScore(),
+              ),
+            ),
+            _MenuRow(
+              icon: Icons.share_outlined,
+              label: 'Share With Friends',
+              onTap: () => _runProfileAction(
+                context,
+                () => ref.read(profileActionsProvider).shareWithFriends(),
+              ),
+            ),
+          ],
         ),
-        _ProfileEntry(
-          label: 'Score',
-          onTap: () => _runProfileAction(
-            context,
-            () => ref.read(profileActionsProvider).requestScore(),
-          ),
+        const SizedBox(height: 24),
+        _SectionLabel('Others'),
+        _MenuCard(
+          children: [
+            _MenuRow(
+              icon: Icons.description_outlined,
+              label: 'Terms Of Use',
+              onTap: () => _runProfileAction(
+                context,
+                () => ref.read(profileActionsProvider).openTerms(),
+              ),
+            ),
+            _MenuRow(
+              icon: Icons.shield_outlined,
+              label: 'Privacy Policy',
+              onTap: () => _runProfileAction(
+                context,
+                () => ref.read(profileActionsProvider).openPrivacy(),
+              ),
+            ),
+          ],
         ),
-        _ProfileEntry(
-          label: 'Share With Friends',
-          onTap: () => _runProfileAction(
-            context,
-            () => ref.read(profileActionsProvider).shareWithFriends(),
+        const SizedBox(height: 32),
+        if (isUser)
+          Center(
+            child: TextButton.icon(
+              onPressed: () async {
+                await ref.read(authControllerProvider.notifier).logout();
+                if (context.mounted) {
+                  context.go('/');
+                }
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: KandoColors.text,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+              ),
+              icon: const Icon(Icons.logout, size: 18),
+              label: const Text('Log Out', style: TextStyle(fontSize: 16)),
+            ),
+          )
+        else
+          Center(
+            child: TextButton.icon(
+              onPressed: () => _confirmAndDelete(context, ref),
+              style: TextButton.styleFrom(
+                foregroundColor: _dangerColor,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+              ),
+              icon: const Icon(Icons.delete_outline, size: 20),
+              label: const Text(
+                'Delete Account',
+                style: TextStyle(fontSize: 16),
+              ),
+            ),
           ),
-        ),
-        _ProfileEntry(
-          label: 'Terms Of Use',
-          onTap: () => _runProfileAction(
-            context,
-            () => ref.read(profileActionsProvider).openTerms(),
-          ),
-        ),
-        _ProfileEntry(
-          label: 'Privacy Policy',
-          onTap: () => _runProfileAction(
-            context,
-            () => ref.read(profileActionsProvider).openPrivacy(),
-          ),
-        ),
-        if (isUser) ...[
-          const SizedBox(height: 8),
-          FilledButton(
-            onPressed: () async {
-              await ref.read(authControllerProvider.notifier).logout();
-              if (context.mounted) {
-                context.go('/');
-              }
-            },
-            child: const Text('Log Out'),
-          ),
-        ] else ...[
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: () {
-              _confirmAndDelete(context, ref);
-            },
-            child: const Text('Delete account'),
-          ),
-        ],
         const SizedBox(height: 16),
-        Text(profileVersionText, style: Theme.of(context).textTheme.bodySmall),
+        Center(
+          child: Text(
+            profileVersionText,
+            style: TextStyle(
+              color: KandoColors.mutedText.withValues(alpha: 0.7),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -180,20 +213,216 @@ class _ProfileContent extends ConsumerWidget {
   }
 }
 
-class _ProfileEntry extends StatelessWidget {
-  const _ProfileEntry({required this.label, this.onTap});
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
 
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          color: KandoColors.mutedText,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuCard extends StatelessWidget {
+  const _MenuCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) {
+        rows.add(
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: KandoColors.border.withValues(alpha: 0.3),
+          ),
+        );
+      }
+      rows.add(children[i]);
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            KandoColors.elevatedSurface.withValues(alpha: 0.6),
+            KandoColors.ink.withValues(alpha: 0.95),
+          ],
+        ),
+        border: Border.all(color: KandoColors.accent.withValues(alpha: 0.1)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Column(children: rows),
+      ),
+    );
+  }
+}
+
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label, this.onTap});
+
+  final IconData icon;
   final String label;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      visualDensity: VisualDensity.compact,
-      title: Text(label),
-      trailing: const Icon(Icons.chevron_right),
+    return InkWell(
       onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            _IconBadge(icon: icon),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: KandoColors.text,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: KandoColors.mutedText,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IconBadge extends StatelessWidget {
+  const _IconBadge({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: KandoColors.elevatedSurface,
+        border: Border.all(color: KandoColors.border.withValues(alpha: 0.4)),
+      ),
+      child: Icon(icon, size: 18, color: KandoColors.text),
+    );
+  }
+}
+
+class _AccountRow extends StatelessWidget {
+  const _AccountRow({
+    required this.email,
+    required this.userId,
+    this.onTap,
+  });
+
+  final String email;
+  final String userId;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = email.trim().isNotEmpty
+        ? email.trim().characters.first.toUpperCase()
+        : '?';
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: KandoColors.ink,
+                border: Border.all(
+                  color: KandoColors.accent.withValues(alpha: 0.3),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: KandoColors.accent.withValues(alpha: 0.15),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  color: KandoColors.accent,
+                  fontSize: 18,
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: KandoColors.text,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'ID: $userId',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: KandoColors.mutedText.withValues(alpha: 0.8),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: KandoColors.mutedText,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

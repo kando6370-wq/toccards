@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../auth_controller.dart';
@@ -11,6 +12,12 @@ Future<void> showAuthSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    showDragHandle: true,
+    backgroundColor: KandoColors.ink,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      side: BorderSide(color: KandoColors.border),
+    ),
     builder: (context) => const _AuthSheet(),
   );
 }
@@ -50,30 +57,36 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
+      top: false,
       child: Padding(
         padding: EdgeInsets.only(
           left: 24,
           right: 24,
-          top: 24,
-          bottom: 24 + MediaQuery.viewInsetsOf(context).bottom,
+          top: 12,
+          bottom: 28 + MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: _showEmail
             ? const EmailAuthPages()
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ListTile(
-                    title: const Text('Continue with Google'),
+                  _OptionButton(
+                    icon: Icons.g_mobiledata,
+                    label: 'Continue with Google',
                     enabled: !_loading,
                     onTap: _loading ? null : _continueWithGoogle,
                   ),
-                  ListTile(
-                    title: const Text('Continue with Apple'),
+                  const SizedBox(height: 14),
+                  _OptionButton(
+                    icon: Icons.apple,
+                    label: 'Continue with Apple',
                     enabled: !_loading,
                     onTap: _loading ? null : _continueWithApple,
                   ),
-                  ListTile(
-                    title: const Text('Continue with Email'),
+                  const SizedBox(height: 14),
+                  _OptionButton(
+                    icon: Icons.mail_outline,
+                    label: 'Continue with Email',
                     enabled: !_loading,
                     onTap: _loading
                         ? null
@@ -86,12 +99,13 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
                     const SizedBox(height: 12),
                     Text(
                       _errorText!,
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                       ),
                     ),
                   ],
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 28),
                   _AgreementText(
                     termsRecognizer: _termsRecognizer,
                     privacyRecognizer: _privacyRecognizer,
@@ -158,6 +172,51 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   }
 }
 
+class _OptionButton extends StatelessWidget {
+  const _OptionButton({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: Material(
+        color: KandoColors.elevatedSurface,
+        shape: const StadiumBorder(
+          side: BorderSide(color: KandoColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          child: SizedBox(
+            height: 56,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 22, color: KandoColors.text),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 16, color: KandoColors.text),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AgreementText extends StatelessWidget {
   const _AgreementText({
     required this.termsRecognizer,
@@ -169,12 +228,11 @@ class _AgreementText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final bodyStyle = Theme.of(context).textTheme.bodySmall;
-    final linkStyle = bodyStyle?.copyWith(
-      color: colorScheme.primary,
-      decoration: TextDecoration.underline,
+    final bodyStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: KandoColors.text,
+      fontSize: 12,
     );
+    final linkStyle = bodyStyle?.copyWith(color: KandoColors.accent);
 
     return RichText(
       key: const Key('auth-agreement-text'),

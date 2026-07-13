@@ -3,10 +3,10 @@
 ## 当前任务
 - 状态：本轮完成（验证通过）
 - 计划编号：M2-2
-- 最近开始：2026-07-09 15:02:59
-- 最近完成：2026-07-09 15:05:14
+- 最近开始：2026-07-13 18:21:43
+- 最近完成：2026-07-13 18:28:24
 - 最近验证：通过
-- 最近任务摘要：Implement D1 card catalog adapter from cards_basic_information DDL
+- 最近任务摘要：D1 卡牌基础数据适配实现
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
 ## dev-plan 子任务状态
@@ -36,7 +36,7 @@
 
 ### M2 数据代理层
 - [M2-1] `DataSourceAdapter` 抽象层 — status: `completed` · updated: 2026-07-07 13:20:58
-- [M2-2] D1 卡牌基础数据适配实现 — status: `completed` · updated: 2026-07-09 15:05:14
+- [M2-2] D1 卡牌基础数据适配实现 — status: `completed` · updated: 2026-07-13 18:28:24
 - [M2-3] Workers KV 缓存层 — status: `completed` · updated: 2026-07-07 13:31:42
 - [M2-4] Cache API 缓存层 — status: `completed` · updated: 2026-07-07 13:35:02
 - [M2-5] 降级兜底逻辑 — status: `completed` · updated: 2026-07-07 13:44:52
@@ -245,15 +245,17 @@
 - 2026-07-09 15:02:52 | 完成（验证通过） | [M6-6] Verify subscription surfaces hidden before M7 admin.
 - 2026-07-09 15:02:59 | 开始 | [M2-2] Implement D1 card catalog adapter from cards_basic_information DDL
 - 2026-07-09 15:05:14 | 完成（验证通过） | [M2-2] Implement D1 card catalog adapter from cards_basic_information DDL
+- 2026-07-13 18:21:42 | 开始 | [M2-2] D1 卡牌基础数据适配实现
+- 2026-07-13 18:23:08 | 完成（验证通过） | [M2-2] D1 卡牌基础数据适配实现
 
 <!-- task-status-state
 {
   "current": {
     "status": "本轮完成（验证通过）",
-    "started_at": "2026-07-09 15:02:59",
-    "finished_at": "2026-07-09 15:05:14",
+    "started_at": "2026-07-13 18:21:43",
+    "finished_at": "2026-07-13 18:28:24",
     "plan_ref": "M2-2",
-    "summary": "Implement D1 card catalog adapter from cards_basic_information DDL",
+    "summary": "D1 卡牌基础数据适配实现",
     "last_verification": "通过",
     "note": "`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。"
   },
@@ -983,6 +985,18 @@
       "phase": "完成（验证通过）",
       "summary": "Implement D1 card catalog adapter from cards_basic_information DDL",
       "plan_ref": "M2-2"
+    },
+    {
+      "time": "2026-07-13 18:21:42",
+      "phase": "开始",
+      "summary": "D1 卡牌基础数据适配实现",
+      "plan_ref": "M2-2"
+    },
+    {
+      "time": "2026-07-13 18:23:08",
+      "phase": "完成（验证通过）",
+      "summary": "D1 卡牌基础数据适配实现",
+      "plan_ref": "M2-2"
     }
   ],
   "plan": {
@@ -1402,8 +1416,8 @@
       },
       "M2-2": {
         "status": "completed",
-        "updated_at": "2026-07-09 15:05:14",
-        "summary": "Implement D1 card catalog adapter from cards_basic_information DDL",
+        "updated_at": "2026-07-13 18:28:24",
+        "summary": "D1 卡牌基础数据适配实现",
         "title": "D1 卡牌基础数据适配实现",
         "milestone": "M2"
       }

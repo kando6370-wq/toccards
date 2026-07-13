@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/validation/email.dart';
 
 import '../auth_controller.dart';
@@ -372,19 +373,27 @@ class _EmailInputPage extends StatelessWidget {
     return _SheetColumn(
       errorText: errorText,
       children: [
-        TextFormField(
-          controller: controller,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'Email'),
+        _LabeledField(
+          label: 'Email Address',
+          child: TextFormField(
+            controller: controller,
+            keyboardType: TextInputType.emailAddress,
+            style: _fieldTextStyle,
+            decoration: _fieldDecoration(hint: 'name@exclusive.com'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _LinkButton(
+          label: 'Forgot password ?',
+          loading: loading,
+          onPressed: onForgotPassword,
+          alignment: Alignment.centerRight,
         ),
         const SizedBox(height: 16),
-        FilledButton(
-          onPressed: loading ? null : onContinue,
-          child: Text(loading ? 'Loading...' : 'Continue'),
-        ),
-        TextButton(
-          onPressed: loading ? null : onForgotPassword,
-          child: const Text('Forgot password'),
+        _PrimaryButton(
+          label: 'Continue',
+          loading: loading,
+          onPressed: onContinue,
         ),
       ],
     );
@@ -409,15 +418,20 @@ class _EmailOnlyPage extends StatelessWidget {
     return _SheetColumn(
       errorText: errorText,
       children: [
-        TextFormField(
-          controller: controller,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'Email'),
+        _LabeledField(
+          label: 'Email Address',
+          child: TextFormField(
+            controller: controller,
+            keyboardType: TextInputType.emailAddress,
+            style: _fieldTextStyle,
+            decoration: _fieldDecoration(hint: 'name@exclusive.com'),
+          ),
         ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: loading ? null : onContinue,
-          child: Text(loading ? 'Loading...' : 'Continue'),
+        const SizedBox(height: 24),
+        _PrimaryButton(
+          label: 'Continue',
+          loading: loading,
+          onPressed: onContinue,
         ),
       ],
     );
@@ -452,22 +466,39 @@ class _PasswordPage extends StatelessWidget {
       children: [
         Align(
           alignment: Alignment.centerLeft,
-          child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: KandoColors.text,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: controller,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: 'Password'),
+        const SizedBox(height: 24),
+        _LabeledField(
+          label: 'Password',
+          child: _PasswordField(controller: controller),
         ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: loading ? null : onSubmit,
-          child: Text(loading ? 'Loading...' : buttonLabel),
+        const SizedBox(height: 24),
+        _PrimaryButton(
+          label: buttonLabel,
+          loading: loading,
+          onPressed: onSubmit,
         ),
-        TextButton(
-          onPressed: loading ? null : onSecondary,
-          child: Text(secondaryLabel),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              "Don't have an account?",
+              style: TextStyle(color: KandoColors.mutedText),
+            ),
+            _LinkButton(
+              label: secondaryLabel,
+              loading: loading,
+              onPressed: onSecondary,
+            ),
+          ],
         ),
       ],
     );
@@ -492,15 +523,20 @@ class _CodePage extends StatelessWidget {
     return _SheetColumn(
       errorText: errorText,
       children: [
-        TextFormField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Verification code'),
+        _LabeledField(
+          label: 'Verification code',
+          child: TextFormField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            style: _fieldTextStyle,
+            decoration: _fieldDecoration(hint: 'Enter code'),
+          ),
         ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: loading ? null : onContinue,
-          child: Text(loading ? 'Loading...' : 'Continue'),
+        const SizedBox(height: 24),
+        _PrimaryButton(
+          label: 'Continue',
+          loading: loading,
+          onPressed: onContinue,
         ),
       ],
     );
@@ -529,23 +565,160 @@ class _PasswordPairPage extends StatelessWidget {
     return _SheetColumn(
       errorText: errorText,
       children: [
-        TextFormField(
-          controller: passwordController,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: 'Password'),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: confirmController,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: 'Confirm password'),
+        _LabeledField(
+          label: 'Password',
+          child: _PasswordField(controller: passwordController),
         ),
         const SizedBox(height: 16),
-        FilledButton(
-          onPressed: loading ? null : onSubmit,
-          child: Text(loading ? 'Loading...' : buttonLabel),
+        _LabeledField(
+          label: 'Confirm password',
+          child: _PasswordField(controller: confirmController),
+        ),
+        const SizedBox(height: 24),
+        _PrimaryButton(
+          label: buttonLabel,
+          loading: loading,
+          onPressed: onSubmit,
         ),
       ],
+    );
+  }
+}
+
+const _fieldTextStyle = TextStyle(fontSize: 15, color: KandoColors.text);
+
+InputDecoration _fieldDecoration({String? hint, Widget? suffixIcon}) {
+  const border = OutlineInputBorder(
+    borderRadius: BorderRadius.all(Radius.circular(12)),
+    borderSide: BorderSide(color: KandoColors.border),
+  );
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: const TextStyle(color: KandoColors.mutedText, fontSize: 15),
+    suffixIcon: suffixIcon,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    border: border,
+    enabledBorder: border,
+    focusedBorder: const OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(12)),
+      borderSide: BorderSide(color: KandoColors.accent),
+    ),
+  );
+}
+
+class _LabeledField extends StatelessWidget {
+  const _LabeledField({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            label,
+            style: const TextStyle(color: KandoColors.mutedText, fontSize: 12),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
+class _PasswordField extends StatefulWidget {
+  const _PasswordField({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  State<_PasswordField> createState() => _PasswordFieldState();
+}
+
+class _PasswordFieldState extends State<_PasswordField> {
+  var _obscure = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: widget.controller,
+      obscureText: _obscure,
+      style: _fieldTextStyle,
+      decoration: _fieldDecoration(
+        hint: '••••••••',
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscure
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
+            size: 20,
+            color: KandoColors.mutedText,
+          ),
+          onPressed: () => setState(() => _obscure = !_obscure),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryButton extends StatelessWidget {
+  const _PrimaryButton({
+    required this.label,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool loading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(56),
+        shape: const StadiumBorder(),
+        backgroundColor: KandoColors.accent,
+        foregroundColor: KandoColors.ink,
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
+      onPressed: loading ? null : onPressed,
+      child: Text(loading ? 'Loading...' : label.toUpperCase()),
+    );
+  }
+}
+
+class _LinkButton extends StatelessWidget {
+  const _LinkButton({
+    required this.label,
+    required this.loading,
+    required this.onPressed,
+    this.alignment = Alignment.center,
+  });
+
+  final String label;
+  final bool loading;
+  final VoidCallback onPressed;
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          foregroundColor: KandoColors.accent,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        onPressed: loading ? null : onPressed,
+        child: Text(label),
+      ),
     );
   }
 }
