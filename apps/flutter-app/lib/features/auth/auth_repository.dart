@@ -1,14 +1,12 @@
 import 'package:dio/dio.dart';
 
+import '../../shared/api/api_environment.dart';
 import 'auth_models.dart';
 import 'auth_storage.dart';
 
 const oauthAuthorizationFailedMessage =
     'Authorization failed. Please try again.';
-const authApiBaseUrl = String.fromEnvironment(
-  'KANDO_API_BASE_URL',
-  defaultValue: 'http://127.0.0.1:8787/api/v1',
-);
+const authApiBaseUrl = kandoApiBaseUrl;
 
 Dio createAuthDio({String baseUrl = authApiBaseUrl}) {
   return Dio(

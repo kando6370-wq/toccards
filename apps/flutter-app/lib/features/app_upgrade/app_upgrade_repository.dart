@@ -3,12 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../shared/api/api_environment.dart';
 import 'app_upgrade_models.dart';
 
-const appUpgradeApiBaseUrl = String.fromEnvironment(
-  'KANDO_API_BASE_URL',
-  defaultValue: 'http://127.0.0.1:8787/api/v1',
-);
+const appUpgradeApiBaseUrl = kandoApiBaseUrl;
 
 final appUpgradeDioProvider = Provider<Dio>((ref) {
   final dio = Dio(

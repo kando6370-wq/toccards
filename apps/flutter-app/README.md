@@ -1,16 +1,17 @@
-# kando_app
+# Kando App
 
-A new Flutter project.
+## Chrome with production services
 
-## Getting Started
+From the repository root, run:
 
-This project is a starting point for a Flutter application.
+```bash
+pnpm app:chrome:prod
+```
 
-A few resources to get you started if this is your first Flutter project:
+This starts Flutter Web at `http://localhost:3000` and configures every app API client to use:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```text
+https://api.tcgcard.fun/api/v1
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The browser does not connect directly to D1 or KV. Production data access remains behind the deployed Worker API, including its authentication and authorization checks.
