@@ -1,6 +1,7 @@
 import { adminRoutes } from "./admin/routes";
 import { createAppConfigRoutes } from "./app-config/routes";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { authRoutes } from "./auth/anonymous";
 import { createDataSourceRoutes } from "./data-source/routes";
 import type { Env } from "./env";
@@ -10,6 +11,15 @@ import { createScanRoutes } from "./scan/routes";
 export type { Env } from "./env";
 
 const app = new Hono<{ Bindings: Env }>();
+app.use(
+  "/api/*",
+  cors({
+    origin: "https://admin.tcgcard.fun",
+    allowHeaders: ["Authorization", "Content-Type"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    maxAge: 86400,
+  }),
+);
 const api = app.basePath("/api/v1");
 
 api.route("/admin", adminRoutes);

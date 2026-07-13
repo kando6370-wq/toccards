@@ -21,6 +21,7 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import { resolveAdminApiBase } from "./api-base";
 
 type AdminRole = "super_admin" | "operator";
 type MenuKey = "installations" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions";
@@ -127,7 +128,7 @@ type AppVersionItem = {
 const { Sider, Content } = Layout;
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-const API_BASE = "/api/v1/admin";
+const API_BASE = resolveAdminApiBase(import.meta.env);
 const SESSION_STORAGE_KEY = "kando_admin_session";
 const PERIOD_OPTIONS = ["1d", "7d", "15d", "1m", "3m"];
 
