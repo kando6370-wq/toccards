@@ -128,7 +128,10 @@ type AppVersionItem = {
 const { Sider, Content } = Layout;
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-const API_BASE = resolveAdminApiBase(import.meta.env);
+const API_BASE = resolveAdminApiBase({
+  DEV: import.meta.env.DEV,
+  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+});
 const SESSION_STORAGE_KEY = "kando_admin_session";
 const PERIOD_OPTIONS = ["1d", "7d", "15d", "1m", "3m"];
 
