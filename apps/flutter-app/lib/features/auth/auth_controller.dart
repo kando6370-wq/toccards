@@ -39,7 +39,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 final oauthAuthorizerProvider = Provider<OAuthAuthorizer>((ref) {
-  return const MockOAuthAuthorizer();
+  return const UnavailableOAuthAuthorizer();
 });
 
 final authDeviceIdProvider = Provider<String>((ref) {
@@ -183,7 +183,7 @@ class AuthController extends Notifier<AuthState> {
       throw const AuthActionException(authAuthorizationFailedMessage);
     }
     if (authorization == null) {
-      return;
+      throw const AuthActionException(authAuthorizationFailedMessage);
     }
     final authorizationResult = authorization;
 

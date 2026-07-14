@@ -192,7 +192,7 @@ void main() {
   );
 
   test(
-    'cancelled authorization leaves guest state untouched because no provider proof exists',
+    'cancelled authorization leaves guest state untouched and exposes retry copy because Figma treats cancellation as an actionable failed attempt',
     () async {
       final anonymous = _anonymousSession('anon-existing');
       final repository = _FakeAuthRepository(
@@ -208,9 +208,16 @@ void main() {
       addTearDown(container.dispose);
       await container.read(authControllerProvider.notifier).startupComplete;
 
-      await container
-          .read(authControllerProvider.notifier)
-          .continueWithGoogle();
+      await expectLater(
+        container.read(authControllerProvider.notifier).continueWithGoogle(),
+        throwsA(
+          isA<AuthActionException>().having(
+            (error) => error.toString(),
+            'retry copy',
+            authAuthorizationFailedMessage,
+          ),
+        ),
+      );
       final state = container.read(authControllerProvider);
 
       expect(authorizer.requests, [OAuthProvider.google]);
@@ -218,6 +225,34 @@ void main() {
       expect(repository.persistedSessions, isEmpty);
       expect(state.session, same(anonymous));
       expect(state.session!.isAnonymous, isTrue);
+    },
+  );
+
+  test(
+    'default OAuth authorizer fails closed because a release build must not mint mock provider identities',
+    () async {
+      final anonymous = _anonymousSession('anon-existing');
+      final repository = _FakeAuthRepository(
+        storedSession: anonymous,
+        validatedSession: anonymous,
+      );
+      final container = _createContainer(repository, deviceId);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await expectLater(
+        container.read(authControllerProvider.notifier).continueWithGoogle(),
+        throwsA(
+          isA<AuthActionException>().having(
+            (error) => error.toString(),
+            'retry copy',
+            authAuthorizationFailedMessage,
+          ),
+        ),
+      );
+
+      expect(repository.googleCallbackRequests, isEmpty);
+      expect(container.read(authControllerProvider).session, same(anonymous));
     },
   );
 

@@ -19,6 +19,19 @@ abstract class OAuthAuthorizer {
   Future<OAuthAuthorizationResult?> authorize(OAuthProvider provider);
 }
 
+class UnavailableOAuthAuthorizer implements OAuthAuthorizer {
+  const UnavailableOAuthAuthorizer();
+
+  @override
+  Future<OAuthAuthorizationResult?> authorize(OAuthProvider provider) {
+    throw const OAuthAuthorizationUnavailable();
+  }
+}
+
+class OAuthAuthorizationUnavailable implements Exception {
+  const OAuthAuthorizationUnavailable();
+}
+
 class MockOAuthAuthorizer implements OAuthAuthorizer {
   const MockOAuthAuthorizer();
 
