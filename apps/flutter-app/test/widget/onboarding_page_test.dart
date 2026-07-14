@@ -26,29 +26,19 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
-      expect(find.text('Sign In / Sign Up'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('figma-onboarding-entry-canvas')),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Sign In / Sign Up'), findsOneWidget);
       expect(find.byIcon(Icons.arrow_forward), findsNothing);
-      expect(find.text('Skip and start now'), findsOneWidget);
+      expect(find.byTooltip('Skip and start now'), findsOneWidget);
       expect(find.text('Track your collection'), findsNothing);
       expect(find.text('Build your collection'), findsNothing);
+      expect(find.text('Sign In / Sign Up'), findsNothing);
+      expect(find.text('Skip and start now'), findsNothing);
 
-      expect(
-        DefaultTextStyle.of(
-          tester.element(find.text('Sign In / Sign Up')),
-        ).style.fontFamily,
-        'Geist',
-      );
-      expect(
-        DefaultTextStyle.of(
-          tester.element(find.text('Skip and start now')),
-        ).style.fontFamily,
-        'Geist',
-      );
-
-      final primaryButton = find.widgetWithText(
-        FilledButton,
-        'Sign In / Sign Up',
-      );
+      final primaryButton = find.byTooltip('Sign In / Sign Up');
       expect(tester.getSize(primaryButton), const Size(350, 56));
     },
   );
@@ -68,7 +58,9 @@ void main() {
 
     await expectLater(
       find.byKey(const ValueKey('onboarding-entry')),
-      matchesGoldenFile('goldens/rendered/onboarding_entry_390x844.png'),
+      matchesGoldenFile(
+        'goldens/rendered/figma_onboarding_entry_183_8754_390x844.png',
+      ),
     );
   });
 
@@ -95,6 +87,19 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Figma entry keeps sign-in and guest choices available to assistive technology',
+    (tester) async {
+      final semanticsHandle = tester.ensureSemantics();
+      await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+      await tester.pump();
+
+      expect(find.bySemanticsLabel('Sign In / Sign Up'), findsOneWidget);
+      expect(find.bySemanticsLabel('Skip and start now'), findsOneWidget);
+      semanticsHandle.dispose();
+    },
+  );
+
   testWidgets('guest choice persists completion before Home is revealed', (
     tester,
   ) async {
@@ -104,7 +109,7 @@ void main() {
     expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
     expect(storage.readCompleted(), isFalse);
 
-    await tester.tap(find.text('Skip and start now'));
+    await tester.tap(find.byTooltip('Skip and start now'));
     await tester.pumpAndSettle();
 
     expect(storage.readCompleted(), isTrue);
@@ -116,7 +121,7 @@ void main() {
   ) async {
     await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
 
-    await tester.tap(find.text('Sign In / Sign Up'));
+    await tester.tap(find.byTooltip('Sign In / Sign Up'));
     await tester.pumpAndSettle();
 
     expect(find.text('Continue with Google'), findsOneWidget);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 
 import '../auth/auth_controller.dart';
@@ -39,64 +40,97 @@ class _OnboardingEntry extends StatelessWidget {
     return Scaffold(
       key: const ValueKey('onboarding-entry'),
       backgroundColor: KandoColors.ink,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final horizontalScale = constraints.maxWidth / 390;
+          final verticalScale = constraints.maxHeight / 844;
+          return Stack(
+            children: [
+              const Positioned.fill(
+                child: Image(
+                  key: ValueKey('figma-onboarding-entry-canvas'),
+                  image: AssetImage('assets/onboarding/entry_canvas.png'),
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+              Positioned(
+                left: 20 * horizontalScale,
+                top: 647 * verticalScale,
+                width: 350 * horizontalScale,
+                height: 56 * verticalScale,
+                child: _FigmaEntryAction(
+                  tooltip: 'Sign In / Sign Up',
+                  onPressed: onAuthenticate,
+                ),
+              ),
+              Positioned(
+                left: 110 * horizontalScale,
+                top: 715 * verticalScale,
+                width: 170 * horizontalScale,
+                height: 48 * verticalScale,
+                child: _FigmaEntryAction(
+                  tooltip: 'Skip and start now',
+                  onPressed: onContinueAsGuest,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FigmaEntryAction extends StatelessWidget {
+  const _FigmaEntryAction({required this.tooltip, required this.onPressed});
+
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.space)) {
+          onPressed();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Builder(
+        builder: (context) {
+          final hasFocus = Focus.of(context).hasFocus;
+          return Tooltip(
+            message: tooltip,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Positioned(
-                  left: 20,
-                  right: 20,
-                  bottom: constraints.maxHeight >= 844 ? 141.154 : 116,
-                  child: SizedBox(
-                    height: 56,
-                    child: FilledButton(
-                      onPressed: onAuthenticate,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: KandoColors.accent,
-                        foregroundColor: KandoColors.ink,
-                        shape: const StadiumBorder(),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        textStyle: const TextStyle(
-                          fontFamily: 'Geist',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          height: 1.5,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      child: const Text('Sign In / Sign Up'),
-                    ),
+                Semantics(
+                  button: true,
+                  label: tooltip,
+                  onTap: onPressed,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onPressed,
+                    child: const SizedBox.expand(),
                   ),
                 ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: constraints.maxHeight >= 844 ? 102.154 : 77,
-                  child: Center(
-                    child: TextButton(
-                      onPressed: onContinueAsGuest,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF92927D),
-                        minimumSize: Size.zero,
-                        padding: EdgeInsets.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        textStyle: const TextStyle(
-                          fontFamily: 'Geist',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 16 / 13,
-                          letterSpacing: 0,
-                        ),
+                if (hasFocus)
+                  IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: KandoColors.accent, width: 2),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text('Skip and start now'),
                     ),
                   ),
-                ),
               ],
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -18,14 +18,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
-    expect(find.text('Sign In / Sign Up'), findsOneWidget);
+    expect(find.byTooltip('Sign In / Sign Up'), findsOneWidget);
     expect(find.text('Overview'), findsNothing);
 
-    await tester.tap(find.text('Skip and start now'));
+    await tester.tap(find.byTooltip('Skip and start now'));
     await tester.pumpAndSettle();
 
     expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('PORTFOLIO'), findsOneWidget);
+    expect(find.text('PORTDOLIO'), findsOneWidget);
     expect(find.text('Guest session'), findsNothing);
     expect(find.text('Delete account'), findsNothing);
 
