@@ -114,6 +114,67 @@ void main() {
   });
 
   testWidgets(
+    'Figma recognition replaces the scan line before returning a match',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(
+        find.byKey(const Key('scan-figma-recognizing-overlay')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
+      expect(find.text('CANCEL'), findsNothing);
+      expect(find.byTooltip('Close Scan'), findsNothing);
+      expect(find.byTooltip('Search Cards'), findsNothing);
+      expect(find.text('ALIGN CARD HERE'), findsNothing);
+      expect(find.byTooltip('Take Photo'), findsNothing);
+      expect(find.text('Matched'), findsNothing);
+    },
+  );
+
+  testWidgets('Figma recognition renders at the 390x844 baseline', (
+    tester,
+  ) async {
+    await (FontLoader(
+      'Geist',
+    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: const RepaintBoundary(
+          key: Key('scan-recognizing-figma-golden'),
+          child: ScanPage(),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump(const Duration(seconds: 1));
+
+    await expectLater(
+      find.byKey(const Key('scan-recognizing-figma-golden')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_scan_recognizing_328_13609_390x844.png',
+      ),
+    );
+  });
+
+  testWidgets(
     'Figma scan pre-scan uses exported icons without Material glyph fallback',
     (tester) async {
       await _pumpScanTestApp(tester);
@@ -177,7 +238,7 @@ void main() {
       expect(find.byTooltip('Take Photo'), findsNothing);
       expect(find.byTooltip('Choose from Library'), findsNothing);
 
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 2));
 
       expect(find.text('Matched'), findsOneWidget);
       expect(find.text('Mega Lucario ex'), findsWidgets);
@@ -218,8 +279,29 @@ void main() {
     expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
     expect(find.byTooltip('Take Photo'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 2));
     expect(find.text('Matched'), findsNothing);
+  });
+
+  testWidgets('A pending Figma scan ignores reentrant capture requests', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(tester);
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.tap(find.byTooltip('Choose from Library'));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(
+      find.byKey(const Key('scan-figma-recognizing-overlay')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
+    expect(find.text('CANCEL'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Matched'), findsOneWidget);
+    expect(find.text('No Match Found'), findsNothing);
   });
 
   testWidgets(
@@ -228,7 +310,7 @@ void main() {
       await _pumpScanTestApp(tester);
 
       await tester.tap(find.byTooltip('Choose from Library'));
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 2));
 
       expect(find.text('No Match Found'), findsOneWidget);
       expect(find.text('Search Manually'), findsOneWidget);
@@ -255,19 +337,19 @@ void main() {
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
       expect(find.byTooltip('Take Photo'), findsNothing);
 
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 2));
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
       expect(find.byTooltip('Take Photo'), findsNothing);
 
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 2));
 
       await tester.tap(find.byTooltip('Choose from Library'));
       await tester.pump();
       expect(find.byTooltip('Choose from Library'), findsNothing);
 
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 2));
 
       expect(find.text('Mega Lucario ex'), findsOneWidget);
       expect(find.text('Failed'), findsOneWidget);
@@ -282,7 +364,7 @@ void main() {
       expect(doneWithMatched.onPressed, isNotNull);
 
       await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 2));
       await tester.tap(find.text('DONE'));
       await tester.pumpAndSettle();
 

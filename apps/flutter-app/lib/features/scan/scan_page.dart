@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-enum _ScanItemStatus { scanning, matched, failed, noMatch, added }
+enum _ScanItemStatus { scanning, recognizing, matched, failed, noMatch, added }
 
 class _ScanMatch {
   const _ScanMatch({required this.name, required this.candidates});
@@ -55,7 +55,19 @@ class _ScanPageState extends State<ScanPage> {
   int? _lastAddedCount;
 
   bool get _hasScanning {
+    return _items.any(
+      (item) =>
+          item.status == _ScanItemStatus.scanning ||
+          item.status == _ScanItemStatus.recognizing,
+    );
+  }
+
+  bool get _isScanning {
     return _items.any((item) => item.status == _ScanItemStatus.scanning);
+  }
+
+  bool get _isRecognizing {
+    return _items.any((item) => item.status == _ScanItemStatus.recognizing);
   }
 
   List<_ScanItem> get _matchedItems {
@@ -83,6 +95,9 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   void _startPhotoScan() {
+    if (_hasScanning) {
+      return;
+    }
     _photoScanCount += 1;
     final result = _photoScanCount == 2
         ? _ScanItemStatus.failed
@@ -103,10 +118,16 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   void _startLibraryScan() {
+    if (_hasScanning) {
+      return;
+    }
     _addScan(result: _ScanItemStatus.noMatch);
   }
 
   void _retryScan(_ScanItem item) {
+    if (_hasScanning) {
+      return;
+    }
     _replaceItem(item.copyWith(status: _ScanItemStatus.scanning));
     _scheduleResult(
       item.id,
@@ -120,7 +141,11 @@ class _ScanPageState extends State<ScanPage> {
 
   void _cancelScanning() {
     setState(() {
-      _items.removeWhere((item) => item.status == _ScanItemStatus.scanning);
+      _items.removeWhere(
+        (item) =>
+            item.status == _ScanItemStatus.scanning ||
+            item.status == _ScanItemStatus.recognizing,
+      );
     });
   }
 
@@ -164,6 +189,25 @@ class _ScanPageState extends State<ScanPage> {
       }
       final existing = _items.where((item) => item.id == itemId).firstOrNull;
       if (existing == null || existing.status != _ScanItemStatus.scanning) {
+        return;
+      }
+      _replaceItem(existing.copyWith(status: _ScanItemStatus.recognizing));
+      _scheduleRecognizedResult(itemId, result: result, match: match);
+    });
+    _scanTimers.add(timer);
+  }
+
+  void _scheduleRecognizedResult(
+    int itemId, {
+    required _ScanItemStatus result,
+    _ScanMatch? match,
+  }) {
+    final timer = Timer(const Duration(seconds: 1), () {
+      if (!mounted) {
+        return;
+      }
+      final existing = _items.where((item) => item.id == itemId).firstOrNull;
+      if (existing == null || existing.status != _ScanItemStatus.recognizing) {
         return;
       }
       _replaceItem(existing.copyWith(status: result, match: match));
@@ -250,7 +294,8 @@ class _ScanPageState extends State<ScanPage> {
               addedItems: _addedItems,
               lastAddedCount: _lastAddedCount,
               canReview: _canReview,
-              scanning: _hasScanning,
+              scanning: _isScanning,
+              recognizing: _isRecognizing,
               onClosePressed: () => context.go('/'),
               onSearchPressed: () => context.go('/search'),
               onPhotoPressed: _startPhotoScan,
@@ -276,6 +321,7 @@ class _ScanCameraView extends StatelessWidget {
     required this.lastAddedCount,
     required this.canReview,
     required this.scanning,
+    required this.recognizing,
     required this.onClosePressed,
     required this.onSearchPressed,
     required this.onPhotoPressed,
@@ -294,6 +340,7 @@ class _ScanCameraView extends StatelessWidget {
 
   final bool canReview;
   final bool scanning;
+  final bool recognizing;
   final VoidCallback onClosePressed;
   final VoidCallback onSearchPressed;
   final VoidCallback onPhotoPressed;
@@ -330,25 +377,29 @@ class _ScanCameraView extends StatelessWidget {
             },
           ),
         ),
-        Positioned.fill(
-          child: ColoredBox(
-            key: const Key('scan-figma-camera-overlay'),
-            color: const Color(0x1A0D0F08),
+        if (recognizing)
+          const Positioned.fill(child: _FigmaRecognizingOverlay())
+        else ...[
+          Positioned.fill(
+            child: ColoredBox(
+              key: const Key('scan-figma-camera-overlay'),
+              color: const Color(0x1A0D0F08),
+            ),
           ),
-        ),
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                radius: 0.86,
-                colors: [
-                  Colors.transparent,
-                  const Color(0xFF0D0F08).withValues(alpha: 0.85),
-                ],
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  radius: 0.86,
+                  colors: [
+                    Colors.transparent,
+                    const Color(0xFF0D0F08).withValues(alpha: 0.85),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
         const Positioned(
           top: 0,
           left: 0,
@@ -356,7 +407,7 @@ class _ScanCameraView extends StatelessWidget {
           height: 59,
           child: ColoredBox(color: Color(0xFF10100B)),
         ),
-        if (!scanning)
+        if (!scanning && !recognizing)
           Positioned(
             top: 59,
             left: 8,
@@ -373,11 +424,13 @@ class _ScanCameraView extends StatelessWidget {
               ],
             ),
           ),
-        const Positioned(
+        Positioned(
           top: 163,
           left: 0,
           right: 0,
-          child: Center(child: _ViewfinderCorners()),
+          child: Center(
+            child: _ViewfinderCorners(focusFrameShadow: recognizing),
+          ),
         ),
         if (scanning) ...[
           Positioned(
@@ -395,7 +448,7 @@ class _ScanCameraView extends StatelessWidget {
             child: _ScanCancelButton(onPressed: onCancelScanning),
           ),
         ],
-        if (!scanning && items.isNotEmpty)
+        if (!scanning && !recognizing && items.isNotEmpty)
           Positioned(
             left: 16,
             right: 16,
@@ -415,7 +468,7 @@ class _ScanCameraView extends StatelessWidget {
               ),
             ),
           ),
-        if (!scanning)
+        if (!scanning && !recognizing)
           Positioned(
             left: 16,
             right: 16,
@@ -801,22 +854,111 @@ class _ScanSideAction extends StatelessWidget {
   }
 }
 
+class _FigmaRecognizingOverlay extends StatelessWidget {
+  const _FigmaRecognizingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: constraints.maxWidth,
+            height: constraints.maxHeight < 884 ? 884 : constraints.maxHeight,
+            child: CustomPaint(
+              key: const Key('scan-figma-recognizing-overlay'),
+              painter: const _FigmaRecognizingOverlayPainter(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FigmaRecognizingOverlayPainter extends CustomPainter {
+  const _FigmaRecognizingOverlayPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const designSize = Size(390, 884);
+    canvas.save();
+    canvas.scale(
+      size.width / designSize.width,
+      size.height / designSize.height,
+    );
+
+    final vignette = Paint()
+      ..shader = ui.Gradient.radial(
+        const Offset(195, 442),
+        483.104,
+        const [Color(0x000D0F08), Color(0xD90D0F08)],
+        const [0.6, 1],
+      );
+    canvas.drawRect(Offset.zero & designSize, vignette);
+
+    final dimOutsideViewfinder = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & designSize)
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(55, 163, 280, 400),
+          const Radius.circular(16),
+        ),
+      );
+    canvas.drawPath(
+      dimOutsideViewfinder,
+      Paint()..color = const Color(0x66000000),
+    );
+    canvas.drawRect(Offset.zero & designSize, vignette);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _FigmaRecognizingOverlayPainter oldDelegate) =>
+      false;
+}
+
 class _ViewfinderCorners extends StatelessWidget {
-  const _ViewfinderCorners();
+  const _ViewfinderCorners({this.focusFrameShadow = false});
+
+  final bool focusFrameShadow;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 280,
       height: 400,
-      child: CustomPaint(painter: _ViewfinderPainter()),
+      child: CustomPaint(
+        painter: _ViewfinderPainter(focusFrameShadow: focusFrameShadow),
+      ),
     );
   }
 }
 
 class _ViewfinderPainter extends CustomPainter {
+  const _ViewfinderPainter({required this.focusFrameShadow});
+
+  final bool focusFrameShadow;
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (focusFrameShadow) {
+      final focusFramePaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 5.1);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(0.5, 1.5, 279, 397),
+          const Radius.circular(16),
+        ),
+        focusFramePaint,
+      );
+    }
+
     final paint = Paint()
       ..color = const Color(0xFFF0FE6F)
       ..strokeWidth = 4
@@ -846,7 +988,8 @@ class _ViewfinderPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ViewfinderPainter oldDelegate) =>
+      focusFrameShadow != oldDelegate.focusFrameShadow;
 }
 
 class _ScanResults extends StatelessWidget {
@@ -939,6 +1082,11 @@ class _ScanItemCard extends StatelessWidget {
           _ScanItemStatus.scanning => ListTile(
             leading: const Icon(Icons.document_scanner_outlined),
             title: const Text('Scanning'),
+            subtitle: Text(item.pictureLabel),
+          ),
+          _ScanItemStatus.recognizing => ListTile(
+            leading: const Icon(Icons.document_scanner_outlined),
+            title: const Text('Recognizing'),
             subtitle: Text(item.pictureLabel),
           ),
           _ScanItemStatus.matched => Column(
