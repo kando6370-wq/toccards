@@ -16,7 +16,7 @@ import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 
 void main() {
-  testWidgets('email auth rejects empty and invalid email before continuing', (
+  testWidgets('email auth disables blank submit and rejects invalid email', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -28,12 +28,13 @@ void main() {
     await _openProfileTab(tester);
     await _openEmailAuth(tester);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
-    await tester.pumpAndSettle();
-    expect(find.text('Please enter your email.'), findsOneWidget);
+    final continueButton = find.widgetWithText(FilledButton, 'CONTINUE');
+    expect(tester.widget<FilledButton>(continueButton).onPressed, isNull);
 
     await tester.enterText(find.byType(TextFormField), 'not-an-email');
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.pump();
+    expect(tester.widget<FilledButton>(continueButton).onPressed, isNotNull);
+    await tester.tap(continueButton);
     await tester.pumpAndSettle();
     expect(find.text('Please enter a valid email address.'), findsOneWidget);
 
@@ -46,7 +47,8 @@ void main() {
       '${List.filled(250, 'a').join()}@example.com',
     ]) {
       await tester.enterText(find.byType(TextFormField), email);
-      await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+      await tester.pump();
+      await tester.tap(continueButton);
       await tester.pumpAndSettle();
       expect(
         find.text('Please enter a valid email address.'),
@@ -68,7 +70,7 @@ void main() {
     await _continueWithEmail(tester, 'person@example.com');
 
     await tester.enterText(find.byType(TextFormField), 'short');
-    await tester.tap(find.widgetWithText(FilledButton, 'Log in'));
+    await tester.tap(find.widgetWithText(FilledButton, 'LOG IN'));
     await tester.pumpAndSettle();
 
     expect(
@@ -92,14 +94,16 @@ void main() {
     await _continueWithEmail(tester, ' PERSON@example.com ');
 
     await tester.enterText(find.byType(TextFormField), 'password123');
-    await tester.tap(find.widgetWithText(FilledButton, 'Log in'));
+    await tester.tap(find.widgetWithText(FilledButton, 'LOG IN'));
     await tester.pumpAndSettle();
 
     expect(repository.loginRequests, [
       const _LoginRequest('person@example.com', 'password123'),
     ]);
-    expect(find.text('Signed in'), findsOneWidget);
-    expect(find.text('person@example.com'), findsWidgets);
+    expect(find.byKey(const Key('email-auth-page')), findsNothing);
+    expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
+    expect(find.text('person@example.com'), findsOneWidget);
+    expect(find.text('Sign in / Sign up'), findsNothing);
   });
 
   testWidgets('google auth sheet button signs in with current guest id', (
@@ -238,6 +242,33 @@ void main() {
     },
   );
 
+  testWidgets(
+    'email option opens the Figma full-screen email flow instead of keeping the form in the auth sheet',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+
+      await tester.pumpWidget(_testAuthSheetApp(repository));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open auth'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue with Email'));
+      await tester.pumpAndSettle();
+
+      final emailPage = find.byKey(const Key('email-auth-page'));
+      expect(emailPage, findsOneWidget);
+      expect(tester.getSize(emailPage), const Size(390, 844));
+      expect(find.byKey(const Key('email-auth-back')), findsOneWidget);
+      expect(find.text('Continue With Email'), findsOneWidget);
+    },
+  );
+
   testWidgets('oauth authorization failure shows retry copy and keeps guest', (
     tester,
   ) async {
@@ -259,8 +290,11 @@ void main() {
       find.text('Authorization failed. Please try again.'),
       findsOneWidget,
     );
-    expect(find.text('Guest session'), findsOneWidget);
-    expect(find.text('anon-existing'), findsOneWidget);
+    expect(find.byKey(const Key('auth-oauth-warning')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('auth-sheet-panel'))).height,
+      407,
+    );
     expect(repository.googleCallbackRequests, isEmpty);
   });
 
@@ -435,7 +469,8 @@ void main() {
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
     await _openEmailAuth(tester);
-    await tester.tap(find.text('Forgot password'));
+    await _continueWithEmail(tester, 'person@example.com');
+    await tester.tap(find.text('Forgot Password ?'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), ' PERSON@example.com ');
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
@@ -476,7 +511,8 @@ void main() {
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
     await _openEmailAuth(tester);
-    await tester.tap(find.text('Forgot password'));
+    await _continueWithEmail(tester, 'person@example.com');
+    await tester.tap(find.text('Forgot Password ?'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), 'person@example.com');
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
@@ -945,8 +981,10 @@ Future<void> _openAuthSheet(WidgetTester tester) async {
 
 Future<void> _continueWithEmail(WidgetTester tester, String email) async {
   await tester.enterText(find.byType(TextFormField), email);
-  await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+  await tester.pump();
+  await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
   await tester.pumpAndSettle();
+  expect(find.text('Password'), findsOneWidget);
 }
 
 ProviderScope _testApp(

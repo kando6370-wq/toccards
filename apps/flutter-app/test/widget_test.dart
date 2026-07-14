@@ -17,13 +17,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Track your collection'), findsOneWidget);
-    expect(find.text('Overview'), findsNothing);
-
-    await tester.tap(find.text('Skip'));
-    await tester.pumpAndSettle();
-
     expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
+    expect(find.text('Sign In / Sign Up'), findsOneWidget);
     expect(find.text('Overview'), findsNothing);
 
     await tester.tap(find.text('Skip and start now'));
@@ -37,7 +32,7 @@ void main() {
     await tester.pumpWidget(_testApp(storage));
     await tester.pumpAndSettle();
 
-    expect(find.text('Track your collection'), findsNothing);
+    expect(find.byKey(const ValueKey('onboarding-entry')), findsNothing);
     expect(find.text('Overview'), findsOneWidget);
   });
 }

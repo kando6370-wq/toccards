@@ -20,8 +20,21 @@ enum _EmailPage {
   forgotPassword,
 }
 
+Future<bool> showEmailAuthPage(BuildContext context) async {
+  final signedIn = await Navigator.of(context).push<bool>(
+    PageRouteBuilder<bool>(
+      pageBuilder: (_, _, _) => const EmailAuthPages(fullScreen: true),
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+    ),
+  );
+  return signedIn ?? false;
+}
+
 class EmailAuthPages extends ConsumerStatefulWidget {
-  const EmailAuthPages({super.key});
+  const EmailAuthPages({super.key, this.fullScreen = false});
+
+  final bool fullScreen;
 
   @override
   ConsumerState<EmailAuthPages> createState() => _EmailAuthPagesState();
@@ -52,12 +65,22 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
 
   @override
   Widget build(BuildContext context) {
-    return Form(
+    final form = Form(
       key: _formKey,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 120),
         child: _buildPage(context),
       ),
+    );
+
+    if (!widget.fullScreen) {
+      return form;
+    }
+
+    return _EmailAuthFullScreen(
+      page: _page,
+      onBack: () => Navigator.of(context).pop(false),
+      child: form,
     );
   }
 
@@ -68,7 +91,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         loading: _loading,
         errorText: _errorText,
         onContinue: _continueToLogin,
-        onForgotPassword: () => _setPage(_EmailPage.forgotEmail),
+        fullScreen: widget.fullScreen,
       ),
       _EmailPage.login => _PasswordPage(
         title: _email ?? '',
@@ -79,6 +102,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         onSubmit: _login,
         secondaryLabel: 'Create account',
         onSecondary: _sendRegisterCode,
+        onForgotPassword: () => _setPage(_EmailPage.forgotEmail),
       ),
       _EmailPage.registerCode => _CodePage(
         controller: _codeController,
@@ -157,7 +181,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         return;
       }
       _clearSensitiveInputs();
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(widget.fullScreen ? true : null);
     });
   }
 
@@ -203,7 +227,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         return;
       }
       _clearSensitiveInputs();
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(widget.fullScreen ? true : null);
     });
   }
 
@@ -359,41 +383,63 @@ class _EmailInputPage extends StatelessWidget {
     required this.loading,
     required this.errorText,
     required this.onContinue,
-    required this.onForgotPassword,
+    required this.fullScreen,
   });
 
   final TextEditingController controller;
   final bool loading;
   final String? errorText;
   final VoidCallback onContinue;
-  final VoidCallback onForgotPassword;
+  final bool fullScreen;
 
   @override
   Widget build(BuildContext context) {
-    return _SheetColumn(
-      errorText: errorText,
-      children: [
-        _LabeledField(
-          label: 'Email Address',
-          child: TextFormField(
-            controller: controller,
-            keyboardType: TextInputType.emailAddress,
-            style: _fieldTextStyle,
-            decoration: _fieldDecoration(hint: 'name@exclusive.com'),
+    final emailField = _LabeledField(
+      label: 'Email Address',
+      child: TextFormField(
+        controller: controller,
+        autofocus: fullScreen,
+        keyboardType: TextInputType.emailAddress,
+        style: _fieldTextStyle,
+        decoration: _fieldDecoration(hint: 'name@exclusive.com'),
+      ),
+    );
+
+    if (!fullScreen) {
+      return _SheetColumn(
+        errorText: errorText,
+        children: [
+          emailField,
+          const SizedBox(height: 16),
+          _PrimaryButton(
+            label: 'Continue',
+            loading: loading,
+            onPressed: onContinue,
           ),
-        ),
-        const SizedBox(height: 8),
-        _LinkButton(
-          label: 'Forgot password ?',
-          loading: loading,
-          onPressed: onForgotPassword,
-          alignment: Alignment.centerRight,
-        ),
-        const SizedBox(height: 16),
-        _PrimaryButton(
-          label: 'Continue',
-          loading: loading,
-          onPressed: onContinue,
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        emailField,
+        if (errorText != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            errorText!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+        const Spacer(),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, _) => _PrimaryButton(
+            label: 'Continue',
+            loading: loading,
+            enabled: value.text.trim().isNotEmpty,
+            onPressed: onContinue,
+          ),
         ),
       ],
     );
@@ -448,6 +494,7 @@ class _PasswordPage extends StatelessWidget {
     required this.onSubmit,
     required this.secondaryLabel,
     required this.onSecondary,
+    required this.onForgotPassword,
   });
 
   final String title;
@@ -458,6 +505,7 @@ class _PasswordPage extends StatelessWidget {
   final VoidCallback onSubmit;
   final String secondaryLabel;
   final VoidCallback onSecondary;
+  final VoidCallback onForgotPassword;
 
   @override
   Widget build(BuildContext context) {
@@ -478,6 +526,13 @@ class _PasswordPage extends StatelessWidget {
         _LabeledField(
           label: 'Password',
           child: _PasswordField(controller: controller),
+        ),
+        const SizedBox(height: 8),
+        _LinkButton(
+          label: 'Forgot Password ?',
+          loading: loading,
+          onPressed: onForgotPassword,
+          alignment: Alignment.centerRight,
         ),
         const SizedBox(height: 24),
         _PrimaryButton(
@@ -670,11 +725,13 @@ class _PrimaryButton extends StatelessWidget {
     required this.label,
     required this.loading,
     required this.onPressed,
+    this.enabled = true,
   });
 
   final String label;
   final bool loading;
   final VoidCallback onPressed;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -684,10 +741,83 @@ class _PrimaryButton extends StatelessWidget {
         shape: const StadiumBorder(),
         backgroundColor: KandoColors.accent,
         foregroundColor: KandoColors.ink,
+        disabledBackgroundColor: KandoColors.elevatedSurface,
+        disabledForegroundColor: KandoColors.mutedText.withValues(alpha: 0.45),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
       ),
-      onPressed: loading ? null : onPressed,
+      onPressed: loading || !enabled ? null : onPressed,
       child: Text(loading ? 'Loading...' : label.toUpperCase()),
+    );
+  }
+}
+
+class _EmailAuthFullScreen extends StatelessWidget {
+  const _EmailAuthFullScreen({
+    required this.page,
+    required this.onBack,
+    required this.child,
+  });
+
+  final _EmailPage page;
+  final VoidCallback onBack;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final showEmailHeading = page == _EmailPage.email;
+
+    return SizedBox.expand(
+      key: const Key('email-auth-page'),
+      child: Material(
+        color: KandoColors.ink,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    key: const Key('email-auth-back'),
+                    onPressed: onBack,
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    iconSize: 24,
+                    color: KandoColors.text,
+                    style: IconButton.styleFrom(
+                      backgroundColor: KandoColors.elevatedSurface,
+                      fixedSize: const Size.square(40),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 35),
+                if (showEmailHeading) ...[
+                  const Text(
+                    'Continue With Email',
+                    style: TextStyle(
+                      color: KandoColors.text,
+                      fontFamily: 'Georgia',
+                      fontSize: 31,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Enter your credentials to access your secure digital\nrepository.',
+                    style: TextStyle(
+                      color: KandoColors.mutedText,
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 36),
+                ],
+                Expanded(child: child),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

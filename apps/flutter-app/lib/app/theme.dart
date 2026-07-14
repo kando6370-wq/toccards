@@ -6,6 +6,7 @@ ThemeData buildKandoTheme() {
 
   return ThemeData(
     colorScheme: colorScheme,
+    fontFamily: 'Geist',
     useMaterial3: true,
     scaffoldBackgroundColor: KandoColors.ink,
     appBarTheme: AppBarTheme(

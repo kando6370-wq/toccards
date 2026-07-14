@@ -1,94 +1,105 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/auth_storage.dart';
+import 'package:kando_app/features/onboarding/onboarding_gate.dart';
 import 'package:kando_app/features/onboarding/onboarding_page.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
+import 'package:kando_app/app/theme.dart';
 
 void main() {
+  test('app body typography uses the Figma Geist family', () {
+    expect(buildKandoTheme().textTheme.bodyMedium?.fontFamily, 'Geist');
+  });
+
   testWidgets(
-    'first launch keeps the splash visible for at least 1.2 seconds',
+    'first launch shows the Figma account decision immediately so users are not diverted through an unapproved guide',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+      await tester.pump();
 
-      expect(find.byKey(const ValueKey('onboarding-splash')), findsOneWidget);
+      expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
+      expect(find.text('Sign In / Sign Up'), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_forward), findsNothing);
+      expect(find.text('Skip and start now'), findsOneWidget);
+      expect(find.text('Track your collection'), findsNothing);
+      expect(find.text('Build your collection'), findsNothing);
 
-      await tester.pump(const Duration(milliseconds: 1199));
-      expect(find.byKey(const ValueKey('onboarding-splash')), findsOneWidget);
+      expect(
+        DefaultTextStyle.of(
+          tester.element(find.text('Sign In / Sign Up')),
+        ).style.fontFamily,
+        'Geist',
+      );
+      expect(
+        DefaultTextStyle.of(
+          tester.element(find.text('Skip and start now')),
+        ).style.fontFamily,
+        'Geist',
+      );
 
-      await tester.pump(const Duration(milliseconds: 1));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('onboarding-guide-0')), findsOneWidget);
+      final primaryButton = find.widgetWithText(
+        FilledButton,
+        'Sign In / Sign Up',
+      );
+      expect(tester.getSize(primaryButton), const Size(350, 56));
     },
   );
 
-  testWidgets('guide skip requires an explicit anonymous entry decision', (
+  testWidgets('390x844 rendering stays aligned with the approved Figma pass', (
     tester,
   ) async {
-    final storage = InMemoryOnboardingStorage();
-    await tester.pumpWidget(_testPage(storage));
-    await tester.pump(const Duration(milliseconds: 1200));
-    await tester.pumpAndSettle();
+    await (FontLoader(
+      'Geist',
+    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
 
-    await tester.tap(find.text('Skip'));
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+    await tester.pump();
 
-    expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
-    expect(storage.readCompleted(), isFalse);
-
-    await tester.tap(find.text('Skip and start now'));
-    await tester.pumpAndSettle();
-    expect(storage.readCompleted(), isTrue);
+    await expectLater(
+      find.byKey(const ValueKey('onboarding-entry')),
+      matchesGoldenFile('goldens/rendered/onboarding_entry_390x844.png'),
+    );
   });
 
-  testWidgets('onboarding renders configured app config slides', (
+  testWidgets(
+    'missing guide configuration still requires the Figma account decision because first-launch access must be explicit',
+    (tester) async {
+      final storage = InMemoryOnboardingStorage();
+      final repository = LocalOnboardingRepository(storage, slides: const []);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            onboardingRepositoryProvider.overrideWithValue(repository),
+            authRepositoryProvider.overrideWithValue(
+              LocalPlaceholderAuthRepository(InMemoryAuthStorage()),
+            ),
+          ],
+          child: const MaterialApp(home: OnboardingGate(home: Text('Home'))),
+        ),
+      );
+
+      expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
+      expect(find.text('Home'), findsNothing);
+    },
+  );
+
+  testWidgets('guest choice persists completion before Home is revealed', (
     tester,
   ) async {
     final storage = InMemoryOnboardingStorage();
-    final repository = LocalOnboardingRepository(
-      storage,
-      slides: const [
-        OnboardingSlide(
-          imageUrl: 'https://example.com/onboarding-collection.png',
-          title: 'Configured collection',
-          body: 'A configured first slide.',
-        ),
-        OnboardingSlide(
-          imageUrl: 'https://example.com/onboarding-market.png',
-          title: 'Configured market',
-          body: 'A configured second slide.',
-        ),
-      ],
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          onboardingRepositoryProvider.overrideWithValue(repository),
-          authRepositoryProvider.overrideWithValue(
-            LocalPlaceholderAuthRepository(InMemoryAuthStorage()),
-          ),
-        ],
-        child: const MaterialApp(home: OnboardingPage()),
-      ),
-    );
-
-    await tester.pump(const Duration(milliseconds: 1200));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Configured collection'), findsOneWidget);
-    expect(find.byKey(const ValueKey('onboarding-image-0')), findsOneWidget);
-
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Configured market'), findsOneWidget);
-    expect(find.byKey(const ValueKey('onboarding-image-1')), findsOneWidget);
-
-    await tester.tap(find.text('Get Started'));
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(_testGate(storage));
 
     expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
     expect(storage.readCompleted(), isFalse);
@@ -97,6 +108,34 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(storage.readCompleted(), isTrue);
+    expect(find.text('Home'), findsOneWidget);
+  });
+
+  testWidgets('primary action opens the existing account provider flow', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+
+    await tester.tap(find.text('Sign In / Sign Up'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsOneWidget);
+    expect(find.text('Continue with Email'), findsOneWidget);
+    expect(find.byKey(const Key('auth-google-icon')), findsOneWidget);
+    expect(find.byKey(const Key('auth-apple-icon')), findsOneWidget);
+    expect(find.byKey(const Key('auth-email-icon')), findsOneWidget);
+  });
+
+  testWidgets('completed users bypass the first-launch decision', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _testGate(InMemoryOnboardingStorage(completed: true)),
+    );
+
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.byKey(const ValueKey('onboarding-entry')), findsNothing);
   });
 }
 
@@ -110,6 +149,23 @@ Widget _testPage(InMemoryOnboardingStorage storage) {
         LocalPlaceholderAuthRepository(InMemoryAuthStorage()),
       ),
     ],
-    child: const MaterialApp(home: OnboardingPage()),
+    child: MaterialApp(theme: buildKandoTheme(), home: const OnboardingPage()),
+  );
+}
+
+Widget _testGate(InMemoryOnboardingStorage storage) {
+  return ProviderScope(
+    overrides: [
+      onboardingRepositoryProvider.overrideWithValue(
+        LocalOnboardingRepository(storage),
+      ),
+      authRepositoryProvider.overrideWithValue(
+        LocalPlaceholderAuthRepository(InMemoryAuthStorage()),
+      ),
+    ],
+    child: MaterialApp(
+      theme: buildKandoTheme(),
+      home: const OnboardingGate(home: Text('Home')),
+    ),
   );
 }

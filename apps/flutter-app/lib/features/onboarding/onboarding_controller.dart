@@ -13,7 +13,7 @@ class OnboardingState {
   final List<OnboardingSlide> slides;
   final bool completed;
 
-  bool get shouldShow => !completed && slides.isNotEmpty;
+  bool get shouldShow => !completed;
 
   OnboardingState copyWith({bool? completed}) {
     return OnboardingState(

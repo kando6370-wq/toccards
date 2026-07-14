@@ -45,6 +45,7 @@ dependencies:
   url_launcher: ^6.3.2
   share_plus: ^12.0.2
   in_app_review: ^2.0.12
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +70,15 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  fonts:
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Regular.ttf
+          weight: 400
+
+  assets:
+    - assets/auth/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
