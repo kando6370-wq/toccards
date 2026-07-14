@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 
+import '../auth/auth_controller.dart';
+import '../auth/ui/auth_sheet.dart';
 import 'onboarding_controller.dart';
 import 'onboarding_repository.dart';
 
@@ -15,6 +19,14 @@ class OnboardingPage extends ConsumerStatefulWidget {
 class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   final _pageController = PageController();
   var _currentIndex = 0;
+  var _showSplash = true;
+  var _showEntry = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_finishSplash());
+  }
 
   @override
   void dispose() {
@@ -28,7 +40,21 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     final slides = state.slides;
 
     if (slides.isEmpty) {
-      return const Scaffold(body: SizedBox.shrink());
+      return _OnboardingEntry(
+        onAuthenticate: _authenticate,
+        onContinueAsGuest: _complete,
+      );
+    }
+
+    if (_showSplash) {
+      return const _OnboardingSplash();
+    }
+
+    if (_showEntry) {
+      return _OnboardingEntry(
+        onAuthenticate: _authenticate,
+        onContinueAsGuest: _complete,
+      );
     }
 
     final isLast = _currentIndex == slides.length - 1;
@@ -45,7 +71,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   style: TextButton.styleFrom(
                     foregroundColor: KandoColors.mutedText,
                   ),
-                  onPressed: _complete,
+                  onPressed: () => setState(() => _showEntry = true),
                   child: const Text('Skip'),
                 ),
               ),
@@ -58,6 +84,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   },
                   itemBuilder: (context, index) {
                     return _OnboardingSlideView(
+                      key: ValueKey('onboarding-guide-$index'),
                       index: index,
                       slide: slides[index],
                     );
@@ -84,7 +111,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                onPressed: isLast ? _complete : _next,
+                onPressed: isLast
+                    ? () => setState(() => _showEntry = true)
+                    : _next,
                 child: Text(isLast ? 'Get Started' : 'Next'),
               ),
             ],
@@ -92,6 +121,28 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _finishSplash() async {
+    try {
+      await Future.wait([
+        Future<void>.delayed(const Duration(milliseconds: 1200)),
+        ref.read(authControllerProvider.notifier).startupComplete,
+      ]);
+    } on Exception {
+      // Auth owns its failure state; onboarding must not remain stuck on splash.
+    }
+    if (mounted) {
+      setState(() => _showSplash = false);
+    }
+  }
+
+  Future<void> _authenticate() async {
+    await showAuthSheet(context);
+    if (!mounted) return;
+    if (ref.read(authControllerProvider).session?.isUser ?? false) {
+      _complete();
+    }
   }
 
   void _next() {
@@ -106,8 +157,142 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 }
 
+class _OnboardingSplash extends StatelessWidget {
+  const _OnboardingSplash();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: const ValueKey('onboarding-splash'),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+          child: Column(
+            children: [
+              const Spacer(),
+              Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  color: KandoColors.accent,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: const Icon(
+                  Icons.style_rounded,
+                  size: 48,
+                  color: KandoColors.ink,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'KANDO',
+                style: TextStyle(
+                  color: KandoColors.text,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+              const Spacer(),
+              const LinearProgressIndicator(
+                minHeight: 3,
+                color: KandoColors.accent,
+                backgroundColor: KandoColors.elevatedSurface,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingEntry extends StatelessWidget {
+  const _OnboardingEntry({
+    required this.onAuthenticate,
+    required this.onContinueAsGuest,
+  });
+
+  final VoidCallback onAuthenticate;
+  final VoidCallback onContinueAsGuest;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: const ValueKey('onboarding-entry'),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 32, 20, 20),
+          child: Column(
+            children: [
+              const Spacer(),
+              Container(
+                width: 112,
+                height: 112,
+                decoration: BoxDecoration(
+                  color: KandoColors.elevatedSurface,
+                  border: Border.all(color: KandoColors.border),
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: const Icon(
+                  Icons.collections_bookmark_rounded,
+                  size: 58,
+                  color: KandoColors.accent,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Build your collection',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: KandoColors.text,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Sign in to keep your cards connected across devices, or start now as a guest.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: KandoColors.mutedText,
+                  fontSize: 16,
+                  height: 1.45,
+                ),
+              ),
+              const Spacer(),
+              FilledButton(
+                onPressed: onAuthenticate,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(56),
+                  backgroundColor: KandoColors.accent,
+                  foregroundColor: KandoColors.ink,
+                  shape: const StadiumBorder(),
+                ),
+                child: const Text('Sign in or create account'),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: onContinueAsGuest,
+                style: TextButton.styleFrom(
+                  foregroundColor: KandoColors.mutedText,
+                  minimumSize: const Size.fromHeight(44),
+                ),
+                child: const Text('Skip and start now'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _OnboardingSlideView extends StatelessWidget {
-  const _OnboardingSlideView({required this.index, required this.slide});
+  const _OnboardingSlideView({
+    required this.index,
+    required this.slide,
+    super.key,
+  });
 
   final int index;
   final OnboardingSlide slide;

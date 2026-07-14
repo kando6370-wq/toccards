@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/app/app.dart';
@@ -20,6 +21,12 @@ void main() {
     expect(find.text('Overview'), findsNothing);
 
     await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
+    expect(find.text('Overview'), findsNothing);
+
+    await tester.tap(find.text('Skip and start now'));
     await tester.pumpAndSettle();
 
     expect(find.text('Overview'), findsOneWidget);

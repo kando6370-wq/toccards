@@ -8,20 +8,21 @@ import 'package:kando_app/features/onboarding/onboarding_page.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 
 void main() {
-  testWidgets('first launch keeps the splash visible for at least 1.2 seconds', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+  testWidgets(
+    'first launch keeps the splash visible for at least 1.2 seconds',
+    (tester) async {
+      await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
 
-    expect(find.byKey(const ValueKey('onboarding-splash')), findsOneWidget);
+      expect(find.byKey(const ValueKey('onboarding-splash')), findsOneWidget);
 
-    await tester.pump(const Duration(milliseconds: 1199));
-    expect(find.byKey(const ValueKey('onboarding-splash')), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 1199));
+      expect(find.byKey(const ValueKey('onboarding-splash')), findsOneWidget);
 
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('onboarding-guide-0')), findsOneWidget);
-  });
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('onboarding-guide-0')), findsOneWidget);
+    },
+  );
 
   testWidgets('guide skip requires an explicit anonymous entry decision', (
     tester,
@@ -64,10 +65,18 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [onboardingRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          onboardingRepositoryProvider.overrideWithValue(repository),
+          authRepositoryProvider.overrideWithValue(
+            LocalPlaceholderAuthRepository(InMemoryAuthStorage()),
+          ),
+        ],
         child: const MaterialApp(home: OnboardingPage()),
       ),
     );
+
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pumpAndSettle();
 
     expect(find.text('Configured collection'), findsOneWidget);
     expect(find.byKey(const ValueKey('onboarding-image-0')), findsOneWidget);
@@ -79,6 +88,12 @@ void main() {
     expect(find.byKey(const ValueKey('onboarding-image-1')), findsOneWidget);
 
     await tester.tap(find.text('Get Started'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
+    expect(storage.readCompleted(), isFalse);
+
+    await tester.tap(find.text('Skip and start now'));
     await tester.pumpAndSettle();
 
     expect(storage.readCompleted(), isTrue);
