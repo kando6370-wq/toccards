@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/app/app.dart';
+import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/oauth_authorizer.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/auth/ui/auth_sheet.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
@@ -200,6 +202,39 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(profileActions.calls, ['terms', 'privacy']);
+    },
+  );
+
+  testWidgets(
+    'auth sheet uses the Figma bottom-panel geometry because sign-in must stay stable at the onboarding viewport',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+
+      await tester.pumpWidget(_testAuthSheetApp(repository));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open auth'));
+      await tester.pumpAndSettle();
+
+      final panel = find.byKey(const Key('auth-sheet-panel'));
+      final closeButton = find.byKey(const Key('auth-sheet-close'));
+      expect(panel, findsOneWidget);
+      expect(tester.getSize(panel), const Size(390, 343));
+      expect(tester.getBottomRight(panel), const Offset(390, 844));
+      expect(tester.getSize(closeButton), const Size.square(40));
+
+      await tester.tap(closeButton);
+      await tester.pumpAndSettle();
+      expect(find.text('Continue with Google'), findsNothing);
+      expect(repository.loginRequests, isEmpty);
+      expect(repository.googleCallbackRequests, isEmpty);
+      expect(repository.appleCallbackRequests, isEmpty);
     },
   );
 
@@ -936,6 +971,25 @@ ProviderScope _testApp(
         profileActionsProvider.overrideWithValue(profileActions),
     ],
     child: const KandoApp(),
+  );
+}
+
+ProviderScope _testAuthSheetApp(_WidgetAuthRepository repository) {
+  return ProviderScope(
+    overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    child: MaterialApp(
+      theme: buildKandoTheme(),
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: TextButton(
+              onPressed: () => showAuthSheet(context),
+              child: const Text('Open auth'),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 }
 

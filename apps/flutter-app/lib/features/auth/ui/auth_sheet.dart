@@ -12,14 +12,61 @@ Future<void> showAuthSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    showDragHandle: true,
-    backgroundColor: KandoColors.ink,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      side: BorderSide(color: KandoColors.border),
-    ),
-    builder: (context) => const _AuthSheet(),
+    barrierColor: Colors.black.withValues(alpha: 0.6),
+    backgroundColor: Colors.transparent,
+    builder: (context) => const _AuthSheetFrame(),
   );
+}
+
+class _AuthSheetFrame extends StatelessWidget {
+  const _AuthSheetFrame();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 399,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          Container(
+            key: const Key('auth-sheet-panel'),
+            width: double.infinity,
+            height: 343,
+            decoration: const BoxDecoration(
+              color: KandoColors.ink,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.fromBorderSide(
+                BorderSide(color: Color(0x14FFFFFF)),
+              ),
+            ),
+            child: const _AuthSheet(),
+          ),
+          Positioned(
+            top: 0,
+            child: Material(
+              key: const Key('auth-sheet-close'),
+              color: KandoColors.ink,
+              shape: const CircleBorder(
+                side: BorderSide(color: Color(0x14FFFFFF)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => Navigator.of(context).pop(),
+                child: const SizedBox.square(
+                  dimension: 40,
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 20,
+                    color: KandoColors.text,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AuthSheet extends ConsumerStatefulWidget {
@@ -56,15 +103,9 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 12,
-          bottom: 28 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 57),
+      child: SingleChildScrollView(
         child: _showEmail
             ? const EmailAuthPages()
             : Column(
@@ -105,7 +146,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 32),
                   _AgreementText(
                     termsRecognizer: _termsRecognizer,
                     privacyRecognizer: _privacyRecognizer,
@@ -191,9 +232,7 @@ class _OptionButton extends StatelessWidget {
       opacity: enabled ? 1 : 0.5,
       child: Material(
         color: KandoColors.elevatedSurface,
-        shape: const StadiumBorder(
-          side: BorderSide(color: KandoColors.border),
-        ),
+        shape: const StadiumBorder(side: BorderSide(color: KandoColors.border)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: enabled ? onTap : null,
@@ -204,9 +243,18 @@ class _OptionButton extends StatelessWidget {
               children: [
                 Icon(icon, size: 22, color: KandoColors.text),
                 const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: const TextStyle(fontSize: 16, color: KandoColors.text),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.5,
+                      color: KandoColors.text,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -228,10 +276,9 @@ class _AgreementText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bodyStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: KandoColors.text,
-      fontSize: 12,
-    );
+    final bodyStyle = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: KandoColors.text, fontSize: 12);
     final linkStyle = bodyStyle?.copyWith(color: KandoColors.accent);
 
     return RichText(
