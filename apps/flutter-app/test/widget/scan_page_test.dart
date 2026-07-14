@@ -445,6 +445,185 @@ void main() {
     );
   });
 
+  testWidgets(
+    'Figma scan failure dismisses feedback without restoring the generic failure card',
+    (tester) async {
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      expect(find.byKey(const Key('scan-figma-failure-toast')), findsOneWidget);
+      expect(find.text('Failed'), findsNothing);
+
+      await tester.tap(find.byTooltip('Dismiss failed scan feedback'));
+      await tester.pump();
+
+      expect(find.byKey(const Key('scan-figma-failure-toast')), findsNothing);
+      expect(find.text('Failed'), findsNothing);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      expect(find.text('Failed'), findsNWidgets(2));
+    },
+  );
+
+  testWidgets('Figma scan failure retries through the existing scan flow', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        retryResult: Future.value(
+          const ScanResolution.matched(
+            matchName: 'Mega Lucario ex',
+            candidates: ['Mega Lucario ex'],
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tap(find.byTooltip('Tap to retry'));
+    await tester.pump();
+
+    expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
+
+    await _completeFigmaScan(tester);
+    expect(find.byKey(const Key('scan-figma-complete-result')), findsOneWidget);
+  });
+
+  testWidgets('Figma failure exposes retry feedback to semantics', (
+    tester,
+  ) async {
+    final semanticsHandle = tester.ensureSemantics();
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+
+    expect(
+      find.bySemanticsLabel(
+        '0 of 1 cards scanned. Scan 1 failed. Tap to retry.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('Tap to retry'), findsOneWidget);
+    semanticsHandle.dispose();
+  });
+
+  testWidgets(
+    'Figma failure returns to generic results after an earlier match is added',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(
+            const ScanResolution.matched(
+              matchName: 'Mega Lucario ex',
+              candidates: ['Mega Lucario ex'],
+            ),
+          ),
+          subsequentPhotoResults: [Future.value(const ScanResolution.failed())],
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Modify scan match'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add this card'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      expect(find.byKey(const Key('scan-figma-failure-toast')), findsNothing);
+      expect(find.text('Failed'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Figma failure retries from the right edge of its retry label', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tapAt(const Offset(174, 675));
+    await tester.pump();
+
+    expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
+  });
+
+  testWidgets('Figma scan failure renders at the 390x844 baseline', (
+    tester,
+  ) async {
+    await (FontLoader(
+      'Geist',
+    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: ProviderScope(
+          overrides: [
+            scanResultSourceProvider.overrideWithValue(
+              _TestScanResultSource(
+                photoResult: Future.value(const ScanResolution.failed()),
+              ),
+            ),
+          ],
+          child: const RepaintBoundary(
+            key: Key('scan-failed-figma-golden'),
+            child: ScanPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+
+    await expectLater(
+      find.byKey(const Key('scan-failed-figma-golden')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_scan_failed_131_19795_390x844.png',
+      ),
+    );
+  });
+
   testWidgets('Cancelling a Figma scan ignores its eventual recognition', (
     tester,
   ) async {
@@ -740,23 +919,31 @@ Future<void> _pumpScanTestApp(
 class _TestScanResultSource implements ScanResultSource {
   _TestScanResultSource({
     required Future<ScanResolution> photoResult,
+    List<Future<ScanResolution>> subsequentPhotoResults = const [],
     Future<ScanResolution>? libraryResult,
     Future<ScanResolution>? retryResult,
-  }) : _photoResult = photoResult,
+  }) : _photoResults = [photoResult, ...subsequentPhotoResults],
        _libraryResult =
            libraryResult ?? Future.value(const ScanResolution.noMatch()),
        _retryResult =
            retryResult ?? Future.value(const ScanResolution.failed());
 
-  final Future<ScanResolution> _photoResult;
+  final List<Future<ScanResolution>> _photoResults;
   final Future<ScanResolution> _libraryResult;
   final Future<ScanResolution> _retryResult;
+  var _nextPhotoResult = 0;
 
   @override
   Future<ScanResolution> library() => _libraryResult;
 
   @override
-  Future<ScanResolution> photo() => _photoResult;
+  Future<ScanResolution> photo() {
+    final resultIndex = _nextPhotoResult < _photoResults.length
+        ? _nextPhotoResult
+        : _photoResults.length - 1;
+    _nextPhotoResult += 1;
+    return _photoResults[resultIndex];
+  }
 
   @override
   Future<ScanResolution> retry() => _retryResult;

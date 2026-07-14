@@ -79,6 +79,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   int? _selectedReviewItemId;
   int? _lastAddedCount;
   int? _dismissedFeedbackItemId;
+  int? _dismissedFailureFeedbackItemId;
 
   bool get _hasScanning {
     return _items.any(
@@ -121,7 +122,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         .toList();
   }
 
-  _ScanItem? get _completedCameraItem {
+  _ScanItem? get _singleTerminalCameraItem {
     if (_hasScanning) {
       return null;
     }
@@ -130,13 +131,26 @@ class _ScanPageState extends ConsumerState<ScanPage>
           (item) =>
               item.status == _ScanItemStatus.matched ||
               item.status == _ScanItemStatus.failed ||
-              item.status == _ScanItemStatus.noMatch,
+              item.status == _ScanItemStatus.noMatch ||
+              item.status == _ScanItemStatus.added,
         )
         .toList();
-    return terminalItems.length == 1 &&
-            terminalItems.single.status == _ScanItemStatus.matched
-        ? terminalItems.single
-        : null;
+    return terminalItems.length == 1 ? terminalItems.single : null;
+  }
+
+  _ScanItem? get _completedCameraItem {
+    final item = _singleTerminalCameraItem;
+    return item?.status == _ScanItemStatus.matched ? item : null;
+  }
+
+  _ScanItem? get _failedCameraItem {
+    final item = _singleTerminalCameraItem;
+    return item?.status == _ScanItemStatus.failed ? item : null;
+  }
+
+  bool get _showFailedCameraFeedback {
+    final item = _failedCameraItem;
+    return item != null && item.id != _dismissedFailureFeedbackItemId;
   }
 
   bool get _canReview {
@@ -224,12 +238,23 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() => _dismissedFeedbackItemId = revealingItem.id);
   }
 
+  void _dismissFailedScanFeedback() {
+    final failedItem = _failedCameraItem;
+    if (failedItem == null) {
+      return;
+    }
+    setState(() => _dismissedFailureFeedbackItemId = failedItem.id);
+  }
+
   void _deleteScan(_ScanItem item) {
     _pendingScans.remove(item.id);
     setState(() {
       _items.removeWhere((candidate) => candidate.id == item.id);
       if (_selectedReviewItemId == item.id) {
         _selectedReviewItemId = _matchedItems.firstOrNull?.id;
+      }
+      if (_dismissedFailureFeedbackItemId == item.id) {
+        _dismissedFailureFeedbackItemId = null;
       }
     });
   }
@@ -240,6 +265,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() {
       _lastAddedCount = null;
       _dismissedFeedbackItemId = null;
+      _dismissedFailureFeedbackItemId = null;
       _items.add(
         _ScanItem(
           id: id,
@@ -488,6 +514,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
               lastAddedCount: _lastAddedCount,
               canReview: _canReview,
               completedItem: _completedCameraItem,
+              failedItem: _failedCameraItem,
+              showFailedFeedback: _showFailedCameraFeedback,
               scanning: _isScanning,
               recognizing: _isRecognizing,
               revealing: _isRevealing,
@@ -499,6 +527,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
               onLibraryPressed: _startLibraryScan,
               onCancelScanning: _cancelScanning,
               onDismissScanFeedback: _dismissScanFeedback,
+              onDismissFailedFeedback: _dismissFailedScanFeedback,
               onReviewPressed: _openReview,
               onReviewItem: _openReview,
               onRetryItem: _retryScan,
@@ -519,6 +548,8 @@ class _ScanCameraView extends StatelessWidget {
     required this.lastAddedCount,
     required this.canReview,
     required this.completedItem,
+    required this.failedItem,
+    required this.showFailedFeedback,
     required this.scanning,
     required this.recognizing,
     required this.revealing,
@@ -530,6 +561,7 @@ class _ScanCameraView extends StatelessWidget {
     required this.onLibraryPressed,
     required this.onCancelScanning,
     required this.onDismissScanFeedback,
+    required this.onDismissFailedFeedback,
     required this.onReviewPressed,
     required this.onReviewItem,
     required this.onRetryItem,
@@ -543,6 +575,8 @@ class _ScanCameraView extends StatelessWidget {
 
   final bool canReview;
   final _ScanItem? completedItem;
+  final _ScanItem? failedItem;
+  final bool showFailedFeedback;
   final bool scanning;
   final bool recognizing;
   final bool revealing;
@@ -554,6 +588,7 @@ class _ScanCameraView extends StatelessWidget {
   final VoidCallback onLibraryPressed;
   final VoidCallback onCancelScanning;
   final VoidCallback onDismissScanFeedback;
+  final VoidCallback onDismissFailedFeedback;
   final VoidCallback onReviewPressed;
   final ValueChanged<int?> onReviewItem;
   final ValueChanged<_ScanItem> onRetryItem;
@@ -563,10 +598,14 @@ class _ScanCameraView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final completed = completedItem != null;
+    final failed = failedItem != null;
+    final showingFailedFeedback = failed && showFailedFeedback;
     return Stack(
       children: [
         if (completed)
           const Positioned.fill(child: _FigmaCompletedCanvas())
+        else if (showingFailedFeedback)
+          const Positioned.fill(child: _FigmaFailedCanvas())
         else if (revealing)
           Positioned(
             left: -205,
@@ -606,7 +645,7 @@ class _ScanCameraView extends StatelessWidget {
           const Positioned.fill(child: _FigmaRecognizingOverlay())
         else if (revealing)
           const Positioned.fill(child: _FigmaRevealingOverlay())
-        else if (!completed) ...[
+        else if (!completed && !showingFailedFeedback) ...[
           Positioned.fill(
             child: ColoredBox(
               key: const Key('scan-figma-camera-overlay'),
@@ -627,7 +666,7 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ],
-        if (!completed)
+        if (!completed && !showingFailedFeedback)
           const Positioned(
             top: 0,
             left: 0,
@@ -635,7 +674,7 @@ class _ScanCameraView extends StatelessWidget {
             height: 59,
             child: ColoredBox(color: Color(0xFF10100B)),
           ),
-        if (!completed && !scanning && !recognizing)
+        if (!completed && !showingFailedFeedback && !scanning && !recognizing)
           Positioned(
             top: 59,
             left: 8,
@@ -661,7 +700,7 @@ class _ScanCameraView extends StatelessWidget {
               ),
             ),
           ),
-        if (!completed)
+        if (!completed && !showingFailedFeedback)
           Positioned(
             top: 163,
             left: 0,
@@ -714,10 +753,21 @@ class _ScanCameraView extends StatelessWidget {
             onReviewPressed: onReviewPressed,
             onModifyPressed: () => onReviewItem(completedItem!.id),
           ),
+        if (showingFailedFeedback)
+          _FigmaFailedActions(
+            item: failedItem!,
+            onClosePressed: onClosePressed,
+            onSearchPressed: onSearchPressed,
+            onPhotoPressed: onPhotoPressed,
+            onLibraryPressed: onLibraryPressed,
+            onRetryPressed: () => onRetryItem(failedItem!),
+            onDismissPressed: onDismissFailedFeedback,
+          ),
         if (!scanning &&
             !recognizing &&
             !revealing &&
             !completed &&
+            !failed &&
             items.isNotEmpty)
           Positioned(
             left: 16,
@@ -738,7 +788,7 @@ class _ScanCameraView extends StatelessWidget {
               ),
             ),
           ),
-        if (!completed && !scanning && !recognizing)
+        if (!completed && !showingFailedFeedback && !scanning && !recognizing)
           Positioned(
             left: 16,
             right: 16,
@@ -779,6 +829,127 @@ class _FigmaCompletedCanvas extends StatelessWidget {
       key: const Key('scan-figma-complete-background'),
       fit: BoxFit.fill,
       filterQuality: FilterQuality.none,
+    );
+  }
+}
+
+class _FigmaFailedCanvas extends StatelessWidget {
+  const _FigmaFailedCanvas();
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/scan/failure_canvas.png',
+      key: const Key('scan-figma-failure-background'),
+      fit: BoxFit.fill,
+      filterQuality: FilterQuality.none,
+    );
+  }
+}
+
+class _FigmaFailedActions extends StatelessWidget {
+  const _FigmaFailedActions({
+    required this.item,
+    required this.onClosePressed,
+    required this.onSearchPressed,
+    required this.onPhotoPressed,
+    required this.onLibraryPressed,
+    required this.onRetryPressed,
+    required this.onDismissPressed,
+  });
+
+  final _ScanItem item;
+  final VoidCallback onClosePressed;
+  final VoidCallback onSearchPressed;
+  final VoidCallback onPhotoPressed;
+  final VoidCallback onLibraryPressed;
+  final VoidCallback onRetryPressed;
+  final VoidCallback onDismissPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalScale = constraints.maxWidth / 390;
+        final verticalScale = constraints.maxHeight / 844;
+        final itemName = item.match?.name ?? item.pictureLabel;
+        return Stack(
+          children: [
+            Positioned(
+              left: 16 * horizontalScale,
+              top: 617 * verticalScale,
+              width: 175 * horizontalScale,
+              height: 92 * verticalScale,
+              child: Semantics(
+                key: const Key('scan-figma-failure-toast'),
+                container: true,
+                label: '0 of 1 cards scanned. $itemName failed. Tap to retry.',
+                child: const SizedBox.expand(),
+              ),
+            ),
+            Positioned(
+              left: 8 * horizontalScale,
+              top: 59 * verticalScale,
+              width: 48 * horizontalScale,
+              height: 48 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Close Scan',
+                onPressed: onClosePressed,
+              ),
+            ),
+            Positioned(
+              right: 8 * horizontalScale,
+              top: 59 * verticalScale,
+              width: 48 * horizontalScale,
+              height: 48 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Search Cards',
+                onPressed: onSearchPressed,
+              ),
+            ),
+            Positioned(
+              left: 16 * horizontalScale,
+              top: 617 * verticalScale,
+              width: 175 * horizontalScale,
+              height: 92 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Tap to retry',
+                onPressed: onRetryPressed,
+              ),
+            ),
+            Positioned(
+              left: 151 * horizontalScale,
+              top: 617 * verticalScale,
+              width: 40 * horizontalScale,
+              height: 48 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Dismiss failed scan feedback',
+                onPressed: onDismissPressed,
+              ),
+            ),
+            Positioned(
+              left: 16 * horizontalScale,
+              top: 726 * verticalScale,
+              width: 72 * horizontalScale,
+              height: 96 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Choose from Library',
+                onPressed: onLibraryPressed,
+              ),
+            ),
+            Positioned(
+              left: 151 * horizontalScale,
+              top: 734 * verticalScale,
+              width: 88 * horizontalScale,
+              height: 88 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Take Photo',
+                onPressed: onPhotoPressed,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
