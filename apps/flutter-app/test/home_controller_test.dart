@@ -69,7 +69,7 @@ void main() {
   );
 
   test(
-    'repository failure shows page failure and refresh restores dashboard',
+    'repository failure preserves Figma shell data and refresh restores dashboard',
     () {
       final repository = _FailingThenSuccessfulHomeRepository();
       final container = ProviderContainer(
@@ -81,6 +81,8 @@ void main() {
 
       expect(failed.loadStatus, KandoLoadStatus.failure);
       expect(failed.isUnavailable, isTrue);
+      expect(failed.totalAmountText, r'$12,450.80');
+      expect(failed.dashboard.trending.first.title, 'Ragavan, Nimble Pilferer');
       expect(repository.calls, 1);
 
       container.read(homeControllerProvider.notifier).refresh();
@@ -89,6 +91,31 @@ void main() {
       expect(restored.loadStatus, KandoLoadStatus.content);
       expect(restored.isUnavailable, isFalse);
       expect(restored.totalAmountText, r'$12,450.80');
+      expect(repository.calls, 2);
+    },
+  );
+
+  test(
+    'refresh failure preserves the selected dashboard shell instead of resetting it to Main',
+    () {
+      final repository = _SuccessfulThenFailingHomeRepository();
+      final container = ProviderContainer(
+        overrides: [homeRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(homeControllerProvider.notifier);
+      controller.selectFolder('sealed');
+      controller.toggleAmountHidden();
+      controller.selectChartRange(HomeChartRange.oneMonth);
+      controller.refresh();
+
+      final failed = container.read(homeControllerProvider);
+      expect(failed.isUnavailable, isTrue);
+      expect(failed.selectedFolder.id, 'sealed');
+      expect(failed.amountHidden, isTrue);
+      expect(failed.chartRange, HomeChartRange.oneMonth);
+      expect(failed.totalAmountText, hiddenMoneyText);
       expect(repository.calls, 2);
     },
   );
@@ -322,5 +349,18 @@ class _FailingThenSuccessfulHomeRepository implements HomeRepository {
       throw StateError('mock home unavailable');
     }
     return const MockHomeRepository().loadDashboard();
+  }
+}
+
+class _SuccessfulThenFailingHomeRepository implements HomeRepository {
+  var calls = 0;
+
+  @override
+  HomeDashboard loadDashboard() {
+    calls += 1;
+    if (calls == 1) {
+      return const MockHomeRepository().loadDashboard();
+    }
+    throw StateError('mock home unavailable');
   }
 }

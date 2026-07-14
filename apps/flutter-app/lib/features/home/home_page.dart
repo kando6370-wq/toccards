@@ -36,37 +36,35 @@ class HomePage extends ConsumerWidget {
         ),
         child: SafeArea(
           bottom: false,
-          child: state.isUnavailable
-              ? Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: KandoFailureBlock(onRefresh: controller.refresh),
-                )
-              : SingleChildScrollView(
-                  key: const Key('home-normal-content'),
-                  padding: const EdgeInsets.fromLTRB(20, 58, 20, 132),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _Header(
-                        currencyCode: state.currencyCode,
-                        currencySymbol: state.currency.symbol,
-                        onCurrencyPressed: () =>
-                            _showCurrencySheet(context, ref),
-                      ),
-                      const SizedBox(height: 24),
-                      _PortfolioCard(
-                        state: state,
-                        onFolderPressed: () => _showFolderSheet(context, ref),
-                        onHidePressed: controller.toggleAmountHidden,
-                        onRangeSelected: controller.selectChartRange,
-                      ),
-                      const SizedBox(height: 32),
-                      _MostValuableSection(state: state),
-                      const SizedBox(height: 32),
-                      _TrendingSection(state: state),
-                    ],
-                  ),
+          child: SingleChildScrollView(
+            key: const Key('home-normal-content'),
+            padding: const EdgeInsets.fromLTRB(20, 58, 20, 132),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Header(
+                  currencyCode: state.currencyCode,
+                  currencySymbol: state.currency.symbol,
+                  onCurrencyPressed: () => _showCurrencySheet(context, ref),
                 ),
+                const SizedBox(height: 24),
+                _PortfolioCard(
+                  state: state,
+                  onFolderPressed: () => _showFolderSheet(context, ref),
+                  onHidePressed: controller.toggleAmountHidden,
+                  onRangeSelected: controller.selectChartRange,
+                  onRefresh: controller.refresh,
+                ),
+                const SizedBox(height: 32),
+                _MostValuableSection(
+                  state: state,
+                  onRefresh: controller.refresh,
+                ),
+                const SizedBox(height: 32),
+                _TrendingSection(state: state),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -315,12 +313,14 @@ class _PortfolioCard extends StatelessWidget {
     required this.onFolderPressed,
     required this.onHidePressed,
     required this.onRangeSelected,
+    required this.onRefresh,
   });
 
   final HomeState state;
   final VoidCallback onFolderPressed;
   final VoidCallback onHidePressed;
   final ValueChanged<HomeChartRange> onRangeSelected;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -394,37 +394,45 @@ class _PortfolioCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 203,
-          width: double.infinity,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(13, 13, 13, 16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0x1FFFFFFF)),
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x1F747B26), Color(0x0A141506)],
+        if (state.isUnavailable)
+          _FigmaFailurePanel(
+            key: const Key('home-failure-chart'),
+            height: 306,
+            refreshKey: const Key('home-failure-chart-refresh'),
+            onRefresh: onRefresh,
+          )
+        else
+          SizedBox(
+            height: 203,
+            width: double.infinity,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(13, 13, 13, 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0x1FFFFFFF)),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x1F747B26), Color(0x0A141506)],
+                ),
+              ),
+              child: Column(
+                children: [
+                  _ChartRangePicker(
+                    selected: state.chartRange,
+                    onSelected: onRangeSelected,
+                  ),
+                  const SizedBox(height: 28),
+                  Expanded(
+                    child: CustomPaint(
+                      painter: _ChartPainter(values: state.chartValues),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Column(
-              children: [
-                _ChartRangePicker(
-                  selected: state.chartRange,
-                  onSelected: onRangeSelected,
-                ),
-                const SizedBox(height: 28),
-                Expanded(
-                  child: CustomPaint(
-                    painter: _ChartPainter(values: state.chartValues),
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-              ],
-            ),
           ),
-        ),
       ],
     );
   }
@@ -545,10 +553,81 @@ class _ChartRangePicker extends StatelessWidget {
   }
 }
 
+class _FigmaFailurePanel extends StatelessWidget {
+  const _FigmaFailurePanel({
+    super.key,
+    required this.height,
+    required this.refreshKey,
+    required this.onRefresh,
+  });
+
+  final double height;
+  final Key refreshKey;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0x14FFFFFF)),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0x1F747B26), Color(0x0A141506)],
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 100,
+              height: 100,
+              child: Image.asset(
+                'assets/home/empty_state_illustration.png',
+                filterQuality: FilterQuality.high,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              noContentAvailableText,
+              style: TextStyle(
+                color: KandoColors.text,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                height: 24 / 16,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Semantics(
+              button: true,
+              label: refreshText,
+              child: GestureDetector(
+                key: refreshKey,
+                onTap: onRefresh,
+                child: Image.asset(
+                  'assets/home/refresh_button.png',
+                  width: 123,
+                  height: 36,
+                  filterQuality: FilterQuality.high,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MostValuableSection extends StatelessWidget {
-  const _MostValuableSection({required this.state});
+  const _MostValuableSection({required this.state, required this.onRefresh});
 
   final HomeState state;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -557,9 +636,19 @@ class _MostValuableSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(title: 'Most Valuable'),
+        _SectionHeader(
+          title: 'Most Valuable',
+          isUnavailable: state.isUnavailable,
+        ),
         const SizedBox(height: 16),
-        if (cards.isEmpty)
+        if (state.isUnavailable)
+          _FigmaFailurePanel(
+            key: const Key('home-failure-most-valuable'),
+            height: 256,
+            refreshKey: const Key('home-failure-most-valuable-refresh'),
+            onRefresh: onRefresh,
+          )
+        else if (cards.isEmpty)
           const _EmptyCardBlock(message: 'No cards in this portfolio yet')
         else
           SizedBox(
@@ -595,25 +684,34 @@ class _TrendingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trends = state.dashboard.trending;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(title: 'Trending Today'),
+        _SectionHeader(
+          title: 'Trending Today',
+          isUnavailable: state.isUnavailable,
+        ),
         const SizedBox(height: 16),
-        for (final card in state.dashboard.trending) ...[
+        for (var index = 0; index < trends.length; index += 1) ...[
           _TrendingRow(
-            title: card.title,
-            subtitle: card.subtitle,
-            price: state.formatCardPrice(card.priceUsd),
+            title: trends[index].title,
+            subtitle: trends[index].subtitle,
+            price: state.formatCardPrice(trends[index].priceUsd),
             percent: _percentText(
-              current: card.priceUsd,
-              previous: card.previousPriceUsd,
+              current: trends[index].priceUsd,
+              previous: trends[index].previousPriceUsd,
             ),
             percentColor: _percentColor(
-              current: card.priceUsd,
-              previous: card.previousPriceUsd,
+              current: trends[index].priceUsd,
+              previous: trends[index].previousPriceUsd,
             ),
-            imageAssetPath: card.imageAssetPath,
+            imageAssetPath: trends[index].imageAssetPath,
+            showPlaceholder: state.isUnavailable,
+            placeholderKey: state.isUnavailable
+                ? Key('home-failure-trend-placeholder-$index')
+                : null,
           ),
           const SizedBox(height: 16),
         ],
@@ -623,9 +721,10 @@ class _TrendingSection extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
+  const _SectionHeader({required this.title, this.isUnavailable = false});
 
   final String title;
+  final bool isUnavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -658,34 +757,45 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        const SizedBox(
-          width: 60,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'View all',
-                  style: TextStyle(
-                    color: KandoColors.accent,
-                    fontWeight: FontWeight.w400,
-                    fontSize: 13,
-                    height: 16 / 13,
+        if (isUnavailable)
+          const Text(
+            'View',
+            style: TextStyle(
+              color: Color(0xFF2C3400),
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              height: 16 / 13,
+            ),
+          )
+        else
+          const SizedBox(
+            width: 60,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View all',
+                    style: TextStyle(
+                      color: KandoColors.accent,
+                      fontWeight: FontWeight.w400,
+                      fontSize: 13,
+                      height: 16 / 13,
+                    ),
                   ),
-                ),
-                SizedBox(width: 4),
-                Image(
-                  key: Key('home-view-all-arrow'),
-                  image: AssetImage('assets/home/view_all_arrow.png'),
-                  width: 14,
-                  height: 10,
-                ),
-              ],
+                  SizedBox(width: 4),
+                  Image(
+                    key: Key('home-view-all-arrow'),
+                    image: AssetImage('assets/home/view_all_arrow.png'),
+                    width: 14,
+                    height: 10,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -831,6 +941,8 @@ class _TrendingRow extends StatelessWidget {
     required this.percent,
     required this.percentColor,
     required this.imageAssetPath,
+    required this.showPlaceholder,
+    this.placeholderKey,
   });
 
   final String title;
@@ -839,6 +951,8 @@ class _TrendingRow extends StatelessWidget {
   final String percent;
   final Color percentColor;
   final String? imageAssetPath;
+  final bool showPlaceholder;
+  final Key? placeholderKey;
 
   @override
   Widget build(BuildContext context) {
@@ -852,20 +966,29 @@ class _TrendingRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 17),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: SizedBox(
+          if (showPlaceholder)
+            Image.asset(
+              'assets/home/trend_placeholder.png',
+              key: placeholderKey,
               width: 42,
               height: 58,
-              child: imageAssetPath == null
-                  ? const ColoredBox(color: KandoColors.surface)
-                  : Image.asset(
-                      imageAssetPath!,
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.high,
-                    ),
+              filterQuality: FilterQuality.high,
+            )
+          else
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                width: 42,
+                height: 58,
+                child: imageAssetPath == null
+                    ? const ColoredBox(color: KandoColors.surface)
+                    : Image.asset(
+                        imageAssetPath!,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.high,
+                      ),
+              ),
             ),
-          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

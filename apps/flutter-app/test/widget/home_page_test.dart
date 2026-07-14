@@ -111,6 +111,48 @@ void main() {
     );
   });
 
+  testWidgets('Figma partial Home failure renders at the 390x844 baseline', (
+    tester,
+  ) async {
+    await (FontLoader(
+      'Geist',
+    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
+    await (FontLoader(
+      'Fraunces',
+    )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          homeRepositoryProvider.overrideWithValue(
+            _FailingThenSuccessfulHomeRepository(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildKandoTheme(),
+          home: const RepaintBoundary(
+            key: Key('home-failure-figma-golden'),
+            child: HomePage(),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byKey(const Key('home-failure-figma-golden')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_home_failure_131_21496_390x844.png',
+      ),
+    );
+  });
+
   testWidgets('Home shows the M4-1 dashboard information hierarchy', (
     tester,
   ) async {
@@ -256,29 +298,97 @@ void main() {
     },
   );
 
-  testWidgets('page failure shows Refresh and recovers without blanking nav', (
+  testWidgets(
+    'page data failure keeps the Figma dashboard shell and refreshes local panels',
+    (tester) async {
+      final repository = _FailingThenSuccessfulHomeRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [homeRepositoryProvider.overrideWithValue(repository)],
+          child: const _HomeTestApp(),
+        ),
+      );
+
+      expect(find.text('Overview'), findsOneWidget);
+      expect(find.text(r'$12,450.80'), findsOneWidget);
+      expect(find.text('Trending Today'), findsOneWidget);
+      expect(find.text('Ragavan, Nimble Pilferer'), findsOneWidget);
+      expect(find.text(noContentAvailableText), findsNWidgets(2));
+      expect(find.byKey(const Key('home-failure-chart')), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-failure-most-valuable')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('home-failure-chart-refresh')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('home-failure-most-valuable-refresh')),
+        findsOneWidget,
+      );
+      expect(find.text('Home'), findsOneWidget);
+      expect(repository.calls, 1);
+
+      await tester.tap(find.byKey(const Key('home-failure-chart-refresh')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Overview'), findsOneWidget);
+      expect(find.text(r'$12,450.80'), findsOneWidget);
+      expect(find.text(noContentAvailableText), findsNothing);
+      expect(repository.calls, 2);
+    },
+  );
+
+  testWidgets(
+    'Most Valuable failure refresh independently restores dashboard content',
+    (tester) async {
+      final repository = _FailingThenSuccessfulHomeRepository();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [homeRepositoryProvider.overrideWithValue(repository)],
+          child: const _HomeTestApp(),
+        ),
+      );
+
+      final refresh = find.byKey(
+        const Key('home-failure-most-valuable-refresh'),
+      );
+      await tester.scrollUntilVisible(refresh, 120);
+      await tester.tap(refresh);
+      await tester.pumpAndSettle();
+
+      expect(find.text(noContentAvailableText), findsNothing);
+      expect(find.byKey(const Key('home-most-valuable-list')), findsOneWidget);
+      expect(repository.calls, 2);
+    },
+  );
+
+  testWidgets('failed dashboard uses Figma placeholders for every trend card', (
     tester,
   ) async {
-    final repository = _FailingThenSuccessfulHomeRepository();
-
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          homeRepositoryProvider.overrideWithValue(
+            _FailingThenSuccessfulHomeRepository(),
+          ),
+        ],
         child: const _HomeTestApp(),
       ),
     );
 
-    expect(find.text(noContentAvailableText), findsOneWidget);
-    expect(find.text(refreshText), findsOneWidget);
-    expect(find.text('Home'), findsOneWidget);
-    expect(repository.calls, 1);
-
-    await tester.tap(find.text(refreshText));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Overview'), findsOneWidget);
-    expect(find.text(r'$12,450.80'), findsOneWidget);
-    expect(repository.calls, 2);
+    for (var index = 0; index < 3; index += 1) {
+      expect(
+        find.byKey(Key('home-failure-trend-placeholder-$index')),
+        findsOneWidget,
+      );
+    }
   });
 
   testWidgets('empty folder shows Most Valuable empty copy', (tester) async {

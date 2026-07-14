@@ -24,12 +24,14 @@ class HomeState {
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.content;
 
-  const HomeState.unavailable({required this.currency})
-    : _dashboard = null,
-      selectedFolderId = '',
-      amountHidden = false,
-      chartRange = HomeChartRange.oneMonth,
-      loadStatus = KandoLoadStatus.failure;
+  HomeState.unavailable({
+    required HomeDashboard dashboard,
+    required this.selectedFolderId,
+    required this.currency,
+    required this.amountHidden,
+    required this.chartRange,
+  }) : _dashboard = dashboard,
+       loadStatus = KandoLoadStatus.failure;
 
   const HomeState._({
     required HomeDashboard? dashboard,
@@ -175,12 +177,13 @@ class HomeController extends Notifier<HomeState> {
   }
 
   void refresh() {
-    state = _loadDashboard(currency: state.currency);
+    state = _loadDashboard(currency: state.currency, previousState: state);
   }
 
   HomeState _loadDashboard({
     HomeRepository? repository,
     AppCurrency? currency,
+    HomeState? previousState,
   }) {
     final AppCurrency selectedCurrency =
         currency ?? ref.read(selectedCurrencyProvider);
@@ -198,7 +201,21 @@ class HomeController extends Notifier<HomeState> {
         ),
       );
     } catch (_) {
-      return HomeState.unavailable(currency: selectedCurrency);
+      final dashboard =
+          previousState?.dashboard ??
+          const MockHomeRepository().loadDashboard();
+      return HomeState.unavailable(
+        dashboard: dashboard,
+        selectedFolderId:
+            previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
+        currency: selectedCurrency,
+        amountHidden: previousState?.amountHidden ?? false,
+        chartRange:
+            previousState?.chartRange ??
+            _bestChartRange(
+              dashboard.portfoliosByFolderId[dashboard.defaultFolder.id]!,
+            ),
+      );
     }
   }
 
