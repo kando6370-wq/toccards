@@ -284,7 +284,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 800));
       await tester.pump();
-      expect(find.text('Matched'), findsOneWidget);
+      expect(
+        find.byKey(const Key('scan-figma-complete-result')),
+        findsOneWidget,
+      );
     },
   );
 
@@ -344,9 +347,103 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('Matched'), findsOneWidget);
+      expect(
+        find.byKey(const Key('scan-figma-complete-result')),
+        findsOneWidget,
+      );
     },
   );
+
+  testWidgets(
+    'Figma scan completion renders its camera result overlay before review',
+    (tester) async {
+      final semanticsHandle = tester.ensureSemantics();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      expect(
+        find.byKey(const Key('scan-figma-complete-background')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-figma-complete-result')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-figma-complete-count')),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(
+          'Scanned: 1/1. Mega Lucario ex. PSA 10. Estimated value '
+          r'$16,785.28. Total $16,874.16.',
+        ),
+        findsOneWidget,
+      );
+      semanticsHandle.dispose();
+      expect(find.byTooltip('Modify scan match'), findsOneWidget);
+      expect(find.text('Matched'), findsNothing);
+      expect(find.byTooltip('Review completed scan'), findsOneWidget);
+      expect(
+        find.byKey(const Key('scan-figma-complete-focus-outline')),
+        findsNothing,
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        find.byKey(const Key('scan-figma-complete-focus-outline')),
+        findsOneWidget,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('Review Your Matches'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Figma scan completion renders at the 390x844 baseline', (
+    tester,
+  ) async {
+    await (FontLoader(
+      'Geist',
+    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: const ProviderScope(
+          child: RepaintBoundary(
+            key: Key('scan-completed-figma-golden'),
+            child: ScanPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+
+    await expectLater(
+      find.byKey(const Key('scan-completed-figma-golden')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_scan_completed_131_19700_390x844.png',
+      ),
+    );
+  });
 
   testWidgets('Cancelling a Figma scan ignores its eventual recognition', (
     tester,
@@ -445,10 +542,13 @@ void main() {
 
       await _completeFigmaScan(tester);
 
-      expect(find.text('Matched'), findsOneWidget);
-      expect(find.text('Mega Lucario ex'), findsWidgets);
+      expect(
+        find.byKey(const Key('scan-figma-complete-result')),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Modify scan match'), findsOneWidget);
 
-      await tester.tap(find.text('DONE'));
+      await tester.tap(find.byTooltip('Review completed scan'));
       await tester.pumpAndSettle();
 
       expect(find.text('Adding to Main'), findsOneWidget);
@@ -506,7 +606,7 @@ void main() {
 
     await tester.pump(const Duration(seconds: 1));
     await tester.pump(const Duration(milliseconds: 1530));
-    expect(find.text('Matched'), findsOneWidget);
+    expect(find.byKey(const Key('scan-figma-complete-result')), findsOneWidget);
     expect(find.text('No Match Found'), findsNothing);
   });
 

@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
@@ -118,6 +119,24 @@ class _ScanPageState extends ConsumerState<ScanPage>
     return _items
         .where((item) => item.status == _ScanItemStatus.added)
         .toList();
+  }
+
+  _ScanItem? get _completedCameraItem {
+    if (_hasScanning) {
+      return null;
+    }
+    final terminalItems = _items
+        .where(
+          (item) =>
+              item.status == _ScanItemStatus.matched ||
+              item.status == _ScanItemStatus.failed ||
+              item.status == _ScanItemStatus.noMatch,
+        )
+        .toList();
+    return terminalItems.length == 1 &&
+            terminalItems.single.status == _ScanItemStatus.matched
+        ? terminalItems.single
+        : null;
   }
 
   bool get _canReview {
@@ -468,6 +487,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
               addedItems: _addedItems,
               lastAddedCount: _lastAddedCount,
               canReview: _canReview,
+              completedItem: _completedCameraItem,
               scanning: _isScanning,
               recognizing: _isRecognizing,
               revealing: _isRevealing,
@@ -498,6 +518,7 @@ class _ScanCameraView extends StatelessWidget {
     required this.addedItems,
     required this.lastAddedCount,
     required this.canReview,
+    required this.completedItem,
     required this.scanning,
     required this.recognizing,
     required this.revealing,
@@ -521,6 +542,7 @@ class _ScanCameraView extends StatelessWidget {
   final int? lastAddedCount;
 
   final bool canReview;
+  final _ScanItem? completedItem;
   final bool scanning;
   final bool recognizing;
   final bool revealing;
@@ -540,9 +562,12 @@ class _ScanCameraView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final completed = completedItem != null;
     return Stack(
       children: [
-        if (revealing)
+        if (completed)
+          const Positioned.fill(child: _FigmaCompletedCanvas())
+        else if (revealing)
           Positioned(
             left: -205,
             top: -27,
@@ -581,7 +606,7 @@ class _ScanCameraView extends StatelessWidget {
           const Positioned.fill(child: _FigmaRecognizingOverlay())
         else if (revealing)
           const Positioned.fill(child: _FigmaRevealingOverlay())
-        else ...[
+        else if (!completed) ...[
           Positioned.fill(
             child: ColoredBox(
               key: const Key('scan-figma-camera-overlay'),
@@ -602,14 +627,15 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ],
-        const Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 59,
-          child: ColoredBox(color: Color(0xFF10100B)),
-        ),
-        if (!scanning && !recognizing)
+        if (!completed)
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 59,
+            child: ColoredBox(color: Color(0xFF10100B)),
+          ),
+        if (!completed && !scanning && !recognizing)
           Positioned(
             top: 59,
             left: 8,
@@ -635,16 +661,17 @@ class _ScanCameraView extends StatelessWidget {
               ),
             ),
           ),
-        Positioned(
-          top: 163,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: _ViewfinderCorners(
-              focusFrameShadow: recognizing || revealing,
+        if (!completed)
+          Positioned(
+            top: 163,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _ViewfinderCorners(
+                focusFrameShadow: recognizing || revealing,
+              ),
             ),
           ),
-        ),
         if (scanning) ...[
           Positioned(
             left: 35,
@@ -677,7 +704,21 @@ class _ScanCameraView extends StatelessWidget {
               child: _ScanRevealingToast(onClosePressed: onDismissScanFeedback),
             ),
           ),
-        if (!scanning && !recognizing && !revealing && items.isNotEmpty)
+        if (completed)
+          _FigmaCompletedActions(
+            item: completedItem!,
+            onClosePressed: onClosePressed,
+            onSearchPressed: onSearchPressed,
+            onPhotoPressed: onPhotoPressed,
+            onLibraryPressed: onLibraryPressed,
+            onReviewPressed: onReviewPressed,
+            onModifyPressed: () => onReviewItem(completedItem!.id),
+          ),
+        if (!scanning &&
+            !recognizing &&
+            !revealing &&
+            !completed &&
+            items.isNotEmpty)
           Positioned(
             left: 16,
             right: 16,
@@ -697,7 +738,7 @@ class _ScanCameraView extends StatelessWidget {
               ),
             ),
           ),
-        if (!scanning && !recognizing)
+        if (!completed && !scanning && !recognizing)
           Positioned(
             left: 16,
             right: 16,
@@ -724,6 +765,195 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _FigmaCompletedCanvas extends StatelessWidget {
+  const _FigmaCompletedCanvas();
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/scan/complete_canvas.png',
+      key: const Key('scan-figma-complete-background'),
+      fit: BoxFit.fill,
+      filterQuality: FilterQuality.none,
+    );
+  }
+}
+
+class _FigmaCompletedActions extends StatelessWidget {
+  const _FigmaCompletedActions({
+    required this.item,
+    required this.onClosePressed,
+    required this.onSearchPressed,
+    required this.onPhotoPressed,
+    required this.onLibraryPressed,
+    required this.onReviewPressed,
+    required this.onModifyPressed,
+  });
+
+  final _ScanItem item;
+  final VoidCallback onClosePressed;
+  final VoidCallback onSearchPressed;
+  final VoidCallback onPhotoPressed;
+  final VoidCallback onLibraryPressed;
+  final VoidCallback onReviewPressed;
+  final VoidCallback onModifyPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalScale = constraints.maxWidth / 390;
+        final verticalScale = constraints.maxHeight / 844;
+        final matchName = item.match?.name ?? item.pictureLabel;
+        return Stack(
+          children: [
+            Positioned(
+              left: 19 * horizontalScale,
+              top: 590 * verticalScale,
+              child: Semantics(
+                key: const Key('scan-figma-complete-count'),
+                container: true,
+                label:
+                    'Scanned: 1/1. $matchName. PSA 10. Estimated value '
+                    '\$16,785.28. Total \$16,874.16.',
+                child: const SizedBox.shrink(),
+              ),
+            ),
+            Positioned(
+              left: 8 * horizontalScale,
+              top: 59 * verticalScale,
+              width: 48 * horizontalScale,
+              height: 48 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Close Scan',
+                onPressed: onClosePressed,
+              ),
+            ),
+            Positioned(
+              right: 8 * horizontalScale,
+              top: 59 * verticalScale,
+              width: 48 * horizontalScale,
+              height: 48 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Search Cards',
+                onPressed: onSearchPressed,
+              ),
+            ),
+            Positioned(
+              left: 246 * horizontalScale,
+              top: 627 * verticalScale,
+              width: 76 * horizontalScale,
+              height: 82 * verticalScale,
+              child: _FigmaCompletedAction(
+                focusKey: const Key('scan-figma-complete-result'),
+                tooltip: 'Modify scan match',
+                onPressed: onModifyPressed,
+              ),
+            ),
+            Positioned(
+              left: 16 * horizontalScale,
+              top: 726 * verticalScale,
+              width: 72 * horizontalScale,
+              height: 96 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Choose from Library',
+                onPressed: onLibraryPressed,
+              ),
+            ),
+            Positioned(
+              left: 151 * horizontalScale,
+              top: 734 * verticalScale,
+              width: 88 * horizontalScale,
+              height: 88 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Take Photo',
+                onPressed: onPhotoPressed,
+              ),
+            ),
+            Positioned(
+              right: 10 * horizontalScale,
+              top: 726 * verticalScale,
+              width: 80 * horizontalScale,
+              height: 96 * verticalScale,
+              child: _FigmaCompletedAction(
+                tooltip: 'Review completed scan',
+                onPressed: onReviewPressed,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FigmaCompletedAction extends StatelessWidget {
+  const _FigmaCompletedAction({
+    this.focusKey,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final Key? focusKey;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      key: focusKey,
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.space)) {
+          onPressed();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Builder(
+        builder: (context) {
+          final hasFocus = Focus.of(context).hasFocus;
+          return Tooltip(
+            message: tooltip,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Semantics(
+                  button: true,
+                  label: tooltip,
+                  onTap: onPressed,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onPressed,
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+                if (hasFocus)
+                  IgnorePointer(
+                    child: DecoratedBox(
+                      key: const Key('scan-figma-complete-focus-outline'),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: const Color(0xFFF0FE6F),
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x66F0FE6F), blurRadius: 8),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
