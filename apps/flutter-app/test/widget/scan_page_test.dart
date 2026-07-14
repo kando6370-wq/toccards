@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
@@ -11,6 +13,98 @@ import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 
 void main() {
+  test('Figma scan SVG icons use Flutter-compatible fill colors', () async {
+    const iconAssets = [
+      'assets/scan/close.svg',
+      'assets/scan/flash.svg',
+      'assets/scan/search.svg',
+      'assets/scan/align.svg',
+      'assets/scan/gallery.svg',
+      'assets/scan/done.svg',
+    ];
+
+    for (final asset in iconAssets) {
+      final svg = await rootBundle.loadString(asset);
+      expect(svg, isNot(contains('var(')), reason: asset);
+    }
+  });
+
+  testWidgets(
+    'Figma scan pre-scan keeps the photographic camera viewport full bleed',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
+      await _pumpScanTestApp(tester);
+
+      final background = find.byKey(const Key('scan-figma-camera-background'));
+      expect(background, findsOneWidget);
+      expect(tester.widget<Image>(background).fit, BoxFit.cover);
+    },
+  );
+
+  testWidgets('Figma scan pre-scan renders at the 390x844 baseline', (
+    tester,
+  ) async {
+    await (FontLoader(
+      'Geist',
+    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: const RepaintBoundary(
+          key: Key('scan-figma-golden'),
+          child: ScanPage(),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byKey(const Key('scan-figma-golden')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_scan_before_328_10858_390x844.png',
+      ),
+    );
+  });
+
+  testWidgets(
+    'Figma scan pre-scan uses exported icons without Material glyph fallback',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      expect(find.byKey(const Key('scan-figma-close-icon')), findsOneWidget);
+      expect(find.byKey(const Key('scan-figma-flash-icon')), findsOneWidget);
+      expect(find.byKey(const Key('scan-figma-search-icon')), findsOneWidget);
+      expect(find.byKey(const Key('scan-figma-align-icon')), findsOneWidget);
+      expect(find.byKey(const Key('scan-figma-gallery-icon')), findsOneWidget);
+      expect(find.byKey(const Key('scan-figma-done-icon')), findsOneWidget);
+    },
+  );
+
+  testWidgets('Figma scan pre-scan keeps its camera overlay and label font', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(tester);
+
+    final overlay = find.byKey(const Key('scan-figma-camera-overlay'));
+    expect(overlay, findsOneWidget);
+    expect(tester.widget<ColoredBox>(overlay).color, const Color(0x1A0D0F08));
+    expect(
+      tester.widget<Text>(find.text('GALLERY')).style?.fontFamily,
+      'Geist',
+    );
+    expect(tester.widget<Text>(find.text('DONE')).style?.fontFamily, 'Geist');
+  });
+
   testWidgets(
     'Scan creates reviewable matches because scans are not saved automatically',
     (tester) async {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 enum _ScanItemStatus { scanning, matched, failed, noMatch, added }
@@ -295,7 +296,33 @@ class _ScanCameraView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const Positioned.fill(child: _CameraBackdrop()),
+        Positioned.fill(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight < 884
+                      ? 884
+                      : constraints.maxHeight,
+                  child: Image.asset(
+                    'assets/scan/camera_before.png',
+                    key: const Key('scan-figma-camera-background'),
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Positioned.fill(
+          child: ColoredBox(
+            key: const Key('scan-figma-camera-overlay'),
+            color: const Color(0x1A0D0F08),
+          ),
+        ),
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -303,30 +330,39 @@ class _ScanCameraView extends StatelessWidget {
                 radius: 0.86,
                 colors: [
                   Colors.transparent,
-                  const Color(0xFF0D0F08).withValues(alpha: 0.86),
+                  const Color(0xFF0D0F08).withValues(alpha: 0.85),
                 ],
               ),
             ),
           ),
         ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-            child: Column(
-              children: [
-                _ScanTopBar(
-                  onClosePressed: onClosePressed,
-                  onSearchPressed: onSearchPressed,
-                ),
-                const SizedBox(height: 8),
-                const _AlignCardPill(),
-              ],
-            ),
+        const Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 59,
+          child: ColoredBox(color: Color(0xFF10100B)),
+        ),
+        Positioned(
+          top: 59,
+          left: 8,
+          right: 8,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ScanTopBar(
+                onClosePressed: onClosePressed,
+                onSearchPressed: onSearchPressed,
+              ),
+              const SizedBox(height: 2),
+              const _AlignCardPill(),
+            ],
           ),
         ),
-        const Positioned.fill(
-          top: 150,
-          bottom: 252,
+        const Positioned(
+          top: 163,
+          left: 0,
+          right: 0,
           child: Center(child: _ViewfinderCorners()),
         ),
         if (items.isNotEmpty)
@@ -380,7 +416,7 @@ class _ScanTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 44,
+      height: 42,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -389,21 +425,30 @@ class _ScanTopBar extends StatelessWidget {
             child: IconButton(
               tooltip: 'Close Scan',
               onPressed: onClosePressed,
-              color: const Color(0xFFEEECD8),
-              icon: const Icon(Icons.close),
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              padding: EdgeInsets.zero,
+              icon: SvgPicture.asset(
+                'assets/scan/close.svg',
+                key: const Key('scan-figma-close-icon'),
+                width: 14,
+                height: 14,
+              ),
             ),
           ),
           Container(
-            width: 34,
-            height: 34,
+            width: 25,
+            height: 25,
             decoration: BoxDecoration(
               color: const Color(0xFF222222).withValues(alpha: 0.82),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.flash_on,
-              color: Color(0xFFEEECD8),
-              size: 18,
+            child: Center(
+              child: SvgPicture.asset(
+                'assets/scan/flash.svg',
+                key: const Key('scan-figma-flash-icon'),
+                width: 9,
+                height: 15,
+              ),
             ),
           ),
           Align(
@@ -411,8 +456,14 @@ class _ScanTopBar extends StatelessWidget {
             child: IconButton(
               tooltip: 'Search Cards',
               onPressed: onSearchPressed,
-              color: const Color(0xFFEEECD8),
-              icon: const Icon(Icons.search),
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              padding: EdgeInsets.zero,
+              icon: SvgPicture.asset(
+                'assets/scan/search.svg',
+                key: const Key('scan-figma-search-icon'),
+                width: 18,
+                height: 18,
+              ),
             ),
           ),
         ],
@@ -427,7 +478,8 @@ class _AlignCardPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 17),
       decoration: BoxDecoration(
         color: const Color(0xFF222222).withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(999),
@@ -440,15 +492,21 @@ class _AlignCardPill extends StatelessWidget {
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.center_focus_strong, color: Color(0xFFF0FE6F), size: 16),
-          SizedBox(width: 10),
-          Text(
+          SvgPicture.asset(
+            'assets/scan/align.svg',
+            key: const Key('scan-figma-align-icon'),
+            width: 15,
+            height: 15,
+          ),
+          const SizedBox(width: 12),
+          const Text(
             'ALIGN CARD HERE',
             style: TextStyle(
               color: Color(0xFFE4E3D3),
+              fontFamily: 'Geist',
               fontSize: 13,
               height: 16 / 13,
             ),
@@ -481,7 +539,12 @@ class _ScanBottomControls extends StatelessWidget {
         _ScanSideAction(
           label: 'GALLERY',
           tooltip: 'Choose from Library',
-          icon: Icons.photo_library_outlined,
+          icon: SvgPicture.asset(
+            'assets/scan/gallery.svg',
+            key: const Key('scan-figma-gallery-icon'),
+            width: 20,
+            height: 20,
+          ),
           onPressed: onLibraryPressed,
         ),
         Tooltip(
@@ -525,11 +588,14 @@ class _ScanBottomControls extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0x1A394E2C)),
               ),
-              child: Icon(
-                Icons.check,
-                color: canReview
-                    ? const Color(0xFFEEECD8)
-                    : const Color(0x66EEECD8),
+              child: Opacity(
+                opacity: canReview ? 1 : 0.4,
+                child: SvgPicture.asset(
+                  'assets/scan/done.svg',
+                  key: const Key('scan-figma-done-icon'),
+                  width: 16.3,
+                  height: 12.025,
+                ),
               ),
             ),
             TextButton(
@@ -542,7 +608,11 @@ class _ScanBottomControls extends StatelessWidget {
               ),
               child: const Text(
                 'DONE',
-                style: TextStyle(fontSize: 13, height: 16 / 13),
+                style: TextStyle(
+                  fontFamily: 'Geist',
+                  fontSize: 13,
+                  height: 16 / 13,
+                ),
               ),
             ),
           ],
@@ -562,7 +632,7 @@ class _ScanSideAction extends StatelessWidget {
 
   final String label;
   final String tooltip;
-  final IconData icon;
+  final Widget icon;
   final VoidCallback onPressed;
 
   @override
@@ -584,7 +654,7 @@ class _ScanSideAction extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              icon: Icon(icon),
+              icon: icon,
             ),
           ),
           const SizedBox(height: 8),
@@ -592,6 +662,7 @@ class _ScanSideAction extends StatelessWidget {
             label,
             style: const TextStyle(
               color: Color(0xFFEEECD8),
+              fontFamily: 'Geist',
               fontSize: 13,
               height: 16 / 13,
             ),
@@ -644,58 +715,6 @@ class _ViewfinderPainter extends CustomPainter {
       ..lineTo(size.width, size.height - corner);
 
     canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _CameraBackdrop extends StatelessWidget {
-  const _CameraBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _CameraBackdropPainter(),
-      child: const SizedBox.expand(),
-    );
-  }
-}
-
-class _CameraBackdropPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final background = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF201E16), Color(0xFF080907)],
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, background);
-
-    final binderPaint = Paint()..color = const Color(0x8033382E);
-    for (var row = 0; row < 3; row += 1) {
-      for (var column = 0; column < 2; column += 1) {
-        final rect = Rect.fromLTWH(
-          22 + column * (size.width / 2),
-          70 + row * 224,
-          size.width / 2 - 36,
-          188,
-        );
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(rect, const Radius.circular(12)),
-          binderPaint,
-        );
-      }
-    }
-
-    final streakPaint = Paint()
-      ..color = const Color(0x26EEECD8)
-      ..strokeWidth = 1;
-    for (var index = 0; index < 18; index += 1) {
-      final y = 40.0 + index * 46;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y + 28), streakPaint);
-    }
   }
 
   @override
