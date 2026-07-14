@@ -30,11 +30,11 @@ void main() {
     expect(find.text('PORTFOLIO'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
     expect(find.text(r'$12,840.00'), findsOneWidget);
-    expect(find.text('1d'), findsOneWidget);
-    expect(find.text('7d'), findsOneWidget);
-    expect(find.text('15d'), findsOneWidget);
-    expect(find.text('1m'), findsOneWidget);
-    expect(find.text('3m'), findsOneWidget);
+    expect(find.text('1D'), findsOneWidget);
+    expect(find.text('7D'), findsOneWidget);
+    expect(find.text('15D'), findsOneWidget);
+    expect(find.text('1M'), findsOneWidget);
+    expect(find.text('3M'), findsOneWidget);
     expect(find.text('6M'), findsNothing);
     expect(find.text('MAX'), findsNothing);
     expect(find.text('Most Valuable'), findsOneWidget);
@@ -138,10 +138,9 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Profile'));
+    await tester.tap(find.byKey(const Key('kando-tab-profile')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Guest session'), findsOneWidget);
     expect(find.text('Sign in / Sign up'), findsOneWidget);
   });
 
@@ -160,10 +159,9 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Collection'));
+    await tester.tap(find.byKey(const Key('kando-tab-collection')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Collection'), findsWidgets);
     expect(find.text('Portfolio'), findsWidgets);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
@@ -176,7 +174,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Search'));
+    await tester.tap(find.byKey(const Key('kando-tab-search')));
     await tester.pumpAndSettle();
 
     expect(find.text('Search cards, sets, or characters'), findsOneWidget);
@@ -189,7 +187,7 @@ void main() {
       const ProviderScope(child: _HomeTestAppWithRoutes()),
     );
 
-    await tester.tap(find.text('Scan'));
+    await tester.tap(find.byKey(const Key('kando-tab-scan')));
     await tester.pumpAndSettle();
 
     expect(find.text('ALIGN CARD HERE'), findsOneWidget);

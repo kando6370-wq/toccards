@@ -25,7 +25,7 @@ void main() {
   ) async {
     await _pumpCollection(tester);
 
-    expect(find.text('Collection'), findsWidgets);
+    expect(find.text('collection'), findsOneWidget);
     expect(find.text('Portfolio'), findsWidgets);
     expect(find.text('Wishlist'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
@@ -80,7 +80,7 @@ void main() {
 
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
-    expect(find.text('Collection'), findsWidgets);
+    expect(find.text('collection'), findsOneWidget);
     expect(repository.calls, 1);
 
     await tester.tap(find.text(refreshText));
@@ -177,11 +177,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Overview'), findsOneWidget);
 
-    await tester.tap(find.text('Collection'));
+    await tester.tap(find.byKey(const Key('kando-tab-collection')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
-    expect(find.text('Guest session'), findsOneWidget);
+    expect(find.text('Sign in / Sign up'), findsOneWidget);
   });
 
   testWidgets('Collection bottom navigation can open Search', (tester) async {
@@ -281,7 +281,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Scan'));
+    await tester.tap(find.byKey(const Key('kando-tab-scan')));
     await tester.pumpAndSettle();
 
     expect(find.text('ALIGN CARD HERE'), findsOneWidget);

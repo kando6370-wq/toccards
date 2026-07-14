@@ -221,7 +221,7 @@ void main() {
 
       await tester.tap(find.text('Search'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Collection'));
+      await tester.tap(find.byKey(const Key('kando-tab-collection')));
       await tester.pumpAndSettle();
       expect(find.text('Portfolio'), findsWidgets);
 
@@ -229,7 +229,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
-      expect(find.text('Guest session'), findsOneWidget);
+      expect(find.text('Sign in / Sign up'), findsOneWidget);
     },
   );
 
@@ -242,7 +242,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Scan'));
+    await tester.tap(find.byKey(const Key('kando-tab-scan')));
     await tester.pumpAndSettle();
 
     expect(find.text('ALIGN CARD HERE'), findsOneWidget);
