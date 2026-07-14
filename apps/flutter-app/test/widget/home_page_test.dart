@@ -1,6 +1,11 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kando_app/app/theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
@@ -21,15 +26,101 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 void main() {
+  test(
+    'Figma Home card photo decodes at its design source aspect ratio',
+    () async {
+      final data = await rootBundle.load('assets/home/mega_lucario_ex.png');
+      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+      final frame = await codec.getNextFrame();
+      addTearDown(() {
+        frame.image.dispose();
+        codec.dispose();
+      });
+
+      expect(frame.image.width, 980);
+      expect(frame.image.height, 1367);
+    },
+  );
+
+  testWidgets('Figma Home card image emits a renderable Flutter image frame', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.expand()));
+    final context = tester.element(find.byType(SizedBox).first);
+    final stream = const AssetImage(
+      'assets/home/mega_lucario_ex.png',
+    ).resolve(createLocalImageConfiguration(context));
+    final loaded = Completer<void>();
+    final listener = ImageStreamListener(
+      (image, synchronousCall) {
+        if (!loaded.isCompleted) {
+          loaded.complete();
+        }
+      },
+      onError: (error, stackTrace) {
+        if (!loaded.isCompleted) {
+          loaded.completeError(error, stackTrace);
+        }
+      },
+    );
+    stream.addListener(listener);
+    addTearDown(() => stream.removeListener(listener));
+
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+
+    expect(loaded.isCompleted, isTrue);
+  });
+
+  testWidgets('Figma normal Home renders at the approved 390x844 baseline', (
+    tester,
+  ) async {
+    await (FontLoader(
+      'Geist',
+    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
+    await (FontLoader(
+      'Fraunces',
+    )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: buildKandoTheme(),
+          home: const RepaintBoundary(
+            key: Key('home-figma-golden'),
+            child: HomePage(),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byKey(const Key('home-figma-golden')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_home_normal_131_21335_390x844.png',
+      ),
+    );
+  });
+
   testWidgets('Home shows the M4-1 dashboard information hierarchy', (
     tester,
   ) async {
     await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
 
     expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('PORTFOLIO'), findsOneWidget);
+    expect(find.text('PORTDOLIO'), findsOneWidget);
+    expect(find.text('PORTFOLIO'), findsNothing);
     expect(find.text('Main'), findsOneWidget);
-    expect(find.text(r'$12,840.00'), findsOneWidget);
+    expect(find.text(r'$12,450.80'), findsOneWidget);
     expect(find.text('1D'), findsOneWidget);
     expect(find.text('7D'), findsOneWidget);
     expect(find.text('15D'), findsOneWidget);
@@ -38,10 +129,67 @@ void main() {
     expect(find.text('6M'), findsNothing);
     expect(find.text('MAX'), findsNothing);
     expect(find.text('Most Valuable'), findsOneWidget);
-    expect(find.text('Charizard ex'), findsOneWidget);
+    expect(find.text('Pikachu'), findsWidgets);
+    expect(find.byKey(const Key('home-most-valuable-list')), findsOneWidget);
+    expect(
+      find.byKey(const Key('home-most-valuable-card-main-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('home-most-valuable-card-main-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('home-most-valuable-card-main-2')),
+      findsOneWidget,
+    );
     expect(find.text('Trending Today'), findsOneWidget);
-    expect(find.text('Umbreon VMAX'), findsOneWidget);
+    expect(find.text('Ragavan, Nimble Pilferer'), findsOneWidget);
   });
+
+  testWidgets('Overview uses the Figma filled 16px inverse label', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+
+    final overview = tester.widget<Text>(find.text('Overview'));
+    expect(overview.style?.fontSize, 16);
+    expect(overview.style?.color, const Color(0xFF303126));
+  });
+
+  testWidgets('Figma Home headings and card names use Fraunces', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+
+    expect(
+      tester.widget<Text>(find.text('Most Valuable')).style?.fontFamily,
+      'Fraunces',
+    );
+    expect(
+      tester.widget<Text>(find.text('Pikachu').first).style?.fontFamily,
+      'Fraunces',
+    );
+    expect(
+      tester
+          .widget<Text>(find.text('Ragavan, Nimble Pilferer'))
+          .style
+          ?.fontFamily,
+      'Fraunces',
+    );
+  });
+
+  testWidgets(
+    'Figma Home arrow assets render without a Material Icons font dependency',
+    (tester) async {
+      await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+
+      expect(find.byKey(const Key('home-currency-chevron')), findsOneWidget);
+      expect(find.byKey(const Key('home-view-all-arrow')), findsNWidgets(2));
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
+      expect(find.byIcon(Icons.arrow_forward), findsNothing);
+    },
+  );
 
   testWidgets(
     'folder picker changes portfolio sections but not Trending Today',
@@ -56,12 +204,12 @@ void main() {
       expect(find.text('Sealed'), findsOneWidget);
       expect(find.text(r'$8,640.00'), findsOneWidget);
       expect(find.text('Evolving Skies Booster Box'), findsOneWidget);
-      expect(find.text('Umbreon VMAX'), findsOneWidget);
+      expect(find.text('Ragavan, Nimble Pilferer'), findsOneWidget);
     },
   );
 
   testWidgets(
-    'currency picker converts money while percentages remain visible',
+    'currency picker converts the Figma portfolio and card price surfaces',
     (tester) async {
       await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
 
@@ -74,9 +222,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('EUR'), findsOneWidget);
-      expect(find.textContaining('1,684.40'), findsOneWidget);
-      expect(find.textContaining('382.20 in the last 30 days'), findsOneWidget);
-      expect(find.text('+3.38%'), findsOneWidget);
+      expect(find.textContaining('11,330.23'), findsOneWidget);
+      expect(find.textContaining('9,100,000'), findsWidgets);
     },
   );
 
@@ -87,9 +234,27 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(hiddenMoneyText), findsWidgets);
-    expect(find.text(r'$12,840.00'), findsNothing);
+    expect(find.text(r'$12,450.80'), findsNothing);
     expect(find.textContaining(r'$420.00'), findsNothing);
   });
+
+  testWidgets(
+    'Most Valuable change badges stay tied to the displayed card data after a portfolio switch',
+    (tester) async {
+      await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+
+      expect(find.text('+3.20%'), findsNWidgets(3));
+      expect(find.text('0.001%'), findsNothing);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sealed').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('+5.40%'), findsOneWidget);
+      expect(find.text('0.001%'), findsNothing);
+    },
+  );
 
   testWidgets('page failure shows Refresh and recovers without blanking nav', (
     tester,
@@ -112,7 +277,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Overview'), findsOneWidget);
-    expect(find.text(r'$12,840.00'), findsOneWidget);
+    expect(find.text(r'$12,450.80'), findsOneWidget);
     expect(repository.calls, 2);
   });
 

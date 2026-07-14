@@ -27,27 +27,43 @@ void main() {
       ]);
       expect(dashboard.defaultFolder.id, 'main');
       expect(dashboard.defaultFolder.isDefault, isTrue);
-      expect(mainPortfolio.totalValueUsd, 12840);
-      expect(mainPortfolio.previous30dValueUsd, 12420);
+      expect(mainPortfolio.totalValueUsd, 12450.8);
+      expect(mainPortfolio.previous30dValueUsd, 12030.8);
       expect(mainPortfolio.chartValuesByRange[HomeChartRange.fifteenDays], [
+        11800,
+        12350,
+        12800,
+        12450,
+        12050,
+        12300,
+        13250,
+        12700,
         11600,
-        12040,
-        12420,
-        12680,
-        12840,
+        12450.8,
       ]);
       expect(mainHighlight.title, 'Charizard ex');
       expect(mainHighlight.subtitle, 'PSA 10 · Holofoil');
       expect(mainHighlight.priceUsd, 780);
       expect(mainHighlight.previousPriceUsd, 721.55);
-      expect(dashboard.trending.first.title, 'Umbreon VMAX');
-      expect(dashboard.trending.first.previousPriceUsd, 365.42);
-      expect(state.totalAmountText, r'$12,840.00');
+      expect(dashboard.trending.first.title, 'Ragavan, Nimble Pilferer');
+      expect(dashboard.trending.first.previousPriceUsd, 10320000);
+      expect(state.totalAmountText, r'$12,450.80');
       expect(state.changeAmountText, r'$420.00 in the last 30 days');
-      expect(state.changePercentText, '+3.38%');
+      expect(state.changePercentText, '+3.49%');
       expect(
         state.selectedPortfolio.chartValuesByRange[HomeChartRange.fifteenDays],
-        [11600, 12040, 12420, 12680, 12840],
+        [
+          11800,
+          12350,
+          12800,
+          12450,
+          12050,
+          12300,
+          13250,
+          12700,
+          11600,
+          12450.8,
+        ],
       );
     },
   );
@@ -72,7 +88,7 @@ void main() {
 
       expect(restored.loadStatus, KandoLoadStatus.content);
       expect(restored.isUnavailable, isFalse);
-      expect(restored.totalAmountText, r'$12,840.00');
+      expect(restored.totalAmountText, r'$12,450.80');
       expect(repository.calls, 2);
     },
   );
@@ -111,19 +127,19 @@ void main() {
       final controller = container.read(homeControllerProvider.notifier);
       expect(
         container.read(homeControllerProvider).totalAmountText,
-        r'$12,840.00',
+        r'$12,450.80',
       );
       expect(
         container.read(homeControllerProvider).changePercentText,
-        '+3.38%',
+        '+3.49%',
       );
 
       controller.selectCurrency('EUR');
       final state = container.read(homeControllerProvider);
 
-      expect(state.totalAmountText, '€11,684.40');
+      expect(state.totalAmountText, '€11,330.23');
       expect(state.changeAmountText, '€382.20 in the last 30 days');
-      expect(state.changePercentText, '+3.38%');
+      expect(state.changePercentText, '+3.49%');
     },
   );
 
@@ -219,6 +235,25 @@ void main() {
     expect(container.read(homeControllerProvider).changePercentText, '-/-');
   });
 
+  test(
+    'dashboard selects an available chart range when a source omits the Figma default 15D series',
+    () {
+      final container = ProviderContainer(
+        overrides: [
+          homeRepositoryProvider.overrideWithValue(
+            const _NegativeChangeHomeRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final state = container.read(homeControllerProvider);
+
+      expect(state.chartRange, HomeChartRange.oneMonth);
+      expect(state.chartValues, [12840]);
+    },
+  );
+
   test('chart range switches the selected mock series', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -226,14 +261,31 @@ void main() {
     final controller = container.read(homeControllerProvider.notifier);
     expect(
       container.read(homeControllerProvider).chartRange,
-      HomeChartRange.oneMonth,
+      HomeChartRange.fifteenDays,
     );
+
+    controller.selectChartRange(HomeChartRange.oneMonth);
+
+    var state = container.read(homeControllerProvider);
+    expect(state.chartRange, HomeChartRange.oneMonth);
+    expect(state.chartValues, [10800, 11320, 11940, 12220, 12450.8]);
 
     controller.selectChartRange(HomeChartRange.fifteenDays);
 
-    final state = container.read(homeControllerProvider);
+    state = container.read(homeControllerProvider);
     expect(state.chartRange, HomeChartRange.fifteenDays);
-    expect(state.chartValues, [11600, 12040, 12420, 12680, 12840]);
+    expect(state.chartValues, [
+      11800,
+      12350,
+      12800,
+      12450,
+      12050,
+      12300,
+      13250,
+      12700,
+      11600,
+      12450.8,
+    ]);
   });
 }
 

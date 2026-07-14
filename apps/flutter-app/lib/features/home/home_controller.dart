@@ -74,8 +74,36 @@ class HomeState {
     return dashboard.mostValuableByFolderId[selectedFolder.id];
   }
 
+  List<HomeCardHighlight> get mostValuableCards {
+    final cards = dashboard.mostValuableCardsByFolderId[selectedFolder.id];
+    if (cards != null) {
+      return cards;
+    }
+
+    final card = mostValuable;
+    return card == null ? const [] : [card];
+  }
+
   List<double> get chartValues {
-    return selectedPortfolio.chartValuesByRange[chartRange]!;
+    final valuesByRange = selectedPortfolio.chartValuesByRange;
+    final selectedValues = valuesByRange[chartRange];
+    if (selectedValues != null) {
+      return selectedValues;
+    }
+
+    final oneMonthValues = valuesByRange[HomeChartRange.oneMonth];
+    if (oneMonthValues != null) {
+      return oneMonthValues;
+    }
+
+    for (final range in HomeChartRange.values) {
+      final values = valuesByRange[range];
+      if (values != null) {
+        return values;
+      }
+    }
+
+    return const [];
   }
 
   String get totalAmountText => _formatMoney(selectedPortfolio.totalValueUsd);
@@ -165,7 +193,9 @@ class HomeController extends Notifier<HomeState> {
         selectedFolderId: dashboard.defaultFolder.id,
         currency: selectedCurrency,
         amountHidden: false,
-        chartRange: HomeChartRange.oneMonth,
+        chartRange: _bestChartRange(
+          dashboard.portfoliosByFolderId[dashboard.defaultFolder.id]!,
+        ),
       );
     } catch (_) {
       return HomeState.unavailable(currency: selectedCurrency);
@@ -184,7 +214,13 @@ class HomeController extends Notifier<HomeState> {
       return;
     }
 
-    state = state.copyWith(selectedFolderId: folderId);
+    final portfolio =
+        state.dashboard.portfoliosByFolderId[folderId] ??
+        state.selectedPortfolio;
+    state = state.copyWith(
+      selectedFolderId: folderId,
+      chartRange: _bestChartRange(portfolio, preferred: state.chartRange),
+    );
   }
 
   void selectCurrency(String currencyCode) {
@@ -202,6 +238,36 @@ class HomeController extends Notifier<HomeState> {
   }
 
   void selectChartRange(HomeChartRange chartRange) {
+    if (!state.selectedPortfolio.chartValuesByRange.containsKey(chartRange)) {
+      return;
+    }
+
     state = state.copyWith(chartRange: chartRange);
+  }
+
+  HomeChartRange _bestChartRange(
+    PortfolioSummary portfolio, {
+    HomeChartRange? preferred,
+  }) {
+    final valuesByRange = portfolio.chartValuesByRange;
+    if (preferred != null && valuesByRange.containsKey(preferred)) {
+      return preferred;
+    }
+
+    if (valuesByRange.containsKey(HomeChartRange.fifteenDays)) {
+      return HomeChartRange.fifteenDays;
+    }
+
+    if (valuesByRange.containsKey(HomeChartRange.oneMonth)) {
+      return HomeChartRange.oneMonth;
+    }
+
+    for (final range in HomeChartRange.values) {
+      if (valuesByRange.containsKey(range)) {
+        return range;
+      }
+    }
+
+    return preferred ?? HomeChartRange.fifteenDays;
   }
 }
