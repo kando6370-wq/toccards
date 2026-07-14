@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -115,6 +116,12 @@ class _ScanPageState extends State<ScanPage> {
         candidates: ['Mega Lucario ex', 'Lucario ex', 'Riolu Promo'],
       ),
     );
+  }
+
+  void _cancelScanning() {
+    setState(() {
+      _items.removeWhere((item) => item.status == _ScanItemStatus.scanning);
+    });
   }
 
   void _deleteScan(_ScanItem item) {
@@ -243,10 +250,12 @@ class _ScanPageState extends State<ScanPage> {
               addedItems: _addedItems,
               lastAddedCount: _lastAddedCount,
               canReview: _canReview,
+              scanning: _hasScanning,
               onClosePressed: () => context.go('/'),
               onSearchPressed: () => context.go('/search'),
               onPhotoPressed: _startPhotoScan,
               onLibraryPressed: _startLibraryScan,
+              onCancelScanning: _cancelScanning,
               onReviewPressed: _openReview,
               onReviewItem: _openReview,
               onRetryItem: _retryScan,
@@ -266,10 +275,12 @@ class _ScanCameraView extends StatelessWidget {
     required this.addedItems,
     required this.lastAddedCount,
     required this.canReview,
+    required this.scanning,
     required this.onClosePressed,
     required this.onSearchPressed,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
+    required this.onCancelScanning,
     required this.onReviewPressed,
     required this.onReviewItem,
     required this.onRetryItem,
@@ -282,10 +293,12 @@ class _ScanCameraView extends StatelessWidget {
   final int? lastAddedCount;
 
   final bool canReview;
+  final bool scanning;
   final VoidCallback onClosePressed;
   final VoidCallback onSearchPressed;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
+  final VoidCallback onCancelScanning;
   final VoidCallback onReviewPressed;
   final ValueChanged<int?> onReviewItem;
   final ValueChanged<_ScanItem> onRetryItem;
@@ -343,29 +356,46 @@ class _ScanCameraView extends StatelessWidget {
           height: 59,
           child: ColoredBox(color: Color(0xFF10100B)),
         ),
-        Positioned(
-          top: 59,
-          left: 8,
-          right: 8,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ScanTopBar(
-                onClosePressed: onClosePressed,
-                onSearchPressed: onSearchPressed,
-              ),
-              const SizedBox(height: 2),
-              const _AlignCardPill(),
-            ],
+        if (!scanning)
+          Positioned(
+            top: 59,
+            left: 8,
+            right: 8,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ScanTopBar(
+                  onClosePressed: onClosePressed,
+                  onSearchPressed: onSearchPressed,
+                ),
+                const SizedBox(height: 2),
+                const _AlignCardPill(),
+              ],
+            ),
           ),
-        ),
         const Positioned(
           top: 163,
           left: 0,
           right: 0,
           child: Center(child: _ViewfinderCorners()),
         ),
-        if (items.isNotEmpty)
+        if (scanning) ...[
+          Positioned(
+            left: 35,
+            top: 221,
+            width: 320,
+            height: 87,
+            child: const _FigmaScanningLine(
+              key: Key('scan-figma-scanning-line'),
+            ),
+          ),
+          Positioned(
+            left: 137,
+            top: 679,
+            child: _ScanCancelButton(onPressed: onCancelScanning),
+          ),
+        ],
+        if (!scanning && items.isNotEmpty)
           Positioned(
             left: 16,
             right: 16,
@@ -385,20 +415,21 @@ class _ScanCameraView extends StatelessWidget {
               ),
             ),
           ),
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 22,
-          child: SafeArea(
-            top: false,
-            child: _ScanBottomControls(
-              canReview: canReview,
-              onPhotoPressed: onPhotoPressed,
-              onLibraryPressed: onLibraryPressed,
-              onReviewPressed: onReviewPressed,
+        if (!scanning)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 22,
+            child: SafeArea(
+              top: false,
+              child: _ScanBottomControls(
+                canReview: canReview,
+                onPhotoPressed: onPhotoPressed,
+                onLibraryPressed: onLibraryPressed,
+                onReviewPressed: onReviewPressed,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -515,6 +546,103 @@ class _AlignCardPill extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ScanCancelButton extends StatelessWidget {
+  const _ScanCancelButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: const Key('scan-figma-cancel'),
+        onTap: onPressed,
+        child: SizedBox(
+          width: 116,
+          height: 36,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 8.9, sigmaY: 8.9),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0x615F6054),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0x1FFFFFFF),
+                    width: 0.5,
+                  ),
+                ),
+                child: const Center(
+                  child: Text(
+                    'CANCEL',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Geist',
+                      fontSize: 13,
+                      height: 16 / 13,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FigmaScanningLine extends StatelessWidget {
+  const _FigmaScanningLine({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      key: const Key('scan-figma-scanning-line-canvas'),
+      painter: const _FigmaScanningLinePainter(),
+    );
+  }
+}
+
+class _FigmaScanningLinePainter extends CustomPainter {
+  const _FigmaScanningLinePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final arc = Path()
+      ..moveTo(160, 0)
+      ..cubicTo(240.081, 0, 305, 30.0542, 305, 67.1279)
+      ..lineTo(305, 68)
+      ..lineTo(15, 68)
+      ..cubicTo(15, 30.0542, 79.9189, 0, 160, 0)
+      ..close();
+    final arcPaint = Paint()
+      ..shader = const RadialGradient(
+        center: Alignment.bottomCenter,
+        radius: 1.15,
+        colors: [Color(0xBFF0FE6F), Color(0x00FFFFFF)],
+      ).createShader(const Rect.fromLTWH(15, 0, 290, 68));
+    canvas.drawPath(arc, arcPaint);
+
+    const lineRect = Rect.fromLTWH(15, 68, 290, 4);
+    final shader = const LinearGradient(
+      colors: [Color(0x00F1FE70), Color(0xB3F0FE6F), Color(0x00F1FE70)],
+    ).createShader(lineRect);
+    final glowPaint = Paint()
+      ..shader = shader
+      ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 7.5);
+    canvas.drawRect(lineRect, glowPaint);
+    canvas.drawRect(lineRect, Paint()..shader = shader);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FigmaScanningLinePainter oldDelegate) => false;
 }
 
 class _ScanBottomControls extends StatelessWidget {

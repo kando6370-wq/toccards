@@ -76,6 +76,43 @@ void main() {
     );
   });
 
+  testWidgets('Figma scan scanning renders at the 390x844 baseline', (
+    tester,
+  ) async {
+    await (FontLoader(
+      'Geist',
+    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: const RepaintBoundary(
+          key: Key('scan-scanning-figma-golden'),
+          child: ScanPage(),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+
+    await expectLater(
+      find.byKey(const Key('scan-scanning-figma-golden')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_scan_scanning_328_10705_390x844.png',
+      ),
+    );
+  });
+
   testWidgets(
     'Figma scan pre-scan uses exported icons without Material glyph fallback',
     (tester) async {
@@ -126,11 +163,19 @@ void main() {
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
 
-      expect(find.text('Scanning'), findsOneWidget);
-      final scanningDone = tester.widget<TextButton>(
-        find.widgetWithText(TextButton, 'DONE'),
+      expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
+      expect(
+        find.byKey(const Key('scan-figma-scanning-line-canvas')),
+        findsOneWidget,
       );
-      expect(scanningDone.onPressed, isNull);
+      expect(
+        tester.getTopLeft(find.byKey(const Key('scan-figma-scanning-line'))).dy,
+        221,
+      );
+      expect(find.text('CANCEL'), findsOneWidget);
+      expect(find.text('Scanning'), findsNothing);
+      expect(find.byTooltip('Take Photo'), findsNothing);
+      expect(find.byTooltip('Choose from Library'), findsNothing);
 
       await tester.pump(const Duration(seconds: 1));
 
@@ -158,6 +203,25 @@ void main() {
     },
   );
 
+  testWidgets('Cancel discards an unfinished Figma scan', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await _pumpScanTestApp(tester);
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
+    await tester.tap(find.text('CANCEL'));
+    await tester.pump();
+
+    expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
+    expect(find.byTooltip('Take Photo'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Matched'), findsNothing);
+  });
+
   testWidgets(
     'No Match scan offers Search Manually because unmatched cards cannot enter review',
     (tester) async {
@@ -182,19 +246,26 @@ void main() {
   );
 
   testWidgets(
-    'Scan supports multiple results and only Matched items enter Add all review',
+    'Scan completes each capture before accepting the next Figma scan',
     (tester) async {
       await _pumpScanTestApp(tester);
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
+      expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
+      expect(find.byTooltip('Take Photo'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 1));
+
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
+      expect(find.byTooltip('Take Photo'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 1));
+
       await tester.tap(find.byTooltip('Choose from Library'));
       await tester.pump();
-
-      expect(find.text('Scanning'), findsNWidgets(3));
-      expect(find.byTooltip('Take Photo'), findsOneWidget);
+      expect(find.byTooltip('Choose from Library'), findsNothing);
 
       await tester.pump(const Duration(seconds: 1));
 
