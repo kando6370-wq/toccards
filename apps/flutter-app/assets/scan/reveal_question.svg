@@ -1,0 +1,4 @@
+<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" viewBox="0 0 10 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 5C0 4 0.2 3.2 0.4 2.7C0.6 2.2 1 1.7 1.5 1.3C2 0.8 2.5 0.5 3.2 0.3C3.8 0.1 4.4 0 5.1 0C6.5 0 7.6 0.4 8.6 1.2C9.5 2 10 3 10 4.3C10 4.9 9.8 5.4 9.6 5.9C9.4 6.4 8.9 7 8.1 7.7C7.3 8.4 7 8.9 6.7 9.2C6.4 9.5 6.3 9.9 6.1 10.3C5.9 10.7 6 11 6 12H4C4 11 4.1 10.5 4.2 10C4.3 9.5 4.5 9.1 4.8 8.7C5.1 8.3 5.4 7.8 6.1 7.1C6.8 6.4 7.3 5.9 7.5 5.6C7.7 5.3 7.9 4.8 7.9 4.1C7.9 3.4 7.6 2.9 7.1 2.4C6.6 1.9 5.9 1.6 5 1.6C3 1.6 2 3 2 5H0ZM6 16H4V14H6V16Z" fill="url(#question-gradient)"/>
+<defs><linearGradient id="question-gradient" x1="5" y1="0" x2="5.3731" y2="19.5399" gradientUnits="userSpaceOnUse"><stop stop-color="#F0FE6F" stop-opacity="0.2"/><stop offset="1" stop-color="#F0FE6F" stop-opacity="0.05"/></linearGradient></defs>
+</svg>

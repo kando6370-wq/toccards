@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +10,7 @@ import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
+import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
@@ -57,9 +60,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildKandoTheme(),
-        home: const RepaintBoundary(
-          key: Key('scan-figma-golden'),
-          child: ScanPage(),
+        home: const ProviderScope(
+          child: RepaintBoundary(
+            key: Key('scan-figma-golden'),
+            child: ScanPage(),
+          ),
         ),
       ),
     );
@@ -89,9 +94,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildKandoTheme(),
-        home: const RepaintBoundary(
-          key: Key('scan-scanning-figma-golden'),
-          child: ScanPage(),
+        home: const ProviderScope(
+          child: RepaintBoundary(
+            key: Key('scan-scanning-figma-golden'),
+            child: ScanPage(),
+          ),
         ),
       ),
     );
@@ -153,9 +160,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildKandoTheme(),
-        home: const RepaintBoundary(
-          key: Key('scan-recognizing-figma-golden'),
-          child: ScanPage(),
+        home: const ProviderScope(
+          child: RepaintBoundary(
+            key: Key('scan-recognizing-figma-golden'),
+            child: ScanPage(),
+          ),
         ),
       ),
     );
@@ -172,6 +181,202 @@ void main() {
         'goldens/rendered/figma_scan_recognizing_328_13609_390x844.png',
       ),
     );
+  });
+
+  testWidgets(
+    'Figma scan reveal restores camera controls before returning a match',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(
+        find.byKey(const Key('scan-figma-revealing-toast')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-figma-revealing-toast-glow')),
+        findsOneWidget,
+      );
+      expect(find.text('Scanning...'), findsOneWidget);
+      expect(find.text('ALIGN CARD HERE'), findsOneWidget);
+      expect(find.byTooltip('Take Photo'), findsOneWidget);
+      expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
+      expect(find.text('Matched'), findsNothing);
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'DONE'))
+            .onPressed,
+        isNull,
+      );
+    },
+  );
+
+  testWidgets('Figma scan reveal renders at the 390x844 baseline', (
+    tester,
+  ) async {
+    await (FontLoader(
+      'Geist',
+    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: const ProviderScope(
+          child: RepaintBoundary(
+            key: Key('scan-revealing-figma-golden'),
+            child: ScanPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 1500));
+
+    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 31);
+    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 741);
+
+    await expectLater(
+      find.byKey(const Key('scan-revealing-figma-golden')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_scan_revealing_328_13645_390x844.png',
+      ),
+    );
+  });
+
+  testWidgets(
+    'Dismissing Figma scan feedback does not discard its pending result',
+    (tester) async {
+      final result = Completer<ScanResolution>();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(photoResult: result.future),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 800));
+      await tester.tap(find.byKey(const Key('scan-figma-revealing-dismiss')));
+      await tester.pump();
+
+      expect(find.byKey(const Key('scan-figma-revealing-toast')), findsNothing);
+      expect(find.text('Matched'), findsNothing);
+
+      result.complete(
+        const ScanResolution.matched(
+          matchName: 'Mega Lucario ex',
+          candidates: ['Mega Lucario ex'],
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump();
+      expect(find.text('Matched'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Figma scan waits for its reveal animation before showing a completed recognition',
+    (tester) async {
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(
+            const ScanResolution.matched(
+              matchName: 'Mega Lucario ex',
+              candidates: ['Mega Lucario ex'],
+            ),
+          ),
+        ),
+        tickerEnabled: false,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(
+        find.byKey(const Key('scan-figma-revealing-toast')),
+        findsOneWidget,
+      );
+      expect(find.text('Matched'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'A delayed Figma recognition remains in reveal feedback until it resolves',
+    (tester) async {
+      final result = Completer<ScanResolution>();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(photoResult: result.future),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 1530));
+
+      expect(
+        find.byKey(const Key('scan-figma-revealing-toast')),
+        findsOneWidget,
+      );
+      expect(find.text('Matched'), findsNothing);
+
+      result.complete(
+        const ScanResolution.matched(
+          matchName: 'Mega Lucario ex',
+          candidates: ['Mega Lucario ex'],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Matched'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Cancelling a Figma scan ignores its eventual recognition', (
+    tester,
+  ) async {
+    final result = Completer<ScanResolution>();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(photoResult: result.future),
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
+    await tester.tap(find.text('CANCEL'));
+    await tester.pump();
+
+    result.complete(
+      const ScanResolution.matched(
+        matchName: 'Mega Lucario ex',
+        candidates: ['Mega Lucario ex'],
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 1530));
+
+    expect(find.text('Matched'), findsNothing);
   });
 
   testWidgets(
@@ -238,7 +443,7 @@ void main() {
       expect(find.byTooltip('Take Photo'), findsNothing);
       expect(find.byTooltip('Choose from Library'), findsNothing);
 
-      await tester.pump(const Duration(seconds: 2));
+      await _completeFigmaScan(tester);
 
       expect(find.text('Matched'), findsOneWidget);
       expect(find.text('Mega Lucario ex'), findsWidgets);
@@ -279,7 +484,7 @@ void main() {
     expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
     expect(find.byTooltip('Take Photo'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 4));
     expect(find.text('Matched'), findsNothing);
   });
 
@@ -300,6 +505,7 @@ void main() {
     expect(find.text('CANCEL'), findsNothing);
 
     await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 1530));
     expect(find.text('Matched'), findsOneWidget);
     expect(find.text('No Match Found'), findsNothing);
   });
@@ -310,7 +516,7 @@ void main() {
       await _pumpScanTestApp(tester);
 
       await tester.tap(find.byTooltip('Choose from Library'));
-      await tester.pump(const Duration(seconds: 2));
+      await _completeFigmaScan(tester);
 
       expect(find.text('No Match Found'), findsOneWidget);
       expect(find.text('Search Manually'), findsOneWidget);
@@ -337,19 +543,19 @@ void main() {
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
       expect(find.byTooltip('Take Photo'), findsNothing);
 
-      await tester.pump(const Duration(seconds: 2));
+      await _completeFigmaScan(tester);
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
       expect(find.byTooltip('Take Photo'), findsNothing);
 
-      await tester.pump(const Duration(seconds: 2));
+      await _completeFigmaScan(tester);
 
       await tester.tap(find.byTooltip('Choose from Library'));
       await tester.pump();
       expect(find.byTooltip('Choose from Library'), findsNothing);
 
-      await tester.pump(const Duration(seconds: 2));
+      await _completeFigmaScan(tester);
 
       expect(find.text('Mega Lucario ex'), findsOneWidget);
       expect(find.text('Failed'), findsOneWidget);
@@ -364,7 +570,7 @@ void main() {
       expect(doneWithMatched.onPressed, isNotNull);
 
       await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(seconds: 2));
+      await _completeFigmaScan(tester);
       await tester.tap(find.text('DONE'));
       await tester.pumpAndSettle();
 
@@ -402,16 +608,58 @@ void main() {
   });
 }
 
-Future<void> _pumpScanTestApp(WidgetTester tester) async {
+Future<void> _completeFigmaScan(WidgetTester tester) async {
+  await tester.pump(const Duration(seconds: 1));
+  await tester.pump(const Duration(seconds: 1));
+  await tester.pump(const Duration(milliseconds: 1530));
+}
+
+Future<void> _pumpScanTestApp(
+  WidgetTester tester, {
+  ScanResultSource? scanResultSource,
+  bool tickerEnabled = true,
+}) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pumpAndSettle();
   await tester.pumpWidget(
     ProviderScope(
-      overrides: _searchOverrides(),
-      child: const _ScanTestAppWithRoutes(),
+      overrides: [
+        ..._searchOverrides(),
+        if (scanResultSource != null)
+          scanResultSourceProvider.overrideWithValue(scanResultSource),
+      ],
+      child: TickerMode(
+        enabled: tickerEnabled,
+        child: const _ScanTestAppWithRoutes(),
+      ),
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _TestScanResultSource implements ScanResultSource {
+  _TestScanResultSource({
+    required Future<ScanResolution> photoResult,
+    Future<ScanResolution>? libraryResult,
+    Future<ScanResolution>? retryResult,
+  }) : _photoResult = photoResult,
+       _libraryResult =
+           libraryResult ?? Future.value(const ScanResolution.noMatch()),
+       _retryResult =
+           retryResult ?? Future.value(const ScanResolution.failed());
+
+  final Future<ScanResolution> _photoResult;
+  final Future<ScanResolution> _libraryResult;
+  final Future<ScanResolution> _retryResult;
+
+  @override
+  Future<ScanResolution> library() => _libraryResult;
+
+  @override
+  Future<ScanResolution> photo() => _photoResult;
+
+  @override
+  Future<ScanResolution> retry() => _retryResult;
 }
 
 _searchOverrides() {

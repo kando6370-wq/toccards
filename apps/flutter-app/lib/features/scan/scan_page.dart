@@ -2,10 +2,20 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/features/scan/scan_result_source.dart';
 
-enum _ScanItemStatus { scanning, recognizing, matched, failed, noMatch, added }
+enum _ScanItemStatus {
+  scanning,
+  recognizing,
+  revealing,
+  matched,
+  failed,
+  noMatch,
+  added,
+}
 
 class _ScanMatch {
   const _ScanMatch({required this.name, required this.candidates});
@@ -37,28 +47,44 @@ class _ScanItem {
   }
 }
 
-class ScanPage extends StatefulWidget {
+class _PendingScan {
+  _PendingScan(this.token);
+
+  final int token;
+  ScanResolution? resolution;
+  var revealTimelineFinished = false;
+}
+
+class ScanPage extends ConsumerStatefulWidget {
   const ScanPage({super.key});
 
   @override
-  State<ScanPage> createState() => _ScanPageState();
+  ConsumerState<ScanPage> createState() => _ScanPageState();
 }
 
-class _ScanPageState extends State<ScanPage> {
+class _ScanPageState extends ConsumerState<ScanPage>
+    with SingleTickerProviderStateMixin {
+  static const _revealTimelineDuration = Duration(microseconds: 1529856);
+
   final List<_ScanItem> _items = [];
   final List<Timer> _scanTimers = [];
+  final Map<int, _PendingScan> _pendingScans = {};
+
+  late final AnimationController _revealController;
 
   var _nextScanId = 1;
-  var _photoScanCount = 0;
+  var _nextScanToken = 1;
   var _reviewing = false;
   int? _selectedReviewItemId;
   int? _lastAddedCount;
+  int? _dismissedFeedbackItemId;
 
   bool get _hasScanning {
     return _items.any(
       (item) =>
           item.status == _ScanItemStatus.scanning ||
-          item.status == _ScanItemStatus.recognizing,
+          item.status == _ScanItemStatus.recognizing ||
+          item.status == _ScanItemStatus.revealing,
     );
   }
 
@@ -68,6 +94,18 @@ class _ScanPageState extends State<ScanPage> {
 
   bool get _isRecognizing {
     return _items.any((item) => item.status == _ScanItemStatus.recognizing);
+  }
+
+  bool get _isRevealing {
+    return _items.any((item) => item.status == _ScanItemStatus.revealing);
+  }
+
+  bool get _showRevealingFeedback {
+    final revealingItem = _items
+        .where((item) => item.status == _ScanItemStatus.revealing)
+        .firstOrNull;
+    return revealingItem != null &&
+        revealingItem.id != _dismissedFeedbackItemId;
   }
 
   List<_ScanItem> get _matchedItems {
@@ -87,10 +125,21 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _revealController = AnimationController(
+      vsync: this,
+      duration: _revealTimelineDuration,
+    );
+  }
+
+  @override
   void dispose() {
     for (final timer in _scanTimers) {
       timer.cancel();
     }
+    _pendingScans.clear();
+    _revealController.dispose();
     super.dispose();
   }
 
@@ -98,30 +147,14 @@ class _ScanPageState extends State<ScanPage> {
     if (_hasScanning) {
       return;
     }
-    _photoScanCount += 1;
-    final result = _photoScanCount == 2
-        ? _ScanItemStatus.failed
-        : _ScanItemStatus.matched;
-    final match = _photoScanCount >= 3
-        ? const _ScanMatch(
-            name: 'Charizard ex',
-            candidates: ['Charizard ex', 'Charmander Promo', 'Charmeleon'],
-          )
-        : const _ScanMatch(
-            name: 'Mega Lucario ex',
-            candidates: ['Mega Lucario ex', 'Lucario ex', 'Riolu Promo'],
-          );
-    _addScan(
-      result: result,
-      match: result == _ScanItemStatus.matched ? match : null,
-    );
+    _addScan(Future.sync(() => ref.read(scanResultSourceProvider).photo()));
   }
 
   void _startLibraryScan() {
     if (_hasScanning) {
       return;
     }
-    _addScan(result: _ScanItemStatus.noMatch);
+    _addScan(Future.sync(() => ref.read(scanResultSourceProvider).library()));
   }
 
   void _retryScan(_ScanItem item) {
@@ -129,27 +162,51 @@ class _ScanPageState extends State<ScanPage> {
       return;
     }
     _replaceItem(item.copyWith(status: _ScanItemStatus.scanning));
-    _scheduleResult(
+    _startScanTimeline(
       item.id,
-      result: _ScanItemStatus.matched,
-      match: const _ScanMatch(
-        name: 'Mega Lucario ex',
-        candidates: ['Mega Lucario ex', 'Lucario ex', 'Riolu Promo'],
-      ),
+      Future.sync(() => ref.read(scanResultSourceProvider).retry()),
     );
   }
 
   void _cancelScanning() {
+    _revealController.stop();
+    final activeItemIds = _items
+        .where(
+          (item) =>
+              item.status == _ScanItemStatus.scanning ||
+              item.status == _ScanItemStatus.recognizing ||
+              item.status == _ScanItemStatus.revealing,
+        )
+        .map((item) => item.id)
+        .toSet();
     setState(() {
       _items.removeWhere(
         (item) =>
             item.status == _ScanItemStatus.scanning ||
-            item.status == _ScanItemStatus.recognizing,
+            item.status == _ScanItemStatus.recognizing ||
+            item.status == _ScanItemStatus.revealing,
       );
+      if (activeItemIds.contains(_dismissedFeedbackItemId)) {
+        _dismissedFeedbackItemId = null;
+      }
     });
+    for (final itemId in activeItemIds) {
+      _pendingScans.remove(itemId);
+    }
+  }
+
+  void _dismissScanFeedback() {
+    final revealingItem = _items
+        .where((item) => item.status == _ScanItemStatus.revealing)
+        .firstOrNull;
+    if (revealingItem == null) {
+      return;
+    }
+    setState(() => _dismissedFeedbackItemId = revealingItem.id);
   }
 
   void _deleteScan(_ScanItem item) {
+    _pendingScans.remove(item.id);
     setState(() {
       _items.removeWhere((candidate) => candidate.id == item.id);
       if (_selectedReviewItemId == item.id) {
@@ -158,11 +215,12 @@ class _ScanPageState extends State<ScanPage> {
     });
   }
 
-  void _addScan({_ScanItemStatus? result, _ScanMatch? match}) {
+  void _addScan(Future<ScanResolution> resultFuture) {
     final id = _nextScanId;
     _nextScanId += 1;
     setState(() {
       _lastAddedCount = null;
+      _dismissedFeedbackItemId = null;
       _items.add(
         _ScanItem(
           id: id,
@@ -171,48 +229,164 @@ class _ScanPageState extends State<ScanPage> {
         ),
       );
     });
-    _scheduleResult(
-      id,
-      result: result ?? _ScanItemStatus.matched,
-      match: match,
-    );
+    _startScanTimeline(id, resultFuture);
   }
 
-  void _scheduleResult(
-    int itemId, {
-    required _ScanItemStatus result,
-    _ScanMatch? match,
-  }) {
+  void _startScanTimeline(int itemId, Future<ScanResolution> resultFuture) {
+    final token = _nextScanToken;
+    _nextScanToken += 1;
+    _pendingScans[itemId] = _PendingScan(token);
+    _watchScanResolution(itemId, token, resultFuture);
+
     final timer = Timer(const Duration(seconds: 1), () {
-      if (!mounted) {
-        return;
-      }
-      final existing = _items.where((item) => item.id == itemId).firstOrNull;
-      if (existing == null || existing.status != _ScanItemStatus.scanning) {
+      final existing = _currentItem(
+        itemId,
+        token,
+        expectedStatus: _ScanItemStatus.scanning,
+      );
+      if (existing == null) {
         return;
       }
       _replaceItem(existing.copyWith(status: _ScanItemStatus.recognizing));
-      _scheduleRecognizedResult(itemId, result: result, match: match);
+      _scheduleReveal(itemId, token);
     });
     _scanTimers.add(timer);
   }
 
-  void _scheduleRecognizedResult(
-    int itemId, {
-    required _ScanItemStatus result,
-    _ScanMatch? match,
-  }) {
+  void _scheduleReveal(int itemId, int token) {
     final timer = Timer(const Duration(seconds: 1), () {
-      if (!mounted) {
+      final existing = _currentItem(
+        itemId,
+        token,
+        expectedStatus: _ScanItemStatus.recognizing,
+      );
+      if (existing == null) {
         return;
       }
-      final existing = _items.where((item) => item.id == itemId).firstOrNull;
-      if (existing == null || existing.status != _ScanItemStatus.recognizing) {
-        return;
-      }
-      _replaceItem(existing.copyWith(status: result, match: match));
+      _replaceItem(existing.copyWith(status: _ScanItemStatus.revealing));
+      _startReveal(itemId, token);
     });
     _scanTimers.add(timer);
+  }
+
+  void _startReveal(int itemId, int token) {
+    final disableAnimations = MediaQuery.of(context).disableAnimations;
+    if (disableAnimations) {
+      _revealController.value = 1;
+      _markRevealTimelineFinished(itemId, token);
+    } else {
+      _waitForRevealTimeline(itemId, token);
+    }
+  }
+
+  Future<void> _waitForRevealTimeline(int itemId, int token) async {
+    try {
+      await _revealController.forward(from: 0).orCancel;
+    } on TickerCanceled {
+      return;
+    }
+    _markRevealTimelineFinished(itemId, token);
+  }
+
+  void _markRevealTimelineFinished(int itemId, int token) {
+    final existing = _currentItem(
+      itemId,
+      token,
+      expectedStatus: _ScanItemStatus.revealing,
+    );
+    if (existing == null) {
+      return;
+    }
+    final pending = _pendingScans[itemId];
+    if (pending == null || pending.token != token) {
+      return;
+    }
+    pending.revealTimelineFinished = true;
+    _completeScanIfReady(itemId, token);
+  }
+
+  Future<void> _watchScanResolution(
+    int itemId,
+    int token,
+    Future<ScanResolution> resultFuture,
+  ) async {
+    ScanResolution resolution;
+    try {
+      resolution = await resultFuture;
+    } catch (_) {
+      resolution = const ScanResolution.failed();
+    }
+
+    final pending = _pendingScans[itemId];
+    if (!mounted || pending == null || pending.token != token) {
+      return;
+    }
+    pending.resolution = resolution;
+    _completeScanIfReady(itemId, token);
+  }
+
+  _ScanItem? _currentItem(
+    int itemId,
+    int token, {
+    _ScanItemStatus? expectedStatus,
+  }) {
+    if (!mounted) {
+      return null;
+    }
+    final pending = _pendingScans[itemId];
+    if (pending == null || pending.token != token) {
+      return null;
+    }
+    final item = _items.where((item) => item.id == itemId).firstOrNull;
+    if (item == null ||
+        (expectedStatus != null && item.status != expectedStatus)) {
+      return null;
+    }
+    return item;
+  }
+
+  void _completeScanIfReady(int itemId, int token) {
+    final item = _currentItem(
+      itemId,
+      token,
+      expectedStatus: _ScanItemStatus.revealing,
+    );
+    final pending = _pendingScans[itemId];
+    if (item == null ||
+        pending == null ||
+        pending.token != token ||
+        !pending.revealTimelineFinished ||
+        pending.resolution == null) {
+      return;
+    }
+
+    final resolution = pending.resolution!;
+    final status = switch (resolution.kind) {
+      ScanResolutionKind.matched when resolution.matchName != null =>
+        _ScanItemStatus.matched,
+      ScanResolutionKind.matched ||
+      ScanResolutionKind.failed => _ScanItemStatus.failed,
+      ScanResolutionKind.noMatch => _ScanItemStatus.noMatch,
+    };
+    final match = status == _ScanItemStatus.matched
+        ? _ScanMatch(
+            name: resolution.matchName!,
+            candidates: resolution.candidates,
+          )
+        : null;
+
+    _pendingScans.remove(itemId);
+    setState(() {
+      for (var index = 0; index < _items.length; index += 1) {
+        if (_items[index].id == itemId) {
+          _items[index] = item.copyWith(status: status, match: match);
+          break;
+        }
+      }
+      if (_dismissedFeedbackItemId == itemId) {
+        _dismissedFeedbackItemId = null;
+      }
+    });
   }
 
   void _replaceItem(_ScanItem next) {
@@ -296,11 +470,15 @@ class _ScanPageState extends State<ScanPage> {
               canReview: _canReview,
               scanning: _isScanning,
               recognizing: _isRecognizing,
+              revealing: _isRevealing,
+              showRevealingFeedback: _showRevealingFeedback,
+              revealAnimation: _revealController,
               onClosePressed: () => context.go('/'),
               onSearchPressed: () => context.go('/search'),
               onPhotoPressed: _startPhotoScan,
               onLibraryPressed: _startLibraryScan,
               onCancelScanning: _cancelScanning,
+              onDismissScanFeedback: _dismissScanFeedback,
               onReviewPressed: _openReview,
               onReviewItem: _openReview,
               onRetryItem: _retryScan,
@@ -322,11 +500,15 @@ class _ScanCameraView extends StatelessWidget {
     required this.canReview,
     required this.scanning,
     required this.recognizing,
+    required this.revealing,
+    required this.showRevealingFeedback,
+    required this.revealAnimation,
     required this.onClosePressed,
     required this.onSearchPressed,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
     required this.onCancelScanning,
+    required this.onDismissScanFeedback,
     required this.onReviewPressed,
     required this.onReviewItem,
     required this.onRetryItem,
@@ -341,11 +523,15 @@ class _ScanCameraView extends StatelessWidget {
   final bool canReview;
   final bool scanning;
   final bool recognizing;
+  final bool revealing;
+  final bool showRevealingFeedback;
+  final Animation<double> revealAnimation;
   final VoidCallback onClosePressed;
   final VoidCallback onSearchPressed;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
   final VoidCallback onCancelScanning;
+  final VoidCallback onDismissScanFeedback;
   final VoidCallback onReviewPressed;
   final ValueChanged<int?> onReviewItem;
   final ValueChanged<_ScanItem> onRetryItem;
@@ -356,29 +542,45 @@ class _ScanCameraView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Positioned.fill(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Align(
-                alignment: Alignment.topCenter,
-                child: SizedBox(
-                  width: constraints.maxWidth,
-                  height: constraints.maxHeight < 884
-                      ? 884
-                      : constraints.maxHeight,
-                  child: Image.asset(
-                    'assets/scan/camera_before.png',
-                    key: const Key('scan-figma-camera-background'),
-                    fit: BoxFit.cover,
-                    filterQuality: FilterQuality.high,
+        if (revealing)
+          Positioned(
+            left: -205,
+            top: -27,
+            width: 595,
+            height: 1348,
+            child: Image.asset(
+              'assets/scan/camera_before.png',
+              key: const Key('scan-figma-revealing-background'),
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.high,
+            ),
+          )
+        else
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: constraints.maxWidth,
+                    height: constraints.maxHeight < 884
+                        ? 884
+                        : constraints.maxHeight,
+                    child: Image.asset(
+                      'assets/scan/camera_before.png',
+                      key: const Key('scan-figma-camera-background'),
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
         if (recognizing)
           const Positioned.fill(child: _FigmaRecognizingOverlay())
+        else if (revealing)
+          const Positioned.fill(child: _FigmaRevealingOverlay())
         else ...[
           Positioned.fill(
             child: ColoredBox(
@@ -412,16 +614,25 @@ class _ScanCameraView extends StatelessWidget {
             top: 59,
             left: 8,
             right: 8,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ScanTopBar(
-                  onClosePressed: onClosePressed,
-                  onSearchPressed: onSearchPressed,
-                ),
-                const SizedBox(height: 2),
-                const _AlignCardPill(),
-              ],
+            child: _FigmaRevealEntrance(
+              animation: revealAnimation,
+              active: revealing,
+              opacityStart: 0,
+              opacityEnd: 0.26146,
+              translateStart: 0,
+              translateEnd: 0.39219,
+              initialOffsetY: -40,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ScanTopBar(
+                    onClosePressed: onClosePressed,
+                    onSearchPressed: onSearchPressed,
+                  ),
+                  const SizedBox(height: 2),
+                  const _AlignCardPill(),
+                ],
+              ),
             ),
           ),
         Positioned(
@@ -429,7 +640,9 @@ class _ScanCameraView extends StatelessWidget {
           left: 0,
           right: 0,
           child: Center(
-            child: _ViewfinderCorners(focusFrameShadow: recognizing),
+            child: _ViewfinderCorners(
+              focusFrameShadow: recognizing || revealing,
+            ),
           ),
         ),
         if (scanning) ...[
@@ -448,7 +661,23 @@ class _ScanCameraView extends StatelessWidget {
             child: _ScanCancelButton(onPressed: onCancelScanning),
           ),
         ],
-        if (!scanning && !recognizing && items.isNotEmpty)
+        if (revealing && showRevealingFeedback)
+          Positioned(
+            left: 16,
+            top: 627,
+            child: _FigmaRevealEntrance(
+              animation: revealAnimation,
+              active: true,
+              opacityStart: 0.13073,
+              opacityEnd: 0.39219,
+              translateStart: 0.13073,
+              translateEnd: 0.52293,
+              initialOffsetY: -200,
+              translationCurve: const Cubic(0.7, -0.4, 0.4, 1.4),
+              child: _ScanRevealingToast(onClosePressed: onDismissScanFeedback),
+            ),
+          ),
+        if (!scanning && !recognizing && !revealing && items.isNotEmpty)
           Positioned(
             left: 16,
             right: 16,
@@ -472,14 +701,25 @@ class _ScanCameraView extends StatelessWidget {
           Positioned(
             left: 16,
             right: 16,
-            bottom: 22,
-            child: SafeArea(
-              top: false,
-              child: _ScanBottomControls(
-                canReview: canReview,
-                onPhotoPressed: onPhotoPressed,
-                onLibraryPressed: onLibraryPressed,
-                onReviewPressed: onReviewPressed,
+            bottom: revealing ? 19 : 22,
+            child: _FigmaRevealEntrance(
+              animation: revealAnimation,
+              active: revealing,
+              opacityStart: 0.52293,
+              opacityEnd: 0.84834,
+              translateStart: 0.52293,
+              translateEnd: 0.91512,
+              initialOffsetY: -25,
+              opacityCurve: const _FigmaSpringCurve(),
+              child: SafeArea(
+                top: false,
+                child: _ScanBottomControls(
+                  canReview: canReview,
+                  centered: revealing,
+                  onPhotoPressed: onPhotoPressed,
+                  onLibraryPressed: onLibraryPressed,
+                  onReviewPressed: onReviewPressed,
+                ),
               ),
             ),
           ),
@@ -701,25 +941,30 @@ class _FigmaScanningLinePainter extends CustomPainter {
 class _ScanBottomControls extends StatelessWidget {
   const _ScanBottomControls({
     required this.canReview,
+    required this.centered,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
     required this.onReviewPressed,
   });
 
   final bool canReview;
+  final bool centered;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
   final VoidCallback onReviewPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final controls = Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: centered
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.end,
       children: [
         _ScanSideAction(
           label: 'GALLERY',
           tooltip: 'Choose from Library',
+          width: centered ? 62 : 72,
           icon: SvgPicture.asset(
             'assets/scan/gallery.svg',
             key: const Key('scan-figma-gallery-icon'),
@@ -800,6 +1045,12 @@ class _ScanBottomControls extends StatelessWidget {
         ),
       ],
     );
+    return centered
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: controls,
+          )
+        : controls;
   }
 }
 
@@ -807,19 +1058,21 @@ class _ScanSideAction extends StatelessWidget {
   const _ScanSideAction({
     required this.label,
     required this.tooltip,
+    required this.width,
     required this.icon,
     required this.onPressed,
   });
 
   final String label;
   final String tooltip;
+  final double width;
   final Widget icon;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 72,
+      width: width,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -918,6 +1171,345 @@ class _FigmaRecognizingOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _FigmaRecognizingOverlayPainter oldDelegate) =>
       false;
+}
+
+class _FigmaRevealingOverlay extends StatelessWidget {
+  const _FigmaRevealingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: constraints.maxWidth,
+            height: constraints.maxHeight < 884 ? 884 : constraints.maxHeight,
+            child: CustomPaint(
+              key: const Key('scan-figma-revealing-overlay'),
+              painter: const _FigmaRevealingOverlayPainter(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FigmaRevealingOverlayPainter extends CustomPainter {
+  const _FigmaRevealingOverlayPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const designSize = Size(390, 884);
+    canvas.save();
+    canvas.scale(
+      size.width / designSize.width,
+      size.height / designSize.height,
+    );
+
+    final vignette = Paint()
+      ..shader = ui.Gradient.radial(
+        const Offset(195, 442),
+        483.1,
+        const [Color(0x000D0F08), Color(0xD90D0F08)],
+        const [0.6, 1],
+      );
+    canvas.drawRect(Offset.zero & designSize, vignette);
+
+    final dimOutsideViewfinder = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & designSize)
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(55, 163, 280, 400),
+          const Radius.circular(16),
+        ),
+      );
+    canvas.drawPath(
+      dimOutsideViewfinder,
+      Paint()..color = const Color(0x66000000),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _FigmaRevealingOverlayPainter oldDelegate) =>
+      false;
+}
+
+class _FigmaRevealEntrance extends StatelessWidget {
+  const _FigmaRevealEntrance({
+    required this.animation,
+    required this.active,
+    required this.opacityStart,
+    required this.opacityEnd,
+    required this.translateStart,
+    required this.translateEnd,
+    required this.initialOffsetY,
+    required this.child,
+    this.translationCurve = const _FigmaSpringCurve(),
+    this.opacityCurve = const Cubic(0.5, 0, 0.5, 1),
+  });
+
+  final Animation<double> animation;
+  final bool active;
+  final double opacityStart;
+  final double opacityEnd;
+  final double translateStart;
+  final double translateEnd;
+  final double initialOffsetY;
+  final Curve translationCurve;
+  final Curve opacityCurve;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!active) {
+      return child;
+    }
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        final opacity = _figmaInterval(
+          animation.value,
+          opacityStart,
+          opacityEnd,
+          opacityCurve,
+        );
+        final translate = _figmaInterval(
+          animation.value,
+          translateStart,
+          translateEnd,
+          translationCurve,
+        );
+        return IgnorePointer(
+          ignoring: opacity == 0,
+          child: Opacity(
+            opacity: opacity.clamp(0, 1).toDouble(),
+            child: Transform.translate(
+              offset: Offset(0, initialOffsetY * (1 - translate)),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+double _figmaInterval(double progress, double start, double end, Curve curve) {
+  if (progress <= start) {
+    return 0;
+  }
+  if (progress >= end) {
+    return 1;
+  }
+  return curve.transform((progress - start) / (end - start));
+}
+
+class _FigmaSpringCurve extends Curve {
+  const _FigmaSpringCurve();
+
+  static const _samples = [
+    0.0,
+    0.0188,
+    0.0679,
+    0.1374,
+    0.2195,
+    0.308,
+    0.3978,
+    0.4856,
+    0.5686,
+    0.6452,
+    0.7142,
+    0.7753,
+    0.8283,
+    0.8735,
+    0.9113,
+    0.9423,
+    0.9671,
+    0.9866,
+    1.0014,
+    1.0123,
+    1.0198,
+    1.0247,
+    1.0274,
+    1.0283,
+    1.0281,
+    1.0268,
+    1.025,
+    1.0227,
+    1.0202,
+    1.0177,
+    1.0152,
+    1.0128,
+    1.0106,
+    1.0085,
+    1.0068,
+    1.0052,
+    1.0039,
+    1.0028,
+    1.0018,
+    1.0011,
+    1.0005,
+    1.0,
+    0.9997,
+    0.9995,
+    0.9993,
+    0.9992,
+    0.9992,
+    0.9992,
+    0.9992,
+    0.9993,
+    0.9993,
+  ];
+
+  @override
+  double transformInternal(double t) {
+    if (t >= 1) {
+      return 1;
+    }
+    final position = t * (_samples.length - 1);
+    final lower = position.floor();
+    if (lower >= _samples.length - 1) {
+      return _samples.last;
+    }
+    final fraction = position - lower;
+    return _samples[lower] + (_samples[lower + 1] - _samples[lower]) * fraction;
+  }
+}
+
+class _ScanRevealingToast extends StatelessWidget {
+  const _ScanRevealingToast({required this.onClosePressed});
+
+  final VoidCallback onClosePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 218,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: DecoratedBox(
+            key: const Key('scan-figma-revealing-toast'),
+            decoration: BoxDecoration(
+              color: const Color(0xFF222222),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0x1A90927C)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x40000000),
+                  blurRadius: 50,
+                  spreadRadius: -12,
+                  offset: Offset(0, 25),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      key: Key('scan-figma-revealing-toast-glow'),
+                      decoration: BoxDecoration(color: Color(0x1AF0FE6F)),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(17),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1C14),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Container(
+                          width: 30,
+                          height: 40,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.white),
+                            borderRadius: BorderRadius.circular(2),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0x1F747B26), Color(0x0A141506)],
+                            ),
+                          ),
+                          child: SvgPicture.asset(
+                            'assets/scan/reveal_question.svg',
+                            width: 10,
+                            height: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 120,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Scanning...',
+                                    style: TextStyle(
+                                      color: Color(0xFFEEECD8),
+                                      fontFamily: 'Geist',
+                                      fontSize: 16,
+                                      height: 24 / 16,
+                                    ),
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: 'Dismiss scan feedback',
+                                  child: InkWell(
+                                    key: const Key(
+                                      'scan-figma-revealing-dismiss',
+                                    ),
+                                    onTap: onClosePressed,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(bottom: 6),
+                                      child: SvgPicture.asset(
+                                        'assets/scan/reveal_close.svg',
+                                        width: 10.5,
+                                        height: 10.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            SvgPicture.asset(
+                              'assets/scan/reveal_spinner.svg',
+                              width: 16,
+                              height: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ViewfinderCorners extends StatelessWidget {
@@ -1087,6 +1679,11 @@ class _ScanItemCard extends StatelessWidget {
           _ScanItemStatus.recognizing => ListTile(
             leading: const Icon(Icons.document_scanner_outlined),
             title: const Text('Recognizing'),
+            subtitle: Text(item.pictureLabel),
+          ),
+          _ScanItemStatus.revealing => ListTile(
+            leading: const Icon(Icons.document_scanner_outlined),
+            title: const Text('Scanning...'),
             subtitle: Text(item.pictureLabel),
           ),
           _ScanItemStatus.matched => Column(
