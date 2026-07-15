@@ -5,6 +5,7 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -394,7 +395,23 @@ class CollectionController extends Notifier<CollectionState> {
           .read(collectionRepositoryProvider)
           .loadDashboard(session);
       if (generation == _loadGeneration) {
-        final preferredCurrency = AppCurrency.fromCode(dashboard.currencyCode);
+        final currencyMetadata = AppCurrency.fromCode(dashboard.currencyCode);
+        var preferredCurrency = ref.read(selectedCurrencyProvider);
+        if (preferredCurrency.code != currencyMetadata.code ||
+            preferredCurrency.usdRate == null) {
+          preferredCurrency = AppCurrency.usd;
+          if (currencyMetadata.code != 'USD') {
+            try {
+              final rate = await ref
+                  .read(currencyRateApiProvider)
+                  .loadUsdRate(currencyMetadata.code);
+              preferredCurrency = currencyMetadata.withUsdRate(rate);
+            } catch (_) {
+              // Keep USD until the provider can prove a conversion rate.
+            }
+          }
+        }
+        if (generation != _loadGeneration) return;
         final sharedFolderId = ref.read(selectedPortfolioFolderProvider);
         final selectedFolderId = dashboard.folders.any(
           (folder) => folder.id == sharedFolderId,

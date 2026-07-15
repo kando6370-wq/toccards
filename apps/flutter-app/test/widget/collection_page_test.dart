@@ -17,6 +17,7 @@ import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import '../support/mock_collection_repository.dart';
@@ -133,9 +134,7 @@ void main() {
         find.byKey(const Key('collection-folder-name')),
         'Trade',
       );
-      await tester.tap(
-        find.byKey(const Key('collection-folder-name-save')),
-      );
+      await tester.tap(find.byKey(const Key('collection-folder-name-save')));
       await tester.pumpAndSettle();
       await tester.drag(
         find.byType(ReorderableListView),
@@ -396,10 +395,19 @@ _searchOverrides() {
 _localAuthOverrides() {
   final storage = InMemoryAuthStorage();
   return [
+    authStorageProvider.overrideWithValue(storage),
     authRepositoryProvider.overrideWithValue(
       LocalPlaceholderAuthRepository(storage),
     ),
+    currencyRateApiProvider.overrideWithValue(const _TestCurrencyRateApi()),
   ];
+}
+
+class _TestCurrencyRateApi implements CurrencyRateApi {
+  const _TestCurrencyRateApi();
+
+  @override
+  Future<double> loadUsdRate(String targetCurrency) async => 0.91;
 }
 
 class _CollectionTestApp extends StatelessWidget {

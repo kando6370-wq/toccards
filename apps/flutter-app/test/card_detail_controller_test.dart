@@ -199,7 +199,9 @@ void main() {
         r'$32.13',
       );
 
-      container.read(selectedCurrencyProvider.notifier).select(AppCurrency.eur);
+      container
+          .read(selectedCurrencyProvider.notifier)
+          .select(AppCurrency.eur.withUsdRate(0.91));
       await container
           .read(cardDetailControllerProvider('squirtle').notifier)
           .loadComplete;
@@ -207,7 +209,9 @@ void main() {
 
       expect(
         state.marketPriceText,
-        CurrencyFormatter(currency: AppCurrency.eur).formatUsd(32.13),
+        CurrencyFormatter(
+          currency: AppCurrency.eur.withUsdRate(0.91),
+        ).formatUsd(32.13),
       );
       expect(state.changeText, '+4.76%');
     },

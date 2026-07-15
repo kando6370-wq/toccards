@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -189,6 +190,7 @@ class HomeState {
 
 class HomeController extends Notifier<HomeState> {
   var _loadGeneration = 0;
+  String? _restoringCurrencyCode;
 
   @override
   HomeState build() {
@@ -304,15 +306,17 @@ class HomeController extends Notifier<HomeState> {
     AppCurrency currency, {
     HomeState? previousState,
   }) {
-    final preferredCurrency = previousState?.currency ??
-        AppCurrency.fromCode(dashboard.currencyCode);
+    final configuredCurrency = AppCurrency.fromCode(dashboard.currencyCode);
+    final sharedCurrency = ref.read(selectedCurrencyProvider);
+    final preferredCurrency =
+        previousState?.currency ??
+        (sharedCurrency.code == configuredCurrency.code &&
+                sharedCurrency.usdRate != null
+            ? sharedCurrency
+            : AppCurrency.usd);
     if (previousState == null &&
-        ref.read(selectedCurrencyProvider) != preferredCurrency) {
-      Future<void>.microtask(() {
-        if (ref.mounted) {
-          ref.read(selectedCurrencyProvider.notifier).select(preferredCurrency);
-        }
-      });
+        configuredCurrency.code != preferredCurrency.code) {
+      unawaited(_restorePreferredCurrency(configuredCurrency));
     }
     final previousFolderId =
         previousState?.selectedFolderId ??
@@ -395,21 +399,51 @@ class HomeController extends Notifier<HomeState> {
   }
 
   Future<bool> selectCurrency(String currencyCode) async {
-    final currency = AppCurrency.fromCode(currencyCode);
-    if (currency.code != currencyCode) {
+    final metadata = AppCurrency.fromCode(currencyCode);
+    if (metadata.code != currencyCode) {
       return false;
     }
-
     final previous = state.currency;
-    ref.read(selectedCurrencyProvider.notifier).select(currency);
-    state = state.copyWith(currency: currency);
     try {
+      final rate = metadata.code == 'USD'
+          ? 1.0
+          : await ref.read(currencyRateApiProvider).loadUsdRate(metadata.code);
+      final currency = metadata.withUsdRate(rate);
       await _updatePreferences(currency: currency.code);
+      ref.read(selectedCurrencyProvider.notifier).select(currency);
+      state = state.copyWith(currency: currency);
       return true;
     } catch (_) {
-      ref.read(selectedCurrencyProvider.notifier).select(previous);
-      state = state.copyWith(currency: previous);
+      if (state.currency.code != previous.code) {
+        ref.read(selectedCurrencyProvider.notifier).select(previous);
+        state = state.copyWith(currency: previous);
+      }
       return false;
+    }
+  }
+
+  Future<void> _restorePreferredCurrency(AppCurrency metadata) async {
+    if (_restoringCurrencyCode == metadata.code) return;
+    _restoringCurrencyCode = metadata.code;
+    try {
+      final rate = await ref
+          .read(currencyRateApiProvider)
+          .loadUsdRate(metadata.code);
+      if (!ref.mounted ||
+          ref.read(selectedCurrencyProvider).code != 'USD' ||
+          state.isLoading ||
+          state.isUnavailable) {
+        return;
+      }
+      final currency = metadata.withUsdRate(rate);
+      ref.read(selectedCurrencyProvider.notifier).select(currency);
+      state = state.copyWith(currency: currency);
+    } catch (_) {
+      // Keep USD until the provider can prove a conversion rate.
+    } finally {
+      if (_restoringCurrencyCode == metadata.code) {
+        _restoringCurrencyCode = null;
+      }
     }
   }
 

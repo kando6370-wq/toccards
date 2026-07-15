@@ -297,7 +297,9 @@ void main() {
         r'$1,245.00',
       );
 
-      container.read(selectedCurrencyProvider.notifier).select(AppCurrency.eur);
+      container
+          .read(selectedCurrencyProvider.notifier)
+          .select(AppCurrency.eur.withUsdRate(0.91));
       await container.read(collectionControllerProvider.notifier).loadComplete;
       final state = container.read(collectionControllerProvider);
 
@@ -384,10 +386,18 @@ void main() {
 
       final created = await controller.createFolder('Trade');
       expect(created?.name, 'Trade');
-      expect(await controller.renameFolder(created!.id, 'Trade Binder'), isTrue);
+      expect(
+        await controller.renameFolder(created!.id, 'Trade Binder'),
+        isTrue,
+      );
       expect(await controller.setDefaultFolder(created.id), isTrue);
       expect(
-        await controller.reorderFolders([created.id, 'main', 'sealed', 'empty']),
+        await controller.reorderFolders([
+          created.id,
+          'main',
+          'sealed',
+          'empty',
+        ]),
         isTrue,
       );
       await controller.selectFolder('sealed');
@@ -502,6 +512,7 @@ ProviderContainer _collectionContainer({
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
     overrides: [
+      authStorageProvider.overrideWithValue(storage),
       authRepositoryProvider.overrideWithValue(
         LocalPlaceholderAuthRepository(storage),
       ),
@@ -573,8 +584,7 @@ class _FailingThenSuccessfulCollectionRepository
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _FakePortfolioApiClient
-    implements PortfolioApi, PortfolioManagementApi {
+class _FakePortfolioApiClient implements PortfolioApi, PortfolioManagementApi {
   const _FakePortfolioApiClient({
     required this.folders,
     required this.items,
@@ -739,7 +749,6 @@ class _FakeCardDataApi implements CardDataApi {
   Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef) async {
     throw UnimplementedError();
   }
-
 }
 
 PortfolioItemDto _portfolioItem({

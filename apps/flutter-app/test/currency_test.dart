@@ -23,15 +23,22 @@ void main() {
     expect(formatter.formatUsd(0), r'$0.00');
   });
 
-  test('converts USD amounts through mock rates before formatting', () {
-    final formatter = CurrencyFormatter(currency: AppCurrency.eur);
+  test(
+    'converts USD amounts through an API-provided rate before formatting',
+    () {
+      final formatter = CurrencyFormatter(
+        currency: AppCurrency.eur.withUsdRate(0.91),
+      );
 
-    expect(formatter.formatUsd(12840), '€11,684.40');
-    expect(formatter.formatUsd(780, quantity: 2), '€1,419.60');
-  });
+      expect(formatter.formatUsd(12840), '€11,684.40');
+      expect(formatter.formatUsd(780, quantity: 2), '€1,419.60');
+    },
+  );
 
   test('keeps minus before the currency symbol', () {
-    final formatter = CurrencyFormatter(currency: AppCurrency.eur);
+    final formatter = CurrencyFormatter(
+      currency: AppCurrency.eur.withUsdRate(0.91),
+    );
 
     expect(formatter.formatUsd(-420), '-€382.20');
   });
@@ -41,6 +48,12 @@ void main() {
 
     expect(formatter.formatUsd(null, allowZero: false), '--');
     expect(formatter.formatUsd(12840, hidden: true), hiddenMoneyText);
+  });
+
+  test('non-USD money stays unavailable until an API rate is loaded', () {
+    final formatter = CurrencyFormatter(currency: AppCurrency.eur);
+
+    expect(formatter.formatUsd(12840), '--');
   });
 
   test('selected currency provider defaults to USD and can be changed', () {

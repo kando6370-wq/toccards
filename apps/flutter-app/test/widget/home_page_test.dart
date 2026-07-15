@@ -23,6 +23,7 @@ import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -471,11 +472,15 @@ void main() {
     final homeContext = tester.element(find.byType(HomePage));
     final container = ProviderScope.containerOf(homeContext);
     expect(
-      await container.read(homeControllerProvider.notifier).selectFolder('sealed'),
+      await container
+          .read(homeControllerProvider.notifier)
+          .selectFolder('sealed'),
       isTrue,
     );
     expect(
-      await container.read(homeControllerProvider.notifier).toggleAmountHidden(),
+      await container
+          .read(homeControllerProvider.notifier)
+          .toggleAmountHidden(),
       isTrue,
     );
 
@@ -536,6 +541,7 @@ _searchOverrides() {
 _localAuthOverrides() {
   final storage = InMemoryAuthStorage();
   return [
+    authStorageProvider.overrideWithValue(storage),
     authRepositoryProvider.overrideWithValue(
       LocalPlaceholderAuthRepository(storage),
     ),
@@ -550,9 +556,17 @@ Widget _mockHomeApp([PortfolioManagementApi? managementApi]) {
       portfolioManagementApiProvider.overrideWithValue(
         managementApi ?? _TestPortfolioManagementApi(),
       ),
+      currencyRateApiProvider.overrideWithValue(const _TestCurrencyRateApi()),
     ],
     child: const _HomeTestApp(),
   );
+}
+
+class _TestCurrencyRateApi implements CurrencyRateApi {
+  const _TestCurrencyRateApi();
+
+  @override
+  Future<double> loadUsdRate(String targetCurrency) async => 0.91;
 }
 
 class _TestPortfolioManagementApi implements PortfolioManagementApi {

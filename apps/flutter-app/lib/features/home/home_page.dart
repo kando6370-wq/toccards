@@ -8,6 +8,7 @@ import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import 'home_controller.dart';
 import 'home_models.dart';
@@ -125,6 +126,7 @@ class HomePage extends ConsumerWidget {
 
   Future<void> _showCurrencySheet(BuildContext context, WidgetRef ref) {
     final selected = ref.read(homeControllerProvider).currencyCode;
+    final pageContext = context;
 
     return showModalBottomSheet<void>(
       context: context,
@@ -163,11 +165,15 @@ class HomePage extends ConsumerWidget {
                             label: currency.label,
                             symbol: currency.symbol,
                             isSelected: currency.code == selected,
-                            onTap: () {
-                              ref
+                            onTap: () async {
+                              final success = await ref
                                   .read(homeControllerProvider.notifier)
                                   .selectCurrency(currency.code);
+                              if (!context.mounted) return;
                               Navigator.of(context).pop();
+                              if (!success) {
+                                showKandoFailureToast(pageContext);
+                              }
                             },
                           ),
                           const SizedBox(height: 12),

@@ -74,6 +74,7 @@ void main() {
         ProviderScope(
           overrides: [
             onboardingRepositoryProvider.overrideWithValue(repository),
+            authDeviceIdProvider.overrideWithValue('onboarding-test-device'),
             authRepositoryProvider.overrideWithValue(
               LocalPlaceholderAuthRepository(InMemoryAuthStorage()),
             ),
@@ -150,6 +151,7 @@ Widget _testPage(InMemoryOnboardingStorage storage) {
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(storage),
       ),
+      authDeviceIdProvider.overrideWithValue('onboarding-test-device'),
       authRepositoryProvider.overrideWithValue(
         LocalPlaceholderAuthRepository(InMemoryAuthStorage()),
       ),
@@ -164,6 +166,7 @@ Widget _testGate(InMemoryOnboardingStorage storage) {
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(storage),
       ),
+      authDeviceIdProvider.overrideWithValue('onboarding-test-device'),
       authRepositoryProvider.overrideWithValue(
         LocalPlaceholderAuthRepository(InMemoryAuthStorage()),
       ),

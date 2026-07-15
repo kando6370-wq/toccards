@@ -324,6 +324,7 @@ void main() {
 _localAuthOverrides() {
   final storage = InMemoryAuthStorage();
   return [
+    authStorageProvider.overrideWithValue(storage),
     authRepositoryProvider.overrideWithValue(
       LocalPlaceholderAuthRepository(storage),
     ),
