@@ -528,8 +528,11 @@ class _CollectionItemForm extends StatelessWidget {
                   border: OutlineInputBorder(),
                 ),
                 items: [
-                  for (final name in cardCollectionPortfolioNames)
-                    DropdownMenuItem(value: name, child: Text(name)),
+                  for (final folder in state.detail.portfolioFolders)
+                    DropdownMenuItem(
+                      value: folder.name,
+                      child: Text(folder.name),
+                    ),
                 ],
                 onChanged: (value) {
                   if (value != null) {

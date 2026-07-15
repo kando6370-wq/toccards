@@ -29,6 +29,12 @@ void main() {
       ).loadDetail(_session, 'catalog:pikachu-025');
 
       expect(cardDataApi.cardRefs, ['catalog:pikachu-025']);
+      expect(
+        cardDataApi.maxConcurrentSeriesRequests,
+        10,
+        reason:
+            'Card Detail must not serialize every market qualifier and chart range into a network waterfall.',
+      );
       expect(detail.id, 'catalog:pikachu-025');
       expect(detail.type, CardDetailType.tcg);
       expect(detail.name, 'Pikachu');
@@ -954,6 +960,8 @@ class _FakePortfolioApiClient implements PortfolioApi {
 
 class _FakeCardDataApi implements CardDataApi {
   final List<String> cardRefs = [];
+  var activeSeriesRequests = 0;
+  var maxConcurrentSeriesRequests = 0;
 
   @override
   Future<List<CardDataCardDto>> searchCards(String query) async {
@@ -1013,6 +1021,12 @@ class _FakeCardDataApi implements CardDataApi {
     double? grade,
     String? condition,
   }) async {
+    activeSeriesRequests += 1;
+    if (activeSeriesRequests > maxConcurrentSeriesRequests) {
+      maxConcurrentSeriesRequests = activeSeriesRequests;
+    }
+    await Future<void>.delayed(Duration.zero);
+    activeSeriesRequests -= 1;
     final current = grader == 'Raw' ? 15.0 : 70.0;
     final previous = switch ((grader, days)) {
       ('Raw', 7) => 14.0,

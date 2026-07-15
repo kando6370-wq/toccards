@@ -30,7 +30,15 @@ class MockCardDetailRepository implements CardDetailRepository {
 
   @override
   Future<CardDetail> loadDetail(AuthSession session, String cardId) {
-    return Future<CardDetail>.value(_mockDetail(cardId));
+    return Future<CardDetail>.value(
+      _mockDetail(cardId).copyWith(
+        portfolioFolders: const [
+          CardPortfolioFolder(id: 'main', name: 'Main', isDefault: true),
+          CardPortfolioFolder(id: 'sealed', name: 'Sealed'),
+          CardPortfolioFolder(id: 'empty', name: 'Empty'),
+        ],
+      ),
+    );
   }
 
   @override
@@ -122,6 +130,7 @@ class HttpCardDetailRepository implements CardDetailRepository {
     AuthSession session,
     CardDetail detail,
   ) async {
+    final defaultFolder = _defaultPortfolioFolder(detail.portfolioFolders);
     final dto = await _api.quickCollect(
       session,
       cardRef: detail.id,
@@ -130,8 +139,8 @@ class HttpCardDetailRepository implements CardDetailRepository {
         CardCollectionItem(
           id: '',
           cardRef: detail.id,
-          folderId: _defaultFolderId,
-          portfolioName: 'Main',
+          folderId: defaultFolder?.id,
+          portfolioName: defaultFolder?.name ?? 'Main',
           quantity: 1,
           grader: 'Raw',
           condition: 'Near Mint (NM)',
@@ -193,12 +202,14 @@ class HttpCardDetailRepository implements CardDetailRepository {
     final api = _cardDataApi!;
     final card = await api.getCard(cardId);
     final prices = await api.getMarketPrices(cardId);
-    final seriesByPrice =
-        <CardDataMarketPriceDto, Map<CardPriceRange, List<CardPricePoint>>>{};
-
-    for (final price in prices) {
-      seriesByPrice[price] = await _loadSeriesByRange(card.cardRef, price);
-    }
+    final seriesByPrice = Map.fromEntries(
+      await Future.wait(
+        prices.map(
+          (price) async =>
+              MapEntry(price, await _loadSeriesByRange(card.cardRef, price)),
+        ),
+      ),
+    );
 
     final rawPrice = _firstWhereOrNull(
       prices,
@@ -259,23 +270,30 @@ class HttpCardDetailRepository implements CardDetailRepository {
     CardDataMarketPriceDto price,
   ) async {
     final api = _cardDataApi!;
-    final result = <CardPriceRange, List<CardPricePoint>>{};
-    for (final range in CardPriceRange.values) {
-      final series = await api.getPriceSeries(
-        cardRef,
-        days: range.days,
-        grader: price.grader,
-        grade: price.grade,
-        condition: price.condition,
-      );
-      result[range] = series
-          .map(
-            (point) =>
-                CardPricePoint(dateLabel: point.date, priceUsd: point.price),
-          )
-          .toList();
-    }
-    return result;
+    return Map.fromEntries(
+      await Future.wait(
+        CardPriceRange.values.map((range) async {
+          final series = await api.getPriceSeries(
+            cardRef,
+            days: range.days,
+            grader: price.grader,
+            grade: price.grade,
+            condition: price.condition,
+          );
+          return MapEntry(
+            range,
+            series
+                .map(
+                  (point) => CardPricePoint(
+                    dateLabel: point.date,
+                    priceUsd: point.price,
+                  ),
+                )
+                .toList(),
+          );
+        }),
+      ),
+    );
   }
 }
 
@@ -598,6 +616,15 @@ CardDetail _mergeAssetState(
 
   return detail.copyWith(
     quantity: quantity,
+    portfolioFolders: folders
+        .map(
+          (folder) => CardPortfolioFolder(
+            id: folder.id,
+            name: folder.name,
+            isDefault: folder.isDefault,
+          ),
+        )
+        .toList(),
     collectionItems: collectionItems,
     isWishlisted: wishlistItem != null,
     wishlistItemId: wishlistItem?.id,
@@ -628,8 +655,12 @@ PortfolioItemDraftDto _draftFromCardItem(
   CardDetail detail,
   CardCollectionItem item,
 ) {
+  final folderId = item.folderId;
+  if (folderId == null) {
+    throw StateError('Collection Item requires a server portfolio folder.');
+  }
   return PortfolioItemDraftDto(
-    folderId: item.folderId ?? _defaultFolderId,
+    folderId: folderId,
     cardRef: item.cardRef.isEmpty ? detail.id : item.cardRef,
     objectType: _objectTypeFromDetail(detail),
     grader: item.grader,
@@ -653,4 +684,13 @@ String _objectTypeFromDetail(CardDetail detail) {
   };
 }
 
-const _defaultFolderId = 'main';
+CardPortfolioFolder? _defaultPortfolioFolder(
+  List<CardPortfolioFolder> folders,
+) {
+  for (final folder in folders) {
+    if (folder.isDefault) {
+      return folder;
+    }
+  }
+  return folders.firstOrNull;
+}

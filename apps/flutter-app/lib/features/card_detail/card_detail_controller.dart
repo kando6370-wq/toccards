@@ -24,7 +24,6 @@ final cardDetailControllerProvider =
       CardDetailController.new,
     );
 
-const cardCollectionPortfolioNames = ['Main', 'Sealed', 'Empty'];
 const cardCollectionGraders = ['Raw', 'PSA', 'BGS', 'SGC', 'CGC', 'TAG', 'AGS'];
 const cardCollectionConditions = [
   'Near Mint (NM)',
@@ -74,7 +73,6 @@ const cardCollectionGradeValues = [
   '1',
 ];
 
-const _defaultPortfolioName = 'Main';
 const _defaultCondition = 'Near Mint (NM)';
 const _defaultGrade = '10';
 const _quantityRequiredText = 'Please enter a quantity.';
@@ -562,19 +560,28 @@ class CardDetailController extends Notifier<CardDetailState> {
     if (state.isUnavailable || state.isLoading) {
       return;
     }
+    final defaultFolder = _defaultPortfolioFolder(state.detail);
+    if (defaultFolder == null) {
+      return;
+    }
 
     state = state.copyWith(
-      collectionItemDraft: const CardCollectionItemDraft(
-        quantityText: '1',
-        portfolioName: _defaultPortfolioName,
-        grader: 'Raw',
-        condition: _defaultCondition,
-        grade: '',
-        language: '',
-        finish: '',
-        purchasePriceText: '',
-        notes: '',
-      ).copyWith(language: state.detail.language, finish: state.detail.finish),
+      collectionItemDraft:
+          const CardCollectionItemDraft(
+            quantityText: '1',
+            portfolioName: '',
+            grader: 'Raw',
+            condition: _defaultCondition,
+            grade: '',
+            language: '',
+            finish: '',
+            purchasePriceText: '',
+            notes: '',
+          ).copyWith(
+            portfolioName: defaultFolder.name,
+            language: state.detail.language,
+            finish: state.detail.finish,
+          ),
       editingCollectionItemId: null,
       collectionItemFormError: null,
     );
@@ -688,12 +695,20 @@ class CardDetailController extends Notifier<CardDetailState> {
     }
 
     final detail = state.detail;
+    final folderId = _folderIdForPortfolioName(
+      detail.portfolioFolders,
+      draft.portfolioName,
+    );
+    if (folderId == null) {
+      _setCollectionItemFormError('Please select a portfolio.');
+      return false;
+    }
     final editingItemId = state.editingCollectionItemId;
     final mutationGeneration = _loadGeneration;
     final draftItem = CardCollectionItem(
       id: editingItemId ?? '',
       cardRef: detail.id,
-      folderId: _folderIdForPortfolioName(draft.portfolioName),
+      folderId: folderId,
       portfolioName: draft.portfolioName,
       quantity: quantity.value!,
       grader: draft.grader,
@@ -901,12 +916,25 @@ String _defaultGradeForGrader(String grader) {
       : _defaultGrade;
 }
 
-String _folderIdForPortfolioName(String portfolioName) {
-  return switch (portfolioName) {
-    'Sealed' => 'sealed',
-    'Empty' => 'empty',
-    _ => 'main',
-  };
+CardPortfolioFolder? _defaultPortfolioFolder(CardDetail detail) {
+  for (final folder in detail.portfolioFolders) {
+    if (folder.isDefault) {
+      return folder;
+    }
+  }
+  return detail.portfolioFolders.firstOrNull;
+}
+
+String? _folderIdForPortfolioName(
+  List<CardPortfolioFolder> folders,
+  String portfolioName,
+) {
+  for (final folder in folders) {
+    if (folder.name == portfolioName) {
+      return folder.id;
+    }
+  }
+  return null;
 }
 
 class _QuantityParseResult {
