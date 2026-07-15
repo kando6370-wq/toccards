@@ -3,6 +3,7 @@ export interface Env {
   CACHE_KV: KVNamespace;
   JWT_SECRET: string;
   GOOGLE_CLIENT_ID?: string;
+  APPLE_CLIENT_ID?: string;
   ZOHO_CLIENT_ID?: string;
   ZOHO_CLIENT_SECRET?: string;
   ZOHO_REFRESH_TOKEN?: string;

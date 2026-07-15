@@ -10,6 +10,33 @@ vi.mock("../mail/verification-email", () => ({
   sendVerificationEmail: vi.fn().mockResolvedValue("message-id"),
 }));
 
+vi.mock("./oauth-provider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./oauth-provider")>();
+  const resolveTestIdentity = (
+    value: string | null,
+    prefix: string,
+    provider: "google" | "apple",
+  ) => {
+    const parts = value?.split(":") ?? [];
+    if (
+      parts.length !== 3 ||
+      parts[0] !== prefix ||
+      !/^[A-Za-z0-9._-]{1,128}$/.test(parts[1]) ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parts[2])
+    ) {
+      return null;
+    }
+    return { provider, providerUid: parts[1], email: parts[2].toLowerCase() };
+  };
+  return {
+    ...actual,
+    resolveGoogleIdentity: async (input: { code: string | null }) =>
+      resolveTestIdentity(input.code, "mock-google", "google"),
+    resolveAppleIdentity: async (input: { idToken: string | null }) =>
+      resolveTestIdentity(input.idToken, "mock-apple", "apple"),
+  };
+});
+
 import app, { type Env as AppEnv } from "../index";
 import { migrateGuestAssetsToUser } from "./guest-migration";
 
@@ -2934,6 +2961,8 @@ function createTestEnv(): TestEnv {
     DB: createFakeD1(),
     CACHE_KV: {} as KVNamespace,
     JWT_SECRET: "test-secret-with-at-least-32-characters",
+    GOOGLE_CLIENT_ID: "test-google-client-id",
+    APPLE_CLIENT_ID: "test-apple-client-id",
   };
 }
 

@@ -7,7 +7,7 @@ import {
 } from "./account-flow";
 import { hasSigningSecret } from "./http-auth";
 import {
-  resolveMockAppleIdentity,
+  resolveAppleIdentity,
   resolveGoogleIdentity,
 } from "./oauth-provider";
 
@@ -102,10 +102,10 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
 
   routes.post("/oauth/apple/callback", async (c) => {
     const input = await readAppleOAuthCallbackInput(c.req);
-    const identity = resolveMockAppleIdentity({
-      code: input.code,
-      idToken: input.idToken,
-    });
+    const identity = await resolveAppleIdentity(
+      { code: input.code, idToken: input.idToken },
+      c.env.APPLE_CLIENT_ID,
+    );
 
     if (!identity) {
       return c.json(AUTHORIZATION_FAILED_RESPONSE, 422);

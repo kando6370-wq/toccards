@@ -7,6 +7,7 @@ routes = [{ pattern = "api.tcgcard.fun", custom_domain = true }]
 
 [vars]
 GOOGLE_CLIENT_ID = "134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com"
+APPLE_CLIENT_ID = "com.kando.kandoApp"
 ZOHO_ACCOUNT_ID = "554851100000008002"
 ZOHO_FROM_ADDRESS = "kando@tcgcard.fun"
 
