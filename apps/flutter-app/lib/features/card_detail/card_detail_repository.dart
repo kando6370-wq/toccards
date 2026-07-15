@@ -98,22 +98,16 @@ class MockCardDetailRepository implements CardDetailRepository {
 class HttpCardDetailRepository implements CardDetailRepository {
   const HttpCardDetailRepository({
     required PortfolioApi api,
-    CardDataApi? cardDataApi,
-    CardDetailRepository presentationRepository =
-        const MockCardDetailRepository(),
+    required CardDataApi cardDataApi,
   }) : _api = api,
-       _cardDataApi = cardDataApi,
-       _presentationRepository = presentationRepository;
+       _cardDataApi = cardDataApi;
 
   final PortfolioApi _api;
-  final CardDataApi? _cardDataApi;
-  final CardDetailRepository _presentationRepository;
+  final CardDataApi _cardDataApi;
 
   @override
   Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
-    final detail = _cardDataApi == null
-        ? await _presentationRepository.loadDetail(session, cardId)
-        : await _loadCardDataDetail(cardId);
+    final detail = await _loadCardDataDetail(cardId);
     final results = await Future.wait([
       _api.listFolders(session),
       _api.listCollectionItems(session),
@@ -199,7 +193,7 @@ class HttpCardDetailRepository implements CardDetailRepository {
   }
 
   Future<CardDetail> _loadCardDataDetail(String cardId) async {
-    final api = _cardDataApi!;
+    final api = _cardDataApi;
     final card = await api.getCard(cardId);
     final prices = await api.getMarketPrices(cardId);
     final seriesByPrice = Map.fromEntries(
@@ -272,7 +266,7 @@ class HttpCardDetailRepository implements CardDetailRepository {
     String cardRef,
     CardDataMarketPriceDto price,
   ) async {
-    final api = _cardDataApi!;
+    final api = _cardDataApi;
     return Map.fromEntries(
       await Future.wait(
         CardPriceRange.values.map((range) async {

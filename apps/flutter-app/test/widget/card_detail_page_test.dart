@@ -230,7 +230,9 @@ void main() {
       find.byKey(const Key('card-detail-item-quantity')),
       '3',
     );
-    await tester.ensureVisible(find.byKey(const Key('card-detail-item-grader')));
+    await tester.ensureVisible(
+      find.byKey(const Key('card-detail-item-grader')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('card-detail-item-grader')));
     await tester.pumpAndSettle();
@@ -399,6 +401,7 @@ final _cardDetailAuthRepository = LocalPlaceholderAuthRepository(
 );
 
 final _cardDetailOverrides = [
+  authStorageProvider.overrideWithValue(_cardDetailAuthStorage),
   authRepositoryProvider.overrideWithValue(_cardDetailAuthRepository),
   cardDetailRepositoryProvider.overrideWithValue(
     const MockCardDetailRepository(),

@@ -93,7 +93,7 @@ void main() {
 
       final detail = await HttpCardDetailRepository(
         api: api,
-        presentationRepository: const MockCardDetailRepository(),
+        cardDataApi: _FakeCardDataApi(card: _squirtleCard),
       ).loadDetail(_session, 'squirtle');
 
       expect(detail.name, 'Squirtle');
@@ -122,6 +122,7 @@ void main() {
             ),
           ],
         ),
+        cardDataApi: _FakeCardDataApi(card: _squirtleCard),
       ).loadDetail(_session, 'squirtle');
 
       expect(detail.isWishlisted, isTrue);
@@ -156,6 +157,7 @@ void main() {
 
       final saved = await HttpCardDetailRepository(
         api: api,
+        cardDataApi: _FakeCardDataApi(),
       ).quickCollect(_session, detail);
 
       expect(api.quickCollectCardRefs, ['squirtle']);
@@ -445,7 +447,10 @@ void main() {
       expect(await controller.saveCollectionItemDraft(), isTrue);
 
       expect(repository.createdItems.single.folderId, 'folder-sealed-db');
-      expect(container.read(provider).collectionItemRows.single.portfolioName, 'Sealed');
+      expect(
+        container.read(provider).collectionItemRows.single.portfolioName,
+        'Sealed',
+      );
     },
   );
 
@@ -839,7 +844,11 @@ class _FolderAwareCardDetailRepository extends _RecordingCardDetailRepository {
     final detail = await super.loadDetail(session, cardId);
     return detail.copyWith(
       portfolioFolders: const [
-        CardPortfolioFolder(id: 'folder-main-db', name: 'Main', isDefault: true),
+        CardPortfolioFolder(
+          id: 'folder-main-db',
+          name: 'Main',
+          isDefault: true,
+        ),
         CardPortfolioFolder(id: 'folder-sealed-db', name: 'Sealed'),
       ],
     );
@@ -852,6 +861,7 @@ ProviderContainer _cardDetailContainer({
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
     overrides: [
+      authStorageProvider.overrideWithValue(storage),
       authRepositoryProvider.overrideWithValue(
         LocalPlaceholderAuthRepository(storage),
       ),
@@ -960,6 +970,9 @@ class _FakePortfolioApiClient implements PortfolioApi {
 }
 
 class _FakeCardDataApi implements CardDataApi {
+  _FakeCardDataApi({this.card = _pikachuCard});
+
+  final CardDataCardDto card;
   final List<String> cardRefs = [];
   var activeSeriesRequests = 0;
   var maxConcurrentSeriesRequests = 0;
@@ -982,19 +995,7 @@ class _FakeCardDataApi implements CardDataApi {
   @override
   Future<CardDataCardDto> getCard(String cardRef) async {
     cardRefs.add(cardRef);
-    return const CardDataCardDto(
-      cardRef: 'catalog:pikachu-025',
-      name: 'Pikachu',
-      setName: 'Base Set',
-      setCode: 'BS',
-      cardNumber: '025',
-      finish: 'Holofoil',
-      language: 'English',
-      objectType: 'tcg',
-      game: 'Pokemon',
-      imageUrl: 'https://img.example/pikachu.jpg',
-      rarity: 'Common',
-    );
+    return card;
   }
 
   @override
@@ -1056,6 +1057,34 @@ class _FakeCardDataApi implements CardDataApi {
     ];
   }
 }
+
+const _pikachuCard = CardDataCardDto(
+  cardRef: 'catalog:pikachu-025',
+  name: 'Pikachu',
+  setName: 'Base Set',
+  setCode: 'BS',
+  cardNumber: '025',
+  finish: 'Holofoil',
+  language: 'English',
+  objectType: 'tcg',
+  game: 'Pokemon',
+  imageUrl: 'https://img.example/pikachu.jpg',
+  rarity: 'Common',
+);
+
+const _squirtleCard = CardDataCardDto(
+  cardRef: 'squirtle',
+  name: 'Squirtle',
+  setName: 'Mega Evolution Promos',
+  setCode: 'MEP',
+  cardNumber: '039',
+  finish: 'Holofoil',
+  language: 'English',
+  objectType: 'tcg',
+  game: 'Pokemon',
+  imageUrl: 'https://img.example/squirtle.jpg',
+  rarity: 'Promo',
+);
 
 PortfolioItemDto _portfolioItem({
   required String id,
