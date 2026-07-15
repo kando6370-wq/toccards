@@ -232,9 +232,12 @@ class HttpCardDetailRepository implements CardDetailRepository {
 
     return CardDetail(
       id: card.cardRef,
+      imageUrl: card.imageUrl,
       type: _detailTypeFromObjectType(card.objectType),
       name: card.name,
-      game: _gameLabelFromObjectType(card.objectType),
+      game: card.game?.trim().isNotEmpty == true
+          ? card.game!.trim()
+          : _gameLabelFromObjectType(card.objectType),
       setName: card.setName,
       identityLine: _identityLine(card),
       finish: card.finish ?? 'Unknown',

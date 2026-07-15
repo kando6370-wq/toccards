@@ -143,6 +143,7 @@ class CardCollectionItem {
 class CardDetail {
   const CardDetail({
     required this.id,
+    this.imageUrl,
     required this.type,
     required this.name,
     required this.game,
@@ -162,6 +163,7 @@ class CardDetail {
   });
 
   final String id;
+  final String? imageUrl;
   final CardDetailType type;
   final String name;
   final String game;
@@ -190,6 +192,7 @@ class CardDetail {
   }) {
     return CardDetail(
       id: id,
+      imageUrl: imageUrl,
       type: type,
       name: name,
       game: game,

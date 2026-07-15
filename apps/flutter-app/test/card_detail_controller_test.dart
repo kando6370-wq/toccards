@@ -38,7 +38,8 @@ void main() {
       expect(detail.id, 'catalog:pikachu-025');
       expect(detail.type, CardDetailType.tcg);
       expect(detail.name, 'Pikachu');
-      expect(detail.game, 'TCG');
+      expect(detail.game, 'Pokemon');
+      expect(detail.imageUrl, 'https://img.example/pikachu.jpg');
       expect(detail.setName, 'Base Set');
       expect(detail.identityLine, 'Common #025');
       expect(detail.finish, 'Holofoil');
@@ -990,6 +991,7 @@ class _FakeCardDataApi implements CardDataApi {
       finish: 'Holofoil',
       language: 'English',
       objectType: 'tcg',
+      game: 'Pokemon',
       imageUrl: 'https://img.example/pikachu.jpg',
       rarity: 'Common',
     );

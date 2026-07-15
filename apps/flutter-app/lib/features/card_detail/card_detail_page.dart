@@ -98,7 +98,7 @@ class CardDetailPage extends ConsumerWidget {
                 key: const Key('card-detail-scroll'),
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                 children: [
-                  const _CardImageStandIn(),
+                  _CardImage(imageUrl: state.detail.imageUrl),
                   const SizedBox(height: 20),
                   _CardHeader(state: state, controller: controller),
                   if (!state.detail.isCollected &&
@@ -129,8 +129,10 @@ class CardDetailPage extends ConsumerWidget {
   }
 }
 
-class _CardImageStandIn extends StatelessWidget {
-  const _CardImageStandIn();
+class _CardImage extends StatelessWidget {
+  const _CardImage({required this.imageUrl});
+
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -148,12 +150,34 @@ class _CardImageStandIn extends StatelessWidget {
           ),
         ],
       ),
-      child: const Center(
-        child: Icon(
-          Icons.style_outlined,
-          size: 72,
-          color: KandoColors.mutedText,
-        ),
+      clipBehavior: Clip.antiAlias,
+      child: imageUrl == null
+          ? const _CardImagePlaceholder()
+          : Image.network(
+              imageUrl!,
+              key: const Key('card-detail-image'),
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (context, error, stackTrace) =>
+                  const _CardImagePlaceholder(),
+            ),
+    );
+  }
+}
+
+class _CardImagePlaceholder extends StatelessWidget {
+  const _CardImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Icon(
+        Icons.style_outlined,
+        key: Key('card-detail-image-placeholder'),
+        size: 72,
+        color: KandoColors.mutedText,
       ),
     );
   }
