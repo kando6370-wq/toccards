@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -111,6 +112,9 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       ),
       _EmailPage.registerCode => _CodePage(
         controller: _codeController,
+        email: _email ?? '',
+        title: 'Sign up',
+        fullScreen: widget.fullScreen,
         loading: _loading,
         errorText: _errorText,
         onContinue: _continueToRegisterPassword,
@@ -133,6 +137,9 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       ),
       _EmailPage.forgotCode => _CodePage(
         controller: _codeController,
+        email: _email ?? '',
+        title: 'Forgot password',
+        fullScreen: widget.fullScreen,
         loading: _loading,
         errorText: _errorText,
         onContinue: _verifyForgotCode,
@@ -218,7 +225,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
 
   Future<void> _continueToRegisterPassword() async {
     final code = _codeController.text.trim();
-    if (code.isEmpty) {
+    if (code.length != 6) {
       return;
     }
 
@@ -280,7 +287,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
 
   Future<void> _verifyForgotCode() async {
     final code = _codeController.text.trim();
-    if (code.isEmpty) {
+    if (code.length != 6) {
       return;
     }
 
@@ -628,9 +635,12 @@ class _PasswordPage extends StatelessWidget {
   }
 }
 
-class _CodePage extends StatelessWidget {
+class _CodePage extends StatefulWidget {
   const _CodePage({
     required this.controller,
+    required this.email,
+    required this.title,
+    required this.fullScreen,
     required this.loading,
     required this.errorText,
     required this.onContinue,
@@ -639,6 +649,9 @@ class _CodePage extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final String email;
+  final String title;
+  final bool fullScreen;
   final bool loading;
   final String? errorText;
   final VoidCallback onContinue;
@@ -646,34 +659,258 @@ class _CodePage extends StatelessWidget {
   final VoidCallback onResend;
 
   @override
+  State<_CodePage> createState() => _CodePageState();
+}
+
+class _CodePageState extends State<_CodePage> {
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return _SheetColumn(
-      errorText: errorText,
+    final content = ValueListenableBuilder<TextEditingValue>(
+      valueListenable: widget.controller,
+      builder: (context, value, _) {
+        final complete = value.text.length == 6;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _VerificationCodeInput(
+              controller: widget.controller,
+              focusNode: _focusNode,
+              autofocus: widget.fullScreen,
+              errorText: widget.errorText,
+              onSubmitted: widget.onContinue,
+            ),
+            if (widget.fullScreen)
+              const Spacer()
+            else
+              const SizedBox(height: 24),
+            _CodeActionButton(
+              label: complete
+                  ? 'Get verification code'
+                  : widget.resendSeconds > 0
+                  ? 'Retry in ${widget.resendSeconds} seconds'
+                  : 'Resend code',
+              loading: widget.loading,
+              enabled: complete || widget.resendSeconds == 0,
+              onPressed: complete ? widget.onContinue : widget.onResend,
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!widget.fullScreen) return content;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _LabeledField(
-          label: 'Verification code',
-          child: TextFormField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            style: _fieldTextStyle,
-            decoration: _fieldDecoration(hint: 'Enter code'),
+        Text(
+          widget.title,
+          style: const TextStyle(
+            color: KandoColors.text,
+            fontFamily: 'Fraunces',
+            fontSize: 32,
+            height: 1.25,
           ),
         ),
-        const SizedBox(height: 24),
-        _PrimaryButton(
-          label: 'Continue',
-          loading: loading,
-          onPressed: onContinue,
+        const SizedBox(height: 8),
+        const Text(
+          'Enter the correct email CAPTCHA login',
+          style: TextStyle(
+            color: Color(0xFF92927D),
+            fontSize: 11,
+            height: 18 / 11,
+          ),
+        ),
+        const SizedBox(height: 32),
+        const Text(
+          'Email Address',
+          style: TextStyle(
+            color: Color(0xFF92927D),
+            fontSize: 11,
+            height: 18 / 11,
+          ),
         ),
         const SizedBox(height: 8),
-        _LinkButton(
-          label: resendSeconds > 0
-              ? 'Resend code in ${resendSeconds}s'
-              : 'Resend code',
-          loading: loading || resendSeconds > 0,
-          onPressed: onResend,
+        Container(
+          height: 52,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            border: Border.all(color: KandoColors.border),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(widget.email, style: _fieldTextStyle),
+        ),
+        const SizedBox(height: 32),
+        Expanded(child: content),
+      ],
+    );
+  }
+}
+
+class _VerificationCodeInput extends StatelessWidget {
+  const _VerificationCodeInput({
+    required this.controller,
+    required this.focusNode,
+    required this.autofocus,
+    required this.errorText,
+    required this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool autofocus;
+  final String? errorText;
+  final VoidCallback onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = errorText != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Verification Code',
+              style: TextStyle(color: Color(0xFF92927D), fontSize: 12),
+            ),
+            if (hasError) ...[
+              const Spacer(),
+              Flexible(
+                child: Text(
+                  errorText!,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                    color: Color(0xFFFF8787),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final boxWidth = ((constraints.maxWidth - 60) / 6)
+                .clamp(0.0, 48.0)
+                .toDouble();
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: focusNode.requestFocus,
+              child: Stack(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(6, (index) {
+                      final text = controller.text;
+                      final isActive = !hasError && index == text.length;
+                      return Container(
+                        key: Key('verification-code-box-$index'),
+                        width: boxWidth,
+                        height: 56,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D0F08),
+                          border: Border.all(
+                            color: hasError
+                                ? const Color(0xFFFF8787)
+                                : isActive
+                                ? KandoColors.accent
+                                : KandoColors.border,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          index < text.length ? text[index] : '',
+                          style: const TextStyle(
+                            color: KandoColors.text,
+                            fontSize: 16,
+                            height: 1.5,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: 0,
+                      child: TextFormField(
+                        key: const Key('verification-code-input'),
+                        controller: controller,
+                        focusNode: focusNode,
+                        autofocus: autofocus,
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.go,
+                        maxLength: 6,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onFieldSubmitted: (_) {
+                          if (controller.text.length == 6) {
+                            onSubmitted();
+                          }
+                        },
+                        decoration: const InputDecoration(counterText: ''),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          "Didn't get the code? Check your spam",
+          style: TextStyle(
+            color: Color(0xFF615D3B),
+            fontSize: 11,
+            height: 18 / 11,
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _CodeActionButton extends StatelessWidget {
+  const _CodeActionButton({
+    required this.label,
+    required this.loading,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool loading;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(56),
+        shape: const StadiumBorder(),
+        backgroundColor: KandoColors.accent,
+        foregroundColor: const Color(0xFF2C3400),
+        disabledBackgroundColor: KandoColors.elevatedSurface,
+        disabledForegroundColor: const Color(0xFF615D3B),
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
+      ),
+      onPressed: loading || !enabled ? null : onPressed,
+      child: Text(loading ? 'Loading...' : label),
     );
   }
 }
@@ -845,6 +1082,8 @@ class _EmailAuthFullScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showEmailHeading = page == _EmailPage.email;
+    final isCodePage =
+        page == _EmailPage.registerCode || page == _EmailPage.forgotCode;
 
     return SizedBox.expand(
       key: const Key('email-auth-page'),
@@ -852,7 +1091,7 @@ class _EmailAuthFullScreen extends StatelessWidget {
         backgroundColor: KandoColors.ink,
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
+            padding: EdgeInsets.fromLTRB(20, isCodePage ? 2 : 28, 20, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -870,7 +1109,7 @@ class _EmailAuthFullScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 35),
+                SizedBox(height: isCodePage ? 42 : 35),
                 if (showEmailHeading) ...[
                   const Text(
                     'Continue With Email',

@@ -560,10 +560,13 @@ void main() {
     await _continueWithEmail(
       tester,
       'person@example.com',
-      destinationLabel: 'Verification code',
+      destinationLabel: 'Verification Code',
     );
     await tester.enterText(find.byType(TextFormField), '123456');
-    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+    await tester.pump();
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+    );
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextFormField);
@@ -574,6 +577,54 @@ void main() {
 
     expect(find.text('Passwords do not match.'), findsOneWidget);
     expect(repository.registerRequests, isEmpty);
+  });
+
+  testWidgets('register verification requires all six code digits', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+      emailRegistered: false,
+    );
+
+    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
+    await _openEmailAuth(tester);
+    await _continueWithEmail(
+      tester,
+      'person@example.com',
+      destinationLabel: 'Verification Code',
+    );
+
+    expect(find.byKey(const Key('verification-code-box-0')), findsOneWidget);
+    expect(find.byKey(const Key('verification-code-box-5')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('verification-code-input')),
+      '12345',
+    );
+    await tester.pump();
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNull,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('verification-code-input')),
+      '123456',
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Get verification code'),
+          )
+          .onPressed,
+      isNotNull,
+    );
   });
 
   testWidgets('successful register passes current anonymous id', (
@@ -591,10 +642,13 @@ void main() {
     await _continueWithEmail(
       tester,
       'person@example.com',
-      destinationLabel: 'Verification code',
+      destinationLabel: 'Verification Code',
     );
     await tester.enterText(find.byType(TextFormField), '123456');
-    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+    await tester.pump();
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+    );
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextFormField);
@@ -632,15 +686,26 @@ void main() {
     await _continueWithEmail(
       tester,
       'person@example.com',
-      destinationLabel: 'Verification code',
+      destinationLabel: 'Verification Code',
     );
     await tester.enterText(find.byType(TextFormField), '123456');
-    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+    await tester.pump();
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Incorrect verification code.'), findsOneWidget);
     expect(find.text('Signed in'), findsNothing);
-    expect(find.widgetWithText(FilledButton, 'CONTINUE'), findsOneWidget);
+    final firstBox = tester.widget<Container>(
+      find.byKey(const Key('verification-code-box-0')),
+    );
+    final decoration = firstBox.decoration! as BoxDecoration;
+    expect(decoration.border, Border.all(color: const Color(0xFFFF8787)));
+    expect(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('forgot password reset success returns to login path', (
@@ -661,7 +726,10 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), '654321');
-    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+    await tester.pump();
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+    );
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextFormField);
@@ -705,7 +773,10 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), '654321');
-    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+    await tester.pump();
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+    );
     await tester.pumpAndSettle();
 
     expect(
