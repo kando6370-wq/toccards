@@ -41,7 +41,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 final oauthAuthorizerProvider = Provider<OAuthAuthorizer>((ref) {
-  return GoogleOAuthAuthorizer.instance;
+  return PlatformOAuthAuthorizer.instance;
 });
 
 final authDeviceIdProvider = Provider<String?>((ref) => null);

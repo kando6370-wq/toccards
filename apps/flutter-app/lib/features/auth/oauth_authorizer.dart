@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 const googleOAuthClientId =
     '134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com';
@@ -24,10 +26,53 @@ abstract class OAuthAuthorizer {
   Future<OAuthAuthorizationResult?> authorize(OAuthProvider provider);
 }
 
-class GoogleOAuthAuthorizer implements OAuthAuthorizer {
-  GoogleOAuthAuthorizer._();
+abstract interface class AppleOAuthClient {
+  Future<OAuthAuthorizationResult?> authorize();
+}
 
-  static final instance = GoogleOAuthAuthorizer._();
+class NativeAppleOAuthClient implements AppleOAuthClient {
+  const NativeAppleOAuthClient();
+
+  @override
+  Future<OAuthAuthorizationResult?> authorize() async {
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.iOS &&
+            defaultTargetPlatform != TargetPlatform.macOS)) {
+      throw const OAuthAuthorizationUnavailable();
+    }
+    if (!await SignInWithApple.isAvailable()) {
+      throw const OAuthAuthorizationUnavailable();
+    }
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [AppleIDAuthorizationScopes.email],
+      );
+      final code = credential.authorizationCode.trim();
+      final idToken = credential.identityToken?.trim();
+      if (code.isEmpty || idToken == null || idToken.isEmpty) {
+        throw const OAuthAuthorizationUnavailable();
+      }
+      return OAuthAuthorizationResult.apple(code: code, idToken: idToken);
+    } on SignInWithAppleAuthorizationException catch (error) {
+      if (error.code == AuthorizationErrorCode.canceled) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+}
+
+class PlatformOAuthAuthorizer implements OAuthAuthorizer {
+  PlatformOAuthAuthorizer._(this._appleClient);
+
+  @visibleForTesting
+  PlatformOAuthAuthorizer.testing({required AppleOAuthClient appleClient})
+    : _appleClient = appleClient;
+
+  static final instance = PlatformOAuthAuthorizer._(
+    const NativeAppleOAuthClient(),
+  );
+  final AppleOAuthClient _appleClient;
   Future<void>? _initialization;
 
   Future<void> initialize() {
@@ -39,7 +84,7 @@ class GoogleOAuthAuthorizer implements OAuthAuthorizer {
   @override
   Future<OAuthAuthorizationResult?> authorize(OAuthProvider provider) async {
     if (provider == OAuthProvider.apple) {
-      throw const OAuthAuthorizationUnavailable();
+      return _appleClient.authorize();
     }
     await initialize();
     if (!GoogleSignIn.instance.supportsAuthenticate()) {
@@ -61,32 +106,6 @@ class GoogleOAuthAuthorizer implements OAuthAuthorizer {
   }
 }
 
-class UnavailableOAuthAuthorizer implements OAuthAuthorizer {
-  const UnavailableOAuthAuthorizer();
-
-  @override
-  Future<OAuthAuthorizationResult?> authorize(OAuthProvider provider) {
-    throw const OAuthAuthorizationUnavailable();
-  }
-}
-
 class OAuthAuthorizationUnavailable implements Exception {
   const OAuthAuthorizationUnavailable();
-}
-
-class MockOAuthAuthorizer implements OAuthAuthorizer {
-  const MockOAuthAuthorizer();
-
-  @override
-  Future<OAuthAuthorizationResult?> authorize(OAuthProvider provider) async {
-    return switch (provider) {
-      OAuthProvider.google => const OAuthAuthorizationResult.google(
-        code: 'mock-google:flutter-google-user:flutter.google@example.com',
-      ),
-      OAuthProvider.apple => const OAuthAuthorizationResult.apple(
-        code: 'apple-auth-code',
-        idToken: 'mock-apple:flutter-apple-user:flutter.apple@example.com',
-      ),
-    };
-  }
 }
