@@ -830,6 +830,27 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Profile never exposes the pending guest id because migration failures use a generic toast',
+    (tester) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+
+      await tester.pumpWidget(
+        _testApp(
+          repository,
+          authController: _PendingMigrationAuthController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+
+      expect(find.textContaining('Pending guest:'), findsNothing);
+      expect(find.textContaining('private-anonymous-id'), findsNothing);
+    },
+  );
+
   testWidgets('user profile navigates to account details', (tester) async {
     final repository = _WidgetAuthRepository(
       initialSession: _userSession(loginMethod: LoginMethod.google),
@@ -1279,12 +1300,15 @@ ProviderScope _testApp(
   OAuthAuthorizer? authorizer,
   FeedbackRepository? feedbackRepository,
   ProfileActions? profileActions,
+  AuthController Function()? authController,
 }) {
   final onboardingStorage = InMemoryOnboardingStorage(completed: true);
 
   return ProviderScope(
     overrides: [
       authRepositoryProvider.overrideWithValue(repository),
+      if (authController != null)
+        authControllerProvider.overrideWith(authController),
       authDeviceIdProvider.overrideWithValue('widget-test-device'),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(onboardingStorage),
@@ -1327,6 +1351,16 @@ ProviderScope _testAuthSheetApp(
       ),
     ),
   );
+}
+
+class _PendingMigrationAuthController extends AuthController {
+  @override
+  AuthState build() {
+    return AuthState.ready(
+      session: _anonymousSession('anon-existing'),
+      pendingMigrationAnonymousId: 'private-anonymous-id',
+    );
+  }
 }
 
 AuthSession _anonymousSession(String anonymousId) {

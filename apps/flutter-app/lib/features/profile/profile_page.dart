@@ -80,16 +80,6 @@ class _ProfileContent extends ConsumerWidget {
               ),
             ],
           ),
-        if (authState.pendingMigrationAnonymousId != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            'Pending guest: ${authState.pendingMigrationAnonymousId}',
-            style: const TextStyle(
-              color: KandoColors.mutedText,
-              fontSize: 12,
-            ),
-          ),
-        ],
         const SizedBox(height: 24),
         _SectionLabel('Support'),
         _MenuCard(
