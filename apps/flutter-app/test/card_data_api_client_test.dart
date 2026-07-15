@@ -31,6 +31,8 @@ void main() {
       expect(cards.single.game, 'Pokemon');
       expect(cards.single.setName, 'Base Set');
       expect(cards.single.objectType, 'tcg');
+      expect(cards.single.priceUsd, 32.13);
+      expect(cards.single.previous30dPriceUsd, 30.67);
     },
   );
 
@@ -127,6 +129,8 @@ Map<String, Object?> _cardJson({
     'object_type': 'tcg',
     'image_url': 'https://img.example/pikachu.jpg',
     'rarity': 'Common',
+    'price_usd': 32.13,
+    'previous_30d_price_usd': 30.67,
   };
 }
 

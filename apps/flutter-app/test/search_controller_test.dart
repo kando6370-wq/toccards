@@ -25,6 +25,8 @@ void main() {
             objectType: 'tcg',
             imageUrl: 'https://img.example/pikachu.jpg',
             rarity: 'Common',
+            priceUsd: 32.13,
+            previous30dPriceUsd: 30.67,
           ),
           CardDataCardDto(
             cardRef: 'catalog:booster-box',
@@ -51,6 +53,8 @@ void main() {
             objectType: 'tcg',
             imageUrl: 'https://img.example/pikachu.jpg',
             rarity: 'Common',
+            priceUsd: 32.13,
+            previous30dPriceUsd: 30.67,
           ),
         ],
         sets: const [
@@ -74,7 +78,8 @@ void main() {
       expect(catalog.cards.first.gameId, 'tcg');
       expect(catalog.cards.first.metadataLine, 'Common #025');
       expect(catalog.cards.first.variantLine, 'Holofoil / English');
-      expect(catalog.cards.first.priceText, '--');
+      expect(catalog.cards.first.priceText, r'$32.13');
+      expect(catalog.cards.first.changeText, '+4.76%');
       expect(catalog.cards.last.type, SearchCardType.sealed);
       expect(catalog.sets.single.id, 'BS');
       expect(catalog.sets.single.cardCountText, '102 cards');
@@ -85,6 +90,8 @@ void main() {
       expect(api.searchCardQueries, ['pikachu']);
       expect(api.searchSetQueries, ['pokemon', 'base']);
       expect(cards.single.name, 'Pikachu');
+      expect(cards.single.priceText, r'$32.13');
+      expect(cards.single.changeText, '+4.76%');
       expect(sets.single.name, 'Base Set');
     },
   );

@@ -36,6 +36,8 @@ class CardDataCardDto {
     this.game,
     required this.imageUrl,
     required this.rarity,
+    this.priceUsd,
+    this.previous30dPriceUsd,
   });
 
   final String cardRef;
@@ -49,6 +51,8 @@ class CardDataCardDto {
   final String? game;
   final String? imageUrl;
   final String? rarity;
+  final double? priceUsd;
+  final double? previous30dPriceUsd;
 
   factory CardDataCardDto.fromJson(Map<String, Object?> json) {
     return CardDataCardDto(
@@ -63,6 +67,8 @@ class CardDataCardDto {
       game: _nullableString(json['game']),
       imageUrl: _nullableString(json['image_url']),
       rarity: _nullableString(json['rarity']),
+      priceUsd: _nullableDouble(json['price_usd']),
+      previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
     );
   }
 }
