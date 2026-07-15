@@ -1,14 +1,27 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/card_detail/card_detail_controller.dart';
+import 'package:kando_app/features/collection/collection_controller.dart';
+import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'search_models.dart';
 import 'search_repository.dart';
 
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  return HttpSearchRepository(ref.watch(cardDataApiClientProvider));
+  return HttpSearchRepository(
+    ref.watch(cardDataApiClientProvider),
+    portfolioApi: ref.watch(portfolioApiClientProvider),
+  );
+});
+
+final searchSessionProvider = Provider<AuthSession?>((ref) {
+  return ref.watch(authControllerProvider).session;
 });
 
 final searchControllerProvider =
@@ -145,6 +158,7 @@ class SearchController extends Notifier<SearchState> {
   Completer<void>? _loadCompleter;
   Timer? _searchDebounce;
   var _loadGeneration = 0;
+  final _pendingCardMutations = <String>{};
 
   Future<void> get loadComplete {
     return _loadCompleter?.future ?? Future<void>.value();
@@ -155,39 +169,64 @@ class SearchController extends Notifier<SearchState> {
     ref.onDispose(() {
       _searchDebounce?.cancel();
     });
-    _startLoad();
+    ref.listen<String?>(selectedPortfolioFolderProvider, (previous, next) {
+      if (previous == null || previous == next || state.isLoading) return;
+      final repository = ref.read(searchRepositoryProvider);
+      if (repository is SearchAssetRepository) {
+        _startLoad(
+          preserveState: state,
+          session: ref.read(searchSessionProvider),
+        );
+      }
+    });
+    final repository = ref.watch(searchRepositoryProvider);
+    final session = repository is SearchAssetRepository
+        ? ref.watch(searchSessionProvider)
+        : null;
+    if (repository is SearchAssetRepository && session == null) {
+      return const SearchState.loading();
+    }
+    _startLoad(session: session);
     return const SearchState.loading();
   }
 
   Future<void> refresh() {
     state = const SearchState.loading();
-    _startLoad();
+    _startLoad(session: _assetSession);
     return loadComplete;
   }
 
-  void _startLoad({SearchState? preserveState}) {
+  void _startLoad({SearchState? preserveState, AuthSession? session}) {
     _searchDebounce?.cancel();
     final completer = Completer<void>();
     final generation = ++_loadGeneration;
     _loadCompleter = completer;
-    unawaited(_loadCatalog(generation, completer, preserveState));
+    unawaited(_loadCatalog(generation, completer, preserveState, session));
   }
 
   Future<void> _loadCatalog(
     int generation,
     Completer<void> completer,
     SearchState? preserveState,
+    AuthSession? session,
   ) async {
     try {
-      final catalog = await ref.read(searchRepositoryProvider).loadCatalog();
+      final repository = ref.read(searchRepositoryProvider);
+      var catalog = await repository.loadCatalog();
+      catalog = await _withAssets(repository, catalog, session);
+      if (!ref.mounted) return;
       if (catalog.games.isEmpty) {
         throw StateError('Search catalog needs at least one game.');
       }
       if (generation == _loadGeneration) {
-        state = _stateForCatalog(catalog, preserveState: preserveState);
+        state = _stateForCatalog(
+          catalog,
+          preserveState: preserveState,
+          clearOverrides: repository is SearchAssetRepository,
+        );
       }
     } catch (_) {
-      if (generation == _loadGeneration) {
+      if (ref.mounted && generation == _loadGeneration) {
         state = const SearchState.unavailable();
       }
     } finally {
@@ -223,7 +262,7 @@ class SearchController extends Notifier<SearchState> {
     state = state.copyWith(
       searchByTab: {...state.searchByTab, state.selectedTab: ''},
     );
-    _startLoad(preserveState: state);
+    _startLoad(preserveState: state, session: _assetSession);
   }
 
   void selectGame(String gameId) {
@@ -242,11 +281,20 @@ class SearchController extends Notifier<SearchState> {
     );
   }
 
-  SearchCollectAction toggleCollect(String cardId) {
-    if (state.isUnavailable || state.isLoading) {
+  Future<SearchCollectAction> toggleCollect(String cardId) async {
+    if (state.isUnavailable ||
+        state.isLoading ||
+        !_pendingCardMutations.add(cardId)) {
       return SearchCollectAction.ignored;
     }
+    try {
+      return await _toggleCollect(cardId);
+    } finally {
+      _pendingCardMutations.remove(cardId);
+    }
+  }
 
+  Future<SearchCollectAction> _toggleCollect(String cardId) async {
     final card = state.cardById(cardId);
     if (card.isCollected) {
       final collectionItemCount = card.collectionItemCount > 0
@@ -257,8 +305,56 @@ class SearchController extends Notifier<SearchState> {
         return SearchCollectAction.openDetail;
       }
 
-      _replaceCard(card.copyWith(quantity: 0, collectionItemCount: 0));
+      final repository = ref.read(searchRepositoryProvider);
+      if (repository is SearchAssetRepository) {
+        final session = ref.read(searchSessionProvider);
+        final itemId = card.collectionItemId;
+        if (session == null || itemId == null) {
+          return SearchCollectAction.openDetail;
+        }
+        try {
+          await repository.deleteCollectionItem(session, itemId);
+        } catch (_) {
+          return SearchCollectAction.ignored;
+        }
+      }
+      _replaceCard(
+        card.copyWith(
+          quantity: 0,
+          collectionItemCount: 0,
+          collectionItemId: null,
+        ),
+      );
+      _invalidateAssetConsumers(cardId);
       return SearchCollectAction.updated;
+    }
+
+    final repository = ref.read(searchRepositoryProvider);
+    if (repository is SearchAssetRepository) {
+      final session = ref.read(searchSessionProvider);
+      final folderId = ref.read(selectedPortfolioFolderProvider);
+      if (session == null || folderId == null) {
+        return SearchCollectAction.ignored;
+      }
+      try {
+        final item = await repository.collect(
+          session,
+          card: card,
+          folderId: folderId,
+        );
+        final next = card.copyWith(
+          quantity: item.quantity,
+          collectionItemCount: 1,
+          collectionItemId: item.id,
+          isWishlisted: false,
+          wishlistItemId: null,
+        );
+        _replaceCard(next);
+        _invalidateAssetConsumers(cardId);
+        return SearchCollectAction.updated;
+      } catch (_) {
+        return SearchCollectAction.ignored;
+      }
     }
 
     final next = card.copyWith(
@@ -270,16 +366,50 @@ class SearchController extends Notifier<SearchState> {
     return SearchCollectAction.updated;
   }
 
-  void toggleWishlist(String cardId) {
-    if (state.isUnavailable || state.isLoading) {
-      return;
+  Future<bool> toggleWishlist(String cardId) async {
+    if (state.isUnavailable ||
+        state.isLoading ||
+        !_pendingCardMutations.add(cardId)) {
+      return false;
+    }
+    try {
+      return await _toggleWishlist(cardId);
+    } finally {
+      _pendingCardMutations.remove(cardId);
+    }
+  }
+
+  Future<bool> _toggleWishlist(String cardId) async {
+    final card = state.cardById(cardId);
+    final repository = ref.read(searchRepositoryProvider);
+    if (repository is SearchAssetRepository) {
+      if (card.isCollected) return true;
+      final session = ref.read(searchSessionProvider);
+      if (session == null) return false;
+      try {
+        if (card.wishlistItemId == null) {
+          final item = await repository.addWishlist(session, card.id);
+          _replaceCard(
+            card.copyWith(isWishlisted: true, wishlistItemId: item.id),
+          );
+        } else {
+          await repository.deleteWishlist(session, card.wishlistItemId!);
+          _replaceCard(
+            card.copyWith(isWishlisted: false, wishlistItemId: null),
+          );
+        }
+        _invalidateAssetConsumers(cardId);
+        return true;
+      } catch (_) {
+        return false;
+      }
     }
 
-    final card = state.cardById(cardId);
     final next = card.isCollected
         ? card.copyWith(isWishlisted: false)
         : card.copyWith(isWishlisted: !card.isWishlisted);
     _replaceCard(next);
+    return true;
   }
 
   void _replaceCard(SearchCard card) {
@@ -313,7 +443,7 @@ class SearchController extends Notifier<SearchState> {
     try {
       final repository = ref.read(searchRepositoryProvider);
       final currentCatalog = state.catalog;
-      final catalog = switch (tab) {
+      var catalog = switch (tab) {
         SearchTab.cards => _catalogWithCards(
           currentCatalog,
           await repository.searchCards(query),
@@ -323,11 +453,17 @@ class SearchController extends Notifier<SearchState> {
           await repository.searchSets(query),
         ),
       };
+      catalog = await _withAssets(repository, catalog, _assetSession);
+      if (!ref.mounted) return;
       if (generation == _loadGeneration) {
-        state = _stateForCatalog(catalog, preserveState: state);
+        state = _stateForCatalog(
+          catalog,
+          preserveState: state,
+          clearOverrides: repository is SearchAssetRepository,
+        );
       }
     } catch (_) {
-      if (generation == _loadGeneration) {
+      if (ref.mounted && generation == _loadGeneration) {
         state = const SearchState.unavailable();
       }
     } finally {
@@ -340,6 +476,7 @@ class SearchController extends Notifier<SearchState> {
   SearchState _stateForCatalog(
     SearchCatalog catalog, {
     SearchState? preserveState,
+    bool clearOverrides = false,
   }) {
     final selectedTab = preserveState?.selectedTab ?? SearchTab.cards;
     final selectedGameId = _selectedGameIdFor(catalog, preserveState);
@@ -350,7 +487,9 @@ class SearchController extends Notifier<SearchState> {
       searchByTab:
           preserveState?.searchByTab ??
           const {SearchTab.cards: '', SearchTab.sets: ''},
-      cardOverrides: preserveState?.cardOverrides ?? const {},
+      cardOverrides: clearOverrides
+          ? const {}
+          : preserveState?.cardOverrides ?? const {},
     );
   }
 
@@ -397,5 +536,57 @@ class SearchController extends Notifier<SearchState> {
           : existing.first;
     }
     return gamesById.values.toList();
+  }
+
+  Future<SearchCatalog> _withAssets(
+    SearchRepository repository,
+    SearchCatalog catalog,
+    AuthSession? session,
+  ) async {
+    if (repository is! SearchAssetRepository || session == null) {
+      return catalog;
+    }
+    final snapshot = await repository.loadAssets(
+      session,
+      selectedFolderId: ref.read(selectedPortfolioFolderProvider),
+    );
+    if (!ref.mounted) return catalog;
+    if (ref.read(selectedPortfolioFolderProvider) == null) {
+      ref
+          .read(selectedPortfolioFolderProvider.notifier)
+          .select(snapshot.folderId);
+    }
+    return SearchCatalog(
+      games: catalog.games,
+      cards: [
+        for (final card in catalog.cards)
+          _cardWithAssets(card, snapshot.statesByCardRef[card.id]),
+      ],
+      sets: catalog.sets,
+    );
+  }
+
+  SearchCard _cardWithAssets(SearchCard card, SearchCardAssetState? assets) {
+    final itemIds = assets?.collectionItemIds ?? const [];
+    final quantity = assets?.quantity ?? 0;
+    return card.copyWith(
+      quantity: quantity,
+      collectionItemCount: itemIds.length,
+      collectionItemId: itemIds.length == 1 ? itemIds.single : null,
+      isWishlisted: quantity == 0 && assets?.wishlistItemId != null,
+      wishlistItemId: quantity == 0 ? assets?.wishlistItemId : null,
+    );
+  }
+
+  void _invalidateAssetConsumers(String cardId) {
+    ref.invalidate(homeControllerProvider);
+    ref.invalidate(collectionControllerProvider);
+    ref.invalidate(cardDetailControllerProvider(cardId));
+  }
+
+  AuthSession? get _assetSession {
+    return ref.read(searchRepositoryProvider) is SearchAssetRepository
+        ? ref.read(searchSessionProvider)
+        : null;
   }
 }

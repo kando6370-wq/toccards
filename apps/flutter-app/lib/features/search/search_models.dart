@@ -1,5 +1,7 @@
 import 'package:kando_app/shared/market/market_change.dart';
 
+const _searchCardFieldUnset = Object();
+
 enum SearchTab { cards, sets }
 
 enum SearchCardType { tcg, sports, sealed, other }
@@ -25,6 +27,10 @@ class SearchCard {
     required this.quantity,
     required this.isWishlisted,
     this.collectionItemCount = 0,
+    this.collectionItemId,
+    this.wishlistItemId,
+    this.language,
+    this.finish,
   });
 
   final String id;
@@ -39,6 +45,10 @@ class SearchCard {
   final int quantity;
   final bool isWishlisted;
   final int collectionItemCount;
+  final String? collectionItemId;
+  final String? wishlistItemId;
+  final String? language;
+  final String? finish;
 
   bool get isCollected => quantity > 0;
 
@@ -66,6 +76,8 @@ class SearchCard {
     int? quantity,
     bool? isWishlisted,
     int? collectionItemCount,
+    Object? collectionItemId = _searchCardFieldUnset,
+    Object? wishlistItemId = _searchCardFieldUnset,
   }) {
     return SearchCard(
       id: id,
@@ -80,6 +92,14 @@ class SearchCard {
       quantity: quantity ?? this.quantity,
       isWishlisted: isWishlisted ?? this.isWishlisted,
       collectionItemCount: collectionItemCount ?? this.collectionItemCount,
+      collectionItemId: collectionItemId == _searchCardFieldUnset
+          ? this.collectionItemId
+          : collectionItemId as String?,
+      wishlistItemId: wishlistItemId == _searchCardFieldUnset
+          ? this.wishlistItemId
+          : wishlistItemId as String?,
+      language: language,
+      finish: finish,
     );
   }
 }

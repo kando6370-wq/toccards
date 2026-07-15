@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'support/mock_search_repository.dart';
@@ -133,6 +135,76 @@ void main() {
         state.catalog.sets.map((set) => set.name),
         containsAll(['Mega Evolution Promos', 'Obsidian Flames']),
       );
+    },
+  );
+
+  test(
+    'Search loads and mutates backend asset state because Qty Collect and Wishlist must survive page refresh',
+    () async {
+      final portfolioApi = _FakePortfolioApi(
+        items: [_portfolioItem(id: 'item-1', quantity: 2)],
+      );
+      final repository = HttpSearchRepository(
+        _FakeCardDataApi(
+          trendingCardRows: const [
+            CardDataCardDto(
+              cardRef: '9359',
+              name: 'Escape Artist',
+              setName: 'Odyssey',
+              setCode: 'ODY',
+              cardNumber: '',
+              finish: 'Normal',
+              language: 'English',
+              objectType: 'tcg',
+              imageUrl: null,
+              rarity: 'Common',
+              priceUsd: 0.21,
+              previous30dPriceUsd: 0.17,
+            ),
+          ],
+          sets: const [],
+        ),
+        portfolioApi: portfolioApi,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(repository),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      var card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.quantity, 2);
+      expect(card.collectionItemId, 'item-1');
+
+      final collect = controller.toggleCollect('9359');
+      expect(
+        await controller.toggleCollect('9359'),
+        SearchCollectAction.ignored,
+      );
+      expect(await collect, SearchCollectAction.updated);
+      expect(portfolioApi.deletedCollectionItemIds, ['item-1']);
+
+      expect(await controller.toggleWishlist('9359'), isTrue);
+      card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.wishlistItemId, 'wishlist-1');
+
+      expect(
+        await controller.toggleCollect('9359'),
+        SearchCollectAction.updated,
+      );
+      final draft = portfolioApi.lastCollectedDraft!;
+      expect(draft.folderId, 'folder-main');
+      expect(draft.condition, 'Near Mint (NM)');
+      expect(draft.language, 'English');
+      expect(draft.finish, 'Normal');
+      expect(portfolioApi.wishlistItems, isEmpty);
+      card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.quantity, 1);
+      expect(card.isWishlisted, isFalse);
     },
   );
 
@@ -282,7 +354,7 @@ void main() {
     final controller = container.read(searchControllerProvider.notifier);
     await controller.loadComplete;
 
-    controller.toggleWishlist('squirtle');
+    await controller.toggleWishlist('squirtle');
     expect(
       container
           .read(searchControllerProvider)
@@ -291,7 +363,10 @@ void main() {
       isTrue,
     );
 
-    expect(controller.toggleCollect('squirtle'), SearchCollectAction.updated);
+    expect(
+      await controller.toggleCollect('squirtle'),
+      SearchCollectAction.updated,
+    );
     final collected = container
         .read(searchControllerProvider)
         .cardById('squirtle');
@@ -300,7 +375,10 @@ void main() {
     expect(collected.isCollected, isTrue);
     expect(collected.isWishlisted, isFalse);
 
-    expect(controller.toggleCollect('squirtle'), SearchCollectAction.updated);
+    expect(
+      await controller.toggleCollect('squirtle'),
+      SearchCollectAction.updated,
+    );
     expect(
       container.read(searchControllerProvider).cardById('squirtle').quantity,
       0,
@@ -317,7 +395,7 @@ void main() {
       final controller = container.read(searchControllerProvider.notifier);
       await controller.loadComplete;
 
-      final action = controller.toggleCollect('multi-owned');
+      final action = await controller.toggleCollect('multi-owned');
       final card = container
           .read(searchControllerProvider)
           .cardById('multi-owned');
@@ -507,4 +585,103 @@ class _FakeCardDataApi implements CardDataApi {
   Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef) async {
     throw UnimplementedError();
   }
+}
+
+const _session = AuthSession(
+  ownerType: OwnerType.anonymous,
+  anonymousId: 'anonymous-search',
+  accessToken: 'access-search',
+  refreshToken: 'refresh-search',
+);
+
+class _FakePortfolioApi extends Fake implements PortfolioApi {
+  _FakePortfolioApi({List<PortfolioItemDto> items = const []})
+    : collectionItems = [...items];
+
+  final List<PortfolioItemDto> collectionItems;
+  final List<WishlistItemDto> wishlistItems = [];
+  final List<String> deletedCollectionItemIds = [];
+  PortfolioItemDraftDto? lastCollectedDraft;
+
+  @override
+  Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
+    return const [
+      PortfolioFolderDto(
+        id: 'folder-main',
+        name: 'Main',
+        isDefault: true,
+        sortOrder: 100,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<PortfolioItemDto>> listCollectionItems(
+    AuthSession session,
+  ) async {
+    return [...collectionItems];
+  }
+
+  @override
+  Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) async {
+    return [...wishlistItems];
+  }
+
+  @override
+  Future<PortfolioItemDto> quickCollect(
+    AuthSession session, {
+    required String cardRef,
+    required PortfolioItemDraftDto draft,
+  }) async {
+    lastCollectedDraft = draft;
+    wishlistItems.removeWhere((item) => item.cardRef == cardRef);
+    final item = _portfolioItem(id: 'item-created', quantity: draft.quantity);
+    collectionItems.add(item);
+    return item;
+  }
+
+  @override
+  Future<void> deleteCollectionItem(AuthSession session, String itemId) async {
+    deletedCollectionItemIds.add(itemId);
+    collectionItems.removeWhere((item) => item.id == itemId);
+  }
+
+  @override
+  Future<WishlistItemDto> addWishlist(
+    AuthSession session,
+    String cardRef,
+  ) async {
+    final item = WishlistItemDto(
+      id: 'wishlist-1',
+      cardRef: cardRef,
+      createdAt: DateTime.utc(2026, 7, 15),
+    );
+    wishlistItems.add(item);
+    return item;
+  }
+
+  @override
+  Future<void> deleteWishlist(AuthSession session, String itemId) async {
+    wishlistItems.removeWhere((item) => item.id == itemId);
+  }
+}
+
+PortfolioItemDto _portfolioItem({required String id, required int quantity}) {
+  return PortfolioItemDto(
+    id: id,
+    folderId: 'folder-main',
+    cardRef: '9359',
+    objectType: 'tcg',
+    grader: 'Raw',
+    condition: 'Near Mint (NM)',
+    grade: null,
+    language: 'English',
+    finish: 'Normal',
+    quantity: quantity,
+    purchasePrice: null,
+    purchaseCurrency: null,
+    notes: null,
+    createdAt: DateTime.utc(2026, 7, 15),
+    updatedAt: DateTime.utc(2026, 7, 15),
+  );
 }

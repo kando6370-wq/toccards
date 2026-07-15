@@ -1,4 +1,6 @@
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import 'search_models.dart';
 
@@ -8,11 +10,53 @@ abstract interface class SearchRepository {
   Future<List<SearchSet>> searchSets(String query);
 }
 
-class HttpSearchRepository implements SearchRepository {
-  const HttpSearchRepository(this._api, {String defaultSetQuery = 'pokemon'})
-    : _defaultSetQuery = defaultSetQuery;
+abstract interface class SearchAssetRepository implements SearchRepository {
+  Future<SearchAssetSnapshot> loadAssets(
+    AuthSession session, {
+    String? selectedFolderId,
+  });
+  Future<PortfolioItemDto> collect(
+    AuthSession session, {
+    required SearchCard card,
+    required String folderId,
+  });
+  Future<void> deleteCollectionItem(AuthSession session, String itemId);
+  Future<WishlistItemDto> addWishlist(AuthSession session, String cardRef);
+  Future<void> deleteWishlist(AuthSession session, String itemId);
+}
+
+class SearchAssetSnapshot {
+  const SearchAssetSnapshot({
+    required this.folderId,
+    required this.statesByCardRef,
+  });
+
+  final String folderId;
+  final Map<String, SearchCardAssetState> statesByCardRef;
+}
+
+class SearchCardAssetState {
+  const SearchCardAssetState({
+    required this.quantity,
+    required this.collectionItemIds,
+    required this.wishlistItemId,
+  });
+
+  final int quantity;
+  final List<String> collectionItemIds;
+  final String? wishlistItemId;
+}
+
+class HttpSearchRepository implements SearchRepository, SearchAssetRepository {
+  const HttpSearchRepository(
+    this._api, {
+    PortfolioApi? portfolioApi,
+    String defaultSetQuery = 'pokemon',
+  }) : _portfolioApi = portfolioApi,
+       _defaultSetQuery = defaultSetQuery;
 
   final CardDataApi _api;
+  final PortfolioApi? _portfolioApi;
   final String _defaultSetQuery;
 
   @override
@@ -37,6 +81,104 @@ class HttpSearchRepository implements SearchRepository {
   Future<List<SearchSet>> searchSets(String query) async {
     final sets = await _api.searchSets(query);
     return sets.map(_setFromDto).toList();
+  }
+
+  @override
+  Future<SearchAssetSnapshot> loadAssets(
+    AuthSession session, {
+    String? selectedFolderId,
+  }) async {
+    final api = _requiredPortfolioApi;
+    final results = await Future.wait([
+      api.listFolders(session),
+      api.listCollectionItems(session),
+      api.listWishlistItems(session),
+    ]);
+    final folders = results[0] as List<PortfolioFolderDto>;
+    final items = results[1] as List<PortfolioItemDto>;
+    final wishlist = results[2] as List<WishlistItemDto>;
+    if (folders.isEmpty) {
+      throw StateError('Search requires at least one portfolio folder.');
+    }
+    final folder =
+        folders.where((item) => item.id == selectedFolderId).firstOrNull ??
+        folders.where((item) => item.isDefault).firstOrNull ??
+        folders.first;
+    final itemsByCardRef = <String, List<PortfolioItemDto>>{};
+    for (final item in items.where((item) => item.folderId == folder.id)) {
+      (itemsByCardRef[item.cardRef] ??= []).add(item);
+    }
+    final wishlistByCardRef = {
+      for (final item in wishlist) item.cardRef: item.id,
+    };
+    final cardRefs = {...itemsByCardRef.keys, ...wishlistByCardRef.keys};
+
+    return SearchAssetSnapshot(
+      folderId: folder.id,
+      statesByCardRef: {
+        for (final cardRef in cardRefs)
+          cardRef: SearchCardAssetState(
+            quantity: (itemsByCardRef[cardRef] ?? const []).fold(
+              0,
+              (sum, item) => sum + item.quantity,
+            ),
+            collectionItemIds: [
+              for (final item in itemsByCardRef[cardRef] ?? const []) item.id,
+            ],
+            wishlistItemId: wishlistByCardRef[cardRef],
+          ),
+      },
+    );
+  }
+
+  @override
+  Future<PortfolioItemDto> collect(
+    AuthSession session, {
+    required SearchCard card,
+    required String folderId,
+  }) {
+    final sealed = card.type == SearchCardType.sealed;
+    return _requiredPortfolioApi.quickCollect(
+      session,
+      cardRef: card.id,
+      draft: PortfolioItemDraftDto(
+        folderId: folderId,
+        cardRef: card.id,
+        objectType: card.type.name,
+        grader: 'Raw',
+        condition: sealed ? null : 'Near Mint (NM)',
+        grade: null,
+        language: card.language ?? 'English',
+        finish: card.finish,
+        quantity: 1,
+        purchasePrice: null,
+        purchaseCurrency: null,
+        notes: null,
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteCollectionItem(AuthSession session, String itemId) {
+    return _requiredPortfolioApi.deleteCollectionItem(session, itemId);
+  }
+
+  @override
+  Future<WishlistItemDto> addWishlist(AuthSession session, String cardRef) {
+    return _requiredPortfolioApi.addWishlist(session, cardRef);
+  }
+
+  @override
+  Future<void> deleteWishlist(AuthSession session, String itemId) {
+    return _requiredPortfolioApi.deleteWishlist(session, itemId);
+  }
+
+  PortfolioApi get _requiredPortfolioApi {
+    final api = _portfolioApi;
+    if (api == null) {
+      throw StateError('Portfolio API is unavailable.');
+    }
+    return api;
   }
 }
 
@@ -69,6 +211,8 @@ SearchCard _cardFromDto(CardDataCardDto dto) {
     variantLine: _variantLine(dto),
     quantity: 0,
     isWishlisted: false,
+    language: dto.language,
+    finish: dto.finish,
   );
 }
 

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import 'search_controller.dart';
 import 'search_models.dart';
@@ -328,9 +329,7 @@ class _SearchCardTile extends ConsumerWidget {
     final change = card.changeText;
     final changeColor = change.startsWith('-')
         ? Theme.of(context).colorScheme.error
-        : (change.startsWith('+')
-              ? KandoColors.accent
-              : KandoColors.mutedText);
+        : (change.startsWith('+') ? KandoColors.accent : KandoColors.mutedText);
 
     const mutedLine = TextStyle(
       fontSize: 11,
@@ -384,7 +383,14 @@ class _SearchCardTile extends ConsumerWidget {
                         ),
                         child: IconButton(
                           key: Key('search-wishlist-${card.id}'),
-                          onPressed: () => controller.toggleWishlist(card.id),
+                          onPressed: () async {
+                            final succeeded = await controller.toggleWishlist(
+                              card.id,
+                            );
+                            if (!succeeded && context.mounted) {
+                              showKandoFailureToast(context);
+                            }
+                          },
                           iconSize: 16,
                           visualDensity: VisualDensity.compact,
                           constraints: const BoxConstraints(
@@ -463,10 +469,15 @@ class _SearchCardTile extends ConsumerWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton(
-                  onPressed: () {
-                    final action = controller.toggleCollect(card.id);
+                  onPressed: () async {
+                    final action = await controller.toggleCollect(card.id);
                     if (action == SearchCollectAction.openDetail) {
-                      context.go('/cards/${card.id}');
+                      if (context.mounted) {
+                        context.go('/cards/${card.id}');
+                      }
+                    } else if (action == SearchCollectAction.ignored &&
+                        context.mounted) {
+                      showKandoFailureToast(context);
                     }
                   },
                   style: TextButton.styleFrom(
