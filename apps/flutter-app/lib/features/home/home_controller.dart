@@ -17,6 +17,7 @@ final homeRepositoryProvider = Provider<HomeRepository>((ref) {
   return ApiHomeRepository(
     session: session,
     portfolioApi: ref.watch(portfolioApiClientProvider),
+    managementApi: ref.watch(portfolioManagementApiProvider),
     cardDataApi: ref.watch(cardDataApiClientProvider),
   );
 });
@@ -194,6 +195,21 @@ class HomeController extends Notifier<HomeState> {
     ref.listen<AppCurrency>(selectedCurrencyProvider, (previous, next) {
       state = state.copyWith(currency: next);
     });
+    ref.listen<String?>(selectedPortfolioFolderProvider, (previous, next) {
+      if (next == null || state.isLoading || state.isUnavailable) return;
+      if (state.dashboard.folders.any((folder) => folder.id == next)) {
+        final portfolio = state.dashboard.portfoliosByFolderId[next]!;
+        state = state.copyWith(
+          selectedFolderId: next,
+          chartRange: _bestChartRange(portfolio, preferred: state.chartRange),
+        );
+      }
+    });
+    ref.listen<bool?>(portfolioAmountHiddenProvider, (previous, next) {
+      if (next != null && !state.isLoading && !state.isUnavailable) {
+        state = state.copyWith(amountHidden: next);
+      }
+    });
 
     final repository = ref.watch(homeRepositoryProvider);
     return _loadDashboard(repository: repository);
@@ -288,17 +304,53 @@ class HomeController extends Notifier<HomeState> {
     AppCurrency currency, {
     HomeState? previousState,
   }) {
-    final previousFolderId = previousState?.selectedFolderId;
+    final preferredCurrency = previousState?.currency ??
+        AppCurrency.fromCode(dashboard.currencyCode);
+    if (previousState == null &&
+        ref.read(selectedCurrencyProvider) != preferredCurrency) {
+      Future<void>.microtask(() {
+        if (ref.mounted) {
+          ref.read(selectedCurrencyProvider.notifier).select(preferredCurrency);
+        }
+      });
+    }
+    final previousFolderId =
+        previousState?.selectedFolderId ??
+        ref.read(selectedPortfolioFolderProvider);
     final selectedFolderId =
         dashboard.folders.any((folder) => folder.id == previousFolderId)
         ? previousFolderId!
         : dashboard.defaultFolder.id;
     final portfolio = dashboard.portfoliosByFolderId[selectedFolderId]!;
+    final amountHidden =
+        previousState?.amountHidden ??
+        ref.read(portfolioAmountHiddenProvider) ??
+        dashboard.amountHidden;
+    if (previousState == null &&
+        ref.read(selectedPortfolioFolderProvider) == null) {
+      Future<void>.microtask(() {
+        if (ref.mounted) {
+          ref
+              .read(selectedPortfolioFolderProvider.notifier)
+              .select(selectedFolderId);
+        }
+      });
+    }
+    if (previousState == null &&
+        ref.read(portfolioAmountHiddenProvider) == null) {
+      Future<void>.microtask(() {
+        if (ref.mounted) {
+          ref
+              .read(portfolioAmountHiddenProvider.notifier)
+              .select(amountHidden);
+        }
+      });
+    }
     return HomeState(
       dashboard: dashboard,
       selectedFolderId: selectedFolderId,
-      currency: currency,
-      amountHidden: previousState?.amountHidden ?? false,
+      currency: preferredCurrency,
+      amountHidden: amountHidden,
       chartRange: _bestChartRange(
         portfolio,
         preferred: previousState?.chartRange,
@@ -306,39 +358,89 @@ class HomeController extends Notifier<HomeState> {
     );
   }
 
-  void selectFolder(String folderId) {
+  Future<bool> selectFolder(String folderId) async {
     if (state.isUnavailable) {
-      return;
+      return false;
     }
 
     final exists = state.dashboard.folders.any(
       (folder) => folder.id == folderId,
     );
     if (!exists) {
-      return;
+      return false;
     }
 
     final portfolio =
         state.dashboard.portfoliosByFolderId[folderId] ??
         state.selectedPortfolio;
+    final previousFolderId = state.selectedFolderId;
+    final previousRange = state.chartRange;
     state = state.copyWith(
       selectedFolderId: folderId,
       chartRange: _bestChartRange(portfolio, preferred: state.chartRange),
     );
+    try {
+      await _updatePreferences(lastSelectedFolderId: folderId);
+      ref
+          .read(selectedPortfolioFolderProvider.notifier)
+          .select(folderId);
+      return true;
+    } catch (_) {
+      state = state.copyWith(
+        selectedFolderId: previousFolderId,
+        chartRange: previousRange,
+      );
+      return false;
+    }
   }
 
-  void selectCurrency(String currencyCode) {
+  Future<bool> selectCurrency(String currencyCode) async {
     final currency = AppCurrency.fromCode(currencyCode);
     if (currency.code != currencyCode) {
-      return;
+      return false;
     }
 
+    final previous = state.currency;
     ref.read(selectedCurrencyProvider.notifier).select(currency);
     state = state.copyWith(currency: currency);
+    try {
+      await _updatePreferences(currency: currency.code);
+      return true;
+    } catch (_) {
+      ref.read(selectedCurrencyProvider.notifier).select(previous);
+      state = state.copyWith(currency: previous);
+      return false;
+    }
   }
 
-  void toggleAmountHidden() {
-    state = state.copyWith(amountHidden: !state.amountHidden);
+  Future<bool> toggleAmountHidden() async {
+    final previous = state.amountHidden;
+    state = state.copyWith(amountHidden: !previous);
+    try {
+      await _updatePreferences(amountHidden: !previous);
+      ref
+          .read(portfolioAmountHiddenProvider.notifier)
+          .select(!previous);
+      return true;
+    } catch (_) {
+      state = state.copyWith(amountHidden: previous);
+      return false;
+    }
+  }
+
+  Future<void> _updatePreferences({
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) async {
+    final session = ref.read(authControllerProvider).session;
+    if (session == null) throw StateError('Home session is unavailable.');
+    await ref.read(portfolioManagementApiProvider).updatePreferences(
+      session,
+      currency: currency,
+      amountHidden: amountHidden,
+      lastSelectedFolderId: lastSelectedFolderId,
+    );
   }
 
   void selectChartRange(HomeChartRange chartRange) {

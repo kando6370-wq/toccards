@@ -83,6 +83,8 @@ class HomeDashboard {
     required this.mostValuableByFolderId,
     required this.trending,
     this.mostValuableCardsByFolderId = const {},
+    this.currencyCode = 'USD',
+    this.amountHidden = false,
   });
 
   final List<HomeFolder> folders;
@@ -90,6 +92,8 @@ class HomeDashboard {
   final Map<String, HomeCardHighlight?> mostValuableByFolderId;
   final Map<String, List<HomeCardHighlight>> mostValuableCardsByFolderId;
   final List<TrendingCard> trending;
+  final String currencyCode;
+  final bool amountHidden;
 
   HomeFolder get defaultFolder {
     return folders.firstWhere((folder) => folder.isDefault);

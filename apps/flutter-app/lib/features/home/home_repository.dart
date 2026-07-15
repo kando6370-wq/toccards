@@ -14,17 +14,25 @@ class ApiHomeRepository implements HomeRepository {
   const ApiHomeRepository({
     required this.session,
     required this.portfolioApi,
+    required this.managementApi,
     required this.cardDataApi,
   });
 
   final AuthSession session;
   final PortfolioApi portfolioApi;
+  final PortfolioManagementApi managementApi;
   final CardDataApi cardDataApi;
 
   @override
   Future<HomeDashboard> loadDashboard() async {
-    final folders = await portfolioApi.listFolders(session);
-    final items = await portfolioApi.listCollectionItems(session);
+    final source = await Future.wait([
+      portfolioApi.listFolders(session),
+      portfolioApi.listCollectionItems(session),
+      managementApi.getPreferences(session),
+    ]);
+    final folders = source[0] as List<PortfolioFolderDto>;
+    final items = source[1] as List<PortfolioItemDto>;
+    final preferences = source[2] as UserPreferenceDto;
     final assets = await Future.wait(items.map(_loadAsset));
     final valuedAssets = assets.whereType<_HomeAsset>().toList();
     final trending = await _loadTrending();
@@ -85,6 +93,8 @@ class ApiHomeRepository implements HomeRepository {
       mostValuableByFolderId: primaryHighlights,
       mostValuableCardsByFolderId: highlights,
       trending: trending,
+      currencyCode: preferences.currency,
+      amountHidden: preferences.amountHidden,
     );
   }
 
@@ -100,13 +110,19 @@ class ApiHomeRepository implements HomeRepository {
       if (price?.price == null) return null;
       final entries = await Future.wait(
         HomeChartRange.values.map(
-          (range) => cardDataApi.getPriceSeries(
-            item.cardRef,
-            days: _rangeDays[range]!,
-            grader: price!.grader,
-            grade: price.grade,
-            condition: price.condition,
-          ),
+          (range) async {
+            try {
+              return await cardDataApi.getPriceSeries(
+                item.cardRef,
+                days: _rangeDays[range]!,
+                grader: price!.grader,
+                grade: price.grade,
+                condition: price.condition,
+              );
+            } catch (_) {
+              return const <CardDataPricePointDto>[];
+            }
+          },
         ),
       );
       return _HomeAsset(
@@ -169,11 +185,18 @@ CardDataMarketPriceDto? _matchingPrice(
     final gradeMatches = item.grade == null || price.grade == item.grade;
     final conditionMatches =
         item.condition == null ||
-        price.condition?.trim().toLowerCase() ==
-            item.condition!.trim().toLowerCase();
+        _normalizedCondition(price.condition) ==
+            _normalizedCondition(item.condition);
     if (gradeMatches && conditionMatches) return price;
   }
   return matchingGrader.firstOrNull;
+}
+
+String _normalizedCondition(String? value) {
+  return (value ?? '')
+      .trim()
+      .toLowerCase()
+      .replaceFirst(RegExp(r'\s*\([^)]*\)\s*$'), '');
 }
 
 List<double> _aggregateSeries(

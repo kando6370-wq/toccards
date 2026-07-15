@@ -6,140 +6,33 @@ import 'collection_models.dart';
 
 abstract interface class CollectionRepository {
   Future<CollectionDashboard> loadDashboard(AuthSession session);
-}
-
-class MockCollectionRepository implements CollectionRepository {
-  const MockCollectionRepository();
-
-  @override
-  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
-    return const CollectionDashboard(
-      folders: [
-        CollectionFolder(id: 'main', name: 'Main', isDefault: true),
-        CollectionFolder(id: 'sealed', name: 'Sealed', isDefault: false),
-        CollectionFolder(id: 'empty', name: 'Empty', isDefault: false),
-      ],
-      portfolioItems: [
-        CollectionItem(
-          id: 'item-charizard',
-          cardRef: 'charizard-ex',
-          folderId: 'main',
-          name: 'Charizard ex',
-          setName: 'Obsidian Flames',
-          number: '#223',
-          game: 'Pokemon',
-          language: 'English',
-          finish: 'Holofoil',
-          grader: 'PSA',
-          condition: null,
-          grade: 10,
-          quantity: 1,
-          marketValueUsd: 780,
-          previous30dPriceUsd: 721.55,
-          createdAtSort: 3,
-        ),
-        CollectionItem(
-          id: 'item-umbreon',
-          cardRef: 'umbreon-vmax',
-          folderId: 'main',
-          name: 'Umbreon VMAX',
-          setName: 'Evolving Skies',
-          number: '#215',
-          game: 'Pokemon',
-          language: 'English',
-          finish: 'Alternate Art',
-          grader: 'BGS',
-          condition: null,
-          grade: 9,
-          quantity: 1,
-          marketValueUsd: 410,
-          previous30dPriceUsd: 365.42,
-          createdAtSort: 2,
-        ),
-        CollectionItem(
-          id: 'item-pikachu',
-          cardRef: 'pikachu-promo',
-          folderId: 'main',
-          name: 'Pikachu Promo',
-          setName: 'Scarlet & Violet Promos',
-          number: '#088',
-          game: 'Pokemon',
-          language: 'Japanese',
-          finish: 'Promo',
-          grader: 'Raw',
-          condition: 'Near Mint (NM)',
-          grade: null,
-          quantity: 2,
-          marketValueUsd: 27.5,
-          previous30dPriceUsd: 27.89,
-          createdAtSort: 1,
-        ),
-        CollectionItem(
-          id: 'item-sealed-box',
-          cardRef: 'evolving-skies-booster-box',
-          folderId: 'sealed',
-          name: 'Evolving Skies Booster Box',
-          setName: 'Sword & Shield',
-          number: '36 Packs',
-          game: 'Pokemon',
-          language: 'English',
-          finish: 'Sealed',
-          grader: 'Raw',
-          condition: 'Sealed',
-          grade: null,
-          quantity: 1,
-          marketValueUsd: 620,
-          previous30dPriceUsd: 588.24,
-          createdAtSort: 4,
-        ),
-      ],
-      wishlistItems: [
-        CollectionItem(
-          id: 'wish-elsa',
-          cardRef: 'lorcana-elsa',
-          folderId: null,
-          name: 'Lorcana Elsa',
-          setName: 'The First Chapter',
-          number: '#212',
-          game: 'Lorcana',
-          language: 'English',
-          finish: 'Enchanted',
-          grader: 'Raw',
-          condition: 'Near Mint (NM)',
-          grade: null,
-          quantity: 1,
-          marketValueUsd: 480,
-          previous30dPriceUsd: 449.86,
-          createdAtSort: 2,
-        ),
-        CollectionItem(
-          id: 'wish-luffy',
-          cardRef: 'one-piece-luffy',
-          folderId: null,
-          name: 'One Piece Manga Luffy',
-          setName: 'Romance Dawn',
-          number: '#001',
-          game: 'One Piece',
-          language: 'Japanese',
-          finish: 'Manga',
-          grader: 'Raw',
-          condition: 'Near Mint (NM)',
-          grade: null,
-          quantity: 1,
-          marketValueUsd: 330,
-          previous30dPriceUsd: 306.69,
-          createdAtSort: 1,
-        ),
-      ],
-    );
-  }
+  Future<CollectionFolder> createFolder(AuthSession session, String name);
+  Future<CollectionFolder> renameFolder(
+    AuthSession session,
+    String folderId,
+    String name,
+  );
+  Future<void> setDefaultFolder(AuthSession session, String folderId);
+  Future<void> reorderFolders(AuthSession session, List<String> folderIds);
+  Future<void> deleteFolder(AuthSession session, String folderId);
+  Future<void> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  });
 }
 
 class HttpCollectionRepository implements CollectionRepository {
-  const HttpCollectionRepository(this._api, {CardDataApi? cardDataApi})
-    : _cardDataApi = cardDataApi;
+  const HttpCollectionRepository(
+    this._api, {
+    required PortfolioManagementApi managementApi,
+    CardDataApi? cardDataApi,
+  }) : _managementApi = managementApi,
+       _cardDataApi = cardDataApi;
 
   final PortfolioApi _api;
+  final PortfolioManagementApi _managementApi;
   final CardDataApi? _cardDataApi;
 
   @override
@@ -148,30 +41,90 @@ class HttpCollectionRepository implements CollectionRepository {
       _api.listFolders(session),
       _api.listCollectionItems(session),
       _api.listWishlistItems(session),
+      _managementApi.getPreferences(session),
     ]);
     final folders = results[0] as List<PortfolioFolderDto>;
     final items = results[1] as List<PortfolioItemDto>;
     final wishlist = results[2] as List<WishlistItemDto>;
+    final preferences = results[3] as UserPreferenceDto;
     final presentations = await _loadPresentations(items, wishlist);
+    final portfolioItems = await Future.wait(
+      items.map(
+        (item) => _collectionItemFromPortfolioDto(
+          item,
+          presentations[item.cardRef],
+          _cardDataApi,
+        ),
+      ),
+    );
+    final wishlistItems = await Future.wait(
+      wishlist.map(
+        (item) => _collectionItemFromWishlistDto(
+          item,
+          presentations[item.cardRef],
+          _cardDataApi,
+        ),
+      ),
+    );
 
     return CollectionDashboard(
       folders: folders.map(_folderFromDto).toList(),
-      portfolioItems: items
-          .map(
-            (item) => _collectionItemFromPortfolioDto(
-              item,
-              presentations[item.cardRef],
-            ),
-          )
-          .toList(),
-      wishlistItems: wishlist
-          .map(
-            (item) => _collectionItemFromWishlistDto(
-              item,
-              presentations[item.cardRef],
-            ),
-          )
-          .toList(),
+      portfolioItems: portfolioItems,
+      wishlistItems: wishlistItems,
+      currencyCode: preferences.currency,
+      amountHidden: preferences.amountHidden,
+    );
+  }
+
+  @override
+  Future<CollectionFolder> createFolder(
+    AuthSession session,
+    String name,
+  ) async {
+    return _folderFromDto(await _managementApi.createFolder(session, name));
+  }
+
+  @override
+  Future<CollectionFolder> renameFolder(
+    AuthSession session,
+    String folderId,
+    String name,
+  ) async {
+    return _folderFromDto(
+      await _managementApi.renameFolder(session, folderId, name),
+    );
+  }
+
+  @override
+  Future<void> setDefaultFolder(AuthSession session, String folderId) {
+    return _managementApi.setDefaultFolder(session, folderId);
+  }
+
+  @override
+  Future<void> reorderFolders(
+    AuthSession session,
+    List<String> folderIds,
+  ) {
+    return _managementApi.reorderFolders(session, folderIds);
+  }
+
+  @override
+  Future<void> deleteFolder(AuthSession session, String folderId) {
+    return _managementApi.deleteFolder(session, folderId);
+  }
+
+  @override
+  Future<void> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) async {
+    await _managementApi.updatePreferences(
+      session,
+      currency: currency,
+      amountHidden: amountHidden,
+      lastSelectedFolderId: lastSelectedFolderId,
     );
   }
 
@@ -188,22 +141,21 @@ class HttpCollectionRepository implements CollectionRepository {
       for (final item in items) item.cardRef,
       for (final item in wishlist) item.cardRef,
     };
-    final presentations = <String, _CollectionPresentation>{};
-    for (final cardRef in cardRefs) {
+    final entries = await Future.wait(cardRefs.map((cardRef) async {
       final CardDataCardDto card;
       try {
         card = await api.getCard(cardRef);
       } catch (_) {
-        continue;
+        return MapEntry(cardRef, _missingPresentation(cardRef));
       }
       var prices = const <CardDataMarketPriceDto>[];
       try {
         prices = await api.getMarketPrices(cardRef);
       } catch (_) {
       }
-      presentations[cardRef] = _presentationFromCardData(card, prices);
-    }
-    return presentations;
+      return MapEntry(cardRef, _presentationFromCardData(card, prices));
+    }));
+    return Map.fromEntries(entries);
   }
 }
 
@@ -211,65 +163,74 @@ CollectionFolder _folderFromDto(PortfolioFolderDto dto) {
   return CollectionFolder(id: dto.id, name: dto.name, isDefault: dto.isDefault);
 }
 
-CollectionItem _collectionItemFromPortfolioDto(
+Future<CollectionItem> _collectionItemFromPortfolioDto(
   PortfolioItemDto dto,
   _CollectionPresentation? presentation,
-) {
-  final fallback = presentation ?? _presentationFor(dto.cardRef);
-  final marketValue = _marketValueFor(
-    fallback.prices,
+  CardDataApi? api,
+) async {
+  final card = presentation ?? _missingPresentation(dto.cardRef);
+  final marketPrice = _marketPriceFor(
+    card.prices,
     grader: dto.grader,
     grade: dto.grade,
     condition: dto.condition,
+  );
+  final previousPrice = await _previous30dPrice(
+    api,
+    dto.cardRef,
+    marketPrice,
   );
   return CollectionItem(
     id: dto.id,
     cardRef: dto.cardRef,
     folderId: dto.folderId,
-    name: fallback.name,
-    setName: fallback.setName,
-    number: fallback.number,
-    game: fallback.game,
-    language: dto.language ?? fallback.language,
-    finish: dto.finish ?? fallback.finish,
+    name: card.name,
+    setName: card.setName,
+    number: card.number,
+    game: card.game,
+    language: dto.language ?? card.language,
+    finish: dto.finish ?? card.finish,
     grader: dto.grader,
     condition: dto.condition,
     grade: dto.grade,
     quantity: dto.quantity,
-    marketValueUsd: marketValue ?? fallback.marketValueUsd,
-    previous30dPriceUsd: fallback.previous30dPriceUsd,
+    marketValueUsd: marketPrice?.price,
+    previous30dPriceUsd: previousPrice,
     createdAtSort: dto.createdAt.millisecondsSinceEpoch,
+    imageUrl: card.imageUrl,
   );
 }
 
-CollectionItem _collectionItemFromWishlistDto(
+Future<CollectionItem> _collectionItemFromWishlistDto(
   WishlistItemDto dto,
   _CollectionPresentation? presentation,
-) {
-  final fallback = presentation ?? _presentationFor(dto.cardRef);
-  final marketValue = _marketValueFor(
-    fallback.prices,
-    grader: 'Raw',
-    grade: null,
-    condition: 'Near Mint (NM)',
+  CardDataApi? api,
+) async {
+  final card = presentation ?? _missingPresentation(dto.cardRef);
+  final marketPrice = _wishlistMarketPrice(card.prices);
+  final previousPrice = await _previous30dPrice(
+    api,
+    dto.cardRef,
+    marketPrice,
   );
   return CollectionItem(
     id: dto.id,
     cardRef: dto.cardRef,
     folderId: null,
-    name: fallback.name,
-    setName: fallback.setName,
-    number: fallback.number,
-    game: fallback.game,
-    language: fallback.language,
-    finish: fallback.finish,
+    name: card.name,
+    setName: card.setName,
+    number: card.number,
+    game: card.game,
+    language: card.language,
+    finish: card.finish,
     grader: 'Raw',
-    condition: 'Near Mint (NM)',
+    condition: marketPrice?.condition,
     grade: null,
     quantity: 1,
-    marketValueUsd: marketValue ?? fallback.marketValueUsd,
-    previous30dPriceUsd: fallback.previous30dPriceUsd,
+    marketValueUsd: marketPrice?.price,
+    previous30dPriceUsd: previousPrice,
     createdAtSort: dto.createdAt.millisecondsSinceEpoch,
+    imageUrl: card.imageUrl,
   );
 }
 
@@ -280,26 +241,34 @@ _CollectionPresentation _presentationFromCardData(
   return _CollectionPresentation(
     name: card.name,
     setName: card.setName,
-    number: '#${card.cardNumber}',
-    game: _gameLabelFromObjectType(card.objectType),
+    number: card.cardNumber.isEmpty ? '--' : '#${card.cardNumber}',
+    game: card.game ?? _gameLabelFromObjectType(card.objectType),
     language: card.language ?? 'Unknown',
     finish: card.finish ?? 'Unknown',
-    marketValueUsd: null,
-    previous30dPriceUsd: null,
+    imageUrl: card.imageUrl,
     prices: prices,
   );
 }
 
-double? _marketValueFor(
+_CollectionPresentation _missingPresentation(String cardRef) {
+  return _CollectionPresentation(
+    name: cardRef,
+    setName: 'Card data unavailable',
+    number: '--',
+    game: 'Unknown',
+    language: 'Unknown',
+    finish: 'Unknown',
+    imageUrl: null,
+    prices: const [],
+  );
+}
+
+CardDataMarketPriceDto? _marketPriceFor(
   List<CardDataMarketPriceDto> prices, {
   required String grader,
   required double? grade,
   required String? condition,
 }) {
-  if (prices.isEmpty) {
-    return null;
-  }
-
   for (final price in prices) {
     if (_matchesMarketPrice(
       price,
@@ -307,17 +276,49 @@ double? _marketValueFor(
       grade: grade,
       condition: condition,
     )) {
-      return price.price;
+      return price;
     }
   }
+  return null;
+}
 
+CardDataMarketPriceDto? _wishlistMarketPrice(
+  List<CardDataMarketPriceDto> prices,
+) {
+  for (final price in prices) {
+    if (price.grader.toLowerCase() == 'raw' &&
+        _normalizedCondition(price.condition) == 'near mint') {
+      return price;
+    }
+  }
   for (final price in prices) {
     if (price.grader.toLowerCase() == 'raw') {
-      return price.price;
+      return price;
     }
   }
+  return null;
+}
 
-  return prices.first.price;
+Future<double?> _previous30dPrice(
+  CardDataApi? api,
+  String cardRef,
+  CardDataMarketPriceDto? marketPrice,
+) async {
+  if (api == null || marketPrice?.price == null) {
+    return null;
+  }
+  try {
+    final series = await api.getPriceSeries(
+      cardRef,
+      days: 30,
+      grader: marketPrice!.grader,
+      grade: marketPrice.grade,
+      condition: marketPrice.condition,
+    );
+    return series.length > 1 ? series.first.price : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 bool _matchesMarketPrice(
@@ -333,10 +334,17 @@ bool _matchesMarketPrice(
     return false;
   }
   if (condition != null &&
-      price.condition?.toLowerCase() != condition.toLowerCase()) {
+      _normalizedCondition(price.condition) != _normalizedCondition(condition)) {
     return false;
   }
   return true;
+}
+
+String _normalizedCondition(String? value) {
+  return (value ?? '')
+      .trim()
+      .toLowerCase()
+      .replaceFirst(RegExp(r'\s*\([^)]*\)\s*$'), '');
 }
 
 String _gameLabelFromObjectType(String objectType) {
@@ -348,102 +356,6 @@ String _gameLabelFromObjectType(String objectType) {
   };
 }
 
-_CollectionPresentation _presentationFor(String cardRef) {
-  return _fallbackCatalog[cardRef] ??
-      _CollectionPresentation(
-        name: _readableCardRef(cardRef),
-        setName: 'Unknown Set',
-        number: cardRef,
-        game: 'Unknown',
-        language: 'English',
-        finish: 'Standard',
-        marketValueUsd: null,
-        previous30dPriceUsd: null,
-        prices: const [],
-      );
-}
-
-String _readableCardRef(String cardRef) {
-  return cardRef
-      .split(RegExp(r'[-_\s]+'))
-      .where((part) => part.isNotEmpty)
-      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
-      .join(' ');
-}
-
-const _fallbackCatalog = {
-  'charizard-ex': _CollectionPresentation(
-    name: 'Charizard ex',
-    setName: 'Obsidian Flames',
-    number: '#223',
-    game: 'Pokemon',
-    language: 'English',
-    finish: 'Holofoil',
-    marketValueUsd: 780,
-    previous30dPriceUsd: 721.55,
-  ),
-  'umbreon-vmax': _CollectionPresentation(
-    name: 'Umbreon VMAX',
-    setName: 'Evolving Skies',
-    number: '#215',
-    game: 'Pokemon',
-    language: 'English',
-    finish: 'Alternate Art',
-    marketValueUsd: 410,
-    previous30dPriceUsd: 365.42,
-  ),
-  'pikachu-promo': _CollectionPresentation(
-    name: 'Pikachu Promo',
-    setName: 'Scarlet & Violet Promos',
-    number: '#088',
-    game: 'Pokemon',
-    language: 'Japanese',
-    finish: 'Promo',
-    marketValueUsd: 27.5,
-    previous30dPriceUsd: 27.89,
-  ),
-  'evolving-skies-booster-box': _CollectionPresentation(
-    name: 'Evolving Skies Booster Box',
-    setName: 'Sword & Shield',
-    number: '36 Packs',
-    game: 'Pokemon',
-    language: 'English',
-    finish: 'Sealed',
-    marketValueUsd: 620,
-    previous30dPriceUsd: 588.24,
-  ),
-  'lorcana-elsa': _CollectionPresentation(
-    name: 'Lorcana Elsa',
-    setName: 'The First Chapter',
-    number: '#212',
-    game: 'Lorcana',
-    language: 'English',
-    finish: 'Enchanted',
-    marketValueUsd: 480,
-    previous30dPriceUsd: 449.86,
-  ),
-  'one-piece-luffy': _CollectionPresentation(
-    name: 'One Piece Manga Luffy',
-    setName: 'Romance Dawn',
-    number: '#001',
-    game: 'One Piece',
-    language: 'Japanese',
-    finish: 'Manga',
-    marketValueUsd: 330,
-    previous30dPriceUsd: 306.69,
-  ),
-  'squirtle': _CollectionPresentation(
-    name: 'Squirtle',
-    setName: 'Pokemon 151',
-    number: '#007',
-    game: 'Pokemon',
-    language: 'English',
-    finish: 'Holofoil',
-    marketValueUsd: 18,
-    previous30dPriceUsd: 17.25,
-  ),
-};
-
 class _CollectionPresentation {
   const _CollectionPresentation({
     required this.name,
@@ -452,8 +364,7 @@ class _CollectionPresentation {
     required this.game,
     required this.language,
     required this.finish,
-    required this.marketValueUsd,
-    required this.previous30dPriceUsd,
+    required this.imageUrl,
     this.prices = const [],
   });
 
@@ -463,7 +374,6 @@ class _CollectionPresentation {
   final String game;
   final String language;
   final String finish;
-  final double? marketValueUsd;
-  final double? previous30dPriceUsd;
+  final String? imageUrl;
   final List<CardDataMarketPriceDto> prices;
 }

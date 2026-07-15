@@ -12,6 +12,8 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import 'support/mock_collection_repository.dart';
+
 void main() {
   test(
     'http repository maps real portfolio rows into collection dashboard because Collection must show backend-owned assets',
@@ -59,7 +61,8 @@ void main() {
             finish: 'Holofoil',
             language: 'English',
             objectType: 'tcg',
-            imageUrl: null,
+            game: 'Pokemon',
+            imageUrl: 'https://api.tcgcard.fun/api/v1/cards/25/image',
             rarity: 'Common',
           ),
           'catalog:luffy-001': CardDataCardDto(
@@ -99,10 +102,15 @@ void main() {
             ),
           ],
         },
+        previous30dPrices: const {
+          'catalog:pikachu-025': 10,
+          'catalog:luffy-001': 300,
+        },
       );
 
       final dashboard = await HttpCollectionRepository(
         api,
+        managementApi: api,
         cardDataApi: cardDataApi,
       ).loadDashboard(_session);
 
@@ -119,9 +127,13 @@ void main() {
       expect(dashboard.portfolioItems.first.name, 'Pikachu');
       expect(dashboard.portfolioItems.first.setName, 'Base Set');
       expect(dashboard.portfolioItems.first.number, '#025');
-      expect(dashboard.portfolioItems.first.game, 'TCG');
+      expect(dashboard.portfolioItems.first.game, 'Pokemon');
       expect(dashboard.portfolioItems.first.marketValueUsd, 12.5);
-      expect(dashboard.portfolioItems.first.previous30dPriceUsd, isNull);
+      expect(dashboard.portfolioItems.first.previous30dPriceUsd, 10);
+      expect(
+        dashboard.portfolioItems.first.imageUrl,
+        'https://api.tcgcard.fun/api/v1/cards/25/image',
+      );
       expect(dashboard.portfolioItems.last.marketValueUsd, 90);
       expect(dashboard.wishlistItems.single.cardRef, 'catalog:luffy-001');
       expect(dashboard.wishlistItems.single.name, 'Monkey D. Luffy');
@@ -177,15 +189,76 @@ void main() {
 
       final dashboard = await HttpCollectionRepository(
         api,
+        managementApi: api,
         cardDataApi: cardDataApi,
       ).loadDashboard(_session);
 
       expect(dashboard.portfolioItems.map((item) => item.name), [
-        'Charizard ex',
+        'charizard-ex',
         'Pikachu',
       ]);
-      expect(dashboard.portfolioItems.first.marketValueUsd, 780);
+      expect(dashboard.portfolioItems.first.marketValueUsd, isNull);
       expect(dashboard.portfolioItems.last.marketValueUsd, isNull);
+    },
+  );
+
+  test(
+    'http repository does not substitute another condition because Collection Item value is state specific',
+    () async {
+      final api = _FakePortfolioApiClient(
+        folders: const [
+          PortfolioFolderDto(
+            id: 'main',
+            name: 'Main',
+            isDefault: true,
+            sortOrder: 100,
+          ),
+        ],
+        items: [
+          _portfolioItem(
+            id: 'item-damaged',
+            folderId: 'main',
+            cardRef: 'catalog:pikachu-025',
+            condition: 'Damaged (D)',
+          ),
+        ],
+        wishlist: const [],
+      );
+      final cardDataApi = _FakeCardDataApi(
+        cards: const {
+          'catalog:pikachu-025': CardDataCardDto(
+            cardRef: 'catalog:pikachu-025',
+            name: 'Pikachu',
+            setName: 'Base Set',
+            setCode: 'BS',
+            cardNumber: '025',
+            finish: 'Holofoil',
+            language: 'English',
+            objectType: 'tcg',
+            imageUrl: null,
+            rarity: 'Common',
+          ),
+        },
+        prices: const {
+          'catalog:pikachu-025': [
+            CardDataMarketPriceDto(
+              grader: 'Raw',
+              grade: null,
+              condition: 'Near Mint',
+              price: 12.5,
+            ),
+          ],
+        },
+      );
+
+      final dashboard = await HttpCollectionRepository(
+        api,
+        managementApi: api,
+        cardDataApi: cardDataApi,
+      ).loadDashboard(_session);
+
+      expect(dashboard.portfolioItems.single.marketValueUsd, isNull);
+      expect(dashboard.portfolioItems.single.previous30dPriceUsd, isNull);
     },
   );
 
@@ -263,7 +336,7 @@ void main() {
     await _loadedState(container);
     final controller = container.read(collectionControllerProvider.notifier);
 
-    controller.selectFolder('sealed');
+    await controller.selectFolder('sealed');
     final sealed = container.read(collectionControllerProvider);
 
     expect(sealed.selectedFolder.name, 'Sealed');
@@ -279,6 +352,77 @@ void main() {
       'One Piece Manga Luffy',
     ]);
   });
+
+  test(
+    'folder selection and amount visibility persist owner preferences because Home and Collection must stay in sync',
+    () async {
+      final repository = _RecordingCollectionRepository();
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      expect(await controller.selectFolder('sealed'), isTrue);
+      expect(await controller.toggleAmountHidden(), isTrue);
+
+      expect(repository.selectedFolderIds, ['sealed']);
+      expect(repository.amountHiddenValues, [true]);
+      final state = container.read(collectionControllerProvider);
+      expect(state.selectedFolder.id, 'sealed');
+      expect(state.amountHidden, isTrue);
+    },
+  );
+
+  test(
+    'folder management updates backend state and falls back to the default after deleting the selection',
+    () async {
+      final repository = _RecordingCollectionRepository();
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      final created = await controller.createFolder('Trade');
+      expect(created?.name, 'Trade');
+      expect(await controller.renameFolder(created!.id, 'Trade Binder'), isTrue);
+      expect(await controller.setDefaultFolder(created.id), isTrue);
+      expect(
+        await controller.reorderFolders([created.id, 'main', 'sealed', 'empty']),
+        isTrue,
+      );
+      await controller.selectFolder('sealed');
+      expect(await controller.deleteFolder('sealed'), isTrue);
+
+      final state = container.read(collectionControllerProvider);
+      expect(state.dashboard.folders.map((folder) => folder.name), [
+        'Trade Binder',
+        'Main',
+        'Empty',
+      ]);
+      expect(state.dashboard.defaultFolder.id, created.id);
+      expect(state.selectedFolder.id, created.id);
+      expect(repository.deletedFolderIds, ['sealed']);
+      expect(repository.selectedFolderIds, ['sealed', created.id]);
+    },
+  );
+
+  test(
+    'preference write failure rolls back state because local success must not disagree with Workers',
+    () async {
+      final repository = _RecordingCollectionRepository(failPreferences: true);
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      expect(await controller.selectFolder('sealed'), isFalse);
+      expect(await controller.toggleAmountHidden(), isFalse);
+
+      final state = container.read(collectionControllerProvider);
+      expect(state.selectedFolder.id, 'main');
+      expect(state.amountHidden, isFalse);
+    },
+  );
 
   test('search is scoped per tab and current folder', () async {
     final container = _collectionContainer();
@@ -327,7 +471,7 @@ void main() {
     await _loadedState(container);
     final controller = container.read(collectionControllerProvider.notifier);
 
-    controller.toggleAmountHidden();
+    await controller.toggleAmountHidden();
     final state = container.read(collectionControllerProvider);
 
     expect(state.portfolioSummary.totalValueText, hiddenMoneyText);
@@ -341,11 +485,11 @@ void main() {
     await _loadedState(container);
     final controller = container.read(collectionControllerProvider.notifier);
 
-    controller.selectFolder('empty');
+    await controller.selectFolder('empty');
     expect(container.read(collectionControllerProvider).isEmpty, isTrue);
     expect(container.read(collectionControllerProvider).isNoMatch, isFalse);
 
-    controller.selectFolder('main');
+    await controller.selectFolder('main');
     controller.updateSearch('missing');
     expect(container.read(collectionControllerProvider).isEmpty, isFalse);
     expect(container.read(collectionControllerProvider).isNoMatch, isTrue);
@@ -372,6 +516,46 @@ Future<CollectionState> _loadedState(ProviderContainer container) async {
   return container.read(collectionControllerProvider);
 }
 
+class _RecordingCollectionRepository extends MockCollectionRepository {
+  _RecordingCollectionRepository({this.failPreferences = false});
+
+  final bool failPreferences;
+  final List<String> selectedFolderIds = [];
+  final List<bool> amountHiddenValues = [];
+  final List<String> deletedFolderIds = [];
+
+  @override
+  Future<CollectionFolder> createFolder(
+    AuthSession session,
+    String name,
+  ) async {
+    return CollectionFolder(
+      id: 'folder-${name.toLowerCase()}',
+      name: name,
+      isDefault: false,
+    );
+  }
+
+  @override
+  Future<void> deleteFolder(AuthSession session, String folderId) async {
+    deletedFolderIds.add(folderId);
+  }
+
+  @override
+  Future<void> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) async {
+    if (failPreferences) throw StateError('preferences unavailable');
+    if (amountHidden != null) amountHiddenValues.add(amountHidden);
+    if (lastSelectedFolderId != null) {
+      selectedFolderIds.add(lastSelectedFolderId);
+    }
+  }
+}
+
 class _FailingThenSuccessfulCollectionRepository
     implements CollectionRepository {
   var calls = 0;
@@ -384,9 +568,13 @@ class _FailingThenSuccessfulCollectionRepository
     }
     return const MockCollectionRepository().loadDashboard(session);
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _FakePortfolioApiClient implements PortfolioApi {
+class _FakePortfolioApiClient
+    implements PortfolioApi, PortfolioManagementApi {
   const _FakePortfolioApiClient({
     required this.folders,
     required this.items,
@@ -412,6 +600,15 @@ class _FakePortfolioApiClient implements PortfolioApi {
   @override
   Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) async {
     return wishlist;
+  }
+
+  @override
+  Future<UserPreferenceDto> getPreferences(AuthSession session) async {
+    return const UserPreferenceDto(
+      currency: 'USD',
+      amountHidden: false,
+      lastSelectedFolderId: null,
+    );
   }
 
   @override
@@ -457,6 +654,9 @@ class _FakePortfolioApiClient implements PortfolioApi {
   }) async {
     throw UnimplementedError();
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeCardDataApi implements CardDataApi {
@@ -465,12 +665,14 @@ class _FakeCardDataApi implements CardDataApi {
     required this.prices,
     this.cardFailures = const {},
     this.priceFailures = const {},
+    this.previous30dPrices = const {},
   });
 
   final Map<String, CardDataCardDto> cards;
   final Map<String, List<CardDataMarketPriceDto>> prices;
   final Set<String> cardFailures;
   final Set<String> priceFailures;
+  final Map<String, double> previous30dPrices;
   final List<String> cardRefs = [];
   final List<String> marketPriceRefs = [];
 
@@ -515,13 +717,29 @@ class _FakeCardDataApi implements CardDataApi {
     double? grade,
     String? condition,
   }) async {
-    throw UnimplementedError();
+    final previous = previous30dPrices[cardRef];
+    if (previous == null) {
+      throw StateError('card-data series unavailable');
+    }
+    final current = prices[cardRef]!
+        .firstWhere(
+          (price) =>
+              price.grader == grader &&
+              (grade == null || price.grade == grade) &&
+              (condition == null || price.condition == condition),
+        )
+        .price!;
+    return [
+      CardDataPricePointDto(date: '2026-06-15', price: previous),
+      CardDataPricePointDto(date: '2026-07-15', price: current),
+    ];
   }
 
   @override
   Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef) async {
     throw UnimplementedError();
   }
+
 }
 
 PortfolioItemDto _portfolioItem({

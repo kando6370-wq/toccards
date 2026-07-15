@@ -19,6 +19,8 @@ import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import '../support/mock_collection_repository.dart';
+
 void main() {
   testWidgets('Collection shows Portfolio summary and rows by default', (
     tester,
@@ -37,7 +39,7 @@ void main() {
     expect(find.text('Qty: 1'), findsWidgets);
   });
 
-  testWidgets('Collection renders money in the shared selected currency', (
+  testWidgets('Collection restores the server currency preference', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -46,10 +48,7 @@ void main() {
           ..._localAuthOverrides(),
           ..._searchOverrides(),
           collectionRepositoryProvider.overrideWithValue(
-            const MockCollectionRepository(),
-          ),
-          selectedCurrencyProvider.overrideWith(
-            () => _TestSelectedCurrencyController(AppCurrency.eur),
+            const _PreferenceCollectionRepository(),
           ),
         ],
         child: const _CollectionTestApp(),
@@ -103,6 +102,54 @@ void main() {
     expect(find.text('Evolving Skies Booster Box'), findsOneWidget);
     expect(find.text('Charizard ex'), findsNothing);
   });
+
+  testWidgets(
+    'folder manager exposes Figma actions and creates a backend folder',
+    (tester) async {
+      await _pumpCollection(tester);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Select Portfolio'), findsOneWidget);
+      expect(find.text('DRAG AND DROP TO CHANGE ORDER'), findsOneWidget);
+      expect(find.byKey(const Key('collection-folder-add')), findsOneWidget);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byKey(const Key('collection-folder-delete-main')),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        find.byKey(const Key('collection-folder-edit-sealed')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('collection-folder-add')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('collection-folder-name')),
+        'Trade',
+      );
+      await tester.tap(
+        find.byKey(const Key('collection-folder-name-save')),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(ReorderableListView),
+        const Offset(0, -180),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Trade'), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-folder-default-folder-trade')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('Wishlist tab uses wishlist copy and hides quantity', (
     tester,
@@ -206,6 +253,31 @@ void main() {
     expect(find.text('Squirtle'), findsOneWidget);
   });
 
+  testWidgets('Collection cards open the detail for their backend card ref', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._localAuthOverrides(),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
+        ],
+        child: const _CollectionTestAppWithRoutes(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final card = find.text('Charizard ex');
+    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detail charizard-ex'), findsOneWidget);
+  });
+
   testWidgets(
     'Portfolio empty state actions open Scan and Search because empty collections must have recovery paths',
     (tester) async {
@@ -224,6 +296,11 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(ReorderableListView),
+        const Offset(0, -120),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Empty').last);
       await tester.pumpAndSettle();
@@ -253,6 +330,11 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(ReorderableListView),
+        const Offset(0, -120),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Empty').last);
       await tester.pumpAndSettle();
@@ -339,6 +421,7 @@ class _CollectionTestAppWithRoutes extends StatelessWidget {
         initialLocation: '/collection',
         routes: [
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(path: '/home', builder: (context, state) => const HomePage()),
           GoRoute(
             path: '/collection',
             builder: (context, state) => const CollectionPage(),
@@ -352,20 +435,15 @@ class _CollectionTestAppWithRoutes extends StatelessWidget {
             path: '/profile',
             builder: (context, state) => const ProfilePage(),
           ),
+          GoRoute(
+            path: '/cards/:cardId',
+            builder: (context, state) => Scaffold(
+              body: Text('Detail ${state.pathParameters['cardId']}'),
+            ),
+          ),
         ],
       ),
     );
-  }
-}
-
-class _TestSelectedCurrencyController extends SelectedCurrencyController {
-  _TestSelectedCurrencyController(this.initialCurrency);
-
-  final AppCurrency initialCurrency;
-
-  @override
-  AppCurrency build() {
-    return initialCurrency;
   }
 }
 
@@ -380,5 +458,18 @@ class _FailingThenSuccessfulCollectionRepository
       throw StateError('mock collection unavailable');
     }
     return const MockCollectionRepository().loadDashboard(session);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PreferenceCollectionRepository extends MockCollectionRepository {
+  const _PreferenceCollectionRepository();
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    final dashboard = await super.loadDashboard(session);
+    return dashboard.copyWith(currencyCode: 'EUR');
   }
 }

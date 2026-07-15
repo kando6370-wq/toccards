@@ -417,32 +417,52 @@ class _CollectionCardTile extends StatelessWidget {
         ? _gainColor
         : KandoColors.mutedText;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: KandoColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KandoColors.border),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.push(
+        '/cards/${Uri.encodeComponent(item.cardRef)}',
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 3 / 4,
-            child: Container(
-              decoration: BoxDecoration(
-                color: KandoColors.ink,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: KandoColors.border),
-              ),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.image_outlined,
-                color: KandoColors.mutedText,
-                size: 28,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: KandoColors.elevatedSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: KandoColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 672 / 936,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: KandoColors.ink,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: KandoColors.border),
+                ),
+                clipBehavior: Clip.antiAlias,
+                alignment: Alignment.center,
+                child: item.imageUrl == null
+                    ? const Icon(
+                        Icons.image_outlined,
+                        color: KandoColors.mutedText,
+                        size: 28,
+                      )
+                    : Image.network(
+                        item.imageUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.image_outlined,
+                              color: KandoColors.mutedText,
+                              size: 28,
+                            ),
+                      ),
               ),
             ),
-          ),
           const SizedBox(height: 10),
           Text(
             item.name,
@@ -524,7 +544,8 @@ class _CollectionCardTile extends StatelessWidget {
             item.changeText,
             style: TextStyle(fontSize: 11, color: changeColor),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -553,62 +574,348 @@ class _FilterSectionLabel extends StatelessWidget {
 }
 
 Future<void> _showFolderSheet(BuildContext context, WidgetRef ref) {
-  final state = ref.read(collectionControllerProvider);
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
     backgroundColor: KandoColors.elevatedSurface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (context) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: KandoColors.border,
-                borderRadius: BorderRadius.circular(2),
+    builder: (sheetContext) => Consumer(
+      builder: (context, ref, child) {
+        final state = ref.watch(collectionControllerProvider);
+        final controller = ref.read(collectionControllerProvider.notifier);
+        final folders = state.dashboard.folders;
+        return FractionallySizedBox(
+          heightFactor: 0.62,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              child: Column(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: KandoColors.border,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Select Portfolio',
+                      style: TextStyle(
+                        fontFamily: 'Fraunces',
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        color: KandoColors.text,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: ReorderableListView.builder(
+                      buildDefaultDragHandles: false,
+                      itemCount: folders.length,
+                      onReorder: (oldIndex, newIndex) async {
+                        if (newIndex > oldIndex) newIndex -= 1;
+                        final ids = folders.map((folder) => folder.id).toList();
+                        final moved = ids.removeAt(oldIndex);
+                        ids.insert(newIndex, moved);
+                        if (!await controller.reorderFolders(ids) &&
+                            context.mounted) {
+                          _showCollectionActionError(context);
+                        }
+                      },
+                      itemBuilder: (context, index) {
+                        final folder = folders[index];
+                        final selected = folder.id == state.selectedFolder.id;
+                        return Padding(
+                          key: ValueKey(folder.id),
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Container(
+                            height: 72,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? KandoColors.elevatedSurface
+                                  : KandoColors.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: selected
+                                    ? KandoColors.accent.withValues(alpha: 0.3)
+                                    : Colors.transparent,
+                              ),
+                              boxShadow: selected
+                                  ? [
+                                      BoxShadow(
+                                        color: KandoColors.accent.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        blurRadius: 8,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                ReorderableDragStartListener(
+                                  index: index,
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(6),
+                                    child: Icon(
+                                      Icons.drag_indicator,
+                                      size: 20,
+                                      color: KandoColors.mutedText,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  selected
+                                      ? Icons.radio_button_checked
+                                      : Icons.radio_button_unchecked,
+                                  size: 22,
+                                  color: selected
+                                      ? KandoColors.accent
+                                      : KandoColors.mutedText,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () async {
+                                      final succeeded = await controller
+                                          .selectFolder(folder.id);
+                                      if (!context.mounted) return;
+                                      if (succeeded) {
+                                        Navigator.of(context).pop();
+                                      } else {
+                                        _showCollectionActionError(context);
+                                      }
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 22,
+                                      ),
+                                      child: Text(
+                                        folder.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: KandoColors.text,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  key: Key('collection-folder-default-${folder.id}'),
+                                  tooltip: 'Set default portfolio',
+                                  onPressed: folder.isDefault
+                                      ? null
+                                      : () async {
+                                          if (!await controller.setDefaultFolder(
+                                                folder.id,
+                                              ) &&
+                                              context.mounted) {
+                                            _showCollectionActionError(context);
+                                          }
+                                        },
+                                  icon: Icon(
+                                    folder.isDefault
+                                        ? Icons.star
+                                        : Icons.star_border,
+                                    size: 22,
+                                    color: folder.isDefault
+                                        ? KandoColors.accent
+                                        : KandoColors.mutedText,
+                                  ),
+                                ),
+                                IconButton(
+                                  key: Key('collection-folder-edit-${folder.id}'),
+                                  tooltip: 'Edit portfolio',
+                                  onPressed: () async {
+                                    final name = await _promptForFolderName(
+                                      context,
+                                      initialName: folder.name,
+                                      title: 'Edit Portfolio',
+                                    );
+                                    if (name == null || !context.mounted) return;
+                                    if (!await controller.renameFolder(
+                                          folder.id,
+                                          name,
+                                        ) &&
+                                        context.mounted) {
+                                      _showCollectionActionError(context);
+                                    }
+                                  },
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 21,
+                                    color: KandoColors.mutedText,
+                                  ),
+                                ),
+                                IconButton(
+                                  key: Key('collection-folder-delete-${folder.id}'),
+                                  tooltip: 'Delete portfolio',
+                                  onPressed: folder.isDefault
+                                      ? null
+                                      : () async {
+                                          final confirmed =
+                                              await _confirmDeleteFolder(
+                                                context,
+                                                folder,
+                                              );
+                                          if (!confirmed || !context.mounted) {
+                                            return;
+                                          }
+                                          if (!await controller.deleteFolder(
+                                                folder.id,
+                                              ) &&
+                                              context.mounted) {
+                                            _showCollectionActionError(context);
+                                          }
+                                        },
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    size: 21,
+                                    color: folder.isDefault
+                                        ? KandoColors.border
+                                        : KandoColors.mutedText,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'DRAG AND DROP TO CHANGE ORDER',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                      color: KandoColors.mutedText,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      key: const Key('collection-folder-add'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: KandoColors.accent,
+                        foregroundColor: KandoColors.ink,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: const StadiumBorder(),
+                      ),
+                      onPressed: () async {
+                        final name = await _promptForFolderName(
+                          context,
+                          title: 'Add Portfolio',
+                        );
+                        if (name == null || !context.mounted) return;
+                        if (await controller.createFolder(name) == null &&
+                            context.mounted) {
+                          _showCollectionActionError(context);
+                        }
+                      },
+                      icon: const Icon(Icons.add_circle_outline),
+                      label: const Text('ADD NEW'),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Folders',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: KandoColors.text,
-                ),
-              ),
-            ),
-          ),
-          for (final folder in state.dashboard.folders)
-            ListTile(
-              title: Text(
-                folder.name,
-                style: const TextStyle(color: KandoColors.text),
-              ),
-              trailing: folder.id == state.selectedFolder.id
-                  ? const Icon(Icons.check, color: KandoColors.accent)
-                  : null,
-              onTap: () {
-                ref
-                    .read(collectionControllerProvider.notifier)
-                    .selectFolder(folder.id);
-                Navigator.of(context).pop();
-              },
-            ),
-          const SizedBox(height: 8),
-        ],
+        );
+      },
+    ),
+  );
+}
+
+Future<String?> _promptForFolderName(
+  BuildContext context, {
+  required String title,
+  String initialName = '',
+}) async {
+  var value = initialName;
+  return showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: KandoColors.elevatedSurface,
+      title: Text(title, style: const TextStyle(color: KandoColors.text)),
+      content: TextFormField(
+        key: const Key('collection-folder-name'),
+        initialValue: initialName,
+        onChanged: (next) => value = next,
+        autofocus: true,
+        maxLength: 50,
+        style: const TextStyle(color: KandoColors.text),
+        decoration: const InputDecoration(
+          labelText: 'Portfolio name',
+          labelStyle: TextStyle(color: KandoColors.mutedText),
+        ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('collection-folder-name-save'),
+          onPressed: () {
+            final normalized = value.trim();
+            if (normalized.isNotEmpty) Navigator.of(context).pop(normalized);
+          },
+          child: const Text('Save'),
+        ),
+      ],
     ),
+  );
+}
+
+Future<bool> _confirmDeleteFolder(
+  BuildContext context,
+  CollectionFolder folder,
+) async {
+  return await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: KandoColors.elevatedSurface,
+          title: const Text(
+            'Delete Portfolio?',
+            style: TextStyle(color: KandoColors.text),
+          ),
+          content: Text(
+            'All cards in ${folder.name} will be deleted.',
+            style: const TextStyle(color: KandoColors.mutedText),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('collection-folder-delete-confirm'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
+
+void _showCollectionActionError(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Something went wrong. Please try again.')),
   );
 }
 
@@ -774,7 +1081,7 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    for (final language in const ['English', 'Japanese'])
+                    for (final language in state.availableLanguages)
                       chip(
                         language,
                         languages.contains(language),
@@ -787,7 +1094,7 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    for (final game in const ['Pokemon', 'Lorcana', 'One Piece'])
+                    for (final game in state.availableGames)
                       chip(
                         game,
                         games.contains(game),

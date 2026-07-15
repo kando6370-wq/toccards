@@ -12,6 +12,7 @@ void main() {
       final dashboard = await ApiHomeRepository(
         session: _session,
         portfolioApi: _PortfolioApi(),
+        managementApi: _ManagementApi(),
         cardDataApi: _CardDataApi(),
       ).loadDashboard();
 
@@ -29,12 +30,35 @@ void main() {
       expect(dashboard.trending.single.title, 'Trending Card');
       expect(dashboard.trending.single.priceUsd, 60);
       expect(dashboard.trending.single.previousPriceUsd, 50);
+      expect(dashboard.currencyCode, 'USD');
+      expect(dashboard.amountHidden, isFalse);
       expect(
         dashboard
             .portfoliosByFolderId['main']!
             .chartValuesByRange[HomeChartRange.oneMonth],
         [160, 200],
       );
+    },
+  );
+
+  test(
+    'a missing chart range keeps the current asset total because history availability must not change portfolio value',
+    () async {
+      final dashboard = await ApiHomeRepository(
+        session: _session,
+        portfolioApi: _PortfolioApi(),
+        managementApi: _ManagementApi(),
+        cardDataApi: _CardDataApi(failedSeriesDays: {90}),
+      ).loadDashboard();
+
+      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 200);
+      expect(
+        dashboard
+            .portfoliosByFolderId['main']!
+            .chartValuesByRange[HomeChartRange.threeMonths],
+        [200],
+      );
+      expect(dashboard.mostValuableCardsByFolderId['main'], hasLength(1));
     },
   );
 }
@@ -64,7 +88,7 @@ class _PortfolioApi implements PortfolioApi {
       cardRef: 'owned',
       objectType: 'tcg',
       grader: 'Raw',
-      condition: 'Near Mint',
+      condition: 'Near Mint (NM)',
       grade: null,
       language: 'English',
       finish: 'Holofoil',
@@ -81,7 +105,25 @@ class _PortfolioApi implements PortfolioApi {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _ManagementApi implements PortfolioManagementApi {
+  @override
+  Future<UserPreferenceDto> getPreferences(AuthSession session) async {
+    return const UserPreferenceDto(
+      currency: 'USD',
+      amountHidden: false,
+      lastSelectedFolderId: null,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _CardDataApi implements CardDataApi {
+  _CardDataApi({this.failedSeriesDays = const {}});
+
+  final Set<int> failedSeriesDays;
+
   @override
   Future<CardDataCardDto> getCard(String cardRef) async => _card(cardRef);
 
@@ -91,6 +133,13 @@ class _CardDataApi implements CardDataApi {
   @override
   Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async =>
       [
+        if (cardRef == 'owned')
+          const CardDataMarketPriceDto(
+            grader: 'Raw',
+            grade: null,
+            condition: 'Lightly Played',
+            price: 10,
+          ),
         CardDataMarketPriceDto(
           grader: 'Raw',
           grade: null,
@@ -106,16 +155,21 @@ class _CardDataApi implements CardDataApi {
     String grader = 'Raw',
     double? grade,
     String? condition,
-  }) async => [
-    CardDataPricePointDto(
-      date: '2026-06-15',
-      price: cardRef == 'owned' ? (days == 30 ? 80 : 90) : 50,
-    ),
-    CardDataPricePointDto(
-      date: '2026-07-15',
-      price: cardRef == 'owned' ? 100 : 60,
-    ),
-  ];
+  }) async {
+    if (cardRef == 'owned' && failedSeriesDays.contains(days)) {
+      throw StateError('price series unavailable');
+    }
+    return [
+      CardDataPricePointDto(
+        date: '2026-06-15',
+        price: cardRef == 'owned' ? (days == 30 ? 80 : 90) : 50,
+      ),
+      CardDataPricePointDto(
+        date: '2026-07-15',
+        price: cardRef == 'owned' ? 100 : 60,
+      ),
+    ];
+  }
 
   CardDataCardDto _card(String cardRef) => CardDataCardDto(
     cardRef: cardRef,

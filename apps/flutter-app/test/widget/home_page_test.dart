@@ -8,11 +8,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/app/theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
-import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_page.dart';
@@ -23,9 +23,12 @@ import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import '../support/mock_home_repository.dart';
+import '../support/mock_collection_repository.dart';
 
 void main() {
   test(
@@ -244,7 +247,9 @@ void main() {
   testWidgets(
     'folder picker changes portfolio sections but not Trending Today',
     (tester) async {
-      await tester.pumpWidget(_mockHomeApp());
+      final preferences = _TestPortfolioManagementApi();
+      await tester.pumpWidget(_mockHomeApp(preferences));
+      await _waitForHomeAuth(tester);
 
       await tester.tap(find.text('Main'));
       await tester.pumpAndSettle();
@@ -255,13 +260,16 @@ void main() {
       expect(find.text(r'$8,640.00'), findsOneWidget);
       expect(find.text('Evolving Skies Booster Box'), findsOneWidget);
       expect(find.text('Ragavan, Nimble Pilferer'), findsOneWidget);
+      expect(preferences.selectedFolderIds, ['sealed']);
     },
   );
 
   testWidgets(
     'currency picker converts the Figma portfolio and card price surfaces',
     (tester) async {
-      await tester.pumpWidget(_mockHomeApp());
+      final preferences = _TestPortfolioManagementApi();
+      await tester.pumpWidget(_mockHomeApp(preferences));
+      await _waitForHomeAuth(tester);
 
       await tester.tap(find.text('USD'));
       await tester.pumpAndSettle();
@@ -274,11 +282,14 @@ void main() {
       expect(find.text('EUR'), findsOneWidget);
       expect(find.textContaining('11,330.23'), findsOneWidget);
       expect(find.textContaining('9,100,000'), findsWidgets);
+      expect(preferences.currencyCodes, ['EUR']);
     },
   );
 
   testWidgets('amount visibility toggle masks asset values', (tester) async {
-    await tester.pumpWidget(_mockHomeApp());
+    final preferences = _TestPortfolioManagementApi();
+    await tester.pumpWidget(_mockHomeApp(preferences));
+    await _waitForHomeAuth(tester);
 
     await tester.tap(find.byKey(const Key('home-hide-amount')));
     await tester.pumpAndSettle();
@@ -286,12 +297,14 @@ void main() {
     expect(find.text(hiddenMoneyText), findsWidgets);
     expect(find.text(r'$12,450.80'), findsNothing);
     expect(find.textContaining(r'$420.00'), findsNothing);
+    expect(preferences.amountHiddenValues, [true]);
   });
 
   testWidgets(
     'Most Valuable change badges stay tied to the displayed card data after a portfolio switch',
     (tester) async {
       await tester.pumpWidget(_mockHomeApp());
+      await _waitForHomeAuth(tester);
 
       expect(find.text('+3.20%'), findsNWidgets(3));
       expect(find.text('0.001%'), findsNothing);
@@ -406,6 +419,7 @@ void main() {
 
   testWidgets('empty folder shows Most Valuable empty copy', (tester) async {
     await tester.pumpWidget(_mockHomeApp());
+    await _waitForHomeAuth(tester);
 
     await tester.tap(find.text('Main'));
     await tester.pumpAndSettle();
@@ -435,9 +449,10 @@ void main() {
     expect(find.text('Sign in / Sign up'), findsOneWidget);
   });
 
-  testWidgets('Collection bottom tab navigates to Collection page', (
+  testWidgets('Collection opens with Home portfolio preferences', (
     tester,
   ) async {
+    final preferences = _TestPortfolioManagementApi();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -446,9 +461,22 @@ void main() {
             const MockCollectionRepository(),
           ),
           homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+          portfolioManagementApiProvider.overrideWithValue(preferences),
         ],
         child: const _HomeTestAppWithRoutes(),
       ),
+    );
+    await _waitForHomeAuth(tester);
+
+    final homeContext = tester.element(find.byType(HomePage));
+    final container = ProviderScope.containerOf(homeContext);
+    expect(
+      await container.read(homeControllerProvider.notifier).selectFolder('sealed'),
+      isTrue,
+    );
+    expect(
+      await container.read(homeControllerProvider.notifier).toggleAmountHidden(),
+      isTrue,
     );
 
     await tester.tap(find.byKey(const Key('kando-tab-collection')));
@@ -456,6 +484,9 @@ void main() {
 
     expect(find.text('Portfolio'), findsWidgets);
     expect(find.text('This section is coming soon.'), findsNothing);
+    final collection = container.read(collectionControllerProvider);
+    expect(collection.selectedFolder.id, 'sealed');
+    expect(collection.amountHidden, isTrue);
   });
 
   testWidgets('Search bottom tab navigates to Search page', (tester) async {
@@ -511,13 +542,54 @@ _localAuthOverrides() {
   ];
 }
 
-Widget _mockHomeApp() {
+Widget _mockHomeApp([PortfolioManagementApi? managementApi]) {
   return ProviderScope(
     overrides: [
+      ..._localAuthOverrides(),
       homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+      portfolioManagementApiProvider.overrideWithValue(
+        managementApi ?? _TestPortfolioManagementApi(),
+      ),
     ],
     child: const _HomeTestApp(),
   );
+}
+
+class _TestPortfolioManagementApi implements PortfolioManagementApi {
+  final List<String> currencyCodes = [];
+  final List<bool> amountHiddenValues = [];
+  final List<String> selectedFolderIds = [];
+
+  @override
+  Future<UserPreferenceDto> getPreferences(AuthSession session) async {
+    return const UserPreferenceDto(
+      currency: 'USD',
+      amountHidden: false,
+      lastSelectedFolderId: null,
+    );
+  }
+
+  @override
+  Future<UserPreferenceDto> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) async {
+    if (currency != null) currencyCodes.add(currency);
+    if (amountHidden != null) amountHiddenValues.add(amountHidden);
+    if (lastSelectedFolderId != null) {
+      selectedFolderIds.add(lastSelectedFolderId);
+    }
+    return UserPreferenceDto(
+      currency: currency ?? 'USD',
+      amountHidden: amountHidden ?? false,
+      lastSelectedFolderId: lastSelectedFolderId,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void _refreshHome(WidgetTester tester) {
@@ -525,6 +597,13 @@ void _refreshHome(WidgetTester tester) {
   ProviderScope.containerOf(
     context,
   ).read(homeControllerProvider.notifier).refresh();
+}
+
+Future<void> _waitForHomeAuth(WidgetTester tester) async {
+  final context = tester.element(find.byType(HomePage));
+  final container = ProviderScope.containerOf(context);
+  await container.read(authControllerProvider.notifier).startupComplete;
+  await tester.pumpAndSettle();
 }
 
 class _HomeTestApp extends StatelessWidget {
@@ -545,6 +624,7 @@ class _HomeTestAppWithRoutes extends StatelessWidget {
       routerConfig: GoRouter(
         routes: [
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(path: '/home', builder: (context, state) => const HomePage()),
           GoRoute(
             path: '/collection',
             builder: (context, state) => const CollectionPage(),

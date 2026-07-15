@@ -10,7 +10,6 @@ import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
-import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
@@ -19,6 +18,8 @@ import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+
+import '../support/mock_collection_repository.dart';
 
 void main() {
   testWidgets('Search shows Cards tab with Pokemon results by default', (
@@ -145,7 +146,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.favorite), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(TextButton, 'Collect').first);
+    final collectButton = find.widgetWithText(TextButton, 'Collect').first;
+    await tester.ensureVisible(collectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(collectButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Collected'), findsWidgets);
@@ -258,14 +262,23 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('search-card-squirtle')));
+    final squirtleCard = find.byKey(const Key('search-card-squirtle'));
+    await tester.ensureVisible(squirtleCard);
+    await tester.pumpAndSettle();
+    await tester.tap(squirtleCard);
     await tester.pumpAndSettle();
 
     expect(find.text('Card Detail'), findsOneWidget);
     expect(find.text('Squirtle'), findsOneWidget);
-    expect(find.text('Mega Evolution Promos'), findsOneWidget);
     expect(find.text('Add to Portfolio'), findsOneWidget);
     expect(find.text('Collect'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('Mega Evolution Promos'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Mega Evolution Promos'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('Price overview'),
@@ -287,7 +300,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('search-card-charizard-ex')));
+    final charizardCard = find.byKey(const Key('search-card-charizard-ex'));
+    await tester.ensureVisible(charizardCard);
+    await tester.pumpAndSettle();
+    await tester.tap(charizardCard);
     await tester.pumpAndSettle();
 
     expect(find.text('Card Detail'), findsOneWidget);
@@ -342,6 +358,7 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
         initialLocation: '/search',
         routes: [
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(path: '/home', builder: (context, state) => const HomePage()),
           GoRoute(
             path: '/collection',
             builder: (context, state) => const CollectionPage(),
