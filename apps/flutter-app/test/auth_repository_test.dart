@@ -182,6 +182,31 @@ void main() {
       expect(session.loginMethod, LoginMethod.google);
     },
   );
+
+  test(
+    'logout keeps the stored user when the network fails because offline logout must not change account state',
+    () async {
+      final storage = InMemoryAuthStorage();
+      const user = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'user-access',
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      await storage.writeSession(user);
+      final repository = HttpAuthRepository(
+        _dio(_FakeAuthAdapter({'POST /auth/logout': _NetworkFailure()})),
+        storage,
+      );
+
+      await expectLater(
+        repository.clearUserSession(),
+        throwsA(isA<AuthNetworkException>()),
+      );
+
+      expect(await storage.readSession(), same(user));
+    },
+  );
 }
 
 Dio _dio(_FakeAuthAdapter adapter) {
@@ -197,7 +222,7 @@ _Response _ok(Map<String, Object?> data) {
 class _FakeAuthAdapter implements HttpClientAdapter {
   _FakeAuthAdapter(this.responses);
 
-  final Map<String, _Response> responses;
+  final Map<String, Object> responses;
   final List<_RecordedRequest> requests = [];
 
   @override
@@ -216,6 +241,12 @@ class _FakeAuthAdapter implements HttpClientAdapter {
       ),
     );
     final response = responses[key];
+    if (response is _NetworkFailure) {
+      throw DioException(
+        requestOptions: options,
+        type: DioExceptionType.connectionError,
+      );
+    }
     if (response == null) {
       return ResponseBody.fromString(
         jsonEncode({
@@ -230,7 +261,7 @@ class _FakeAuthAdapter implements HttpClientAdapter {
     }
 
     return ResponseBody.fromString(
-      jsonEncode(response.body),
+      jsonEncode((response as _Response).body),
       response.statusCode,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -257,6 +288,10 @@ class _Response {
 
   final int statusCode;
   final Map<String, Object?> body;
+}
+
+class _NetworkFailure {
+  const _NetworkFailure();
 }
 
 class _RecordedRequest {

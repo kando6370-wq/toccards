@@ -6,6 +6,7 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
+import '../auth/auth_repository.dart';
 import '../auth/ui/auth_sheet.dart';
 import '../app_upgrade/app_upgrade_repository.dart';
 import '../../shared/ui/toast.dart';
@@ -134,10 +135,7 @@ class _ProfileContent extends ConsumerWidget {
           Center(
             child: TextButton.icon(
               onPressed: () async {
-                await ref.read(authControllerProvider.notifier).logout();
-                if (context.mounted) {
-                  context.go('/profile');
-                }
+                await _logout(context, ref);
               },
               style: TextButton.styleFrom(
                 foregroundColor: KandoColors.text,
@@ -208,6 +206,23 @@ class _ProfileContent extends ConsumerWidget {
     } on Exception {
       if (context.mounted) {
         showKandoToast(context, message: authAccountActionFailedMessage);
+      }
+    }
+  }
+
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(authControllerProvider.notifier).logout();
+      if (context.mounted) {
+        context.go('/profile');
+      }
+    } on AuthNetworkException {
+      if (context.mounted) {
+        showKandoNetworkToast(context);
+      }
+    } on Exception {
+      if (context.mounted) {
+        showKandoFailureToast(context);
       }
     }
   }

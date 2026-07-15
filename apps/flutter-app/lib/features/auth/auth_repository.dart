@@ -35,6 +35,10 @@ class AuthApiException implements Exception {
   String toString() => message;
 }
 
+class AuthNetworkException implements Exception {
+  const AuthNetworkException();
+}
+
 abstract class AuthRepository {
   Future<AuthSession?> currentSessionFromStorage();
   Future<AuthSession?> previousAnonymousSessionFromStorage();
@@ -357,10 +361,8 @@ class HttpAuthRepository implements AuthRepository {
         body: {'refresh_token': session.refreshToken},
         session: session,
       );
-    } on AuthApiException {
-      // Local logout must still clear unusable client state.
     } on DioException {
-      // Network logout failure is not allowed to trap the user signed in.
+      throw const AuthNetworkException();
     }
   }
 

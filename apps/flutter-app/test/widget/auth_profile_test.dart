@@ -1136,6 +1136,61 @@ void main() {
   );
 
   testWidgets(
+    'offline logout from Profile keeps the user and shows the network toast',
+    (tester) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _userSession(),
+        logoutError: const AuthNetworkException(),
+      );
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Log Out'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'No internet connection. Please check your network and try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Sign in / Sign up'), findsNothing);
+      expect(repository._currentSession?.isUser, isTrue);
+    },
+  );
+
+  testWidgets(
+    'offline logout from Account keeps the user on account details',
+    (tester) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _userSession(),
+        logoutError: const AuthNetworkException(),
+      );
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      await tester.tap(find.text('person@example.com').first);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Log Out'), 200);
+      await tester.tap(find.text('Log Out'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Account'), findsOneWidget);
+      expect(
+        find.text(
+          'No internet connection. Please check your network and try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('person@example.com'), findsWidgets);
+    },
+  );
+
+  testWidgets(
     'guest delete discards the old anonymous id and creates a fresh guest',
     (tester) async {
       final repository = _WidgetAuthRepository(
@@ -1394,6 +1449,7 @@ class _WidgetAuthRepository implements AuthRepository {
     this.forgotCodeError,
     this.loginCompleter,
     this.googleCallbackError,
+    this.logoutError,
     this.deleteError,
     this.emailRegistered = true,
   }) : _currentSession = initialSession,
@@ -1405,6 +1461,7 @@ class _WidgetAuthRepository implements AuthRepository {
   final Exception? forgotCodeError;
   final Completer<AuthSession>? loginCompleter;
   final Exception? googleCallbackError;
+  final Exception? logoutError;
   final Exception? deleteError;
   final bool emailRegistered;
   var logoutRequests = 0;
@@ -1445,7 +1502,7 @@ class _WidgetAuthRepository implements AuthRepository {
   @override
   Future<void> clearUserSession() async {
     if (_currentSession?.isUser ?? false) {
-      final error = deleteError;
+      final error = logoutError;
       if (error != null) {
         throw error;
       }

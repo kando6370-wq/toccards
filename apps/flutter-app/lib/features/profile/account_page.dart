@@ -5,6 +5,7 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
+import '../auth/auth_repository.dart';
 import '../../shared/ui/toast.dart';
 
 // Destructive action red from the Figma spec (no matching design token exists).
@@ -107,12 +108,7 @@ class _AccountContent extends ConsumerWidget {
                 background: KandoColors.elevatedSurface,
                 borderColor: KandoColors.border.withValues(alpha: 0.4),
                 foreground: KandoColors.text,
-                onTap: () async {
-                  await ref.read(authControllerProvider.notifier).logout();
-                  if (context.mounted) {
-                    context.go('/profile');
-                  }
-                },
+                onTap: () => _logout(context, ref),
               ),
             ),
             const SizedBox(width: 12),
@@ -153,6 +149,23 @@ class _AccountContent extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(authControllerProvider.notifier).logout();
+      if (context.mounted) {
+        context.go('/profile');
+      }
+    } on AuthNetworkException {
+      if (context.mounted) {
+        showKandoNetworkToast(context);
+      }
+    } on Exception {
+      if (context.mounted) {
+        showKandoFailureToast(context);
+      }
+    }
   }
 }
 
