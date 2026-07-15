@@ -7,6 +7,9 @@ import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
+import 'package:kando_app/features/collection/collection_controller.dart';
+import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
@@ -15,6 +18,9 @@ import 'package:kando_app/shared/ui/load_state.dart';
 import 'support/in_memory_auth_storage.dart';
 import 'support/local_placeholder_auth_repository.dart';
 import 'support/mock_card_detail_repository.dart';
+import 'support/mock_collection_repository.dart';
+import 'support/mock_home_repository.dart';
+import 'support/mock_search_repository.dart';
 
 void main() {
   test(
@@ -299,6 +305,41 @@ void main() {
       expect(repository.deletedWishlistItemIds, ['backend-wish-squirtle']);
       expect(container.read(provider).detail.isWishlisted, isFalse);
       expect(container.read(provider).detail.wishlistItemId, isNull);
+    },
+  );
+
+  test(
+    'asset mutation invalidates Home Collection and Search because portfolio state is shared across pages',
+    () async {
+      final container = _cardDetailContainer(includeAssetConsumers: true);
+      addTearDown(container.dispose);
+      final detailProvider = cardDetailControllerProvider('squirtle');
+      final detailController = container.read(detailProvider.notifier);
+      await _loadedState(container, 'squirtle');
+
+      final homeState = container.read(homeControllerProvider);
+      final collectionController = container.read(
+        collectionControllerProvider.notifier,
+      );
+      await collectionController.loadComplete;
+      final collectionState = container.read(collectionControllerProvider);
+      final searchController = container.read(
+        searchControllerProvider.notifier,
+      );
+      await searchController.loadComplete;
+      final searchState = container.read(searchControllerProvider);
+
+      await detailController.toggleWishlist();
+
+      expect(container.read(homeControllerProvider), isNot(same(homeState)));
+      expect(
+        container.read(collectionControllerProvider),
+        isNot(same(collectionState)),
+      );
+      expect(
+        container.read(searchControllerProvider),
+        isNot(same(searchState)),
+      );
     },
   );
 
@@ -863,6 +904,7 @@ class _FolderAwareCardDetailRepository extends _RecordingCardDetailRepository {
 
 ProviderContainer _cardDetailContainer({
   CardDetailRepository repository = const MockCardDetailRepository(),
+  bool includeAssetConsumers = false,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -872,6 +914,15 @@ ProviderContainer _cardDetailContainer({
         LocalPlaceholderAuthRepository(storage),
       ),
       cardDetailRepositoryProvider.overrideWithValue(repository),
+      if (includeAssetConsumers) ...[
+        homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+        collectionRepositoryProvider.overrideWithValue(
+          const MockCollectionRepository(),
+        ),
+        searchRepositoryProvider.overrideWithValue(
+          const MockSearchRepository(),
+        ),
+      ],
     ],
   );
 }

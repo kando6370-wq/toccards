@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/collection/collection_controller.dart';
+import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
@@ -485,6 +488,7 @@ class CardDetailController extends Notifier<CardDetailState> {
         wishlistItemId: null,
       ),
     );
+    _invalidateAssetConsumers();
   }
 
   Future<void> toggleWishlist() async {
@@ -518,6 +522,7 @@ class CardDetailController extends Notifier<CardDetailState> {
           wishlistItemId: null,
         ),
       );
+      _invalidateAssetConsumers();
       return;
     }
 
@@ -538,6 +543,7 @@ class CardDetailController extends Notifier<CardDetailState> {
         wishlistItemId: wishlistItemId,
       ),
     );
+    _invalidateAssetConsumers();
   }
 
   void selectPriceRange(CardPriceRange range) {
@@ -756,6 +762,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       editingCollectionItemId: null,
       collectionItemFormError: null,
     );
+    _invalidateAssetConsumers();
     return true;
   }
 
@@ -789,6 +796,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       editingCollectionItemId: null,
       collectionItemFormError: null,
     );
+    _invalidateAssetConsumers();
   }
 
   CardDetailRepository get _repository =>
@@ -802,6 +810,12 @@ class CardDetailController extends Notifier<CardDetailState> {
         !state.isUnavailable &&
         !state.isLoading &&
         state.detail.id == cardId;
+  }
+
+  void _invalidateAssetConsumers() {
+    ref.invalidate(homeControllerProvider);
+    ref.invalidate(collectionControllerProvider);
+    ref.invalidate(searchControllerProvider);
   }
 
   void _invalidateLoad() {
