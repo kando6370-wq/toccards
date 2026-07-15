@@ -17,19 +17,22 @@ describe("API CORS", () => {
     expect(response.headers.get("access-control-allow-headers")).toContain("Authorization");
   });
 
-  it("allows Flutter Web preflight requests from the fixed local Chrome origin", async () => {
-    const response = await app.request("/api/v1/health", {
-      method: "OPTIONS",
-      headers: {
-        Origin: "http://localhost:3000",
-        "Access-Control-Request-Method": "POST",
-        "Access-Control-Request-Headers": "authorization,content-type",
-      },
-    });
+  it.each(["http://localhost:3000", "http://127.0.0.1:3000"])(
+    "allows Flutter Web preflight requests from the fixed local origin %s",
+    async (origin) => {
+      const response = await app.request("/api/v1/health", {
+        method: "OPTIONS",
+        headers: {
+          Origin: origin,
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "authorization,content-type",
+        },
+      });
 
-    expect(response.status).toBe(204);
-    expect(response.headers.get("access-control-allow-origin")).toBe("http://localhost:3000");
-  });
+      expect(response.status).toBe(204);
+      expect(response.headers.get("access-control-allow-origin")).toBe(origin);
+    },
+  );
 
   it("does not allow unrelated origins", async () => {
     const response = await app.request("/api/v1/health", {
