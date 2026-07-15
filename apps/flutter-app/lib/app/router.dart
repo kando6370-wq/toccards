@@ -20,6 +20,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return const OnboardingGate(home: HomePage());
         },
       ),
+      GoRoute(path: '/home', builder: (context, state) => const HomePage()),
       GoRoute(
         path: '/collection',
         builder: (context, state) => const CollectionPage(),

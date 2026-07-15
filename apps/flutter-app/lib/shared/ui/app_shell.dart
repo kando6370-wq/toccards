@@ -287,7 +287,7 @@ class _FigmaTabItem extends StatelessWidget {
 
 String _pathForTab(KandoMainTab tab) {
   return switch (tab) {
-    KandoMainTab.home => '/',
+    KandoMainTab.home => '/home',
     KandoMainTab.collection => '/collection',
     KandoMainTab.scan => '/scan',
     KandoMainTab.search => '/search',

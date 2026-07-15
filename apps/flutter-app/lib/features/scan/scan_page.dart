@@ -521,7 +521,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
               revealing: _isRevealing,
               showRevealingFeedback: _showRevealingFeedback,
               revealAnimation: _revealController,
-              onClosePressed: () => context.go('/'),
+              onClosePressed: () => context.go('/home'),
               onSearchPressed: () => context.go('/search'),
               onPhotoPressed: _startPhotoScan,
               onLibraryPressed: _startLibraryScan,

@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
+import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
@@ -14,6 +15,8 @@ import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
+
+import '../support/mock_home_repository.dart';
 
 void main() {
   test('Figma scan SVG icons use Flutter-compatible fill colors', () async {
@@ -909,6 +912,7 @@ Future<void> _pumpScanTestApp(
     ProviderScope(
       overrides: [
         ..._searchOverrides(),
+        homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
         scanResultSourceProvider.overrideWithValue(
           scanResultSource ?? _defaultTestScanResultSource(),
         ),
@@ -991,6 +995,7 @@ class _ScanTestAppWithRoutes extends StatelessWidget {
         initialLocation: '/scan',
         routes: [
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(path: '/home', builder: (context, state) => const HomePage()),
           GoRoute(
             path: '/collection',
             builder: (context, state) => const CollectionPage(),
