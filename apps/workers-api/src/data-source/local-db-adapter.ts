@@ -128,22 +128,30 @@ ORDER BY updated_at DESC, product_id ASC
 LIMIT 100`,
         )
         .all<CardCatalogRow>();
-      const ranked = await Promise.all(
-        (results.results ?? []).map(async (row) => ({
-          card: cardFromRow(row),
-          score: recentChangeScore(await findSkuRows(db, row.product_id)),
-        })),
+      const rows = results.results ?? [];
+      const skusByProductId = await findSkuRowsByProductId(
+        db,
+        rows.map((row) => row.product_id),
       );
 
-      return ranked
+      return rows
+        .map((row) => ({
+          row,
+          score: recentChangeScore(skusByProductId.get(row.product_id) ?? []),
+        }))
         .filter((item) => item.score !== null)
         .sort(
           (left, right) =>
             right.score! - left.score! ||
-            left.card.card_ref.localeCompare(right.card.card_ref),
+            left.row.product_id.localeCompare(right.row.product_id),
         )
         .slice(0, 10)
-        .map((item) => item.card);
+        .map((item) =>
+          cardWithSearchPricing(
+            item.row,
+            skusByProductId.get(item.row.product_id) ?? [],
+          ),
+        );
     },
 
     async getSoldListings(): Promise<SoldListing[]> {
@@ -156,14 +164,49 @@ async function cardsWithSearchPricing(
   db: D1Database,
   rows: CardCatalogRow[],
 ): Promise<CardSearchResult[]> {
-  const productIds = rows
-    .map((row) => row.product_id)
-    .filter((productId) => /^\d+$/.test(productId))
-    .map(Number);
+  const skusByProductId = await findSkuRowsByProductId(
+    db,
+    rows.map((row) => row.product_id),
+  );
 
-  if (productIds.length === 0) {
-    return rows.map(cardFromRow);
+  return rows.map((row) =>
+    cardWithSearchPricing(row, skusByProductId.get(row.product_id) ?? []),
+  );
+}
+
+function cardWithSearchPricing(
+  row: CardCatalogRow,
+  skus: TcgplayerSkuRow[],
+): CardSearchResult {
+  const card = cardFromRow(row);
+  const sku = preferredSearchSku(skus);
+
+  if (!sku) {
+    return card;
   }
+
+  const series = filterPointsByDays(parsePriceHistory(sku.price_history), 30);
+  const current = series.at(-1)?.price;
+  const previous = series.length > 1 ? series[0]?.price : undefined;
+
+  return {
+    ...card,
+    finish: sku.variant_name ?? sku.variant_code,
+    language: sku.language_name ?? sku.language_code,
+    ...(current === undefined ? {} : { price_usd: current }),
+    ...(previous === undefined ? {} : { previous_30d_price_usd: previous }),
+  };
+}
+
+async function findSkuRowsByProductId(
+  db: D1Database,
+  cardRefs: string[],
+): Promise<Map<string, TcgplayerSkuRow[]>> {
+  const productIds = cardRefs
+    .filter((cardRef) => /^\d+$/.test(cardRef))
+    .map(Number);
+  const skusByProductId = new Map<string, TcgplayerSkuRow[]>();
+  if (productIds.length === 0) return skusByProductId;
 
   const placeholders = productIds.map(() => "?").join(", ");
   const results = await db
@@ -176,7 +219,6 @@ async function cardsWithSearchPricing(
     )
     .bind(...productIds)
     .all<TcgplayerSkuRow>();
-  const skusByProductId = new Map<string, TcgplayerSkuRow[]>();
   for (const sku of results.results ?? []) {
     const productId = String(sku.product_id);
     const productSkus = skusByProductId.get(productId);
@@ -186,27 +228,7 @@ async function cardsWithSearchPricing(
       skusByProductId.set(productId, [sku]);
     }
   }
-
-  return rows.map((row) => {
-    const card = cardFromRow(row);
-    const sku = preferredSearchSku(skusByProductId.get(row.product_id) ?? []);
-
-    if (!sku) {
-      return card;
-    }
-
-    const series = filterPointsByDays(parsePriceHistory(sku.price_history), 30);
-    const current = series.at(-1)?.price;
-    const previous = series.length > 1 ? series[0]?.price : undefined;
-
-    return {
-      ...card,
-      finish: sku.variant_name ?? sku.variant_code,
-      language: sku.language_name ?? sku.language_code,
-      ...(current === undefined ? {} : { price_usd: current }),
-      ...(previous === undefined ? {} : { previous_30d_price_usd: previous }),
-    };
-  });
+  return skusByProductId;
 }
 
 function preferredSearchSku(rows: TcgplayerSkuRow[]): TcgplayerSkuRow | null {

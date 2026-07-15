@@ -241,8 +241,18 @@ describe("local D1 card data source adapter", () => {
     );
 
     await expect(adapter.getTrending()).resolves.toMatchObject([
-      { card_ref: "200", name: "Large Mover" },
-      { card_ref: "100", name: "Small Mover" },
+      {
+        card_ref: "200",
+        name: "Large Mover",
+        price_usd: 15,
+        previous_30d_price_usd: 10,
+      },
+      {
+        card_ref: "100",
+        name: "Small Mover",
+        price_usd: 11,
+        previous_30d_price_usd: 10,
+      },
     ]);
   });
 });
