@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/card_detail/card_detail_actions.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -327,6 +328,23 @@ void main() {
     expect(find.text('Price overview'), findsOneWidget);
   });
 
+  testWidgets('owned CardDetail shares its real identity and market price', (
+    tester,
+  ) async {
+    final actions = _RecordingCardDetailActions();
+    await tester.pumpWidget(
+      _CardDetailTestApp(cardId: 'charizard-ex', actions: actions),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('card-detail-share-charizard-ex')));
+    await tester.pumpAndSettle();
+
+    expect(actions.name, 'Charizard ex');
+    expect(actions.setName, 'Obsidian Flames');
+    expect(actions.marketPrice, r'$780.00');
+  });
+
   testWidgets('unknown CardDetail shows shared failure copy', (tester) async {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'missing-card'));
     final container = ProviderScope.containerOf(
@@ -357,14 +375,19 @@ void main() {
 }
 
 class _CardDetailTestApp extends StatelessWidget {
-  const _CardDetailTestApp({required this.cardId});
+  const _CardDetailTestApp({required this.cardId, this.actions});
 
   final String cardId;
+  final CardDetailActions? actions;
 
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
-      overrides: _cardDetailOverrides,
+      overrides: [
+        ..._cardDetailOverrides,
+        if (actions != null)
+          cardDetailActionsProvider.overrideWithValue(actions!),
+      ],
       child: MaterialApp(home: CardDetailPage(cardId: cardId)),
     );
   }
@@ -408,3 +431,20 @@ final _cardDetailOverrides = [
     const MockCardDetailRepository(),
   ),
 ];
+
+class _RecordingCardDetailActions implements CardDetailActions {
+  String? name;
+  String? setName;
+  String? marketPrice;
+
+  @override
+  Future<void> shareCard({
+    required String name,
+    required String setName,
+    required String marketPrice,
+  }) async {
+    this.name = name;
+    this.setName = setName;
+    this.marketPrice = marketPrice;
+  }
+}
