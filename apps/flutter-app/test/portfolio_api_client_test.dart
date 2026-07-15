@@ -44,6 +44,137 @@ void main() {
   );
 
   test(
+    'folder mutations use Workers routes because Portfolio management must persist for the current owner',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) {
+        expect(request.authorization, 'Bearer owner-access');
+        switch (call++) {
+          case 0:
+            expect(request.method, 'POST');
+            expect(request.path, '/portfolio/folders');
+            expect(request.body, {'name': 'Trade'});
+            return _json(201, {
+              'success': true,
+              'data': _folderJson(id: 'trade', name: 'Trade', sortOrder: 200),
+            });
+          case 1:
+            expect(request.method, 'PATCH');
+            expect(request.path, '/portfolio/folders/trade');
+            expect(request.body, {'name': 'Trade Binder'});
+            return _json(200, {
+              'success': true,
+              'data': _folderJson(
+                id: 'trade',
+                name: 'Trade Binder',
+                sortOrder: 200,
+              ),
+            });
+          case 2:
+            expect(request.method, 'PATCH');
+            expect(request.path, '/portfolio/folders/trade/set-default');
+            return _json(200, {
+              'success': true,
+              'data': _folderJson(
+                id: 'trade',
+                name: 'Trade Binder',
+                isDefault: true,
+                sortOrder: 200,
+              ),
+            });
+          case 3:
+            expect(request.method, 'PATCH');
+            expect(request.path, '/portfolio/folders/reorder');
+            expect(request.body, {
+              'orders': [
+                {'folder_id': 'trade', 'sort_order': 100},
+                {'folder_id': 'main', 'sort_order': 200},
+              ],
+            });
+            return _json(200, {
+              'success': true,
+              'data': <String, Object?>{},
+            });
+          case 4:
+            expect(request.method, 'DELETE');
+            expect(request.path, '/portfolio/folders/trade');
+            return _json(200, {
+              'success': true,
+              'data': <String, Object?>{},
+            });
+          default:
+            throw StateError('unexpected request');
+        }
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+
+      final created = await api.createFolder(_session, 'Trade');
+      final renamed = await api.renameFolder(_session, 'trade', 'Trade Binder');
+      final defaultFolder = await api.setDefaultFolder(_session, 'trade');
+      await api.reorderFolders(_session, const ['trade', 'main']);
+      await api.deleteFolder(_session, 'trade');
+
+      expect(created.name, 'Trade');
+      expect(renamed.name, 'Trade Binder');
+      expect(defaultFolder.isDefault, isTrue);
+      expect(adapter.requests, hasLength(5));
+    },
+  );
+
+  test(
+    'preferences round-trip currency visibility and selected folder because Home and Collection share owner settings',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) {
+        expect(request.authorization, 'Bearer owner-access');
+        if (call++ == 0) {
+          expect(request.method, 'GET');
+          expect(request.path, '/preferences');
+          return _json(200, {
+            'success': true,
+            'data': {
+              'currency': 'USD',
+              'amount_hidden': false,
+              'last_selected_folder_id': 'main',
+            },
+          });
+        }
+        expect(request.method, 'PATCH');
+        expect(request.path, '/preferences');
+        expect(request.body, {
+          'currency': 'NZD',
+          'amount_hidden': true,
+          'last_selected_folder_id': 'trade',
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'currency': 'NZD',
+            'amount_hidden': true,
+            'last_selected_folder_id': 'trade',
+          },
+        });
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+
+      final initial = await api.getPreferences(_session);
+      final updated = await api.updatePreferences(
+        _session,
+        currency: 'NZD',
+        amountHidden: true,
+        lastSelectedFolderId: 'trade',
+      );
+
+      expect(initial.currency, 'USD');
+      expect(initial.amountHidden, isFalse);
+      expect(initial.lastSelectedFolderId, 'main');
+      expect(updated.currency, 'NZD');
+      expect(updated.amountHidden, isTrue);
+      expect(updated.lastSelectedFolderId, 'trade');
+    },
+  );
+
+  test(
     'listCollectionItems maps backend rows because Collection reads Workers asset state',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -393,6 +524,20 @@ Map<String, Object?> _portfolioItemJson({
     'notes': 'binder copy',
     'created_at': '2026-01-01T00:00:00.000Z',
     'updated_at': '2026-01-02T00:00:00.000Z',
+  };
+}
+
+Map<String, Object?> _folderJson({
+  required String id,
+  required String name,
+  bool isDefault = false,
+  required int sortOrder,
+}) {
+  return {
+    'id': id,
+    'name': name,
+    'is_default': isDefault,
+    'sort_order': sortOrder,
   };
 }
 

@@ -47,6 +47,26 @@ class PortfolioFolderDto {
   }
 }
 
+class UserPreferenceDto {
+  const UserPreferenceDto({
+    required this.currency,
+    required this.amountHidden,
+    required this.lastSelectedFolderId,
+  });
+
+  final String currency;
+  final bool amountHidden;
+  final String? lastSelectedFolderId;
+
+  factory UserPreferenceDto.fromJson(Map<String, Object?> json) {
+    return UserPreferenceDto(
+      currency: _requiredString(json['currency']),
+      amountHidden: json['amount_hidden'] == true,
+      lastSelectedFolderId: _nullableString(json['last_selected_folder_id']),
+    );
+  }
+}
+
 class PortfolioItemDto {
   const PortfolioItemDto({
     required this.id,
@@ -207,7 +227,32 @@ abstract interface class PortfolioApi {
   Future<void> deleteWishlist(AuthSession session, String itemId);
 }
 
-class PortfolioApiClient implements PortfolioApi {
+abstract interface class PortfolioManagementApi {
+  Future<PortfolioFolderDto> createFolder(AuthSession session, String name);
+  Future<PortfolioFolderDto> renameFolder(
+    AuthSession session,
+    String folderId,
+    String name,
+  );
+  Future<PortfolioFolderDto> setDefaultFolder(
+    AuthSession session,
+    String folderId,
+  );
+  Future<void> reorderFolders(
+    AuthSession session,
+    List<String> folderIds,
+  );
+  Future<void> deleteFolder(AuthSession session, String folderId);
+  Future<UserPreferenceDto> getPreferences(AuthSession session);
+  Future<UserPreferenceDto> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  });
+}
+
+class PortfolioApiClient implements PortfolioApi, PortfolioManagementApi {
   const PortfolioApiClient(this._dio);
 
   final Dio _dio;
@@ -216,6 +261,105 @@ class PortfolioApiClient implements PortfolioApi {
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
     final data = await _requestData('GET', '/portfolio/folders', session);
     return _items(data).map(PortfolioFolderDto.fromJson).toList();
+  }
+
+  @override
+  Future<PortfolioFolderDto> createFolder(
+    AuthSession session,
+    String name,
+  ) async {
+    final data = await _requestData(
+      'POST',
+      '/portfolio/folders',
+      session,
+      body: {'name': name},
+    );
+    return PortfolioFolderDto.fromJson(data);
+  }
+
+  @override
+  Future<PortfolioFolderDto> renameFolder(
+    AuthSession session,
+    String folderId,
+    String name,
+  ) async {
+    final data = await _requestData(
+      'PATCH',
+      '/portfolio/folders/${Uri.encodeComponent(folderId)}',
+      session,
+      body: {'name': name},
+    );
+    return PortfolioFolderDto.fromJson(data);
+  }
+
+  @override
+  Future<PortfolioFolderDto> setDefaultFolder(
+    AuthSession session,
+    String folderId,
+  ) async {
+    final data = await _requestData(
+      'PATCH',
+      '/portfolio/folders/${Uri.encodeComponent(folderId)}/set-default',
+      session,
+    );
+    return PortfolioFolderDto.fromJson(data);
+  }
+
+  @override
+  Future<void> reorderFolders(
+    AuthSession session,
+    List<String> folderIds,
+  ) async {
+    await _requestData(
+      'PATCH',
+      '/portfolio/folders/reorder',
+      session,
+      body: {
+        'orders': [
+          for (var index = 0; index < folderIds.length; index++)
+            {
+              'folder_id': folderIds[index],
+              'sort_order': (index + 1) * 100,
+            },
+        ],
+      },
+    );
+  }
+
+  @override
+  Future<void> deleteFolder(AuthSession session, String folderId) async {
+    await _requestData(
+      'DELETE',
+      '/portfolio/folders/${Uri.encodeComponent(folderId)}',
+      session,
+    );
+  }
+
+  @override
+  Future<UserPreferenceDto> getPreferences(AuthSession session) async {
+    final data = await _requestData('GET', '/preferences', session);
+    return UserPreferenceDto.fromJson(data);
+  }
+
+  @override
+  Future<UserPreferenceDto> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) async {
+    final data = await _requestData(
+      'PATCH',
+      '/preferences',
+      session,
+      body: {
+        if (currency != null) 'currency': currency,
+        if (amountHidden != null) 'amount_hidden': amountHidden,
+        if (lastSelectedFolderId != null)
+          'last_selected_folder_id': lastSelectedFolderId,
+      },
+    );
+    return UserPreferenceDto.fromJson(data);
   }
 
   @override
