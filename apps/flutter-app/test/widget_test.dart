@@ -95,6 +95,12 @@ class _WidgetTestAuthRepository implements AuthRepository {
   Future<void> sendRegisterCode(String email) async {}
 
   @override
+  Future<void> verifyRegisterCode({
+    required String email,
+    required String code,
+  }) async {}
+
+  @override
   Future<AuthSession> verifyRegister({
     required String email,
     required String code,

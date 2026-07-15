@@ -530,8 +530,8 @@ void main() {
       await _continueWithEmail(tester, 'person@example.com');
 
       await tester.enterText(find.byType(TextFormField), 'password123');
-      await tester.tap(find.widgetWithText(FilledButton, 'Log in'));
-      await tester.tap(find.widgetWithText(FilledButton, 'Log in'));
+      await tester.tap(find.widgetWithText(FilledButton, 'LOG IN'));
+      await tester.tap(find.widgetWithText(FilledButton, 'LOG IN'));
       await tester.pump();
 
       final loadingButton = tester.widget<FilledButton>(
@@ -550,23 +550,26 @@ void main() {
   testWidgets('register password mismatch blocks submit', (tester) async {
     final repository = _WidgetAuthRepository(
       initialSession: _anonymousSession('anon-existing'),
+      emailRegistered: false,
     );
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
     await _openEmailAuth(tester);
-    await _continueWithEmail(tester, 'person@example.com');
-    await tester.tap(find.text('Create account'));
-    await tester.pumpAndSettle();
+    await _continueWithEmail(
+      tester,
+      'person@example.com',
+      destinationLabel: 'Verification code',
+    );
     await tester.enterText(find.byType(TextFormField), '123456');
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'password123');
     await tester.enterText(fields.at(1), 'password456');
-    await tester.tap(find.widgetWithText(FilledButton, 'Create account'));
+    await tester.tap(find.widgetWithText(FilledButton, 'CREATE ACCOUNT'));
     await tester.pumpAndSettle();
 
     expect(find.text('Passwords do not match.'), findsOneWidget);
@@ -578,23 +581,26 @@ void main() {
   ) async {
     final repository = _WidgetAuthRepository(
       initialSession: _anonymousSession('anon-existing'),
+      emailRegistered: false,
     );
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
     await _openEmailAuth(tester);
-    await _continueWithEmail(tester, 'person@example.com');
-    await tester.tap(find.text('Create account'));
-    await tester.pumpAndSettle();
+    await _continueWithEmail(
+      tester,
+      'person@example.com',
+      destinationLabel: 'Verification code',
+    );
     await tester.enterText(find.byType(TextFormField), '123456');
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'password123');
     await tester.enterText(fields.at(1), 'password123');
-    await tester.tap(find.widgetWithText(FilledButton, 'Create account'));
+    await tester.tap(find.widgetWithText(FilledButton, 'CREATE ACCOUNT'));
     await tester.pumpAndSettle();
 
     expect(repository.registerCodeEmails, ['person@example.com']);
@@ -606,7 +612,8 @@ void main() {
         anonymousId: 'anon-existing',
       ),
     ]);
-    expect(find.text('Signed in'), findsOneWidget);
+    expect(find.text('Welcome\nLet’s collect the cards.'), findsOneWidget);
+    expect(find.byKey(const Key('email-auth-page')), findsNothing);
   });
 
   testWidgets('register code error shows incorrect code and does not sign in', (
@@ -615,28 +622,25 @@ void main() {
     final repository = _WidgetAuthRepository(
       initialSession: _anonymousSession('anon-existing'),
       registerError: Exception('invalid_verification_code'),
+      emailRegistered: false,
     );
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
     await _openEmailAuth(tester);
-    await _continueWithEmail(tester, 'person@example.com');
-    await tester.tap(find.text('Create account'));
-    await tester.pumpAndSettle();
+    await _continueWithEmail(
+      tester,
+      'person@example.com',
+      destinationLabel: 'Verification code',
+    );
     await tester.enterText(find.byType(TextFormField), '123456');
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
-    await tester.pumpAndSettle();
-
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'password123');
-    await tester.enterText(fields.at(1), 'password123');
-    await tester.tap(find.widgetWithText(FilledButton, 'Create account'));
+    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
     await tester.pumpAndSettle();
 
     expect(find.text('Incorrect verification code.'), findsOneWidget);
     expect(find.text('Signed in'), findsNothing);
-    expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'CONTINUE'), findsOneWidget);
   });
 
   testWidgets('forgot password reset success returns to login path', (
@@ -654,17 +658,18 @@ void main() {
     await tester.tap(find.text('Forgot Password ?'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), ' PERSON@example.com ');
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), '654321');
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'newpass123');
     await tester.enterText(fields.at(1), 'newpass123');
-    await tester.tap(find.widgetWithText(FilledButton, 'Reset password'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'RESET PASSWORD'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(repository.forgotCodeEmails, ['person@example.com']);
     expect(repository.forgotVerifications, [
@@ -673,7 +678,8 @@ void main() {
     expect(repository.resetRequests, [
       const _ResetRequest('person@example.com', 'reset-token', 'newpass123'),
     ]);
-    expect(find.text('Log in'), findsOneWidget);
+    expect(find.text('Password reset successfully.'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'LOG IN'), findsOneWidget);
     final loginPasswordField = tester.widget<TextFormField>(
       find.byType(TextFormField),
     );
@@ -696,10 +702,10 @@ void main() {
     await tester.tap(find.text('Forgot Password ?'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), 'person@example.com');
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), '654321');
-    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
     await tester.pumpAndSettle();
 
     expect(
@@ -1160,12 +1166,16 @@ Future<void> _openAuthSheet(WidgetTester tester) async {
   expect(find.text('Continue with Apple'), findsOneWidget);
 }
 
-Future<void> _continueWithEmail(WidgetTester tester, String email) async {
+Future<void> _continueWithEmail(
+  WidgetTester tester,
+  String email, {
+  String destinationLabel = 'Password',
+}) async {
   await tester.enterText(find.byType(TextFormField), email);
   await tester.pump();
   await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
   await tester.pumpAndSettle();
-  expect(find.text('Password'), findsOneWidget);
+  expect(find.text(destinationLabel), findsOneWidget);
 }
 
 ProviderScope _testApp(
@@ -1247,6 +1257,7 @@ class _WidgetAuthRepository implements AuthRepository {
     this.loginCompleter,
     this.googleCallbackError,
     this.deleteError,
+    this.emailRegistered = true,
   }) : _currentSession = initialSession,
        _createdAnonymousIds = [...createdAnonymousIds];
 
@@ -1257,6 +1268,7 @@ class _WidgetAuthRepository implements AuthRepository {
   final Completer<AuthSession>? loginCompleter;
   final Exception? googleCallbackError;
   final Exception? deleteError;
+  final bool emailRegistered;
   var logoutRequests = 0;
   var deleteRequests = 0;
   final List<_LoginRequest> loginRequests = [];
@@ -1331,6 +1343,21 @@ class _WidgetAuthRepository implements AuthRepository {
   @override
   Future<void> sendRegisterCode(String email) async {
     registerCodeEmails.add(email);
+    if (emailRegistered) {
+      throw const AuthApiException(
+        'Email is already registered.',
+        code: 'CONFLICT',
+      );
+    }
+  }
+
+  @override
+  Future<void> verifyRegisterCode({
+    required String email,
+    required String code,
+  }) async {
+    final error = registerError;
+    if (error != null) throw error;
   }
 
   @override

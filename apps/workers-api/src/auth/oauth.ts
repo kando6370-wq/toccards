@@ -8,7 +8,7 @@ import {
 import { hasSigningSecret } from "./http-auth";
 import {
   resolveMockAppleIdentity,
-  resolveMockGoogleIdentity,
+  resolveGoogleIdentity,
 } from "./oauth-provider";
 
 type GoogleOAuthCallbackInput = {
@@ -50,10 +50,10 @@ const STALE_ANONYMOUS_ACCOUNT_RESPONSE = {
 export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
   routes.post("/oauth/google/callback", async (c) => {
     const input = await readGoogleOAuthCallbackInput(c.req);
-    const identity = resolveMockGoogleIdentity({
-      code: input.code,
-      redirectUri: input.redirectUri,
-    });
+    const identity = await resolveGoogleIdentity(
+      { code: input.code, redirectUri: input.redirectUri },
+      c.env.GOOGLE_CLIENT_ID,
+    );
 
     if (!identity) {
       return c.json(AUTHORIZATION_FAILED_RESPONSE, 422);

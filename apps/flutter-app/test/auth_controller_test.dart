@@ -192,7 +192,7 @@ void main() {
   );
 
   test(
-    'cancelled authorization leaves guest state untouched and exposes retry copy because Figma treats cancellation as an actionable failed attempt',
+    'cancelled authorization leaves guest state untouched without a backend request because cancellation is not a failure',
     () async {
       final anonymous = _anonymousSession('anon-existing');
       final repository = _FakeAuthRepository(
@@ -208,16 +208,9 @@ void main() {
       addTearDown(container.dispose);
       await container.read(authControllerProvider.notifier).startupComplete;
 
-      await expectLater(
-        container.read(authControllerProvider.notifier).continueWithGoogle(),
-        throwsA(
-          isA<AuthActionException>().having(
-            (error) => error.toString(),
-            'retry copy',
-            authAuthorizationFailedMessage,
-          ),
-        ),
-      );
+      await container
+          .read(authControllerProvider.notifier)
+          .continueWithGoogle();
       final state = container.read(authControllerProvider);
 
       expect(authorizer.requests, [OAuthProvider.google]);
@@ -949,6 +942,12 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> sendRegisterCode(String email) async {}
+
+  @override
+  Future<void> verifyRegisterCode({
+    required String email,
+    required String code,
+  }) async {}
 
   @override
   Future<AuthSession> verifyRegister({

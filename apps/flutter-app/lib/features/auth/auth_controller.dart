@@ -12,6 +12,8 @@ const authAccountActionFailedMessage =
     'Unable to complete this action. Please try again later.';
 const _googleRedirectUri = 'kando://auth/google';
 
+enum EmailAuthDestination { login, registerCode }
+
 class AuthActionException implements Exception {
   const AuthActionException(this.message);
 
@@ -39,7 +41,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 final oauthAuthorizerProvider = Provider<OAuthAuthorizer>((ref) {
-  return const UnavailableOAuthAuthorizer();
+  return GoogleOAuthAuthorizer.instance;
 });
 
 final authDeviceIdProvider = Provider<String>((ref) {
@@ -129,6 +131,25 @@ class AuthController extends Notifier<AuthState> {
     return _repository.sendRegisterCode(email);
   }
 
+  Future<EmailAuthDestination> beginEmailAuth(String email) async {
+    try {
+      await _repository.sendRegisterCode(email);
+      return EmailAuthDestination.registerCode;
+    } on AuthApiException catch (error) {
+      if (error.code == 'CONFLICT') {
+        return EmailAuthDestination.login;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> verifyRegisterCode({
+    required String email,
+    required String code,
+  }) {
+    return _repository.verifyRegisterCode(email: email, code: code);
+  }
+
   Future<void> verifyRegister({
     required String email,
     required String code,
@@ -175,18 +196,16 @@ class AuthController extends Notifier<AuthState> {
   Future<void> _continueWithOAuth(OAuthProvider provider) async {
     final generation = _generation;
     final targetSession = state.session;
-
     final OAuthAuthorizationResult? authorization;
     try {
       authorization = await _oauthAuthorizer.authorize(provider);
-    } on Exception {
+    } catch (_) {
       throw const AuthActionException(authAuthorizationFailedMessage);
     }
     if (authorization == null) {
-      throw const AuthActionException(authAuthorizationFailedMessage);
+      return;
     }
     final authorizationResult = authorization;
-
     await _enqueueMutation(() async {
       if (generation != _generation ||
           !identical(state.session, targetSession)) {

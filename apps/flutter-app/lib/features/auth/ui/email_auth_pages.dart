@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 import 'package:kando_app/shared/validation/email.dart';
 
 import '../auth_controller.dart';
@@ -20,15 +23,14 @@ enum _EmailPage {
   forgotPassword,
 }
 
-Future<bool> showEmailAuthPage(BuildContext context) async {
-  final signedIn = await Navigator.of(context).push<bool>(
-    PageRouteBuilder<bool>(
+Future<String?> showEmailAuthPage(BuildContext context) {
+  return Navigator.of(context).push<String>(
+    PageRouteBuilder<String>(
       pageBuilder: (_, _, _) => const EmailAuthPages(fullScreen: true),
       transitionDuration: Duration.zero,
       reverseTransitionDuration: Duration.zero,
     ),
   );
-  return signedIn ?? false;
 }
 
 class EmailAuthPages extends ConsumerStatefulWidget {
@@ -53,9 +55,12 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
   String? _code;
   String? _resetToken;
   String? _errorText;
+  Timer? _resendTimer;
+  var _resendSeconds = 0;
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -90,7 +95,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         controller: _emailController,
         loading: _loading,
         errorText: _errorText,
-        onContinue: _continueToLogin,
+        onContinue: _beginEmailAuth,
         fullScreen: widget.fullScreen,
       ),
       _EmailPage.login => _PasswordPage(
@@ -109,6 +114,8 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         loading: _loading,
         errorText: _errorText,
         onContinue: _continueToRegisterPassword,
+        resendSeconds: _resendSeconds,
+        onResend: _resendRegisterCode,
       ),
       _EmailPage.registerPassword => _PasswordPairPage(
         passwordController: _passwordController,
@@ -129,6 +136,8 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         loading: _loading,
         errorText: _errorText,
         onContinue: _verifyForgotCode,
+        resendSeconds: _resendSeconds,
+        onResend: _resendForgotCode,
       ),
       _EmailPage.forgotPassword => _PasswordPairPage(
         passwordController: _passwordController,
@@ -154,17 +163,27 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
     });
   }
 
-  void _continueToLogin() {
+  Future<void> _beginEmailAuth() async {
     final email = _normalizedEmail();
     if (!_validateEmail(email)) {
       return;
     }
 
-    _clearSensitiveInputs();
-    setState(() {
-      _email = email;
-      _errorText = null;
-      _page = _EmailPage.login;
+    await _run(() async {
+      final destination = await ref
+          .read(authControllerProvider.notifier)
+          .beginEmailAuth(email);
+      if (!mounted) return;
+      _clearSensitiveInputs();
+      setState(() {
+        _email = email;
+        _page = destination == EmailAuthDestination.login
+            ? _EmailPage.login
+            : _EmailPage.registerCode;
+      });
+      if (destination == EmailAuthDestination.registerCode) {
+        _startResendCountdown();
+      }
     });
   }
 
@@ -181,7 +200,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         return;
       }
       _clearSensitiveInputs();
-      Navigator.of(context).pop(widget.fullScreen ? true : null);
+      _completeSignIn('Welcome back');
     });
   }
 
@@ -193,21 +212,27 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       }
       _clearSensitiveInputs();
       setState(() => _page = _EmailPage.registerCode);
+      _startResendCountdown();
     });
   }
 
-  void _continueToRegisterPassword() {
+  Future<void> _continueToRegisterPassword() async {
     final code = _codeController.text.trim();
     if (code.isEmpty) {
       return;
     }
 
-    setState(() {
-      _code = code;
-      _errorText = null;
-      _page = _EmailPage.registerPassword;
+    await _run(() async {
+      await ref
+          .read(authControllerProvider.notifier)
+          .verifyRegisterCode(email: _email!, code: code);
+      if (!mounted) return;
+      setState(() {
+        _code = code;
+        _page = _EmailPage.registerPassword;
+      });
+      _clearSensitiveInputs();
     });
-    _clearSensitiveInputs();
   }
 
   Future<void> _verifyRegister() async {
@@ -227,7 +252,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         return;
       }
       _clearSensitiveInputs();
-      Navigator.of(context).pop(widget.fullScreen ? true : null);
+      _completeSignIn('Welcome\nLet’s collect the cards.');
     });
   }
 
@@ -249,6 +274,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         _email = email;
         _page = _EmailPage.forgotCode;
       });
+      _startResendCountdown();
     });
   }
 
@@ -292,7 +318,49 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       }
       _clearSensitiveInputs();
       setState(() => _page = _EmailPage.login);
+      showKandoToast(context, message: 'Password reset successfully.');
     });
+  }
+
+  Future<void> _resendRegisterCode() => _resendCode(
+    () => ref.read(authControllerProvider.notifier).sendRegisterCode(_email!),
+  );
+
+  Future<void> _resendForgotCode() => _resendCode(
+    () => ref
+        .read(authControllerProvider.notifier)
+        .sendForgotPasswordCode(_email!),
+  );
+
+  Future<void> _resendCode(Future<void> Function() send) async {
+    if (_resendSeconds > 0) return;
+    await _run(() async {
+      await send();
+      if (!mounted) return;
+      _codeController.clear();
+      _startResendCountdown();
+    });
+  }
+
+  void _startResendCountdown() {
+    _resendTimer?.cancel();
+    setState(() => _resendSeconds = 60);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _resendSeconds <= 1) {
+        timer.cancel();
+        if (mounted) setState(() => _resendSeconds = 0);
+        return;
+      }
+      setState(() => _resendSeconds--);
+    });
+  }
+
+  void _completeSignIn(String message) {
+    if (widget.fullScreen) {
+      Navigator.of(context).pop(message);
+      return;
+    }
+    showKandoToast(context, message: message);
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -566,12 +634,16 @@ class _CodePage extends StatelessWidget {
     required this.loading,
     required this.errorText,
     required this.onContinue,
+    required this.resendSeconds,
+    required this.onResend,
   });
 
   final TextEditingController controller;
   final bool loading;
   final String? errorText;
   final VoidCallback onContinue;
+  final int resendSeconds;
+  final VoidCallback onResend;
 
   @override
   Widget build(BuildContext context) {
@@ -592,6 +664,14 @@ class _CodePage extends StatelessWidget {
           label: 'Continue',
           loading: loading,
           onPressed: onContinue,
+        ),
+        const SizedBox(height: 8),
+        _LinkButton(
+          label: resendSeconds > 0
+              ? 'Resend code in ${resendSeconds}s'
+              : 'Resend code',
+          loading: loading || resendSeconds > 0,
+          onPressed: onResend,
         ),
       ],
     );
@@ -768,9 +848,9 @@ class _EmailAuthFullScreen extends StatelessWidget {
 
     return SizedBox.expand(
       key: const Key('email-auth-page'),
-      child: Material(
-        color: KandoColors.ink,
-        child: SafeArea(
+      child: Scaffold(
+        backgroundColor: KandoColors.ink,
+        body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
             child: Column(

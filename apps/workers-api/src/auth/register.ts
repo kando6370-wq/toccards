@@ -2,6 +2,7 @@ import { hashPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
 import type { Env } from "../env";
 import { createId } from "../id";
+import { sendVerificationEmail } from "../mail/verification-email";
 import {
   createGuestMigrationStatements,
   findVerifiedAnonymousAccount,
@@ -57,6 +58,11 @@ const INCORRECT_VERIFICATION_CODE_RESPONSE = {
   },
 } as const;
 
+const CODE_EXPIRED_RESPONSE = {
+  success: false,
+  error: { code: "VALIDATION_ERROR", message: "Code expired. Please request a new code." },
+} as const;
+
 const STALE_ANONYMOUS_ACCOUNT_RESPONSE = {
   success: false,
   error: {
@@ -81,6 +87,11 @@ const CONFLICT_RESPONSE = {
   },
 } as const;
 
+const RATE_LIMITED_RESPONSE = {
+  success: false,
+  error: { code: "RATE_LIMITED", message: "Please try again later." },
+} as const;
+
 const INTERNAL_ERROR_RESPONSE = {
   success: false,
   error: {
@@ -99,7 +110,16 @@ const SELECT_USER_BY_EMAIL_SQL = `
 const INSERT_VERIFICATION_CODE_SQL = `
   INSERT INTO verification_code
     (id, email, code, purpose, expires_at, used_at, created_at)
-  VALUES (?, ?, ?, 'register', ?, NULL, ?)
+  SELECT ?, ?, ?, 'register', ?, NULL, ?
+  WHERE NOT EXISTS (
+    SELECT 1 FROM verification_code
+    WHERE email = ? AND purpose = 'register' AND used_at IS NULL
+      AND created_at > ?
+  )
+`;
+
+const DELETE_VERIFICATION_CODE_SQL = `
+  DELETE FROM verification_code WHERE id = ? AND used_at IS NULL
 `;
 
 const SELECT_LATEST_REGISTER_CODE_SQL = `
@@ -220,10 +240,37 @@ export function registerEmailRegistrationRoutes(
       const expiresAt = new Date(
         now.getTime() + REGISTER_CODE_EXPIRES_IN_SECONDS * 1000,
       ).toISOString();
+      const resendWindowStartedAt = new Date(
+        now.getTime() - REGISTER_CODE_RESEND_AFTER_SECONDS * 1000,
+      ).toISOString();
 
-      await c.env.DB.prepare(INSERT_VERIFICATION_CODE_SQL)
-        .bind(createId(), email, createVerificationCode(), expiresAt, createdAt)
+      const code = createVerificationCode();
+      const verificationCodeId = createId();
+      const result = await c.env.DB.prepare(INSERT_VERIFICATION_CODE_SQL)
+        .bind(
+          verificationCodeId,
+          email,
+          code,
+          expiresAt,
+          createdAt,
+          email,
+          resendWindowStartedAt,
+        )
         .run();
+      if (result.meta.changes === 0) {
+        return c.json(RATE_LIMITED_RESPONSE, 429);
+      }
+      if (result.meta.changes !== 1) {
+        return c.json(INTERNAL_ERROR_RESPONSE, 500);
+      }
+      try {
+        await sendVerificationEmail(c.env, email, code, "register");
+      } catch (error) {
+        await c.env.DB.prepare(DELETE_VERIFICATION_CODE_SQL)
+          .bind(verificationCodeId)
+          .run();
+        throw error;
+      }
 
       return c.json({
         success: true,
@@ -234,6 +281,28 @@ export function registerEmailRegistrationRoutes(
       });
     } catch (error) {
       console.error("Failed to create register verification code.", error);
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+  });
+
+  routes.post("/register/verify-code", async (c) => {
+    const input = await readRegisterVerifyInput(c.req);
+    if (!input.email || !isValidEmail(input.email) ||
+        !input.code || !VERIFICATION_CODE_PATTERN.test(input.code)) {
+      return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
+    }
+    try {
+      const latest = await c.env.DB.prepare(SELECT_LATEST_REGISTER_CODE_SQL)
+        .bind(input.email).first<VerificationCodeRow>();
+      if (!latest || latest.code !== input.code) {
+        return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
+      }
+      if (!isUsableRegisterCode(latest, input.code, new Date())) {
+        return c.json(CODE_EXPIRED_RESPONSE, 422);
+      }
+      return c.json({ success: true, data: {} });
+    } catch (error) {
+      console.error("Failed to verify register code.", error);
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
   });
@@ -269,6 +338,13 @@ export function registerEmailRegistrationRoutes(
         .bind(input.email)
         .first<VerificationCodeRow>();
 
+      if (
+        verificationCode?.code === input.code &&
+        verificationCode.used_at === null &&
+        isExpiredRegisterCode(verificationCode, now)
+      ) {
+        return c.json(CODE_EXPIRED_RESPONSE, 422);
+      }
       if (!isUsableRegisterCode(verificationCode, input.code, now)) {
         return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
       }
@@ -542,6 +618,11 @@ function isUsableRegisterCode(
   const expiresAt = Date.parse(row.expires_at);
 
   return Number.isFinite(expiresAt) && expiresAt > now.getTime();
+}
+
+function isExpiredRegisterCode(row: VerificationCodeRow, now: Date): boolean {
+  const expiresAt = Date.parse(row.expires_at);
+  return !Number.isFinite(expiresAt) || expiresAt <= now.getTime();
 }
 
 function createVerificationCode(): string {

@@ -5,6 +5,11 @@ import {
   verifyPassword,
 } from "@kando/auth-core";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../mail/verification-email", () => ({
+  sendVerificationEmail: vi.fn().mockResolvedValue("message-id"),
+}));
+
 import app, { type Env as AppEnv } from "../index";
 import { migrateGuestAssetsToUser } from "./guest-migration";
 
@@ -641,13 +646,33 @@ class FakeD1 {
     }
 
     if (normalizedSql === INSERT_VERIFICATION_CODE_SQL) {
-      const [id, email, code, expiresAt, createdAt] = values as [
+      const [
+        id,
+        email,
+        code,
+        expiresAt,
+        createdAt,
+        guardedEmail,
+        resendWindowStartedAt,
+      ] = values as [
+        string,
+        string,
         string,
         string,
         string,
         string,
         string,
       ];
+      const hasRecentUnusedCode = this.verificationCodes.some(
+        (row) =>
+          row.email === guardedEmail &&
+          row.purpose === "register" &&
+          row.used_at === null &&
+          row.created_at > resendWindowStartedAt,
+      );
+      if (hasRecentUnusedCode) {
+        return okResult<T>(0);
+      }
       this.verificationCodes.push({
         id,
         email,
@@ -657,6 +682,16 @@ class FakeD1 {
         used_at: null,
         created_at: createdAt,
       });
+      return okResult<T>();
+    }
+
+    if (normalizedSql === DELETE_VERIFICATION_CODE_SQL) {
+      const [id] = values as [string];
+      const index = this.verificationCodes.findIndex(
+        (row) => row.id === id && row.used_at === null,
+      );
+      if (index < 0) return okResult<T>(0);
+      this.verificationCodes.splice(index, 1);
       return okResult<T>();
     }
 
@@ -2273,7 +2308,16 @@ const INSERT_SESSION_SQL = normalizeSql(`
 const INSERT_VERIFICATION_CODE_SQL = normalizeSql(`
   INSERT INTO verification_code
     (id, email, code, purpose, expires_at, used_at, created_at)
-  VALUES (?, ?, ?, 'register', ?, NULL, ?)
+  SELECT ?, ?, ?, 'register', ?, NULL, ?
+  WHERE NOT EXISTS (
+    SELECT 1 FROM verification_code
+    WHERE email = ? AND purpose = 'register' AND used_at IS NULL
+      AND created_at > ?
+  )
+`);
+
+const DELETE_VERIFICATION_CODE_SQL = normalizeSql(`
+  DELETE FROM verification_code WHERE id = ? AND used_at IS NULL
 `);
 
 const INSERT_RESET_CODE_SQL = normalizeSql(`
@@ -5181,7 +5225,7 @@ describe("POST /api/v1/auth/register/verify", () => {
       success: false,
       error: {
         code: "VALIDATION_ERROR",
-        message: "Incorrect verification code.",
+        message: "Code expired. Please request a new code.",
       },
     });
     expect(db.users).toHaveLength(0);

@@ -33,6 +33,39 @@ export function resolveMockGoogleIdentity(
   return { provider: "google", providerUid, email };
 }
 
+export async function resolveGoogleIdentity(
+  input: GoogleOAuthInput,
+  clientId: string | undefined,
+): Promise<OAuthIdentity | null> {
+  const mockIdentity = resolveMockGoogleIdentity(input);
+  if (mockIdentity) return mockIdentity;
+  if (!input.code || !clientId) return null;
+
+  const url = new URL("https://oauth2.googleapis.com/tokeninfo");
+  url.searchParams.set("id_token", input.code);
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const payload = (await response.json()) as Record<string, unknown>;
+    const issuer = payload.iss;
+    const emailVerified = payload.email_verified;
+    const providerUid = normalizeProviderUid(asString(payload.sub));
+    const email = normalizeEmail(asString(payload.email));
+    if (
+      payload.aud !== clientId ||
+      (issuer !== "accounts.google.com" && issuer !== "https://accounts.google.com") ||
+      (emailVerified !== true && emailVerified !== "true") ||
+      !providerUid ||
+      !email
+    ) {
+      return null;
+    }
+    return { provider: "google", providerUid, email };
+  } catch {
+    return null;
+  }
+}
+
 export function resolveMockAppleIdentity(
   input: AppleOAuthInput,
 ): OAuthIdentity | null {
@@ -62,4 +95,8 @@ function normalizeEmail(rawEmail: string | undefined): string | null {
   return email.length <= EMAIL_MAX_LENGTH && EMAIL_PATTERN.test(email)
     ? email
     : null;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
 }

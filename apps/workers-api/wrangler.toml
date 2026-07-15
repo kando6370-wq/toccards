@@ -4,6 +4,11 @@ name = "toccards"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
+[vars]
+GOOGLE_CLIENT_ID = "134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com"
+ZOHO_ACCOUNT_ID = "554851100000008002"
+ZOHO_FROM_ADDRESS = "kando@tcgcard.fun"
+
 [assets]
 directory = "../admin-web/dist"
 not_found_handling = "single-page-application"

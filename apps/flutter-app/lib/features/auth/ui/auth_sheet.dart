@@ -574,9 +574,13 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   }
 
   Future<void> _openEmailAuthPage() async {
-    final signedIn = await showEmailAuthPage(context);
-    if (signedIn && mounted) {
+    final successMessage = await showEmailAuthPage(context);
+    if (successMessage != null && mounted) {
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(buildKandoToast(successMessage));
     }
   }
 

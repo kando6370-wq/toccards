@@ -45,6 +45,10 @@ abstract class AuthRepository {
   Future<void> clearAnonymousSession();
   Future<void> deleteCurrentAccount(AuthSession session);
   Future<void> sendRegisterCode(String email);
+  Future<void> verifyRegisterCode({
+    required String email,
+    required String code,
+  });
   Future<AuthSession> verifyRegister({
     required String email,
     required String code,
@@ -150,6 +154,18 @@ class HttpAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> verifyRegisterCode({
+    required String email,
+    required String code,
+  }) async {
+    await _requestVoid(
+      'POST',
+      '/auth/register/verify-code',
+      body: {'email': email, 'code': code},
+    );
+  }
+
+  @override
   Future<AuthSession> verifyRegister({
     required String email,
     required String code,
@@ -191,12 +207,17 @@ class HttpAuthRepository implements AuthRepository {
     required String code,
     required String redirectUri,
     String? anonymousId,
-  }) {
-    return _oauthCallback('/auth/oauth/google/callback', {
-      'code': code,
-      'redirect_uri': redirectUri,
-      if (anonymousId != null) 'anonymous_id': anonymousId,
-    });
+  }) async {
+    final anonymousSession = await _storage.readSession();
+    return _oauthCallback(
+      '/auth/oauth/google/callback',
+      {
+        'code': code,
+        'redirect_uri': redirectUri,
+        if (anonymousId != null) 'anonymous_id': anonymousId,
+      },
+      session: anonymousSession?.isAnonymous == true ? anonymousSession : null,
+    );
   }
 
   @override
@@ -204,12 +225,17 @@ class HttpAuthRepository implements AuthRepository {
     required String code,
     required String idToken,
     String? anonymousId,
-  }) {
-    return _oauthCallback('/auth/oauth/apple/callback', {
-      'code': code,
-      'id_token': idToken,
-      if (anonymousId != null) 'anonymous_id': anonymousId,
-    });
+  }) async {
+    final anonymousSession = await _storage.readSession();
+    return _oauthCallback(
+      '/auth/oauth/apple/callback',
+      {
+        'code': code,
+        'id_token': idToken,
+        if (anonymousId != null) 'anonymous_id': anonymousId,
+      },
+      session: anonymousSession?.isAnonymous == true ? anonymousSession : null,
+    );
   }
 
   @override
@@ -253,10 +279,16 @@ class HttpAuthRepository implements AuthRepository {
 
   Future<AuthSession> _oauthCallback(
     String path,
-    Map<String, Object?> body,
-  ) async {
+    Map<String, Object?> body, {
+    AuthSession? session,
+  }) async {
     try {
-      final data = await _requestData('POST', path, body: body);
+      final data = await _requestData(
+        'POST',
+        path,
+        body: body,
+        session: session,
+      );
       return _userSession(data);
     } on AuthApiException {
       throw const OAuthAuthorizationException();
@@ -473,6 +505,12 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
 
   @override
   Future<void> sendRegisterCode(String email) async {}
+
+  @override
+  Future<void> verifyRegisterCode({
+    required String email,
+    required String code,
+  }) async {}
 
   @override
   Future<AuthSession> verifyRegister({

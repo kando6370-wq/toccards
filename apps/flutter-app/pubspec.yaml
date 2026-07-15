@@ -46,6 +46,7 @@ dependencies:
   share_plus: ^12.0.2
   in_app_review: ^2.0.12
   flutter_svg: ^2.3.0
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:

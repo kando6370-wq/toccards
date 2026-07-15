@@ -138,6 +138,43 @@ void main() {
       });
     },
   );
+
+  test(
+    'google callback proves guest ownership because new OAuth users may migrate only their own assets',
+    () async {
+      final storage = InMemoryAuthStorage();
+      await storage.writeSession(
+        const AuthSession(
+          ownerType: OwnerType.anonymous,
+          accessToken: 'anon-access',
+          refreshToken: 'anon-refresh',
+          anonymousId: 'anon-1',
+        ),
+      );
+      final adapter = _FakeAuthAdapter({
+        'POST /auth/oauth/google/callback': _ok({
+          'user_id': 'user-1',
+          'email': 'person@example.com',
+          'access_token': 'user-access',
+          'refresh_token': 'user-refresh',
+        }),
+      });
+      final repository = HttpAuthRepository(_dio(adapter), storage);
+
+      await repository.googleCallback(
+        code: 'google-id-token',
+        redirectUri: 'kando://auth/google',
+        anonymousId: 'anon-1',
+      );
+
+      expect(adapter.requests.single.body, {
+        'code': 'google-id-token',
+        'redirect_uri': 'kando://auth/google',
+        'anonymous_id': 'anon-1',
+      });
+      expect(adapter.requests.single.authorization, 'Bearer anon-access');
+    },
+  );
 }
 
 Dio _dio(_FakeAuthAdapter adapter) {

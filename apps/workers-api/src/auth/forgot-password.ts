@@ -2,6 +2,7 @@ import { hashPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
 import type { Env } from "../env";
 import { createId } from "../id";
+import { sendVerificationEmail } from "../mail/verification-email";
 
 type LiveEmailPasswordUserRow = {
   id: string;
@@ -129,6 +130,10 @@ const INSERT_RESET_CODE_SQL = `
   )
 `;
 
+const DELETE_VERIFICATION_CODE_SQL = `
+  DELETE FROM verification_code WHERE id = ? AND used_at IS NULL
+`;
+
 const SELECT_LATEST_RESET_CODE_SQL = `
   SELECT id, code, expires_at, used_at, created_at
   FROM verification_code
@@ -197,11 +202,13 @@ export function registerForgotPasswordRoutes(
         now.getTime() - RESET_CODE_RESEND_AFTER_SECONDS * 1000,
       ).toISOString();
 
+      const code = createVerificationCode();
+      const verificationCodeId = createId();
       const result = await c.env.DB.prepare(INSERT_RESET_CODE_SQL)
         .bind(
-          createId(),
+          verificationCodeId,
           email,
-          createVerificationCode(),
+          code,
           expiresAt,
           createdAt,
           email,
@@ -215,6 +222,14 @@ export function registerForgotPasswordRoutes(
 
       if (result.meta.changes !== 1) {
         return c.json(INTERNAL_ERROR_RESPONSE, 500);
+      }
+      try {
+        await sendVerificationEmail(c.env, email, code, "reset_password");
+      } catch (error) {
+        await c.env.DB.prepare(DELETE_VERIFICATION_CODE_SQL)
+          .bind(verificationCodeId)
+          .run();
+        throw error;
       }
 
       return c.json({
