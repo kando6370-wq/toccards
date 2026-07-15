@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/ui/kando_style.dart';
 import 'onboarding_controller.dart';
 import 'onboarding_page.dart';
 
@@ -11,12 +12,15 @@ class OnboardingGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(onboardingControllerProvider);
-
-    if (state.shouldShow) {
-      return const OnboardingPage();
-    }
-
-    return home;
+    return ref
+        .watch(onboardingControllerProvider)
+        .when(
+          data: (completed) => completed ? home : const OnboardingPage(),
+          loading: () => const ColoredBox(
+            key: ValueKey('onboarding-loading'),
+            color: KandoColors.ink,
+          ),
+          error: (_, _) => const OnboardingPage(),
+        );
   }
 }

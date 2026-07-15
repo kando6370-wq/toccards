@@ -16,11 +16,11 @@ class OnboardingPage extends ConsumerWidget {
       onAuthenticate: () async {
         await showAuthSheet(context);
         if (ref.read(authControllerProvider).session?.isUser ?? false) {
-          ref.read(onboardingControllerProvider.notifier).complete();
+          await ref.read(onboardingControllerProvider.notifier).complete();
         }
       },
-      onContinueAsGuest: () {
-        ref.read(onboardingControllerProvider.notifier).complete();
+      onContinueAsGuest: () async {
+        await ref.read(onboardingControllerProvider.notifier).complete();
       },
     );
   }

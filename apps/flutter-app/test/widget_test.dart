@@ -7,6 +7,8 @@ import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 
+import 'support/in_memory_onboarding_storage.dart';
+
 void main() {
   testWidgets('KandoApp shows onboarding before the startup home page', (
     tester,

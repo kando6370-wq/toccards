@@ -16,6 +16,8 @@ import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 
+import '../support/in_memory_onboarding_storage.dart';
+
 void main() {
   testWidgets('email auth disables blank submit and rejects invalid email', (
     tester,

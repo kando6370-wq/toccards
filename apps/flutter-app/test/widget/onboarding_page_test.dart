@@ -9,6 +9,7 @@ import 'package:kando_app/features/onboarding/onboarding_page.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/app/theme.dart';
 
+import '../support/in_memory_onboarding_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
 
 void main() {
@@ -66,10 +67,10 @@ void main() {
   });
 
   testWidgets(
-    'missing guide configuration still requires the Figma account decision because first-launch access must be explicit',
+    'first-launch gate requires the Figma account decision before Home is revealed',
     (tester) async {
       final storage = InMemoryOnboardingStorage();
-      final repository = LocalOnboardingRepository(storage, slides: const []);
+      final repository = LocalOnboardingRepository(storage);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -83,6 +84,8 @@ void main() {
           child: const MaterialApp(home: OnboardingGate(home: Text('Home'))),
         ),
       );
+
+      await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
       expect(find.text('Home'), findsNothing);
@@ -107,14 +110,15 @@ void main() {
   ) async {
     final storage = InMemoryOnboardingStorage();
     await tester.pumpWidget(_testGate(storage));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
-    expect(storage.readCompleted(), isFalse);
+    expect(await storage.readCompleted(), isFalse);
 
     await tester.tap(find.byTooltip('Skip and start now'));
     await tester.pumpAndSettle();
 
-    expect(storage.readCompleted(), isTrue);
+    expect(await storage.readCompleted(), isTrue);
     expect(find.text('Home'), findsOneWidget);
   });
 
@@ -140,6 +144,7 @@ void main() {
     await tester.pumpWidget(
       _testGate(InMemoryOnboardingStorage(completed: true)),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.byKey(const ValueKey('onboarding-entry')), findsNothing);

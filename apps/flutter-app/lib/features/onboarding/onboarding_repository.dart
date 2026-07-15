@@ -1,76 +1,52 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-final onboardingStorageProvider = Provider<InMemoryOnboardingStorage>((ref) {
-  return InMemoryOnboardingStorage();
+final onboardingStorageProvider = Provider<OnboardingStorage>((ref) {
+  return const SecureOnboardingStorage();
 });
 
 final onboardingRepositoryProvider = Provider<OnboardingRepository>((ref) {
   return LocalOnboardingRepository(ref.watch(onboardingStorageProvider));
 });
 
-class OnboardingSlide {
-  const OnboardingSlide({
-    required this.imageUrl,
-    required this.title,
-    required this.body,
-  });
-
-  final String imageUrl;
-  final String title;
-  final String body;
+abstract interface class OnboardingStorage {
+  Future<bool> readCompleted();
+  Future<void> writeCompleted();
 }
 
-class InMemoryOnboardingStorage {
-  bool _completed;
+class SecureOnboardingStorage implements OnboardingStorage {
+  const SecureOnboardingStorage({
+    FlutterSecureStorage storage = const FlutterSecureStorage(),
+  }) : _storage = storage;
 
-  InMemoryOnboardingStorage({bool completed = false}) : _completed = completed;
+  static const _completedKey = 'onboarding.completed';
 
-  bool readCompleted() => _completed;
+  final FlutterSecureStorage _storage;
 
-  void writeCompleted() {
-    _completed = true;
+  @override
+  Future<bool> readCompleted() async {
+    return await _storage.read(key: _completedKey) == 'true';
+  }
+
+  @override
+  Future<void> writeCompleted() {
+    return _storage.write(key: _completedKey, value: 'true');
   }
 }
 
-abstract class OnboardingRepository {
-  List<OnboardingSlide> loadSlides();
-  bool readCompleted();
-  void markCompleted();
+abstract interface class OnboardingRepository {
+  Future<bool> readCompleted();
+  Future<void> markCompleted();
 }
 
 class LocalOnboardingRepository implements OnboardingRepository {
-  LocalOnboardingRepository(this._storage, {List<OnboardingSlide>? slides})
-    : _slides = List.unmodifiable(slides ?? _defaultSlides);
+  const LocalOnboardingRepository(this._storage);
 
-  static const _defaultSlides = [
-    OnboardingSlide(
-      imageUrl: 'local://onboarding/collection',
-      title: 'Track your collection',
-      body: 'Keep your cards, folders, and wishlist organized in one place.',
-    ),
-    OnboardingSlide(
-      imageUrl: 'local://onboarding/market',
-      title: 'Follow market moves',
-      body: 'See portfolio value, price changes, and trending cards quickly.',
-    ),
-    OnboardingSlide(
-      imageUrl: 'local://onboarding/scan',
-      title: 'Scan and add cards',
-      body: 'Use the scan flow to move from card discovery to collection.',
-    ),
-  ];
-
-  final InMemoryOnboardingStorage _storage;
-  final List<OnboardingSlide> _slides;
+  final OnboardingStorage _storage;
 
   @override
-  List<OnboardingSlide> loadSlides() => _slides;
+  Future<bool> readCompleted() => _storage.readCompleted();
 
   @override
-  bool readCompleted() => _storage.readCompleted();
-
-  @override
-  void markCompleted() {
-    _storage.writeCompleted();
-  }
+  Future<void> markCompleted() => _storage.writeCompleted();
 }
