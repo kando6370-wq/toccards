@@ -10,6 +10,7 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
+import '../collection/collection_page.dart';
 import 'home_controller.dart';
 import 'home_models.dart';
 
@@ -72,56 +73,11 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Future<void> _showFolderSheet(BuildContext context, WidgetRef ref) {
-    final state = ref.read(homeControllerProvider);
-
-    return showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: KandoColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SheetDragHandle(),
-                const SizedBox(height: 16),
-                Text(
-                  'Select Portfolio',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: KandoColors.text,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                for (final folder in state.dashboard.folders) ...[
-                  _FolderRow(
-                    name: folder.name,
-                    isDefault: folder.isDefault,
-                    isSelected: folder.id == state.selectedFolder.id,
-                    onTap: () {
-                      ref
-                          .read(homeControllerProvider.notifier)
-                          .selectFolder(folder.id);
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                // TODO(figma): add "ADD NEW" folder button plus per-row
-                // edit/delete/reorder affordances once folder create/rename/
-                // delete/reorder controller actions exist (not in HomeController).
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  Future<void> _showFolderSheet(BuildContext context, WidgetRef ref) async {
+    await showPortfolioFolderSheet(context, ref);
+    if (context.mounted) {
+      ref.read(homeControllerProvider.notifier).refresh();
+    }
   }
 
   Future<void> _showCurrencySheet(BuildContext context, WidgetRef ref) {
@@ -1221,64 +1177,6 @@ class _SheetDragHandle extends StatelessWidget {
         decoration: BoxDecoration(
           color: KandoColors.border,
           borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
-}
-
-class _FolderRow extends StatelessWidget {
-  const _FolderRow({
-    required this.name,
-    required this.isDefault,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String name;
-  final bool isDefault;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: KandoColors.elevatedSurface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? KandoColors.accent : KandoColors.border,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isSelected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
-              size: 22,
-              color: isSelected ? KandoColors.accent : KandoColors.mutedText,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  color: KandoColors.text,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Icon(
-              isDefault ? Icons.star_rounded : Icons.star_border_rounded,
-              size: 20,
-              color: isDefault ? KandoColors.accent : KandoColors.mutedText,
-            ),
-          ],
         ),
       ),
     );

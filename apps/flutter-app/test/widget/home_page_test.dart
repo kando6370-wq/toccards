@@ -254,6 +254,14 @@ void main() {
 
       await tester.tap(find.text('Main'));
       await tester.pumpAndSettle();
+
+      expect(find.text('DRAG AND DROP TO CHANGE ORDER'), findsOneWidget);
+      expect(find.byKey(const Key('collection-folder-add')), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-folder-edit-sealed')),
+        findsOneWidget,
+      );
+
       await tester.tap(find.text('Sealed').last);
       await tester.pumpAndSettle();
 
@@ -450,6 +458,11 @@ void main() {
 
     await tester.tap(find.text('Main'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Empty'),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.text('Empty').last);
     await tester.pumpAndSettle();
 
@@ -575,17 +588,40 @@ _localAuthOverrides() {
 }
 
 Widget _mockHomeApp([PortfolioManagementApi? managementApi]) {
+  final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
   return ProviderScope(
     overrides: [
       ..._localAuthOverrides(),
       homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
-      portfolioManagementApiProvider.overrideWithValue(
-        managementApi ?? _TestPortfolioManagementApi(),
+      collectionRepositoryProvider.overrideWithValue(
+        _HomeCollectionRepository(portfolioManagement),
       ),
+      portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
       currencyRateApiProvider.overrideWithValue(const _TestCurrencyRateApi()),
     ],
     child: const _HomeTestApp(),
   );
+}
+
+class _HomeCollectionRepository extends MockCollectionRepository {
+  const _HomeCollectionRepository(this._managementApi);
+
+  final PortfolioManagementApi _managementApi;
+
+  @override
+  Future<void> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) async {
+    await _managementApi.updatePreferences(
+      session,
+      currency: currency,
+      amountHidden: amountHidden,
+      lastSelectedFolderId: lastSelectedFolderId,
+    );
+  }
 }
 
 class _TestCurrencyRateApi implements CurrencyRateApi {

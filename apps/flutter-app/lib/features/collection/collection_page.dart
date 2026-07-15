@@ -46,7 +46,7 @@ class CollectionPage extends ConsumerWidget {
               if (state.selectedTab == CollectionTab.portfolio) ...[
                 _PortfolioSummaryCard(
                   state: state,
-                  onFolderPressed: () => _showFolderSheet(context, ref),
+                  onFolderPressed: () => showPortfolioFolderSheet(context, ref),
                   onHidePressed: controller.toggleAmountHidden,
                 ),
                 const SizedBox(height: 16),
@@ -573,7 +573,7 @@ class _FilterSectionLabel extends StatelessWidget {
   }
 }
 
-Future<void> _showFolderSheet(BuildContext context, WidgetRef ref) {
+Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -585,6 +585,20 @@ Future<void> _showFolderSheet(BuildContext context, WidgetRef ref) {
       builder: (context, ref, child) {
         final state = ref.watch(collectionControllerProvider);
         final controller = ref.read(collectionControllerProvider.notifier);
+        if (state.loadStatus == KandoLoadStatus.loading) {
+          return const FractionallySizedBox(
+            heightFactor: 0.62,
+            child: SafeArea(child: KandoLoadingBlock()),
+          );
+        }
+        if (state.isUnavailable) {
+          return FractionallySizedBox(
+            heightFactor: 0.62,
+            child: SafeArea(
+              child: KandoFailureBlock(onRefresh: controller.refresh),
+            ),
+          );
+        }
         final folders = state.dashboard.folders;
         return FractionallySizedBox(
           heightFactor: 0.62,
@@ -743,7 +757,9 @@ Future<void> _showFolderSheet(BuildContext context, WidgetRef ref) {
                                       initialName: folder.name,
                                       title: 'Edit Portfolio',
                                     );
-                                    if (name == null || !context.mounted) return;
+                                    if (name == null || !context.mounted) {
+                                      return;
+                                    }
                                     if (!await controller.renameFolder(
                                           folder.id,
                                           name,
