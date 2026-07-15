@@ -5,6 +5,7 @@ import { cors } from "hono/cors";
 import { authRoutes } from "./auth/anonymous";
 import { createDataSourceRoutes } from "./data-source/routes";
 import type { Env } from "./env";
+import { createFeedbackRoutes } from "./feedback/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
 import { createScanRoutes } from "./scan/routes";
 
@@ -32,6 +33,7 @@ api.get("/health", (c) => c.json({ status: "ok" }));
 api.route("/auth", authRoutes);
 api.route("/", createAppConfigRoutes());
 api.route("/", createDataSourceRoutes());
+api.route("/", createFeedbackRoutes());
 api.route("/", createPortfolioRoutes());
 api.route("/", createScanRoutes());
 

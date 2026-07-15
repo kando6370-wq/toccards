@@ -212,6 +212,12 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
       return;
     }
 
+    final session = ref.read(authControllerProvider).session;
+    if (session == null) {
+      showKandoToast(context, message: feedbackSubmitFailureText);
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -220,6 +226,7 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
       await ref
           .read(feedbackRepositoryProvider)
           .submit(
+            session,
             FeedbackSubmission(
               email: normalizedEmail(_emailController.text),
               types: _selectedOrOther(_selectedTypes),

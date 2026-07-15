@@ -102,7 +102,7 @@ void main() {
     ]);
     expect(find.byKey(const Key('email-auth-page')), findsNothing);
     expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
-    expect(find.text('person@example.com'), findsOneWidget);
+    expect(find.text('person@example.com'), findsWidgets);
     expect(find.text('Sign in / Sign up'), findsNothing);
   });
 
@@ -133,7 +133,6 @@ void main() {
         anonymousId: 'anon-existing',
       ),
     ]);
-    expect(find.text('Signed in'), findsOneWidget);
     expect(find.text('flutter.google@example.com'), findsWidgets);
   });
 
@@ -165,7 +164,6 @@ void main() {
         anonymousId: 'anon-existing',
       ),
     ]);
-    expect(find.text('Signed in'), findsOneWidget);
     expect(find.text('flutter.apple@example.com'), findsWidgets);
   });
 
@@ -503,8 +501,8 @@ void main() {
       find.text('Authorization failed. Please try again.'),
       findsOneWidget,
     );
-    expect(find.text('Guest session'), findsOneWidget);
-    expect(find.text('anon-existing'), findsOneWidget);
+    expect(find.text('Sign in / Sign up'), findsOneWidget);
+    expect(repository._currentSession?.anonymousId, 'anon-existing');
     expect(repository.googleCallbackRequests, [
       const _GoogleCallbackRequest(
         code: 'mock-google:flutter-google-user:flutter.google@example.com',
@@ -798,21 +796,20 @@ void main() {
       await tester.pumpAndSettle();
       await _openProfileTab(tester);
 
-      expect(find.text('Guest session'), findsOneWidget);
-      expect(find.text('anon-existing'), findsOneWidget);
       expect(find.text('Sign in / Sign up'), findsOneWidget);
       expect(find.text('Customer Support'), findsOneWidget);
       expect(find.text('Score'), findsOneWidget);
       expect(find.text('Share With Friends'), findsOneWidget);
       expect(find.text('Terms Of Use'), findsOneWidget);
       expect(find.text('Privacy Policy'), findsOneWidget);
-      expect(find.text('Delete account'), findsOneWidget);
       expect(find.text('Log Out'), findsNothing);
       await tester.scrollUntilVisible(find.text('Version 1.0.0'), 200);
       expect(find.text('Version 1.0.0'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Delete account'));
-      await tester.tap(find.text('Delete account'));
+      await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete Account'), findsOneWidget);
+      await tester.tap(find.text('Delete Account'));
       await tester.pumpAndSettle();
 
       expect(find.text('Delete Account?'), findsOneWidget);
@@ -837,30 +834,33 @@ void main() {
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
 
-    expect(find.text('Signed in'), findsOneWidget);
     expect(find.text('person@example.com'), findsWidgets);
     expect(find.text('ID: user-1'), findsOneWidget);
-    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('ACCOUNT'), findsOneWidget);
     expect(find.text('Customer Support'), findsOneWidget);
     expect(find.text('Score'), findsOneWidget);
     expect(find.text('Share With Friends'), findsOneWidget);
     expect(find.text('Terms Of Use'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Log Out'), 200);
-    expect(find.text('Log Out'), findsOneWidget);
     expect(find.text('Sign in / Sign up'), findsNothing);
-    await tester.scrollUntilVisible(find.text('Version 1.0.0'), 200);
-    expect(find.text('Version 1.0.0'), findsOneWidget);
-    await tester.ensureVisible(find.text('Account'));
-    await tester.tap(find.text('Account'));
+    await tester.tap(find.text('person@example.com').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Account'), findsOneWidget);
-    expect(find.text('person@example.com'), findsOneWidget);
+    expect(find.text('person@example.com'), findsWidgets);
     expect(find.text('user-1'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('EMAIL'), findsWidgets);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -500));
+    await tester.pumpAndSettle();
     expect(find.text('Log Out'), findsOneWidget);
-    expect(find.text('Delete account'), findsOneWidget);
+    expect(find.text('Delete Account'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Log Out'), 200);
+    expect(find.text('Log Out'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Version 1.0.0'), 200);
+    expect(find.text('Version 1.0.0'), findsOneWidget);
   });
 
   testWidgets(
@@ -880,6 +880,8 @@ void main() {
       await tester.tap(find.text('Score'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Share With Friends'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView).last, const Offset(0, -300));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Terms Of Use'));
       await tester.pumpAndSettle();
@@ -919,6 +921,9 @@ void main() {
   testWidgets(
     'customer support submits signed-in feedback and returns to Profile',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 2000);
+      addTearDown(tester.view.reset);
       final authRepository = _WidgetAuthRepository(
         initialSession: _userSession(),
       );
@@ -932,7 +937,7 @@ void main() {
       await tester.tap(find.text('Customer Support'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Customer Support'), findsWidgets);
+      expect(find.text('Send Feedback'), findsOneWidget);
       expect(find.text('Bug Report'), findsOneWidget);
       expect(find.text('Feature Request'), findsOneWidget);
       expect(find.text('Improvement'), findsOneWidget);
@@ -949,7 +954,7 @@ void main() {
         find.byKey(const ValueKey('feedback-message-field')),
         'Prices look stale.',
       );
-      await tester.tap(find.widgetWithText(FilledButton, 'Submit Feedback'));
+      await tester.tap(find.widgetWithText(FilledButton, 'SUBMIT FEEDBACK'));
       await tester.pumpAndSettle();
 
       expect(feedbackRepository.submissions, [
@@ -968,6 +973,9 @@ void main() {
   testWidgets('customer support validates guest feedback before submit', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 2000);
+    addTearDown(tester.view.reset);
     final authRepository = _WidgetAuthRepository(
       initialSession: _anonymousSession('anon-existing'),
     );
@@ -987,9 +995,9 @@ void main() {
     expect(emailField.controller?.text, isEmpty);
 
     await tester.ensureVisible(
-      find.widgetWithText(FilledButton, 'Submit Feedback'),
+      find.widgetWithText(FilledButton, 'SUBMIT FEEDBACK'),
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Submit Feedback'));
+    await tester.tap(find.widgetWithText(FilledButton, 'SUBMIT FEEDBACK'));
     await tester.pumpAndSettle();
     expect(find.text('Please enter your email.'), findsOneWidget);
 
@@ -998,9 +1006,9 @@ void main() {
       'not-an-email',
     );
     await tester.ensureVisible(
-      find.widgetWithText(FilledButton, 'Submit Feedback'),
+      find.widgetWithText(FilledButton, 'SUBMIT FEEDBACK'),
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Submit Feedback'));
+    await tester.tap(find.widgetWithText(FilledButton, 'SUBMIT FEEDBACK'));
     await tester.pumpAndSettle();
     expect(find.text('Please enter a valid email address.'), findsOneWidget);
 
@@ -1009,9 +1017,9 @@ void main() {
       'guest@example.com',
     );
     await tester.ensureVisible(
-      find.widgetWithText(FilledButton, 'Submit Feedback'),
+      find.widgetWithText(FilledButton, 'SUBMIT FEEDBACK'),
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Submit Feedback'));
+    await tester.tap(find.widgetWithText(FilledButton, 'SUBMIT FEEDBACK'));
     await tester.pumpAndSettle();
     expect(find.text('Please enter your feedback.'), findsOneWidget);
 
@@ -1026,7 +1034,7 @@ void main() {
       findsOneWidget,
     );
     final submitFinder = find
-        .widgetWithText(FilledButton, 'Submit Feedback')
+        .widgetWithText(FilledButton, 'SUBMIT FEEDBACK')
         .last;
     await tester.drag(find.byType(ListView).last, const Offset(0, -400));
     await tester.pumpAndSettle();
@@ -1062,7 +1070,7 @@ void main() {
       await _openProfileTab(tester);
       _expectNoSubscriptionCopy();
 
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('person@example.com').first);
       await tester.pumpAndSettle();
       _expectNoSubscriptionCopy();
 
@@ -1086,13 +1094,15 @@ void main() {
       await tester.pumpAndSettle();
       await _openProfileTab(tester);
 
-      await tester.tap(find.text('Account'));
+      await tester.tap(find.text('person@example.com').first);
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView).last, const Offset(0, -500));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Log Out'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Overview'), findsOneWidget);
-      expect(find.text('PORTFOLIO'), findsOneWidget);
+      expect(find.text('Profile'), findsOneWidget);
+      expect(find.text('Sign in / Sign up'), findsOneWidget);
       expect(repository._currentSession?.anonymousId, 'anon-after-logout');
       expect(find.text('Log Out'), findsNothing);
       expect(repository.logoutRequests, 1);
@@ -1111,16 +1121,20 @@ void main() {
       await tester.pumpAndSettle();
       await _openProfileTab(tester);
 
-      expect(find.text('anon-old'), findsOneWidget);
+      expect(find.text('Sign in / Sign up'), findsOneWidget);
 
-      await tester.tap(find.text('Delete account'));
+      await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete Account'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
 
-      expect(find.text('anon-old'), findsNothing);
-      expect(find.text('anon-fresh'), findsOneWidget);
+      await tester.drag(find.byType(ListView).last, const Offset(0, 600));
+      await tester.pumpAndSettle();
+      expect(find.text('Sign in / Sign up'), findsOneWidget);
       expect(repository.deleteRequests, 1);
+      expect(repository._currentSession?.anonymousId, 'anon-fresh');
     },
   );
 
@@ -1134,16 +1148,17 @@ void main() {
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
 
-    await tester.tap(find.text('Account'));
+    await tester.tap(find.text('person@example.com').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete account'));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete Account'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
     expect(find.text('Profile'), findsOneWidget);
-    expect(find.text('Guest session'), findsOneWidget);
-    expect(find.text('anon-after-delete'), findsOneWidget);
+    expect(find.text('Sign in / Sign up'), findsOneWidget);
     expect(repository._currentSession?.anonymousId, 'anon-after-delete');
     expect(find.text('person@example.com'), findsNothing);
   });
@@ -1160,9 +1175,11 @@ void main() {
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
 
-    await tester.tap(find.text('Account'));
+    await tester.tap(find.text('person@example.com').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete account'));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete Account'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
@@ -1172,7 +1189,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Account'), findsOneWidget);
-    expect(find.text('person@example.com'), findsOneWidget);
+    expect(find.text('person@example.com'), findsWidgets);
     expect(repository._currentSession?.userId, 'user-1');
   });
 
@@ -1188,7 +1205,9 @@ void main() {
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
 
-    await tester.tap(find.text('Delete account'));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete Account'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
@@ -1197,8 +1216,9 @@ void main() {
       find.text('Unable to complete this action. Please try again later.'),
       findsOneWidget,
     );
-    expect(find.text('Guest session'), findsOneWidget);
-    expect(find.text('anon-old'), findsOneWidget);
+    await tester.drag(find.byType(ListView).last, const Offset(0, 600));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign in / Sign up'), findsOneWidget);
     expect(repository._currentSession?.anonymousId, 'anon-old');
   });
 }
@@ -1552,7 +1572,10 @@ class _WidgetFeedbackRepository implements FeedbackRepository {
   final List<_FeedbackSubmissionRecord> submissions = [];
 
   @override
-  Future<FeedbackReceipt> submit(FeedbackSubmission submission) async {
+  Future<FeedbackReceipt> submit(
+    AuthSession session,
+    FeedbackSubmission submission,
+  ) async {
     submissions.add(
       _FeedbackSubmissionRecord(
         email: submission.email,

@@ -24,6 +24,7 @@ class AccountPage extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        title: const Text('Account'),
       ),
       body: authState.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -97,7 +98,6 @@ class _AccountContent extends ConsumerWidget {
         _SectionLabel('Management'),
         const SizedBox(height: 8),
         Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
               child: _ManagementButton(
@@ -109,7 +109,7 @@ class _AccountContent extends ConsumerWidget {
                 onTap: () async {
                   await ref.read(authControllerProvider.notifier).logout();
                   if (context.mounted) {
-                    context.go('/');
+                    context.go('/profile');
                   }
                 },
               ),

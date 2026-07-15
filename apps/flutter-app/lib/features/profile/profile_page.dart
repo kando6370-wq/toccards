@@ -136,7 +136,7 @@ class _ProfileContent extends ConsumerWidget {
               onPressed: () async {
                 await ref.read(authControllerProvider.notifier).logout();
                 if (context.mounted) {
-                  context.go('/');
+                  context.go('/profile');
                 }
               },
               style: TextButton.styleFrom(
