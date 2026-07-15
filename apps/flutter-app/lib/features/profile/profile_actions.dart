@@ -3,17 +3,14 @@ import 'package:in_app_review/in_app_review.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../app_upgrade/app_upgrade_models.dart';
+import '../app_upgrade/app_upgrade_repository.dart';
+
 const profileActionFailureText =
     'Unable to open this page. Please try again later.';
 
-const kandoAppStoreUrl = 'https://apps.apple.com/app/kando/id0000000000';
-const kandoAppStoreReviewUrl =
-    'https://apps.apple.com/app/kando/id0000000000?action=write-review';
-const kandoTermsUrl = 'https://kando.app/terms';
-const kandoPrivacyUrl = 'https://kando.app/privacy';
-
 final profileActionsProvider = Provider<ProfileActions>((ref) {
-  return const PluginProfileActions();
+  return PluginProfileActions(ref.watch(appUpgradeRepositoryProvider));
 });
 
 abstract interface class ProfileActions {
@@ -24,7 +21,9 @@ abstract interface class ProfileActions {
 }
 
 class PluginProfileActions implements ProfileActions {
-  const PluginProfileActions();
+  const PluginProfileActions(this._configRepository);
+
+  final AppUpgradeRepository _configRepository;
 
   @override
   Future<void> requestScore() async {
@@ -34,33 +33,51 @@ class PluginProfileActions implements ProfileActions {
       return;
     }
 
-    await _launchExternal(kandoAppStoreReviewUrl);
+    final appStoreUri = await _configuredUri((config) => config.appStoreUrl);
+    await _launchExternal(
+      appStoreUri.replace(
+        queryParameters: {
+          ...appStoreUri.queryParameters,
+          'action': 'write-review',
+        },
+      ),
+    );
   }
 
   @override
   Future<void> shareWithFriends() async {
     await SharePlus.instance.share(
-      ShareParams(uri: Uri.parse(kandoAppStoreUrl)),
+      ShareParams(uri: await _configuredUri((config) => config.appStoreUrl)),
     );
   }
 
   @override
-  Future<void> openTerms() {
-    return _launchExternal(kandoTermsUrl);
+  Future<void> openTerms() async {
+    await _launchExternal(await _configuredUri((config) => config.termsUrl));
   }
 
   @override
-  Future<void> openPrivacy() {
-    return _launchExternal(kandoPrivacyUrl);
+  Future<void> openPrivacy() async {
+    await _launchExternal(await _configuredUri((config) => config.privacyUrl));
   }
 
-  Future<void> _launchExternal(String url) async {
-    final opened = await launchUrl(
-      Uri.parse(url),
-      mode: LaunchMode.externalApplication,
-    );
+  Future<Uri> _configuredUri(
+    String? Function(AppUpgradeConfig config) select,
+  ) async {
+    final value = select(await _configRepository.loadConfig());
+    final uri = value == null ? null : Uri.tryParse(value);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) {
+      throw StateError('Profile link is not configured.');
+    }
+    return uri;
+  }
+
+  Future<void> _launchExternal(Uri uri) async {
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened) {
-      throw Exception('Unable to open $url');
+      throw Exception('Unable to open $uri');
     }
   }
 }

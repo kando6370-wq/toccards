@@ -11,6 +11,7 @@ import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/oauth_authorizer.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/ui/auth_sheet.dart';
+import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
@@ -1283,6 +1284,9 @@ ProviderScope _testApp(
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(onboardingStorage),
       ),
+      installedVersionReaderProvider.overrideWithValue(
+        const _WidgetInstalledVersionReader(),
+      ),
       if (authorizer != null)
         oauthAuthorizerProvider.overrideWithValue(authorizer),
       if (feedbackRepository != null)
@@ -1586,6 +1590,13 @@ class _WidgetFeedbackRepository implements FeedbackRepository {
     );
     return const FeedbackReceipt(id: 'feedback-1');
   }
+}
+
+class _WidgetInstalledVersionReader implements InstalledVersionReader {
+  const _WidgetInstalledVersionReader();
+
+  @override
+  Future<String> currentVersion() async => '1.0.0';
 }
 
 class _WidgetProfileActions implements ProfileActions {

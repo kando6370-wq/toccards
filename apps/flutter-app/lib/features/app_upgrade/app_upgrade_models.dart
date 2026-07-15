@@ -1,8 +1,15 @@
 class AppUpgradeConfig {
-  const AppUpgradeConfig({this.upgradePrompt, this.appStoreUrl});
+  const AppUpgradeConfig({
+    this.upgradePrompt,
+    this.appStoreUrl,
+    this.termsUrl,
+    this.privacyUrl,
+  });
 
   final UpgradePrompt? upgradePrompt;
   final String? appStoreUrl;
+  final String? termsUrl;
+  final String? privacyUrl;
 
   factory AppUpgradeConfig.fromJson(Map<String, Object?> json) {
     final promptJson = json['upgrade_prompt'];
@@ -12,6 +19,8 @@ class AppUpgradeConfig {
           ? UpgradePrompt.fromJson(promptJson)
           : null,
       appStoreUrl: _stringOrNull(json['app_store_url']),
+      termsUrl: _stringOrNull(json['terms_url']),
+      privacyUrl: _stringOrNull(json['privacy_url']),
     );
   }
 }

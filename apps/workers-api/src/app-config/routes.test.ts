@@ -49,6 +49,8 @@ describe("public app config routes", () => {
         }),
       ),
       appConfigRow("app_store_url", "https://apps.apple.com/app/kando"),
+      appConfigRow("terms_url", "https://www.tcgcard.fun/terms"),
+      appConfigRow("privacy_url", "https://www.tcgcard.fun/privacy"),
       appConfigRow("announcement", "{\"title\":\"Ops only\"}"),
     ]);
 
@@ -66,6 +68,8 @@ describe("public app config routes", () => {
           store_url: "https://apps.apple.com/app/kando",
         },
         app_store_url: "https://apps.apple.com/app/kando",
+        terms_url: "https://www.tcgcard.fun/terms",
+        privacy_url: "https://www.tcgcard.fun/privacy",
       },
     });
   });
@@ -84,6 +88,8 @@ describe("public app config routes", () => {
       data: {
         upgrade_prompt: null,
         app_store_url: "https://apps.apple.com/app/kando",
+        terms_url: null,
+        privacy_url: null,
       },
     });
   });

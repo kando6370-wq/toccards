@@ -7,11 +7,14 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
 import '../auth/ui/auth_sheet.dart';
+import '../app_upgrade/app_upgrade_repository.dart';
 import '../../shared/ui/toast.dart';
 import 'account_page.dart';
 import 'profile_actions.dart';
 
-const profileVersionText = 'Version 1.0.0';
+final profileVersionProvider = FutureProvider<String>((ref) {
+  return ref.watch(installedVersionReaderProvider).currentVersion();
+});
 
 // Destructive action red from the Figma spec (no matching design token exists).
 const _dangerColor = Color(0xFFFF8989);
@@ -45,6 +48,13 @@ class _ProfileContent extends ConsumerWidget {
     final isUser = session?.ownerType == OwnerType.user;
     final emailText = session?.email ?? 'Unknown email';
     final userIdText = session?.userId ?? 'Unknown user';
+    final versionText = ref
+        .watch(profileVersionProvider)
+        .when(
+          data: (version) => 'Version $version',
+          error: (_, _) => 'Version unavailable',
+          loading: () => 'Version',
+        );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 96),
@@ -171,7 +181,7 @@ class _ProfileContent extends ConsumerWidget {
         const SizedBox(height: 16),
         Center(
           child: Text(
-            profileVersionText,
+            versionText,
             style: TextStyle(
               color: KandoColors.mutedText.withValues(alpha: 0.7),
               fontSize: 12,

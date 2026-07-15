@@ -20,7 +20,12 @@ const SELECT_PUBLIC_APP_CONFIG_SQL = `
   ORDER BY key ASC
 `;
 
-const PUBLIC_APP_CONFIG_KEYS = new Set(["upgrade_prompt", "app_store_url"]);
+const PUBLIC_APP_CONFIG_KEYS = new Set([
+  "upgrade_prompt",
+  "app_store_url",
+  "terms_url",
+  "privacy_url",
+]);
 
 export function createAppConfigRoutes(): Hono<{ Bindings: Env }> {
   const routes = new Hono<{ Bindings: Env }>();
@@ -36,6 +41,8 @@ export function createAppConfigRoutes(): Hono<{ Bindings: Env }> {
       data: {
         upgrade_prompt: parseUpgradePrompt(configs.get("upgrade_prompt")),
         app_store_url: stringOrNull(configs.get("app_store_url")),
+        terms_url: stringOrNull(configs.get("terms_url")),
+        privacy_url: stringOrNull(configs.get("privacy_url")),
       },
     });
   });

@@ -3,6 +3,21 @@ import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 
 void main() {
   test(
+    'config parses Profile links because legal and store actions must use operations-owned URLs',
+    () {
+      final config = AppUpgradeConfig.fromJson(const {
+        'app_store_url': 'https://apps.apple.com/app/kando/id123',
+        'terms_url': 'https://www.tcgcard.fun/terms',
+        'privacy_url': 'https://www.tcgcard.fun/privacy',
+      });
+
+      expect(config.appStoreUrl, 'https://apps.apple.com/app/kando/id123');
+      expect(config.termsUrl, 'https://www.tcgcard.fun/terms');
+      expect(config.privacyUrl, 'https://www.tcgcard.fun/privacy');
+    },
+  );
+
+  test(
     'policy requires forced update because operations marked this release as mandatory',
     () {
       final decision = AppUpgradePolicy.evaluate(
