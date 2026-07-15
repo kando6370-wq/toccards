@@ -11,6 +11,10 @@ import {
 } from "./cache-api";
 import { createKvCachedDataSourceAdapter } from "./kv-cache";
 import { createLocalDbDataSourceAdapter } from "./local-db-adapter";
+import {
+  ExchangeRateUnavailableError,
+  loadUsdExchangeRates,
+} from "./exchange-rates";
 
 type DataSourceRoutesOptions = {
   createAdapter?: (env: Env) => DataSourceAdapter;
@@ -83,12 +87,16 @@ const IMAGE_UPSTREAM_ERROR_RESPONSE = {
 
 const TRUSTED_IMAGE_HOSTS = new Set(["product-images.tcgplayer.com"]);
 
-const MOCK_USD_RATES: Record<string, number> = {
-  USD: 1,
-  JPY: 155.32,
-  EUR: 0.91,
-  GBP: 0.79,
-};
+const SUPPORTED_CURRENCIES = new Set([
+  "USD",
+  "EUR",
+  "JPY",
+  "GBP",
+  "CAD",
+  "AUD",
+  "NZD",
+  "SGD",
+]);
 
 const SUPPORTED_OBJECT_TYPES = new Set<CardObjectType>([
   "tcg",
@@ -289,23 +297,44 @@ export function createDataSourceRoutes(
       : c.json(NOT_FOUND_RESPONSE, 404);
   });
 
-  routes.get("/rates", (c) => {
+  routes.get("/rates", async (c) => {
     const base = (c.req.query("base") ?? "USD").trim().toUpperCase();
     const targets = targetCurrencies(c.req.query("targets"));
-    const rates: Record<string, number> = {};
-
-    for (const target of targets) {
-      const rate = base === "USD" ? MOCK_USD_RATES[target] : undefined;
-
-      if (typeof rate === "number") {
-        rates[target] = rate;
-      }
+    if (
+      base !== "USD" ||
+      targets.some((target) => !SUPPORTED_CURRENCIES.has(target))
+    ) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
-
-    return c.json({
-      success: true,
-      data: { base, rates, updated_at: new Date().toISOString() },
-    });
+    try {
+      const snapshot = await loadUsdExchangeRates(c.env.CACHE_KV);
+      const rates = Object.fromEntries(
+        targets.map((target) => [target, snapshot.rates[target]]),
+      );
+      return c.json({
+        success: true,
+        data: {
+          base,
+          rates,
+          updated_at: snapshot.updatedAt,
+          stale: snapshot.stale,
+        },
+      });
+    } catch (error) {
+      if (error instanceof ExchangeRateUnavailableError) {
+        return c.json(
+          {
+            success: false,
+            error: {
+              code: "UPSTREAM_ERROR",
+              message: "Exchange rates are unavailable.",
+            },
+          },
+          502,
+        );
+      }
+      throw error;
+    }
   });
 
   return routes;

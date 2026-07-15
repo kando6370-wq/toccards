@@ -380,6 +380,25 @@ describe("data source routes", () => {
   });
 
   it("keeps mock-backed M2 data proxy endpoints injectable because tests need a stable provider-independent contract", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          amount: 1,
+          base: "USD",
+          date: "2026-07-14",
+          rates: {
+            AUD: 1.4404,
+            CAD: 1.4112,
+            EUR: 0.87681,
+            GBP: 0.74717,
+            JPY: 162.22,
+            NZD: 1.724,
+            SGD: 1.2927,
+          },
+        }),
+      ),
+    );
     const routeApp = new Hono<{ Bindings: Env }>();
     routeApp.route(
       "/",
@@ -538,8 +557,9 @@ describe("data source routes", () => {
       success: true,
       data: {
         base: "USD",
-        rates: { JPY: 155.32, EUR: 0.91 },
-        updated_at: expect.any(String),
+        rates: { JPY: 162.22, EUR: 0.87681 },
+        updated_at: "2026-07-14T00:00:00.000Z",
+        stale: false,
       },
     });
   });
