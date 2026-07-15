@@ -6,6 +6,8 @@ import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import 'support/mock_search_repository.dart';
+
 void main() {
   test(
     'http search repository builds catalog from card-data API because Search landing must read Workers catalog data',

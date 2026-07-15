@@ -15,10 +15,10 @@ import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/features/scan/scan_review_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
-import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
 
 import '../support/mock_home_repository.dart';
+import '../support/mock_search_repository.dart';
 
 void main() {
   test('Figma scan SVG icons use Flutter-compatible fill colors', () async {
