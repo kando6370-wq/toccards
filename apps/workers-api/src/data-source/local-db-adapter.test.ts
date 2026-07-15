@@ -126,6 +126,7 @@ describe("local D1 card data source adapter", () => {
       {
         card_ref: "100",
         name: "Charizard",
+        game: "Pokemon",
         set_name: "Base Set",
         set_code: "BS",
         card_number: "",

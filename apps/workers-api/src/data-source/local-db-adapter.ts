@@ -178,6 +178,7 @@ function cardFromRow(row: CardCatalogRow): CardSearchResult {
   return {
     card_ref: row.product_id,
     name: row.name ?? row.product_id,
+    game: row.game,
     set_name: row.set_name ?? "",
     set_code: row.set_code ?? "",
     card_number: "",

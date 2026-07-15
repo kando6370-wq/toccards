@@ -9,6 +9,7 @@ export type CardSearchOptions = {
 export type CardSearchResult = {
   card_ref: string;
   name: string;
+  game?: string | null;
   set_name: string;
   set_code: string;
   card_number: string;

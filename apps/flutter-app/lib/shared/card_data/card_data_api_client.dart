@@ -33,6 +33,7 @@ class CardDataCardDto {
     required this.finish,
     required this.language,
     required this.objectType,
+    this.game,
     required this.imageUrl,
     required this.rarity,
   });
@@ -45,6 +46,7 @@ class CardDataCardDto {
   final String? finish;
   final String? language;
   final String objectType;
+  final String? game;
   final String? imageUrl;
   final String? rarity;
 
@@ -58,6 +60,7 @@ class CardDataCardDto {
       finish: _nullableString(json['finish']),
       language: _nullableString(json['language']),
       objectType: _requiredString(json['object_type']),
+      game: _nullableString(json['game']),
       imageUrl: _nullableString(json['image_url']),
       rarity: _nullableString(json['rarity']),
     );

@@ -28,6 +28,7 @@ void main() {
 
       expect(cards.single.cardRef, 'catalog:pikachu-025');
       expect(cards.single.name, 'Pikachu');
+      expect(cards.single.game, 'Pokemon');
       expect(cards.single.setName, 'Base Set');
       expect(cards.single.objectType, 'tcg');
     },
@@ -117,6 +118,7 @@ Map<String, Object?> _cardJson({
   return {
     'card_ref': cardRef,
     'name': 'Pikachu',
+    'game': 'Pokemon',
     'set_name': 'Base Set',
     'set_code': 'BS',
     'card_number': cardNumber,
