@@ -85,9 +85,11 @@ class FakeBoundStatement {
     }
 
     if (this.sql.includes("FROM tcgplayer_skus")) {
-      const productId = Number(this.values[0]);
+      const productIds = new Set(this.values.map(Number));
       return {
-        results: this.skus.filter((sku) => sku.product_id === productId) as T[],
+        results: this.skus.filter((sku) =>
+          productIds.has(sku.product_id),
+        ) as T[],
       };
     }
 
@@ -170,6 +172,44 @@ describe("local D1 card data source adapter", () => {
     ).resolves.toEqual([
       { date: "2026-07-01", price: 12.5 },
       { date: "2026-07-08", price: 15.75 },
+    ]);
+  });
+
+  it("adds the preferred SKU price to search results because Search must show real market reference data without per-card HTTP requests", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            sku_id: 1,
+            variant_code: "F",
+            variant_name: "Foil",
+            price_history: JSON.stringify([
+              { price: "12.50", date: "2026-06-01" },
+              { price: "15.75", date: "2026-07-08" },
+            ]),
+          }),
+          sku({
+            sku_id: 2,
+            variant_code: "N",
+            variant_name: "Normal",
+            price_history: JSON.stringify([
+              { price: "9.25", date: "2026-06-01" },
+              { price: "10.50", date: "2026-07-08" },
+            ]),
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.searchCards("charizard")).resolves.toMatchObject([
+      {
+        card_ref: "100",
+        finish: "Normal",
+        language: "English",
+        price_usd: 10.5,
+        previous_30d_price_usd: 9.25,
+      },
     ]);
   });
 

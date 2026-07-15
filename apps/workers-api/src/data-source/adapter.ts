@@ -18,6 +18,8 @@ export type CardSearchResult = {
   object_type: CardObjectType;
   image_url: string | null;
   rarity: string | null;
+  price_usd?: number;
+  previous_30d_price_usd?: number;
 };
 
 export type PricePoint = {

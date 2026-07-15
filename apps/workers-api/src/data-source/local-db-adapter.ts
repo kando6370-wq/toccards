@@ -66,7 +66,7 @@ LIMIT ? OFFSET ?`,
         .bind(`%${normalizedQuery}%`, pageSize, offset)
         .all<CardCatalogRow>();
 
-      return (results.results ?? []).map(cardFromRow);
+      return cardsWithSearchPricing(db, results.results ?? []);
     },
 
     async getCard(card_ref) {
@@ -150,6 +150,82 @@ LIMIT 100`,
       return [];
     },
   };
+}
+
+async function cardsWithSearchPricing(
+  db: D1Database,
+  rows: CardCatalogRow[],
+): Promise<CardSearchResult[]> {
+  const productIds = rows
+    .map((row) => row.product_id)
+    .filter((productId) => /^\d+$/.test(productId))
+    .map(Number);
+
+  if (productIds.length === 0) {
+    return rows.map(cardFromRow);
+  }
+
+  const placeholders = productIds.map(() => "?").join(", ");
+  const results = await db
+    .prepare(
+      `SELECT sku_id, product_id, condition_code, condition_name, language_code,
+              language_name, variant_code, variant_name, price_history
+       FROM tcgplayer_skus
+       WHERE product_id IN (${placeholders})
+       ORDER BY product_id, language_code, variant_code, condition_code`,
+    )
+    .bind(...productIds)
+    .all<TcgplayerSkuRow>();
+  const skusByProductId = new Map<string, TcgplayerSkuRow[]>();
+  for (const sku of results.results ?? []) {
+    const productId = String(sku.product_id);
+    const productSkus = skusByProductId.get(productId);
+    if (productSkus) {
+      productSkus.push(sku);
+    } else {
+      skusByProductId.set(productId, [sku]);
+    }
+  }
+
+  return rows.map((row) => {
+    const card = cardFromRow(row);
+    const sku = preferredSearchSku(skusByProductId.get(row.product_id) ?? []);
+
+    if (!sku) {
+      return card;
+    }
+
+    const series = filterPointsByDays(parsePriceHistory(sku.price_history), 30);
+    const current = series.at(-1)?.price;
+    const previous = series.length > 1 ? series[0]?.price : undefined;
+
+    return {
+      ...card,
+      finish: sku.variant_name ?? sku.variant_code,
+      language: sku.language_name ?? sku.language_code,
+      ...(current === undefined ? {} : { price_usd: current }),
+      ...(previous === undefined ? {} : { previous_30d_price_usd: previous }),
+    };
+  });
+}
+
+function preferredSearchSku(rows: TcgplayerSkuRow[]): TcgplayerSkuRow | null {
+  return (
+    [...rows]
+      .filter((row) => parsePriceHistory(row.price_history).length > 0)
+      .sort(
+        (left, right) =>
+          searchSkuRank(left) - searchSkuRank(right) || left.sku_id - right.sku_id,
+      )[0] ?? null
+  );
+}
+
+function searchSkuRank(row: TcgplayerSkuRow): number {
+  return (
+    (row.condition_code === "NM" ? 0 : 100) +
+    (row.language_code === "EN" ? 0 : 10) +
+    (row.variant_code === "N" ? 0 : 1)
+  );
 }
 
 async function findSkuRows(
