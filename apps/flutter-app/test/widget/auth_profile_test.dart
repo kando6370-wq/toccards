@@ -1136,6 +1136,29 @@ void main() {
   );
 
   testWidgets(
+    'Profile exposes Refresh after auth startup fails because account entry must not spin forever',
+    (tester) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+        initialSessionErrors: [Exception('offline')],
+      );
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+
+      expect(find.text('No content available'), findsOneWidget);
+      expect(find.text('Refresh'), findsOneWidget);
+
+      await tester.tap(find.text('Refresh'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign in / Sign up'), findsOneWidget);
+      expect(find.text('No content available'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'offline logout from Profile keeps the user and shows the network toast',
     (tester) async {
       final repository = _WidgetAuthRepository(
@@ -1445,6 +1468,7 @@ class _WidgetAuthRepository implements AuthRepository {
   _WidgetAuthRepository({
     required AuthSession initialSession,
     List<String> createdAnonymousIds = const [],
+    List<Exception> initialSessionErrors = const [],
     this.registerError,
     this.forgotCodeError,
     this.loginCompleter,
@@ -1453,10 +1477,12 @@ class _WidgetAuthRepository implements AuthRepository {
     this.deleteError,
     this.emailRegistered = true,
   }) : _currentSession = initialSession,
-       _createdAnonymousIds = [...createdAnonymousIds];
+       _createdAnonymousIds = [...createdAnonymousIds],
+       _initialSessionErrors = [...initialSessionErrors];
 
   AuthSession? _currentSession;
   final List<String> _createdAnonymousIds;
+  final List<Exception> _initialSessionErrors;
   final Exception? registerError;
   final Exception? forgotCodeError;
   final Completer<AuthSession>? loginCompleter;
@@ -1476,7 +1502,12 @@ class _WidgetAuthRepository implements AuthRepository {
   final List<_ResetRequest> resetRequests = [];
 
   @override
-  Future<AuthSession?> currentSessionFromStorage() async => _currentSession;
+  Future<AuthSession?> currentSessionFromStorage() async {
+    if (_initialSessionErrors.isNotEmpty) {
+      throw _initialSessionErrors.removeAt(0);
+    }
+    return _currentSession;
+  }
 
   @override
   Future<AuthSession?> previousAnonymousSessionFromStorage() async => null;

@@ -65,6 +65,17 @@ class AuthController extends Notifier<AuthState> {
 
   @override
   AuthState build() {
+    _startSessionLoad();
+    return const AuthState.loading();
+  }
+
+  Future<void> retryStartup() {
+    state = const AuthState.loading();
+    _startSessionLoad();
+    return startupComplete;
+  }
+
+  void _startSessionLoad() {
     final completer = Completer<void>();
     final generation = ++_generation;
     _startupCompleter = completer;
@@ -74,10 +85,12 @@ class AuthController extends Notifier<AuthState> {
         Object error,
         StackTrace stackTrace,
       ) {
-        completer.completeError(error, stackTrace);
+        if (generation == _generation) {
+          state = const AuthState.failure();
+        }
+        completer.complete();
       }),
     );
-    return const AuthState.loading();
   }
 
   Future<void> logout() async {

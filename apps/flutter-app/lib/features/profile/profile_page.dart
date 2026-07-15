@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:kando_app/shared/ui/load_state.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
@@ -32,6 +33,12 @@ class ProfilePage extends ConsumerWidget {
       body: SafeArea(
         child: authState.isLoading
             ? const Center(child: CircularProgressIndicator())
+            : authState.hasError
+            ? KandoFailureBlock(
+                onRefresh: () {
+                  ref.read(authControllerProvider.notifier).retryStartup();
+                },
+              )
             : _ProfileContent(authState: authState),
       ),
     );

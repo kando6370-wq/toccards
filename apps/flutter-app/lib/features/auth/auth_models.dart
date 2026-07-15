@@ -33,14 +33,23 @@ class AuthState {
   const AuthState.loading()
     : session = null,
       isLoading = true,
+      hasError = false,
+      pendingMigrationAnonymousId = null;
+
+  const AuthState.failure()
+    : session = null,
+      isLoading = false,
+      hasError = true,
       pendingMigrationAnonymousId = null;
 
   const AuthState.ready({
     required this.session,
     this.pendingMigrationAnonymousId,
-  }) : isLoading = false;
+  }) : isLoading = false,
+       hasError = false;
 
   final AuthSession? session;
   final bool isLoading;
+  final bool hasError;
   final String? pendingMigrationAnonymousId;
 }
