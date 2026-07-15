@@ -242,6 +242,71 @@ void main() {
     },
   );
 
+  testWidgets('normal auth options render the Figma panel canvas', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    await tester.pumpWidget(_testAuthSheetApp(repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+
+    final panelCanvas = find.byKey(const Key('auth-options-panel-canvas'));
+    expect(panelCanvas, findsOneWidget);
+    expect(tester.widget<RepaintBoundary>(panelCanvas), isNotNull);
+    expect(find.byKey(const Key('auth-options-close-canvas')), findsOneWidget);
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/auth/auth_options_panel_canvas.png'),
+        tester.element(panelCanvas),
+      ),
+    );
+    await tester.pump();
+    await expectLater(
+      panelCanvas,
+      matchesGoldenFile(
+        'goldens/rendered/figma_auth_options_panel_183_11494_390x343.png',
+      ),
+    );
+  });
+
+  testWidgets(
+    'normal auth options expose legal links because static Figma text must remain accessible',
+    (tester) async {
+      final semanticsHandle = tester.ensureSemantics();
+      try {
+        final repository = _WidgetAuthRepository(
+          initialSession: _anonymousSession('anon-existing'),
+        );
+
+        await tester.pumpWidget(_testAuthSheetApp(repository));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Open auth'));
+        await tester.pumpAndSettle();
+
+        final agreement = tester.getSemantics(
+          find.byKey(const Key('auth-agreement-text')),
+        );
+        final linkLabels = <String>[];
+        agreement.visitChildren((child) {
+          linkLabels.add(child.label);
+          return true;
+        });
+        expect(linkLabels, contains('Terms of Use'));
+        expect(linkLabels, contains('Privacy Policy'));
+      } finally {
+        semanticsHandle.dispose();
+      }
+    },
+  );
+
   testWidgets(
     'email option opens the Figma full-screen email flow instead of keeping the form in the auth sheet',
     (tester) async {

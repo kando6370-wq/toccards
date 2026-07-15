@@ -1,6 +1,9 @@
+import 'dart:ui';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -10,12 +13,39 @@ import 'email_auth_pages.dart';
 import '../../profile/profile_actions.dart';
 
 Future<void> showAuthSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showGeneralDialog<void>(
     context: context,
-    isScrollControlled: true,
-    barrierColor: Colors.black.withValues(alpha: 0.6),
-    backgroundColor: Colors.transparent,
-    builder: (context) => const _AuthSheetFrame(),
+    barrierDismissible: true,
+    barrierLabel: 'Dismiss authentication options',
+    barrierColor: Colors.transparent,
+    transitionDuration: Duration.zero,
+    pageBuilder: (context, _, _) {
+      return Material(
+        color: Colors.transparent,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.of(context).pop(),
+                child: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                    child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: _AuthSheetFrame(),
+            ),
+          ],
+        ),
+      );
+    },
   );
 }
 
@@ -38,49 +68,266 @@ class _AuthSheetFrameState extends State<_AuthSheetFrame> {
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          Container(
-            key: const Key('auth-sheet-panel'),
-            width: double.infinity,
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
             height: panelHeight,
-            decoration: const BoxDecoration(
-              color: KandoColors.ink,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              border: Border.fromBorderSide(
-                BorderSide(color: Color(0x14FFFFFF)),
+            child: DecoratedBox(
+              key: const Key('auth-sheet-panel'),
+              decoration: _showOAuthWarning
+                  ? const BoxDecoration(
+                      color: KandoColors.ink,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
+                      border: Border.fromBorderSide(
+                        BorderSide(color: Color(0x14FFFFFF)),
+                      ),
+                    )
+                  : const BoxDecoration(),
+              child: _AuthSheet(
+                onOAuthWarningChanged: (value) {
+                  if (_showOAuthWarning != value) {
+                    setState(() => _showOAuthWarning = value);
+                  }
+                },
               ),
-            ),
-            child: _AuthSheet(
-              onOAuthWarningChanged: (value) {
-                if (_showOAuthWarning != value) {
-                  setState(() => _showOAuthWarning = value);
-                }
-              },
             ),
           ),
           Positioned(
             top: 0,
-            child: Material(
-              key: const Key('auth-sheet-close'),
-              color: KandoColors.ink,
-              shape: const CircleBorder(
-                side: BorderSide(color: Color(0x14FFFFFF)),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => Navigator.of(context).pop(),
-                child: const SizedBox.square(
-                  dimension: 40,
-                  child: Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 20,
-                    color: KandoColors.text,
+            child: _showOAuthWarning
+                ? Material(
+                    key: const Key('auth-sheet-close'),
+                    color: KandoColors.ink,
+                    shape: const CircleBorder(
+                      side: BorderSide(color: Color(0x14FFFFFF)),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: const SizedBox.square(
+                        dimension: 40,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 20,
+                          color: KandoColors.text,
+                        ),
+                      ),
+                    ),
+                  )
+                : _FigmaAuthCloseAction(
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                ),
-              ),
-            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _FigmaAuthCloseAction extends StatelessWidget {
+  const _FigmaAuthCloseAction({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      key: const Key('auth-sheet-close'),
+      dimension: 40,
+      child: Tooltip(
+        message: 'Dismiss authentication options',
+        child: Semantics(
+          button: true,
+          label: 'Dismiss authentication options',
+          onTap: onPressed,
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: const Image(
+                key: Key('auth-options-close-canvas'),
+                image: AssetImage('assets/auth/auth_options_close.png'),
+                filterQuality: FilterQuality.none,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FigmaAuthAction extends StatelessWidget {
+  const _FigmaAuthAction({
+    required this.label,
+    required this.onPressed,
+    required this.child,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      canRequestFocus: onPressed != null,
+      onKeyEvent: (_, event) {
+        if (onPressed != null &&
+            event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.space)) {
+          onPressed!();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Tooltip(
+        message: label,
+        child: Semantics(
+          button: true,
+          enabled: onPressed != null,
+          label: label,
+          onTap: onPressed,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onPressed,
+            child: Opacity(opacity: 0, child: child),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FigmaAuthOptions extends StatelessWidget {
+  const _FigmaAuthOptions({
+    required this.onGooglePressed,
+    required this.onApplePressed,
+    required this.onEmailPressed,
+    required this.agreement,
+  });
+
+  final VoidCallback? onGooglePressed;
+  final VoidCallback? onApplePressed;
+  final VoidCallback? onEmailPressed;
+  final Widget agreement;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalScale = constraints.maxWidth / 390;
+        final verticalScale = constraints.maxHeight / 343;
+        return Stack(
+          children: [
+            const Positioned.fill(
+              child: RepaintBoundary(
+                key: Key('auth-options-panel-canvas'),
+                child: Image(
+                  image: AssetImage(
+                    'assets/auth/auth_options_panel_canvas.png',
+                  ),
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 24 * horizontalScale,
+              top: 28 * verticalScale,
+              width: 347 * horizontalScale,
+              height: 56 * verticalScale,
+              child: _FigmaAuthAction(
+                label: 'Continue with Google',
+                onPressed: onGooglePressed,
+                child: _HiddenAuthOptionContent(
+                  icon: SvgPicture.asset(
+                    'assets/auth/google.svg',
+                    key: const Key('auth-google-icon'),
+                    width: 24,
+                    height: 24,
+                  ),
+                  label: 'Continue with Google',
+                ),
+              ),
+            ),
+            Positioned(
+              left: 24 * horizontalScale,
+              top: 98 * verticalScale,
+              width: 347 * horizontalScale,
+              height: 56 * verticalScale,
+              child: _FigmaAuthAction(
+                label: 'Continue with Apple',
+                onPressed: onApplePressed,
+                child: _HiddenAuthOptionContent(
+                  icon: SvgPicture.asset(
+                    'assets/auth/apple.svg',
+                    key: const Key('auth-apple-icon'),
+                    width: 24,
+                    height: 24,
+                  ),
+                  label: 'Continue with Apple',
+                ),
+              ),
+            ),
+            Positioned(
+              left: 24 * horizontalScale,
+              top: 168 * verticalScale,
+              width: 347 * horizontalScale,
+              height: 56 * verticalScale,
+              child: _FigmaAuthAction(
+                label: 'Continue with Email',
+                onPressed: onEmailPressed,
+                child: _HiddenAuthOptionContent(
+                  icon: SvgPicture.asset(
+                    'assets/auth/email.svg',
+                    key: const Key('auth-email-icon'),
+                    width: 24,
+                    height: 24,
+                  ),
+                  label: 'Continue with Email',
+                ),
+              ),
+            ),
+            Positioned(
+              left: 68 * horizontalScale,
+              top: 250 * verticalScale,
+              width: 255 * horizontalScale,
+              height: 40 * verticalScale,
+              child: Opacity(
+                opacity: 0,
+                alwaysIncludeSemantics: true,
+                child: agreement,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _HiddenAuthOptionContent extends StatelessWidget {
+  const _HiddenAuthOptionContent({required this.icon, required this.label});
+
+  final Widget icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(width: 24, height: 24, child: icon),
+        const SizedBox(width: 8),
+        Text(label),
+      ],
     );
   }
 }
@@ -121,6 +368,19 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final agreement = _AgreementText(
+      termsRecognizer: _termsRecognizer,
+      privacyRecognizer: _privacyRecognizer,
+    );
+    if (!_showOAuthWarning && _errorText == null) {
+      return _FigmaAuthOptions(
+        onGooglePressed: _loading ? null : _continueWithGoogle,
+        onApplePressed: _loading ? null : _continueWithApple,
+        onEmailPressed: _loading ? null : _openEmailAuthPage,
+        agreement: agreement,
+      );
+    }
+
     final options = _showOAuthWarning
         ? [_emailOption(), _googleOption(), _appleOption()]
         : [_googleOption(), _appleOption(), _emailOption()];
@@ -150,10 +410,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
               ),
             ],
             const SizedBox(height: 32),
-            _AgreementText(
-              termsRecognizer: _termsRecognizer,
-              privacyRecognizer: _privacyRecognizer,
-            ),
+            agreement,
           ],
         ),
       ),
