@@ -14,6 +14,7 @@ export type DataSourceKvNamespace = {
 
 const SEARCH_CARDS_TTL_SECONDS = 60 * 60;
 const TRENDING_TTL_SECONDS = 15 * 60;
+const CARD_RESPONSE_CACHE_VERSION = "v2";
 const DEFAULT_SEARCH_PAGE = 1;
 const DEFAULT_SEARCH_PAGE_SIZE = 20;
 
@@ -46,7 +47,7 @@ export function createKvCachedDataSourceAdapter(
     async getTrending() {
       return readThroughKv(
         kv,
-        "getTrending",
+        `${CARD_RESPONSE_CACHE_VERSION}:getTrending`,
         TRENDING_TTL_SECONDS,
         () => source.getTrending(),
       );
@@ -114,6 +115,7 @@ function searchCardsCacheKey(
   const objectType = options?.object_type ?? "all";
 
   return [
+    CARD_RESPONSE_CACHE_VERSION,
     "searchCards",
     cacheKeyPart(query),
     cacheKeyPart(objectType),

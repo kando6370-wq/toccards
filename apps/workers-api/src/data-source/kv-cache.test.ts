@@ -104,7 +104,7 @@ describe("KV cached data source adapter", () => {
     expect(source.searchCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "searchCards:charizard%20gx:tcg:1:20",
+        key: "v2:searchCards:charizard%20gx:tcg:1:20",
         value: JSON.stringify([card]),
         options: { expirationTtl: 3600 },
       },
@@ -122,7 +122,7 @@ describe("KV cached data source adapter", () => {
     expect(source.trendingCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "getTrending",
+        key: "v2:getTrending",
         value: JSON.stringify([card]),
         options: { expirationTtl: 900 },
       },
