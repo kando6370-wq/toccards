@@ -60,6 +60,7 @@ export async function sendZohoMail(
       method: "POST",
       headers: {
         Authorization: `Zoho-oauthtoken ${accessToken}`,
+        Accept: "application/json",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

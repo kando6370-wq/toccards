@@ -48,7 +48,10 @@ describe("sendZohoMail", () => {
       "https://mail.zoho.com/api/accounts/account-id/messages",
     );
     expect(sendRequest?.[1]?.headers).toEqual(
-      expect.objectContaining({ Authorization: "Zoho-oauthtoken access-token" }),
+      expect.objectContaining({
+        Authorization: "Zoho-oauthtoken access-token",
+        Accept: "application/json",
+      }),
     );
     expect(JSON.parse(sendRequest?.[1]?.body as string)).toEqual({
       fromAddress: "kando@tcgcard.fun",
