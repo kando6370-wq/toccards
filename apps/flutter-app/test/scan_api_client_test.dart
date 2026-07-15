@@ -56,6 +56,36 @@ void main() {
       expect(result.results.single.candidates.single.name, 'Bushi Tenderfoot');
     },
   );
+
+  test(
+    'confirmMatch persists the reviewed candidate because Added state requires a server item id',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'POST');
+        expect(request.path, '/scan/scan-1/confirm');
+        expect(request.authorization, 'Bearer access-token');
+        expect(request.body, {'folder_id': 'main', 'card_ref': '11958'});
+        return _json(201, {
+          'success': true,
+          'data': {
+            'scan_id': 'scan-1',
+            'collection_item_id': 'item-1',
+            'card_ref': '11958',
+            'folder_id': 'main',
+          },
+        });
+      });
+
+      final result = await ScanApiClient(_dio(adapter)).confirmMatch(
+        _session,
+        scanId: 'scan-1',
+        folderId: 'main',
+        cardRef: '11958',
+      );
+
+      expect(result.collectionItemId, 'item-1');
+    },
+  );
 }
 
 const _session = AuthSession(
@@ -109,6 +139,7 @@ class _RecordingAdapter implements HttpClientAdapter {
         authorization: options.headers['Authorization']?.toString(),
         formFields: fields,
         fileName: fileName,
+        body: data,
       ),
     );
   }
@@ -124,6 +155,7 @@ class _RecordedRequest {
     required this.authorization,
     required this.formFields,
     required this.fileName,
+    required this.body,
   });
 
   final String method;
@@ -131,4 +163,5 @@ class _RecordedRequest {
   final String? authorization;
   final Map<String, String> formFields;
   final String? fileName;
+  final Object? body;
 }

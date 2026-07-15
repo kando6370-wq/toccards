@@ -24,6 +24,14 @@ type ScanResult = {
   candidates: ScanCandidate[];
 };
 
+type ScanRecordRow = {
+  id: string;
+  candidates: string;
+  user_confirmation_status: string;
+};
+
+type PortfolioFolderRow = { id: string };
+
 const UNAUTHORIZED_RESPONSE = {
   success: false,
   error: { code: "UNAUTHORIZED", message: "Unauthorized." },
@@ -50,12 +58,62 @@ const OCR_UNAVAILABLE_RESPONSE = {
   },
 } as const;
 
+const NOT_FOUND_RESPONSE = {
+  success: false,
+  error: { code: "NOT_FOUND", message: "Not found." },
+} as const;
+
+const CONFLICT_RESPONSE = {
+  success: false,
+  error: { code: "CONFLICT", message: "Scan is already confirmed." },
+} as const;
+
 const INSERT_SCAN_RECORD_SQL = `
 INSERT INTO scan_record
   (id, owner_type, owner_id, image_url, filename, platform, app_version,
    device_model, os_version, recognition_status, user_confirmation_status,
    system_result, user_result, candidates, raw_response, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`;
+
+const SELECT_SCAN_RECORD_SQL = `
+SELECT id, candidates, user_confirmation_status
+FROM scan_record
+WHERE id = ? AND owner_type = ? AND owner_id = ?
+LIMIT 1
+`;
+
+const SELECT_PORTFOLIO_FOLDER_SQL = `
+SELECT id
+FROM portfolio_folder
+WHERE id = ? AND owner_type = ? AND owner_id = ?
+LIMIT 1
+`;
+
+const INSERT_CONFIRMED_COLLECTION_ITEM_SQL = `
+INSERT INTO collection_item
+  (id, owner_type, owner_id, folder_id, card_ref, object_type, grader, condition,
+   grade, language, finish, quantity, purchase_price, purchase_currency, notes,
+   created_at, updated_at)
+SELECT ?, ?, ?, ?, ?, 'tcg', 'Raw', 'Near Mint (NM)', NULL, 'English', NULL,
+  1, NULL, NULL, NULL, ?, ?
+WHERE EXISTS (
+  SELECT 1 FROM scan_record
+  WHERE id = ? AND owner_type = ? AND owner_id = ?
+    AND user_confirmation_status = 'pending'
+)
+`;
+
+const DELETE_CONFIRMED_WISHLIST_CARD_SQL = `
+DELETE FROM wishlist_item
+WHERE owner_type = ? AND owner_id = ? AND card_ref = ?
+`;
+
+const UPDATE_SCAN_CONFIRMATION_SQL = `
+UPDATE scan_record
+SET user_confirmation_status = 'confirmed', modified_result = ?, user_result = ?
+WHERE id = ? AND owner_type = ? AND owner_id = ?
+  AND user_confirmation_status = 'pending'
 `;
 
 const PASSTHROUGH_FIELDS = [
@@ -162,6 +220,91 @@ export function createScanRoutes() {
     });
   });
 
+  routes.post("/scan/:scan_id/confirm", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+    if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
+
+    const body = await readJson(c.req);
+    const folderId = isRecord(body) ? readString(body.folder_id) : null;
+    const cardRef = isRecord(body) ? readString(body.card_ref) : null;
+    if (!folderId || !cardRef) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+
+    const scanId = c.req.param("scan_id");
+    const scan = await c.env.DB.prepare(SELECT_SCAN_RECORD_SQL)
+      .bind(scanId, auth.owner.owner_type, auth.owner.owner_id)
+      .first<ScanRecordRow>();
+    if (!scan) return c.json(NOT_FOUND_RESPONSE, 404);
+    if (scan.user_confirmation_status !== "pending") {
+      return c.json(CONFLICT_RESPONSE, 409);
+    }
+
+    const candidates = parseStoredCandidates(scan.candidates);
+    const selectedCandidate = candidates.find(
+      (candidate) => candidate.card_ref === cardRef,
+    );
+    if (!selectedCandidate) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+
+    const folder = await c.env.DB.prepare(SELECT_PORTFOLIO_FOLDER_SQL)
+      .bind(folderId, auth.owner.owner_type, auth.owner.owner_id)
+      .first<PortfolioFolderRow>();
+    if (!folder) return c.json(NOT_FOUND_RESPONSE, 404);
+
+    const itemId = createId();
+    const now = new Date().toISOString();
+    const userResult = JSON.stringify({
+      confirmation_status: "confirmed",
+      final_card: selectedCandidate,
+      modified_result: candidates[0]?.card_ref !== cardRef,
+      added_to_inventory: true,
+      collection_item_id: itemId,
+      added_to_wishlist: false,
+    });
+    const results = await c.env.DB.batch([
+      c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_SQL).bind(
+        itemId,
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+        folderId,
+        cardRef,
+        now,
+        now,
+        scanId,
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+      ),
+      c.env.DB.prepare(DELETE_CONFIRMED_WISHLIST_CARD_SQL).bind(
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+        cardRef,
+      ),
+      c.env.DB.prepare(UPDATE_SCAN_CONFIRMATION_SQL).bind(
+        candidates[0]?.card_ref === cardRef ? 0 : 1,
+        userResult,
+        scanId,
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+      ),
+    ]);
+
+    if (results[0]?.meta.changes !== 1 || results[2]?.meta.changes !== 1) {
+      return c.json(CONFLICT_RESPONSE, 409);
+    }
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          scan_id: scanId,
+          collection_item_id: itemId,
+          card_ref: cardRef,
+          folder_id: folderId,
+        },
+      },
+      201,
+    );
+  });
+
   return routes;
 }
 
@@ -179,6 +322,29 @@ function readScanResults(payload: Record<string, unknown>): ScanResult[] {
       candidates,
     };
   });
+}
+
+async function readJson(request: { json(): Promise<unknown> }): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    return null;
+  }
+}
+
+function parseStoredCandidates(value: string): ScanCandidate[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter(isStoredScanCandidate)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function isStoredScanCandidate(value: unknown): value is ScanCandidate {
+  return isRecord(value) && readString(value.card_ref) !== null;
 }
 
 function toScanCandidate(value: unknown, index: number): ScanCandidate | null {

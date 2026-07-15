@@ -22,6 +22,8 @@ void main() {
       final result = await source.photo();
 
       expect(result.kind, ScanResolutionKind.matched);
+      expect(result.scanId, 'scan-1');
+      expect(result.cardRef, '1');
       expect(result.matchName, 'Bushi Tenderfoot');
       expect(result.candidates, ['Bushi Tenderfoot', 'Devoted Retainer']);
       expect(api.lastBytes, Uint8List.fromList([1, 2, 3]));
@@ -127,6 +129,16 @@ class _FakeScanApi implements ScanApi {
   Uint8List? lastBytes;
   String? lastPlatform;
   var callCount = 0;
+
+  @override
+  Future<ScanConfirmationDto> confirmMatch(
+    AuthSession session, {
+    required String scanId,
+    required String folderId,
+    required String cardRef,
+  }) {
+    throw UnimplementedError();
+  }
 
   @override
   Future<ScanRecognitionDto> recognizeImage(

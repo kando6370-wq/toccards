@@ -12,21 +12,29 @@ enum ScanResolutionKind { matched, failed, noMatch }
 
 class ScanResolution {
   const ScanResolution.matched({
+    required this.scanId,
+    required this.cardRef,
     required this.matchName,
     required this.candidates,
   }) : kind = ScanResolutionKind.matched;
 
   const ScanResolution.failed()
     : kind = ScanResolutionKind.failed,
+      scanId = null,
+      cardRef = null,
       matchName = null,
       candidates = const [];
 
   const ScanResolution.noMatch()
     : kind = ScanResolutionKind.noMatch,
+      scanId = null,
+      cardRef = null,
       matchName = null,
       candidates = const [];
 
   final ScanResolutionKind kind;
+  final String? scanId;
+  final String? cardRef;
   final String? matchName;
   final List<String> candidates;
 }
@@ -140,6 +148,8 @@ class ApiScanResultSource implements ScanResultSource {
     if (matchedResults.isEmpty) return const ScanResolution.noMatch();
     final candidates = matchedResults.first.candidates;
     return ScanResolution.matched(
+      scanId: recognition.scanId,
+      cardRef: candidates.first.cardRef,
       matchName: candidates.first.name,
       candidates: candidates.map((candidate) => candidate.name).toList(),
     );

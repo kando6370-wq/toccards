@@ -8,6 +8,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 
+import '../../shared/portfolio/portfolio_providers.dart';
+import '../../shared/ui/toast.dart';
+import '../collection/collection_controller.dart';
+import '../home/home_controller.dart';
+import 'scan_review_repository.dart';
+
 enum _ScanItemStatus {
   scanning,
   recognizing,
@@ -19,8 +25,15 @@ enum _ScanItemStatus {
 }
 
 class _ScanMatch {
-  const _ScanMatch({required this.name, required this.candidates});
+  const _ScanMatch({
+    required this.scanId,
+    required this.cardRef,
+    required this.name,
+    required this.candidates,
+  });
 
+  final String scanId;
+  final String cardRef;
   final String name;
   final List<String> candidates;
 }
@@ -78,6 +91,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _reviewing = false;
   int? _selectedReviewItemId;
   int? _lastAddedCount;
+  ScanReviewTarget? _reviewTarget;
+  var _savingReview = false;
   int? _dismissedFeedbackItemId;
   int? _dismissedFailureFeedbackItemId;
 
@@ -415,6 +430,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
     };
     final match = status == _ScanItemStatus.matched
         ? _ScanMatch(
+            scanId: resolution.scanId!,
+            cardRef: resolution.cardRef!,
             name: resolution.matchName!,
             candidates: resolution.candidates,
           )
@@ -445,51 +462,126 @@ class _ScanPageState extends ConsumerState<ScanPage>
     });
   }
 
-  void _openReview([int? itemId]) {
+  Future<void> _openReview([int? itemId]) async {
     if (!_canReview) {
       return;
     }
     setState(() {
       _reviewing = true;
       _selectedReviewItemId = itemId ?? _matchedItems.first.id;
+      _reviewTarget = null;
     });
+    try {
+      final target = await ref
+          .read(scanReviewRepositoryProvider)
+          .loadTarget(
+            preferredFolderId: ref.read(selectedPortfolioFolderProvider),
+          );
+      if (mounted && _reviewing) {
+        setState(() => _reviewTarget = target);
+      }
+    } on Exception {
+      _failReviewLoad();
+    }
   }
 
-  void _addSelectedItem() {
+  void _failReviewLoad() {
+    if (!mounted) return;
+    setState(() {
+      _reviewing = false;
+      _selectedReviewItemId = null;
+      _reviewTarget = null;
+    });
+    showKandoFailureToast(context);
+  }
+
+  Future<void> _addSelectedItem() async {
     final selectedId = _selectedReviewItemId;
-    if (selectedId == null) {
+    final target = _reviewTarget;
+    final item = _matchedItems
+        .where((candidate) => candidate.id == selectedId)
+        .firstOrNull;
+    if (item == null || target == null || _savingReview) {
       return;
     }
 
-    setState(() {
-      _lastAddedCount = 1;
-      _reviewing = false;
-      for (var index = 0; index < _items.length; index += 1) {
-        if (_items[index].id == selectedId) {
-          _items[index] = _items[index].copyWith(status: _ScanItemStatus.added);
-          break;
-        }
-      }
-      _selectedReviewItemId = null;
-    });
+    setState(() => _savingReview = true);
+    try {
+      await ref
+          .read(scanReviewRepositoryProvider)
+          .addToPortfolio(
+            target: target,
+            scanId: item.match!.scanId,
+            cardRef: item.match!.cardRef,
+          );
+      if (!mounted) return;
+      setState(() {
+        _lastAddedCount = 1;
+        _reviewing = false;
+        _markItemsAdded({item.id});
+        _selectedReviewItemId = null;
+        _reviewTarget = null;
+      });
+      _refreshPortfolioSurfaces();
+    } on Exception {
+      if (mounted) showKandoFailureToast(context);
+    } finally {
+      if (mounted) setState(() => _savingReview = false);
+    }
   }
 
-  void _addAllMatchedItems() {
-    final matchedIds = _matchedItems.map((item) => item.id).toSet();
-    if (matchedIds.isEmpty) {
+  Future<void> _addAllMatchedItems() async {
+    final matchedItems = _matchedItems;
+    final target = _reviewTarget;
+    if (matchedItems.isEmpty || target == null || _savingReview) {
       return;
     }
 
-    setState(() {
-      _lastAddedCount = matchedIds.length;
-      _reviewing = false;
-      for (var index = 0; index < _items.length; index += 1) {
-        if (matchedIds.contains(_items[index].id)) {
-          _items[index] = _items[index].copyWith(status: _ScanItemStatus.added);
-        }
+    setState(() => _savingReview = true);
+    final addedIds = <int>{};
+    var failed = false;
+    for (final item in matchedItems) {
+      try {
+        await ref
+            .read(scanReviewRepositoryProvider)
+            .addToPortfolio(
+              target: target,
+              scanId: item.match!.scanId,
+              cardRef: item.match!.cardRef,
+            );
+        addedIds.add(item.id);
+      } on Exception {
+        failed = true;
       }
-      _selectedReviewItemId = null;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _markItemsAdded(addedIds);
+      _lastAddedCount = addedIds.isEmpty ? null : addedIds.length;
+      final remaining = _matchedItems;
+      _reviewing = remaining.isNotEmpty;
+      _selectedReviewItemId = remaining.firstOrNull?.id;
+      if (!_reviewing) {
+        _reviewTarget = null;
+      }
+      _savingReview = false;
     });
+    if (addedIds.isNotEmpty) _refreshPortfolioSurfaces();
+    if (failed) showKandoFailureToast(context);
+  }
+
+  void _markItemsAdded(Set<int> itemIds) {
+    for (var index = 0; index < _items.length; index += 1) {
+      if (itemIds.contains(_items[index].id)) {
+        _items[index] = _items[index].copyWith(status: _ScanItemStatus.added);
+      }
+    }
+  }
+
+  void _refreshPortfolioSurfaces() {
+    ref.invalidate(homeControllerProvider);
+    ref.invalidate(collectionControllerProvider);
   }
 
   @override
@@ -501,6 +593,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
               child: _ReviewMatches(
                 items: _matchedItems,
                 selectedItemId: _selectedReviewItemId,
+                target: _reviewTarget,
+                saving: _savingReview,
                 onSelectItem: (item) {
                   setState(() => _selectedReviewItemId = item.id);
                 },
@@ -2190,6 +2284,8 @@ class _ReviewMatches extends StatelessWidget {
   const _ReviewMatches({
     required this.items,
     required this.selectedItemId,
+    required this.target,
+    required this.saving,
     required this.onSelectItem,
     required this.onAddThisCard,
     required this.onAddAllCards,
@@ -2197,6 +2293,8 @@ class _ReviewMatches extends StatelessWidget {
 
   final List<_ScanItem> items;
   final int? selectedItemId;
+  final ScanReviewTarget? target;
+  final bool saving;
   final ValueChanged<_ScanItem> onSelectItem;
   final VoidCallback onAddThisCard;
   final VoidCallback onAddAllCards;
@@ -2245,16 +2343,22 @@ class _ReviewMatches extends StatelessWidget {
             trailing: candidate == match.name ? const Icon(Icons.check) : null,
           ),
         const SizedBox(height: 12),
-        _ReviewCollectionItem(matchName: match.name),
+        if (target == null)
+          const Center(child: CircularProgressIndicator())
+        else
+          _ReviewCollectionItem(
+            matchName: match.name,
+            folderName: target!.folderName,
+          ),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: onAddThisCard,
+          onPressed: target == null || saving ? null : onAddThisCard,
           icon: const Icon(Icons.add_circle_outline),
           label: const Text('Add this card'),
         ),
         const SizedBox(height: 8),
         FilledButton.tonalIcon(
-          onPressed: onAddAllCards,
+          onPressed: target == null || saving ? null : onAddAllCards,
           icon: const Icon(Icons.done_all_outlined),
           label: const Text('Add all cards'),
         ),
@@ -2318,9 +2422,13 @@ class _ImageStandIn extends StatelessWidget {
 }
 
 class _ReviewCollectionItem extends StatelessWidget {
-  const _ReviewCollectionItem({required this.matchName});
+  const _ReviewCollectionItem({
+    required this.matchName,
+    required this.folderName,
+  });
 
   final String matchName;
+  final String folderName;
 
   @override
   Widget build(BuildContext context) {
@@ -2336,7 +2444,7 @@ class _ReviewCollectionItem extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(matchName),
-            const Text('Adding to Main'),
+            Text('Adding to $folderName'),
             const Text('Raw'),
             const Text('Near Mint (NM)'),
           ],

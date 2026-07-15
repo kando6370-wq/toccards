@@ -94,6 +94,29 @@ class ScanCandidateDto {
   }
 }
 
+class ScanConfirmationDto {
+  const ScanConfirmationDto({
+    required this.scanId,
+    required this.collectionItemId,
+    required this.cardRef,
+    required this.folderId,
+  });
+
+  final String scanId;
+  final String collectionItemId;
+  final String cardRef;
+  final String folderId;
+
+  factory ScanConfirmationDto.fromJson(Map<String, Object?> json) {
+    return ScanConfirmationDto(
+      scanId: _requiredString(json['scan_id']),
+      collectionItemId: _requiredString(json['collection_item_id']),
+      cardRef: _requiredString(json['card_ref']),
+      folderId: _requiredString(json['folder_id']),
+    );
+  }
+}
+
 abstract interface class ScanApi {
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
@@ -103,6 +126,12 @@ abstract interface class ScanApi {
     required String appVersion,
     String? deviceModel,
     String? osVersion,
+  });
+  Future<ScanConfirmationDto> confirmMatch(
+    AuthSession session, {
+    required String scanId,
+    required String folderId,
+    required String cardRef,
   });
 }
 
@@ -132,11 +161,27 @@ class ScanApiClient implements ScanApi {
     return ScanRecognitionDto.fromJson(data);
   }
 
+  @override
+  Future<ScanConfirmationDto> confirmMatch(
+    AuthSession session, {
+    required String scanId,
+    required String folderId,
+    required String cardRef,
+  }) async {
+    final data = await _requestData(
+      'POST',
+      '/scan/${Uri.encodeComponent(scanId)}/confirm',
+      session,
+      {'folder_id': folderId, 'card_ref': cardRef},
+    );
+    return ScanConfirmationDto.fromJson(data);
+  }
+
   Future<Map<String, Object?>> _requestData(
     String method,
     String path,
     AuthSession session,
-    FormData body,
+    Object body,
   ) async {
     final response = await _dio.request<Object?>(
       path,

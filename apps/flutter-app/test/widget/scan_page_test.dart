@@ -12,9 +12,11 @@ import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
+import 'package:kando_app/features/scan/scan_review_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
+import 'package:kando_app/shared/scan/scan_api_client.dart';
 
 import '../support/mock_home_repository.dart';
 
@@ -280,6 +282,8 @@ void main() {
 
       result.complete(
         const ScanResolution.matched(
+          scanId: 'scan-mega',
+          cardRef: 'card-mega',
           matchName: 'Mega Lucario ex',
           candidates: ['Mega Lucario ex'],
         ),
@@ -302,6 +306,8 @@ void main() {
         scanResultSource: _TestScanResultSource(
           photoResult: Future.value(
             const ScanResolution.matched(
+              scanId: 'scan-mega',
+              cardRef: 'card-mega',
               matchName: 'Mega Lucario ex',
               candidates: ['Mega Lucario ex'],
             ),
@@ -343,6 +349,8 @@ void main() {
 
       result.complete(
         const ScanResolution.matched(
+          scanId: 'scan-mega',
+          cardRef: 'card-mega',
           matchName: 'Mega Lucario ex',
           candidates: ['Mega Lucario ex'],
         ),
@@ -491,6 +499,8 @@ void main() {
         photoResult: Future.value(const ScanResolution.failed()),
         retryResult: Future.value(
           const ScanResolution.matched(
+            scanId: 'scan-mega',
+            cardRef: 'card-mega',
             matchName: 'Mega Lucario ex',
             candidates: ['Mega Lucario ex'],
           ),
@@ -544,6 +554,8 @@ void main() {
         scanResultSource: _TestScanResultSource(
           photoResult: Future.value(
             const ScanResolution.matched(
+              scanId: 'scan-mega',
+              cardRef: 'card-mega',
               matchName: 'Mega Lucario ex',
               candidates: ['Mega Lucario ex'],
             ),
@@ -651,6 +663,8 @@ void main() {
 
     result.complete(
       const ScanResolution.matched(
+        scanId: 'scan-mega',
+        cardRef: 'card-mega',
         matchName: 'Mega Lucario ex',
         candidates: ['Mega Lucario ex'],
       ),
@@ -695,7 +709,8 @@ void main() {
   testWidgets(
     'Scan creates reviewable matches because scans are not saved automatically',
     (tester) async {
-      await _pumpScanTestApp(tester);
+      final reviewRepository = _FakeScanReviewRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: reviewRepository);
 
       expect(find.text('ALIGN CARD HERE'), findsOneWidget);
       expect(find.text('GALLERY'), findsOneWidget);
@@ -753,6 +768,36 @@ void main() {
 
       expect(find.text('Added to Portfolio'), findsWidgets);
       expect(find.text('Mega Lucario ex'), findsWidgets);
+      expect(reviewRepository.confirmedScanIds, ['scan-mega']);
+    },
+  );
+
+  testWidgets(
+    'Review keeps the match unsaved when confirmation fails because local Added state is not proof of persistence',
+    (tester) async {
+      await _pumpScanTestApp(
+        tester,
+        scanReviewRepository: _FakeScanReviewRepository(
+          failure: Exception('confirm failed'),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add this card'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Add this card'), findsOneWidget);
+      expect(
+        find.text('Something went wrong. Please try again.'),
+        findsOneWidget,
+      );
+      expect(find.text('Added to Portfolio'), findsNothing);
     },
   );
 
@@ -904,6 +949,7 @@ Future<void> _completeFigmaScan(WidgetTester tester) async {
 Future<void> _pumpScanTestApp(
   WidgetTester tester, {
   ScanResultSource? scanResultSource,
+  ScanReviewRepository? scanReviewRepository,
   bool tickerEnabled = true,
 }) async {
   await tester.pumpWidget(const SizedBox.shrink());
@@ -913,6 +959,9 @@ Future<void> _pumpScanTestApp(
       overrides: [
         ..._searchOverrides(),
         homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+        scanReviewRepositoryProvider.overrideWithValue(
+          scanReviewRepository ?? _FakeScanReviewRepository(),
+        ),
         scanResultSourceProvider.overrideWithValue(
           scanResultSource ?? _defaultTestScanResultSource(),
         ),
@@ -926,10 +975,41 @@ Future<void> _pumpScanTestApp(
   await tester.pumpAndSettle();
 }
 
+class _FakeScanReviewRepository implements ScanReviewRepository {
+  _FakeScanReviewRepository({this.failure});
+
+  final Exception? failure;
+  final List<String> confirmedScanIds = [];
+
+  @override
+  Future<ScanReviewTarget> loadTarget({String? preferredFolderId}) async {
+    return const ScanReviewTarget(folderId: 'main', folderName: 'Main');
+  }
+
+  @override
+  Future<ScanConfirmationDto> addToPortfolio({
+    required ScanReviewTarget target,
+    required String scanId,
+    required String cardRef,
+  }) async {
+    final failure = this.failure;
+    if (failure != null) throw failure;
+    confirmedScanIds.add(scanId);
+    return ScanConfirmationDto(
+      scanId: scanId,
+      collectionItemId: 'item-$scanId',
+      cardRef: cardRef,
+      folderId: target.folderId,
+    );
+  }
+}
+
 ScanResultSource _defaultTestScanResultSource() {
   return _TestScanResultSource(
     photoResult: Future.value(
       const ScanResolution.matched(
+        scanId: 'scan-mega',
+        cardRef: 'card-mega',
         matchName: 'Mega Lucario ex',
         candidates: ['Mega Lucario ex', 'Lucario ex', 'Riolu Promo'],
       ),
@@ -938,6 +1018,8 @@ ScanResultSource _defaultTestScanResultSource() {
       Future.value(const ScanResolution.failed()),
       Future.value(
         const ScanResolution.matched(
+          scanId: 'scan-charizard',
+          cardRef: 'card-charizard',
           matchName: 'Charizard ex',
           candidates: ['Charizard ex', 'Charmander Promo', 'Charmeleon'],
         ),
