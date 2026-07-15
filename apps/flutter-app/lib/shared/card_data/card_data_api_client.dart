@@ -54,7 +54,7 @@ class CardDataCardDto {
       name: _requiredString(json['name']),
       setName: _requiredString(json['set_name']),
       setCode: _requiredString(json['set_code']),
-      cardNumber: _requiredString(json['card_number']),
+      cardNumber: _stringOrEmpty(json['card_number']),
       finish: _nullableString(json['finish']),
       language: _nullableString(json['language']),
       objectType: _requiredString(json['object_type']),
@@ -314,6 +314,12 @@ String _requiredString(Object? value) {
     throw const CardDataApiException('Something went wrong. Please try again.');
   }
   return normalized;
+}
+
+String _stringOrEmpty(Object? value) {
+  if (value == null) return '';
+  if (value is String) return value.trim();
+  throw const CardDataApiException('Something went wrong. Please try again.');
 }
 
 String? _nullableString(Object? value) {

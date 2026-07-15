@@ -1,141 +1,232 @@
+import 'dart:async';
+
+import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+
 import 'home_models.dart';
 
 abstract interface class HomeRepository {
-  HomeDashboard loadDashboard();
+  FutureOr<HomeDashboard> loadDashboard();
 }
 
-class MockHomeRepository implements HomeRepository {
-  const MockHomeRepository();
+class ApiHomeRepository implements HomeRepository {
+  const ApiHomeRepository({
+    required this.session,
+    required this.portfolioApi,
+    required this.cardDataApi,
+  });
+
+  final AuthSession session;
+  final PortfolioApi portfolioApi;
+  final CardDataApi cardDataApi;
 
   @override
-  HomeDashboard loadDashboard() {
-    return const HomeDashboard(
-      folders: [
-        HomeFolder(id: 'main', name: 'Main', isDefault: true),
-        HomeFolder(id: 'sealed', name: 'Sealed', isDefault: false),
-        HomeFolder(id: 'empty', name: 'Empty', isDefault: false),
-      ],
-      portfoliosByFolderId: {
-        'main': PortfolioSummary(
-          folderId: 'main',
-          totalValueUsd: 12450.8,
-          previous30dValueUsd: 12030.8,
-          chartValuesByRange: {
-            HomeChartRange.oneDay: [12150, 12300, 12450.8],
-            HomeChartRange.sevenDays: [11980, 12140, 12300, 12450.8],
-            HomeChartRange.fifteenDays: [
-              11800,
-              12350,
-              12800,
-              12450,
-              12050,
-              12300,
-              13250,
-              12700,
-              11600,
-              12450.8,
-            ],
-            HomeChartRange.oneMonth: [10800, 11320, 11940, 12220, 12450.8],
-            HomeChartRange.threeMonths: [9400, 10200, 11100, 12100, 12450.8],
-          },
-        ),
-        'sealed': PortfolioSummary(
-          folderId: 'sealed',
-          totalValueUsd: 8640,
-          previous30dValueUsd: 8330,
-          chartValuesByRange: {
-            HomeChartRange.oneDay: [8500, 8580, 8640],
-            HomeChartRange.sevenDays: [8100, 8240, 8460, 8640],
-            HomeChartRange.fifteenDays: [7900, 8120, 8330, 8520, 8640],
-            HomeChartRange.oneMonth: [7200, 7600, 8040, 8320, 8640],
-            HomeChartRange.threeMonths: [6100, 6800, 7400, 8100, 8640],
-          },
-        ),
-        'empty': PortfolioSummary(
-          folderId: 'empty',
-          totalValueUsd: 0,
-          previous30dValueUsd: 0,
-          chartValuesByRange: {
-            HomeChartRange.oneDay: [0],
-            HomeChartRange.sevenDays: [0],
-            HomeChartRange.fifteenDays: [0],
-            HomeChartRange.oneMonth: [0],
-            HomeChartRange.threeMonths: [0],
-          },
-        ),
-      },
-      mostValuableByFolderId: {
-        'main': HomeCardHighlight(
-          title: 'Charizard ex',
-          subtitle: 'PSA 10 · Holofoil',
-          priceUsd: 780,
-          previousPriceUsd: 721.55,
-        ),
-        'sealed': HomeCardHighlight(
-          title: 'Evolving Skies Booster Box',
-          subtitle: 'Sealed · 36 Packs',
-          priceUsd: 620,
-          previousPriceUsd: 588.24,
-        ),
-        'empty': null,
-      },
-      mostValuableCardsByFolderId: {
-        'main': [
-          HomeCardHighlight(
-            title: 'Pikachu',
-            subtitle: '#95 • Diamond & Pearl',
-            priceUsd: 10000000.12,
-            previousPriceUsd: 9690000.12,
-            imageAssetPath: 'assets/home/mega_lucario_ex.png',
+  Future<HomeDashboard> loadDashboard() async {
+    final folders = await portfolioApi.listFolders(session);
+    final items = await portfolioApi.listCollectionItems(session);
+    final assets = await Future.wait(items.map(_loadAsset));
+    final valuedAssets = assets.whereType<_HomeAsset>().toList();
+    final trending = await _loadTrending();
+    final homeFolders = folders
+        .map(
+          (folder) => HomeFolder(
+            id: folder.id,
+            name: folder.name,
+            isDefault: folder.isDefault,
           ),
-          HomeCardHighlight(
-            title: 'Pikachu',
-            subtitle: '#95 • Diamond & Pearl',
-            priceUsd: 10000000.12,
-            previousPriceUsd: 9690000.12,
-            imageAssetPath: 'assets/home/mega_lucario_ex.png',
-          ),
-          HomeCardHighlight(
-            title: 'Pikachu',
-            subtitle: '#95 • Diamond & Pearl',
-            priceUsd: 10000000.12,
-            previousPriceUsd: 9690000.12,
-            imageAssetPath: 'assets/home/mega_lucario_ex.png',
-          ),
-        ],
-        'sealed': [
-          HomeCardHighlight(
-            title: 'Evolving Skies Booster Box',
-            subtitle: 'Sealed • 36 Packs',
-            priceUsd: 620,
-            previousPriceUsd: 588.24,
-            imageAssetPath: 'assets/home/mega_lucario_ex.png',
-          ),
-        ],
-      },
-      trending: [
-        TrendingCard(
-          title: 'Ragavan, Nimble Pilferer',
-          subtitle: 'MTG · Modern Horizons 2',
-          priceUsd: 10000000.12,
-          previousPriceUsd: 10320000,
-          imageAssetPath: 'assets/home/mega_lucario_ex.png',
-        ),
-        TrendingCard(
-          title: 'Black Lotus',
-          subtitle: 'MTG · Alpha',
-          priceUsd: 10000000.12,
-          previousPriceUsd: 9523828.69,
-          imageAssetPath: 'assets/home/mega_lucario_ex.png',
-        ),
-        TrendingCard(
-          title: 'Base Set Charizard',
-          subtitle: 'Pokémon · Unlimited',
-          priceUsd: 10000000.12,
-          previousPriceUsd: 8896797.26,
-          imageAssetPath: 'assets/home/mega_lucario_ex.png',
-        ),
-      ],
+        )
+        .toList();
+
+    if (homeFolders.isEmpty) {
+      throw StateError('Home requires at least one portfolio folder.');
+    }
+    if (!homeFolders.any((folder) => folder.isDefault)) {
+      final first = homeFolders.first;
+      homeFolders[0] = HomeFolder(
+        id: first.id,
+        name: first.name,
+        isDefault: true,
+      );
+    }
+
+    final portfolios = <String, PortfolioSummary>{};
+    final highlights = <String, List<HomeCardHighlight>>{};
+    final primaryHighlights = <String, HomeCardHighlight?>{};
+    for (final folder in homeFolders) {
+      final folderAssets = valuedAssets
+          .where((asset) => asset.item.folderId == folder.id)
+          .toList();
+      final total = folderAssets.fold<double>(
+        0,
+        (sum, asset) => sum + asset.price * asset.item.quantity,
+      );
+      final chartValues = {
+        for (final range in HomeChartRange.values)
+          range: _aggregateSeries(folderAssets, range, total),
+      };
+      final monthValues = chartValues[HomeChartRange.oneMonth]!;
+      portfolios[folder.id] = PortfolioSummary(
+        folderId: folder.id,
+        totalValueUsd: total,
+        previous30dValueUsd: monthValues.length > 1 ? monthValues.first : 0,
+        chartValuesByRange: chartValues,
+      );
+
+      folderAssets.sort((left, right) => right.price.compareTo(left.price));
+      final cards = folderAssets.take(3).map(_highlight).toList();
+      highlights[folder.id] = cards;
+      primaryHighlights[folder.id] = cards.firstOrNull;
+    }
+
+    return HomeDashboard(
+      folders: homeFolders,
+      portfoliosByFolderId: portfolios,
+      mostValuableByFolderId: primaryHighlights,
+      mostValuableCardsByFolderId: highlights,
+      trending: trending,
     );
   }
+
+  Future<_HomeAsset?> _loadAsset(PortfolioItemDto item) async {
+    try {
+      final values = await Future.wait<Object>([
+        cardDataApi.getCard(item.cardRef),
+        cardDataApi.getMarketPrices(item.cardRef),
+      ]);
+      final card = values[0] as CardDataCardDto;
+      final prices = values[1] as List<CardDataMarketPriceDto>;
+      final price = _matchingPrice(item, prices);
+      if (price?.price == null) return null;
+      final entries = await Future.wait(
+        HomeChartRange.values.map(
+          (range) => cardDataApi.getPriceSeries(
+            item.cardRef,
+            days: _rangeDays[range]!,
+            grader: price!.grader,
+            grade: price.grade,
+            condition: price.condition,
+          ),
+        ),
+      );
+      return _HomeAsset(
+        item: item,
+        card: card,
+        price: price!.price!,
+        seriesByRange: {
+          for (var index = 0; index < HomeChartRange.values.length; index++)
+            HomeChartRange.values[index]: entries[index],
+        },
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<TrendingCard>> _loadTrending() async {
+    final cards = (await cardDataApi.trendingCards()).take(3);
+    final trends = await Future.wait(
+      cards.map((card) async {
+        try {
+          final prices = await cardDataApi.getMarketPrices(card.cardRef);
+          final market = prices
+              .where((price) => price.price != null)
+              .firstOrNull;
+          if (market == null) return null;
+          final series = await cardDataApi.getPriceSeries(
+            card.cardRef,
+            days: 1,
+            grader: market.grader,
+            grade: market.grade,
+            condition: market.condition,
+          );
+          return TrendingCard(
+            cardRef: card.cardRef,
+            title: card.name,
+            subtitle: card.setName,
+            priceUsd: market.price!,
+            previousPriceUsd: series.length > 1 ? series.first.price : 0,
+            imageUrl: card.imageUrl,
+          );
+        } catch (_) {
+          return null;
+        }
+      }),
+    );
+    return trends.whereType<TrendingCard>().toList();
+  }
 }
+
+CardDataMarketPriceDto? _matchingPrice(
+  PortfolioItemDto item,
+  List<CardDataMarketPriceDto> prices,
+) {
+  final grader = item.grader.trim().toLowerCase();
+  final matchingGrader = prices.where(
+    (price) => price.grader.trim().toLowerCase() == grader,
+  );
+  for (final price in matchingGrader) {
+    final gradeMatches = item.grade == null || price.grade == item.grade;
+    final conditionMatches =
+        item.condition == null ||
+        price.condition?.trim().toLowerCase() ==
+            item.condition!.trim().toLowerCase();
+    if (gradeMatches && conditionMatches) return price;
+  }
+  return matchingGrader.firstOrNull;
+}
+
+List<double> _aggregateSeries(
+  List<_HomeAsset> assets,
+  HomeChartRange range,
+  double currentTotal,
+) {
+  final totalsByDate = <String, double>{};
+  for (final asset in assets) {
+    for (final point in asset.seriesByRange[range] ?? const []) {
+      totalsByDate.update(
+        point.date,
+        (value) => value + point.price * asset.item.quantity,
+        ifAbsent: () => point.price * asset.item.quantity,
+      );
+    }
+  }
+  final dates = totalsByDate.keys.toList()..sort();
+  final values = dates.map((date) => totalsByDate[date]!).toList();
+  if (values.isEmpty || values.last != currentTotal) values.add(currentTotal);
+  return values;
+}
+
+HomeCardHighlight _highlight(_HomeAsset asset) {
+  final monthSeries = asset.seriesByRange[HomeChartRange.oneMonth] ?? const [];
+  return HomeCardHighlight(
+    cardRef: asset.card.cardRef,
+    title: asset.card.name,
+    subtitle: '#${asset.card.cardNumber} • ${asset.card.setName}',
+    priceUsd: asset.price,
+    previousPriceUsd: monthSeries.length > 1 ? monthSeries.first.price : 0,
+    imageUrl: asset.card.imageUrl,
+  );
+}
+
+class _HomeAsset {
+  const _HomeAsset({
+    required this.item,
+    required this.card,
+    required this.price,
+    required this.seriesByRange,
+  });
+
+  final PortfolioItemDto item;
+  final CardDataCardDto card;
+  final double price;
+  final Map<HomeChartRange, List<CardDataPricePointDto>> seriesByRange;
+}
+
+const _rangeDays = {
+  HomeChartRange.oneDay: 1,
+  HomeChartRange.sevenDays: 7,
+  HomeChartRange.fifteenDays: 15,
+  HomeChartRange.oneMonth: 30,
+  HomeChartRange.threeMonths: 90,
+};

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
@@ -665,6 +666,9 @@ class _MostValuableSection extends StatelessWidget {
                     'home-most-valuable-card-${state.selectedFolder.id}-$index',
                   ),
                   card: card,
+                  onTap: card.cardRef == null
+                      ? null
+                      : () => context.push('/cards/${card.cardRef}'),
                   price: state.amountHidden
                       ? hiddenMoneyText
                       : state.formatCardPrice(card.priceUsd),
@@ -708,6 +712,10 @@ class _TrendingSection extends StatelessWidget {
               previous: trends[index].previousPriceUsd,
             ),
             imageAssetPath: trends[index].imageAssetPath,
+            imageUrl: trends[index].imageUrl,
+            onTap: trends[index].cardRef == null
+                ? null
+                : () => context.push('/cards/${trends[index].cardRef}'),
             showPlaceholder: state.isUnavailable,
             placeholderKey: state.isUnavailable
                 ? Key('home-failure-trend-placeholder-$index')
@@ -802,10 +810,16 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _MostValuableTile extends StatelessWidget {
-  const _MostValuableTile({super.key, required this.card, required this.price});
+  const _MostValuableTile({
+    super.key,
+    required this.card,
+    required this.price,
+    required this.onTap,
+  });
 
   final HomeCardHighlight card;
   final String price;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -817,116 +831,117 @@ class _MostValuableTile extends StatelessWidget {
     return SizedBox(
       width: 144,
       height: 281,
-      child: Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0x1FFFFFFF)),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xCC1C1E15), Color(0xE612140D)],
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x66000000),
-              offset: Offset(0, 4),
-              blurRadius: 20,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0x1FFFFFFF)),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xCC1C1E15), Color(0xE612140D)],
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 155,
-              width: double.infinity,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Container(
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: KandoColors.ink,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: card.imageAssetPath == null
-                            ? const SizedBox.shrink()
-                            : Image.asset(
-                                card.imageAssetPath!,
-                                height: 143,
-                                fit: BoxFit.cover,
-                                filterQuality: FilterQuality.high,
-                              ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xB310100B),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        percent,
-                        style: const TextStyle(
-                          color: KandoColors.text,
-                          fontFamily: 'Geist',
-                          fontSize: 9,
-                          height: 12 / 9,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                offset: Offset(0, 4),
+                blurRadius: 20,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 155,
+                width: double.infinity,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Container(
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: KandoColors.ink,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: _HomeCardImage(
+                            imageAssetPath: card.imageAssetPath,
+                            imageUrl: card.imageUrl,
+                            height: 143,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xB310100B),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          percent,
+                          style: const TextStyle(
+                            color: KandoColors.text,
+                            fontFamily: 'Geist',
+                            fontSize: 9,
+                            height: 12 / 9,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              card.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFE4E3D3),
-                fontFamily: 'Fraunces',
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 20 / 14,
+              const SizedBox(height: 8),
+              Text(
+                card.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFE4E3D3),
+                  fontFamily: 'Fraunces',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  height: 20 / 14,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              card.subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: KandoColors.mutedText,
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                height: 18 / 11,
+              const SizedBox(height: 2),
+              Text(
+                card.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: KandoColors.mutedText,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  height: 18 / 11,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              price,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFFFF6AF),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 24 / 14,
+              const SizedBox(height: 4),
+              Text(
+                price,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFFFF6AF),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  height: 24 / 14,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -941,6 +956,8 @@ class _TrendingRow extends StatelessWidget {
     required this.percent,
     required this.percentColor,
     required this.imageAssetPath,
+    required this.imageUrl,
+    required this.onTap,
     required this.showPlaceholder,
     this.placeholderKey,
   });
@@ -951,57 +968,90 @@ class _TrendingRow extends StatelessWidget {
   final String percent;
   final Color percentColor;
   final String? imageAssetPath;
+  final String? imageUrl;
+  final VoidCallback? onTap;
   final bool showPlaceholder;
   final Key? placeholderKey;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 92,
-      decoration: BoxDecoration(
-        color: const Color(0x1FFFFFFF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x14FFFFFF)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 17),
-      child: Row(
-        children: [
-          if (showPlaceholder)
-            Image.asset(
-              'assets/home/trend_placeholder.png',
-              key: placeholderKey,
-              width: 42,
-              height: 58,
-              filterQuality: FilterQuality.high,
-            )
-          else
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 92,
+        decoration: BoxDecoration(
+          color: const Color(0x1FFFFFFF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0x14FFFFFF)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 17),
+        child: Row(
+          children: [
+            if (showPlaceholder)
+              Image.asset(
+                'assets/home/trend_placeholder.png',
+                key: placeholderKey,
                 width: 42,
                 height: 58,
-                child: imageAssetPath == null
-                    ? const ColoredBox(color: KandoColors.surface)
-                    : Image.asset(
-                        imageAssetPath!,
-                        fit: BoxFit.cover,
-                        filterQuality: FilterQuality.high,
-                      ),
+                filterQuality: FilterQuality.high,
+              )
+            else
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: SizedBox(
+                  width: 42,
+                  height: 58,
+                  child: _HomeCardImage(
+                    imageAssetPath: imageAssetPath,
+                    imageUrl: imageUrl,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFE4E3D3),
+                      fontFamily: 'Fraunces',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 20 / 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: KandoColors.mutedText,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      height: 18 / 11,
+                    ),
+                  ),
+                ],
               ),
             ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+            const SizedBox(width: 12),
+            Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  title,
+                  price,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFFE4E3D3),
-                    fontFamily: 'Fraunces',
+                    color: Color(0xFFFFF6AF),
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     height: 20 / 14,
@@ -1009,50 +1059,57 @@ class _TrendingRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: KandoColors.mutedText,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    height: 18 / 11,
+                  percent,
+                  style: TextStyle(
+                    color: percentColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    height: 16 / 12,
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                price,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFFFF6AF),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  height: 20 / 14,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                percent,
-                style: TextStyle(
-                  color: percentColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  height: 16 / 12,
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+}
+
+class _HomeCardImage extends StatelessWidget {
+  const _HomeCardImage({
+    required this.imageAssetPath,
+    required this.imageUrl,
+    this.height,
+  });
+
+  final String? imageAssetPath;
+  final String? imageUrl;
+  final double? height;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl;
+    if (url != null) {
+      return Image.network(
+        url,
+        height: height,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (context, error, stackTrace) =>
+            const ColoredBox(color: KandoColors.surface),
+      );
+    }
+    final asset = imageAssetPath;
+    if (asset != null) {
+      return Image.asset(
+        asset,
+        height: height,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
+      );
+    }
+    return const ColoredBox(color: KandoColors.surface);
   }
 }
 

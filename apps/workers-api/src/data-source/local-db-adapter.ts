@@ -117,7 +117,33 @@ LIMIT ? OFFSET ?`,
     },
 
     async getTrending() {
-      return [];
+      const results = await db
+        .prepare(
+          `${CARD_SELECT}
+WHERE EXISTS (
+  SELECT 1 FROM tcgplayer_skus
+  WHERE tcgplayer_skus.product_id = CAST(cards_all.product_id AS INTEGER)
+)
+ORDER BY updated_at DESC, product_id ASC
+LIMIT 100`,
+        )
+        .all<CardCatalogRow>();
+      const ranked = await Promise.all(
+        (results.results ?? []).map(async (row) => ({
+          card: cardFromRow(row),
+          score: recentChangeScore(await findSkuRows(db, row.product_id)),
+        })),
+      );
+
+      return ranked
+        .filter((item) => item.score !== null)
+        .sort(
+          (left, right) =>
+            right.score! - left.score! ||
+            left.card.card_ref.localeCompare(right.card.card_ref),
+        )
+        .slice(0, 10)
+        .map((item) => item.card);
     },
 
     async getSoldListings(): Promise<SoldListing[]> {
@@ -224,11 +250,34 @@ function latestPricePoint(
   return points.sort((left, right) => left.date.localeCompare(right.date)).at(-1) ?? null;
 }
 
+function recentChangeScore(rows: TcgplayerSkuRow[]): number | null {
+  let bestScore: number | null = null;
+
+  for (const row of rows) {
+    const points = parsePriceHistory(row.price_history).sort((left, right) =>
+      left.date.localeCompare(right.date),
+    );
+    const current = points.at(-1)?.price;
+    const previous = points.at(-2)?.price;
+    if (current === undefined || previous === undefined || previous <= 0) {
+      continue;
+    }
+
+    const score = Math.abs((current - previous) / previous);
+    bestScore = bestScore === null ? score : Math.max(bestScore, score);
+  }
+
+  return bestScore;
+}
+
 function filterPointsByDays(
   points: PriceHistoryEntry[],
   days: number,
 ): PricePoint[] {
-  const latest = latestPricePoint([...points]);
+  const sorted = [...points].sort((left, right) =>
+    left.date.localeCompare(right.date),
+  );
+  const latest = sorted.at(-1) ?? null;
 
   if (!latest) {
     return [];
@@ -237,9 +286,17 @@ function filterPointsByDays(
   const cutoff = new Date(`${latest.date}T00:00:00.000Z`);
   cutoff.setUTCDate(cutoff.getUTCDate() - Math.max(days, 1));
 
-  return points
-    .filter((point) => new Date(`${point.date}T00:00:00.000Z`) >= cutoff)
-    .map((point) => ({ date: point.date, price: point.price }));
+  const inRange = sorted.filter(
+    (point) => new Date(`${point.date}T00:00:00.000Z`) >= cutoff,
+  );
+  const baseline = sorted
+    .filter((point) => new Date(`${point.date}T00:00:00.000Z`) < cutoff)
+    .at(-1);
+
+  return [...(baseline ? [baseline] : []), ...inRange].map((point) => ({
+    date: point.date,
+    price: point.price,
+  }));
 }
 
 function skuMatchesCondition(

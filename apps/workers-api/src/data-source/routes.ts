@@ -73,6 +73,16 @@ const NOT_FOUND_RESPONSE = {
   },
 } as const;
 
+const IMAGE_UPSTREAM_ERROR_RESPONSE = {
+  success: false,
+  error: {
+    code: "UPSTREAM_ERROR",
+    message: "Card image is unavailable.",
+  },
+} as const;
+
+const TRUSTED_IMAGE_HOSTS = new Set(["product-images.tcgplayer.com"]);
+
 const MOCK_USD_RATES: Record<string, number> = {
   USD: 1,
   JPY: 155.32,
@@ -129,9 +139,18 @@ export function createDataSourceRoutes(
       }),
     );
 
+    const responseItems = items.map((item) =>
+      withProxiedImageUrl(item, c.req.url),
+    );
+
     return c.json({
       success: true,
-      data: { items, total: items.length, page, page_size: pageSize },
+      data: {
+        items: responseItems,
+        total: responseItems.length,
+        page,
+        page_size: pageSize,
+      },
     });
   });
 
@@ -148,7 +167,9 @@ export function createDataSourceRoutes(
     const cards = await listOrEmpty(() =>
       adapter.searchCards(query, { page, page_size: pageSize }),
     );
-    const items = setItemsFromCards(cards);
+    const items = setItemsFromCards(
+      cards.map((card) => withProxiedImageUrl(card, c.req.url)),
+    );
 
     return c.json({
       success: true,
@@ -175,9 +196,42 @@ export function createDataSourceRoutes(
     return c.json({
       success: true,
       data: {
-        items: [...pinnedItems, ...overriddenItems],
+        items: [...pinnedItems, ...overriddenItems].map((item) =>
+          withProxiedImageUrl(item, c.req.url),
+        ),
       },
     });
+  });
+
+  routes.get("/cards/:card_ref/image", async (c) => {
+    const cardRef = cardRefParam(c.req.param("card_ref"));
+    const adapter = createAdapter(c.env);
+    const card = await resolveCard(c.env.DB, adapter, cardRef);
+    const imageUrl = trustedImageUrl(card?.image_url ?? null);
+
+    if (!imageUrl) {
+      return c.json(NOT_FOUND_RESPONSE, 404);
+    }
+
+    try {
+      const upstream = await fetch(imageUrl.href);
+      const contentType = upstream.headers.get("content-type") ?? "";
+
+      if (!upstream.ok || !contentType.toLowerCase().startsWith("image/")) {
+        return c.json(IMAGE_UPSTREAM_ERROR_RESPONSE, 502);
+      }
+
+      const headers = new Headers({
+        "Cache-Control":
+          upstream.headers.get("cache-control") ?? "public, max-age=86400",
+        "Content-Type": contentType,
+        "X-Content-Type-Options": "nosniff",
+      });
+
+      return new Response(upstream.body, { status: 200, headers });
+    } catch {
+      return c.json(IMAGE_UPSTREAM_ERROR_RESPONSE, 502);
+    }
   });
 
   routes.get("/cards/:card_ref/market-prices", async (c) => {
@@ -228,35 +282,11 @@ export function createDataSourceRoutes(
   routes.get("/cards/:card_ref", async (c) => {
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
-    const override = await findCardOverride(c.env.DB, cardRef);
+    const card = await resolveCard(c.env.DB, adapter, cardRef);
 
-    if (override?.is_missing_card === 1) {
-      const card = applyCardOverride(null, override, cardRef);
-
-      if (card) {
-        return c.json({ success: true, data: card });
-      }
-    }
-
-    try {
-      const card = await adapter.getCard(cardRef);
-      const overriddenCard = applyCardOverride(card, override, cardRef);
-
-      if (!overriddenCard) {
-        return c.json(NOT_FOUND_RESPONSE, 404);
-      }
-
-      return c.json({
-        success: true,
-        data: overriddenCard,
-      });
-    } catch {
-      const card = applyCardOverride(null, override, cardRef);
-
-      return card
-        ? c.json({ success: true, data: card })
-        : c.json(NOT_FOUND_RESPONSE, 404);
-    }
+    return card
+      ? c.json({ success: true, data: withProxiedImageUrl(card, c.req.url) })
+      : c.json(NOT_FOUND_RESPONSE, 404);
   });
 
   routes.get("/rates", (c) => {
@@ -304,7 +334,8 @@ function runtimeDefaultCache(): DataSourceCache | null {
 async function listOrEmpty<T>(load: () => Promise<T[]>): Promise<T[]> {
   try {
     return await load();
-  } catch {
+  } catch (error) {
+    console.error("Data source list request failed.", error);
     return [];
   }
 }
@@ -351,6 +382,64 @@ async function getCardOrNull(
 ): Promise<CardSearchResult | null> {
   try {
     return await adapter.getCard(cardRef);
+  } catch {
+    return null;
+  }
+}
+
+async function resolveCard(
+  db: D1Database,
+  adapter: DataSourceAdapter,
+  cardRef: string,
+): Promise<CardResponse | null> {
+  const override = await findCardOverride(db, cardRef);
+
+  if (override?.is_missing_card === 1) {
+    const overriddenCard = applyCardOverride(null, override, cardRef);
+
+    if (overriddenCard) {
+      return overriddenCard;
+    }
+  }
+
+  const card = await getCardOrNull(adapter, cardRef);
+  return applyCardOverride(card, override, cardRef);
+}
+
+function withProxiedImageUrl<T extends CardSearchResult>(
+  card: T,
+  requestUrl: string,
+): T {
+  if (!trustedImageUrl(card.image_url)) {
+    return card;
+  }
+
+  const url = new URL(requestUrl);
+  const dataSourcePathIndex = ["/cards/", "/sets/"]
+    .map((segment) => url.pathname.indexOf(segment))
+    .find((index) => index >= 0);
+  const basePath =
+    dataSourcePathIndex === undefined
+      ? ""
+      : url.pathname.slice(0, dataSourcePathIndex);
+  url.pathname = `${basePath}/cards/${encodeURIComponent(card.card_ref)}/image`;
+  url.search = "";
+  url.hash = "";
+
+  return { ...card, image_url: url.href };
+}
+
+function trustedImageUrl(value: string | null): URL | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+
+    return url.protocol === "https:" && TRUSTED_IMAGE_HOSTS.has(url.hostname)
+      ? url
+      : null;
   } catch {
     return null;
   }

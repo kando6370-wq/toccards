@@ -1,13 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'home_models.dart';
 import 'home_repository.dart';
 
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {
-  return const MockHomeRepository();
+  final session = ref.watch(authControllerProvider).session;
+  if (session == null) return const _MissingHomeSessionRepository();
+  return ApiHomeRepository(
+    session: session,
+    portfolioApi: ref.watch(portfolioApiClientProvider),
+    cardDataApi: ref.watch(cardDataApiClientProvider),
+  );
 });
 
 final homeControllerProvider = NotifierProvider<HomeController, HomeState>(
@@ -32,6 +43,15 @@ class HomeState {
     required this.chartRange,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.failure;
+
+  HomeState.loading({
+    required HomeDashboard dashboard,
+    required this.selectedFolderId,
+    required this.currency,
+    required this.amountHidden,
+    required this.chartRange,
+  }) : _dashboard = dashboard,
+       loadStatus = KandoLoadStatus.loading;
 
   const HomeState._({
     required HomeDashboard? dashboard,
@@ -58,6 +78,7 @@ class HomeState {
   }
 
   bool get isUnavailable => loadStatus == KandoLoadStatus.failure;
+  bool get isLoading => loadStatus == KandoLoadStatus.loading;
   String get currencyCode => currency.code;
 
   HomeFolder get selectedFolder {
@@ -166,6 +187,8 @@ class HomeState {
 }
 
 class HomeController extends Notifier<HomeState> {
+  var _loadGeneration = 0;
+
   @override
   HomeState build() {
     ref.listen<AppCurrency>(selectedCurrencyProvider, (previous, next) {
@@ -190,20 +213,33 @@ class HomeController extends Notifier<HomeState> {
     try {
       final HomeRepository source =
           repository ?? ref.read(homeRepositoryProvider);
-      final dashboard = source.loadDashboard();
-      return HomeState(
+      final result = source.loadDashboard();
+      if (result is HomeDashboard) {
+        return _contentState(
+          result,
+          selectedCurrency,
+          previousState: previousState,
+        );
+      }
+      final generation = ++_loadGeneration;
+      unawaited(
+        _resolveDashboard(result, generation, selectedCurrency, previousState),
+      );
+      final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
+      return HomeState.loading(
         dashboard: dashboard,
-        selectedFolderId: dashboard.defaultFolder.id,
+        selectedFolderId:
+            previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
         currency: selectedCurrency,
-        amountHidden: false,
-        chartRange: _bestChartRange(
-          dashboard.portfoliosByFolderId[dashboard.defaultFolder.id]!,
-        ),
+        amountHidden: previousState?.amountHidden ?? false,
+        chartRange:
+            previousState?.chartRange ??
+            _bestChartRange(
+              dashboard.portfoliosByFolderId[dashboard.defaultFolder.id]!,
+            ),
       );
     } catch (_) {
-      final dashboard =
-          previousState?.dashboard ??
-          const MockHomeRepository().loadDashboard();
+      final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
       return HomeState.unavailable(
         dashboard: dashboard,
         selectedFolderId:
@@ -217,6 +253,57 @@ class HomeController extends Notifier<HomeState> {
             ),
       );
     }
+  }
+
+  Future<void> _resolveDashboard(
+    Future<HomeDashboard> result,
+    int generation,
+    AppCurrency currency,
+    HomeState? previousState,
+  ) async {
+    try {
+      final dashboard = await result;
+      if (!ref.mounted || generation != _loadGeneration) return;
+      state = _contentState(dashboard, currency, previousState: previousState);
+    } catch (_) {
+      if (!ref.mounted || generation != _loadGeneration) return;
+      final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
+      state = HomeState.unavailable(
+        dashboard: dashboard,
+        selectedFolderId:
+            previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
+        currency: currency,
+        amountHidden: previousState?.amountHidden ?? false,
+        chartRange:
+            previousState?.chartRange ??
+            _bestChartRange(
+              dashboard.portfoliosByFolderId[dashboard.defaultFolder.id]!,
+            ),
+      );
+    }
+  }
+
+  HomeState _contentState(
+    HomeDashboard dashboard,
+    AppCurrency currency, {
+    HomeState? previousState,
+  }) {
+    final previousFolderId = previousState?.selectedFolderId;
+    final selectedFolderId =
+        dashboard.folders.any((folder) => folder.id == previousFolderId)
+        ? previousFolderId!
+        : dashboard.defaultFolder.id;
+    final portfolio = dashboard.portfoliosByFolderId[selectedFolderId]!;
+    return HomeState(
+      dashboard: dashboard,
+      selectedFolderId: selectedFolderId,
+      currency: currency,
+      amountHidden: previousState?.amountHidden ?? false,
+      chartRange: _bestChartRange(
+        portfolio,
+        preferred: previousState?.chartRange,
+      ),
+    );
   }
 
   void selectFolder(String folderId) {
@@ -288,3 +375,33 @@ class HomeController extends Notifier<HomeState> {
     return preferred ?? HomeChartRange.fifteenDays;
   }
 }
+
+class _MissingHomeSessionRepository implements HomeRepository {
+  const _MissingHomeSessionRepository();
+
+  @override
+  Future<HomeDashboard> loadDashboard() {
+    return Future.error(StateError('Home requires an authenticated session.'));
+  }
+}
+
+const _emptyHomeDashboard = HomeDashboard(
+  folders: [HomeFolder(id: 'main', name: 'Main', isDefault: true)],
+  portfoliosByFolderId: {
+    'main': PortfolioSummary(
+      folderId: 'main',
+      totalValueUsd: 0,
+      previous30dValueUsd: 0,
+      chartValuesByRange: {
+        HomeChartRange.oneDay: [0],
+        HomeChartRange.sevenDays: [0],
+        HomeChartRange.fifteenDays: [0],
+        HomeChartRange.oneMonth: [0],
+        HomeChartRange.threeMonths: [0],
+      },
+    ),
+  },
+  mostValuableByFolderId: {'main': null},
+  mostValuableCardsByFolderId: {'main': []},
+  trending: [],
+);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMockDataSourceAdapter } from "./adapter";
+import { createMockDataSourceAdapter } from "./test-support/mock-data-source-adapter";
 
 describe("DataSourceAdapter mock implementation", () => {
   it("returns paginated card search results because proxy routes need a stable provider-independent contract", async () => {

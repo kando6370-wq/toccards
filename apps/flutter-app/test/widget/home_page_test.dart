@@ -25,6 +25,8 @@ import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import '../support/mock_home_repository.dart';
+
 void main() {
   test(
     'Figma Home card photo decodes at its design source aspect ratio',
@@ -89,6 +91,9 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+        ],
         child: MaterialApp(
           theme: buildKandoTheme(),
           home: const RepaintBoundary(
@@ -114,6 +119,7 @@ void main() {
   testWidgets('Figma partial Home failure renders at the 390x844 baseline', (
     tester,
   ) async {
+    final repository = _SuccessfulThenFailingHomeRepository();
     await (FontLoader(
       'Geist',
     )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
@@ -126,11 +132,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          homeRepositoryProvider.overrideWithValue(
-            _FailingThenSuccessfulHomeRepository(),
-          ),
-        ],
+        overrides: [homeRepositoryProvider.overrideWithValue(repository)],
         child: MaterialApp(
           theme: buildKandoTheme(),
           home: const RepaintBoundary(
@@ -144,6 +146,12 @@ void main() {
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
     await tester.pumpAndSettle();
+    _refreshHome(tester);
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
 
     await expectLater(
       find.byKey(const Key('home-failure-figma-golden')),
@@ -156,7 +164,7 @@ void main() {
   testWidgets('Home shows the M4-1 dashboard information hierarchy', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+    await tester.pumpWidget(_mockHomeApp());
 
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('PORTDOLIO'), findsOneWidget);
@@ -192,7 +200,7 @@ void main() {
   testWidgets('Overview uses the Figma filled 16px inverse label', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+    await tester.pumpWidget(_mockHomeApp());
 
     final overview = tester.widget<Text>(find.text('Overview'));
     expect(overview.style?.fontSize, 16);
@@ -202,7 +210,7 @@ void main() {
   testWidgets('Figma Home headings and card names use Fraunces', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+    await tester.pumpWidget(_mockHomeApp());
 
     expect(
       tester.widget<Text>(find.text('Most Valuable')).style?.fontFamily,
@@ -224,7 +232,7 @@ void main() {
   testWidgets(
     'Figma Home arrow assets render without a Material Icons font dependency',
     (tester) async {
-      await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+      await tester.pumpWidget(_mockHomeApp());
 
       expect(find.byKey(const Key('home-currency-chevron')), findsOneWidget);
       expect(find.byKey(const Key('home-view-all-arrow')), findsNWidgets(2));
@@ -236,7 +244,7 @@ void main() {
   testWidgets(
     'folder picker changes portfolio sections but not Trending Today',
     (tester) async {
-      await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+      await tester.pumpWidget(_mockHomeApp());
 
       await tester.tap(find.text('Main'));
       await tester.pumpAndSettle();
@@ -253,7 +261,7 @@ void main() {
   testWidgets(
     'currency picker converts the Figma portfolio and card price surfaces',
     (tester) async {
-      await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+      await tester.pumpWidget(_mockHomeApp());
 
       await tester.tap(find.text('USD'));
       await tester.pumpAndSettle();
@@ -270,7 +278,7 @@ void main() {
   );
 
   testWidgets('amount visibility toggle masks asset values', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+    await tester.pumpWidget(_mockHomeApp());
 
     await tester.tap(find.byKey(const Key('home-hide-amount')));
     await tester.pumpAndSettle();
@@ -283,7 +291,7 @@ void main() {
   testWidgets(
     'Most Valuable change badges stay tied to the displayed card data after a portfolio switch',
     (tester) async {
-      await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+      await tester.pumpWidget(_mockHomeApp());
 
       expect(find.text('+3.20%'), findsNWidgets(3));
       expect(find.text('0.001%'), findsNothing);
@@ -301,7 +309,7 @@ void main() {
   testWidgets(
     'page data failure keeps the Figma dashboard shell and refreshes local panels',
     (tester) async {
-      final repository = _FailingThenSuccessfulHomeRepository();
+      final repository = _SuccessfulThenFailingHomeRepository();
 
       await tester.pumpWidget(
         ProviderScope(
@@ -309,6 +317,9 @@ void main() {
           child: const _HomeTestApp(),
         ),
       );
+
+      _refreshHome(tester);
+      await tester.pumpAndSettle();
 
       expect(find.text('Overview'), findsOneWidget);
       expect(find.text(r'$12,450.80'), findsOneWidget);
@@ -329,7 +340,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Home'), findsOneWidget);
-      expect(repository.calls, 1);
+      expect(repository.calls, 2);
 
       await tester.tap(find.byKey(const Key('home-failure-chart-refresh')));
       await tester.pumpAndSettle();
@@ -337,14 +348,14 @@ void main() {
       expect(find.text('Overview'), findsOneWidget);
       expect(find.text(r'$12,450.80'), findsOneWidget);
       expect(find.text(noContentAvailableText), findsNothing);
-      expect(repository.calls, 2);
+      expect(repository.calls, 3);
     },
   );
 
   testWidgets(
     'Most Valuable failure refresh independently restores dashboard content',
     (tester) async {
-      final repository = _FailingThenSuccessfulHomeRepository();
+      final repository = _SuccessfulThenFailingHomeRepository();
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
       addTearDown(tester.view.reset);
@@ -356,6 +367,9 @@ void main() {
         ),
       );
 
+      _refreshHome(tester);
+      await tester.pumpAndSettle();
+
       final refresh = find.byKey(
         const Key('home-failure-most-valuable-refresh'),
       );
@@ -365,23 +379,22 @@ void main() {
 
       expect(find.text(noContentAvailableText), findsNothing);
       expect(find.byKey(const Key('home-most-valuable-list')), findsOneWidget);
-      expect(repository.calls, 2);
+      expect(repository.calls, 3);
     },
   );
 
   testWidgets('failed dashboard uses Figma placeholders for every trend card', (
     tester,
   ) async {
+    final repository = _SuccessfulThenFailingHomeRepository();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          homeRepositoryProvider.overrideWithValue(
-            _FailingThenSuccessfulHomeRepository(),
-          ),
-        ],
+        overrides: [homeRepositoryProvider.overrideWithValue(repository)],
         child: const _HomeTestApp(),
       ),
     );
+    _refreshHome(tester);
+    await tester.pumpAndSettle();
 
     for (var index = 0; index < 3; index += 1) {
       expect(
@@ -392,7 +405,7 @@ void main() {
   });
 
   testWidgets('empty folder shows Most Valuable empty copy', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: _HomeTestApp()));
+    await tester.pumpWidget(_mockHomeApp());
 
     await tester.tap(find.text('Main'));
     await tester.pumpAndSettle();
@@ -408,7 +421,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: _localAuthOverrides(),
+        overrides: [
+          ..._localAuthOverrides(),
+          homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+        ],
         child: const _HomeTestAppWithRoutes(),
       ),
     );
@@ -429,6 +445,7 @@ void main() {
           collectionRepositoryProvider.overrideWithValue(
             const MockCollectionRepository(),
           ),
+          homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
         ],
         child: const _HomeTestAppWithRoutes(),
       ),
@@ -444,7 +461,10 @@ void main() {
   testWidgets('Search bottom tab navigates to Search page', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: _searchOverrides(),
+        overrides: [
+          ..._searchOverrides(),
+          homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+        ],
         child: const _HomeTestAppWithRoutes(),
       ),
     );
@@ -459,7 +479,12 @@ void main() {
 
   testWidgets('Scan bottom tab opens the Scan workflow page', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(child: _HomeTestAppWithRoutes()),
+      ProviderScope(
+        overrides: [
+          homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+        ],
+        child: const _HomeTestAppWithRoutes(),
+      ),
     );
 
     await tester.tap(find.byKey(const Key('kando-tab-scan')));
@@ -484,6 +509,22 @@ _localAuthOverrides() {
       LocalPlaceholderAuthRepository(storage),
     ),
   ];
+}
+
+Widget _mockHomeApp() {
+  return ProviderScope(
+    overrides: [
+      homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+    ],
+    child: const _HomeTestApp(),
+  );
+}
+
+void _refreshHome(WidgetTester tester) {
+  final context = tester.element(find.byType(HomePage));
+  ProviderScope.containerOf(
+    context,
+  ).read(homeControllerProvider.notifier).refresh();
 }
 
 class _HomeTestApp extends StatelessWidget {
@@ -523,13 +564,13 @@ class _HomeTestAppWithRoutes extends StatelessWidget {
   }
 }
 
-class _FailingThenSuccessfulHomeRepository implements HomeRepository {
+class _SuccessfulThenFailingHomeRepository implements HomeRepository {
   var calls = 0;
 
   @override
   HomeDashboard loadDashboard() {
     calls += 1;
-    if (calls == 1) {
+    if (calls == 2) {
       throw StateError('mock home unavailable');
     }
     return const MockHomeRepository().loadDashboard();

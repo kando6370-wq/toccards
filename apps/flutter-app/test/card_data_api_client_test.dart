@@ -65,6 +65,26 @@ void main() {
   );
 
   test(
+    'searchCards accepts an empty card number because the D1 catalog does not invent identifiers',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [_cardJson(cardRef: '9359', cardNumber: '')],
+          },
+        });
+      });
+
+      final cards = await CardDataApiClient(
+        _dio(adapter),
+      ).searchCards('escape');
+
+      expect(cards.single.cardNumber, isEmpty);
+    },
+  );
+
+  test(
     'getMarketPrices rejects malformed rows because silently dropping prices would hide backend contract drift',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -90,13 +110,16 @@ Dio _dio(_RecordingAdapter adapter) {
   return dio;
 }
 
-Map<String, Object?> _cardJson({required String cardRef}) {
+Map<String, Object?> _cardJson({
+  required String cardRef,
+  String cardNumber = '025',
+}) {
   return {
     'card_ref': cardRef,
     'name': 'Pikachu',
     'set_name': 'Base Set',
     'set_code': 'BS',
-    'card_number': '025',
+    'card_number': cardNumber,
     'finish': 'Holofoil',
     'language': 'English',
     'object_type': 'tcg',

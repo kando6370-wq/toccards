@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import app, { type Env } from "../index";
 import type {
   CardSearchResult,
@@ -8,8 +8,8 @@ import type {
   PricePoint,
   SoldListing,
 } from "./adapter";
-import { createMockDataSourceAdapter } from "./adapter";
 import { createDataSourceRoutes } from "./routes";
+import { createMockDataSourceAdapter } from "./test-support/mock-data-source-adapter";
 
 class FakeKvNamespace {
   values = new Map<string, string>();
@@ -200,6 +200,10 @@ class MissingCardDataSourceAdapter implements DataSourceAdapter {
 }
 
 describe("data source routes", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("uses current D1 card catalog tables by default because M2 no longer depends on third-party mock data", async () => {
     const response = await app.request(
       "/api/v1/cards/search?q=pikachu",
@@ -273,6 +277,104 @@ describe("data source routes", () => {
             override_applied: false,
           }),
         ],
+      },
+    });
+  });
+
+  it("serves trusted catalog images through the API because Flutter Web canvas cannot render upstream images without CORS", async () => {
+    const imageUrl =
+      "https://product-images.tcgplayer.com/filters:quality(100)/9359.jpg";
+    const env = createTestEnv([], [
+      {
+        product_id: "9359",
+        game_id: 1,
+        game: "Magic",
+        set_name: "Odyssey",
+        set_code: "ODY",
+        name: "Escape Artist",
+        rarity: "Common",
+        product_type_name: "Cards",
+        image_url: imageUrl,
+      },
+    ]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        expect(url).toBe(imageUrl);
+        return new Response(Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]), {
+          headers: {
+            "cache-control": "max-age=31536000,public",
+            "content-type": "image/jpeg",
+          },
+        });
+      }),
+    );
+
+    const detail = await app.request(
+      "https://api.tcgcard.fun/api/v1/cards/9359",
+      { headers: { Origin: "http://localhost:3000" } },
+      env,
+    );
+    const image = await app.request(
+      "https://api.tcgcard.fun/api/v1/cards/9359/image",
+      { headers: { Origin: "http://localhost:3000" } },
+      env,
+    );
+
+    expect(await detail.json()).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        card_ref: "9359",
+        image_url: "https://api.tcgcard.fun/api/v1/cards/9359/image",
+      }),
+    });
+    expect(image.status).toBe(200);
+    expect(image.headers.get("content-type")).toBe("image/jpeg");
+    expect(image.headers.get("access-control-allow-origin")).toBe(
+      "http://localhost:3000",
+    );
+    expect(image.headers.get("cache-control")).toBe(
+      "max-age=31536000,public",
+    );
+    expect(Array.from(new Uint8Array(await image.arrayBuffer()))).toEqual([
+      0xff,
+      0xd8,
+      0xff,
+      0xd9,
+    ]);
+  });
+
+  it("keeps untrusted image hosts direct because the card image endpoint must not become an open proxy", async () => {
+    const response = await app.request(
+      "/api/v1/cards/search?q=pikachu",
+      {},
+      createTestEnv([], [
+        {
+          product_id: "300",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Base Set",
+          set_code: "BS",
+          name: "Pikachu",
+          rarity: "Common",
+          product_type_name: "Cards",
+          image_url: "https://img.example/300.jpg",
+        },
+      ]),
+    );
+
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        items: [
+          expect.objectContaining({
+            card_ref: "300",
+            image_url: "https://img.example/300.jpg",
+          }),
+        ],
+        total: 1,
+        page: 1,
+        page_size: 20,
       },
     });
   });

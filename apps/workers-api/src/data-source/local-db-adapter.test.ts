@@ -46,6 +46,10 @@ class FakeStatement {
   bind(...values: unknown[]): FakeBoundStatement {
     return new FakeBoundStatement(this.sql, this.cards, this.skus, values);
   }
+
+  all<T>(): Promise<{ results: T[] }> {
+    return new FakeBoundStatement(this.sql, this.cards, this.skus, []).all<T>();
+  }
 }
 
 class FakeBoundStatement {
@@ -74,6 +78,10 @@ class FakeBoundStatement {
         .slice(offset, offset + limit);
 
       return { results: results as T[] };
+    }
+
+    if (this.sql.includes("FROM cards_all")) {
+      return { results: this.cards as T[] };
     }
 
     if (this.sql.includes("FROM tcgplayer_skus")) {
@@ -155,6 +163,45 @@ describe("local D1 card data source adapter", () => {
     ).resolves.toEqual([
       { date: "2026-07-01", price: 12.5 },
       { date: "2026-07-08", price: 15.75 },
+    ]);
+    await expect(
+      adapter.getPriceSeries("100", "Raw", null, "Near Mint", 1),
+    ).resolves.toEqual([
+      { date: "2026-07-01", price: 12.5 },
+      { date: "2026-07-08", price: 15.75 },
+    ]);
+  });
+
+  it("ranks trending cards from recent price history because Home must not depend on mock or manually pinned data", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [
+          card({ product_id: "100", name: "Small Mover" }),
+          card({ product_id: "200", name: "Large Mover" }),
+        ],
+        [
+          sku({
+            product_id: 100,
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-14" },
+              { price: 11, date: "2026-07-15" },
+            ]),
+          }),
+          sku({
+            sku_id: 2,
+            product_id: 200,
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-14" },
+              { price: 15, date: "2026-07-15" },
+            ]),
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getTrending()).resolves.toMatchObject([
+      { card_ref: "200", name: "Large Mover" },
+      { card_ref: "100", name: "Small Mover" },
     ]);
   });
 });

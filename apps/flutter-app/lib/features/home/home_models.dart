@@ -38,34 +38,42 @@ class PortfolioSummary {
 
 class HomeCardHighlight {
   const HomeCardHighlight({
+    this.cardRef,
     required this.title,
     required this.subtitle,
     required this.priceUsd,
     required this.previousPriceUsd,
     this.imageAssetPath,
+    this.imageUrl,
   });
 
+  final String? cardRef;
   final String title;
   final String subtitle;
   final double priceUsd;
   final double previousPriceUsd;
   final String? imageAssetPath;
+  final String? imageUrl;
 }
 
 class TrendingCard {
   const TrendingCard({
+    this.cardRef,
     required this.title,
     required this.subtitle,
     required this.priceUsd,
     required this.previousPriceUsd,
     this.imageAssetPath,
+    this.imageUrl,
   });
 
+  final String? cardRef;
   final String title;
   final String subtitle;
   final double priceUsd;
   final double previousPriceUsd;
   final String? imageAssetPath;
+  final String? imageUrl;
 }
 
 class HomeDashboard {

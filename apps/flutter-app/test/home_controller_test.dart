@@ -6,11 +6,13 @@ import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import 'support/mock_home_repository.dart';
+
 void main() {
   test(
     'dashboard exposes spec-shaped folder, portfolio, highlight, and trend data',
     () {
-      final container = ProviderContainer();
+      final container = _mockHomeContainer();
       addTearDown(container.dispose);
 
       final state = container.read(homeControllerProvider);
@@ -69,7 +71,7 @@ void main() {
   );
 
   test(
-    'repository failure preserves Figma shell data and refresh restores dashboard',
+    'initial repository failure exposes no fabricated assets and refresh restores dashboard',
     () {
       final repository = _FailingThenSuccessfulHomeRepository();
       final container = ProviderContainer(
@@ -81,8 +83,8 @@ void main() {
 
       expect(failed.loadStatus, KandoLoadStatus.failure);
       expect(failed.isUnavailable, isTrue);
-      expect(failed.totalAmountText, r'$12,450.80');
-      expect(failed.dashboard.trending.first.title, 'Ragavan, Nimble Pilferer');
+      expect(failed.totalAmountText, r'$0.00');
+      expect(failed.dashboard.trending, isEmpty);
       expect(repository.calls, 1);
 
       container.read(homeControllerProvider.notifier).refresh();
@@ -123,7 +125,7 @@ void main() {
   test(
     'switching folder changes portfolio-scoped data while market trending stays stable',
     () {
-      final container = ProviderContainer();
+      final container = _mockHomeContainer();
       addTearDown(container.dispose);
 
       final initial = container.read(homeControllerProvider);
@@ -148,7 +150,7 @@ void main() {
   test(
     'currency conversion changes money display but leaves percentage stable',
     () {
-      final container = ProviderContainer();
+      final container = _mockHomeContainer();
       addTearDown(container.dispose);
 
       final controller = container.read(homeControllerProvider.notifier);
@@ -194,7 +196,7 @@ void main() {
   });
 
   test('invalid folder and currency selections leave state unchanged', () {
-    final container = ProviderContainer();
+    final container = _mockHomeContainer();
     addTearDown(container.dispose);
 
     final controller = container.read(homeControllerProvider.notifier);
@@ -212,7 +214,7 @@ void main() {
   test(
     'hidden amount masks asset money without losing selected folder state',
     () {
-      final container = ProviderContainer();
+      final container = _mockHomeContainer();
       addTearDown(container.dispose);
 
       final controller = container.read(homeControllerProvider.notifier);
@@ -230,7 +232,7 @@ void main() {
   test(
     'empty folder most valuable price uses placeholder unless amounts are hidden',
     () {
-      final container = ProviderContainer();
+      final container = _mockHomeContainer();
       addTearDown(container.dispose);
 
       final controller = container.read(homeControllerProvider.notifier);
@@ -249,7 +251,7 @@ void main() {
   );
 
   test('zero previous portfolio value falls back for percent change', () {
-    final container = ProviderContainer();
+    final container = _mockHomeContainer();
     addTearDown(container.dispose);
 
     final controller = container.read(homeControllerProvider.notifier);
@@ -282,7 +284,7 @@ void main() {
   );
 
   test('chart range switches the selected mock series', () {
-    final container = ProviderContainer();
+    final container = _mockHomeContainer();
     addTearDown(container.dispose);
 
     final controller = container.read(homeControllerProvider.notifier);
@@ -314,6 +316,14 @@ void main() {
       12450.8,
     ]);
   });
+}
+
+ProviderContainer _mockHomeContainer() {
+  return ProviderContainer(
+    overrides: [
+      homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+    ],
+  );
 }
 
 class _NegativeChangeHomeRepository implements HomeRepository {
