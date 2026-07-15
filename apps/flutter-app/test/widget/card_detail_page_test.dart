@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_actions.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
+import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -345,6 +348,26 @@ void main() {
     expect(actions.marketPrice, r'$780.00');
   });
 
+  testWidgets(
+    'wishlist failure shows shared Toast because backend rejection must not look successful',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'squirtle',
+          repository: _FailingWishlistCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('card-detail-wishlist-squirtle')));
+      await tester.pump();
+
+      expect(find.text(genericFailureToastText), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
+      expect(find.byIcon(Icons.favorite), findsNothing);
+    },
+  );
+
   testWidgets('unknown CardDetail shows shared failure copy', (tester) async {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'missing-card'));
     final container = ProviderScope.containerOf(
@@ -375,16 +398,25 @@ void main() {
 }
 
 class _CardDetailTestApp extends StatelessWidget {
-  const _CardDetailTestApp({required this.cardId, this.actions});
+  const _CardDetailTestApp({
+    required this.cardId,
+    this.actions,
+    this.repository,
+  });
 
   final String cardId;
   final CardDetailActions? actions;
+  final CardDetailRepository? repository;
 
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
       overrides: [
-        ..._cardDetailOverrides,
+        authStorageProvider.overrideWithValue(_cardDetailAuthStorage),
+        authRepositoryProvider.overrideWithValue(_cardDetailAuthRepository),
+        cardDetailRepositoryProvider.overrideWithValue(
+          repository ?? const MockCardDetailRepository(),
+        ),
         if (actions != null)
           cardDetailActionsProvider.overrideWithValue(actions!),
       ],
@@ -446,5 +478,14 @@ class _RecordingCardDetailActions implements CardDetailActions {
     this.name = name;
     this.setName = setName;
     this.marketPrice = marketPrice;
+  }
+}
+
+class _FailingWishlistCardDetailRepository extends MockCardDetailRepository {
+  const _FailingWishlistCardDetailRepository();
+
+  @override
+  Future<String> addWishlist(AuthSession session, String cardRef) {
+    throw StateError('Wishlist backend rejected the mutation.');
   }
 }

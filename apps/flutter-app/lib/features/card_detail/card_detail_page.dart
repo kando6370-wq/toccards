@@ -243,7 +243,11 @@ class _CardHeader extends ConsumerWidget {
               IconButton(
                 key: Key('card-detail-wishlist-${detail.id}'),
                 onPressed: () async {
-                  await controller.toggleWishlist();
+                  try {
+                    await controller.toggleWishlist();
+                  } catch (_) {
+                    if (context.mounted) showKandoFailureToast(context);
+                  }
                 },
                 style: iconButtonStyle,
                 icon: Icon(
