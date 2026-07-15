@@ -127,64 +127,124 @@ class HomePage extends ConsumerWidget {
   Future<void> _showCurrencySheet(BuildContext context, WidgetRef ref) {
     final selected = ref.read(homeControllerProvider).currencyCode;
     final pageContext = context;
+    var query = '';
 
     return showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: KandoColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SheetDragHandle(),
-                const SizedBox(height: 16),
-                Text(
-                  'Select currency',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: KandoColors.text,
-                    fontWeight: FontWeight.w700,
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final normalizedQuery = query.trim().toLowerCase();
+            final currencies = AppCurrency.values.where((currency) {
+              return normalizedQuery.isEmpty ||
+                  currency.code.toLowerCase().contains(normalizedQuery) ||
+                  currency.label.toLowerCase().contains(normalizedQuery) ||
+                  currency.symbol.toLowerCase().contains(normalizedQuery);
+            }).toList();
+            return FractionallySizedBox(
+              heightFactor: 0.88,
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    8,
+                    20,
+                    20 + MediaQuery.viewInsetsOf(context).bottom,
                   ),
-                ),
-                const SizedBox(height: 16),
-                // TODO(figma): add a "Search currency" field once a search/
-                // filter state is available (would require new UI state wiring).
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (final currency in AppCurrency.values) ...[
-                          _CurrencyRow(
-                            code: currency.code,
-                            label: currency.label,
-                            symbol: currency.symbol,
-                            isSelected: currency.code == selected,
-                            onTap: () async {
-                              final success = await ref
-                                  .read(homeControllerProvider.notifier)
-                                  .selectCurrency(currency.code);
-                              if (!context.mounted) return;
-                              Navigator.of(context).pop();
-                              if (!success) {
-                                showKandoFailureToast(pageContext);
-                              }
-                            },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _SheetDragHandle(),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Select currency',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: KandoColors.text,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        key: const Key('home-currency-search'),
+                        onChanged: (value) {
+                          setModalState(() => query = value);
+                        },
+                        style: const TextStyle(
+                          color: KandoColors.text,
+                          fontSize: 15,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search currency...',
+                          hintStyle: const TextStyle(
+                            color: KandoColors.mutedText,
+                            fontSize: 15,
                           ),
-                          const SizedBox(height: 12),
-                        ],
-                      ],
-                    ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: KandoColors.mutedText,
+                            size: 20,
+                          ),
+                          filled: true,
+                          fillColor: KandoColors.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: KandoColors.border,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: KandoColors.border,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: KandoColors.accent,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              for (final currency in currencies) ...[
+                                _CurrencyRow(
+                                  code: currency.code,
+                                  label: currency.label,
+                                  symbol: currency.symbol,
+                                  isSelected: currency.code == selected,
+                                  onTap: () async {
+                                    final success = await ref
+                                        .read(homeControllerProvider.notifier)
+                                        .selectCurrency(currency.code);
+                                    if (!context.mounted) return;
+                                    Navigator.of(context).pop();
+                                    if (!success) {
+                                      showKandoFailureToast(pageContext);
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );

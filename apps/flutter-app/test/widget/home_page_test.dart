@@ -287,6 +287,32 @@ void main() {
     },
   );
 
+  testWidgets(
+    'currency search filters by display name before the real rate and preference update',
+    (tester) async {
+      final preferences = _TestPortfolioManagementApi();
+      await tester.pumpWidget(_mockHomeApp(preferences));
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.text('USD'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('home-currency-search')),
+        'pound',
+      );
+      await tester.pump();
+
+      expect(find.text('GBP'), findsOneWidget);
+      expect(find.text('EUR'), findsNothing);
+
+      await tester.tap(find.text('GBP'));
+      await tester.pumpAndSettle();
+
+      expect(preferences.currencyCodes, ['GBP']);
+      expect(find.text('GBP'), findsOneWidget);
+    },
+  );
+
   testWidgets('amount visibility toggle masks asset values', (tester) async {
     final preferences = _TestPortfolioManagementApi();
     await tester.pumpWidget(_mockHomeApp(preferences));
