@@ -307,6 +307,122 @@ void main() {
     },
   );
 
+  testWidgets('oauth failure renders the Figma panel canvas', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    final authorizer = _WidgetOAuthAuthorizer(
+      error: Exception('provider failed'),
+    );
+
+    await tester.pumpWidget(
+      _testAuthSheetApp(repository, authorizer: authorizer),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+
+    final panel = find.byKey(const Key('auth-sheet-panel'));
+    final failureCanvas = find.byKey(
+      const Key('auth-options-failure-panel-canvas'),
+    );
+    final closeButton = find.byKey(const Key('auth-sheet-close'));
+    expect(tester.getSize(panel), const Size(390, 407));
+    expect(tester.getBottomRight(panel), const Offset(390, 844));
+    expect(tester.getTopLeft(closeButton), const Offset(175, 381));
+    expect(failureCanvas, findsOneWidget);
+    expect(find.byKey(const Key('auth-options-close-canvas')), findsOneWidget);
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/auth/auth_failure_panel_canvas.png'),
+        tester.element(failureCanvas),
+      ),
+    );
+    await tester.pump();
+    await expectLater(
+      failureCanvas,
+      matchesGoldenFile(
+        'goldens/rendered/figma_auth_failure_panel_183_11556_390x407.png',
+      ),
+    );
+  });
+
+  testWidgets('oauth failure keeps email fallback available', (tester) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    final authorizer = _WidgetOAuthAuthorizer(
+      error: Exception('provider failed'),
+    );
+
+    await tester.pumpWidget(
+      _testAuthSheetApp(repository, authorizer: authorizer),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Email'));
+    await tester.pumpAndSettle();
+
+    expect(authorizer.requests, [OAuthProvider.google]);
+    expect(find.byKey(const Key('email-auth-page')), findsOneWidget);
+  });
+
+  testWidgets('oauth failure keeps Google retry available', (tester) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    final authorizer = _WidgetOAuthAuthorizer(
+      error: Exception('provider failed'),
+    );
+
+    await tester.pumpWidget(
+      _testAuthSheetApp(repository, authorizer: authorizer),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+
+    expect(authorizer.requests, [OAuthProvider.google, OAuthProvider.google]);
+    expect(find.byKey(const Key('auth-oauth-warning')), findsOneWidget);
+  });
+
+  testWidgets('oauth failure allows switching to Apple', (tester) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    final authorizer = _WidgetOAuthAuthorizer(
+      error: Exception('provider failed'),
+    );
+
+    await tester.pumpWidget(
+      _testAuthSheetApp(repository, authorizer: authorizer),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Apple'));
+    await tester.pumpAndSettle();
+
+    expect(authorizer.requests, [OAuthProvider.google, OAuthProvider.apple]);
+    expect(find.byKey(const Key('auth-oauth-warning')), findsOneWidget);
+  });
+
   testWidgets(
     'email option opens the Figma full-screen email flow instead of keeping the form in the auth sheet',
     (tester) async {
@@ -1077,9 +1193,16 @@ ProviderScope _testApp(
   );
 }
 
-ProviderScope _testAuthSheetApp(_WidgetAuthRepository repository) {
+ProviderScope _testAuthSheetApp(
+  _WidgetAuthRepository repository, {
+  OAuthAuthorizer? authorizer,
+}) {
   return ProviderScope(
-    overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    overrides: [
+      authRepositoryProvider.overrideWithValue(repository),
+      if (authorizer != null)
+        oauthAuthorizerProvider.overrideWithValue(authorizer),
+    ],
     child: MaterialApp(
       theme: buildKandoTheme(),
       home: Builder(

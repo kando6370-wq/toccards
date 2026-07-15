@@ -97,29 +97,9 @@ class _AuthSheetFrameState extends State<_AuthSheetFrame> {
           ),
           Positioned(
             top: 0,
-            child: _showOAuthWarning
-                ? Material(
-                    key: const Key('auth-sheet-close'),
-                    color: KandoColors.ink,
-                    shape: const CircleBorder(
-                      side: BorderSide(color: Color(0x14FFFFFF)),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: const SizedBox.square(
-                        dimension: 40,
-                        child: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 20,
-                          color: KandoColors.text,
-                        ),
-                      ),
-                    ),
-                  )
-                : _FigmaAuthCloseAction(
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
+            child: _FigmaAuthCloseAction(
+              onPressed: () => Navigator.of(context).pop(),
+            ),
           ),
         ],
       ),
@@ -332,6 +312,127 @@ class _HiddenAuthOptionContent extends StatelessWidget {
   }
 }
 
+class _FigmaOAuthFailureOptions extends StatelessWidget {
+  const _FigmaOAuthFailureOptions({
+    required this.message,
+    required this.onGooglePressed,
+    required this.onApplePressed,
+    required this.onEmailPressed,
+    required this.agreement,
+  });
+
+  final String message;
+  final VoidCallback? onGooglePressed;
+  final VoidCallback? onApplePressed;
+  final VoidCallback? onEmailPressed;
+  final Widget agreement;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalScale = constraints.maxWidth / 390;
+        final verticalScale = constraints.maxHeight / 407;
+        return Stack(
+          children: [
+            const Positioned.fill(
+              child: RepaintBoundary(
+                key: Key('auth-options-failure-panel-canvas'),
+                child: Image(
+                  image: AssetImage(
+                    'assets/auth/auth_failure_panel_canvas.png',
+                  ),
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 24 * horizontalScale,
+              top: 28 * verticalScale,
+              width: 347 * horizontalScale,
+              height: 56 * verticalScale,
+              child: _FigmaAuthAction(
+                label: 'Continue with Email',
+                onPressed: onEmailPressed,
+                child: _HiddenAuthOptionContent(
+                  icon: SvgPicture.asset(
+                    'assets/auth/email.svg',
+                    key: const Key('auth-email-icon'),
+                    width: 24,
+                    height: 24,
+                  ),
+                  label: 'Continue with Email',
+                ),
+              ),
+            ),
+            Positioned(
+              left: 24 * horizontalScale,
+              top: 98 * verticalScale,
+              width: 347 * horizontalScale,
+              height: 56 * verticalScale,
+              child: _FigmaAuthAction(
+                label: 'Continue with Google',
+                onPressed: onGooglePressed,
+                child: _HiddenAuthOptionContent(
+                  icon: SvgPicture.asset(
+                    'assets/auth/google.svg',
+                    key: const Key('auth-google-icon'),
+                    width: 24,
+                    height: 24,
+                  ),
+                  label: 'Continue with Google',
+                ),
+              ),
+            ),
+            Positioned(
+              left: 24 * horizontalScale,
+              top: 168 * verticalScale,
+              width: 347 * horizontalScale,
+              height: 56 * verticalScale,
+              child: _FigmaAuthAction(
+                label: 'Continue with Apple',
+                onPressed: onApplePressed,
+                child: _HiddenAuthOptionContent(
+                  icon: SvgPicture.asset(
+                    'assets/auth/apple.svg',
+                    key: const Key('auth-apple-icon'),
+                    width: 24,
+                    height: 24,
+                  ),
+                  label: 'Continue with Apple',
+                ),
+              ),
+            ),
+            Positioned(
+              left: 24 * horizontalScale,
+              top: 244 * verticalScale,
+              width: 347 * horizontalScale,
+              height: 44 * verticalScale,
+              child: Opacity(
+                opacity: 0,
+                alwaysIncludeSemantics: true,
+                child: _OAuthWarning(message: message),
+              ),
+            ),
+            Positioned(
+              left: 68 * horizontalScale,
+              top: 320 * verticalScale,
+              width: 255 * horizontalScale,
+              height: 40 * verticalScale,
+              child: Opacity(
+                opacity: 0,
+                alwaysIncludeSemantics: true,
+                child: agreement,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _AuthSheet extends ConsumerStatefulWidget {
   const _AuthSheet({required this.onOAuthWarningChanged});
 
@@ -372,6 +473,15 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
       termsRecognizer: _termsRecognizer,
       privacyRecognizer: _privacyRecognizer,
     );
+    if (_showOAuthWarning) {
+      return _FigmaOAuthFailureOptions(
+        message: _errorText ?? authAuthorizationFailedMessage,
+        onGooglePressed: _loading ? null : _continueWithGoogle,
+        onApplePressed: _loading ? null : _continueWithApple,
+        onEmailPressed: _loading ? null : _openEmailAuthPage,
+        agreement: agreement,
+      );
+    }
     if (!_showOAuthWarning && _errorText == null) {
       return _FigmaAuthOptions(
         onGooglePressed: _loading ? null : _continueWithGoogle,
@@ -381,9 +491,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
       );
     }
 
-    final options = _showOAuthWarning
-        ? [_emailOption(), _googleOption(), _appleOption()]
-        : [_googleOption(), _appleOption(), _emailOption()];
+    final options = [_googleOption(), _appleOption(), _emailOption()];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 28, 24, 57),
@@ -395,13 +503,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
               if (index > 0) const SizedBox(height: 14),
               options[index],
             ],
-            if (_showOAuthWarning) ...[
-              const SizedBox(height: 12),
-              _OAuthWarning(
-                message: _errorText ?? authAuthorizationFailedMessage,
-              ),
-            ],
-            if (_errorText != null && !_showOAuthWarning) ...[
+            if (_errorText != null) ...[
               const SizedBox(height: 12),
               Text(
                 _errorText!,
