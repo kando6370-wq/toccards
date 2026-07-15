@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import 'collection_controller.dart';
 import 'collection_models.dart';
@@ -47,7 +48,12 @@ class CollectionPage extends ConsumerWidget {
                 _PortfolioSummaryCard(
                   state: state,
                   onFolderPressed: () => showPortfolioFolderSheet(context, ref),
-                  onHidePressed: controller.toggleAmountHidden,
+                  onHidePressed: () async {
+                    if (!await controller.toggleAmountHidden() &&
+                        context.mounted) {
+                      showKandoFailureToast(context);
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
               ],
@@ -930,9 +936,7 @@ Future<bool> _confirmDeleteFolder(
 }
 
 void _showCollectionActionError(BuildContext context) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Something went wrong. Please try again.')),
-  );
+  showKandoFailureToast(context);
 }
 
 Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {

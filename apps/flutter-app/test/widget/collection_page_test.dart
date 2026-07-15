@@ -16,6 +16,7 @@ import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -185,6 +186,32 @@ void main() {
     expect(find.text(r'$1,245.00'), findsNothing);
     expect(find.text('+8.10%'), findsOneWidget);
   });
+
+  testWidgets(
+    'amount toggle failure restores money and shows shared Toast because the server preference is authoritative',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._localAuthOverrides(),
+            collectionRepositoryProvider.overrideWithValue(
+              const _FailingPreferenceCollectionRepository(),
+            ),
+          ],
+          child: const _CollectionTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('collection-hide-amount')));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text(genericFailureToastText), findsOneWidget);
+      expect(find.text(r'$1,245.00'), findsOneWidget);
+      expect(find.text(hiddenMoneyText), findsNothing);
+    },
+  );
 
   testWidgets('filter sheet applies Game and Language filters', (tester) async {
     await _pumpCollection(tester);
@@ -479,5 +506,19 @@ class _PreferenceCollectionRepository extends MockCollectionRepository {
   Future<CollectionDashboard> loadDashboard(AuthSession session) async {
     final dashboard = await super.loadDashboard(session);
     return dashboard.copyWith(currencyCode: 'EUR');
+  }
+}
+
+class _FailingPreferenceCollectionRepository extends MockCollectionRepository {
+  const _FailingPreferenceCollectionRepository();
+
+  @override
+  Future<void> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) {
+    throw StateError('Preference backend rejected the mutation.');
   }
 }
