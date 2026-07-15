@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/card_detail/card_detail_controller.dart';
+import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
@@ -524,6 +526,7 @@ class CollectionController extends Notifier<CollectionState> {
           folders: [...state.dashboard.folders, folder],
         ),
       );
+      _invalidateFolderConsumers();
       return folder;
     } catch (_) {
       return null;
@@ -551,6 +554,7 @@ class CollectionController extends Notifier<CollectionState> {
           ],
         ),
       );
+      _invalidateFolderConsumers();
       return true;
     } catch (_) {
       return false;
@@ -574,6 +578,7 @@ class CollectionController extends Notifier<CollectionState> {
           ],
         ),
       );
+      _invalidateFolderConsumers();
       return true;
     } catch (_) {
       return false;
@@ -601,6 +606,7 @@ class CollectionController extends Notifier<CollectionState> {
       await ref
           .read(collectionRepositoryProvider)
           .reorderFolders(session, folderIds);
+      _invalidateFolderConsumers();
       return true;
     } catch (_) {
       state = state.copyWith(
@@ -642,14 +648,11 @@ class CollectionController extends Notifier<CollectionState> {
         selectedFolderId: selectedFolderId,
       );
       if (selectedFolderId == fallbackId) {
-        await ref.read(collectionRepositoryProvider).updatePreferences(
-          session,
-          lastSelectedFolderId: fallbackId,
-        );
         ref
             .read(selectedPortfolioFolderProvider.notifier)
             .select(fallbackId);
       }
+      _invalidateFolderConsumers();
       return true;
     } catch (_) {
       return false;
@@ -715,5 +718,10 @@ class CollectionController extends Notifier<CollectionState> {
       state = state.copyWith(amountHidden: previous);
       return false;
     }
+  }
+
+  void _invalidateFolderConsumers() {
+    ref.invalidate(homeControllerProvider);
+    ref.invalidate(cardDetailControllerProvider);
   }
 }

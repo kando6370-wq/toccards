@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_repository.dart';
+import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
@@ -13,6 +15,8 @@ import 'package:kando_app/shared/ui/load_state.dart';
 import 'support/in_memory_auth_storage.dart';
 import 'support/local_placeholder_auth_repository.dart';
 import 'support/mock_collection_repository.dart';
+import 'support/mock_card_detail_repository.dart';
+import 'support/mock_home_repository.dart';
 
 void main() {
   test(
@@ -412,7 +416,31 @@ void main() {
       expect(state.dashboard.defaultFolder.id, created.id);
       expect(state.selectedFolder.id, created.id);
       expect(repository.deletedFolderIds, ['sealed']);
-      expect(repository.selectedFolderIds, ['sealed', created.id]);
+      expect(
+        repository.selectedFolderIds,
+        ['sealed'],
+        reason:
+            'Workers clears a deleted selected folder, so Flutter must not issue a second preference write after deletion.',
+      );
+    },
+  );
+
+  test(
+    'folder mutation invalidates Home and Card Detail because both cache portfolio folder data',
+    () async {
+      final container = _collectionContainer(includeFolderConsumers: true);
+      addTearDown(container.dispose);
+      await _loadedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+      final homeState = container.read(homeControllerProvider);
+      final detailProvider = cardDetailControllerProvider('squirtle');
+      await container.read(detailProvider.notifier).loadComplete;
+      final detailState = container.read(detailProvider);
+
+      expect(await controller.createFolder('Trade'), isNotNull);
+
+      expect(container.read(homeControllerProvider), isNot(same(homeState)));
+      expect(container.read(detailProvider), isNot(same(detailState)));
     },
   );
 
@@ -508,6 +536,7 @@ void main() {
 
 ProviderContainer _collectionContainer({
   CollectionRepository repository = const MockCollectionRepository(),
+  bool includeFolderConsumers = false,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -517,6 +546,12 @@ ProviderContainer _collectionContainer({
         LocalPlaceholderAuthRepository(storage),
       ),
       collectionRepositoryProvider.overrideWithValue(repository),
+      if (includeFolderConsumers) ...[
+        homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+        cardDetailRepositoryProvider.overrideWithValue(
+          const MockCardDetailRepository(),
+        ),
+      ],
     ],
   );
 }
