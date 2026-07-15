@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
-import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
@@ -13,6 +12,7 @@ import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import 'support/in_memory_auth_storage.dart';
 import 'support/local_placeholder_auth_repository.dart';
 import 'support/mock_card_detail_repository.dart';
 

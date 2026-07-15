@@ -9,7 +9,6 @@ import 'package:kando_app/app/theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
-import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_controller.dart';
@@ -26,6 +25,7 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_collection_repository.dart';
 import '../support/mock_home_repository.dart';

@@ -6,7 +6,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
-import 'package:kando_app/features/auth/auth_storage.dart';
+
+import 'support/in_memory_auth_storage.dart';
 
 void main() {
   test(

@@ -14,48 +14,6 @@ abstract interface class AuthStorage {
   Future<String> readOrCreateDeviceId();
 }
 
-class InMemoryAuthStorage implements AuthStorage {
-  AuthSession? _session;
-  AuthSession? _previousAnonymousSession;
-  String? _deviceId;
-
-  @override
-  Future<AuthSession?> readSession() async => _session;
-
-  @override
-  Future<AuthSession?> readPreviousAnonymousSession() async {
-    return _previousAnonymousSession;
-  }
-
-  @override
-  Future<void> writeSession(AuthSession session) async {
-    if (session.isUser && (_session?.isAnonymous ?? false)) {
-      _previousAnonymousSession = _session;
-    }
-    _session = session;
-  }
-
-  @override
-  Future<void> clearUserSession() async {
-    if (_session?.isUser ?? false) {
-      _session = null;
-    }
-  }
-
-  @override
-  Future<void> clearAnonymousSession() async {
-    _previousAnonymousSession = null;
-    if (_session?.isAnonymous ?? false) {
-      _session = null;
-    }
-  }
-
-  @override
-  Future<String> readOrCreateDeviceId() async {
-    return _deviceId ??= _createUuidV4();
-  }
-}
-
 class SecureAuthStorage implements AuthStorage {
   const SecureAuthStorage({
     FlutterSecureStorage storage = const FlutterSecureStorage(),

@@ -3,12 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
-import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/onboarding/onboarding_gate.dart';
 import 'package:kando_app/features/onboarding/onboarding_page.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/app/theme.dart';
 
+import '../support/in_memory_auth_storage.dart';
 import '../support/in_memory_onboarding_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
 

@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
-import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
@@ -18,6 +17,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';

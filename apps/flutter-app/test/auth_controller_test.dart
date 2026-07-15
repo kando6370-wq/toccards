@@ -6,8 +6,8 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/oauth_authorizer.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
-import 'package:kando_app/features/auth/auth_storage.dart';
 
+import 'support/in_memory_auth_storage.dart';
 import 'support/local_placeholder_auth_repository.dart';
 
 void main() {
