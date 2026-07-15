@@ -1283,6 +1283,7 @@ ProviderScope _testApp(
   return ProviderScope(
     overrides: [
       authRepositoryProvider.overrideWithValue(repository),
+      authDeviceIdProvider.overrideWithValue('widget-test-device'),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(onboardingStorage),
       ),

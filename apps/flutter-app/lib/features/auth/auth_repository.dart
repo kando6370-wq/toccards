@@ -82,7 +82,7 @@ class HttpAuthRepository implements AuthRepository {
   const HttpAuthRepository(this._dio, this._storage);
 
   final Dio _dio;
-  final InMemoryAuthStorage _storage;
+  final AuthStorage _storage;
 
   @override
   Future<AuthSession?> currentSessionFromStorage() {
@@ -471,7 +471,7 @@ class HttpAuthRepository implements AuthRepository {
 class LocalPlaceholderAuthRepository implements AuthRepository {
   LocalPlaceholderAuthRepository(this._storage);
 
-  final InMemoryAuthStorage _storage;
+  final AuthStorage _storage;
 
   @override
   Future<AuthSession?> currentSessionFromStorage() {

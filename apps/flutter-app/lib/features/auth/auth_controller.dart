@@ -23,8 +23,8 @@ class AuthActionException implements Exception {
   String toString() => message;
 }
 
-final authStorageProvider = Provider<InMemoryAuthStorage>((ref) {
-  return InMemoryAuthStorage();
+final authStorageProvider = Provider<AuthStorage>((ref) {
+  return const SecureAuthStorage();
 });
 
 final authDioProvider = Provider((ref) {
@@ -44,9 +44,7 @@ final oauthAuthorizerProvider = Provider<OAuthAuthorizer>((ref) {
   return GoogleOAuthAuthorizer.instance;
 });
 
-final authDeviceIdProvider = Provider<String>((ref) {
-  return 'local-device';
-});
+final authDeviceIdProvider = Provider<String?>((ref) => null);
 
 final authControllerProvider = NotifierProvider<AuthController, AuthState>(
   AuthController.new,
@@ -59,7 +57,7 @@ class AuthController extends Notifier<AuthState> {
 
   AuthRepository get _repository => ref.read(authRepositoryProvider);
   OAuthAuthorizer get _oauthAuthorizer => ref.read(oauthAuthorizerProvider);
-  String get _deviceId => ref.read(authDeviceIdProvider);
+  AuthStorage get _storage => ref.read(authStorageProvider);
 
   Future<void> get startupComplete {
     return _startupCompleter?.future ?? Future<void>.value();
@@ -255,9 +253,9 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> _replaceWithAnonymous({int? expectedGeneration}) async {
-    final anonymousSession = await _repository.createAnonymousSession(
-      _deviceId,
-    );
+    final deviceId =
+        ref.read(authDeviceIdProvider) ?? await _storage.readOrCreateDeviceId();
+    final anonymousSession = await _repository.createAnonymousSession(deviceId);
     if (!_isExpectedGeneration(expectedGeneration)) {
       return;
     }
