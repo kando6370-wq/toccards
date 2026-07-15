@@ -63,8 +63,8 @@ const INSERT_USER_PREFERENCE_SQL = `
 
 const INSERT_SESSION_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  VALUES (?, 'anonymous', ?, ?, ?, ?, NULL)
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'anonymous', ?, NULL, ?, ?, ?, NULL)
 `;
 
 export const authRoutes = new Hono<{ Bindings: Env }>();

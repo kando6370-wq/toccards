@@ -143,12 +143,19 @@ export const session = sqliteTable(
     id: text("id").primaryKey(),
     ownerType: text("owner_type").notNull(), // 'user' | 'anonymous'
     ownerId: text("owner_id").notNull(),
+    loginMethod: text("login_method"), // NULL for anonymous or legacy sessions
     refreshToken: text("refresh_token").notNull().unique(),
     expiresAt: text("expires_at").notNull(),
     createdAt: text("created_at").notNull(),
     revokedAt: text("revoked_at"), // NULL = 有效
   },
-  (t) => [index("idx_session_owner").on(t.ownerType, t.ownerId)],
+  (t) => [
+    index("idx_session_owner").on(t.ownerType, t.ownerId),
+    check(
+      "ck_session_login_method",
+      sql`${t.loginMethod} IS NULL OR ${t.loginMethod} IN ('email', 'google', 'apple')`,
+    ),
+  ],
 );
 
 export const verificationCode = sqliteTable(

@@ -315,6 +315,7 @@ class HttpAuthRepository implements AuthRepository {
         refreshToken: session.refreshToken,
         userId: _nullableString(data['user_id']),
         email: _nullableString(data['email']),
+        loginMethod: _loginMethod(data['login_method']),
       );
     } on AuthApiException catch (error) {
       if (error.code == 'UNAUTHORIZED') return null;
@@ -339,6 +340,7 @@ class HttpAuthRepository implements AuthRepository {
         anonymousId: session.anonymousId,
         userId: session.userId,
         email: session.email,
+        loginMethod: session.loginMethod,
       );
     } on AuthApiException {
       return null;
@@ -430,7 +432,25 @@ class HttpAuthRepository implements AuthRepository {
       refreshToken: _requiredString(data['refresh_token']),
       userId: _requiredString(data['user_id']),
       email: _nullableString(data['email']),
+      loginMethod: _requiredLoginMethod(data['login_method']),
     );
+  }
+
+  LoginMethod _requiredLoginMethod(Object? value) {
+    final method = _loginMethod(value);
+    if (method == null) {
+      throw const AuthApiException('Something went wrong. Please try again.');
+    }
+    return method;
+  }
+
+  LoginMethod? _loginMethod(Object? value) {
+    return switch (_nullableString(value)) {
+      'email' => LoginMethod.email,
+      'google' => LoginMethod.google,
+      'apple' => LoginMethod.apple,
+      _ => null,
+    };
   }
 
   String _requiredString(Object? value) {
@@ -519,7 +539,7 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
     required String password,
     String? anonymousId,
   }) async {
-    return _userSession(email);
+    return _userSession(email, loginMethod: LoginMethod.email);
   }
 
   @override
@@ -527,7 +547,7 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    return _userSession(email);
+    return _userSession(email, loginMethod: LoginMethod.email);
   }
 
   @override
@@ -540,7 +560,11 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
       throw const OAuthAuthorizationException();
     }
     final identity = _parseMockIdentity(code, 'mock-google');
-    return _userSession(identity.email, userId: identity.providerUid);
+    return _userSession(
+      identity.email,
+      userId: identity.providerUid,
+      loginMethod: LoginMethod.google,
+    );
   }
 
   @override
@@ -553,7 +577,11 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
       throw const OAuthAuthorizationException();
     }
     final identity = _parseMockIdentity(idToken, 'mock-apple');
-    return _userSession(identity.email, userId: identity.providerUid);
+    return _userSession(
+      identity.email,
+      userId: identity.providerUid,
+      loginMethod: LoginMethod.apple,
+    );
   }
 
   @override
@@ -574,7 +602,11 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
     required String newPassword,
   }) async {}
 
-  AuthSession _userSession(String email, {String? userId}) {
+  AuthSession _userSession(
+    String email, {
+    required LoginMethod loginMethod,
+    String? userId,
+  }) {
     final issuedAt = DateTime.now().microsecondsSinceEpoch;
 
     return AuthSession(
@@ -583,6 +615,7 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
       refreshToken: 'local-user-refresh-$issuedAt',
       userId: userId ?? 'local-user-$email',
       email: email,
+      loginMethod: loginMethod,
     );
   }
 

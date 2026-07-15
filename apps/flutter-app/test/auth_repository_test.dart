@@ -50,6 +50,7 @@ void main() {
           'user_id': 'user-1',
           'anonymous_id': null,
           'email': 'person@example.com',
+          'login_method': 'google',
           'display_name': null,
           'created_at': '2026-07-09T00:00:00.000Z',
         }),
@@ -64,6 +65,7 @@ void main() {
       expect(session!.ownerType, OwnerType.user);
       expect(session.userId, 'user-1');
       expect(session.email, 'person@example.com');
+      expect(session.loginMethod, LoginMethod.google);
       expect(session.accessToken, 'stored-access');
       expect(adapter.requests.single.authorization, 'Bearer stored-access');
     },
@@ -114,6 +116,7 @@ void main() {
         'POST /auth/login': _ok({
           'user_id': 'user-1',
           'email': 'person@example.com',
+          'login_method': 'email',
           'access_token': 'user-access',
           'refresh_token': 'user-refresh',
           'expires_in': 900,
@@ -132,6 +135,7 @@ void main() {
       expect(session.ownerType, OwnerType.user);
       expect(session.userId, 'user-1');
       expect(session.email, 'person@example.com');
+      expect(session.loginMethod, LoginMethod.email);
       expect(adapter.requests.single.body, {
         'email': 'person@example.com',
         'password': 'password123',
@@ -155,13 +159,14 @@ void main() {
         'POST /auth/oauth/google/callback': _ok({
           'user_id': 'user-1',
           'email': 'person@example.com',
+          'login_method': 'google',
           'access_token': 'user-access',
           'refresh_token': 'user-refresh',
         }),
       });
       final repository = HttpAuthRepository(_dio(adapter), storage);
 
-      await repository.googleCallback(
+      final session = await repository.googleCallback(
         code: 'google-id-token',
         redirectUri: 'kando://auth/google',
         anonymousId: 'anon-1',
@@ -173,6 +178,7 @@ void main() {
         'anonymous_id': 'anon-1',
       });
       expect(adapter.requests.single.authorization, 'Bearer anon-access');
+      expect(session.loginMethod, LoginMethod.google);
     },
   );
 }

@@ -49,8 +49,9 @@ class _AccountContent extends ConsumerWidget {
       );
     }
 
-    final email = session!.email ?? 'Unknown email';
-    final userId = session!.userId ?? 'Unknown user';
+    final activeSession = session!;
+    final email = activeSession.email ?? 'Unknown email';
+    final userId = activeSession.userId ?? 'Unknown user';
     final initial = email.trim().isNotEmpty
         ? email.trim().characters.first.toUpperCase()
         : '?';
@@ -78,7 +79,7 @@ class _AccountContent extends ConsumerWidget {
         _DetailRow(
           icon: Icons.vpn_key_outlined,
           label: 'LOGIN METHOD',
-          value: 'EMAIL',
+          value: activeSession.loginMethod?.displayName ?? 'UNAVAILABLE',
           trailing: Container(
             width: 6,
             height: 6,

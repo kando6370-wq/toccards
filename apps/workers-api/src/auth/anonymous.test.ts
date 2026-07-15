@@ -64,6 +64,7 @@ type SessionRow = {
   id: string;
   owner_type: "anonymous" | "user";
   owner_id: string;
+  login_method?: "email" | "google" | "apple" | null;
   refresh_token: string;
   expires_at: string;
   created_at: string;
@@ -74,6 +75,7 @@ type SessionLookupRow = {
   id: string;
   owner_type: "anonymous" | "user";
   owner_id: string;
+  login_method?: "email" | "google" | "apple" | null;
   expires_at: string;
   revoked_at: string | null;
 };
@@ -131,6 +133,7 @@ type CurrentAccountSuccessResponse = {
     user_id: string | null;
     anonymous_id: string | null;
     email: string | null;
+    login_method: "email" | "google" | "apple" | null;
     display_name: string | null;
     created_at: string;
   };
@@ -158,6 +161,7 @@ type RegisterVerifySuccessResponse = {
   data: {
     user_id: string;
     email: string;
+    login_method: "email";
     access_token: string;
     refresh_token: string;
     expires_in: number;
@@ -170,6 +174,7 @@ type LoginSuccessResponse = {
   data: {
     user_id: string;
     email: string;
+    login_method: "email";
     access_token: string;
     refresh_token: string;
     expires_in: number;
@@ -181,6 +186,7 @@ type OAuthSuccessResponse = {
   data: {
     user_id: string;
     email: string;
+    login_method: "google" | "apple";
     access_token: string;
     refresh_token: string;
     expires_in: number;
@@ -540,6 +546,24 @@ class FakeD1 {
       return row as T;
     }
 
+    if (normalizedSql === SELECT_CURRENT_SESSION_SQL) {
+      const [id] = values as [string];
+      const session = this.sessions.find((row) => row.id === id);
+
+      if (!session) {
+        return null;
+      }
+
+      return {
+        id: session.id,
+        owner_type: session.owner_type,
+        owner_id: session.owner_id,
+        login_method: session.login_method ?? null,
+        expires_at: session.expires_at,
+        revoked_at: session.revoked_at,
+      } as T;
+    }
+
     if (normalizedSql === SELECT_REFRESH_ANONYMOUS_OWNER_SQL) {
       const [id] = values as [string];
       const account = this.anonymousAccounts.find(
@@ -637,6 +661,7 @@ class FakeD1 {
         id,
         owner_type: "anonymous",
         owner_id: ownerId,
+        login_method: null,
         refresh_token: refreshToken,
         expires_at: expiresAt,
         created_at: createdAt,
@@ -916,6 +941,7 @@ class FakeD1 {
         id,
         owner_type: "user",
         owner_id: ownerId,
+        login_method: "email",
         refresh_token: refreshToken,
         expires_at: expiresAt,
         created_at: createdAt,
@@ -958,6 +984,7 @@ class FakeD1 {
         id,
         owner_type: "user",
         owner_id: ownerId,
+        login_method: "email",
         refresh_token: refreshToken,
         expires_at: expiresAt,
         created_at: createdAt,
@@ -1202,16 +1229,50 @@ class FakeD1 {
       return okResult<T>();
     }
 
+    if (normalizedSql === INSERT_OAUTH_USER_SESSION_SQL) {
+      const [id, ownerId, loginMethod, refreshToken, expiresAt, createdAt] =
+        values as [
+          string,
+          string,
+          "google" | "apple",
+          string,
+          string,
+          string,
+        ];
+
+      this.sessions.push({
+        id,
+        owner_type: "user",
+        owner_id: ownerId,
+        login_method: loginMethod,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        created_at: createdAt,
+        revoked_at: null,
+      });
+      return okResult<T>();
+    }
+
     if (normalizedSql === INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL) {
       const [
         id,
         ownerId,
+        loginMethod,
         refreshToken,
         expiresAt,
         createdAt,
         anonymousId,
         upgradedUserId,
-      ] = values as [string, string, string, string, string, string, string];
+      ] = values as [
+        string,
+        string,
+        "google" | "apple",
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
 
       if (!this.hasUpgradedAnonymousAccount(anonymousId, upgradedUserId)) {
         return okResult<T>(0);
@@ -1221,6 +1282,7 @@ class FakeD1 {
         id,
         owner_type: "user",
         owner_id: ownerId,
+        login_method: loginMethod,
         refresh_token: refreshToken,
         expires_at: expiresAt,
         created_at: createdAt,
@@ -2077,6 +2139,7 @@ class FakeD1 {
         id,
         owner_type: "user",
         owner_id: ownerId,
+        login_method: "email",
         refresh_token: refreshToken,
         expires_at: expiresAt,
         created_at: createdAt,
@@ -2183,6 +2246,13 @@ const SELECT_SESSION_BY_REFRESH_TOKEN_SQL = normalizeSql(`
 
 const SELECT_SESSION_BY_ID_SQL = normalizeSql(`
   SELECT id, owner_type, owner_id, expires_at, revoked_at
+  FROM session
+  WHERE id = ?
+  LIMIT 1
+`);
+
+const SELECT_CURRENT_SESSION_SQL = normalizeSql(`
+  SELECT id, owner_type, owner_id, login_method, expires_at, revoked_at
   FROM session
   WHERE id = ?
   LIMIT 1
@@ -2301,8 +2371,8 @@ const INSERT_USER_PREFERENCE_SQL = normalizeSql(`
 
 const INSERT_SESSION_SQL = normalizeSql(`
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  VALUES (?, 'anonymous', ?, ?, ?, ?, NULL)
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'anonymous', ?, NULL, ?, ?, ?, NULL)
 `);
 
 const INSERT_VERIFICATION_CODE_SQL = normalizeSql(`
@@ -2408,8 +2478,8 @@ const INSERT_OAUTH_USER_PREFERENCE_SQL = normalizeSql(`
 
 const INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL = normalizeSql(`
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, ?, ?, ?, ?, NULL
   WHERE EXISTS (
     SELECT 1
     FROM anonymous_account
@@ -2441,8 +2511,8 @@ const INSERT_USER_USER_PREFERENCE_SQL = normalizeSql(`
 
 const INSERT_USER_SESSION_SQL = normalizeSql(`
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, 'email', ?, ?, ?, NULL
   WHERE EXISTS (
     SELECT 1
     FROM verification_code
@@ -2452,8 +2522,8 @@ const INSERT_USER_SESSION_SQL = normalizeSql(`
 
 const INSERT_MIGRATED_USER_SESSION_SQL = normalizeSql(`
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, 'email', ?, ?, ?, NULL
   WHERE EXISTS (
     SELECT 1
     FROM verification_code
@@ -2468,8 +2538,14 @@ const INSERT_MIGRATED_USER_SESSION_SQL = normalizeSql(`
 
 const INSERT_LOGIN_USER_SESSION_SQL = normalizeSql(`
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  VALUES (?, 'user', ?, ?, ?, ?, NULL)
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'user', ?, 'email', ?, ?, ?, NULL)
+`);
+
+const INSERT_OAUTH_USER_SESSION_SQL = normalizeSql(`
+  INSERT INTO session
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'user', ?, ?, ?, ?, ?, NULL)
 `);
 
 const UPDATE_REGISTER_CODE_USED_SQL = normalizeSql(`
@@ -3090,6 +3166,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
       data: {
         user_id: expect.any(String),
         email: "google.new@example.com",
+        login_method: "google",
         access_token: expect.any(String),
         refresh_token: expect.any(String),
         expires_in: 900,
@@ -3646,6 +3723,7 @@ describe("POST /api/v1/auth/oauth/apple/callback", () => {
       data: {
         user_id: expect.any(String),
         email: "apple.new@example.com",
+        login_method: "apple",
         access_token: expect.any(String),
         refresh_token: expect.any(String),
         expires_in: 900,
@@ -4536,6 +4614,7 @@ describe("POST /api/v1/auth/register/verify", () => {
       data: {
         user_id: expect.any(String),
         email: "new.owner@example.com",
+        login_method: "email",
         access_token: expect.any(String),
         refresh_token: expect.any(String),
         expires_in: 900,
@@ -4609,6 +4688,7 @@ describe("POST /api/v1/auth/register/verify", () => {
         user_id: user.id,
         anonymous_id: null,
         email: "new.owner@example.com",
+        login_method: "email",
         display_name: null,
         created_at: user.created_at,
       },
@@ -5554,6 +5634,7 @@ describe("POST /api/v1/auth/login", () => {
       data: {
         user_id: expect.any(String),
         email: "login.owner@example.com",
+        login_method: "email",
         access_token: expect.any(String),
         refresh_token: expect.any(String),
         expires_in: 900,
@@ -6638,6 +6719,7 @@ describe("POST /api/v1/auth/token/refresh", () => {
         user_id: "user-refresh",
         anonymous_id: null,
         email: "refresh-user@example.com",
+        login_method: null,
         display_name: "Refresh User",
         created_at: "2026-07-02T00:00:00.000Z",
       },
@@ -7983,6 +8065,7 @@ describe("GET /api/v1/auth/me", () => {
         user_id: null,
         anonymous_id: anonymousBody.data.anonymous_id,
         email: null,
+        login_method: null,
         display_name: null,
         created_at: account?.created_at,
       },
@@ -8005,6 +8088,7 @@ describe("GET /api/v1/auth/me", () => {
       id: "session-current",
       owner_type: "user",
       owner_id: "user-current",
+      login_method: "google",
       refresh_token: await hashRefreshToken("current-refresh"),
       expires_at: "2999-01-01T00:00:00.000Z",
       created_at: "2026-07-02T00:00:00.000Z",
@@ -8030,6 +8114,7 @@ describe("GET /api/v1/auth/me", () => {
         user_id: "user-current",
         anonymous_id: null,
         email: "owner@example.com",
+        login_method: "google",
         display_name: "Owner",
         created_at: "2026-07-02T00:00:00.000Z",
       },

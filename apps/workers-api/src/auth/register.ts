@@ -181,8 +181,8 @@ const INSERT_USER_PREFERENCE_SQL = `
 
 const INSERT_USER_SESSION_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, 'email', ?, ?, ?, NULL
   WHERE EXISTS (
     SELECT 1
     FROM verification_code
@@ -192,8 +192,8 @@ const INSERT_USER_SESSION_SQL = `
 
 const INSERT_MIGRATED_USER_SESSION_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, 'email', ?, ?, ?, NULL
   WHERE EXISTS (
     SELECT 1
     FROM verification_code
@@ -511,6 +511,7 @@ export function registerEmailRegistrationRoutes(
         data: {
           user_id: userId,
           email: input.email,
+          login_method: "email",
           access_token: session.accessToken,
           refresh_token: session.refreshToken,
           expires_in: session.expiresIn,

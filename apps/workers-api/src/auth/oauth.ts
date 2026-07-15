@@ -78,6 +78,7 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
         data: {
           user_id: result.userId,
           email: identity.email,
+          login_method: identity.provider,
           access_token: result.session.accessToken,
           refresh_token: result.session.refreshToken,
           expires_in: result.session.expiresIn,
@@ -129,6 +130,7 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
         data: {
           user_id: result.userId,
           email: identity.email,
+          login_method: identity.provider,
           access_token: result.session.accessToken,
           refresh_token: result.session.refreshToken,
           expires_in: result.session.expiresIn,

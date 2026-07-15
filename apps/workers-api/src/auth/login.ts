@@ -68,8 +68,8 @@ const SELECT_LOGIN_USER_BY_EMAIL_SQL = `
 
 const INSERT_LOGIN_USER_SESSION_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  VALUES (?, 'user', ?, ?, ?, ?, NULL)
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'user', ?, 'email', ?, ?, ?, NULL)
 `;
 
 export function registerEmailLoginRoutes(
@@ -139,6 +139,7 @@ export function registerEmailLoginRoutes(
         data: {
           user_id: user.id,
           email: user.email,
+          login_method: "email",
           access_token: accessToken,
           refresh_token: refreshToken,
           expires_in: ACCESS_TOKEN_EXPIRES_IN_SECONDS,

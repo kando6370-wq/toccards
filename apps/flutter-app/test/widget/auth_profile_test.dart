@@ -829,7 +829,9 @@ void main() {
   );
 
   testWidgets('user profile navigates to account details', (tester) async {
-    final repository = _WidgetAuthRepository(initialSession: _userSession());
+    final repository = _WidgetAuthRepository(
+      initialSession: _userSession(loginMethod: LoginMethod.google),
+    );
 
     await tester.pumpWidget(_testApp(repository));
     await tester.pumpAndSettle();
@@ -850,7 +852,7 @@ void main() {
     expect(find.text('Account'), findsOneWidget);
     expect(find.text('person@example.com'), findsWidgets);
     expect(find.text('user-1'), findsOneWidget);
-    expect(find.text('EMAIL'), findsWidgets);
+    expect(find.text('GOOGLE'), findsOneWidget);
     await tester.drag(find.byType(ListView).last, const Offset(0, -500));
     await tester.pumpAndSettle();
     expect(find.text('Log Out'), findsOneWidget);
@@ -1333,13 +1335,17 @@ AuthSession _anonymousSession(String anonymousId) {
   );
 }
 
-AuthSession _userSession({String email = 'person@example.com'}) {
+AuthSession _userSession({
+  String email = 'person@example.com',
+  LoginMethod loginMethod = LoginMethod.email,
+}) {
   return AuthSession(
     ownerType: OwnerType.user,
     accessToken: 'user-access',
     refreshToken: 'user-refresh',
     userId: 'user-1',
     email: email,
+    loginMethod: loginMethod,
   );
 }
 

@@ -18,6 +18,7 @@ type SessionLookupRow = {
   id: string;
   owner_type: string;
   owner_id: string;
+  login_method: string | null;
   expires_at: string;
   revoked_at: string | null;
 };
@@ -53,7 +54,7 @@ const SELECT_CURRENT_USER_SQL = `
 `;
 
 const SELECT_CURRENT_SESSION_SQL = `
-  SELECT id, owner_type, owner_id, expires_at, revoked_at
+  SELECT id, owner_type, owner_id, login_method, expires_at, revoked_at
   FROM session
   WHERE id = ?
   LIMIT 1
@@ -88,7 +89,10 @@ export function registerCurrentAccountRoutes(
       .bind(verification.payload.session_id)
       .first<SessionLookupRow>();
 
-    if (!isLiveAccessSession(session, verification.payload, new Date())) {
+    if (
+      session === null ||
+      !isLiveAccessSession(session, verification.payload, new Date())
+    ) {
       return c.json(UNAUTHORIZED_RESPONSE, 401);
     }
 
@@ -110,6 +114,7 @@ export function registerCurrentAccountRoutes(
           user_id: null,
           anonymous_id: account.id,
           email: null,
+          login_method: null,
           display_name: null,
           created_at: account.created_at,
         },
@@ -131,6 +136,7 @@ export function registerCurrentAccountRoutes(
         user_id: user.id,
         anonymous_id: null,
         email: user.email,
+        login_method: loginMethodOrNull(session.login_method),
         display_name: user.display_name,
         created_at: user.created_at,
       },
@@ -154,6 +160,12 @@ function isLiveAccessSession(
     Number.isFinite(expiresAt) &&
     expiresAt > now.getTime()
   );
+}
+
+function loginMethodOrNull(value: string | null): string | null {
+  return value === "email" || value === "google" || value === "apple"
+    ? value
+    : null;
 }
 
 function getBearerToken(authorization: string | undefined): string | null {

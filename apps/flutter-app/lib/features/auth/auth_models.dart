@@ -1,5 +1,11 @@
 enum OwnerType { anonymous, user }
 
+enum LoginMethod { email, google, apple }
+
+extension LoginMethodDisplay on LoginMethod {
+  String get displayName => name.toUpperCase();
+}
+
 class AuthSession {
   const AuthSession({
     required this.ownerType,
@@ -8,6 +14,7 @@ class AuthSession {
     this.anonymousId,
     this.userId,
     this.email,
+    this.loginMethod,
   });
 
   final OwnerType ownerType;
@@ -16,6 +23,7 @@ class AuthSession {
   final String? anonymousId;
   final String? userId;
   final String? email;
+  final LoginMethod? loginMethod;
 
   bool get isAnonymous => ownerType == OwnerType.anonymous;
   bool get isUser => ownerType == OwnerType.user;

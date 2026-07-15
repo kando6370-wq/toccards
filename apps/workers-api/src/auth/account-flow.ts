@@ -103,14 +103,14 @@ const INSERT_USER_PREFERENCE_SQL = `
 
 const INSERT_USER_SESSION_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  VALUES (?, 'user', ?, ?, ?, ?, NULL)
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'user', ?, ?, ?, ?, ?, NULL)
 `;
 
 const INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, ?, ?, ?, ?, NULL
   WHERE EXISTS (
     SELECT 1
     FROM anonymous_account
@@ -186,7 +186,13 @@ async function completeOAuthAccountFlowOnce(
       throw new Error(OAUTH_AUTHORIZATION_FAILED_MESSAGE);
     }
 
-    return createSignInResult(db, existingIdentityUser.id, jwtSecret, now);
+    return createSignInResult(
+      db,
+      existingIdentityUser.id,
+      identity,
+      jwtSecret,
+      now,
+    );
   }
 
   const existingEmailUser = await db
@@ -231,6 +237,7 @@ function isOAuthUniqueConstraintError(error: unknown): boolean {
 async function createSignInResult(
   db: D1Database,
   userId: string,
+  identity: OAuthIdentity,
   jwtSecret: string,
   now: Date,
 ): Promise<OAuthAccountFlowResult> {
@@ -242,6 +249,7 @@ async function createSignInResult(
     .bind(
       session.sessionId,
       userId,
+      identity.provider,
       session.hashedRefreshToken,
       session.expiresAt,
       createdAt,
@@ -269,6 +277,7 @@ async function bindIdentityAndSignIn(
       .bind(
         session.sessionId,
         userId,
+        identity.provider,
         session.hashedRefreshToken,
         session.expiresAt,
         createdAt,
@@ -339,6 +348,7 @@ async function createOAuthUser(
         .bind(
           session.sessionId,
           userId,
+          identity.provider,
           session.hashedRefreshToken,
           session.expiresAt,
           createdAt,
@@ -384,6 +394,7 @@ async function createOAuthUser(
       .bind(
         session.sessionId,
         userId,
+        identity.provider,
         session.hashedRefreshToken,
         session.expiresAt,
         createdAt,
