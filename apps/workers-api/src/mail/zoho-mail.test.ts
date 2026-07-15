@@ -83,4 +83,30 @@ describe("sendZohoMail", () => {
     ).rejects.toThrow("Zoho access token refresh failed.");
     expect(fetcher).toHaveBeenCalledOnce();
   });
+
+  it("reports Zoho delivery details because production failures must be diagnosable without exposing secrets", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ access_token: "access-token" }))
+      .mockResolvedValueOnce(
+        Response.json(
+          { status: { code: 401, description: "Invalid OAuth scope" } },
+          { status: 401 },
+        ),
+      );
+
+    await expect(
+      sendZohoMail(
+        env,
+        {
+          to: "person@example.com",
+          subject: "Kando test",
+          html: "<p>Connected</p>",
+        },
+        fetcher,
+      ),
+    ).rejects.toThrow(
+      "Zoho email delivery request failed (HTTP 401, Zoho 401: Invalid OAuth scope).",
+    );
+  });
 });

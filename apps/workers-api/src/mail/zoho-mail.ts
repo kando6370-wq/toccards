@@ -74,7 +74,11 @@ export async function sendZohoMail(
   const sendBody = (await sendResponse.json()) as ZohoSendResponse;
   const messageId = stringValue(sendBody.data?.messageId);
   if (!sendResponse.ok || sendBody.status?.code !== 200 || !messageId) {
-    throw new Error("Zoho email delivery request failed.");
+    const zohoCode = String(sendBody.status?.code ?? "unknown");
+    const description = stringValue(sendBody.status?.description) ?? "unknown";
+    throw new Error(
+      `Zoho email delivery request failed (HTTP ${sendResponse.status}, Zoho ${zohoCode}: ${description}).`,
+    );
   }
 
   return messageId;
