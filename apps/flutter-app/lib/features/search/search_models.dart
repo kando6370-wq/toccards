@@ -31,6 +31,7 @@ class SearchCard {
     this.wishlistItemId,
     this.language,
     this.finish,
+    this.imageUrl,
   });
 
   final String id;
@@ -49,6 +50,7 @@ class SearchCard {
   final String? wishlistItemId;
   final String? language;
   final String? finish;
+  final String? imageUrl;
 
   bool get isCollected => quantity > 0;
 
@@ -100,6 +102,7 @@ class SearchCard {
           : wishlistItemId as String?,
       language: language,
       finish: finish,
+      imageUrl: imageUrl,
     );
   }
 }

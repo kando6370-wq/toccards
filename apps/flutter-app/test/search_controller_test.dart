@@ -80,6 +80,7 @@ void main() {
       expect(catalog.cards.first.gameId, 'tcg');
       expect(catalog.cards.first.metadataLine, 'Common #025');
       expect(catalog.cards.first.variantLine, 'Holofoil / English');
+      expect(catalog.cards.first.imageUrl, 'https://img.example/pikachu.jpg');
       expect(catalog.cards.first.priceText, r'$32.13');
       expect(catalog.cards.first.changeText, '+4.76%');
       expect(catalog.cards.last.type, SearchCardType.sealed);

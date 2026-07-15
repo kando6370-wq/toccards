@@ -213,6 +213,7 @@ SearchCard _cardFromDto(CardDataCardDto dto) {
     isWishlisted: false,
     language: dto.language,
     finish: dto.finish,
+    imageUrl: dto.imageUrl,
   );
 }
 

@@ -363,9 +363,24 @@ class _SearchCardTile extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: KandoColors.border),
                         ),
-                        child: const Icon(
-                          Icons.style_outlined,
-                          color: KandoColors.mutedText,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(7),
+                          child: card.imageUrl == null
+                              ? const Icon(
+                                  Icons.style_outlined,
+                                  color: KandoColors.mutedText,
+                                )
+                              : Image.network(
+                                  card.imageUrl!,
+                                  fit: BoxFit.cover,
+                                  semanticLabel: card.name,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Icon(
+                                      Icons.style_outlined,
+                                      color: KandoColors.mutedText,
+                                    );
+                                  },
+                                ),
                         ),
                       ),
                     ),

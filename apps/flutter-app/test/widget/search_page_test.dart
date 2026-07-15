@@ -46,6 +46,30 @@ void main() {
     expect(find.text('Collect'), findsWidgets);
   });
 
+  testWidgets(
+    'Search renders backend card art because Figma cards are not placeholders',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            searchRepositoryProvider.overrideWithValue(
+              const _ImageSearchRepository(),
+            ),
+          ],
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is Image && widget.image is NetworkImage,
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('page failure shows Refresh and restores search content', (
     tester,
   ) async {
@@ -409,6 +433,42 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
   Future<List<SearchSet>> searchSets(String query) {
     return const MockSearchRepository().searchSets(query);
   }
+}
+
+class _ImageSearchRepository implements SearchRepository {
+  const _ImageSearchRepository();
+
+  @override
+  Future<SearchCatalog> loadCatalog() async {
+    return const SearchCatalog(
+      games: [SearchGame(id: 'tcg', label: 'TCG')],
+      cards: [
+        SearchCard(
+          id: '9359',
+          gameId: 'tcg',
+          type: SearchCardType.tcg,
+          name: 'Escape Artist',
+          priceUsd: 0.21,
+          previous30dPriceUsd: 0.17,
+          setName: 'Odyssey',
+          metadataLine: 'Common',
+          variantLine: 'Normal / English',
+          quantity: 0,
+          isWishlisted: false,
+          imageUrl: 'https://api.tcgcard.fun/api/v1/cards/9359/image',
+        ),
+      ],
+      sets: [],
+    );
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query) async {
+    return (await loadCatalog()).cards;
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query) async => const [];
 }
 
 _searchOverrides() {
