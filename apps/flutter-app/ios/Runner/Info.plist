@@ -37,6 +37,10 @@
 	<string>134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Scan trading cards to identify them and add them to your portfolio.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Select trading card photos to identify them and add them to your portfolio.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

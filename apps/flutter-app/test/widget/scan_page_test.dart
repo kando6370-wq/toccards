@@ -421,8 +421,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildKandoTheme(),
-        home: const ProviderScope(
-          child: RepaintBoundary(
+        home: ProviderScope(
+          overrides: [
+            scanResultSourceProvider.overrideWithValue(
+              _defaultTestScanResultSource(),
+            ),
+          ],
+          child: const RepaintBoundary(
             key: Key('scan-completed-figma-golden'),
             child: ScanPage(),
           ),
@@ -904,8 +909,9 @@ Future<void> _pumpScanTestApp(
     ProviderScope(
       overrides: [
         ..._searchOverrides(),
-        if (scanResultSource != null)
-          scanResultSourceProvider.overrideWithValue(scanResultSource),
+        scanResultSourceProvider.overrideWithValue(
+          scanResultSource ?? _defaultTestScanResultSource(),
+        ),
       ],
       child: TickerMode(
         enabled: tickerEnabled,
@@ -914,6 +920,26 @@ Future<void> _pumpScanTestApp(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+ScanResultSource _defaultTestScanResultSource() {
+  return _TestScanResultSource(
+    photoResult: Future.value(
+      const ScanResolution.matched(
+        matchName: 'Mega Lucario ex',
+        candidates: ['Mega Lucario ex', 'Lucario ex', 'Riolu Promo'],
+      ),
+    ),
+    subsequentPhotoResults: [
+      Future.value(const ScanResolution.failed()),
+      Future.value(
+        const ScanResolution.matched(
+          matchName: 'Charizard ex',
+          candidates: ['Charizard ex', 'Charmander Promo', 'Charmeleon'],
+        ),
+      ),
+    ],
+  );
 }
 
 class _TestScanResultSource implements ScanResultSource {
