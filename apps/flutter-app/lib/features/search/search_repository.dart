@@ -186,9 +186,9 @@ List<SearchGame> _gamesFromCards(List<CardDataCardDto> cards) {
   final seen = <String>{};
   final games = <SearchGame>[];
   for (final card in cards) {
-    final id = _gameIdFromObjectType(card.objectType);
+    final id = _gameIdFromCard(card);
     if (seen.add(id)) {
-      games.add(SearchGame(id: id, label: _gameLabelFromObjectType(id)));
+      games.add(SearchGame(id: id, label: _gameLabelFromCard(card)));
     }
   }
 
@@ -201,7 +201,7 @@ List<SearchGame> _gamesFromCards(List<CardDataCardDto> cards) {
 SearchCard _cardFromDto(CardDataCardDto dto) {
   return SearchCard(
     id: dto.cardRef,
-    gameId: _gameIdFromObjectType(dto.objectType),
+    gameId: _gameIdFromCard(dto),
     type: _cardTypeFromObjectType(dto.objectType),
     name: dto.name,
     priceUsd: dto.priceUsd,
@@ -253,6 +253,24 @@ String _gameLabelFromObjectType(String objectType) {
     'sealed' => 'Sealed',
     _ => 'Other',
   };
+}
+
+String _gameIdFromCard(CardDataCardDto card) {
+  final game = card.game?.trim();
+  if (game == null || game.isEmpty) {
+    return _gameIdFromObjectType(card.objectType);
+  }
+  return game
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+}
+
+String _gameLabelFromCard(CardDataCardDto card) {
+  final game = card.game?.trim();
+  return game == null || game.isEmpty
+      ? _gameLabelFromObjectType(_gameIdFromObjectType(card.objectType))
+      : game;
 }
 
 String _metadataLine(CardDataCardDto dto) {

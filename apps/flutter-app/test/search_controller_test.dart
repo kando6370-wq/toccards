@@ -25,6 +25,7 @@ void main() {
             finish: 'Holofoil',
             language: 'English',
             objectType: 'tcg',
+            game: 'Pokemon',
             imageUrl: 'https://img.example/pikachu.jpg',
             rarity: 'Common',
             priceUsd: 32.13,
@@ -39,6 +40,7 @@ void main() {
             finish: null,
             language: null,
             objectType: 'sealed',
+            game: 'Pokemon',
             imageUrl: null,
             rarity: null,
           ),
@@ -53,6 +55,7 @@ void main() {
             finish: 'Holofoil',
             language: 'English',
             objectType: 'tcg',
+            game: 'Pokemon',
             imageUrl: 'https://img.example/pikachu.jpg',
             rarity: 'Common',
             priceUsd: 32.13,
@@ -73,11 +76,11 @@ void main() {
 
       expect(api.trendingCalls, 1);
       expect(api.searchSetQueries, ['pokemon']);
-      expect(catalog.games.map((game) => game.id), ['tcg', 'sealed']);
-      expect(catalog.defaultGame.label, 'TCG');
+      expect(catalog.games.map((game) => game.id), ['pokemon']);
+      expect(catalog.defaultGame.label, 'Pokemon');
       expect(catalog.cards.first.id, 'catalog:pikachu-025');
       expect(catalog.cards.first.type, SearchCardType.tcg);
-      expect(catalog.cards.first.gameId, 'tcg');
+      expect(catalog.cards.first.gameId, 'pokemon');
       expect(catalog.cards.first.metadataLine, 'Common #025');
       expect(catalog.cards.first.variantLine, 'Holofoil / English');
       expect(catalog.cards.first.imageUrl, 'https://img.example/pikachu.jpg');
