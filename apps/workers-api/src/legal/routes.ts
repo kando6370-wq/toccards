@@ -96,7 +96,7 @@ function privacyContent(): string {
     <ul>
       <li><strong>Account information:</strong> email address, account identifiers, sign-in provider identifiers, and session records.</li>
       <li><strong>Collection information:</strong> Portfolio folders, card references, quantities, grading details, purchase values, notes, Wishlist entries, and preferences.</li>
-      <li><strong>Scan information:</strong> card images submitted for recognition, recognition candidates, confirmation results, filename, app version, platform, and available device or operating-system metadata.</li>
+      <li><strong>Scan information:</strong> perceptual hashes derived from selected card images, recognition candidates, confirmation results, filename, app version, platform, and available device or operating-system metadata.</li>
       <li><strong>Support information:</strong> feedback category, message, optional contact details, and related service records.</li>
       <li><strong>Technical information:</strong> network requests, security events, and diagnostics needed to operate and protect the service.</li>
     </ul>
@@ -105,7 +105,7 @@ function privacyContent(): string {
     <h2>3. Service providers</h2>
     <p>Information may be processed by providers that support ${PRODUCT_NAME}, including Cloudflare for hosting and storage, Apple and Google for sign-in, Zoho for service email, card-recognition infrastructure, and card-data providers. Providers process information under their own security and privacy obligations.</p>
     <h2>4. Card images</h2>
-    <p>Selected card images are transmitted to the recognition service to identify cards. ${PRODUCT_NAME} stores recognition audit data and confirmation results. Images may be held transiently by infrastructure providers as required to process and secure the request.</p>
+    <p>Selected card images are processed on your device to detect and correct the card area and derive RGB perceptual hashes. ${PRODUCT_NAME} sends those hashes and scan metadata to the recognition service; the original image is not uploaded with the recognition request. ${PRODUCT_NAME} stores recognition audit data and confirmation results.</p>
     <h2>5. Sharing and sale</h2>
     <p>We do not sell personal information. We disclose information only to service providers, when you direct us to, to protect users and the service, during a business reorganization, or when required by law.</p>
     <h2>6. Retention and deletion</h2>

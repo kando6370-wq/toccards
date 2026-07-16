@@ -23,7 +23,9 @@ describe("public legal routes", () => {
     expect(response.status).toBe(200);
     expect(html).toContain("<title>Privacy Policy | Card AI</title>");
     expect(html).toContain("explains how Card AI handles information");
-    expect(html).toContain("card images submitted for recognition");
+    expect(html).toContain("perceptual hashes derived from selected card images");
+    expect(html).toContain("the original image is not uploaded");
+    expect(html).not.toContain("card images submitted for recognition");
     expect(html).toContain("Portfolio folders");
     expect(html).toContain("Cloudflare");
     expect(html).toContain("request account deletion");
