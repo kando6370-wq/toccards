@@ -506,26 +506,31 @@ void main() {
   testWidgets('Figma scan failure retries through the existing scan flow', (
     tester,
   ) async {
-    await _pumpScanTestApp(
-      tester,
-      scanResultSource: _TestScanResultSource(
-        photoResult: Future.value(const ScanResolution.failed()),
-        retryResult: Future.value(
-          const ScanResolution.matched(
-            scanId: 'scan-mega',
-            cardRef: 'card-mega',
-            matchName: 'Mega Lucario ex',
-            candidates: ['Mega Lucario ex'],
-          ),
+    final source = _TestScanResultSource(
+      photoResult: Future.value(
+        ScanResolution.failed(
+          imageBytes: Uint8List.fromList([1, 2, 3]),
+          imageFileName: 'failed-card.jpg',
+        ),
+      ),
+      retryResult: Future.value(
+        const ScanResolution.matched(
+          scanId: 'scan-mega',
+          cardRef: 'card-mega',
+          matchName: 'Mega Lucario ex',
+          candidates: ['Mega Lucario ex'],
         ),
       ),
     );
+    await _pumpScanTestApp(tester, scanResultSource: source);
 
     await tester.tap(find.byTooltip('Take Photo'));
     await _completeFigmaScan(tester);
     await tester.tap(find.byTooltip('Tap to retry'));
     await tester.pump();
 
+    expect(source.lastRetryBytes, Uint8List.fromList([1, 2, 3]));
+    expect(source.lastRetryFileName, 'failed-card.jpg');
     expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
 
     await _completeFigmaScan(tester);
@@ -1279,6 +1284,8 @@ class _TestScanResultSource implements ScanResultSource {
   final List<Future<ScanResolution>> _libraryResults;
   final Future<ScanResolution> _retryResult;
   var _nextPhotoResult = 0;
+  Uint8List? lastRetryBytes;
+  String? lastRetryFileName;
 
   @override
   Future<List<Future<ScanResolution>>> library() async => _libraryResults;
@@ -1293,7 +1300,11 @@ class _TestScanResultSource implements ScanResultSource {
   }
 
   @override
-  Future<ScanResolution> retry() => _retryResult;
+  Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName}) {
+    lastRetryBytes = imageBytes;
+    lastRetryFileName = fileName;
+    return _retryResult;
+  }
 }
 
 _searchOverrides() {

@@ -69,11 +69,15 @@ void main() {
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
 
-      await source.photo();
-      await source.retry();
+      final first = await source.photo();
+      await source.retry(
+        imageBytes: first.imageBytes,
+        fileName: first.imageFileName,
+      );
 
       expect(picker.sources, [ScanImageSource.camera]);
       expect(api.callCount, 2);
+      expect(api.lastBytes, Uint8List.fromList([1, 2, 3]));
     },
   );
 
@@ -91,6 +95,25 @@ void main() {
 
       expect(await source.library(), isEmpty);
       expect(api.callCount, 0);
+    },
+  );
+
+  test(
+    'recognition failure keeps the selected image because Retry must resend the same card',
+    () async {
+      final source = ApiScanResultSource(
+        api: _FakeScanApi(_matchedRecognition, failure: StateError('offline')),
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final result = await source.photo();
+
+      expect(result.kind, ScanResolutionKind.failed);
+      expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
+      expect(result.imageFileName, 'scan.jpg');
     },
   );
 
@@ -192,9 +215,10 @@ class _FakeScanImagePicker implements ScanImagePicker {
 }
 
 class _FakeScanApi implements ScanApi {
-  _FakeScanApi(this.result);
+  _FakeScanApi(this.result, {this.failure});
 
   final ScanRecognitionDto result;
+  final Object? failure;
   Uint8List? lastBytes;
   String? lastPlatform;
   var callCount = 0;
@@ -221,6 +245,8 @@ class _FakeScanApi implements ScanApi {
     callCount += 1;
     lastBytes = imageBytes;
     lastPlatform = platform;
+    final failure = this.failure;
+    if (failure != null) throw failure;
     return result;
   }
 }

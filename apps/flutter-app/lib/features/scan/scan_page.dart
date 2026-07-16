@@ -63,6 +63,7 @@ class _ScanItem {
     required this.status,
     this.match,
     this.imageBytes,
+    this.imageFileName,
   });
 
   final int id;
@@ -70,11 +71,13 @@ class _ScanItem {
   final _ScanItemStatus status;
   final _ScanMatch? match;
   final Uint8List? imageBytes;
+  final String? imageFileName;
 
   _ScanItem copyWith({
     _ScanItemStatus? status,
     _ScanMatch? match,
     Uint8List? imageBytes,
+    String? imageFileName,
   }) {
     return _ScanItem(
       id: id,
@@ -82,6 +85,7 @@ class _ScanItem {
       status: status ?? this.status,
       match: match ?? this.match,
       imageBytes: imageBytes ?? this.imageBytes,
+      imageFileName: imageFileName ?? this.imageFileName,
     );
   }
 }
@@ -366,7 +370,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _replaceItem(item.copyWith(status: _ScanItemStatus.scanning));
     _startScanTimeline(
       item.id,
-      Future.sync(() => ref.read(scanResultSourceProvider).retry()),
+      Future.sync(
+        () => ref
+            .read(scanResultSourceProvider)
+            .retry(imageBytes: item.imageBytes, fileName: item.imageFileName),
+      ),
     );
   }
 
@@ -605,6 +613,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             status: status,
             match: match,
             imageBytes: resolution.imageBytes,
+            imageFileName: resolution.imageFileName,
           );
           break;
         }

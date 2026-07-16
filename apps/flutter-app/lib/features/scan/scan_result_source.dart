@@ -18,9 +18,10 @@ class ScanResolution {
     required this.candidates,
     this.candidateCardRefs = const [],
     this.imageBytes,
+    this.imageFileName,
   }) : kind = ScanResolutionKind.matched;
 
-  const ScanResolution.failed({this.imageBytes})
+  const ScanResolution.failed({this.imageBytes, this.imageFileName})
     : kind = ScanResolutionKind.failed,
       scanId = null,
       cardRef = null,
@@ -28,7 +29,7 @@ class ScanResolution {
       candidates = const [],
       candidateCardRefs = const [];
 
-  const ScanResolution.noMatch({this.imageBytes})
+  const ScanResolution.noMatch({this.imageBytes, this.imageFileName})
     : kind = ScanResolutionKind.noMatch,
       scanId = null,
       cardRef = null,
@@ -43,7 +44,8 @@ class ScanResolution {
       matchName = null,
       candidates = const [],
       candidateCardRefs = const [],
-      imageBytes = null;
+      imageBytes = null,
+      imageFileName = null;
 
   final ScanResolutionKind kind;
   final String? scanId;
@@ -52,12 +54,13 @@ class ScanResolution {
   final List<String> candidates;
   final List<String> candidateCardRefs;
   final Uint8List? imageBytes;
+  final String? imageFileName;
 }
 
 abstract interface class ScanResultSource {
   Future<ScanResolution> photo();
   Future<List<Future<ScanResolution>>> library();
-  Future<ScanResolution> retry();
+  Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName});
 }
 
 final scanResultSourceProvider = Provider<ScanResultSource>(
@@ -151,8 +154,6 @@ class ApiScanResultSource implements ScanResultSource {
   final AuthSession? Function() _session;
   final ScanImagePicker _imagePicker;
   final Future<ScanAppInfo> Function() _appInfo;
-  ScanImage? _lastImage;
-
   @override
   Future<ScanResolution> photo() => _pickAndRecognize(ScanImageSource.camera);
 
@@ -164,40 +165,55 @@ class ApiScanResultSource implements ScanResultSource {
     );
     final selectedImages = images.take(10).toList();
     if (selectedImages.isEmpty) return const [];
-    _lastImage = selectedImages.last;
     return [for (final image in selectedImages) _recognize(image)];
   }
 
   @override
-  Future<ScanResolution> retry() async {
-    final image = _lastImage;
-    if (image == null) return const ScanResolution.failed();
-    return _recognize(image);
+  Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName}) {
+    if (imageBytes == null || fileName == null) {
+      return Future.value(const ScanResolution.failed());
+    }
+    return _recognize(ScanImage(bytes: imageBytes, fileName: fileName));
   }
 
   Future<ScanResolution> _pickAndRecognize(ScanImageSource source) async {
     final image = await _imagePicker.pick(source);
     if (image == null) return const ScanResolution.cancelled();
-    _lastImage = image;
     return _recognize(image);
   }
 
   Future<ScanResolution> _recognize(ScanImage image) async {
-    final session = _session();
-    if (session == null) return ScanResolution.failed(imageBytes: image.bytes);
-    final info = await _appInfo();
-    final recognition = await _api.recognizeImage(
-      session,
-      imageBytes: image.bytes,
-      fileName: image.fileName,
-      platform: info.platform,
-      appVersion: info.appVersion,
-    );
+    final ScanRecognitionDto recognition;
+    try {
+      final session = _session();
+      if (session == null) {
+        return ScanResolution.failed(
+          imageBytes: image.bytes,
+          imageFileName: image.fileName,
+        );
+      }
+      final info = await _appInfo();
+      recognition = await _api.recognizeImage(
+        session,
+        imageBytes: image.bytes,
+        fileName: image.fileName,
+        platform: info.platform,
+        appVersion: info.appVersion,
+      );
+    } catch (_) {
+      return ScanResolution.failed(
+        imageBytes: image.bytes,
+        imageFileName: image.fileName,
+      );
+    }
     final matchedResults = recognition.results.where(
       (result) => result.matched && result.candidates.isNotEmpty,
     );
     if (matchedResults.isEmpty) {
-      return ScanResolution.noMatch(imageBytes: image.bytes);
+      return ScanResolution.noMatch(
+        imageBytes: image.bytes,
+        imageFileName: image.fileName,
+      );
     }
     final candidates = matchedResults.first.candidates;
     return ScanResolution.matched(
@@ -209,6 +225,7 @@ class ApiScanResultSource implements ScanResultSource {
           .map((candidate) => candidate.cardRef)
           .toList(),
       imageBytes: image.bytes,
+      imageFileName: image.fileName,
     );
   }
 }
