@@ -14,6 +14,7 @@ class KandoApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'Card AI',
+      debugShowCheckedModeBanner: false,
       theme: buildKandoTheme(),
       routerConfig: router,
       builder: (context, child) {
