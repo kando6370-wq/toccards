@@ -21,10 +21,11 @@
 | App Icon | 19 个声明槽位完整；实际尺寸匹配；1024 图标为 RGB 且无透明通道 | 像素检查、`Contents.json` |
 | Launch Screen | storyboard 与 1x/2x/3x 启动图片齐全 | `LaunchScreen.storyboard`、`LaunchImage.imageset` |
 | 隐私清单 | Flutter 引擎声明 Required Reason API；当前 iOS 插件自带隐私清单；App 未直接调用对应原生 API | Flutter 3.35.5 与已解析插件包 |
-| CocoaPods | `Podfile.lock` 已由 macOS CocoaPods 1.17.0 生成并固定；Debug/Release/Profile 均显式包含 Pods 配置 | CI 工件摘要与 run `29505575455` |
+| Ruby / CocoaPods | `Gemfile.lock` 与 `Podfile.lock` 已由 macOS CI 生成并固定；Bundler 4.0.15、CocoaPods 1.17.0；Debug/Release/Profile 均显式包含 Pods 配置 | GitHub Actions run `29507734068` |
+| App Review 材料 | 已准备无需 Demo 账号的审核说明；主分类 `Reference`、次分类 `Utilities`；旧截图自动上传已禁用 | `fastlane/metadata/review_information/notes.txt`、`Fastfile` |
 | 法律与支持页 | Terms、Privacy、Support 均为公开生产页面 | `https://api.tcgcard.fun/api/v1/legal/*` |
 | 扫描图片生命周期 | 私有 R2 卡图最多保留 30 天；每日 Cron 自动删除，到期 D1 指针清空 | Worker `d5710560-...`、Cron `17 3 * * *` |
-| iOS 无签名构建 | Xcode 16.4 下 `pod install` 与 `flutter build ios --release --no-codesign` 成功 | GitHub Actions run `29505575455` |
+| iOS 无签名构建 | Xcode 16.4 下 Ruby 依赖安装、`pod install`、两份 lockfile 无漂移检查与 `flutter build ios --release --no-codesign` 全部成功 | GitHub Actions run `29507734068` |
 
 当前生产 `/app-config`：
 
@@ -58,7 +59,7 @@
 | P0 | 执行带签名 Archive 并上传 App Store Connect | Organizer 上传回执或 TestFlight build |
 | P0 | 在 iOS Simulator/真机重拍商店截图 | 截图展示当前 HOME 真实历史曲线、当前 Collection/Profile/Scan，不含 Mock 或矛盾数值 |
 | P0 | TestFlight 真机验收 Apple/Google 登录、相机、相册、分享、评分、协议页和账号删除 | 每条流程的通过记录 |
-| P1 | 在 macOS 执行 `bundle exec fastlane ios metadata` dry-run/上传 | Fastlane 回执；Windows 无 Ruby，当前未执行 |
+| P1 | 在 macOS 执行 `bundle exec fastlane ios metadata` 上传 | Fastlane 上传回执；当前缺少 App Store Connect 凭据 |
 
 仓库现有 `fastlane/screenshots/en-US` 五张截图不能直接提交。它们生成于 HOME、Collection 最终真实接口整改之前；HOME 图中 `$9.67` 组合总值与 `$45212` 曲线浮层明显矛盾，而且没有当前 Scan 画面。
 
@@ -69,7 +70,7 @@
 | P0 | 在 Apple Developer 注册 `com.kando.kandoApp` 并启用 Sign in with Apple | 仓库无法证明开发者后台状态 |
 | P0 | 在 App Store Connect 创建 Card AI 应用记录 | 尚无真实数字 App ID，因此不能生成 App Store URL |
 | P0 | 将真实 `https://apps.apple.com/app/id<APP_ID>` 写入 D1 `app_config.app_store_url` | 当前生产值为 `null` |
-| P0 | 完成 App Privacy、年龄分级、类别、版权、审核联系人和审核说明 | Fastlane 文件不能替代 App Store Connect 问卷 |
+| P0 | 完成 App Privacy、年龄分级、版权和审核联系人 | 分类与审核说明已准备；Fastlane 文件不能替代 App Store Connect 问卷 |
 | P0 | 确认 Google Cloud iOS OAuth 客户端绑定 `com.kando.kandoApp` | 代码只能验证 ID 一致，不能读取 Google Cloud 控制台的客户端类型与 Bundle 绑定 |
 | P1 | 配置 App Store Connect API Key 或受控 Apple ID/Team ID | `Appfile` 当前仅包含 Bundle ID |
 
@@ -96,7 +97,7 @@
 
 - Flutter：332 项通过，1 项明确跳过；`flutter analyze` 无问题。
 - Workers：238 项通过；TypeScript 类型检查与 Wrangler dry-run 通过。
-- GitHub macOS iOS CI：run `29505575455` 成功，覆盖 Xcode 16.4、CocoaPods 1.17.0、lockfile 无漂移检查与无签名 Release 构建。
+- GitHub macOS iOS CI：run `29507734068` 在提交 `15d554d` 上成功，覆盖 Xcode 16.4、Bundler 4.0.15、CocoaPods 1.17.0、`Gemfile.lock`/`Podfile.lock` 无漂移检查与无签名 Release 构建。
 - Cloudflare：Google 无效 `id_token` 返回 `422 VALIDATION_ERROR`；30 天前仍带图片指针的生产记录计数为 0。
 - 图标：全部 PNG 尺寸匹配资产声明，1024 图标无 alpha。
 - 未执行：Xcode Archive、签名、TestFlight、真机 OAuth/评分/分享/权限、Fastlane 上传。
@@ -106,7 +107,7 @@
 1. 在 Apple Developer 与 App Store Connect 创建并绑定 `com.kando.kandoApp`，取得数字 App ID。
 2. 立即写入并验证生产 `app_store_url`，再验证 Profile Score/Share。
 3. 在 Mac 设置 Team 与签名，确认 `pod install` 不改写 lockfile，完成 Archive 上传。
-4. 用目标 iPhone Simulator/真机基于当前生产数据重拍截图，并补齐 App Privacy、年龄分级、类别、版权与审核信息。
+4. 用目标 iPhone Simulator/真机基于当前生产数据重拍截图，并补齐 App Privacy、年龄分级、版权与审核联系人。
 5. TestFlight 真机完整跑通登录、Scan、Collection、Profile 和删除账号后再提交审核。
 
 在上述 P0 全部关闭前，不得宣称“iOS 已可上架”或“目标完成”。
