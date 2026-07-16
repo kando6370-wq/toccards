@@ -64,9 +64,17 @@ class ApiHomeRepository implements HomeRepository {
           .where((item) => item.folderId == folder.id)
           .firstOrNull;
       final total = valuation?.currentValueUsd ?? 0;
-      final chartValues = {
+      final chartSeries = {
         for (final range in HomeChartRange.values)
-          range: _rangeValues(valuation?.series ?? const [], range),
+          range: _rangePoints(valuation?.series ?? const [], range),
+      };
+      final chartValues = {
+        for (final entry in chartSeries.entries)
+          entry.key: entry.value.map((point) => point.valueUsd).toList(),
+      };
+      final chartDates = {
+        for (final entry in chartSeries.entries)
+          entry.key: entry.value.map((point) => point.date).toList(),
       };
       final monthValues = chartValues[HomeChartRange.oneMonth]!;
       portfolios[folder.id] = PortfolioSummary(
@@ -74,6 +82,7 @@ class ApiHomeRepository implements HomeRepository {
         totalValueUsd: total,
         previous30dValueUsd: monthValues.length > 1 ? monthValues.first : 0,
         chartValuesByRange: chartValues,
+        chartDatesByRange: chartDates,
       );
 
       final cards = (valuation?.mostValuable ?? const [])
@@ -114,14 +123,13 @@ class ApiHomeRepository implements HomeRepository {
   }
 }
 
-List<double> _rangeValues(
+List<PortfolioValuationPointDto> _rangePoints(
   List<PortfolioValuationPointDto> series,
   HomeChartRange range,
 ) {
   final pointCount = _rangeDays[range]! + 1;
   return series
       .skip((series.length - pointCount).clamp(0, series.length))
-      .map((point) => point.valueUsd)
       .toList();
 }
 

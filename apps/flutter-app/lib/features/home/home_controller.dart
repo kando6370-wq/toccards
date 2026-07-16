@@ -131,6 +131,28 @@ class HomeState {
     return const [];
   }
 
+  List<String> get chartDates {
+    final datesByRange = selectedPortfolio.chartDatesByRange;
+    final selectedDates = datesByRange[chartRange];
+    if (selectedDates != null) {
+      return selectedDates;
+    }
+
+    final oneMonthDates = datesByRange[HomeChartRange.oneMonth];
+    if (oneMonthDates != null) {
+      return oneMonthDates;
+    }
+
+    for (final range in HomeChartRange.values) {
+      final dates = datesByRange[range];
+      if (dates != null) {
+        return dates;
+      }
+    }
+
+    return const [];
+  }
+
   String get totalAmountText => _formatMoney(selectedPortfolio.totalValueUsd);
 
   String get changeAmountText {

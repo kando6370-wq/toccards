@@ -48,6 +48,11 @@ void main() {
       expect(month, hasLength(31));
       expect(month.first, 608);
       expect(month.last, 760);
+      final monthDates = dashboard
+          .portfoliosByFolderId['main']!
+          .chartDatesByRange[HomeChartRange.oneMonth]!;
+      expect(monthDates.first, '2026-06-15T00:00:00.000Z');
+      expect(monthDates.last, '2026-07-15T00:00:00.000Z');
     },
   );
 

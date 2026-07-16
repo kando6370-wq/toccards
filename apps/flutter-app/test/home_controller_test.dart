@@ -74,6 +74,11 @@ void main() {
           12450.8,
         ],
       );
+      expect(
+        state.chartDates[6],
+        '2025-02-18',
+        reason: 'HOME tooltips must use the date paired with the live curve.',
+      );
     },
   );
 

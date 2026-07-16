@@ -28,12 +28,14 @@ class PortfolioSummary {
     required this.totalValueUsd,
     required this.previous30dValueUsd,
     required this.chartValuesByRange,
+    this.chartDatesByRange = const {},
   });
 
   final String folderId;
   final double totalValueUsd;
   final double previous30dValueUsd;
   final Map<HomeChartRange, List<double>> chartValuesByRange;
+  final Map<HomeChartRange, List<String>> chartDatesByRange;
 }
 
 class HomeCardHighlight {

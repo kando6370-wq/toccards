@@ -358,6 +358,7 @@ class _PortfolioCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final chartValues = state.chartValues;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -459,7 +460,13 @@ class _PortfolioCard extends StatelessWidget {
                   const SizedBox(height: 28),
                   Expanded(
                     child: CustomPaint(
-                      painter: _ChartPainter(values: state.chartValues),
+                      painter: _ChartPainter(
+                        values: chartValues,
+                        dates: state.chartDates,
+                        formattedValues: chartValues
+                            .map(state.formatCardPrice)
+                            .toList(),
+                      ),
                       child: const SizedBox.expand(),
                     ),
                   ),
@@ -1305,9 +1312,15 @@ class _CurrencyRow extends StatelessWidget {
 }
 
 class _ChartPainter extends CustomPainter {
-  const _ChartPainter({required this.values});
+  const _ChartPainter({
+    required this.values,
+    required this.dates,
+    required this.formattedValues,
+  });
 
   final List<double> values;
+  final List<String> dates;
+  final List<String> formattedValues;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1372,7 +1385,8 @@ class _ChartPainter extends CustomPainter {
 
     canvas.drawPath(path, linePaint);
 
-    final selected = points[(points.length * .68).floor()];
+    final selectedIndex = (points.length * .68).floor();
+    final selected = points[selectedIndex];
     canvas.drawCircle(
       selected,
       6,
@@ -1382,7 +1396,7 @@ class _ChartPainter extends CustomPainter {
 
     final datePainter = TextPainter(
       text: TextSpan(
-        text: 'Date: Feb18,2025',
+        text: 'Date: ${_formatChartDate(dates, selectedIndex)}',
         style: const TextStyle(
           color: Color(0xFF92927D),
           fontFamily: 'Geist',
@@ -1395,9 +1409,9 @@ class _ChartPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout();
     final pricePainter = TextPainter(
-      text: const TextSpan(
-        text: r'Price: $452.12',
-        style: TextStyle(
+      text: TextSpan(
+        text: 'Price: ${_chartPrice(formattedValues, selectedIndex)}',
+        style: const TextStyle(
           color: KandoColors.accent,
           fontFamily: 'Geist',
           fontSize: 11,
@@ -1408,7 +1422,10 @@ class _ChartPainter extends CustomPainter {
       maxLines: 1,
       textDirection: TextDirection.ltr,
     )..layout();
-    const tooltipSize = Size(105, 52);
+    final tooltipSize = Size(
+      math.max(datePainter.width, pricePainter.width) + 16,
+      52,
+    );
     final tooltipLeft = (selected.dx - 40)
         .clamp(0.0, size.width - tooltipSize.width)
         .toDouble();
@@ -1437,8 +1454,35 @@ class _ChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ChartPainter oldDelegate) {
-    return oldDelegate.values != values;
+    return oldDelegate.values != values ||
+        oldDelegate.dates != dates ||
+        oldDelegate.formattedValues != formattedValues;
   }
+}
+
+String _formatChartDate(List<String> dates, int index) {
+  if (index >= dates.length) return '--';
+  final value = DateTime.tryParse(dates[index]);
+  if (value == null) return dates[index].isEmpty ? '--' : dates[index];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${months[value.month - 1]} ${value.day}, ${value.year}';
+}
+
+String _chartPrice(List<String> formattedValues, int index) {
+  return index < formattedValues.length ? formattedValues[index] : '--';
 }
 
 String _percentText({required double current, required double? previous}) {
