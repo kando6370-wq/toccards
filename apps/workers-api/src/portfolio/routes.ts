@@ -206,6 +206,13 @@ DELETE FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 `;
 
+const INSERT_COLLECTION_ITEM_EVENT_SQL = `
+INSERT INTO collection_item_event
+  (id, item_id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
+   condition, grade, language, finish, quantity, event_type, effective_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`;
+
 const DELETE_WISHLIST_CARD_SQL = `
 DELETE FROM wishlist_item
 WHERE owner_type = ? AND owner_id = ? AND card_ref = ?
@@ -319,6 +326,12 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         now,
         now,
       ),
+      collectionItemEventStatement(c.env.DB, auth.owner, {
+        id: itemId,
+        ...draft,
+        created_at: now,
+        updated_at: now,
+      }, "upsert", now),
       c.env.DB.prepare(DELETE_WISHLIST_CARD_SQL).bind(
         auth.owner.owner_type,
         auth.owner.owner_id,
@@ -604,6 +617,12 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         now,
         now,
       ),
+      collectionItemEventStatement(c.env.DB, auth.owner, {
+        id: itemId,
+        ...draft,
+        created_at: now,
+        updated_at: now,
+      }, "upsert", now),
       c.env.DB.prepare(DELETE_WISHLIST_CARD_SQL).bind(
         auth.owner.owner_type,
         auth.owner.owner_id,
@@ -669,15 +688,23 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(NOT_FOUND_RESPONSE, 404);
     }
 
-    await c.env.DB.prepare(MOVE_COLLECTION_ITEM_SQL)
-      .bind(
+    const now = new Date().toISOString();
+    await c.env.DB.batch([
+      c.env.DB.prepare(MOVE_COLLECTION_ITEM_SQL).bind(
         folderId,
-        new Date().toISOString(),
+        now,
         auth.owner.owner_type,
         auth.owner.owner_id,
         item.id,
-      )
-      .run();
+      ),
+      collectionItemEventStatement(
+        c.env.DB,
+        auth.owner,
+        { ...item, folder_id: folderId, updated_at: now },
+        "upsert",
+        now,
+      ),
+    ]);
 
     const updatedItem = await findCollectionItem(c.env.DB, auth.owner, item.id);
 
@@ -710,8 +737,9 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
-    await c.env.DB.prepare(UPDATE_COLLECTION_ITEM_SQL)
-      .bind(
+    const now = new Date().toISOString();
+    await c.env.DB.batch([
+      c.env.DB.prepare(UPDATE_COLLECTION_ITEM_SQL).bind(
         draft.grader,
         draft.condition,
         draft.grade,
@@ -721,12 +749,19 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         draft.purchase_price,
         draft.purchase_currency,
         draft.notes,
-        new Date().toISOString(),
+        now,
         auth.owner.owner_type,
         auth.owner.owner_id,
         item.id,
-      )
-      .run();
+      ),
+      collectionItemEventStatement(
+        c.env.DB,
+        auth.owner,
+        { ...item, ...draft, updated_at: now },
+        "upsert",
+        now,
+      ),
+    ]);
 
     const updatedItem = await findCollectionItem(c.env.DB, auth.owner, item.id);
 
@@ -753,9 +788,15 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(NOT_FOUND_RESPONSE, 404);
     }
 
-    await c.env.DB.prepare(DELETE_COLLECTION_ITEM_SQL)
-      .bind(auth.owner.owner_type, auth.owner.owner_id, item.id)
-      .run();
+    const now = new Date().toISOString();
+    await c.env.DB.batch([
+      c.env.DB.prepare(DELETE_COLLECTION_ITEM_SQL).bind(
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+        item.id,
+      ),
+      collectionItemEventStatement(c.env.DB, auth.owner, item, "delete", now),
+    ]);
 
     return c.json({ success: true, data: {} });
   });
@@ -1188,6 +1229,32 @@ function collectItemDraftFromBody(
     folder_id: folderId,
     card_ref: cardRef,
   });
+}
+
+function collectionItemEventStatement(
+  db: D1Database,
+  owner: AuthenticatedOwner,
+  item: CollectionItemRow,
+  eventType: "upsert" | "delete",
+  effectiveAt: string,
+): D1PreparedStatement {
+  return db.prepare(INSERT_COLLECTION_ITEM_EVENT_SQL).bind(
+    createId(),
+    item.id,
+    owner.owner_type,
+    owner.owner_id,
+    item.folder_id,
+    item.card_ref,
+    item.object_type,
+    item.grader,
+    item.condition,
+    item.grade,
+    item.language,
+    item.finish,
+    item.quantity,
+    eventType,
+    effectiveAt,
+  );
 }
 
 function sortCollectionItems(

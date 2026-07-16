@@ -50,6 +50,24 @@ type WishlistRow = {
   card_ref: string;
 };
 
+type CollectionItemEventRow = {
+  id: string;
+  item_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
+  folder_id: string;
+  card_ref: string;
+  object_type: string;
+  grader: string;
+  condition: string | null;
+  grade: number | null;
+  language: string | null;
+  finish: string | null;
+  quantity: number;
+  event_type: "upsert" | "delete";
+  effective_at: string;
+};
+
 const JWT_SECRET = "test-secret";
 const NOW = "2026-07-07T00:00:00.000Z";
 const LATER = "2099-01-01T00:00:00.000Z";
@@ -60,6 +78,7 @@ class FakeD1Database {
   anonymousAccounts: OwnerRow[] = [];
   folders: FolderRow[] = [];
   items: CollectionItemRow[] = [];
+  itemEvents: CollectionItemEventRow[] = [];
   wishlist: WishlistRow[] = [];
 
   prepare(sql: string): FakeD1Statement {
@@ -142,6 +161,60 @@ class FakeD1Statement {
   }
 
   async run(): Promise<{ success: true; meta: { changes: number } }> {
+    if (this.sql.includes("INSERT INTO collection_item_event")) {
+      const [
+        id,
+        itemId,
+        ownerType,
+        ownerId,
+        folderId,
+        cardRef,
+        objectType,
+        grader,
+        condition,
+        grade,
+        language,
+        finish,
+        quantity,
+        eventType,
+        effectiveAt,
+      ] = this.args as [
+        string,
+        string,
+        OwnerType,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string | null,
+        number | null,
+        string | null,
+        string | null,
+        number,
+        "upsert" | "delete",
+        string,
+      ];
+      this.db.itemEvents.push({
+        id,
+        item_id: itemId,
+        owner_type: ownerType,
+        owner_id: ownerId,
+        folder_id: folderId,
+        card_ref: cardRef,
+        object_type: objectType,
+        grader,
+        condition,
+        grade,
+        language,
+        finish,
+        quantity,
+        event_type: eventType,
+        effective_at: effectiveAt,
+      });
+      return changed(1);
+    }
+
     if (this.sql.includes("INSERT INTO collection_item")) {
       const [
         id,
@@ -378,6 +451,15 @@ describe("collection item routes", () => {
       }),
     });
     expect(db.wishlist).toEqual([]);
+    expect(db.itemEvents).toEqual([
+      expect.objectContaining({
+        item_id: expect.any(String),
+        folder_id: "main",
+        card_ref: "card-a",
+        quantity: 2,
+        event_type: "upsert",
+      }),
+    ]);
   });
 
   it("rejects the old Raw condition label because raw card condition must use the PRD canonical value", async () => {
@@ -625,6 +707,29 @@ describe("collection item routes", () => {
     expect(remove.status).toBe(200);
     expect(await remove.json()).toEqual({ success: true, data: {} });
     expect(db.items).toEqual([]);
+    expect(db.itemEvents).toEqual([
+      expect.objectContaining({
+        item_id: "owned",
+        folder_id: "main",
+        grader: "PSA",
+        quantity: 3,
+        event_type: "upsert",
+      }),
+      expect.objectContaining({
+        item_id: "owned",
+        folder_id: "trade",
+        grader: "PSA",
+        quantity: 3,
+        event_type: "upsert",
+      }),
+      expect.objectContaining({
+        item_id: "owned",
+        folder_id: "trade",
+        grader: "PSA",
+        quantity: 3,
+        event_type: "delete",
+      }),
+    ]);
   });
 });
 

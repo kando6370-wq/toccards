@@ -9,7 +9,7 @@
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply kando-db --local",
+    "db:migrate:local": "wrangler d1 migrations apply cards_basic_information --local",
     "admin:init": "node scripts/create-admin.mjs"
   },
   "dependencies": {

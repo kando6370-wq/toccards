@@ -224,6 +224,41 @@ export const collectionItem = sqliteTable(
   ],
 );
 
+export const collectionItemEvent = sqliteTable(
+  "collection_item_event",
+  {
+    id: text("id").primaryKey(),
+    itemId: text("item_id").notNull(),
+    ownerType: text("owner_type").notNull(),
+    ownerId: text("owner_id").notNull(),
+    folderId: text("folder_id").notNull(),
+    cardRef: text("card_ref").notNull(),
+    objectType: text("object_type").notNull(),
+    grader: text("grader").notNull(),
+    condition: text("condition"),
+    grade: real("grade"),
+    language: text("language"),
+    finish: text("finish"),
+    quantity: integer("quantity").notNull(),
+    eventType: text("event_type").notNull(),
+    effectiveAt: text("effective_at").notNull(),
+  },
+  (t) => [
+    index("idx_collection_item_event_owner_time").on(
+      t.ownerType,
+      t.ownerId,
+      t.effectiveAt,
+    ),
+    index("idx_collection_item_event_folder_time").on(t.folderId, t.effectiveAt),
+    index("idx_collection_item_event_item_time").on(t.itemId, t.effectiveAt),
+    check("ck_collection_item_event_quantity", sql`${t.quantity} >= 1`),
+    check(
+      "ck_collection_item_event_type",
+      sql`${t.eventType} IN ('upsert', 'delete')`,
+    ),
+  ],
+);
+
 export const wishlistItem = sqliteTable(
   "wishlist_item",
   {

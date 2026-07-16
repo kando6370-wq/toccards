@@ -29,6 +29,13 @@
       "when": 1784120400000,
       "tag": "0003_session_login_method",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784205000000,
+      "tag": "0004_collection_item_event",
+      "breakpoints": true
     }
   ]
 }
