@@ -1,0 +1,1 @@
+Initial release with card scanning, collection tracking, Wishlist, market information, account management, and support.
