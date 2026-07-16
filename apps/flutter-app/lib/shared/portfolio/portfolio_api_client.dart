@@ -381,6 +381,7 @@ class PortfolioItemDraftDto {
 
   Map<String, Object?> toUpdateJson() {
     return {
+      'folder_id': folderId,
       'grader': grader,
       'condition': condition,
       'grade': grade,

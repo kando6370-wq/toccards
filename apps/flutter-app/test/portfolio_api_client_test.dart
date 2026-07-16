@@ -461,13 +461,14 @@ void main() {
   );
 
   test(
-    'updateCollectionItem sends only mutable fields because Workers PATCH rejects identity fields',
+    'updateCollectionItem sends folder with fields because edited moves must complete atomically',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'PATCH');
         expect(request.path, '/portfolio/items/item-squirtle');
         expect(request.authorization, 'Bearer owner-access');
         expect(request.body, {
+          'folder_id': 'trade',
           'grader': 'Raw',
           'condition': 'Near Mint (NM)',
           'grade': null,
@@ -479,11 +480,15 @@ void main() {
           'notes': 'Edited from CardDetail.',
         });
         final body = request.body as Map;
-        expect(body.containsKey('folder_id'), isFalse);
         expect(body.containsKey('card_ref'), isFalse);
+        expect(body.containsKey('object_type'), isFalse);
         return _json(200, {
           'success': true,
-          'data': _portfolioItemJson(id: 'item-squirtle', cardRef: 'squirtle'),
+          'data': _portfolioItemJson(
+            id: 'item-squirtle',
+            cardRef: 'squirtle',
+            folderId: 'trade',
+          ),
         });
       });
 
@@ -491,7 +496,7 @@ void main() {
         _session,
         itemId: 'item-squirtle',
         draft: const PortfolioItemDraftDto(
-          folderId: 'main',
+          folderId: 'trade',
           cardRef: 'squirtle',
           objectType: 'tcg',
           grader: 'Raw',
@@ -507,6 +512,7 @@ void main() {
       );
 
       expect(item.id, 'item-squirtle');
+      expect(item.folderId, 'trade');
     },
   );
 
@@ -612,10 +618,11 @@ Dio _dio(_RecordingAdapter adapter) {
 Map<String, Object?> _portfolioItemJson({
   required String id,
   required String cardRef,
+  String folderId = 'main',
 }) {
   return {
     'id': id,
-    'folder_id': 'main',
+    'folder_id': folderId,
     'card_ref': cardRef,
     'object_type': 'tcg',
     'grader': 'Raw',
