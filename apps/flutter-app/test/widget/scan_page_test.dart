@@ -10,6 +10,7 @@ import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/scan/scan_camera.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/features/scan/scan_review_repository.dart';
@@ -49,6 +50,80 @@ void main() {
       final background = find.byKey(const Key('scan-figma-camera-background'));
       expect(background, findsOneWidget);
       expect(tester.widget<Image>(background).fit, BoxFit.cover);
+    },
+  );
+
+  testWidgets(
+    'Scan uses the live camera session because preview, flash, and capture must stay in the Figma flow',
+    (tester) async {
+      final camera = _TestScanCameraSession();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        recognizeResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'live-scan',
+            cardRef: 'live-card',
+            matchName: 'Live camera card',
+            candidates: ['Live camera card'],
+            candidateCardRefs: ['live-card'],
+          ),
+        ),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: _TestScanCameraFactory(camera),
+      );
+
+      expect(find.byKey(const Key('scan-live-camera-preview')), findsOneWidget);
+      expect(find.byKey(const Key('test-live-camera-preview')), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Turn flash on'));
+      await tester.pump();
+      expect(camera.flashEnabled, isTrue);
+      expect(find.byTooltip('Turn flash off'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(camera.takePhotoCount, 1);
+      expect(source.recognizedImages.single.fileName, 'live-camera.jpg');
+      expect(
+        source.recognizedImages.single.bytes,
+        Uint8List.fromList([9, 8, 7]),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(camera.disposed, isTrue);
+      expect(camera.flashEnabled, isFalse);
+    },
+  );
+
+  testWidgets(
+    'Scan closes flash in background and reopens the camera on resume because camera resources cannot outlive the active page',
+    (tester) async {
+      final first = _TestScanCameraSession();
+      final factory = _TestScanCameraFactory(first);
+      await _pumpScanTestApp(tester, scanCameraFactory: factory);
+      await tester.tap(find.byTooltip('Turn flash on'));
+      await tester.pump();
+      expect(first.flashEnabled, isTrue);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(first.disposed, isTrue);
+      expect(first.flashEnabled, isFalse);
+
+      final second = _TestScanCameraSession();
+      factory.session = second;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(find.byKey(const Key('scan-live-camera-preview')), findsOneWidget);
+      expect(second.disposed, isFalse);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(second.disposed, isTrue);
     },
   );
 
@@ -1136,6 +1211,7 @@ Future<void> _pumpScanTestApp(
   WidgetTester tester, {
   ScanResultSource? scanResultSource,
   ScanReviewRepository? scanReviewRepository,
+  ScanCameraFactory scanCameraFactory = const _DisabledScanCameraFactory(),
   bool tickerEnabled = true,
 }) async {
   await tester.pumpWidget(const SizedBox.shrink());
@@ -1151,6 +1227,7 @@ Future<void> _pumpScanTestApp(
         scanResultSourceProvider.overrideWithValue(
           scanResultSource ?? _defaultTestScanResultSource(),
         ),
+        scanCameraFactoryProvider.overrideWithValue(scanCameraFactory),
       ],
       child: TickerMode(
         enabled: tickerEnabled,
@@ -1272,20 +1349,24 @@ class _TestScanResultSource implements ScanResultSource {
     List<Future<ScanResolution>> subsequentPhotoResults = const [],
     Future<ScanResolution>? libraryResult,
     List<Future<ScanResolution>>? libraryResults,
+    Future<ScanResolution>? recognizeResult,
     Future<ScanResolution>? retryResult,
   }) : _photoResults = [photoResult, ...subsequentPhotoResults],
        _libraryResults =
            libraryResults ??
            [libraryResult ?? Future.value(const ScanResolution.noMatch())],
+       _recognizeResult = recognizeResult ?? photoResult,
        _retryResult =
            retryResult ?? Future.value(const ScanResolution.failed());
 
   final List<Future<ScanResolution>> _photoResults;
   final List<Future<ScanResolution>> _libraryResults;
+  final Future<ScanResolution> _recognizeResult;
   final Future<ScanResolution> _retryResult;
   var _nextPhotoResult = 0;
   Uint8List? lastRetryBytes;
   String? lastRetryFileName;
+  final recognizedImages = <ScanImage>[];
 
   @override
   Future<List<Future<ScanResolution>>> library() async => _libraryResults;
@@ -1300,10 +1381,70 @@ class _TestScanResultSource implements ScanResultSource {
   }
 
   @override
+  Future<ScanResolution> recognize(ScanImage image) {
+    recognizedImages.add(image);
+    return _recognizeResult;
+  }
+
+  @override
   Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName}) {
     lastRetryBytes = imageBytes;
     lastRetryFileName = fileName;
     return _retryResult;
+  }
+}
+
+class _DisabledScanCameraFactory implements ScanCameraFactory {
+  const _DisabledScanCameraFactory();
+
+  @override
+  Future<ScanCameraSession?> open() async => null;
+}
+
+class _TestScanCameraFactory implements ScanCameraFactory {
+  _TestScanCameraFactory(this.session);
+
+  _TestScanCameraSession session;
+
+  @override
+  Future<ScanCameraSession?> open() async => session;
+}
+
+class _TestScanCameraSession implements ScanCameraSession {
+  var _flashEnabled = false;
+  var takePhotoCount = 0;
+  var disposed = false;
+
+  @override
+  bool get flashEnabled => _flashEnabled;
+
+  @override
+  Widget buildPreview() {
+    return const ColoredBox(
+      key: Key('test-live-camera-preview'),
+      color: Colors.black,
+    );
+  }
+
+  @override
+  Future<ScanImage> takePhoto() async {
+    takePhotoCount += 1;
+    return ScanImage(
+      bytes: Uint8List.fromList([9, 8, 7]),
+      fileName: 'live-camera.jpg',
+    );
+  }
+
+  @override
+  Future<bool> toggleFlash() async {
+    _flashEnabled = !_flashEnabled;
+    return _flashEnabled;
+  }
+
+  @override
+  Future<void> dispose() async {
+    _flashEnabled = false;
+    disposed = true;
   }
 }
 

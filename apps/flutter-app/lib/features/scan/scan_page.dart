@@ -14,6 +14,7 @@ import '../../shared/ui/toast.dart';
 import '../collection/collection_controller.dart';
 import '../card_detail/card_detail_controller.dart';
 import '../home/home_controller.dart';
+import 'scan_camera.dart';
 import 'scan_review_repository.dart';
 
 enum _ScanItemStatus {
@@ -226,15 +227,19 @@ class ScanPage extends ConsumerStatefulWidget {
 }
 
 class _ScanPageState extends ConsumerState<ScanPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   static const _revealTimelineDuration = Duration(microseconds: 1529856);
 
   final List<_ScanItem> _items = [];
   final List<Timer> _scanTimers = [];
   final Map<int, _PendingScan> _pendingScans = {};
+  ScanCameraSession? _cameraSession;
 
   var _nextScanId = 1;
   var _nextScanToken = 1;
+  var _cameraGeneration = 0;
+  var _openingCamera = false;
+  var _appActive = true;
   var _reviewing = false;
   int? _selectedReviewItemId;
   int? _lastAddedCount;
@@ -337,7 +342,30 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_openCamera());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _appActive = true;
+      unawaited(_openCamera());
+      return;
+    }
+    _appActive = false;
+    unawaited(_closeCamera());
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _cameraGeneration += 1;
+    final camera = _cameraSession;
+    if (camera != null) unawaited(camera.dispose());
+    _cameraSession = null;
     for (final timer in _scanTimers) {
       timer.cancel();
     }
@@ -348,8 +376,59 @@ class _ScanPageState extends ConsumerState<ScanPage>
     super.dispose();
   }
 
+  Future<void> _openCamera() async {
+    if (_openingCamera || _cameraSession != null || !_appActive || _reviewing) {
+      return;
+    }
+    _openingCamera = true;
+    final generation = ++_cameraGeneration;
+    ScanCameraSession? session;
+    try {
+      session = await ref.read(scanCameraFactoryProvider).open();
+    } catch (_) {
+      session = null;
+    }
+    if (!mounted ||
+        generation != _cameraGeneration ||
+        !_appActive ||
+        _reviewing) {
+      await session?.dispose();
+      return;
+    }
+    setState(() {
+      _cameraSession = session;
+      _openingCamera = false;
+    });
+  }
+
+  Future<void> _closeCamera() async {
+    _cameraGeneration += 1;
+    _openingCamera = false;
+    final session = _cameraSession;
+    if (session == null) return;
+    if (mounted) {
+      setState(() => _cameraSession = null);
+    } else {
+      _cameraSession = null;
+    }
+    await session.dispose();
+  }
+
   void _startPhotoScan() {
-    _addScan(Future.sync(() => ref.read(scanResultSourceProvider).photo()));
+    final source = ref.read(scanResultSourceProvider);
+    final camera = _cameraSession;
+    _addScan(
+      camera == null
+          ? Future.sync(source.photo)
+          : camera.takePhoto().then(source.recognize),
+    );
+  }
+
+  Future<void> _toggleFlash() async {
+    final camera = _cameraSession;
+    if (camera == null) return;
+    await camera.toggleFlash();
+    if (mounted && identical(camera, _cameraSession)) setState(() {});
   }
 
   Future<void> _startLibraryScan() async {
@@ -647,6 +726,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewCards = const {};
       _reviewFormError = null;
     });
+    unawaited(_closeCamera());
     try {
       final items = _matchedItems;
       final repository = ref.read(scanReviewRepositoryProvider);
@@ -690,6 +770,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewDrafts.clear();
       _reviewFormError = null;
     });
+    unawaited(_openCamera());
     showKandoFailureToast(context);
   }
 
@@ -720,6 +801,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _reviewDrafts.remove(item.id);
         _reviewFormError = null;
       });
+      unawaited(_openCamera());
       _refreshPortfolioSurfaces();
     } on Exception {
       if (mounted) showKandoFailureToast(context);
@@ -773,6 +855,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _savingReview = false;
     });
     if (addedIds.isNotEmpty) _refreshPortfolioSurfaces();
+    if (!_reviewing) unawaited(_openCamera());
     if (failed) showKandoFailureToast(context);
   }
 
@@ -918,6 +1001,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _reviewCards = const {};
       }
     });
+    if (!_reviewing) unawaited(_openCamera());
   }
 
   void _markItemsAdded(Set<int> itemIds) {
@@ -1002,6 +1086,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 ),
               )
             : _ScanCameraView(
+                cameraPreview: _cameraSession?.buildPreview(),
+                flashEnabled: _cameraSession?.flashEnabled ?? false,
                 items: _items,
                 addedItems: _addedItems,
                 lastAddedCount: _lastAddedCount,
@@ -1015,6 +1101,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 showRevealingFeedback: _showRevealingFeedback,
                 revealAnimation: _revealAnimation,
                 onClosePressed: _requestExitScan,
+                onFlashPressed: _cameraSession == null ? null : _toggleFlash,
                 onSearchPressed: () => context.go('/search'),
                 onPhotoPressed: _startPhotoScan,
                 onLibraryPressed: _startLibraryScan,
@@ -1036,6 +1123,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
 class _ScanCameraView extends StatelessWidget {
   const _ScanCameraView({
+    required this.cameraPreview,
+    required this.flashEnabled,
     required this.items,
     required this.addedItems,
     required this.lastAddedCount,
@@ -1049,6 +1138,7 @@ class _ScanCameraView extends StatelessWidget {
     required this.showRevealingFeedback,
     required this.revealAnimation,
     required this.onClosePressed,
+    required this.onFlashPressed,
     required this.onSearchPressed,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
@@ -1061,6 +1151,8 @@ class _ScanCameraView extends StatelessWidget {
     required this.onSearchItem,
   });
 
+  final Widget? cameraPreview;
+  final bool flashEnabled;
   final List<_ScanItem> items;
   final List<_ScanItem> addedItems;
   final int? lastAddedCount;
@@ -1075,6 +1167,7 @@ class _ScanCameraView extends StatelessWidget {
   final bool showRevealingFeedback;
   final Animation<double> revealAnimation;
   final VoidCallback onClosePressed;
+  final VoidCallback? onFlashPressed;
   final VoidCallback onSearchPressed;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
@@ -1097,6 +1190,13 @@ class _ScanCameraView extends StatelessWidget {
           const Positioned.fill(child: _FigmaCompletedCanvas())
         else if (showingFailedFeedback)
           const Positioned.fill(child: _FigmaFailedCanvas())
+        else if (cameraPreview != null)
+          Positioned.fill(
+            child: KeyedSubtree(
+              key: const Key('scan-live-camera-preview'),
+              child: cameraPreview!,
+            ),
+          )
         else if (revealing)
           Positioned(
             left: -205,
@@ -1183,6 +1283,8 @@ class _ScanCameraView extends StatelessWidget {
                 children: [
                   _ScanTopBar(
                     onClosePressed: onClosePressed,
+                    onFlashPressed: onFlashPressed,
+                    flashEnabled: flashEnabled,
                     onSearchPressed: onSearchPressed,
                   ),
                   const SizedBox(height: 2),
@@ -1616,10 +1718,14 @@ class _FigmaCompletedAction extends StatelessWidget {
 class _ScanTopBar extends StatelessWidget {
   const _ScanTopBar({
     required this.onClosePressed,
+    required this.onFlashPressed,
+    required this.flashEnabled,
     required this.onSearchPressed,
   });
 
   final VoidCallback onClosePressed;
+  final VoidCallback? onFlashPressed;
+  final bool flashEnabled;
   final VoidCallback onSearchPressed;
 
   @override
@@ -1644,20 +1750,27 @@ class _ScanTopBar extends StatelessWidget {
               ),
             ),
           ),
-          Container(
-            width: 25,
-            height: 25,
-            decoration: BoxDecoration(
-              color: const Color(0xFF222222).withValues(alpha: 0.82),
-              shape: BoxShape.circle,
+          IconButton(
+            tooltip: flashEnabled ? 'Turn flash off' : 'Turn flash on',
+            onPressed: onFlashPressed,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 25, height: 25),
+            style: IconButton.styleFrom(
+              backgroundColor: flashEnabled
+                  ? const Color(0xFFF0FE6F)
+                  : const Color(0xFF222222).withValues(alpha: 0.82),
+              disabledBackgroundColor: const Color(
+                0xFF222222,
+              ).withValues(alpha: 0.82),
             ),
-            child: Center(
-              child: SvgPicture.asset(
-                'assets/scan/flash.svg',
-                key: const Key('scan-figma-flash-icon'),
-                width: 9,
-                height: 15,
-              ),
+            icon: SvgPicture.asset(
+              'assets/scan/flash.svg',
+              key: const Key('scan-figma-flash-icon'),
+              width: 9,
+              height: 15,
+              colorFilter: flashEnabled
+                  ? const ColorFilter.mode(Color(0xFF10100B), BlendMode.srcIn)
+                  : null,
             ),
           ),
           Align(

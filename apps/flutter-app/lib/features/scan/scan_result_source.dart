@@ -60,6 +60,7 @@ class ScanResolution {
 abstract interface class ScanResultSource {
   Future<ScanResolution> photo();
   Future<List<Future<ScanResolution>>> library();
+  Future<ScanResolution> recognize(ScanImage image);
   Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName});
 }
 
@@ -165,7 +166,7 @@ class ApiScanResultSource implements ScanResultSource {
     );
     final selectedImages = images.take(10).toList();
     if (selectedImages.isEmpty) return const [];
-    return [for (final image in selectedImages) _recognize(image)];
+    return [for (final image in selectedImages) recognize(image)];
   }
 
   @override
@@ -173,16 +174,17 @@ class ApiScanResultSource implements ScanResultSource {
     if (imageBytes == null || fileName == null) {
       return Future.value(const ScanResolution.failed());
     }
-    return _recognize(ScanImage(bytes: imageBytes, fileName: fileName));
+    return recognize(ScanImage(bytes: imageBytes, fileName: fileName));
   }
 
   Future<ScanResolution> _pickAndRecognize(ScanImageSource source) async {
     final image = await _imagePicker.pick(source);
     if (image == null) return const ScanResolution.cancelled();
-    return _recognize(image);
+    return recognize(image);
   }
 
-  Future<ScanResolution> _recognize(ScanImage image) async {
+  @override
+  Future<ScanResolution> recognize(ScanImage image) async {
     final ScanRecognitionDto recognition;
     try {
       final session = _session();
