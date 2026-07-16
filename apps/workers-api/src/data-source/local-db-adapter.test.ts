@@ -285,12 +285,14 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
-  it("ranks trending cards from recent price history because Home must not depend on mock or manually pinned data", async () => {
+  it("ranks Trending Today by the preferred SKU 1D change because Home must show the same price it ranked", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [
           card({ product_id: "100", name: "Small Mover" }),
           card({ product_id: "200", name: "Large Mover" }),
+          card({ product_id: "300", name: "Falling Card" }),
+          card({ product_id: "400", name: "Missing Baseline" }),
         ],
         [
           sku({
@@ -304,8 +306,23 @@ describe("local D1 card data source adapter", () => {
             sku_id: 2,
             product_id: 200,
             price_history: JSON.stringify([
-              { price: 10, date: "2026-07-14" },
+              { price: 10, date: "2026-07-12" },
               { price: 15, date: "2026-07-15" },
+            ]),
+          }),
+          sku({
+            sku_id: 3,
+            product_id: 300,
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-14" },
+              { price: 8, date: "2026-07-15" },
+            ]),
+          }),
+          sku({
+            sku_id: 4,
+            product_id: 400,
+            price_history: JSON.stringify([
+              { price: 7, date: "2026-07-15" },
             ]),
           }),
         ],
@@ -318,12 +335,27 @@ describe("local D1 card data source adapter", () => {
         name: "Large Mover",
         price_usd: 15,
         previous_30d_price_usd: 10,
+        previous_1d_price_usd: 10,
+        price_change_1d_percent: 50,
+        price_as_of: "2026-07-15",
+        previous_price_as_of: "2026-07-12",
       },
       {
         card_ref: "100",
         name: "Small Mover",
         price_usd: 11,
         previous_30d_price_usd: 10,
+        previous_1d_price_usd: 10,
+        price_change_1d_percent: 10,
+      },
+      {
+        card_ref: "300",
+        name: "Falling Card",
+        price_change_1d_percent: -20,
+      },
+      {
+        card_ref: "400",
+        name: "Missing Baseline",
       },
     ]);
   });

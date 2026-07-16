@@ -39,6 +39,10 @@ class CardDataCardDto {
     required this.rarity,
     this.priceUsd,
     this.previous30dPriceUsd,
+    this.previous1dPriceUsd,
+    this.priceChange1dPercent,
+    this.priceAsOf,
+    this.previousPriceAsOf,
   });
 
   final String cardRef;
@@ -54,6 +58,10 @@ class CardDataCardDto {
   final String? rarity;
   final double? priceUsd;
   final double? previous30dPriceUsd;
+  final double? previous1dPriceUsd;
+  final double? priceChange1dPercent;
+  final String? priceAsOf;
+  final String? previousPriceAsOf;
 
   factory CardDataCardDto.fromJson(Map<String, Object?> json) {
     return CardDataCardDto(
@@ -70,6 +78,10 @@ class CardDataCardDto {
       rarity: _nullableString(json['rarity']),
       priceUsd: _nullableDouble(json['price_usd']),
       previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
+      previous1dPriceUsd: _nullableDouble(json['previous_1d_price_usd']),
+      priceChange1dPercent: _nullableDouble(json['price_change_1d_percent']),
+      priceAsOf: _nullableString(json['price_as_of']),
+      previousPriceAsOf: _nullableString(json['previous_price_as_of']),
     );
   }
 }

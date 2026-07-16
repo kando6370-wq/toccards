@@ -136,23 +136,29 @@ LIMIT 100`,
       );
 
       return rows
-        .map((row) => ({
-          row,
-          score: recentChangeScore(skusByProductId.get(row.product_id) ?? []),
-        }))
-        .filter((item) => item.score !== null)
+        .map((row) => {
+          const skus = skusByProductId.get(row.product_id) ?? [];
+          const sku = preferredSearchSku(skus);
+          return { row, skus, trend: sku ? oneDayTrend(sku) : null };
+        })
         .sort(
           (left, right) =>
-            right.score! - left.score! ||
+            Number(left.trend === null) - Number(right.trend === null) ||
+            (right.trend?.percent ?? 0) - (left.trend?.percent ?? 0) ||
             left.row.product_id.localeCompare(right.row.product_id),
         )
         .slice(0, 10)
-        .map((item) =>
-          cardWithSearchPricing(
-            item.row,
-            skusByProductId.get(item.row.product_id) ?? [],
-          ),
-        );
+        .map(({ row, skus, trend }) => ({
+          ...cardWithSearchPricing(row, skus),
+          ...(trend === null
+            ? {}
+            : {
+                previous_1d_price_usd: trend.previous,
+                price_change_1d_percent: trend.percent,
+                price_as_of: trend.currentDate,
+                previous_price_as_of: trend.previousDate,
+              }),
+        }));
     },
 
     async getSoldListings(card_ref): Promise<SoldListing[]> {
@@ -438,24 +444,31 @@ function latestPricePoint(
   return points.sort((left, right) => left.date.localeCompare(right.date)).at(-1) ?? null;
 }
 
-function recentChangeScore(rows: TcgplayerSkuRow[]): number | null {
-  let bestScore: number | null = null;
+function oneDayTrend(row: TcgplayerSkuRow): {
+  currentDate: string;
+  previousDate: string;
+  previous: number;
+  percent: number;
+} | null {
+  const points = parsePriceHistory(row.price_history).sort((left, right) =>
+    left.date.localeCompare(right.date),
+  );
+  const current = points.at(-1);
+  if (!current) return null;
 
-  for (const row of rows) {
-    const points = parsePriceHistory(row.price_history).sort((left, right) =>
-      left.date.localeCompare(right.date),
-    );
-    const current = points.at(-1)?.price;
-    const previous = points.at(-2)?.price;
-    if (current === undefined || previous === undefined || previous <= 0) {
-      continue;
-    }
+  const cutoff = new Date(`${current.date}T00:00:00.000Z`);
+  cutoff.setUTCDate(cutoff.getUTCDate() - 1);
+  const previous = points
+    .filter((point) => new Date(`${point.date}T00:00:00.000Z`) <= cutoff)
+    .at(-1);
+  if (!previous || previous.price <= 0) return null;
 
-    const score = Math.abs((current - previous) / previous);
-    bestScore = bestScore === null ? score : Math.max(bestScore, score);
-  }
-
-  return bestScore;
+  return {
+    currentDate: current.date,
+    previousDate: previous.date,
+    previous: previous.price,
+    percent: ((current.price - previous.price) / previous.price) * 100,
+  };
 }
 
 function filterPointsByDays(

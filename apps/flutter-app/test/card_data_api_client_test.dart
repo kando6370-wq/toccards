@@ -33,6 +33,10 @@ void main() {
       expect(cards.single.objectType, 'tcg');
       expect(cards.single.priceUsd, 32.13);
       expect(cards.single.previous30dPriceUsd, 30.67);
+      expect(cards.single.previous1dPriceUsd, 31.25);
+      expect(cards.single.priceChange1dPercent, 2.816);
+      expect(cards.single.priceAsOf, '2026-07-15');
+      expect(cards.single.previousPriceAsOf, '2026-07-14');
     },
   );
 
@@ -132,6 +136,10 @@ Map<String, Object?> _cardJson({
     'rarity': 'Common',
     'price_usd': 32.13,
     'previous_30d_price_usd': 30.67,
+    'previous_1d_price_usd': 31.25,
+    'price_change_1d_percent': 2.816,
+    'price_as_of': '2026-07-15',
+    'previous_price_as_of': '2026-07-14',
   };
 }
 

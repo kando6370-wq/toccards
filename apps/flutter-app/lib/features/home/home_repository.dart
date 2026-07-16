@@ -109,21 +109,19 @@ class ApiHomeRepository implements HomeRepository {
       final price = _matchingPrice(item, prices);
       if (price?.price == null) return null;
       final entries = await Future.wait(
-        HomeChartRange.values.map(
-          (range) async {
-            try {
-              return await cardDataApi.getPriceSeries(
-                item.cardRef,
-                days: _rangeDays[range]!,
-                grader: price!.grader,
-                grade: price.grade,
-                condition: price.condition,
-              );
-            } catch (_) {
-              return const <CardDataPricePointDto>[];
-            }
-          },
-        ),
+        HomeChartRange.values.map((range) async {
+          try {
+            return await cardDataApi.getPriceSeries(
+              item.cardRef,
+              days: _rangeDays[range]!,
+              grader: price!.grader,
+              grade: price.grade,
+              condition: price.condition,
+            );
+          } catch (_) {
+            return const <CardDataPricePointDto>[];
+          }
+        }),
       );
       return _HomeAsset(
         item: item,
@@ -141,35 +139,21 @@ class ApiHomeRepository implements HomeRepository {
 
   Future<List<TrendingCard>> _loadTrending() async {
     final cards = (await cardDataApi.trendingCards()).take(3);
-    final trends = await Future.wait(
-      cards.map((card) async {
-        try {
-          final prices = await cardDataApi.getMarketPrices(card.cardRef);
-          final market = prices
-              .where((price) => price.price != null)
-              .firstOrNull;
-          if (market == null) return null;
-          final series = await cardDataApi.getPriceSeries(
-            card.cardRef,
-            days: 1,
-            grader: market.grader,
-            grade: market.grade,
-            condition: market.condition,
-          );
-          return TrendingCard(
+    return cards
+        .where(
+          (card) => card.priceUsd != null && card.previous1dPriceUsd != null,
+        )
+        .map(
+          (card) => TrendingCard(
             cardRef: card.cardRef,
             title: card.name,
             subtitle: card.setName,
-            priceUsd: market.price!,
-            previousPriceUsd: series.length > 1 ? series.first.price : 0,
+            priceUsd: card.priceUsd!,
+            previousPriceUsd: card.previous1dPriceUsd!,
             imageUrl: card.imageUrl,
-          );
-        } catch (_) {
-          return null;
-        }
-      }),
-    );
-    return trends.whereType<TrendingCard>().toList();
+          ),
+        )
+        .toList();
   }
 }
 
@@ -193,10 +177,10 @@ CardDataMarketPriceDto? _matchingPrice(
 }
 
 String _normalizedCondition(String? value) {
-  return (value ?? '')
-      .trim()
-      .toLowerCase()
-      .replaceFirst(RegExp(r'\s*\([^)]*\)\s*$'), '');
+  return (value ?? '').trim().toLowerCase().replaceFirst(
+    RegExp(r'\s*\([^)]*\)\s*$'),
+    '',
+  );
 }
 
 List<double> _aggregateSeries(

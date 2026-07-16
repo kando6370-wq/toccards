@@ -34,17 +34,8 @@ type CardOverrideRow = {
   is_missing_card: number;
 };
 
-type TrendingPinRow = {
-  card_ref: string;
-  rank: number;
-};
-
 type CardResponse = CardSearchResult & {
   override_applied: boolean;
-};
-
-type TrendingCardResponse = CardResponse & {
-  pinned: boolean;
 };
 
 const SELECT_CARD_OVERRIDE_SQL = `
@@ -52,13 +43,6 @@ SELECT card_ref, override_fields, image_url, is_missing_card
 FROM card_override
 WHERE card_ref = ?
 LIMIT 1
-`;
-
-const SELECT_ACTIVE_TRENDING_PINS_SQL = `
-SELECT card_ref, rank
-FROM trending_pin
-WHERE active = 1
-ORDER BY rank ASC
 `;
 
 const VALIDATION_ERROR_RESPONSE = {
@@ -187,13 +171,9 @@ export function createDataSourceRoutes(
 
   routes.get("/cards/trending", async (c) => {
     const adapter = createAdapter(c.env);
-    const pinnedItems = await listOrEmpty(() =>
-      findPinnedTrendingCards(c.env.DB, adapter),
-    );
-    const pinnedRefs = new Set(pinnedItems.map((item) => item.card_ref));
     const items = await listOrEmpty(() => adapter.getTrending());
     const overriddenItems = await Promise.all(
-      items.filter((item) => !pinnedRefs.has(item.card_ref)).map(async (item) => {
+      items.map(async (item) => {
         const override = await findCardOverride(c.env.DB, item.card_ref);
         const card = applyCardOverride(item, override, item.card_ref);
 
@@ -204,7 +184,7 @@ export function createDataSourceRoutes(
     return c.json({
       success: true,
       data: {
-        items: [...pinnedItems, ...overriddenItems].map((item) =>
+        items: overriddenItems.map((item) =>
           withProxiedImageUrl(item, c.req.url),
         ),
       },
@@ -384,28 +364,6 @@ async function findCardOverride(
   } catch {
     return null;
   }
-}
-
-async function findPinnedTrendingCards(
-  db: D1Database,
-  adapter: DataSourceAdapter,
-): Promise<TrendingCardResponse[]> {
-  const result = await db
-    .prepare(SELECT_ACTIVE_TRENDING_PINS_SQL)
-    .all<TrendingPinRow>();
-  const items: TrendingCardResponse[] = [];
-
-  for (const pin of result.results ?? []) {
-    const override = await findCardOverride(db, pin.card_ref);
-    const card = await getCardOrNull(adapter, pin.card_ref);
-    const overriddenCard = applyCardOverride(card, override, pin.card_ref);
-
-    if (overriddenCard) {
-      items.push({ ...overriddenCard, pinned: true });
-    }
-  }
-
-  return items;
 }
 
 async function getCardOrNull(

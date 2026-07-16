@@ -186,28 +186,32 @@ class _CardDataApi implements CardDataApi {
   Future<List<CardDataCardDto>> trendingCards() async => [_card('trending')];
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async =>
-      [
-        if (cardRef == 'owned')
-          const CardDataMarketPriceDto(
-            grader: 'Raw',
-            grade: null,
-            condition: 'Lightly Played',
-            price: 10,
-          ),
-        CardDataMarketPriceDto(
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+    if (cardRef == 'trending') {
+      throw StateError('Trending must use the feed price contract');
+    }
+    return [
+      if (cardRef == 'owned')
+        const CardDataMarketPriceDto(
           grader: 'Raw',
           grade: null,
-          condition: 'Near Mint',
-          price: switch (cardRef) {
-            'owned' => 100,
-            'owned-low' => 10,
-            'owned-mid' => 50,
-            'owned-quantity' => 5,
-            _ => 60,
-          },
+          condition: 'Lightly Played',
+          price: 10,
         ),
-      ];
+      CardDataMarketPriceDto(
+        grader: 'Raw',
+        grade: null,
+        condition: 'Near Mint',
+        price: switch (cardRef) {
+          'owned' => 100,
+          'owned-low' => 10,
+          'owned-mid' => 50,
+          'owned-quantity' => 5,
+          _ => 60,
+        },
+      ),
+    ];
+  }
 
   @override
   Future<List<CardDataPricePointDto>> getPriceSeries(
@@ -217,6 +221,9 @@ class _CardDataApi implements CardDataApi {
     double? grade,
     String? condition,
   }) async {
+    if (cardRef == 'trending') {
+      throw StateError('Trending must not make per-card series requests');
+    }
     if (cardRef.startsWith('owned') && failedSeriesDays.contains(days)) {
       throw StateError('price series unavailable');
     }
@@ -261,6 +268,8 @@ class _CardDataApi implements CardDataApi {
     objectType: 'tcg',
     imageUrl: 'https://cdn.example.test/$cardRef.png',
     rarity: 'Rare',
+    priceUsd: cardRef == 'trending' ? 60 : null,
+    previous1dPriceUsd: cardRef == 'trending' ? 50 : null,
   );
 
   @override

@@ -242,7 +242,7 @@ describe("data source routes", () => {
     });
   });
 
-  it("builds trending from active D1 pins and local card rows because the local catalog has no third-party trending feed", async () => {
+  it("does not let admin pins override Trending Today because the feed order is defined by real price change", async () => {
     const response = await app.request(
       "/api/v1/cards/trending",
       {},
@@ -266,19 +266,7 @@ describe("data source routes", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      success: true,
-      data: {
-        items: [
-          expect.objectContaining({
-            card_ref: "300",
-            name: "Pikachu",
-            pinned: true,
-            override_applied: false,
-          }),
-        ],
-      },
-    });
+    expect(await response.json()).toEqual({ success: true, data: { items: [] } });
   });
 
   it("serves trusted catalog images through the API because Flutter Web canvas cannot render upstream images without CORS", async () => {
