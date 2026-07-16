@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_models.dart';
 import 'oauth_authorizer.dart';
 import 'auth_repository.dart';
+import 'auth_session_interceptor.dart';
 import 'auth_storage.dart';
 
 const authAuthorizationFailedMessage = oauthAuthorizationFailedMessage;
@@ -29,6 +30,9 @@ final authStorageProvider = Provider<AuthStorage>((ref) {
 
 final authDioProvider = Provider((ref) {
   final dio = createAuthDio();
+  dio.interceptors.add(
+    AuthSessionInterceptor(dio: dio, storage: ref.watch(authStorageProvider)),
+  );
   ref.onDispose(dio.close);
   return dio;
 });
