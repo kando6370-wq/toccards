@@ -28,7 +28,8 @@ describe("public legal routes", () => {
     expect(html).toContain("not the surrounding camera frame");
     expect(html).toContain("external card-recognition service receives only the RGB perceptual hashes");
     expect(html).not.toContain("the original image is not uploaded");
-    expect(html).toContain("configured periods");
+    expect(html).toContain("retained for no more than 30 days");
+    expect(html).toContain("deleted automatically");
     expect(html).toContain("Portfolio folders");
     expect(html).toContain("Cloudflare");
     expect(html).toContain("Deleting an account removes its stored scan images");

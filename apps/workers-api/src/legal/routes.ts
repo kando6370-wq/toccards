@@ -112,7 +112,7 @@ function privacyContent(): string {
     <h2>5. Sharing and sale</h2>
     <p>We do not sell personal information. We disclose information only to service providers, when you direct us to, to protect users and the service, during a business reorganization, or when required by law.</p>
     <h2>6. Retention and deletion</h2>
-    <p>We retain information only for configured periods needed to provide ${PRODUCT_NAME}, meet security and legal requirements, resolve disputes, and maintain backups. Scan-image retention is a limited service configuration that must be published before scan-image storage is enabled in production. Deleting an account removes its stored scan images. Some non-image records may remain for a limited period where required for security, legal compliance, or backup restoration.</p>
+    <p>We retain information only for configured periods needed to provide ${PRODUCT_NAME}, meet security and legal requirements, resolve disputes, and maintain backups. Uploaded card-area images are retained for no more than 30 days and are then deleted automatically. Deleting an account removes its stored scan images sooner. Some non-image records may remain for a limited period where required for security, legal compliance, or backup restoration.</p>
     <h2>7. Security</h2>
     <p>We use technical and organizational safeguards designed to protect information. No storage or transmission method is completely secure.</p>
     <h2>8. International processing</h2>
