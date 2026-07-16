@@ -1,7 +1,7 @@
 Card AI helps trading card collectors identify cards, organize their collection, and follow market information.
 
 SCAN WITH CONTROL
-Capture a card or choose photos from your library. Card images are processed on your device to create recognition hashes. Review suggested matches before anything is added to your portfolio.
+Capture a card or choose photos from your library. Card images are cropped and hashed on your device. The cropped card area is uploaded to Card AI's private service for scan records and recognition-quality review, retained for no more than 30 days, and never sent to the external recognition provider. Review suggested matches before anything is added to your portfolio.
 
 ORGANIZE YOUR COLLECTION
 Track quantities, conditions, grading details, purchase values, and notes. Use folders to keep different parts of your portfolio organized, and save cards to your Wishlist for later.

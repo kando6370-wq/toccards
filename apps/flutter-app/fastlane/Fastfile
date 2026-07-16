@@ -1,13 +1,13 @@
 default_platform(:ios)
 
 platform :ios do
-  desc "Upload App Store metadata and screenshots without changing the binary"
+  desc "Upload App Store metadata without changing the binary"
   lane :metadata do
     deliver(
       app_identifier: "com.kando.kandoApp",
       metadata_path: "./fastlane/metadata",
-      screenshots_path: "./fastlane/screenshots",
       skip_binary_upload: true,
+      skip_screenshots: true,
       force: true
     )
   end
