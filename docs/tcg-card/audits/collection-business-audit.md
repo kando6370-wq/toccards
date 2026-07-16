@@ -38,8 +38,8 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | 动作 | 服务端结果 | 下游影响 | 结论 |
 |---|---|---|---|
 | 新增资产 | 写入 `collection_item` 和 `collection_item_event`，并删除同卡 Wishlist | Collection、Home、Qty、历史曲线 | 代码明确 |
-| 编辑资产 | 更新状态字段并追加 `upsert` 事件 | 当前价格、汇总、历史曲线 | 代码明确 |
-| 移动文件夹 | 更新 `folder_id` 并追加 `upsert` 事件 | 原/目标文件夹汇总与历史 | 代码明确 |
+| 编辑资产 | 同一 Item PATCH 原子更新状态字段与可选 `folder_id`，并在同一 D1 batch 追加 `upsert` 事件 | 当前价格、原/目标文件夹汇总与历史曲线 | 代码明确 |
+| 纯移动文件夹 | `/portfolio/items/:item_id/move` 更新 `folder_id` 与 `folder_joined_at`，并追加 `upsert` 事件 | 原/目标文件夹汇总与历史 | 代码明确 |
 | 删除资产 | 删除当前记录并追加 `delete` 事件 | 删除后不再计入资产，删除前历史保留 | 代码明确 |
 
 ### 3.2 Wishlist
@@ -60,7 +60,7 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | 实体 | 关键字段 | 关系与生命周期 | 证据 |
 |---|---|---|---|
 | `portfolio_folder` | owner、name、is_default、sort_order | 一个 owner 有多个文件夹；默认文件夹不可删除 | `db/schema.ts` |
-| `collection_item` | folder_id、card_ref、grader、condition/grade、language、finish、quantity | 一张卡可有多条独立资产记录 | `db/schema.ts` |
+| `collection_item` | folder_id、folder_joined_at、card_ref、grader、condition/grade、language、finish、quantity | 一张卡可有多条独立资产记录；仅移动文件夹时刷新加入当前文件夹时间 | `db/schema.ts`、`0005_collection_item_folder_joined_at.sql` |
 | `collection_item_event` | item_id、完整定价状态、event_type、effective_at | 保存不可变 upsert/delete 历史 | `0004_collection_item_event.sql` |
 | `wishlist_item` | owner、card_ref、created_at | owner 内同卡唯一，不属于文件夹 | `db/schema.ts` |
 | `user_preference` | currency、amount_hidden、last_selected_folder_id | owner 级 Collection/Home 共享偏好 | `db/schema.ts` |
@@ -76,7 +76,7 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | 30D Change | `(当前单价 - 30D 基准价) / 30D 基准价` | 缺任一价格时为空 | 代码明确 |
 | Raw 取价 | Raw + Condition，并受 Language、Finish 约束 | D1 SKU 支持 | 代码明确 |
 | Graded 取价 | Grader + Grade | D1 无评级价格源，不得用 Raw 冒充 | 待确认/上线依赖 |
-| 默认排序 | 加入当前文件夹或 Wishlist 时间倒序 | Flutter 本地执行 | 代码明确 |
+| 默认排序 | Portfolio 按 `folder_joined_at` 倒序；Wishlist 按 `created_at` 倒序 | Workers 列表默认值和 Flutter `Newest` 使用同一业务时间；普通字段编辑不改变该时间 | 代码明确 |
 | 缺失值排序 | 价格或涨跌幅缺失项置底 | 需要自动化测试持续保护 | 代码推断 |
 
 ## 6. 上下游与影响面
@@ -104,12 +104,12 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 
 | 编号 | 文件/位置 | 说明 |
 |---|---|---|
-| E1 | `apps/flutter-app/lib/features/collection/collection_repository.dart` | 当前加载链路与逐卡请求 |
+| E1 | `apps/flutter-app/lib/features/collection/collection_repository.dart` | Collection dashboard 单接口加载与业务时间映射 |
 | E2 | `apps/flutter-app/lib/features/collection/collection_controller.dart` | 文件夹范围、筛选、排序与汇总 |
 | E3 | `apps/flutter-app/lib/shared/portfolio/portfolio_api_client.dart` | Flutter Portfolio/Wishlist API 合约 |
 | E4 | `apps/workers-api/src/portfolio/routes.ts` | owner 鉴权、CRUD、分页与互斥规则 |
 | E5 | `apps/workers-api/src/portfolio/valuation-history.ts` | Raw SKU 匹配、当前值和历史值 |
-| E6 | `apps/workers-api/src/db/schema.ts` | D1 实体、索引与约束 |
+| E6 | `apps/workers-api/src/db/schema.ts`、`0005_collection_item_folder_joined_at.sql` | D1 实体、加入当前文件夹时间与旧数据回填 |
 | E7 | `docs/tcg-card/source-tcg-card-docs/20260708/TCG_PRD_整合版.md:1852` | Collection 产品规则 |
 | E8 | Figma `142:10516`、`847:15418` | Portfolio/Wishlist 页面设计真源 |
 
@@ -118,8 +118,6 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | 问题 | 影响 | 当前决定 |
 |---|---|---|
 | 没有真实 Graded 价格源 | Graded Item 当前价、30D Change、总资产均无法计算 | 显示 `--`，不以 Raw 冒充；接入数据源前作为上线依赖 |
-| 当前 Flutter 按卡请求基础信息、市场价、30D 曲线 | 数据量增长后产生严重 N+1 和超时 | 改为服务端 Collection dashboard 批量接口 |
-| 旧列表客户端固定 `page_size=100` 且不翻页 | 第 101 条起静默不可见 | dashboard 必须返回 owner 的完整集合，旧列表只保留其他页面兼容 |
 | 生产价格历史覆盖率与新鲜度不足 | 大量价格和 30D Change 为空或陈旧 | 不插测试价格掩盖；列为数据管线上线依赖 |
 
 ## 10. 本轮整改与验证
@@ -130,9 +128,11 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | 100 条静默截断 | Collection 主页面已消除；聚合接口不分页，自动化测试覆盖 101 条资产 | `collection-dashboard.test.ts` |
 | Flutter N+1 | 已消除；Collection Repository 只调用聚合接口，旧逐卡卡牌/价格/曲线调用为零 | `96ebfe3`；`collection_controller_test.dart` |
 | Graded 定价 | 保持空价，不使用 Raw 冒充 | `collection-dashboard.test.ts` |
-| Workers 验证 | 236 项测试与 TypeScript 类型检查通过 | 本轮 2026-07-16 验证记录 |
-| Flutter 验证 | 332 项通过、1 项跳过；`flutter analyze` 无问题 | 本轮 2026-07-16 验证记录 |
-| 生产部署 | 已部署 Workers 版本 `6f086420-e86d-4168-a56d-b714d6a072b5` | Cloudflare 部署输出 |
-| 生产真实价格 smoke | `9359 / Escape Artist` 返回当前价 `0.21`、30D 基准 `0.20`、Quantity `2`；临时账户随后删除 | 生产 API 2026-07-16 实测 |
+| 编辑时移动 | Flutter Item PATCH 发送 `folder_id`；Workers 在同一 batch 更新文件夹、字段和历史事件，目标文件夹按 owner 校验 | `1545251`、`8d9b776`；生产真实 API 闭环 |
+| 默认排序 | 新增并回填 `folder_joined_at`；移动刷新、普通编辑保持不变，Portfolio 默认按该时间倒序 | `07ff54c`、`7c53d9b`；`items.test.ts` |
+| Workers 验证 | 242 项测试、TypeScript 类型检查、本地 0005 迁移与 dry-run 构建通过 | 本轮 2026-07-16 验证记录 |
+| Flutter 验证 | 335 项通过、1 项跳过；`flutter analyze` 无问题 | 本轮 2026-07-16 验证记录 |
+| 生产部署 | 0005 已应用；已部署 Workers 版本 `8c54646a-d05f-49da-a29f-9210c50d2008` | Cloudflare 迁移与部署输出 |
+| 生产真实业务 smoke | `9359 / Escape Artist` 原子移动并编辑后返回当前价 `0.21`、30D 基准 `0.20`、Quantity `2`；移动旧资产默认排在目标文件夹原有资产之前，普通编辑不改变加入时间；两个临时账户均删除 | 生产 API 2026-07-16 实测 |
 
 整改后仍未解除的上线依赖只有真实 Graded 价格源和生产价格数据覆盖率/新鲜度；这两项不得用测试价格掩盖。
