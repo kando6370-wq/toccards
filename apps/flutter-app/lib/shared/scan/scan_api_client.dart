@@ -117,6 +117,50 @@ class ScanConfirmationDto {
   }
 }
 
+class ScanCollectionItemInput {
+  const ScanCollectionItemInput({
+    required this.folderId,
+    required this.cardRef,
+    required this.quantity,
+    required this.grader,
+    required this.condition,
+    required this.grade,
+    required this.language,
+    required this.finish,
+    required this.purchasePrice,
+    required this.purchaseCurrency,
+    required this.notes,
+  });
+
+  final String folderId;
+  final String cardRef;
+  final int quantity;
+  final String grader;
+  final String? condition;
+  final double? grade;
+  final String language;
+  final String finish;
+  final double? purchasePrice;
+  final String? purchaseCurrency;
+  final String? notes;
+
+  Map<String, Object?> toJson() {
+    return {
+      'folder_id': folderId,
+      'card_ref': cardRef,
+      'quantity': quantity,
+      'grader': grader,
+      'condition': condition,
+      'grade': grade,
+      'language': language,
+      'finish': finish,
+      'purchase_price': purchasePrice,
+      'purchase_currency': purchaseCurrency,
+      'notes': notes,
+    };
+  }
+}
+
 abstract interface class ScanApi {
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
@@ -130,8 +174,7 @@ abstract interface class ScanApi {
   Future<ScanConfirmationDto> confirmMatch(
     AuthSession session, {
     required String scanId,
-    required String folderId,
-    required String cardRef,
+    required ScanCollectionItemInput item,
   });
 }
 
@@ -165,14 +208,13 @@ class ScanApiClient implements ScanApi {
   Future<ScanConfirmationDto> confirmMatch(
     AuthSession session, {
     required String scanId,
-    required String folderId,
-    required String cardRef,
+    required ScanCollectionItemInput item,
   }) async {
     final data = await _requestData(
       'POST',
       '/scan/${Uri.encodeComponent(scanId)}/confirm',
       session,
-      {'folder_id': folderId, 'card_ref': cardRef},
+      item.toJson(),
     );
     return ScanConfirmationDto.fromJson(data);
   }

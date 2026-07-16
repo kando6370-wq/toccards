@@ -26,6 +26,8 @@ void main() {
       expect(result.cardRef, '1');
       expect(result.matchName, 'Bushi Tenderfoot');
       expect(result.candidates, ['Bushi Tenderfoot', 'Devoted Retainer']);
+      expect(result.candidateCardRefs, ['1', '2']);
+      expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
       expect(api.lastBytes, Uint8List.fromList([1, 2, 3]));
       expect(api.lastPlatform, 'iOS');
       expect(picker.sources, [ScanImageSource.camera]);
@@ -155,8 +157,7 @@ class _FakeScanApi implements ScanApi {
   Future<ScanConfirmationDto> confirmMatch(
     AuthSession session, {
     required String scanId,
-    required String folderId,
-    required String cardRef,
+    required ScanCollectionItemInput item,
   }) {
     throw UnimplementedError();
   }

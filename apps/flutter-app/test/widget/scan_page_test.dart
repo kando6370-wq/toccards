@@ -403,7 +403,7 @@ void main() {
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      expect(find.text('Review Your Matches'), findsOneWidget);
+      expect(find.text('Review your matches'), findsOneWidget);
     },
   );
 
@@ -445,6 +445,31 @@ void main() {
       find.byKey(const Key('scan-completed-figma-golden')),
       matchesGoldenFile(
         'goldens/rendered/figma_scan_completed_131_19700_390x844.png',
+      ),
+    );
+  });
+
+  testWidgets('Figma review renders at the 390x844 baseline', (tester) async {
+    await (FontLoader(
+      'Geist',
+    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
+    await (FontLoader(
+      'Fraunces',
+    )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await _pumpScanTestApp(tester);
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tap(find.byTooltip('Review completed scan'));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byKey(const Key('scan-page-test-boundary')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_scan_review_131_19961_390x844.png',
       ),
     );
   });
@@ -705,7 +730,7 @@ void main() {
       expect(find.text('DONE'), findsOneWidget);
       expect(find.byTooltip('Take Photo'), findsOneWidget);
       expect(find.byTooltip('Choose from Library'), findsOneWidget);
-      expect(find.text('Review Your Matches'), findsNothing);
+      expect(find.text('Review your matches'), findsNothing);
       expect(
         find.text(
           'Scan is coming soon. Use Search to find cards manually for now.',
@@ -742,21 +767,60 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Adding to Main'), findsOneWidget);
-      expect(find.text('Collection Item'), findsOneWidget);
+      expect(find.text('Collection item'), findsOneWidget);
       expect(find.text('Portfolio'), findsNothing);
-      expect(find.text('Your Picture'), findsOneWidget);
-      expect(find.text('Our Match'), findsOneWidget);
-      expect(find.text('Top matched results'), findsOneWidget);
+      expect(find.text('YOUR PICTURE'), findsOneWidget);
+      expect(find.text('OUR MATCH'), findsOneWidget);
+      expect(find.text('Top matched results:'), findsOneWidget);
       expect(find.text('Near Mint (NM)'), findsOneWidget);
+      expect(find.byKey(const Key('scan-review-total')), findsOneWidget);
+      expect(find.text(r'$25.00'), findsOneWidget);
 
-      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.drag(
+        find.byKey(const Key('scan-review-list')),
+        const Offset(0, -600),
+      );
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('scan-review-folder-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Adding to Trade').last);
+      await tester.enterText(
+        find.byKey(const Key('scan-review-quantity-1')),
+        '2',
+      );
+      await tester.tap(find.byKey(const Key('scan-review-grader-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('PSA').last);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('scan-review-grade-1')), findsOneWidget);
+      expect(find.text(r'$200.00'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('scan-review-price-1')),
+        '12.50',
+      );
+      await tester.enterText(
+        find.byKey(const Key('scan-review-notes-1')),
+        'Pulled from trade binder',
+      );
+
       await tester.tap(find.text('Add this card'));
       await tester.pumpAndSettle();
 
       expect(find.text('Added to Portfolio'), findsWidgets);
       expect(find.text('Mega Lucario ex'), findsWidgets);
       expect(reviewRepository.confirmedScanIds, ['scan-mega']);
+      final submitted = reviewRepository.confirmedItems.single;
+      expect(submitted.folderId, 'trade');
+      expect(submitted.quantity, 2);
+      expect(submitted.grader, 'PSA');
+      expect(submitted.condition, isNull);
+      expect(submitted.grade, 10);
+      expect(submitted.language, 'English');
+      expect(submitted.finish, 'Holofoil');
+      expect(submitted.purchasePrice, 12.5);
+      expect(submitted.purchaseCurrency, 'USD');
+      expect(submitted.notes, 'Pulled from trade binder');
     },
   );
 
@@ -774,8 +838,6 @@ void main() {
       await _completeFigmaScan(tester);
       await tester.tap(find.byTooltip('Review completed scan'));
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(ListView), const Offset(0, -500));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('Add this card'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -786,6 +848,32 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Added to Portfolio'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Review confirms the selected candidate because users can correct the OCR top match',
+    (tester) async {
+      final repository = _FakeScanReviewRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: repository);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('scan-review-list')),
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('scan-review-candidate-card-lucario')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add this card'));
+      await tester.pumpAndSettle();
+
+      expect(repository.confirmedItems.single.cardRef, 'card-lucario');
     },
   );
 
@@ -858,7 +946,8 @@ void main() {
   testWidgets('Scan keeps capture controls available across multiple results', (
     tester,
   ) async {
-    await _pumpScanTestApp(tester);
+    final repository = _FakeScanReviewRepository();
+    await _pumpScanTestApp(tester, scanReviewRepository: repository);
 
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.pump();
@@ -896,22 +985,34 @@ void main() {
     await tester.tap(find.text('DONE'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Review Your Matches'), findsOneWidget);
+    expect(find.text('Review your matches'), findsOneWidget);
     expect(find.text('Mega Lucario ex'), findsWidgets);
+    expect(find.byKey(const Key('scan-review-item-1')), findsOneWidget);
+    expect(find.byKey(const Key('scan-review-item-4')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('scan-review-quantity-1')),
+      '2',
+    );
+    await tester.tap(find.byKey(const Key('scan-review-item-4')));
+    await tester.pumpAndSettle();
     expect(find.text('Charizard ex'), findsWidgets);
     expect(find.text('Failed'), findsNothing);
     expect(find.text('No Match Found'), findsNothing);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
-    await tester.pumpAndSettle();
-    expect(find.text('Add all cards'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('scan-review-quantity-4')),
+      '3',
+    );
 
-    await tester.tap(find.text('Add all cards'));
+    expect(find.text('ADD ALL CARDS'), findsOneWidget);
+
+    await tester.tap(find.text('ADD ALL CARDS'));
     await tester.pumpAndSettle();
 
     expect(find.text('Added 2 cards to Portfolio'), findsOneWidget);
     expect(find.text('Mega Lucario ex'), findsWidgets);
     expect(find.text('Charizard ex'), findsWidgets);
+    expect(repository.confirmedItems.map((item) => item.quantity), [2, 3]);
   });
 
   testWidgets('Scan camera chrome can exit and open manual Search', (
@@ -1030,26 +1131,72 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
 
   final Exception? failure;
   final List<String> confirmedScanIds = [];
+  final List<ScanCollectionItemInput> confirmedItems = [];
 
   @override
   Future<ScanReviewTarget> loadTarget({String? preferredFolderId}) async {
-    return const ScanReviewTarget(folderId: 'main', folderName: 'Main');
+    return const ScanReviewTarget(
+      folderId: 'main',
+      folderName: 'Main',
+      folders: [
+        ScanReviewFolder(id: 'main', name: 'Main'),
+        ScanReviewFolder(id: 'trade', name: 'Trade'),
+      ],
+    );
+  }
+
+  @override
+  Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) async {
+    return {
+      for (final cardRef in cardRefs.toSet())
+        cardRef: ScanReviewCard(
+          cardRef: cardRef,
+          name: switch (cardRef) {
+            'card-charizard' => 'Charizard ex',
+            'card-lucario' => 'Lucario ex',
+            'card-riolu' => 'Riolu Promo',
+            'card-charmander' => 'Charmander Promo',
+            'card-charmeleon' => 'Charmeleon',
+            _ => 'Mega Lucario ex',
+          },
+          setName: 'Test Set',
+          cardNumber: '001',
+          game: 'Pokemon',
+          imageUrl: null,
+          language: 'English',
+          finish: 'Holofoil',
+          prices: const [
+            ScanReviewPrice(
+              grader: 'Raw',
+              grade: null,
+              condition: 'Near Mint (NM)',
+              price: 25,
+            ),
+            ScanReviewPrice(
+              grader: 'PSA',
+              grade: 10,
+              condition: null,
+              price: 100,
+            ),
+          ],
+        ),
+    };
   }
 
   @override
   Future<ScanConfirmationDto> addToPortfolio({
-    required ScanReviewTarget target,
     required String scanId,
-    required String cardRef,
+    required ScanCollectionItemInput item,
   }) async {
     final failure = this.failure;
     if (failure != null) throw failure;
     confirmedScanIds.add(scanId);
+    confirmedItems.add(item);
     return ScanConfirmationDto(
       scanId: scanId,
       collectionItemId: 'item-$scanId',
-      cardRef: cardRef,
-      folderId: target.folderId,
+      cardRef: item.cardRef,
+      folderId: item.folderId,
     );
   }
 }
@@ -1062,6 +1209,7 @@ ScanResultSource _defaultTestScanResultSource() {
         cardRef: 'card-mega',
         matchName: 'Mega Lucario ex',
         candidates: ['Mega Lucario ex', 'Lucario ex', 'Riolu Promo'],
+        candidateCardRefs: ['card-mega', 'card-lucario', 'card-riolu'],
       ),
     ),
     subsequentPhotoResults: [
@@ -1072,6 +1220,11 @@ ScanResultSource _defaultTestScanResultSource() {
           cardRef: 'card-charizard',
           matchName: 'Charizard ex',
           candidates: ['Charizard ex', 'Charmander Promo', 'Charmeleon'],
+          candidateCardRefs: [
+            'card-charizard',
+            'card-charmander',
+            'card-charmeleon',
+          ],
         ),
       ),
     ],
@@ -1123,6 +1276,7 @@ class _ScanTestAppWithRoutes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
+      theme: buildKandoTheme(),
       routerConfig: GoRouter(
         initialLocation: '/scan',
         routes: [
@@ -1132,7 +1286,13 @@ class _ScanTestAppWithRoutes extends StatelessWidget {
             path: '/collection',
             builder: (context, state) => const CollectionPage(),
           ),
-          GoRoute(path: '/scan', builder: (context, state) => const ScanPage()),
+          GoRoute(
+            path: '/scan',
+            builder: (context, state) => const RepaintBoundary(
+              key: Key('scan-page-test-boundary'),
+              child: ScanPage(),
+            ),
+          ),
           GoRoute(
             path: '/search',
             builder: (context, state) => const SearchPage(),

@@ -9,8 +9,10 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 
 import '../../shared/portfolio/portfolio_providers.dart';
+import '../../shared/scan/scan_api_client.dart';
 import '../../shared/ui/toast.dart';
 import '../collection/collection_controller.dart';
+import '../card_detail/card_detail_controller.dart';
 import '../home/home_controller.dart';
 import 'scan_review_repository.dart';
 
@@ -35,7 +37,23 @@ class _ScanMatch {
   final String scanId;
   final String cardRef;
   final String name;
-  final List<String> candidates;
+  final List<_ScanCandidate> candidates;
+
+  _ScanMatch select(_ScanCandidate candidate) {
+    return _ScanMatch(
+      scanId: scanId,
+      cardRef: candidate.cardRef,
+      name: candidate.name,
+      candidates: candidates,
+    );
+  }
+}
+
+class _ScanCandidate {
+  const _ScanCandidate({required this.cardRef, required this.name});
+
+  final String cardRef;
+  final String name;
 }
 
 class _ScanItem {
@@ -44,21 +62,147 @@ class _ScanItem {
     required this.pictureLabel,
     required this.status,
     this.match,
+    this.imageBytes,
   });
 
   final int id;
   final String pictureLabel;
   final _ScanItemStatus status;
   final _ScanMatch? match;
+  final Uint8List? imageBytes;
 
-  _ScanItem copyWith({_ScanItemStatus? status, _ScanMatch? match}) {
+  _ScanItem copyWith({
+    _ScanItemStatus? status,
+    _ScanMatch? match,
+    Uint8List? imageBytes,
+  }) {
     return _ScanItem(
       id: id,
       pictureLabel: pictureLabel,
       status: status ?? this.status,
       match: match ?? this.match,
+      imageBytes: imageBytes ?? this.imageBytes,
     );
   }
+}
+
+class _ScanCollectionDraft {
+  const _ScanCollectionDraft({
+    required this.folderId,
+    required this.folderName,
+    required this.quantityText,
+    required this.grader,
+    required this.condition,
+    required this.grade,
+    required this.language,
+    required this.finish,
+    required this.purchasePriceText,
+    required this.notes,
+  });
+
+  final String folderId;
+  final String folderName;
+  final String quantityText;
+  final String grader;
+  final String condition;
+  final String grade;
+  final String language;
+  final String finish;
+  final String purchasePriceText;
+  final String notes;
+
+  bool get isRaw => grader == 'Raw';
+
+  _ScanCollectionDraft copyWith({
+    String? folderId,
+    String? folderName,
+    String? quantityText,
+    String? grader,
+    String? condition,
+    String? grade,
+    String? language,
+    String? finish,
+    String? purchasePriceText,
+    String? notes,
+  }) {
+    final nextGrader = grader ?? this.grader;
+    final nextIsRaw = nextGrader == 'Raw';
+    return _ScanCollectionDraft(
+      folderId: folderId ?? this.folderId,
+      folderName: folderName ?? this.folderName,
+      quantityText: quantityText ?? this.quantityText,
+      grader: nextGrader,
+      condition: nextIsRaw
+          ? condition ??
+                (isRaw ? this.condition : cardCollectionConditions.first)
+          : '',
+      grade: nextIsRaw
+          ? ''
+          : grade ??
+                (isRaw || grader != null
+                    ? cardCollectionGradeValues.first
+                    : this.grade),
+      language: language ?? this.language,
+      finish: finish ?? this.finish,
+      purchasePriceText: purchasePriceText ?? this.purchasePriceText,
+      notes: notes ?? this.notes,
+    );
+  }
+}
+
+_ScanCollectionDraft _initialReviewDraft(
+  ScanReviewTarget target,
+  ScanReviewCard card,
+) {
+  return _ScanCollectionDraft(
+    folderId: target.folderId,
+    folderName: target.folderName,
+    quantityText: '1',
+    grader: 'Raw',
+    condition: cardCollectionConditions.first,
+    grade: '',
+    language: _supportedValue(
+      card.language,
+      cardCollectionLanguages,
+      'English',
+    ),
+    finish: _supportedValue(card.finish, cardCollectionFinishes, 'Normal'),
+    purchasePriceText: '',
+    notes: '',
+  );
+}
+
+String _supportedValue(String? value, List<String> options, String fallback) {
+  final normalized = value?.trim();
+  if (normalized == null || normalized.isEmpty) return fallback;
+  return options
+          .where((option) => option.toLowerCase() == normalized.toLowerCase())
+          .firstOrNull ??
+      normalized;
+}
+
+List<String> _optionsIncluding(List<String> options, String current) {
+  return options.contains(current) ? options : [current, ...options];
+}
+
+String _reviewTotalText(ScanReviewCard card, _ScanCollectionDraft draft) {
+  final quantity = int.tryParse(draft.quantityText.trim());
+  if (quantity == null || quantity < 1) return '--';
+  final price = card.prices
+      .where((candidate) {
+        if (candidate.grader.toLowerCase() != draft.grader.toLowerCase()) {
+          return false;
+        }
+        if (draft.isRaw) {
+          return candidate.condition?.toLowerCase() ==
+              draft.condition.toLowerCase();
+        }
+        final grade = double.tryParse(draft.grade);
+        return grade != null && candidate.grade == grade;
+      })
+      .firstOrNull
+      ?.price;
+  return price == null ? '--' : '\$${(price * quantity).toStringAsFixed(2)}';
 }
 
 class _PendingScan {
@@ -91,6 +235,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
   int? _selectedReviewItemId;
   int? _lastAddedCount;
   ScanReviewTarget? _reviewTarget;
+  Map<String, ScanReviewCard> _reviewCards = const {};
+  final Map<int, _ScanCollectionDraft> _reviewDrafts = {};
+  String? _reviewFormError;
   var _savingReview = false;
   int? _dismissedFeedbackItemId;
   int? _dismissedFailureFeedbackItemId;
@@ -424,7 +571,19 @@ class _ScanPageState extends ConsumerState<ScanPage>
             scanId: resolution.scanId!,
             cardRef: resolution.cardRef!,
             name: resolution.matchName!,
-            candidates: resolution.candidates,
+            candidates: [
+              for (
+                var index = 0;
+                index < resolution.candidates.length;
+                index += 1
+              )
+                _ScanCandidate(
+                  cardRef: index < resolution.candidateCardRefs.length
+                      ? resolution.candidateCardRefs[index]
+                      : resolution.cardRef!,
+                  name: resolution.candidates[index],
+                ),
+            ],
           )
         : null;
 
@@ -432,7 +591,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() {
       for (var index = 0; index < _items.length; index += 1) {
         if (_items[index].id == itemId) {
-          _items[index] = item.copyWith(status: status, match: match);
+          _items[index] = item.copyWith(
+            status: status,
+            match: match,
+            imageBytes: resolution.imageBytes,
+          );
           break;
         }
       }
@@ -462,15 +625,36 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewing = true;
       _selectedReviewItemId = itemId ?? _matchedItems.first.id;
       _reviewTarget = null;
+      _reviewCards = const {};
+      _reviewFormError = null;
     });
     try {
-      final target = await ref
-          .read(scanReviewRepositoryProvider)
-          .loadTarget(
-            preferredFolderId: ref.read(selectedPortfolioFolderProvider),
-          );
+      final items = _matchedItems;
+      final repository = ref.read(scanReviewRepositoryProvider);
+      final results = await Future.wait<Object>([
+        repository.loadTarget(
+          preferredFolderId: ref.read(selectedPortfolioFolderProvider),
+        ),
+        repository.loadCards([
+          for (final item in items)
+            for (final candidate in item.match!.candidates) candidate.cardRef,
+        ]),
+      ]);
+      final target = results[0] as ScanReviewTarget;
+      final cards = results[1] as Map<String, ScanReviewCard>;
       if (mounted && _reviewing) {
-        setState(() => _reviewTarget = target);
+        setState(() {
+          _reviewTarget = target;
+          _reviewCards = cards;
+          _reviewDrafts
+            ..clear()
+            ..addEntries(
+              items.map((item) {
+                final card = cards[item.match!.cardRef]!;
+                return MapEntry(item.id, _initialReviewDraft(target, card));
+              }),
+            );
+        });
       }
     } on Exception {
       _failReviewLoad();
@@ -483,29 +667,29 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewing = false;
       _selectedReviewItemId = null;
       _reviewTarget = null;
+      _reviewCards = const {};
+      _reviewDrafts.clear();
+      _reviewFormError = null;
     });
     showKandoFailureToast(context);
   }
 
   Future<void> _addSelectedItem() async {
     final selectedId = _selectedReviewItemId;
-    final target = _reviewTarget;
     final item = _matchedItems
         .where((candidate) => candidate.id == selectedId)
         .firstOrNull;
-    if (item == null || target == null || _savingReview) {
+    if (item == null || _reviewTarget == null || _savingReview) {
       return;
     }
+    final input = _reviewInputFor(item);
+    if (input == null) return;
 
     setState(() => _savingReview = true);
     try {
       await ref
           .read(scanReviewRepositoryProvider)
-          .addToPortfolio(
-            target: target,
-            scanId: item.match!.scanId,
-            cardRef: item.match!.cardRef,
-          );
+          .addToPortfolio(scanId: item.match!.scanId, item: input);
       if (!mounted) return;
       setState(() {
         _lastAddedCount = 1;
@@ -513,6 +697,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _markItemsAdded({item.id});
         _selectedReviewItemId = null;
         _reviewTarget = null;
+        _reviewCards = const {};
+        _reviewDrafts.remove(item.id);
+        _reviewFormError = null;
       });
       _refreshPortfolioSurfaces();
     } on Exception {
@@ -524,9 +711,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _addAllMatchedItems() async {
     final matchedItems = _matchedItems;
-    final target = _reviewTarget;
-    if (matchedItems.isEmpty || target == null || _savingReview) {
+    if (matchedItems.isEmpty || _reviewTarget == null || _savingReview) {
       return;
+    }
+
+    final inputs = <int, ScanCollectionItemInput>{};
+    for (final item in matchedItems) {
+      final input = _reviewInputFor(item);
+      if (input == null) return;
+      inputs[item.id] = input;
     }
 
     setState(() => _savingReview = true);
@@ -536,11 +729,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       try {
         await ref
             .read(scanReviewRepositoryProvider)
-            .addToPortfolio(
-              target: target,
-              scanId: item.match!.scanId,
-              cardRef: item.match!.cardRef,
-            );
+            .addToPortfolio(scanId: item.match!.scanId, item: inputs[item.id]!);
         addedIds.add(item.id);
       } on Exception {
         failed = true;
@@ -550,17 +739,166 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!mounted) return;
     setState(() {
       _markItemsAdded(addedIds);
+      for (final itemId in addedIds) {
+        _reviewDrafts.remove(itemId);
+      }
       _lastAddedCount = addedIds.isEmpty ? null : addedIds.length;
       final remaining = _matchedItems;
       _reviewing = remaining.isNotEmpty;
       _selectedReviewItemId = remaining.firstOrNull?.id;
       if (!_reviewing) {
         _reviewTarget = null;
+        _reviewCards = const {};
       }
+      _reviewFormError = null;
       _savingReview = false;
     });
     if (addedIds.isNotEmpty) _refreshPortfolioSurfaces();
     if (failed) showKandoFailureToast(context);
+  }
+
+  void _selectReviewItem(_ScanItem item) {
+    setState(() {
+      _selectedReviewItemId = item.id;
+      _reviewFormError = null;
+    });
+  }
+
+  void _selectReviewCandidate(_ScanItem item, _ScanCandidate candidate) {
+    final card = _reviewCards[candidate.cardRef];
+    if (card == null) return;
+    setState(() {
+      for (var index = 0; index < _items.length; index += 1) {
+        if (_items[index].id == item.id) {
+          _items[index] = item.copyWith(match: item.match!.select(candidate));
+          break;
+        }
+      }
+      final draft = _reviewDrafts[item.id];
+      if (draft != null) {
+        _reviewDrafts[item.id] = draft.copyWith(
+          language: _supportedValue(
+            card.language,
+            cardCollectionLanguages,
+            'English',
+          ),
+          finish: _supportedValue(
+            card.finish,
+            cardCollectionFinishes,
+            'Normal',
+          ),
+        );
+      }
+      _reviewFormError = null;
+    });
+  }
+
+  void _updateReviewDraft(int itemId, _ScanCollectionDraft draft) {
+    setState(() {
+      _reviewDrafts[itemId] = draft;
+      _reviewFormError = null;
+    });
+  }
+
+  ScanCollectionItemInput? _reviewInputFor(_ScanItem item) {
+    final draft = _reviewDrafts[item.id];
+    if (draft == null) return null;
+    final quantity = int.tryParse(draft.quantityText.trim());
+    if (quantity == null || quantity < 1) {
+      _showReviewValidation(
+        item.id,
+        'Quantity must be a whole number of 1 or more.',
+      );
+      return null;
+    }
+    final priceText = draft.purchasePriceText.trim();
+    final purchasePrice = priceText.isEmpty ? null : double.tryParse(priceText);
+    if (priceText.isNotEmpty && (purchasePrice == null || purchasePrice < 0)) {
+      _showReviewValidation(item.id, 'Please enter a valid price.');
+      return null;
+    }
+    if (draft.notes.length > 500) {
+      _showReviewValidation(item.id, 'Notes must be 500 characters or less.');
+      return null;
+    }
+    final grade = draft.isRaw ? null : double.tryParse(draft.grade);
+    if (!draft.isRaw && grade == null) {
+      _showReviewValidation(item.id, 'Please select a grade.');
+      return null;
+    }
+    return ScanCollectionItemInput(
+      folderId: draft.folderId,
+      cardRef: item.match!.cardRef,
+      quantity: quantity,
+      grader: draft.grader,
+      condition: draft.isRaw ? draft.condition : null,
+      grade: grade,
+      language: draft.language,
+      finish: draft.finish,
+      purchasePrice: purchasePrice,
+      purchaseCurrency: purchasePrice == null ? null : 'USD',
+      notes: draft.notes.trim().isEmpty ? null : draft.notes.trim(),
+    );
+  }
+
+  void _showReviewValidation(int itemId, String message) {
+    setState(() {
+      _selectedReviewItemId = itemId;
+      _reviewFormError = message;
+    });
+  }
+
+  Future<void> _deleteReviewItem(_ScanItem item) async {
+    if (!await _confirmReviewDelete(all: false)) return;
+    _removeReviewItems({item.id});
+  }
+
+  Future<void> _deleteAllReviewItems() async {
+    if (!await _confirmReviewDelete(all: true)) return;
+    _removeReviewItems(_matchedItems.map((item) => item.id).toSet());
+  }
+
+  Future<bool> _confirmReviewDelete({required bool all}) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(all ? 'Delete all cards?' : 'Delete card?'),
+        content: Text(
+          all
+              ? 'This action will remove all reviewed scans and cannot be undone.'
+              : 'This action will remove this reviewed scan and cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  void _removeReviewItems(Set<int> itemIds) {
+    setState(() {
+      _items.removeWhere((item) => itemIds.contains(item.id));
+      for (final itemId in itemIds) {
+        _reviewDrafts.remove(itemId);
+      }
+      final remaining = _matchedItems;
+      _selectedReviewItemId = remaining.firstOrNull?.id;
+      _reviewing = remaining.isNotEmpty;
+      _reviewFormError = null;
+      if (!_reviewing) {
+        _reviewTarget = null;
+        _reviewCards = const {};
+      }
+    });
   }
 
   void _markItemsAdded(Set<int> itemIds) {
@@ -630,13 +968,18 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   items: _matchedItems,
                   selectedItemId: _selectedReviewItemId,
                   target: _reviewTarget,
+                  cards: _reviewCards,
+                  drafts: _reviewDrafts,
+                  formError: _reviewFormError,
                   saving: _savingReview,
                   onExit: _requestExitScan,
-                  onSelectItem: (item) {
-                    setState(() => _selectedReviewItemId = item.id);
-                  },
+                  onSelectItem: _selectReviewItem,
+                  onSelectCandidate: _selectReviewCandidate,
+                  onUpdateDraft: _updateReviewDraft,
                   onAddThisCard: _addSelectedItem,
                   onAddAllCards: _addAllMatchedItems,
+                  onDeleteItem: _deleteReviewItem,
+                  onDeleteAll: _deleteAllReviewItems,
                 ),
               )
             : _ScanCameraView(
@@ -1985,44 +2328,45 @@ class _ScanRevealingToast extends StatelessWidget {
                       const SizedBox(width: 16),
                       SizedBox(
                         width: 120,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        height: 48,
+                        child: Stack(
                           children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'Scanning...',
-                                    style: TextStyle(
-                                      color: Color(0xFFEEECD8),
-                                      fontFamily: 'Geist',
-                                      fontSize: 16,
-                                      height: 24 / 16,
-                                    ),
-                                  ),
+                            const Positioned(
+                              left: 0,
+                              top: 0,
+                              child: Text(
+                                'Scanning...',
+                                style: TextStyle(
+                                  color: Color(0xFFEEECD8),
+                                  fontFamily: 'Geist',
+                                  fontSize: 16,
+                                  height: 24 / 16,
                                 ),
-                                Tooltip(
-                                  message: closeTooltip,
-                                  child: InkWell(
-                                    onTap: onClosePressed,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(bottom: 6),
-                                      child: SvgPicture.asset(
-                                        'assets/scan/reveal_close.svg',
-                                        width: 10.5,
-                                        height: 10.5,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                            const SizedBox(height: 4),
-                            SvgPicture.asset(
-                              'assets/scan/reveal_spinner.svg',
-                              width: 16,
-                              height: 16,
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Tooltip(
+                                message: closeTooltip,
+                                child: InkWell(
+                                  onTap: onClosePressed,
+                                  child: SvgPicture.asset(
+                                    'assets/scan/reveal_close.svg',
+                                    width: 10.5,
+                                    height: 10.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: 0,
+                              bottom: 0,
+                              child: SvgPicture.asset(
+                                'assets/scan/reveal_spinner.svg',
+                                width: 16,
+                                height: 16,
+                              ),
                             ),
                           ],
                         ),
@@ -2317,21 +2661,35 @@ class _ReviewMatches extends StatelessWidget {
     required this.items,
     required this.selectedItemId,
     required this.target,
+    required this.cards,
+    required this.drafts,
+    required this.formError,
     required this.saving,
     required this.onExit,
     required this.onSelectItem,
+    required this.onSelectCandidate,
+    required this.onUpdateDraft,
     required this.onAddThisCard,
     required this.onAddAllCards,
+    required this.onDeleteItem,
+    required this.onDeleteAll,
   });
 
   final List<_ScanItem> items;
   final int? selectedItemId;
   final ScanReviewTarget? target;
+  final Map<String, ScanReviewCard> cards;
+  final Map<int, _ScanCollectionDraft> drafts;
+  final String? formError;
   final bool saving;
   final VoidCallback onExit;
   final ValueChanged<_ScanItem> onSelectItem;
+  final void Function(_ScanItem, _ScanCandidate) onSelectCandidate;
+  final void Function(int, _ScanCollectionDraft) onUpdateDraft;
   final VoidCallback onAddThisCard;
   final VoidCallback onAddAllCards;
+  final ValueChanged<_ScanItem> onDeleteItem;
+  final VoidCallback onDeleteAll;
 
   @override
   Widget build(BuildContext context) {
@@ -2340,99 +2698,229 @@ class _ReviewMatches extends StatelessWidget {
       orElse: () => items.first,
     );
     final match = selected.match!;
+    final card = cards[match.cardRef];
+    final draft = drafts[selected.id];
+    final ready = target != null && card != null && draft != null;
 
-    return ListView(
-      padding: const EdgeInsets.all(24),
+    return Stack(
       children: [
-        Row(
-          children: [
-            IconButton(
-              tooltip: 'Close Scan',
-              onPressed: saving ? null : onExit,
-              icon: const Icon(Icons.close),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Review Your Matches',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (items.length > 1)
-          Wrap(
-            spacing: 8,
+        Positioned.fill(
+          child: ListView(
+            key: const Key('scan-review-list'),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 170),
             children: [
-              for (final item in items)
-                ChoiceChip(
-                  label: Text(item.match?.name ?? item.pictureLabel),
-                  selected: item.id == selected.id,
-                  onSelected: (_) => onSelectItem(item),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 62,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: items.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          final preview = cards[item.match!.cardRef];
+                          return InkWell(
+                            key: Key('scan-review-item-${item.id}'),
+                            onTap: saving ? null : () => onSelectItem(item),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              width: 44,
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10100B),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: item.id == selected.id
+                                      ? const Color(0xFFF0FE6F)
+                                      : Colors.transparent,
+                                ),
+                              ),
+                              child: _ReviewNetworkImage(
+                                imageUrl: preview?.imageUrl,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Close Scan',
+                    onPressed: saving ? null : onExit,
+                    icon: SvgPicture.asset(
+                      'assets/scan/close.svg',
+                      width: 14,
+                      height: 14,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF222222),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Review your matches',
+                      style: TextStyle(
+                        color: Color(0xFFEEECD8),
+                        fontFamily: 'Fraunces',
+                        fontSize: 28,
+                        height: 36 / 28,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _ReviewImageComparison(item: selected, card: card),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Top matched results:',
+                      style: TextStyle(
+                        color: Color(0xFFEEECD8),
+                        fontFamily: 'Fraunces',
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 192,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: match.candidates.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 12),
+                        itemBuilder: (context, index) {
+                          final candidate = match.candidates[index];
+                          return _ReviewCandidateCard(
+                            candidate: candidate,
+                            card: cards[candidate.cardRef],
+                            selected: candidate.cardRef == match.cardRef,
+                            onTap: saving
+                                ? null
+                                : () => onSelectCandidate(selected, candidate),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    if (!ready)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else
+                      KeyedSubtree(
+                        key: ValueKey(
+                          'scan-review-form-${selected.id}-${match.cardRef}',
+                        ),
+                        child: _ReviewCollectionItem(
+                          itemId: selected.id,
+                          target: target!,
+                          card: card,
+                          draft: draft,
+                          formError: formError,
+                          enabled: !saving,
+                          onChanged: (next) => onUpdateDraft(selected.id, next),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
-        const SizedBox(height: 12),
-        _ReviewImageComparison(item: selected),
-        const SizedBox(height: 12),
-        Text(
-          'Top matched results',
-          style: Theme.of(context).textTheme.titleMedium,
         ),
-        const SizedBox(height: 8),
-        for (final candidate in match.candidates)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.style_outlined),
-            title: Text(candidate),
-            trailing: candidate == match.name ? const Icon(Icons.check) : null,
+        if (ready)
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _ReviewFooter(
+              totalText: _reviewTotalText(card, draft),
+              saving: saving,
+              onAddThisCard: onAddThisCard,
+              onAddAllCards: onAddAllCards,
+              onDeleteItem: () => onDeleteItem(selected),
+              onDeleteAll: onDeleteAll,
+            ),
           ),
-        const SizedBox(height: 12),
-        if (target == null)
-          const Center(child: CircularProgressIndicator())
-        else
-          _ReviewCollectionItem(
-            matchName: match.name,
-            folderName: target!.folderName,
-          ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: target == null || saving ? null : onAddThisCard,
-          icon: const Icon(Icons.add_circle_outline),
-          label: const Text('Add this card'),
-        ),
-        const SizedBox(height: 8),
-        FilledButton.tonalIcon(
-          onPressed: target == null || saving ? null : onAddAllCards,
-          icon: const Icon(Icons.done_all_outlined),
-          label: const Text('Add all cards'),
-        ),
       ],
     );
   }
 }
 
 class _ReviewImageComparison extends StatelessWidget {
-  const _ReviewImageComparison({required this.item});
+  const _ReviewImageComparison({required this.item, required this.card});
 
   final _ScanItem item;
+  final ScanReviewCard? card;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return SizedBox(
+      height: 218,
+      child: Row(
+        children: [
+          Expanded(
+            child: _ReviewPicture(
+              label: 'YOUR PICTURE',
+              child: item.imageBytes == null
+                  ? const _ReviewImageUnavailable()
+                  : Image.memory(
+                      item.imageBytes!,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _ReviewPicture(
+              label: 'OUR MATCH',
+              child: _ReviewNetworkImage(
+                imageUrl: card?.imageUrl,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewPicture extends StatelessWidget {
+  const _ReviewPicture({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
       children: [
         Expanded(
-          child: _ImageStandIn(
-            title: 'Your Picture',
-            subtitle: item.pictureLabel,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: ColoredBox(
+              color: const Color(0xFF10100B),
+              child: SizedBox.expand(child: child),
+            ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _ImageStandIn(
-            title: 'Our Match',
-            subtitle: item.match?.name ?? '-',
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF92927D),
+            fontFamily: 'Geist',
+            fontSize: 11,
           ),
         ),
       ],
@@ -2440,28 +2928,99 @@ class _ReviewImageComparison extends StatelessWidget {
   }
 }
 
-class _ImageStandIn extends StatelessWidget {
-  const _ImageStandIn({required this.title, required this.subtitle});
+class _ReviewNetworkImage extends StatelessWidget {
+  const _ReviewNetworkImage({required this.imageUrl, required this.fit});
 
-  final String title;
-  final String subtitle;
+  final String? imageUrl;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 128,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: Theme.of(context).colorScheme.secondaryContainer,
+    final url = imageUrl;
+    if (url == null) return const _ReviewImageUnavailable();
+    return Image.network(
+      url,
+      fit: fit,
+      errorBuilder: (_, _, _) => const _ReviewImageUnavailable(),
+    );
+  }
+}
+
+class _ReviewImageUnavailable extends StatelessWidget {
+  const _ReviewImageUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          'NO IMAGE',
+          style: TextStyle(color: Color(0xFF92927D), fontSize: 10),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
-        ],
+    );
+  }
+}
+
+class _ReviewCandidateCard extends StatelessWidget {
+  const _ReviewCandidateCard({
+    required this.candidate,
+    required this.card,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _ScanCandidate candidate;
+  final ScanReviewCard? card;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: Key('scan-review-candidate-${candidate.cardRef}'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 132,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF171811),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? const Color(0xFFF0FE6F) : const Color(0xFF464835),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: SizedBox.expand(
+                  child: _ReviewNetworkImage(
+                    imageUrl: card?.imageUrl,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              card?.name ?? candidate.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xFFEEECD8), fontSize: 13),
+            ),
+            Text(
+              card == null ? '' : '#${card!.cardNumber} • ${card!.setName}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xFF92927D), fontSize: 10),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2469,31 +3028,507 @@ class _ImageStandIn extends StatelessWidget {
 
 class _ReviewCollectionItem extends StatelessWidget {
   const _ReviewCollectionItem({
-    required this.matchName,
-    required this.folderName,
+    required this.itemId,
+    required this.target,
+    required this.card,
+    required this.draft,
+    required this.formError,
+    required this.enabled,
+    required this.onChanged,
   });
 
-  final String matchName;
-  final String folderName;
+  final int itemId;
+  final ScanReviewTarget target;
+  final ScanReviewCard card;
+  final _ScanCollectionDraft draft;
+  final String? formError;
+  final bool enabled;
+  final ValueChanged<_ScanCollectionDraft> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Text(
-              'Collection Item',
-              style: Theme.of(context).textTheme.titleMedium,
+            const Expanded(
+              child: SizedBox(
+                height: 32,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Collection item',
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: Color(0xFFEEECD8),
+                      fontFamily: 'Fraunces',
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(matchName),
-            Text('Adding to $folderName'),
-            const Text('Raw'),
-            const Text('Near Mint (NM)'),
+            DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                key: Key('scan-review-folder-$itemId'),
+                value: draft.folderId,
+                dropdownColor: const Color(0xFF2A2B20),
+                icon: const Text(
+                  'v',
+                  style: TextStyle(color: Color(0xFFF0FE6F), fontSize: 12),
+                ),
+                style: const TextStyle(
+                  color: Color(0xFFF0FE6F),
+                  fontFamily: 'Geist',
+                  fontSize: 13,
+                ),
+                items: [
+                  for (final folder in target.folders)
+                    DropdownMenuItem(
+                      value: folder.id,
+                      child: Text('Adding to ${folder.name}'),
+                    ),
+                ],
+                onChanged: enabled
+                    ? (folderId) {
+                        final folder = target.folders
+                            .where((folder) => folder.id == folderId)
+                            .firstOrNull;
+                        if (folder != null) {
+                          onChanged(
+                            draft.copyWith(
+                              folderId: folder.id,
+                              folderName: folder.name,
+                            ),
+                          );
+                        }
+                      }
+                    : null,
+              ),
+            ),
           ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF171811),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF464835)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 80,
+                      height: 110,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: _ReviewNetworkImage(
+                          imageUrl: card.imageUrl,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            (card.game ?? 'TCG').toUpperCase(),
+                            style: const TextStyle(
+                              color: Color(0xFFF0FE6F),
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            card.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFE4E3D3),
+                              fontFamily: 'Fraunces',
+                              fontSize: 20,
+                            ),
+                          ),
+                          Text(
+                            card.setName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Color(0xFFC7C8B0)),
+                          ),
+                          Text(
+                            card.cardNumber,
+                            style: const TextStyle(
+                              color: Color(0xFF92927D),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFF464835)),
+              _ReviewTextRow(
+                fieldKey: Key('scan-review-quantity-$itemId'),
+                label: 'Quantity',
+                value: draft.quantityText,
+                enabled: enabled,
+                keyboardType: TextInputType.number,
+                onChanged: (value) =>
+                    onChanged(draft.copyWith(quantityText: value)),
+              ),
+              _ReviewDropdownRow(
+                fieldKey: Key('scan-review-grader-$itemId'),
+                label: 'Grader',
+                value: draft.grader,
+                options: cardCollectionGraders,
+                enabled: enabled,
+                onChanged: (value) => onChanged(draft.copyWith(grader: value)),
+              ),
+              if (draft.isRaw)
+                _ReviewDropdownRow(
+                  fieldKey: Key('scan-review-condition-$itemId'),
+                  label: 'Condition',
+                  value: draft.condition,
+                  options: cardCollectionConditions,
+                  enabled: enabled,
+                  onChanged: (value) =>
+                      onChanged(draft.copyWith(condition: value)),
+                )
+              else
+                _ReviewDropdownRow(
+                  fieldKey: Key('scan-review-grade-$itemId'),
+                  label: 'Grade',
+                  value: draft.grade,
+                  options: cardCollectionGradeValues,
+                  enabled: enabled,
+                  displayValue: (value) => '${draft.grader} $value',
+                  onChanged: (value) => onChanged(draft.copyWith(grade: value)),
+                ),
+              _ReviewDropdownRow(
+                fieldKey: Key('scan-review-language-$itemId'),
+                label: 'Language',
+                value: draft.language,
+                options: _optionsIncluding(
+                  cardCollectionLanguages,
+                  draft.language,
+                ),
+                enabled: enabled,
+                onChanged: (value) =>
+                    onChanged(draft.copyWith(language: value)),
+              ),
+              _ReviewDropdownRow(
+                fieldKey: Key('scan-review-finish-$itemId'),
+                label: 'Finish',
+                value: draft.finish,
+                options: _optionsIncluding(
+                  cardCollectionFinishes,
+                  draft.finish,
+                ),
+                enabled: enabled,
+                onChanged: (value) => onChanged(draft.copyWith(finish: value)),
+              ),
+              _ReviewTextRow(
+                fieldKey: Key('scan-review-price-$itemId'),
+                label: 'Purchase Price',
+                value: draft.purchasePriceText,
+                enabled: enabled,
+                prefixText: r'US$',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                onChanged: (value) =>
+                    onChanged(draft.copyWith(purchasePriceText: value)),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextFormField(
+                  key: Key('scan-review-notes-$itemId'),
+                  initialValue: draft.notes,
+                  enabled: enabled,
+                  maxLines: 4,
+                  maxLength: 500,
+                  onChanged: (value) => onChanged(draft.copyWith(notes: value)),
+                  decoration: _reviewInputDecoration('NOTES'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (formError != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            formError!,
+            key: const Key('scan-review-form-error'),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ReviewTextRow extends StatelessWidget {
+  const _ReviewTextRow({
+    required this.fieldKey,
+    required this.label,
+    required this.value,
+    required this.enabled,
+    required this.keyboardType,
+    required this.onChanged,
+    this.prefixText,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final String value;
+  final bool enabled;
+  final TextInputType keyboardType;
+  final ValueChanged<String> onChanged;
+  final String? prefixText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0x1A90927C))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFFC7C8B0)),
+            ),
+          ),
+          SizedBox(
+            width: 140,
+            child: TextFormField(
+              key: fieldKey,
+              initialValue: value,
+              enabled: enabled,
+              textAlign: TextAlign.end,
+              keyboardType: keyboardType,
+              onChanged: onChanged,
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                prefixText: prefixText,
+                isDense: true,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewDropdownRow extends StatelessWidget {
+  const _ReviewDropdownRow({
+    required this.fieldKey,
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.enabled,
+    required this.onChanged,
+    this.displayValue,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final String value;
+  final List<String> options;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+  final String Function(String value)? displayValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0x1A90927C))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFFC7C8B0)),
+            ),
+          ),
+          SizedBox(
+            width: 180,
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                key: fieldKey,
+                value: value,
+                isExpanded: true,
+                dropdownColor: const Color(0xFF2A2B20),
+                alignment: Alignment.centerRight,
+                icon: const Text(
+                  'v',
+                  style: TextStyle(color: Color(0xFFC7C8B0), fontSize: 12),
+                ),
+                style: const TextStyle(
+                  color: Color(0xFFEEECD8),
+                  fontFamily: 'Geist',
+                  fontSize: 14,
+                ),
+                selectedItemBuilder: (context) => [
+                  for (final option in options)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        displayValue?.call(option) ?? option,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                items: [
+                  for (final option in options)
+                    DropdownMenuItem(
+                      value: option,
+                      child: Text(
+                        displayValue?.call(option) ?? option,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: enabled
+                    ? (next) {
+                        if (next != null) onChanged(next);
+                      }
+                    : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+InputDecoration _reviewInputDecoration(String label) {
+  return InputDecoration(
+    labelText: label,
+    alignLabelWithHint: true,
+    filled: true,
+    fillColor: const Color(0xFF2A2B20),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide.none,
+    ),
+  );
+}
+
+class _ReviewFooter extends StatelessWidget {
+  const _ReviewFooter({
+    required this.totalText,
+    required this.saving,
+    required this.onAddThisCard,
+    required this.onAddAllCards,
+    required this.onDeleteItem,
+    required this.onDeleteAll,
+  });
+
+  final String totalText;
+  final bool saving;
+  final VoidCallback onAddThisCard;
+  final VoidCallback onAddAllCards;
+  final VoidCallback onDeleteItem;
+  final VoidCallback onDeleteAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF10100B),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'TOTAL VALUE',
+                    style: TextStyle(color: Color(0xFF92927D), fontSize: 11),
+                  ),
+                  const Spacer(),
+                  Text(
+                    totalText,
+                    key: const Key('scan-review-total'),
+                    style: const TextStyle(
+                      color: Color(0xFFF0FE6F),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      key: const Key('scan-review-add-one'),
+                      onPressed: saving ? null : onAddThisCard,
+                      icon: const Text(
+                        '+',
+                        style: TextStyle(fontSize: 20, height: 1),
+                      ),
+                      label: Text(saving ? 'Adding...' : 'Add this card'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton.filledTonal(
+                    tooltip: 'Delete card',
+                    onPressed: saving ? null : onDeleteItem,
+                    icon: const Text(
+                      'DEL',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: saving ? null : onAddAllCards,
+                      child: const Text('ADD ALL CARDS'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: saving ? null : onDeleteAll,
+                      child: const Text('DELETE ALL CARDS'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

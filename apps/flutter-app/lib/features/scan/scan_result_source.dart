@@ -16,34 +16,42 @@ class ScanResolution {
     required this.cardRef,
     required this.matchName,
     required this.candidates,
+    this.candidateCardRefs = const [],
+    this.imageBytes,
   }) : kind = ScanResolutionKind.matched;
 
-  const ScanResolution.failed()
+  const ScanResolution.failed({this.imageBytes})
     : kind = ScanResolutionKind.failed,
       scanId = null,
       cardRef = null,
       matchName = null,
-      candidates = const [];
+      candidates = const [],
+      candidateCardRefs = const [];
 
-  const ScanResolution.noMatch()
+  const ScanResolution.noMatch({this.imageBytes})
     : kind = ScanResolutionKind.noMatch,
       scanId = null,
       cardRef = null,
       matchName = null,
-      candidates = const [];
+      candidates = const [],
+      candidateCardRefs = const [];
 
   const ScanResolution.cancelled()
     : kind = ScanResolutionKind.cancelled,
       scanId = null,
       cardRef = null,
       matchName = null,
-      candidates = const [];
+      candidates = const [],
+      candidateCardRefs = const [],
+      imageBytes = null;
 
   final ScanResolutionKind kind;
   final String? scanId;
   final String? cardRef;
   final String? matchName;
   final List<String> candidates;
+  final List<String> candidateCardRefs;
+  final Uint8List? imageBytes;
 }
 
 abstract interface class ScanResultSource {
@@ -140,7 +148,7 @@ class ApiScanResultSource implements ScanResultSource {
 
   Future<ScanResolution> _recognize(ScanImage image) async {
     final session = _session();
-    if (session == null) return const ScanResolution.failed();
+    if (session == null) return ScanResolution.failed(imageBytes: image.bytes);
     final info = await _appInfo();
     final recognition = await _api.recognizeImage(
       session,
@@ -152,13 +160,19 @@ class ApiScanResultSource implements ScanResultSource {
     final matchedResults = recognition.results.where(
       (result) => result.matched && result.candidates.isNotEmpty,
     );
-    if (matchedResults.isEmpty) return const ScanResolution.noMatch();
+    if (matchedResults.isEmpty) {
+      return ScanResolution.noMatch(imageBytes: image.bytes);
+    }
     final candidates = matchedResults.first.candidates;
     return ScanResolution.matched(
       scanId: recognition.scanId,
       cardRef: candidates.first.cardRef,
       matchName: candidates.first.name,
       candidates: candidates.map((candidate) => candidate.name).toList(),
+      candidateCardRefs: candidates
+          .map((candidate) => candidate.cardRef)
+          .toList(),
+      imageBytes: image.bytes,
     );
   }
 }

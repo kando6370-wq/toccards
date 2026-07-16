@@ -64,7 +64,19 @@ void main() {
         expect(request.method, 'POST');
         expect(request.path, '/scan/scan-1/confirm');
         expect(request.authorization, 'Bearer access-token');
-        expect(request.body, {'folder_id': 'main', 'card_ref': '11958'});
+        expect(request.body, {
+          'folder_id': 'main',
+          'card_ref': '11958',
+          'quantity': 2,
+          'grader': 'PSA',
+          'condition': null,
+          'grade': 10.0,
+          'language': 'Japanese',
+          'finish': 'Foil',
+          'purchase_price': 12.5,
+          'purchase_currency': 'USD',
+          'notes': 'reviewed scan',
+        });
         return _json(201, {
           'success': true,
           'data': {
@@ -79,8 +91,19 @@ void main() {
       final result = await ScanApiClient(_dio(adapter)).confirmMatch(
         _session,
         scanId: 'scan-1',
-        folderId: 'main',
-        cardRef: '11958',
+        item: const ScanCollectionItemInput(
+          folderId: 'main',
+          cardRef: '11958',
+          quantity: 2,
+          grader: 'PSA',
+          condition: null,
+          grade: 10,
+          language: 'Japanese',
+          finish: 'Foil',
+          purchasePrice: 12.5,
+          purchaseCurrency: 'USD',
+          notes: 'reviewed scan',
+        ),
       );
 
       expect(result.collectionItemId, 'item-1');
