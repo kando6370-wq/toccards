@@ -160,4 +160,16 @@ describe("Cache API data source adapter", () => {
     expect(source.soldListingCalls).toBe(1);
     expect(cache.puts).toEqual([]);
   });
+
+  it("versions sold listing keys because marketplace source changes must not reuse stale empty payloads", async () => {
+    const cache = new FakeCache();
+    const source = new CountingDataSourceAdapter();
+    const adapter = createCacheApiDataSourceAdapter(source, cache);
+
+    await adapter.getSoldListings("mock:tcg:charizard");
+
+    expect(cache.puts[0]?.requestUrl).toBe(
+      "https://data-source-cache.invalid/getSoldListings:v2:mock%3Atcg%3Acharizard",
+    );
+  });
 });
