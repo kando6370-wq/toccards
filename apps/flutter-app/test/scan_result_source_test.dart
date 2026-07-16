@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
+import 'package:kando_app/shared/scan/scan_image_hasher.dart';
 
 void main() {
   test(
@@ -11,10 +12,12 @@ void main() {
     () async {
       final api = _FakeScanApi(_matchedRecognition);
       final picker = _FakeScanImagePicker();
+      final imageHasher = _FakeScanImageHasher();
       final source = ApiScanResultSource(
         api: api,
         session: () => _session,
         imagePicker: picker,
+        imageHasher: imageHasher,
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -28,7 +31,11 @@ void main() {
       expect(result.candidates, ['Bushi Tenderfoot', 'Devoted Retainer']);
       expect(result.candidateCardRefs, ['1', '2']);
       expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
-      expect(api.lastBytes, Uint8List.fromList([1, 2, 3]));
+      expect(imageHasher.lastBytes, Uint8List.fromList([1, 2, 3]));
+      expect(
+        api.lastHashes,
+        const ScanImageHashes(r: _hash, g: _hash, b: _hash),
+      );
       expect(api.lastPlatform, 'iOS');
       expect(picker.sources, [ScanImageSource.camera]);
     },
@@ -47,6 +54,7 @@ void main() {
         ),
         session: () => _session,
         imagePicker: _FakeScanImagePicker(),
+        imageHasher: _FakeScanImageHasher(),
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -61,10 +69,12 @@ void main() {
     () async {
       final picker = _FakeScanImagePicker();
       final api = _FakeScanApi(_matchedRecognition);
+      final imageHasher = _FakeScanImageHasher();
       final source = ApiScanResultSource(
         api: api,
         session: () => _session,
         imagePicker: picker,
+        imageHasher: imageHasher,
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -77,7 +87,7 @@ void main() {
 
       expect(picker.sources, [ScanImageSource.camera]);
       expect(api.callCount, 2);
-      expect(api.lastBytes, Uint8List.fromList([1, 2, 3]));
+      expect(imageHasher.lastBytes, Uint8List.fromList([1, 2, 3]));
     },
   );
 
@@ -89,6 +99,7 @@ void main() {
         api: api,
         session: () => _session,
         imagePicker: _FakeScanImagePicker(cancelled: true),
+        imageHasher: _FakeScanImageHasher(),
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -105,6 +116,7 @@ void main() {
         api: _FakeScanApi(_matchedRecognition, failure: StateError('offline')),
         session: () => _session,
         imagePicker: _FakeScanImagePicker(),
+        imageHasher: _FakeScanImageHasher(),
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -126,6 +138,7 @@ void main() {
         api: api,
         session: () => _session,
         imagePicker: picker,
+        imageHasher: _FakeScanImageHasher(),
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -150,6 +163,8 @@ const _session = AuthSession(
   refreshToken: 'refresh-token',
   anonymousId: 'anon-1',
 );
+
+const _hash = 'vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw';
 
 const _matchedRecognition = ScanRecognitionDto(
   scanId: 'scan-1',
@@ -219,7 +234,7 @@ class _FakeScanApi implements ScanApi {
 
   final ScanRecognitionDto result;
   final Object? failure;
-  Uint8List? lastBytes;
+  ScanImageHashes? lastHashes;
   String? lastPlatform;
   var callCount = 0;
 
@@ -235,7 +250,7 @@ class _FakeScanApi implements ScanApi {
   @override
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required Uint8List imageBytes,
+    required ScanImageHashes hashes,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -243,10 +258,20 @@ class _FakeScanApi implements ScanApi {
     String? osVersion,
   }) async {
     callCount += 1;
-    lastBytes = imageBytes;
+    lastHashes = hashes;
     lastPlatform = platform;
     final failure = this.failure;
     if (failure != null) throw failure;
     return result;
+  }
+}
+
+class _FakeScanImageHasher implements ScanImageHasher {
+  Uint8List? lastBytes;
+
+  @override
+  Future<ScanImageHashes> hash(Uint8List imageBytes) async {
+    lastBytes = imageBytes;
+    return const ScanImageHashes(r: _hash, g: _hash, b: _hash);
   }
 }

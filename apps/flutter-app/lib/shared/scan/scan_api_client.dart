@@ -1,8 +1,8 @@
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+
+import 'scan_image_hasher_contract.dart';
 
 const scanApiBaseUrl = authApiBaseUrl;
 
@@ -10,8 +10,8 @@ Dio createScanDio({String baseUrl = scanApiBaseUrl}) {
   return Dio(
     BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 120),
+      connectTimeout: const Duration(seconds: 4),
+      receiveTimeout: const Duration(seconds: 12),
     ),
   );
 }
@@ -164,7 +164,7 @@ class ScanCollectionItemInput {
 abstract interface class ScanApi {
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required Uint8List imageBytes,
+    required ScanImageHashes hashes,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -186,21 +186,24 @@ class ScanApiClient implements ScanApi {
   @override
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required Uint8List imageBytes,
+    required ScanImageHashes hashes,
     required String fileName,
     required String platform,
     required String appVersion,
     String? deviceModel,
     String? osVersion,
   }) async {
-    final form = FormData.fromMap({
-      'image': MultipartFile.fromBytes(imageBytes, filename: fileName),
+    final body = <String, Object?>{
+      'r': hashes.r,
+      'g': hashes.g,
+      'b': hashes.b,
+      'filename': fileName,
       'platform': platform,
       'app_version': appVersion,
       if (deviceModel != null) 'device_model': deviceModel,
       if (osVersion != null) 'os_version': osVersion,
-    });
-    final data = await _requestData('POST', '/scan/recognize', session, form);
+    };
+    final data = await _requestData('POST', '/scan/recognize', session, body);
     return ScanRecognitionDto.fromJson(data);
   }
 

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart' as picker;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../shared/scan/scan_api_client.dart';
+import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
@@ -69,6 +70,7 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     api: ref.watch(scanApiClientProvider),
     session: () => ref.read(authControllerProvider).session,
     imagePicker: ImagePickerScanImagePicker(),
+    imageHasher: createScanImageHasher(),
     appInfo: _readScanAppInfo,
   ),
 );
@@ -145,15 +147,18 @@ class ApiScanResultSource implements ScanResultSource {
     required ScanApi api,
     required AuthSession? Function() session,
     required ScanImagePicker imagePicker,
+    required ScanImageHasher imageHasher,
     required Future<ScanAppInfo> Function() appInfo,
   }) : _api = api,
        _session = session,
        _imagePicker = imagePicker,
+       _imageHasher = imageHasher,
        _appInfo = appInfo;
 
   final ScanApi _api;
   final AuthSession? Function() _session;
   final ScanImagePicker _imagePicker;
+  final ScanImageHasher _imageHasher;
   final Future<ScanAppInfo> Function() _appInfo;
   @override
   Future<ScanResolution> photo() => _pickAndRecognize(ScanImageSource.camera);
@@ -195,9 +200,10 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       final info = await _appInfo();
+      final hashes = await _imageHasher.hash(image.bytes);
       recognition = await _api.recognizeImage(
         session,
-        imageBytes: image.bytes,
+        hashes: hashes,
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,

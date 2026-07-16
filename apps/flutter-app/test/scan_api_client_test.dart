@@ -6,18 +6,24 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
+import 'package:kando_app/shared/scan/scan_image_hasher.dart';
 
 void main() {
   test(
-    'recognizeImage uploads bytes with the session token because scans must be attributable in Admin',
+    'recognizeImage sends local RGB pHashes with the session token because production recognition does not accept images',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'POST');
         expect(request.path, '/scan/recognize');
         expect(request.authorization, 'Bearer access-token');
-        expect(request.formFields['platform'], 'iOS');
-        expect(request.formFields['app_version'], '1.0.0');
-        expect(request.fileName, 'scan.jpg');
+        expect(request.body, {
+          'r': _hash,
+          'g': _hash,
+          'b': _hash,
+          'filename': 'scan.jpg',
+          'platform': 'iOS',
+          'app_version': '1.0.0',
+        });
         return _json(200, {
           'success': true,
           'data': {
@@ -44,7 +50,7 @@ void main() {
 
       final result = await ScanApiClient(_dio(adapter)).recognizeImage(
         _session,
-        imageBytes: Uint8List.fromList([1, 2, 3]),
+        hashes: const ScanImageHashes(r: _hash, g: _hash, b: _hash),
         fileName: 'scan.jpg',
         platform: 'iOS',
         appVersion: '1.0.0',
@@ -118,6 +124,8 @@ const _session = AuthSession(
   anonymousId: 'anon-1',
 );
 
+const _hash = 'vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw';
+
 Dio _dio(_RecordingAdapter adapter) {
   final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1'));
   dio.httpClientAdapter = adapter;
@@ -146,22 +154,11 @@ class _RecordingAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     final data = options.data;
-    final fields = <String, String>{};
-    String? fileName;
-    if (data is FormData) {
-      for (final entry in data.fields) {
-        fields[entry.key] = entry.value;
-      }
-      fileName = data.files.single.value.filename;
-    }
-
     return handler(
       _RecordedRequest(
         method: options.method,
         path: options.path,
         authorization: options.headers['Authorization']?.toString(),
-        formFields: fields,
-        fileName: fileName,
         body: data,
       ),
     );
@@ -176,15 +173,11 @@ class _RecordedRequest {
     required this.method,
     required this.path,
     required this.authorization,
-    required this.formFields,
-    required this.fileName,
     required this.body,
   });
 
   final String method;
   final String path;
   final String? authorization;
-  final Map<String, String> formFields;
-  final String? fileName;
   final Object? body;
 }

@@ -51,6 +51,7 @@ dependencies:
   google_sign_in: ^7.2.0
   sign_in_with_apple: ^7.0.1
   camera: ^0.12.0+1
+  opencv_dart: 1.4.5
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +65,22 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   build_runner: ^2.7.1
   freezed: ^3.2.3
+
+hooks:
+  user_defines:
+    dartcv4:
+      exclude_modules:
+        - calib3d
+        - contrib
+        - dnn
+        - features2d
+        - flann
+        - highgui
+        - objdetect
+        - photo
+        - stitching
+        - video
+        - videoio
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
