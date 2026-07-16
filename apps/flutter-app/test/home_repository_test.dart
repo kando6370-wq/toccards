@@ -36,23 +36,23 @@ void main() {
       expect(dashboard.trending.single.previousPriceUsd, 50);
       expect(dashboard.currencyCode, 'USD');
       expect(dashboard.amountHidden, isFalse);
-      expect(
-        dashboard
-            .portfoliosByFolderId['main']!
-            .chartValuesByRange[HomeChartRange.oneMonth],
-        [608, 760],
-      );
+      final month = dashboard
+          .portfoliosByFolderId['main']!
+          .chartValuesByRange[HomeChartRange.oneMonth]!;
+      expect(month, hasLength(31));
+      expect(month.first, 608);
+      expect(month.last, 760);
     },
   );
 
   test(
-    'a missing chart range keeps the current asset total because history availability must not change portfolio value',
+    'one server history response supplies the Figma 3M range without per-card curve requests',
     () async {
       final dashboard = await ApiHomeRepository(
         session: _session,
         portfolioApi: _PortfolioApi(),
         managementApi: _ManagementApi(),
-        cardDataApi: _CardDataApi(failedSeriesDays: {90}),
+        cardDataApi: _CardDataApi(),
       ).loadDashboard();
 
       expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 760);
@@ -60,7 +60,7 @@ void main() {
         dashboard
             .portfoliosByFolderId['main']!
             .chartValuesByRange[HomeChartRange.threeMonths],
-        [760],
+        hasLength(91),
       );
       expect(dashboard.mostValuableCardsByFolderId['main'], hasLength(3));
     },
@@ -157,6 +157,24 @@ class _PortfolioApi implements PortfolioApi {
   ];
 
   @override
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+  }) async => [
+    PortfolioFolderValuationDto(
+      folderId: 'main',
+      currentValueUsd: 760,
+      series: List.generate(
+        days + 1,
+        (index) => PortfolioValuationPointDto(
+          date: DateTime.utc(2026, 4, 16 + index).toIso8601String(),
+          valueUsd: index < 60 ? 500 : (index == days ? 760 : 608),
+        ),
+      ),
+    ),
+  ];
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -175,10 +193,6 @@ class _ManagementApi implements PortfolioManagementApi {
 }
 
 class _CardDataApi implements CardDataApi {
-  _CardDataApi({this.failedSeriesDays = const {}});
-
-  final Set<int> failedSeriesDays;
-
   @override
   Future<CardDataCardDto> getCard(String cardRef) async => _card(cardRef);
 
@@ -221,34 +235,7 @@ class _CardDataApi implements CardDataApi {
     double? grade,
     String? condition,
   }) async {
-    if (cardRef == 'trending') {
-      throw StateError('Trending must not make per-card series requests');
-    }
-    if (cardRef.startsWith('owned') && failedSeriesDays.contains(days)) {
-      throw StateError('price series unavailable');
-    }
-    return [
-      CardDataPricePointDto(
-        date: '2026-06-15',
-        price: switch (cardRef) {
-          'owned' => days == 30 ? 80 : 90,
-          'owned-low' => days == 30 ? 8 : 9,
-          'owned-mid' => days == 30 ? 40 : 45,
-          'owned-quantity' => days == 30 ? 4 : 4.5,
-          _ => 50,
-        },
-      ),
-      CardDataPricePointDto(
-        date: '2026-07-15',
-        price: switch (cardRef) {
-          'owned' => 100,
-          'owned-low' => 10,
-          'owned-mid' => 50,
-          'owned-quantity' => 5,
-          _ => 60,
-        },
-      ),
-    ];
+    throw StateError('Home must not make per-card series requests');
   }
 
   CardDataCardDto _card(String cardRef) => CardDataCardDto(

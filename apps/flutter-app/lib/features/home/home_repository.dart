@@ -28,11 +28,13 @@ class ApiHomeRepository implements HomeRepository {
     final source = await Future.wait([
       portfolioApi.listFolders(session),
       portfolioApi.listCollectionItems(session),
+      portfolioApi.getValuationHistory(session),
       managementApi.getPreferences(session),
     ]);
     final folders = source[0] as List<PortfolioFolderDto>;
     final items = source[1] as List<PortfolioItemDto>;
-    final preferences = source[2] as UserPreferenceDto;
+    final valuations = source[2] as List<PortfolioFolderValuationDto>;
+    final preferences = source[3] as UserPreferenceDto;
     final assets = await Future.wait(items.map(_loadAsset));
     final valuedAssets = assets.whereType<_HomeAsset>().toList();
     final trending = await _loadTrending();
@@ -65,13 +67,13 @@ class ApiHomeRepository implements HomeRepository {
       final folderAssets = valuedAssets
           .where((asset) => asset.item.folderId == folder.id)
           .toList();
-      final total = folderAssets.fold<double>(
-        0,
-        (sum, asset) => sum + asset.price * asset.item.quantity,
-      );
+      final valuation = valuations
+          .where((item) => item.folderId == folder.id)
+          .firstOrNull;
+      final total = valuation?.currentValueUsd ?? 0;
       final chartValues = {
         for (final range in HomeChartRange.values)
-          range: _aggregateSeries(folderAssets, range, total),
+          range: _rangeValues(valuation?.series ?? const [], range),
       };
       final monthValues = chartValues[HomeChartRange.oneMonth]!;
       portfolios[folder.id] = PortfolioSummary(
@@ -108,30 +110,7 @@ class ApiHomeRepository implements HomeRepository {
       final prices = values[1] as List<CardDataMarketPriceDto>;
       final price = _matchingPrice(item, prices);
       if (price?.price == null) return null;
-      final entries = await Future.wait(
-        HomeChartRange.values.map((range) async {
-          try {
-            return await cardDataApi.getPriceSeries(
-              item.cardRef,
-              days: _rangeDays[range]!,
-              grader: price!.grader,
-              grade: price.grade,
-              condition: price.condition,
-            );
-          } catch (_) {
-            return const <CardDataPricePointDto>[];
-          }
-        }),
-      );
-      return _HomeAsset(
-        item: item,
-        card: card,
-        price: price!.price!,
-        seriesByRange: {
-          for (var index = 0; index < HomeChartRange.values.length; index++)
-            HomeChartRange.values[index]: entries[index],
-        },
-      );
+      return _HomeAsset(item: item, card: card, price: price!.price!);
     } catch (_) {
       return null;
     }
@@ -183,35 +162,24 @@ String _normalizedCondition(String? value) {
   );
 }
 
-List<double> _aggregateSeries(
-  List<_HomeAsset> assets,
+List<double> _rangeValues(
+  List<PortfolioValuationPointDto> series,
   HomeChartRange range,
-  double currentTotal,
 ) {
-  final totalsByDate = <String, double>{};
-  for (final asset in assets) {
-    for (final point in asset.seriesByRange[range] ?? const []) {
-      totalsByDate.update(
-        point.date,
-        (value) => value + point.price * asset.item.quantity,
-        ifAbsent: () => point.price * asset.item.quantity,
-      );
-    }
-  }
-  final dates = totalsByDate.keys.toList()..sort();
-  final values = dates.map((date) => totalsByDate[date]!).toList();
-  if (values.isEmpty || values.last != currentTotal) values.add(currentTotal);
-  return values;
+  final pointCount = _rangeDays[range]! + 1;
+  return series
+      .skip((series.length - pointCount).clamp(0, series.length))
+      .map((point) => point.valueUsd)
+      .toList();
 }
 
 HomeCardHighlight _highlight(_HomeAsset asset) {
-  final monthSeries = asset.seriesByRange[HomeChartRange.oneMonth] ?? const [];
   return HomeCardHighlight(
     cardRef: asset.card.cardRef,
     title: asset.card.name,
     subtitle: '#${asset.card.cardNumber} • ${asset.card.setName}',
     priceUsd: asset.price,
-    previousPriceUsd: monthSeries.length > 1 ? monthSeries.first.price : 0,
+    previousPriceUsd: 0,
     imageUrl: asset.card.imageUrl,
   );
 }
@@ -221,13 +189,11 @@ class _HomeAsset {
     required this.item,
     required this.card,
     required this.price,
-    required this.seriesByRange,
   });
 
   final PortfolioItemDto item;
   final CardDataCardDto card;
   final double price;
-  final Map<HomeChartRange, List<CardDataPricePointDto>> seriesByRange;
 }
 
 const _rangeDays = {

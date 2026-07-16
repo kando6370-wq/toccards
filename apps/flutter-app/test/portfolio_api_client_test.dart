@@ -91,17 +91,11 @@ void main() {
                 {'folder_id': 'main', 'sort_order': 200},
               ],
             });
-            return _json(200, {
-              'success': true,
-              'data': <String, Object?>{},
-            });
+            return _json(200, {'success': true, 'data': <String, Object?>{}});
           case 4:
             expect(request.method, 'DELETE');
             expect(request.path, '/portfolio/folders/trade');
-            return _json(200, {
-              'success': true,
-              'data': <String, Object?>{},
-            });
+            return _json(200, {'success': true, 'data': <String, Object?>{}});
           default:
             throw StateError('unexpected request');
         }
@@ -250,6 +244,41 @@ void main() {
         wishlist.single.createdAt,
         DateTime.parse('2026-01-03T00:00:00.000Z'),
       );
+    },
+  );
+
+  test(
+    'getValuationHistory maps the single portfolio curve response because Home must not rebuild history per card',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/portfolio/valuation-history');
+        expect(request.queryParameters, {'days': '90'});
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'folder_id': 'main',
+                'current_value_usd': 42.5,
+                'series': [
+                  {'date': '2026-07-15', 'value_usd': 40},
+                  {'date': '2026-07-16', 'value_usd': 42.5},
+                ],
+              },
+            ],
+          },
+        });
+      });
+
+      final history = await PortfolioApiClient(
+        _dio(adapter),
+      ).getValuationHistory(_session);
+
+      expect(history.single.folderId, 'main');
+      expect(history.single.currentValueUsd, 42.5);
+      expect(history.single.series.first.valueUsd, 40);
+      expect(history.single.series.last.date, '2026-07-16');
     },
   );
 

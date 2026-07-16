@@ -123,6 +123,52 @@ class PortfolioItemDto {
   }
 }
 
+class PortfolioValuationPointDto {
+  const PortfolioValuationPointDto({
+    required this.date,
+    required this.valueUsd,
+  });
+
+  final String date;
+  final double valueUsd;
+
+  factory PortfolioValuationPointDto.fromJson(Map<String, Object?> json) {
+    return PortfolioValuationPointDto(
+      date: _requiredString(json['date']),
+      valueUsd: _requiredDouble(json['value_usd']),
+    );
+  }
+}
+
+class PortfolioFolderValuationDto {
+  const PortfolioFolderValuationDto({
+    required this.folderId,
+    required this.currentValueUsd,
+    required this.series,
+  });
+
+  final String folderId;
+  final double currentValueUsd;
+  final List<PortfolioValuationPointDto> series;
+
+  factory PortfolioFolderValuationDto.fromJson(Map<String, Object?> json) {
+    final series = json['series'];
+    if (series is! List) {
+      throw const PortfolioApiException(
+        'Something went wrong. Please try again.',
+      );
+    }
+    return PortfolioFolderValuationDto(
+      folderId: _requiredString(json['folder_id']),
+      currentValueUsd: _requiredDouble(json['current_value_usd']),
+      series: series
+          .map(_mapItem)
+          .map(PortfolioValuationPointDto.fromJson)
+          .toList(),
+    );
+  }
+}
+
 class WishlistItemDto {
   const WishlistItemDto({
     required this.id,
@@ -207,6 +253,10 @@ class PortfolioItemDraftDto {
 abstract interface class PortfolioApi {
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session);
   Future<List<PortfolioItemDto>> listCollectionItems(AuthSession session);
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+  });
   Future<List<WishlistItemDto>> listWishlistItems(AuthSession session);
   Future<PortfolioItemDto> quickCollect(
     AuthSession session, {
@@ -238,10 +288,7 @@ abstract interface class PortfolioManagementApi {
     AuthSession session,
     String folderId,
   );
-  Future<void> reorderFolders(
-    AuthSession session,
-    List<String> folderIds,
-  );
+  Future<void> reorderFolders(AuthSession session, List<String> folderIds);
   Future<void> deleteFolder(AuthSession session, String folderId);
   Future<UserPreferenceDto> getPreferences(AuthSession session);
   Future<UserPreferenceDto> updatePreferences(
@@ -317,10 +364,7 @@ class PortfolioApiClient implements PortfolioApi, PortfolioManagementApi {
       body: {
         'orders': [
           for (var index = 0; index < folderIds.length; index++)
-            {
-              'folder_id': folderIds[index],
-              'sort_order': (index + 1) * 100,
-            },
+            {'folder_id': folderIds[index], 'sort_order': (index + 1) * 100},
         ],
       },
     );
@@ -373,6 +417,20 @@ class PortfolioApiClient implements PortfolioApi, PortfolioManagementApi {
       queryParameters: {'page_size': 100},
     );
     return _items(data).map(PortfolioItemDto.fromJson).toList();
+  }
+
+  @override
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+  }) async {
+    final data = await _requestData(
+      'GET',
+      '/portfolio/valuation-history',
+      session,
+      queryParameters: {'days': days},
+    );
+    return _items(data).map(PortfolioFolderValuationDto.fromJson).toList();
   }
 
   @override
@@ -551,6 +609,25 @@ double? _nullableDouble(Object? value) {
   if (value is int) return value.toDouble();
   if (value is double) return value;
   throw const PortfolioApiException('Something went wrong. Please try again.');
+}
+
+double _requiredDouble(Object? value) {
+  final parsed = _nullableDouble(value);
+  if (parsed == null) {
+    throw const PortfolioApiException(
+      'Something went wrong. Please try again.',
+    );
+  }
+  return parsed;
+}
+
+Map<String, Object?> _mapItem(Object? item) {
+  if (item is! Map) {
+    throw const PortfolioApiException(
+      'Something went wrong. Please try again.',
+    );
+  }
+  return Map<String, Object?>.from(item);
 }
 
 DateTime _requiredDateTime(Object? value) {

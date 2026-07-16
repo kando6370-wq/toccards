@@ -959,6 +959,12 @@ class _FakePortfolioApiClient implements PortfolioApi {
   }
 
   @override
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+  }) async => const [];
+
+  @override
   Future<List<PortfolioItemDto>> listCollectionItems(
     AuthSession session,
   ) async {
