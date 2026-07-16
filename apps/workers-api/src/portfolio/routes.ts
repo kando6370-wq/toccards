@@ -7,6 +7,7 @@ import {
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
+import { loadValuationHistory } from "./valuation-history";
 
 type PortfolioFolderRow = {
   id: string;
@@ -261,6 +262,29 @@ const ISO_4217_CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
 export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
   const routes = new Hono<{ Bindings: Env }>();
+
+  routes.get("/portfolio/valuation-history", async (c) => {
+    const auth = await authenticateOwner(
+      c.env,
+      c.req.header("Authorization"),
+    );
+    if (auth.status === "internal_error") {
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+    if (auth.status === "unauthorized") {
+      return c.json(UNAUTHORIZED_RESPONSE, 401);
+    }
+
+    const days = positiveIntegerOrDefault(c.req.query("days"), 90, 90);
+    const folders = await listFolders(c.env.DB, auth.owner);
+    const items = await loadValuationHistory(
+      c.env.DB,
+      auth.owner,
+      folders.map((folder) => folder.id),
+      days,
+    );
+    return c.json({ success: true, data: { days, items } });
+  });
 
   routes.post("/cards/:card_ref/collect", async (c) => {
     const auth = await authenticateOwner(
