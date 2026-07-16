@@ -41,6 +41,9 @@ jobs:
           xcodebuild -version
           pod --version
 
+      - name: Validate Fastlane configuration
+        run: ruby -c apps/flutter-app/fastlane/Fastfile
+
       - name: Resolve Flutter workspace dependencies
         run: flutter pub get
 
