@@ -7,6 +7,7 @@ import 'package:kando_app/shared/validation/email.dart';
 import '../../shared/ui/toast.dart';
 import '../auth/auth_controller.dart';
 import 'feedback_repository.dart';
+import 'profile_detail_scaffold.dart';
 
 const feedbackSubmittedToastText = 'Feedback submitted. Thank you.';
 const feedbackSubmitFailureText =
@@ -65,15 +66,10 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
   Widget build(BuildContext context) {
     final isTooLong = _messageController.text.length > feedbackMessageMaxLength;
 
-    return Scaffold(
-      backgroundColor: KandoColors.ink,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+    return ProfileDetailScaffold(
+      child: ListView(
+        key: const Key('customer-support-content-list'),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
         children: [
           const Text(
             'CONNECT WITH US',
@@ -89,8 +85,8 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
             'Send Feedback',
             style: TextStyle(
               color: KandoColors.text,
+              fontFamily: 'Fraunces',
               fontSize: 32,
-              fontWeight: FontWeight.w600,
               height: 1.25,
             ),
           ),
@@ -117,6 +113,7 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
             options: _functionOptions,
             selectedValues: _selectedFunctions,
             onToggle: _toggleFunction,
+            iconForOption: _functionIcon,
           ),
           const SizedBox(height: 24),
           _FieldLabel('Email Address'),
@@ -131,17 +128,22 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
             keyboardType: TextInputType.emailAddress,
           ),
           const SizedBox(height: 24),
-          _FieldLabel('Your Message'),
+          const _FieldLabel('Your Message', fontSize: 11),
           const SizedBox(height: 8),
-          TextFormField(
-            key: const ValueKey('feedback-message-field'),
-            controller: _messageController,
-            decoration: InputDecoration(
-              hintText: "Tell us what's on your mind...",
-              errorText: _messageError,
+          SizedBox(
+            height: 178,
+            child: TextFormField(
+              key: const ValueKey('feedback-message-field'),
+              controller: _messageController,
+              decoration: InputDecoration(
+                hintText: "Tell us what's on your mind...",
+                errorText: _messageError,
+              ),
+              textAlignVertical: TextAlignVertical.top,
+              expands: true,
+              minLines: null,
+              maxLines: null,
             ),
-            minLines: 6,
-            maxLines: 10,
           ),
           const SizedBox(height: 32),
           SizedBox(
@@ -168,7 +170,7 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.send, size: 20),
+                  const Icon(Icons.send_outlined, size: 20),
                 ],
               ),
             ),
@@ -288,17 +290,18 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
 }
 
 class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
+  const _FieldLabel(this.text, {this.fontSize = 14});
 
   final String text;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         color: KandoColors.mutedText,
-        fontSize: 14,
+        fontSize: fontSize,
         letterSpacing: 0.2,
       ),
     );
@@ -311,12 +314,14 @@ class _ChipSection extends StatelessWidget {
     required this.options,
     required this.selectedValues,
     required this.onToggle,
+    this.iconForOption,
   });
 
   final String title;
   final List<String> options;
   final Set<String> selectedValues;
   final ValueChanged<String> onToggle;
+  final IconData? Function(String option)? iconForOption;
 
   @override
   Widget build(BuildContext context) {
@@ -332,6 +337,7 @@ class _ChipSection extends StatelessWidget {
             for (final option in options)
               _PillChip(
                 label: option,
+                icon: iconForOption?.call(option),
                 selected: selectedValues.contains(option),
                 onTap: () => onToggle(option),
               ),
@@ -347,11 +353,13 @@ class _PillChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.icon,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -381,12 +389,35 @@ class _PillChip extends StatelessWidget {
                   ]
                 : null,
           ),
-          child: Text(
-            label,
-            style: const TextStyle(color: KandoColors.text, fontSize: 16),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 12, color: KandoColors.text),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                label,
+                style: const TextStyle(color: KandoColors.text, fontSize: 16),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+IconData? _functionIcon(String option) {
+  return switch (option) {
+    'Scan' => Icons.document_scanner_outlined,
+    'Search' => Icons.search,
+    'Collection' => Icons.collections_bookmark_outlined,
+    'Portfolio' => Icons.account_balance_wallet_outlined,
+    'Wishlist' => Icons.favorite_border,
+    'Account' => Icons.person_outline,
+    'Price Data' => Icons.show_chart,
+    'Other' => Icons.more_horiz,
+    _ => null,
+  };
 }

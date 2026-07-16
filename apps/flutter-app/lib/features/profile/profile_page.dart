@@ -59,133 +59,139 @@ class _ProfileContent extends ConsumerWidget {
     final versionText = ref
         .watch(profileVersionProvider)
         .when(
-          data: (version) => 'Version $version',
+          data: (version) => 'Version ${version.split('+').first}',
           error: (_, _) => 'Version unavailable',
           loading: () => 'Version',
         );
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 96),
-      children: [
-        _SectionLabel('Account'),
-        if (isUser)
-          _MenuCard(
-            children: [
-              _AccountRow(
-                email: emailText,
-                userId: userIdText,
-                onTap: () => context.push('/account'),
-              ),
-            ],
-          )
-        else
-          _MenuCard(
-            children: [
-              _MenuRow(
-                icon: Icons.person_outline,
-                label: 'Sign in / Sign up',
-                onTap: () => showAuthSheet(context),
-              ),
-            ],
-          ),
-        const SizedBox(height: 24),
-        _SectionLabel('Support'),
-        _MenuCard(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 390),
+        child: ListView(
+          key: const Key('profile-content-list'),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 96),
           children: [
-            _MenuRow(
-              icon: Icons.mail_outline,
-              label: 'Customer Support',
-              onTap: () => context.push('/customer-support'),
-            ),
-            _MenuRow(
-              icon: Icons.star_outline,
-              label: 'Score',
-              onTap: () => _runProfileAction(
-                context,
-                () => ref.read(profileActionsProvider).requestScore(),
+            _SectionLabel('Account'),
+            if (isUser)
+              _MenuCard(
+                children: [
+                  _AccountRow(
+                    email: emailText,
+                    userId: userIdText,
+                    onTap: () => context.push('/account'),
+                  ),
+                ],
+              )
+            else
+              _MenuCard(
+                children: [
+                  _MenuRow(
+                    icon: Icons.person_outline,
+                    label: 'Sign in / Sign up',
+                    onTap: () => showAuthSheet(context),
+                  ),
+                ],
               ),
+            const SizedBox(height: 24),
+            _SectionLabel('Support'),
+            _MenuCard(
+              children: [
+                _MenuRow(
+                  icon: Icons.mail_outline,
+                  label: 'Customer Support',
+                  onTap: () => context.push('/customer-support'),
+                ),
+                _MenuRow(
+                  icon: Icons.star_outline,
+                  label: 'Score',
+                  onTap: () => _runProfileAction(
+                    context,
+                    () => ref.read(profileActionsProvider).requestScore(),
+                  ),
+                ),
+                _MenuRow(
+                  icon: Icons.share_outlined,
+                  label: 'Share With Friends',
+                  onTap: () => _runProfileAction(
+                    context,
+                    () => ref.read(profileActionsProvider).shareWithFriends(),
+                  ),
+                ),
+              ],
             ),
-            _MenuRow(
-              icon: Icons.share_outlined,
-              label: 'Share With Friends',
-              onTap: () => _runProfileAction(
-                context,
-                () => ref.read(profileActionsProvider).shareWithFriends(),
+            const SizedBox(height: 24),
+            _SectionLabel('Others'),
+            _MenuCard(
+              children: [
+                _MenuRow(
+                  icon: Icons.description_outlined,
+                  label: 'Terms Of Use',
+                  onTap: () => _runProfileAction(
+                    context,
+                    () => ref.read(profileActionsProvider).openTerms(),
+                  ),
+                ),
+                _MenuRow(
+                  icon: Icons.shield_outlined,
+                  label: 'Privacy Policy',
+                  onTap: () => _runProfileAction(
+                    context,
+                    () => ref.read(profileActionsProvider).openPrivacy(),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            if (isUser)
+              Center(
+                child: TextButton.icon(
+                  onPressed: () async {
+                    await _logout(context, ref);
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: KandoColors.text,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 12,
+                    ),
+                  ),
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: const Text('Log Out', style: TextStyle(fontSize: 16)),
+                ),
+              )
+            else
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => _confirmAndDelete(context, ref),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _dangerColor,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 12,
+                    ),
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  label: const Text(
+                    'Delete Account',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                versionText,
+                style: TextStyle(
+                  color: KandoColors.mutedText.withValues(alpha: 0.7),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        _SectionLabel('Others'),
-        _MenuCard(
-          children: [
-            _MenuRow(
-              icon: Icons.description_outlined,
-              label: 'Terms Of Use',
-              onTap: () => _runProfileAction(
-                context,
-                () => ref.read(profileActionsProvider).openTerms(),
-              ),
-            ),
-            _MenuRow(
-              icon: Icons.shield_outlined,
-              label: 'Privacy Policy',
-              onTap: () => _runProfileAction(
-                context,
-                () => ref.read(profileActionsProvider).openPrivacy(),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 32),
-        if (isUser)
-          Center(
-            child: TextButton.icon(
-              onPressed: () async {
-                await _logout(context, ref);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: KandoColors.text,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-              ),
-              icon: const Icon(Icons.logout, size: 18),
-              label: const Text('Log Out', style: TextStyle(fontSize: 16)),
-            ),
-          )
-        else
-          Center(
-            child: TextButton.icon(
-              onPressed: () => _confirmAndDelete(context, ref),
-              style: TextButton.styleFrom(
-                foregroundColor: _dangerColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-              ),
-              icon: const Icon(Icons.delete_outline, size: 20),
-              label: const Text(
-                'Delete Account',
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
-          ),
-        const SizedBox(height: 16),
-        Center(
-          child: Text(
-            versionText,
-            style: TextStyle(
-              color: KandoColors.mutedText.withValues(alpha: 0.7),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -248,9 +254,9 @@ class _SectionLabel extends StatelessWidget {
         text.toUpperCase(),
         style: const TextStyle(
           color: KandoColors.mutedText,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontSize: 13,
           letterSpacing: 1.2,
+          height: 16 / 13,
         ),
       ),
     );
@@ -350,7 +356,6 @@ class _IconBadge extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: KandoColors.elevatedSurface,
-        border: Border.all(color: KandoColors.border.withValues(alpha: 0.4)),
       ),
       child: Icon(icon, size: 18, color: KandoColors.text),
     );

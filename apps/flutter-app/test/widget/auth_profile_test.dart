@@ -808,6 +808,7 @@ void main() {
       expect(find.text('Log Out'), findsNothing);
       await tester.scrollUntilVisible(find.text('Version 1.0.0'), 200);
       expect(find.text('Version 1.0.0'), findsOneWidget);
+      expect(find.textContaining('+42'), findsNothing);
 
       await tester.drag(find.byType(ListView).last, const Offset(0, -600));
       await tester.pumpAndSettle();
@@ -872,7 +873,7 @@ void main() {
     await tester.tap(find.text('person@example.com').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Account'), findsOneWidget);
+    expect(find.byKey(const Key('account-content-list')), findsOneWidget);
     expect(find.text('person@example.com'), findsWidgets);
     expect(find.text('user-1'), findsOneWidget);
     expect(find.text('GOOGLE'), findsOneWidget);
@@ -888,6 +889,65 @@ void main() {
     await tester.scrollUntilVisible(find.text('Version 1.0.0'), 200);
     expect(find.text('Version 1.0.0'), findsOneWidget);
   });
+
+  testWidgets(
+    'Profile detail pages keep the Figma mobile canvas because account actions must not stretch on wide screens',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(800, 1000);
+      addTearDown(tester.view.reset);
+      final repository = _WidgetAuthRepository(initialSession: _userSession());
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+
+      expect(
+        tester.getSize(find.byKey(const Key('profile-content-list'))).width,
+        390,
+      );
+
+      await tester.tap(find.text('person@example.com').first);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(find.byKey(const Key('account-content-list'))).width,
+        390,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('profile-back-button'))),
+        const Size.square(38),
+      );
+      expect(find.text('Account'), findsNothing);
+      expect(
+        tester
+            .widget<Text>(find.text('person@example.com').first)
+            .style
+            ?.fontFamily,
+        'Fraunces',
+      );
+
+      await tester.tap(find.byKey(const Key('profile-back-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Customer Support'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .getSize(find.byKey(const Key('customer-support-content-list')))
+            .width,
+        390,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('profile-back-button'))),
+        const Size.square(38),
+      );
+      expect(
+        tester.widget<Text>(find.text('Send Feedback')).style?.fontFamily,
+        'Fraunces',
+      );
+    },
+  );
 
   testWidgets(
     'Profile utility actions call native/share/browser services from their list entries',
@@ -969,6 +1029,10 @@ void main() {
       expect(find.text('Improvement'), findsOneWidget);
       expect(find.text('Other'), findsWidgets);
       expect(find.text('Subscription'), findsNothing);
+      expect(
+        tester.getSize(find.byKey(const Key('feedback-message-field'))).height,
+        178,
+      );
       final emailField = tester.widget<TextFormField>(
         find.byKey(const ValueKey('feedback-email-field')),
       );
@@ -1202,7 +1266,7 @@ void main() {
       await tester.tap(find.text('Log Out'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Account'), findsOneWidget);
+      expect(find.byKey(const Key('account-content-list')), findsOneWidget);
       expect(
         find.text(
           'No internet connection. Please check your network and try again.',
@@ -1292,7 +1356,7 @@ void main() {
       find.text('Unable to complete this action. Please try again later.'),
       findsOneWidget,
     );
-    expect(find.text('Account'), findsOneWidget);
+    expect(find.byKey(const Key('account-content-list')), findsOneWidget);
     expect(find.text('person@example.com'), findsWidgets);
     expect(repository._currentSession?.userId, 'user-1');
   });
@@ -1727,7 +1791,7 @@ class _WidgetInstalledVersionReader implements InstalledVersionReader {
   const _WidgetInstalledVersionReader();
 
   @override
-  Future<String> currentVersion() async => '1.0.0';
+  Future<String> currentVersion() async => '1.0.0+42';
 }
 
 class _WidgetProfileActions implements ProfileActions {

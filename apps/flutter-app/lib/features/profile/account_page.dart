@@ -8,6 +8,7 @@ import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
 import '../auth/auth_repository.dart';
 import '../../shared/ui/toast.dart';
+import 'profile_detail_scaffold.dart';
 
 // Destructive action red from the Figma spec (no matching design token exists).
 const _dangerColor = Color(0xFFFF8989);
@@ -20,15 +21,9 @@ class AccountPage extends ConsumerWidget {
     final authState = ref.watch(authControllerProvider);
     final session = authState.session;
 
-    return Scaffold(
-      backgroundColor: KandoColors.ink,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: const Text('Account'),
-      ),
-      body: authState.isLoading
+    return ProfileDetailScaffold(
+      semanticsLabel: 'Account',
+      child: authState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : authState.hasError
           ? KandoFailureBlock(
@@ -65,6 +60,7 @@ class _AccountContent extends ConsumerWidget {
         : '?';
 
     return ListView(
+      key: const Key('account-content-list'),
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
       children: [
         const SizedBox(height: 12),
@@ -249,6 +245,7 @@ class _ProfileHeader extends StatelessWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: KandoColors.text,
+            fontFamily: 'Fraunces',
             fontSize: 24,
             fontWeight: FontWeight.w600,
           ),
@@ -257,7 +254,7 @@ class _ProfileHeader extends StatelessWidget {
         Opacity(
           opacity: 0.7,
           child: Text(
-            'ID: $userId',
+            'ID:$userId',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: KandoColors.mutedText,
