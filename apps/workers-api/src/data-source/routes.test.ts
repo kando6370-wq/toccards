@@ -494,6 +494,7 @@ describe("data source routes", () => {
       }),
     });
     expect(marketPrices.status).toBe(200);
+    expect(marketPrices.headers.get("Cache-Control")).toBe("no-store");
     expect(await marketPrices.json()).toEqual({
       success: true,
       data: {
@@ -506,6 +507,7 @@ describe("data source routes", () => {
       },
     });
     expect(priceSeries.status).toBe(200);
+    expect(priceSeries.headers.get("Cache-Control")).toBe("no-store");
     expect(await priceSeries.json()).toEqual({
       success: true,
       data: {
@@ -537,6 +539,7 @@ describe("data source routes", () => {
       },
     });
     expect(soldListings.status).toBe(200);
+    expect(soldListings.headers.get("Cache-Control")).toBe("no-store");
     expect(await soldListings.json()).toEqual({
       success: true,
       data: {

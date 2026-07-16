@@ -43,6 +43,7 @@ void main() {
         expect(request.method, 'GET');
         expect(request.path, '/cards/catalog%3Apikachu-025/price-series');
         expect(request.queryParameters, {
+          'response_version': '2',
           'days': '30',
           'grader': 'Raw',
           'condition': 'Near Mint',

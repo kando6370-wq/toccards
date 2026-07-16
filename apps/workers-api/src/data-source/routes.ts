@@ -243,6 +243,7 @@ export function createDataSourceRoutes(
   });
 
   routes.get("/cards/:card_ref/market-prices", async (c) => {
+    c.header("Cache-Control", "no-store");
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
     const prices = await listOrEmpty(() => adapter.getMarketPrices(cardRef));
@@ -258,6 +259,7 @@ export function createDataSourceRoutes(
   });
 
   routes.get("/cards/:card_ref/price-series", async (c) => {
+    c.header("Cache-Control", "no-store");
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const grader = c.req.query("grader")?.trim() || "Raw";
     const grade = nullableNumber(c.req.query("grade"));
@@ -275,6 +277,7 @@ export function createDataSourceRoutes(
   });
 
   routes.get("/cards/:card_ref/sold-listings", async (c) => {
+    c.header("Cache-Control", "no-store");
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
     const items = await listOrEmpty(() => adapter.getSoldListings(cardRef));

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
 const cardDataApiBaseUrl = authApiBaseUrl;
+const cardDataResponseVersion = '2';
 
 Dio createCardDataDio({String baseUrl = cardDataApiBaseUrl}) {
   return Dio(
@@ -220,6 +221,7 @@ class CardDataApiClient implements CardDataApi {
     final data = await _requestData(
       'GET',
       '/cards/${Uri.encodeComponent(cardRef)}/market-prices',
+      queryParameters: {'response_version': cardDataResponseVersion},
     );
     final prices = data['prices'];
     if (prices is! List) {
@@ -242,6 +244,7 @@ class CardDataApiClient implements CardDataApi {
       'GET',
       '/cards/${Uri.encodeComponent(cardRef)}/price-series',
       queryParameters: {
+        'response_version': cardDataResponseVersion,
         'days': days,
         'grader': grader,
         if (grade != null) 'grade': grade,
@@ -262,6 +265,7 @@ class CardDataApiClient implements CardDataApi {
     final data = await _requestData(
       'GET',
       '/cards/${Uri.encodeComponent(cardRef)}/sold-listings',
+      queryParameters: {'response_version': cardDataResponseVersion},
     );
     return _items(data).map(CardDataSoldListingDto.fromJson).toList();
   }
