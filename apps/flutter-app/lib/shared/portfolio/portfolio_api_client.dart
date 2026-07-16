@@ -84,6 +84,7 @@ class CollectionDashboardItemDto {
     required this.quantity,
     required this.marketPriceUsd,
     required this.previous30dPriceUsd,
+    required this.folderJoinedAt,
     required this.createdAt,
     required this.imageUrl,
   });
@@ -103,6 +104,7 @@ class CollectionDashboardItemDto {
   final int quantity;
   final double? marketPriceUsd;
   final double? previous30dPriceUsd;
+  final DateTime folderJoinedAt;
   final DateTime createdAt;
   final String? imageUrl;
 
@@ -131,6 +133,9 @@ class CollectionDashboardItemDto {
       quantity: json['quantity'] is int ? json['quantity']! as int : 1,
       marketPriceUsd: _nullableDouble(json['market_price_usd']),
       previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
+      folderJoinedAt: _requiredDateTime(
+        json['folder_joined_at'] ?? json['created_at'],
+      ),
       createdAt: _requiredDateTime(json['created_at']),
       imageUrl: _nullableString(json['image_url']),
     );

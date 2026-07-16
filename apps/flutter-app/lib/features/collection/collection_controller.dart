@@ -216,7 +216,7 @@ class CollectionState {
 
     filtered.sort((a, b) {
       return switch (selectedSort) {
-        CollectionSort.newest => b.createdAtSort.compareTo(a.createdAtSort),
+        CollectionSort.newest => b.addedAtSort.compareTo(a.addedAtSort),
         CollectionSort.valueDesc => _nullableDoubleDesc(
           a.marketValueUsd,
           b.marketValueUsd,

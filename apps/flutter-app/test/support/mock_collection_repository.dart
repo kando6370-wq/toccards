@@ -30,7 +30,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 1,
           marketValueUsd: 780,
           previous30dPriceUsd: 721.55,
-          createdAtSort: 3,
+          addedAtSort: 3,
         ),
         CollectionItem(
           id: 'item-umbreon',
@@ -48,7 +48,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 1,
           marketValueUsd: 410,
           previous30dPriceUsd: 365.42,
-          createdAtSort: 2,
+          addedAtSort: 2,
         ),
         CollectionItem(
           id: 'item-pikachu',
@@ -66,7 +66,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 2,
           marketValueUsd: 27.5,
           previous30dPriceUsd: 27.89,
-          createdAtSort: 1,
+          addedAtSort: 1,
         ),
         CollectionItem(
           id: 'item-sealed-box',
@@ -84,7 +84,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 1,
           marketValueUsd: 620,
           previous30dPriceUsd: 588.24,
-          createdAtSort: 4,
+          addedAtSort: 4,
         ),
       ],
       wishlistItems: [
@@ -104,7 +104,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 1,
           marketValueUsd: 480,
           previous30dPriceUsd: 449.86,
-          createdAtSort: 2,
+          addedAtSort: 2,
         ),
         CollectionItem(
           id: 'wish-luffy',
@@ -122,7 +122,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 1,
           marketValueUsd: 330,
           previous30dPriceUsd: 306.69,
-          createdAtSort: 1,
+          addedAtSort: 1,
         ),
       ],
     );

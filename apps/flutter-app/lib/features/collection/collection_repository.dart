@@ -122,7 +122,7 @@ CollectionItem _collectionItemFromDto(CollectionDashboardItemDto dto) {
     quantity: dto.quantity,
     marketValueUsd: dto.marketPriceUsd,
     previous30dPriceUsd: dto.previous30dPriceUsd,
-    createdAtSort: dto.createdAt.millisecondsSinceEpoch,
+    addedAtSort: dto.folderJoinedAt.millisecondsSinceEpoch,
     imageUrl: dto.imageUrl,
   );
 }

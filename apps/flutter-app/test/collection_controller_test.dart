@@ -654,7 +654,7 @@ class _GradedQuantityCollectionRepository extends MockCollectionRepository {
           quantity: 3,
           marketValueUsd: null,
           previous30dPriceUsd: null,
-          createdAtSort: 5,
+          addedAtSort: 5,
         ),
       ],
     );
@@ -707,6 +707,7 @@ class _FakePortfolioApiClient
                   item.condition == 'Near Mint (NM)'
               ? 10
               : null,
+          folderJoinedAt: item.createdAt,
           createdAt: item.createdAt,
           imageUrl: pikachu
               ? 'https://api.tcgcard.fun/api/v1/cards/25/image'
@@ -731,6 +732,7 @@ class _FakePortfolioApiClient
           quantity: 1,
           marketPriceUsd: luffy ? 330 : null,
           previous30dPriceUsd: luffy ? 300 : null,
+          folderJoinedAt: item.createdAt,
           createdAt: item.createdAt,
           imageUrl: null,
         );
