@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { collectionItemDraftFromBody } from "../collection-item";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
@@ -95,8 +96,7 @@ INSERT INTO collection_item
   (id, owner_type, owner_id, folder_id, card_ref, object_type, grader, condition,
    grade, language, finish, quantity, purchase_price, purchase_currency, notes,
    created_at, updated_at)
-SELECT ?, ?, ?, ?, ?, 'tcg', 'Raw', 'Near Mint (NM)', NULL, 'English', NULL,
-  1, NULL, NULL, NULL, ?, ?
+SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 WHERE EXISTS (
   SELECT 1 FROM scan_record
   WHERE id = ? AND owner_type = ? AND owner_id = ?
@@ -226,9 +226,8 @@ export function createScanRoutes() {
     if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
 
     const body = await readJson(c.req);
-    const folderId = isRecord(body) ? readString(body.folder_id) : null;
-    const cardRef = isRecord(body) ? readString(body.card_ref) : null;
-    if (!folderId || !cardRef) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    const draft = collectionItemDraftFromBody(body, { object_type: "tcg" });
+    if (!draft) return c.json(VALIDATION_ERROR_RESPONSE, 422);
 
     const scanId = c.req.param("scan_id");
     const scan = await c.env.DB.prepare(SELECT_SCAN_RECORD_SQL)
@@ -241,12 +240,12 @@ export function createScanRoutes() {
 
     const candidates = parseStoredCandidates(scan.candidates);
     const selectedCandidate = candidates.find(
-      (candidate) => candidate.card_ref === cardRef,
+      (candidate) => candidate.card_ref === draft.card_ref,
     );
     if (!selectedCandidate) return c.json(VALIDATION_ERROR_RESPONSE, 422);
 
     const folder = await c.env.DB.prepare(SELECT_PORTFOLIO_FOLDER_SQL)
-      .bind(folderId, auth.owner.owner_type, auth.owner.owner_id)
+      .bind(draft.folder_id, auth.owner.owner_type, auth.owner.owner_id)
       .first<PortfolioFolderRow>();
     if (!folder) return c.json(NOT_FOUND_RESPONSE, 404);
 
@@ -255,7 +254,7 @@ export function createScanRoutes() {
     const userResult = JSON.stringify({
       confirmation_status: "confirmed",
       final_card: selectedCandidate,
-      modified_result: candidates[0]?.card_ref !== cardRef,
+      modified_result: candidates[0]?.card_ref !== draft.card_ref,
       added_to_inventory: true,
       collection_item_id: itemId,
       added_to_wishlist: false,
@@ -265,8 +264,18 @@ export function createScanRoutes() {
         itemId,
         auth.owner.owner_type,
         auth.owner.owner_id,
-        folderId,
-        cardRef,
+        draft.folder_id,
+        draft.card_ref,
+        draft.object_type,
+        draft.grader,
+        draft.condition,
+        draft.grade,
+        draft.language,
+        draft.finish,
+        draft.quantity,
+        draft.purchase_price,
+        draft.purchase_currency,
+        draft.notes,
         now,
         now,
         scanId,
@@ -276,10 +285,10 @@ export function createScanRoutes() {
       c.env.DB.prepare(DELETE_CONFIRMED_WISHLIST_CARD_SQL).bind(
         auth.owner.owner_type,
         auth.owner.owner_id,
-        cardRef,
+        draft.card_ref,
       ),
       c.env.DB.prepare(UPDATE_SCAN_CONFIRMATION_SQL).bind(
-        candidates[0]?.card_ref === cardRef ? 0 : 1,
+        candidates[0]?.card_ref === draft.card_ref ? 0 : 1,
         userResult,
         scanId,
         auth.owner.owner_type,
@@ -297,8 +306,8 @@ export function createScanRoutes() {
         data: {
           scan_id: scanId,
           collection_item_id: itemId,
-          card_ref: cardRef,
-          folder_id: folderId,
+          card_ref: draft.card_ref,
+          folder_id: draft.folder_id,
         },
       },
       201,
