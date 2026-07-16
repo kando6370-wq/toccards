@@ -6,6 +6,8 @@ platform :ios do
     deliver(
       app_identifier: "com.kando.kandoApp",
       metadata_path: "./fastlane/metadata",
+      primary_category: "Reference",
+      secondary_category: "Utilities",
       skip_binary_upload: true,
       skip_screenshots: true,
       force: true
