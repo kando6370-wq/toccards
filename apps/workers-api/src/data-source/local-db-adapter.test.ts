@@ -213,6 +213,44 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
+  it("uses one preferred SKU per condition because chart series must not interleave languages and finishes", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            sku_id: 1,
+            variant_code: "F",
+            variant_name: "Foil",
+            price_history: JSON.stringify([
+              { price: 20, date: "2026-07-01" },
+              { price: 22, date: "2026-07-08" },
+            ]),
+          }),
+          sku({
+            sku_id: 2,
+            variant_code: "N",
+            variant_name: "Normal",
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-01" },
+              { price: 12, date: "2026-07-08" },
+            ]),
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getMarketPrices("100")).resolves.toEqual([
+      { grader: "Raw", grade: null, condition: "Near Mint", price: 12 },
+    ]);
+    await expect(
+      adapter.getPriceSeries("100", "Raw", null, "Near Mint", 30),
+    ).resolves.toEqual([
+      { date: "2026-07-01", price: 10 },
+      { date: "2026-07-08", price: 12 },
+    ]);
+  });
+
   it("builds Shop rows from real SKU history because Card Detail must not rely on mock marketplace data", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(

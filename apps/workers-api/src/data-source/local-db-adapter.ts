@@ -87,9 +87,10 @@ LIMIT ? OFFSET ?`,
       const matchingRows = condition
         ? skuRows.filter((row) => skuMatchesCondition(row, condition))
         : skuRows;
-      const points = matchingRows
-        .flatMap((row) => parsePriceHistory(row.price_history))
-        .sort((left, right) => left.date.localeCompare(right.date));
+      const selectedRow = preferredSearchSku(matchingRows);
+      const points = selectedRow
+        ? parsePriceHistory(selectedRow.price_history)
+        : [];
 
       return filterPointsByDays(points, days);
     },
@@ -98,7 +99,7 @@ LIMIT ? OFFSET ?`,
       const skuRows = await findSkuRows(db, card_ref);
       const prices: MarketPrice[] = [];
 
-      for (const row of skuRows) {
+      for (const row of preferredMarketSkus(skuRows)) {
         const latest = latestPricePoint(parsePriceHistory(row.price_history));
 
         if (!latest) {
@@ -164,7 +165,7 @@ LIMIT 100`,
         return [];
       }
 
-      const skuRows = await findSkuRows(db, card_ref);
+      const skuRows = preferredMarketSkus(await findSkuRows(db, card_ref));
 
       return skuRows
         .map((row) => soldListingFromSku(card, row))
@@ -282,6 +283,52 @@ function preferredSearchSku(rows: TcgplayerSkuRow[]): TcgplayerSkuRow | null {
           searchSkuRank(left) - searchSkuRank(right) || left.sku_id - right.sku_id,
       )[0] ?? null
   );
+}
+
+function preferredMarketSkus(rows: TcgplayerSkuRow[]): TcgplayerSkuRow[] {
+  const rowsByCondition = new Map<string, TcgplayerSkuRow>();
+
+  for (const row of rows) {
+    if (parsePriceHistory(row.price_history).length === 0) {
+      continue;
+    }
+    const condition = (row.condition_code ?? row.condition_name ?? "unknown")
+      .trim()
+      .toLowerCase();
+    const current = rowsByCondition.get(condition);
+
+    if (
+      !current ||
+      searchSkuRank(row) < searchSkuRank(current) ||
+      (searchSkuRank(row) === searchSkuRank(current) &&
+        row.sku_id < current.sku_id)
+    ) {
+      rowsByCondition.set(condition, row);
+    }
+  }
+
+  return [...rowsByCondition.values()].sort(
+    (left, right) =>
+      marketConditionRank(left) - marketConditionRank(right) ||
+      left.sku_id - right.sku_id,
+  );
+}
+
+function marketConditionRank(row: TcgplayerSkuRow): number {
+  switch ((row.condition_code ?? "").trim().toUpperCase()) {
+    case "NM":
+      return 0;
+    case "LP":
+      return 1;
+    case "MP":
+      return 2;
+    case "HP":
+      return 3;
+    case "DMG":
+      return 4;
+    default:
+      return 5;
+  }
 }
 
 function searchSkuRank(row: TcgplayerSkuRow): number {
