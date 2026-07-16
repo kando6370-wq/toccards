@@ -207,6 +207,64 @@ void main() {
       expect(await storage.readSession(), same(user));
     },
   );
+
+  test(
+    'deletes an anonymous account through the backend because guest cloud assets must be removed too',
+    () async {
+      final storage = InMemoryAuthStorage();
+      const guest = AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'anon-access',
+        refreshToken: 'anon-refresh',
+        anonymousId: 'anon-1',
+      );
+      await storage.writeSession(guest);
+      final adapter = _FakeAuthAdapter({
+        'DELETE /auth/account': _ok(<String, Object?>{}),
+      });
+      final repository = HttpAuthRepository(_dio(adapter), storage);
+
+      await repository.deleteCurrentAccount(guest);
+
+      expect(adapter.requests.single.authorization, 'Bearer anon-access');
+      expect(await storage.readSession(), isNull);
+    },
+  );
+
+  test(
+    'keeps an anonymous session when backend deletion fails because the user must be able to retry',
+    () async {
+      final storage = InMemoryAuthStorage();
+      const guest = AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'anon-access',
+        refreshToken: 'anon-refresh',
+        anonymousId: 'anon-1',
+      );
+      await storage.writeSession(guest);
+      final repository = HttpAuthRepository(
+        _dio(
+          _FakeAuthAdapter({
+            'DELETE /auth/account': _Response(500, {
+              'success': false,
+              'error': {
+                'code': 'INTERNAL_ERROR',
+                'message': 'Unable to complete this action.',
+              },
+            }),
+          }),
+        ),
+        storage,
+      );
+
+      await expectLater(
+        repository.deleteCurrentAccount(guest),
+        throwsA(isA<AuthApiException>()),
+      );
+
+      expect(await storage.readSession(), same(guest));
+    },
+  );
 }
 
 Dio _dio(_FakeAuthAdapter adapter) {

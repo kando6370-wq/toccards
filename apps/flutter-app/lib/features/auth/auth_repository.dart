@@ -140,8 +140,8 @@ class HttpAuthRepository implements AuthRepository {
 
   @override
   Future<void> deleteCurrentAccount(AuthSession session) async {
+    await _requestVoid('DELETE', '/auth/account', session: session);
     if (session.isUser) {
-      await _requestVoid('DELETE', '/auth/account', session: session);
       await _storage.clearUserSession();
       return;
     }
