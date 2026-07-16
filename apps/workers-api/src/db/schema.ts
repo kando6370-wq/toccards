@@ -213,6 +213,7 @@ export const collectionItem = sqliteTable(
     purchasePrice: real("purchase_price"),
     purchaseCurrency: text("purchase_currency"),
     notes: text("notes"), // 最多 500 字符（Workers 层校验）
+    folderJoinedAt: text("folder_joined_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

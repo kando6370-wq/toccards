@@ -40,6 +40,7 @@ type CollectionItemRow = {
   purchase_price: number | null;
   purchase_currency: string | null;
   notes: string | null;
+  folder_joined_at: string;
   created_at: string;
   updated_at: string;
 };
@@ -272,6 +273,7 @@ class FakeD1Statement {
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
         notes,
+        folder_joined_at: createdAt,
         created_at: createdAt,
         updated_at: updatedAt,
       });
@@ -282,6 +284,7 @@ class FakeD1Statement {
     if (this.sql.includes("UPDATE collection_item") && this.sql.includes("grader = ?")) {
       const [
         folderId,
+        folderJoinedAt,
         grader,
         condition,
         grade,
@@ -296,6 +299,7 @@ class FakeD1Statement {
         ownerId,
         itemId,
       ] = this.args as [
+        string,
         string,
         string,
         string | null,
@@ -317,6 +321,7 @@ class FakeD1Statement {
 
       Object.assign(item, {
         folder_id: folderId,
+        folder_joined_at: folderJoinedAt,
         grader,
         condition,
         grade,
@@ -333,7 +338,8 @@ class FakeD1Statement {
     }
 
     if (this.sql.includes("UPDATE collection_item") && this.sql.includes("SET folder_id")) {
-      const [folderId, updatedAt, ownerType, ownerId, itemId] = this.args as [
+      const [folderId, folderJoinedAt, updatedAt, ownerType, ownerId, itemId] = this.args as [
+        string,
         string,
         string,
         OwnerType,
@@ -345,6 +351,7 @@ class FakeD1Statement {
       if (!item) return changed(0);
 
       item.folder_id = folderId;
+      item.folder_joined_at = folderJoinedAt;
       item.updated_at = updatedAt;
       return changed(1);
     }
@@ -625,6 +632,59 @@ describe("collection item routes", () => {
     });
   });
 
+  it("defaults to current-folder join time because moved assets must appear before older folder entries", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "trade" }));
+    db.items.push(
+      item({
+        id: "created-later",
+        folder_id: "trade",
+        created_at: "2026-07-10T00:00:00.000Z",
+        folder_joined_at: "2026-07-10T00:00:00.000Z",
+      }),
+      item({
+        id: "moved-later",
+        folder_id: "trade",
+        created_at: "2026-07-01T00:00:00.000Z",
+        folder_joined_at: "2026-07-15T00:00:00.000Z",
+      }),
+    );
+
+    const response = await app.request(
+      "/api/v1/portfolio/items?folder_id=trade&page_size=10",
+      { headers: await authHeaders("anonymous", "anon-1") },
+      createTestEnv(db),
+    );
+    const body = await response.json<{ data: { items: Array<{ id: string }> } }>();
+
+    expect(response.status).toBe(200);
+    expect(body.data.items.map((row) => row.id)).toEqual([
+      "moved-later",
+      "created-later",
+    ]);
+  });
+
+  it("preserves folder join time during field-only edits because ordinary edits are not folder additions", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    db.items.push(item({ id: "owned", folder_id: "main" }));
+
+    const response = await app.request(
+      "/api/v1/portfolio/items/owned",
+      {
+        method: "PATCH",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({ quantity: 2, notes: "edited in place" }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(200);
+    expect(db.items[0].quantity).toBe(2);
+    expect(db.items[0].folder_joined_at).toBe(NOW);
+    expect(db.items[0].updated_at).not.toBe(NOW);
+  });
+
   it("edits fields and moves folders in one PATCH because edited moves must complete atomically", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
@@ -672,6 +732,8 @@ describe("collection item routes", () => {
         notes: "trade binder",
       }),
     ]);
+    expect(db.items[0].folder_joined_at).toBe(db.items[0].updated_at);
+    expect(db.items[0].folder_joined_at).not.toBe(NOW);
     expect(db.itemEvents).toEqual([
       expect.objectContaining({
         item_id: "owned",
@@ -923,6 +985,7 @@ function item(overrides: Partial<CollectionItemRow>): CollectionItemRow {
     purchase_price: null,
     purchase_currency: null,
     notes: null,
+    folder_joined_at: NOW,
     created_at: NOW,
     updated_at: NOW,
     ...overrides,

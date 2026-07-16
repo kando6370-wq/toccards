@@ -38,6 +38,7 @@ type CollectionItemRow = {
   purchase_price: number | null;
   purchase_currency: string | null;
   notes: string | null;
+  folder_joined_at: string;
   created_at: string;
   updated_at: string;
 };
@@ -161,14 +162,16 @@ WHERE owner_type = ? AND owner_id = ? AND id = ?
 
 const SELECT_COLLECTION_ITEMS_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency, notes, created_at, updated_at
+  finish, quantity, purchase_price, purchase_currency, notes,
+  COALESCE(folder_joined_at, created_at) AS folder_joined_at, created_at, updated_at
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ?
 `;
 
 const SELECT_COLLECTION_ITEM_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency, notes, created_at, updated_at
+  finish, quantity, purchase_price, purchase_currency, notes,
+  COALESCE(folder_joined_at, created_at) AS folder_joined_at, created_at, updated_at
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 LIMIT 1
@@ -176,7 +179,8 @@ LIMIT 1
 
 const SELECT_COLLECTION_ITEM_BY_CARD_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency, notes, created_at, updated_at
+  finish, quantity, purchase_price, purchase_currency, notes,
+  COALESCE(folder_joined_at, created_at) AS folder_joined_at, created_at, updated_at
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND card_ref = ?
 LIMIT 1
@@ -192,14 +196,14 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
 const UPDATE_COLLECTION_ITEM_SQL = `
 UPDATE collection_item
-SET folder_id = ?, grader = ?, condition = ?, grade = ?, language = ?, finish = ?, quantity = ?,
+SET folder_id = ?, folder_joined_at = ?, grader = ?, condition = ?, grade = ?, language = ?, finish = ?, quantity = ?,
   purchase_price = ?, purchase_currency = ?, notes = ?, updated_at = ?
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 `;
 
 const MOVE_COLLECTION_ITEM_SQL = `
 UPDATE collection_item
-SET folder_id = ?, updated_at = ?
+SET folder_id = ?, folder_joined_at = ?, updated_at = ?
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 `;
 
@@ -257,7 +261,12 @@ SET currency = ?, amount_hidden = ?, last_selected_folder_id = ?, updated_at = ?
 WHERE owner_type = ? AND owner_id = ?
 `;
 
-const ITEM_SORT_FIELDS = new Set(["created_at", "updated_at", "card_ref"]);
+const ITEM_SORT_FIELDS = new Set([
+  "folder_joined_at",
+  "created_at",
+  "updated_at",
+  "card_ref",
+]);
 const WISHLIST_SORT_FIELDS = new Set(["created_at", "card_ref"]);
 const ISO_4217_CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
@@ -754,6 +763,7 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       c.env.DB.prepare(MOVE_COLLECTION_ITEM_SQL).bind(
         folderId,
         now,
+        now,
         auth.owner.owner_type,
         auth.owner.owner_id,
         item.id,
@@ -806,9 +816,12 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
     }
 
     const now = new Date().toISOString();
+    const folderJoinedAt =
+      draft.folder_id === item.folder_id ? item.folder_joined_at : now;
     await c.env.DB.batch([
       c.env.DB.prepare(UPDATE_COLLECTION_ITEM_SQL).bind(
         draft.folder_id,
+        folderJoinedAt,
         draft.grader,
         draft.condition,
         draft.grade,
@@ -1215,7 +1228,7 @@ async function findCollectionItemByCard(
 
 function collectionItemResponse(item: CollectionItemRow): Omit<
   CollectionItemRow,
-  "owner_type" | "owner_id"
+  "folder_joined_at"
 > {
   return {
     id: item.id,
@@ -1303,7 +1316,7 @@ function collectItemDraftFromBody(
 function collectionItemEventStatement(
   db: D1Database,
   owner: AuthenticatedOwner,
-  item: CollectionItemRow,
+  item: Omit<CollectionItemRow, "folder_joined_at">,
   eventType: "upsert" | "delete",
   effectiveAt: string,
 ): D1PreparedStatement {
@@ -1328,7 +1341,10 @@ function collectionItemEventStatement(
 
 function sortCollectionItems(
   items: CollectionItemRow[],
-  sortBy: keyof Pick<CollectionItemRow, "created_at" | "updated_at" | "card_ref">,
+  sortBy: keyof Pick<
+    CollectionItemRow,
+    "folder_joined_at" | "created_at" | "updated_at" | "card_ref"
+  >,
   sortOrder: "asc" | "desc",
 ): CollectionItemRow[] {
   return [...items].sort((left, right) => {
@@ -1340,10 +1356,13 @@ function sortCollectionItems(
 
 function itemSortBy(
   value: string | undefined,
-): keyof Pick<CollectionItemRow, "created_at" | "updated_at" | "card_ref"> {
+): keyof Pick<
+  CollectionItemRow,
+  "folder_joined_at" | "created_at" | "updated_at" | "card_ref"
+> {
   return ITEM_SORT_FIELDS.has(value ?? "")
-    ? (value as "created_at" | "updated_at" | "card_ref")
-    : "created_at";
+    ? (value as "folder_joined_at" | "created_at" | "updated_at" | "card_ref")
+    : "folder_joined_at";
 }
 
 function sortWishlistItems(

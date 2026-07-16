@@ -18,6 +18,7 @@ export type DashboardPortfolioRow = {
   language: string | null;
   finish: string | null;
   quantity: number;
+  folder_joined_at: string;
   created_at: string;
 };
 

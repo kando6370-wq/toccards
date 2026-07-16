@@ -30,6 +30,7 @@ describe("collection dashboard enrichment", () => {
       language: "English",
       finish: "Normal",
       quantity: 1,
+      folder_joined_at: "2026-07-01T00:00:00.000Z",
       created_at: "2026-07-01T00:00:00.000Z",
     }));
     const result = await enrichCollectionDashboard(
