@@ -36,13 +36,19 @@ jobs:
           flutter-version: "3.35.5"
           cache: true
 
+      - name: Install Ruby dependencies
+        working-directory: apps/flutter-app
+        run: bundle install --jobs 4 --retry 3
+
       - name: Record Apple toolchain
+        working-directory: apps/flutter-app
         run: |
           xcodebuild -version
-          pod --version
+          bundle exec pod --version
 
       - name: Validate Fastlane configuration
-        run: ruby -c apps/flutter-app/fastlane/Fastfile
+        working-directory: apps/flutter-app
+        run: bundle exec ruby -c fastlane/Fastfile
 
       - name: Resolve Flutter workspace dependencies
         run: flutter pub get
@@ -50,17 +56,19 @@ jobs:
       - name: Install iOS pods
         working-directory: apps/flutter-app/ios
         run: |
-          pod install 2>&1 | tee "$RUNNER_TEMP/pod-install.log"
+          bundle exec pod install 2>&1 | tee "$RUNNER_TEMP/pod-install.log"
           if grep -Fq "CocoaPods did not set the base configuration" "$RUNNER_TEMP/pod-install.log"; then
             exit 1
           fi
           git diff --exit-code -- Podfile.lock
 
-      - name: Upload CocoaPods lockfile
+      - name: Upload iOS release lockfiles
         uses: actions/upload-artifact@v4
         with:
-          name: ios-podfile-lock-${{ github.sha }}
-          path: apps/flutter-app/ios/Podfile.lock
+          name: ios-release-lockfiles-${{ github.sha }}
+          path: |
+            apps/flutter-app/Gemfile.lock
+            apps/flutter-app/ios/Podfile.lock
           if-no-files-found: error
           retention-days: 7
 
