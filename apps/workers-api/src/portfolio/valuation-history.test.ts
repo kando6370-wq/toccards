@@ -5,9 +5,14 @@ class FakeDb {
   constructor(
     readonly events: Record<string, unknown>[],
     readonly skus: Record<string, unknown>[],
+    readonly cards: Record<string, unknown>[],
   ) {}
   prepare(sql: string) {
-    const rows = sql.includes("collection_item_event") ? this.events : this.skus;
+    const rows = sql.includes("collection_item_event")
+      ? this.events
+      : sql.includes("FROM cards_all")
+        ? this.cards
+        : this.skus;
     return {
       bind: (..._args: unknown[]) => ({
         all: async <T>() => ({ results: rows as T[] }),
@@ -29,6 +34,7 @@ describe("portfolio valuation history", () => {
         sku(100, 1, [{ date: "2026-06-01", price: 10 }, { date: "2026-07-06", price: 20 }]),
         sku(200, 2, [{ date: "2026-06-01", price: 5 }]),
       ],
+      [card("100", "High Card"), card("200", "Low Card")],
     );
 
     const result = await loadValuationHistory(
@@ -49,6 +55,37 @@ describe("portfolio valuation history", () => {
     expect(value(trade, "2026-07-07")).toBe(40);
     expect(value(trade, "2026-07-08")).toBe(0);
     expect(trade.current_value_usd).toBe(0);
+    expect(main.most_valuable).toEqual([
+      expect.objectContaining({
+        item_id: "item-b",
+        name: "Low Card",
+        price_usd: 5,
+        previous_30d_price_usd: 5,
+      }),
+    ]);
+  });
+
+  it("sorts by unit price rather than quantity because Most Valuable is not total position value", async () => {
+    const db = new FakeDb(
+      [
+        event("a", "expensive", "main", "100", "upsert", "2026-06-01T00:00:00.000Z", 1),
+        event("b", "bulk", "main", "200", "upsert", "2026-06-01T00:00:00.000Z", 100),
+      ],
+      [
+        sku(100, 1, [{ date: "2026-06-01", price: 20 }]),
+        sku(200, 2, [{ date: "2026-06-01", price: 5 }]),
+      ],
+      [card("100", "Expensive"), card("200", "Bulk")],
+    );
+    const [main] = await loadValuationHistory(
+      db as unknown as D1Database,
+      { owner_type: "anonymous", owner_id: "anon-1" },
+      ["main"],
+      1,
+      new Date("2026-07-10T12:00:00.000Z"),
+    );
+    expect(main!.current_value_usd).toBe(520);
+    expect(main!.most_valuable.map((item) => item.item_id)).toEqual(["expensive", "bulk"]);
   });
 });
 
@@ -88,6 +125,15 @@ function sku(productId: number, skuId: number, history: unknown[]) {
     variant_code: "N",
     variant_name: "Normal",
     price_history: JSON.stringify(history),
+  };
+}
+
+function card(productId: string, name: string) {
+  return {
+    product_id: productId,
+    name,
+    set_name: "Server Set",
+    image_url: `https://img.example/${productId}.jpg`,
   };
 }
 

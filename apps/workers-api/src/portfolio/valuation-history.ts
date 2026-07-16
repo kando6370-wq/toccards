@@ -29,10 +29,30 @@ type SkuRow = {
 
 type PricePoint = { date: string; price: number };
 
+type CardRow = {
+  product_id: string;
+  name: string | null;
+  set_name: string | null;
+  image_url: string | null;
+};
+
+export type MostValuableItem = {
+  item_id: string;
+  card_ref: string;
+  name: string;
+  set_name: string;
+  card_number: string;
+  finish: string | null;
+  image_url: string | null;
+  price_usd: number;
+  previous_30d_price_usd: number | null;
+};
+
 export type FolderValuationHistory = {
   folder_id: string;
   current_value_usd: number;
   series: Array<{ date: string; value_usd: number }>;
+  most_valuable: MostValuableItem[];
 };
 
 const SELECT_EVENTS_SQL = `
@@ -56,7 +76,9 @@ export async function loadValuationHistory(
     .all<ItemEventRow>();
   const events = result.results ?? [];
   const skus = await loadSkus(db, [...new Set(events.map((event) => event.card_ref))]);
+  const cards = await loadCards(db, [...new Set(events.map((event) => event.card_ref))]);
   const skusByProduct = groupSkus(skus);
+  const cardsByProduct = new Map(cards.map((card) => [card.product_id, card]));
   const eventsByItem = groupEvents(events);
   const dates = dateKeys(now, days);
 
@@ -69,8 +91,53 @@ export async function loadValuationHistory(
       folder_id: folderId,
       current_value_usd: series.at(-1)?.value_usd ?? 0,
       series,
+      most_valuable: mostValuableItems(
+        eventsByItem,
+        skusByProduct,
+        cardsByProduct,
+        folderId,
+        dates.at(-1)!,
+      ),
     };
   });
+}
+
+function mostValuableItems(
+  eventsByItem: Map<string, ItemEventRow[]>,
+  skusByProduct: Map<string, SkuRow[]>,
+  cardsByProduct: Map<string, CardRow>,
+  folderId: string,
+  date: string,
+): MostValuableItem[] {
+  const baselineDate = shiftDate(date, -30);
+  const items: MostValuableItem[] = [];
+  for (const events of eventsByItem.values()) {
+    const state = stateOnDate(events, date);
+    if (!state || state.event_type === "delete" || state.folder_id !== folderId) continue;
+    const sku = matchingSku(state, skusByProduct.get(state.card_ref) ?? []);
+    const card = cardsByProduct.get(state.card_ref);
+    const current = sku ? priceOnDate(sku.price_history, date) : null;
+    if (!sku || !card || current === null) continue;
+    items.push({
+      item_id: state.item_id,
+      card_ref: state.card_ref,
+      name: card.name ?? state.card_ref,
+      set_name: card.set_name ?? "",
+      card_number: "",
+      finish: state.finish,
+      image_url: card.image_url,
+      price_usd: current,
+      previous_30d_price_usd: priceOnDate(sku.price_history, baselineDate),
+    });
+  }
+  return items
+    .sort((left, right) => right.price_usd - left.price_usd || left.item_id.localeCompare(right.item_id))
+    .slice(0, 3);
+}
+
+function stateOnDate(events: ItemEventRow[], date: string): ItemEventRow | null {
+  const endOfDay = `${date}T23:59:59.999Z`;
+  return events.filter((event) => event.effective_at <= endOfDay).at(-1) ?? null;
 }
 
 function valueOnDate(
@@ -79,10 +146,9 @@ function valueOnDate(
   folderId: string,
   date: string,
 ): number {
-  const endOfDay = `${date}T23:59:59.999Z`;
   let total = 0;
   for (const events of eventsByItem.values()) {
-    const state = events.filter((event) => event.effective_at <= endOfDay).at(-1);
+    const state = stateOnDate(events, date);
     if (!state || state.event_type === "delete" || state.folder_id !== folderId) {
       continue;
     }
@@ -176,6 +242,23 @@ async function loadSkus(db: D1Database, cardRefs: string[]): Promise<SkuRow[]> {
   return rows;
 }
 
+async function loadCards(db: D1Database, cardRefs: string[]): Promise<CardRow[]> {
+  const rows: CardRow[] = [];
+  for (let offset = 0; offset < cardRefs.length; offset += 80) {
+    const chunk = cardRefs.slice(offset, offset + 80);
+    const placeholders = chunk.map(() => "?").join(", ");
+    const result = await db
+      .prepare(
+        `SELECT product_id, name, set_name, image_url
+         FROM cards_all WHERE product_id IN (${placeholders})`,
+      )
+      .bind(...chunk)
+      .all<CardRow>();
+    rows.push(...(result.results ?? []));
+  }
+  return rows;
+}
+
 function groupSkus(rows: SkuRow[]): Map<string, SkuRow[]> {
   const grouped = new Map<string, SkuRow[]>();
   for (const row of rows) {
@@ -200,4 +283,10 @@ function dateKeys(now: Date, days: number): string[] {
     date.setUTCDate(date.getUTCDate() - days + index);
     return date.toISOString().slice(0, 10);
   });
+}
+
+function shiftDate(date: string, days: number): string {
+  const shifted = new Date(`${date}T00:00:00.000Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
 }
