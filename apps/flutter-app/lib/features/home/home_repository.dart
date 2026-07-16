@@ -33,7 +33,14 @@ class ApiHomeRepository implements HomeRepository {
     final folders = source[0] as List<PortfolioFolderDto>;
     final valuations = source[1] as List<PortfolioFolderValuationDto>;
     final preferences = source[2] as UserPreferenceDto;
-    final trending = await _loadTrending();
+    var trendingUnavailable = false;
+    List<TrendingCard> trending;
+    try {
+      trending = await loadTrendingCards(cardDataApi);
+    } catch (_) {
+      trending = const [];
+      trendingUnavailable = true;
+    }
     final homeFolders = folders
         .map(
           (folder) => HomeFolder(
@@ -100,27 +107,26 @@ class ApiHomeRepository implements HomeRepository {
       trending: trending,
       currencyCode: preferences.currency,
       amountHidden: preferences.amountHidden,
+      trendingUnavailable: trendingUnavailable,
     );
   }
+}
 
-  Future<List<TrendingCard>> _loadTrending() async {
-    final cards = (await cardDataApi.trendingCards()).take(3);
-    return cards
-        .where(
-          (card) => card.priceUsd != null && card.previous1dPriceUsd != null,
-        )
-        .map(
-          (card) => TrendingCard(
-            cardRef: card.cardRef,
-            title: card.name,
-            subtitle: card.setName,
-            priceUsd: card.priceUsd!,
-            previousPriceUsd: card.previous1dPriceUsd!,
-            imageUrl: card.imageUrl,
-          ),
-        )
-        .toList();
-  }
+Future<List<TrendingCard>> loadTrendingCards(CardDataApi cardDataApi) async {
+  final cards = (await cardDataApi.trendingCards()).take(3);
+  return cards
+      .where((card) => card.priceUsd != null && card.previous1dPriceUsd != null)
+      .map(
+        (card) => TrendingCard(
+          cardRef: card.cardRef,
+          title: card.name,
+          subtitle: card.setName,
+          priceUsd: card.priceUsd!,
+          previousPriceUsd: card.previous1dPriceUsd!,
+          imageUrl: card.imageUrl,
+        ),
+      )
+      .toList();
 }
 
 List<PortfolioValuationPointDto> _rangePoints(

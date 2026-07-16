@@ -5,6 +5,8 @@ import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
@@ -381,6 +383,32 @@ void main() {
       12450.8,
     ]);
   });
+
+  test(
+    'Trending refresh calls only its live feed because local failure must preserve portfolio data',
+    () async {
+      final repository = _TrendingFailureHomeRepository();
+      final cardDataApi = _RecoveringTrendingApi();
+      final container = _homeContainer(repository, cardDataApi: cardDataApi);
+      addTearDown(container.dispose);
+
+      var state = container.read(homeControllerProvider);
+      expect(state.dashboard.trendingUnavailable, isTrue);
+      expect(state.totalAmountText, r'$12,450.80');
+
+      final restored = await container
+          .read(homeControllerProvider.notifier)
+          .refreshTrending();
+
+      state = container.read(homeControllerProvider);
+      expect(restored, isTrue);
+      expect(repository.calls, 1);
+      expect(cardDataApi.calls, 1);
+      expect(state.dashboard.trendingUnavailable, isFalse);
+      expect(state.dashboard.trending.single.title, 'Live Trending Card');
+      expect(state.totalAmountText, r'$12,450.80');
+    },
+  );
 }
 
 ProviderContainer _mockHomeContainer() {
@@ -390,6 +418,7 @@ ProviderContainer _mockHomeContainer() {
 ProviderContainer _homeContainer(
   HomeRepository repository, {
   CurrencyRateApi currencyRateApi = const _TestCurrencyRateApi(),
+  CardDataApi? cardDataApi,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -401,11 +430,54 @@ ProviderContainer _homeContainer(
       authDeviceIdProvider.overrideWithValue('home-controller-test-device'),
       homeRepositoryProvider.overrideWithValue(repository),
       currencyRateApiProvider.overrideWithValue(currencyRateApi),
+      if (cardDataApi != null)
+        cardDataApiClientProvider.overrideWithValue(cardDataApi),
       portfolioManagementApiProvider.overrideWithValue(
         const _TestPortfolioManagementApi(),
       ),
     ],
   );
+}
+
+class _TrendingFailureHomeRepository implements HomeRepository {
+  var calls = 0;
+
+  @override
+  HomeDashboard loadDashboard() {
+    calls += 1;
+    return mockHomeDashboard.copyWith(
+      trending: const [],
+      trendingUnavailable: true,
+    );
+  }
+}
+
+class _RecoveringTrendingApi implements CardDataApi {
+  var calls = 0;
+
+  @override
+  Future<List<CardDataCardDto>> trendingCards() async {
+    calls += 1;
+    return const [
+      CardDataCardDto(
+        cardRef: 'live-trending',
+        name: 'Live Trending Card',
+        setName: 'Live Set',
+        setCode: 'LIVE',
+        cardNumber: '1',
+        finish: 'Normal',
+        language: 'English',
+        objectType: 'tcg',
+        imageUrl: null,
+        rarity: 'Rare',
+        priceUsd: 25,
+        previous1dPriceUsd: 20,
+      ),
+    ];
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _TestCurrencyRateApi implements CurrencyRateApi {

@@ -74,6 +74,7 @@ class HomePage extends ConsumerWidget {
                 const SizedBox(height: 32),
                 _TrendingSection(
                   state: state,
+                  onRefresh: controller.refreshTrending,
                   onViewAll: () => context.go('/search'),
                 ),
               ],
@@ -729,9 +730,14 @@ class _MostValuableSection extends StatelessWidget {
 }
 
 class _TrendingSection extends StatelessWidget {
-  const _TrendingSection({required this.state, required this.onViewAll});
+  const _TrendingSection({
+    required this.state,
+    required this.onRefresh,
+    required this.onViewAll,
+  });
 
   final HomeState state;
+  final VoidCallback onRefresh;
   final VoidCallback onViewAll;
 
   @override
@@ -743,36 +749,47 @@ class _TrendingSection extends StatelessWidget {
       children: [
         _SectionHeader(
           title: 'Trending Today',
-          isUnavailable: state.isUnavailable,
+          isUnavailable:
+              state.isUnavailable || state.dashboard.trendingUnavailable,
           viewAllKey: const Key('home-trending-view-all'),
           onViewAll: onViewAll,
         ),
         const SizedBox(height: 16),
-        for (var index = 0; index < trends.length; index += 1) ...[
-          _TrendingRow(
-            title: trends[index].title,
-            subtitle: trends[index].subtitle,
-            price: state.formatCardPrice(trends[index].priceUsd),
-            percent: _percentText(
-              current: trends[index].priceUsd,
-              previous: trends[index].previousPriceUsd,
+        if (!state.isUnavailable && state.dashboard.trendingUnavailable)
+          _FigmaFailurePanel(
+            key: const Key('home-failure-trending'),
+            height: 256,
+            refreshKey: const Key('home-failure-trending-refresh'),
+            onRefresh: onRefresh,
+          )
+        else if (trends.isEmpty)
+          const _EmptyCardBlock(message: 'No trending cards available')
+        else
+          for (var index = 0; index < trends.length; index += 1) ...[
+            _TrendingRow(
+              title: trends[index].title,
+              subtitle: trends[index].subtitle,
+              price: state.formatCardPrice(trends[index].priceUsd),
+              percent: _percentText(
+                current: trends[index].priceUsd,
+                previous: trends[index].previousPriceUsd,
+              ),
+              percentColor: _percentColor(
+                current: trends[index].priceUsd,
+                previous: trends[index].previousPriceUsd,
+              ),
+              imageAssetPath: trends[index].imageAssetPath,
+              imageUrl: trends[index].imageUrl,
+              onTap: trends[index].cardRef == null
+                  ? null
+                  : () => context.push('/cards/${trends[index].cardRef}'),
+              showPlaceholder: state.isUnavailable,
+              placeholderKey: state.isUnavailable
+                  ? Key('home-failure-trend-placeholder-$index')
+                  : null,
             ),
-            percentColor: _percentColor(
-              current: trends[index].priceUsd,
-              previous: trends[index].previousPriceUsd,
-            ),
-            imageAssetPath: trends[index].imageAssetPath,
-            imageUrl: trends[index].imageUrl,
-            onTap: trends[index].cardRef == null
-                ? null
-                : () => context.push('/cards/${trends[index].cardRef}'),
-            showPlaceholder: state.isUnavailable,
-            placeholderKey: state.isUnavailable
-                ? Key('home-failure-trend-placeholder-$index')
-                : null,
-          ),
-          const SizedBox(height: 16),
-        ],
+            const SizedBox(height: 16),
+          ],
       ],
     );
   }

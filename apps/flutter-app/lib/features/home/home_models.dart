@@ -87,6 +87,7 @@ class HomeDashboard {
     this.mostValuableCardsByFolderId = const {},
     this.currencyCode = 'USD',
     this.amountHidden = false,
+    this.trendingUnavailable = false,
   });
 
   final List<HomeFolder> folders;
@@ -96,8 +97,25 @@ class HomeDashboard {
   final List<TrendingCard> trending;
   final String currencyCode;
   final bool amountHidden;
+  final bool trendingUnavailable;
 
   HomeFolder get defaultFolder {
     return folders.firstWhere((folder) => folder.isDefault);
+  }
+
+  HomeDashboard copyWith({
+    List<TrendingCard>? trending,
+    bool? trendingUnavailable,
+  }) {
+    return HomeDashboard(
+      folders: folders,
+      portfoliosByFolderId: portfoliosByFolderId,
+      mostValuableByFolderId: mostValuableByFolderId,
+      mostValuableCardsByFolderId: mostValuableCardsByFolderId,
+      trending: trending ?? this.trending,
+      currencyCode: currencyCode,
+      amountHidden: amountHidden,
+      trendingUnavailable: trendingUnavailable ?? this.trendingUnavailable,
+    );
   }
 }

@@ -402,6 +402,32 @@ void main() {
   );
 
   testWidgets(
+    'Trending failure stays local because portfolio history remains usable',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            homeRepositoryProvider.overrideWithValue(
+              const _TrendingUnavailableHomeRepository(),
+            ),
+          ],
+          child: MaterialApp(theme: buildKandoTheme(), home: const HomePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(r'$12,450.80'), findsOneWidget);
+      expect(find.byKey(const Key('home-failure-chart')), findsNothing);
+      expect(find.byKey(const Key('home-most-valuable-list')), findsOneWidget);
+      expect(find.byKey(const Key('home-failure-trending')), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-failure-trending-refresh')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'Most Valuable failure refresh independently restores dashboard content',
     (tester) async {
       final repository = _SuccessfulThenFailingHomeRepository();
@@ -789,5 +815,17 @@ class _SuccessfulThenFailingHomeRepository implements HomeRepository {
       throw StateError('mock home unavailable');
     }
     return const MockHomeRepository().loadDashboard();
+  }
+}
+
+class _TrendingUnavailableHomeRepository implements HomeRepository {
+  const _TrendingUnavailableHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() {
+    return mockHomeDashboard.copyWith(
+      trending: const [],
+      trendingUnavailable: true,
+    );
   }
 }

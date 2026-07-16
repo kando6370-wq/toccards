@@ -188,13 +188,14 @@ class HomeState {
   String formatCardPrice(double valueUsd) => _formatMoney(valueUsd);
 
   HomeState copyWith({
+    HomeDashboard? dashboard,
     String? selectedFolderId,
     AppCurrency? currency,
     bool? amountHidden,
     HomeChartRange? chartRange,
   }) {
     return HomeState._(
-      dashboard: _dashboard,
+      dashboard: dashboard ?? _dashboard,
       selectedFolderId: selectedFolderId ?? this.selectedFolderId,
       currency: currency ?? this.currency,
       amountHidden: amountHidden ?? this.amountHidden,
@@ -212,6 +213,7 @@ class HomeState {
 
 class HomeController extends Notifier<HomeState> {
   var _loadGeneration = 0;
+  var _trendingLoadGeneration = 0;
   String? _restoringCurrencyCode;
 
   @override
@@ -241,6 +243,29 @@ class HomeController extends Notifier<HomeState> {
 
   void refresh() {
     state = _loadDashboard(currency: state.currency, previousState: state);
+  }
+
+  Future<bool> refreshTrending() async {
+    final generation = ++_trendingLoadGeneration;
+    try {
+      final trending = await loadTrendingCards(
+        ref.read(cardDataApiClientProvider),
+      );
+      if (!ref.mounted || generation != _trendingLoadGeneration) return false;
+      state = state.copyWith(
+        dashboard: state.dashboard.copyWith(
+          trending: trending,
+          trendingUnavailable: false,
+        ),
+      );
+      return true;
+    } catch (_) {
+      if (!ref.mounted || generation != _trendingLoadGeneration) return false;
+      state = state.copyWith(
+        dashboard: state.dashboard.copyWith(trendingUnavailable: true),
+      );
+      return false;
+    }
   }
 
   HomeState _loadDashboard({

@@ -76,6 +76,28 @@ void main() {
       expect(dashboard.mostValuableCardsByFolderId['main'], hasLength(3));
     },
   );
+
+  test(
+    'Trending failure preserves portfolio history because HOME sections fail independently',
+    () async {
+      final dashboard = await ApiHomeRepository(
+        session: _session,
+        portfolioApi: _PortfolioApi(),
+        managementApi: _ManagementApi(),
+        cardDataApi: _FailingTrendingApi(),
+      ).loadDashboard();
+
+      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 760);
+      expect(
+        dashboard
+            .portfoliosByFolderId['main']!
+            .chartValuesByRange[HomeChartRange.threeMonths],
+        hasLength(91),
+      );
+      expect(dashboard.trending, isEmpty);
+      expect(dashboard.trendingUnavailable, isTrue);
+    },
+  );
 }
 
 const _session = AuthSession(
@@ -286,4 +308,11 @@ class _CardDataApi implements CardDataApi {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FailingTrendingApi extends _CardDataApi {
+  @override
+  Future<List<CardDataCardDto>> trendingCards() {
+    return Future.error(StateError('trending unavailable'));
+  }
 }
