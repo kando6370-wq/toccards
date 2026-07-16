@@ -34,7 +34,7 @@ void main() {
     expect(find.text('Wishlist'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
     expect(find.text(r'$1,245.00'), findsOneWidget);
-    expect(find.text('3 cards'), findsOneWidget);
+    expect(find.text('4 cards'), findsOneWidget);
     expect(find.text('2 graded'), findsOneWidget);
     expect(find.text('Charizard ex'), findsOneWidget);
     expect(find.text(r'$780.00'), findsOneWidget);

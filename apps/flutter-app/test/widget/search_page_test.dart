@@ -293,7 +293,7 @@ void main() {
     await tester.tap(squirtleCard);
     await tester.pumpAndSettle();
 
-    expect(find.text('Card Detail'), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-hero')), findsOneWidget);
     expect(find.text('Squirtle'), findsOneWidget);
     expect(find.text('Add to Portfolio'), findsOneWidget);
     expect(find.text('Collect'), findsNothing);
@@ -306,12 +306,13 @@ void main() {
     expect(find.text('Mega Evolution Promos'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('Price overview'),
+      find.byKey(const Key('card-detail-price-chart')),
       400,
       scrollable: find.byType(Scrollable).last,
     );
 
-    expect(find.text('Price overview'), findsOneWidget);
+    expect(find.text('Price'), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
   });
 
   testWidgets('tapping an owned Search card opens owned CardDetail', (
@@ -331,7 +332,7 @@ void main() {
     await tester.tap(charizardCard);
     await tester.pumpAndSettle();
 
-    expect(find.text('Card Detail'), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-hero')), findsOneWidget);
     expect(find.text('Charizard ex'), findsOneWidget);
 
     await tester.scrollUntilVisible(
