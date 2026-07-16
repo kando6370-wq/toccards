@@ -67,6 +67,7 @@ class _PendingScan {
   final int token;
   ScanResolution? resolution;
   var revealTimelineFinished = false;
+  AnimationController? revealController;
 }
 
 class ScanPage extends ConsumerStatefulWidget {
@@ -77,14 +78,12 @@ class ScanPage extends ConsumerStatefulWidget {
 }
 
 class _ScanPageState extends ConsumerState<ScanPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _revealTimelineDuration = Duration(microseconds: 1529856);
 
   final List<_ScanItem> _items = [];
   final List<Timer> _scanTimers = [];
   final Map<int, _PendingScan> _pendingScans = {};
-
-  late final AnimationController _revealController;
 
   var _nextScanId = 1;
   var _nextScanToken = 1;
@@ -172,17 +171,18 @@ class _ScanPageState extends ConsumerState<ScanPage>
     return !_hasScanning && _matchedItems.isNotEmpty;
   }
 
-  bool get _hasUnsavedScanResults {
-    return _items.any((item) => item.status != _ScanItemStatus.added);
+  Animation<double> get _revealAnimation {
+    final revealingItem = _items
+        .where((item) => item.status == _ScanItemStatus.revealing)
+        .firstOrNull;
+    return revealingItem == null
+        ? const AlwaysStoppedAnimation(0)
+        : _pendingScans[revealingItem.id]?.revealController ??
+              const AlwaysStoppedAnimation(0);
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _revealController = AnimationController(
-      vsync: this,
-      duration: _revealTimelineDuration,
-    );
+  bool get _hasUnsavedScanResults {
+    return _items.any((item) => item.status != _ScanItemStatus.added);
   }
 
   @override
@@ -190,61 +190,27 @@ class _ScanPageState extends ConsumerState<ScanPage>
     for (final timer in _scanTimers) {
       timer.cancel();
     }
+    for (final pending in _pendingScans.values) {
+      pending.revealController?.dispose();
+    }
     _pendingScans.clear();
-    _revealController.dispose();
     super.dispose();
   }
 
   void _startPhotoScan() {
-    if (_hasScanning) {
-      return;
-    }
     _addScan(Future.sync(() => ref.read(scanResultSourceProvider).photo()));
   }
 
   void _startLibraryScan() {
-    if (_hasScanning) {
-      return;
-    }
     _addScan(Future.sync(() => ref.read(scanResultSourceProvider).library()));
   }
 
   void _retryScan(_ScanItem item) {
-    if (_hasScanning) {
-      return;
-    }
     _replaceItem(item.copyWith(status: _ScanItemStatus.scanning));
     _startScanTimeline(
       item.id,
       Future.sync(() => ref.read(scanResultSourceProvider).retry()),
     );
-  }
-
-  void _cancelScanning() {
-    _revealController.stop();
-    final activeItemIds = _items
-        .where(
-          (item) =>
-              item.status == _ScanItemStatus.scanning ||
-              item.status == _ScanItemStatus.recognizing ||
-              item.status == _ScanItemStatus.revealing,
-        )
-        .map((item) => item.id)
-        .toSet();
-    setState(() {
-      _items.removeWhere(
-        (item) =>
-            item.status == _ScanItemStatus.scanning ||
-            item.status == _ScanItemStatus.recognizing ||
-            item.status == _ScanItemStatus.revealing,
-      );
-      if (activeItemIds.contains(_dismissedFeedbackItemId)) {
-        _dismissedFeedbackItemId = null;
-      }
-    });
-    for (final itemId in activeItemIds) {
-      _pendingScans.remove(itemId);
-    }
   }
 
   void _dismissScanFeedback() {
@@ -266,7 +232,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _deleteScan(_ScanItem item) {
-    _pendingScans.remove(item.id);
+    _pendingScans.remove(item.id)?.revealController?.dispose();
     setState(() {
       _items.removeWhere((candidate) => candidate.id == item.id);
       if (_selectedReviewItemId == item.id) {
@@ -334,18 +300,31 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _startReveal(int itemId, int token) {
+    final pending = _pendingScans[itemId];
+    if (pending == null || pending.token != token) {
+      return;
+    }
+    final controller = AnimationController(
+      vsync: this,
+      duration: _revealTimelineDuration,
+    );
+    pending.revealController = controller;
     final disableAnimations = MediaQuery.of(context).disableAnimations;
     if (disableAnimations) {
-      _revealController.value = 1;
+      controller.value = 1;
       _markRevealTimelineFinished(itemId, token);
     } else {
-      _waitForRevealTimeline(itemId, token);
+      unawaited(_waitForRevealTimeline(itemId, token, controller));
     }
   }
 
-  Future<void> _waitForRevealTimeline(int itemId, int token) async {
+  Future<void> _waitForRevealTimeline(
+    int itemId,
+    int token,
+    AnimationController controller,
+  ) async {
     try {
-      await _revealController.forward(from: 0).orCancel;
+      await controller.forward(from: 0).orCancel;
     } on TickerCanceled {
       return;
     }
@@ -386,7 +365,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     if (resolution.kind == ScanResolutionKind.cancelled) {
-      _pendingScans.remove(itemId);
+      _pendingScans.remove(itemId)?.revealController?.dispose();
       setState(() {
         _items.removeWhere((item) => item.id == itemId);
       });
@@ -449,7 +428,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           )
         : null;
 
-    _pendingScans.remove(itemId);
+    final completedPending = _pendingScans.remove(itemId);
     setState(() {
       for (var index = 0; index < _items.length; index += 1) {
         if (_items[index].id == itemId) {
@@ -461,6 +440,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _dismissedFeedbackItemId = null;
       }
     });
+    completedPending?.revealController?.dispose();
   }
 
   void _replaceItem(_ScanItem next) {
@@ -660,33 +640,32 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 ),
               )
             : _ScanCameraView(
-              items: _items,
-              addedItems: _addedItems,
-              lastAddedCount: _lastAddedCount,
-              canReview: _canReview,
-              completedItem: _completedCameraItem,
-              failedItem: _failedCameraItem,
-              showFailedFeedback: _showFailedCameraFeedback,
-              scanning: _isScanning,
-              recognizing: _isRecognizing,
-              revealing: _isRevealing,
-              showRevealingFeedback: _showRevealingFeedback,
-              revealAnimation: _revealController,
-              onClosePressed: _requestExitScan,
-              onSearchPressed: () => context.go('/search'),
-              onPhotoPressed: _startPhotoScan,
-              onLibraryPressed: _startLibraryScan,
-              onCancelScanning: _cancelScanning,
-              onDismissScanFeedback: _dismissScanFeedback,
-              onDismissFailedFeedback: _dismissFailedScanFeedback,
-              onReviewPressed: _openReview,
-              onReviewItem: _openReview,
-              onRetryItem: _retryScan,
-              onDeleteItem: _deleteScan,
-              onSearchItem: (item) {
-                _deleteScan(item);
-                context.go('/search');
-              },
+                items: _items,
+                addedItems: _addedItems,
+                lastAddedCount: _lastAddedCount,
+                canReview: _canReview,
+                completedItem: _completedCameraItem,
+                failedItem: _failedCameraItem,
+                showFailedFeedback: _showFailedCameraFeedback,
+                scanning: _isScanning,
+                recognizing: _isRecognizing,
+                revealing: _isRevealing,
+                showRevealingFeedback: _showRevealingFeedback,
+                revealAnimation: _revealAnimation,
+                onClosePressed: _requestExitScan,
+                onSearchPressed: () => context.go('/search'),
+                onPhotoPressed: _startPhotoScan,
+                onLibraryPressed: _startLibraryScan,
+                onDismissScanFeedback: _dismissScanFeedback,
+                onDismissFailedFeedback: _dismissFailedScanFeedback,
+                onReviewPressed: _openReview,
+                onReviewItem: _openReview,
+                onRetryItem: _retryScan,
+                onDeleteItem: _deleteScan,
+                onSearchItem: (item) {
+                  _deleteScan(item);
+                  context.go('/search');
+                },
               ),
       ),
     );
@@ -711,7 +690,6 @@ class _ScanCameraView extends StatelessWidget {
     required this.onSearchPressed,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
-    required this.onCancelScanning,
     required this.onDismissScanFeedback,
     required this.onDismissFailedFeedback,
     required this.onReviewPressed,
@@ -738,7 +716,6 @@ class _ScanCameraView extends StatelessWidget {
   final VoidCallback onSearchPressed;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
-  final VoidCallback onCancelScanning;
   final VoidCallback onDismissScanFeedback;
   final VoidCallback onDismissFailedFeedback;
   final VoidCallback onReviewPressed;
@@ -826,7 +803,7 @@ class _ScanCameraView extends StatelessWidget {
             height: 59,
             child: ColoredBox(color: Color(0xFF10100B)),
           ),
-        if (!completed && !showingFailedFeedback && !scanning && !recognizing)
+        if (!completed && !showingFailedFeedback)
           Positioned(
             top: 59,
             left: 8,
@@ -865,34 +842,27 @@ class _ScanCameraView extends StatelessWidget {
           ),
         if (scanning) ...[
           Positioned(
-            left: 35,
-            top: 221,
-            width: 320,
-            height: 87,
+            left: 55,
+            top: 291,
+            width: 280,
+            height: 4,
             child: const _FigmaScanningLine(
               key: Key('scan-figma-scanning-line'),
             ),
           ),
-          Positioned(
-            left: 137,
-            top: 679,
-            child: _ScanCancelButton(onPressed: onCancelScanning),
-          ),
         ],
-        if (revealing && showRevealingFeedback)
+        if ((scanning || recognizing || revealing) &&
+            !completed &&
+            !showingFailedFeedback)
           Positioned(
             left: 16,
-            top: 627,
-            child: _FigmaRevealEntrance(
-              animation: revealAnimation,
-              active: true,
-              opacityStart: 0.13073,
-              opacityEnd: 0.39219,
-              translateStart: 0.13073,
-              translateEnd: 0.52293,
-              initialOffsetY: -200,
-              translationCurve: const Cubic(0.7, -0.4, 0.4, 1.4),
-              child: _ScanRevealingToast(onClosePressed: onDismissScanFeedback),
+            right: 16,
+            bottom: 134,
+            child: _ActiveScanResults(
+              items: items,
+              showRevealingFeedback: showRevealingFeedback,
+              onDismissRevealing: onDismissScanFeedback,
+              onDeleteItem: onDeleteItem,
             ),
           ),
         if (completed)
@@ -940,7 +910,7 @@ class _ScanCameraView extends StatelessWidget {
               ),
             ),
           ),
-        if (!completed && !showingFailedFeedback && !scanning && !recognizing)
+        if (!completed && !showingFailedFeedback)
           Positioned(
             left: 16,
             right: 16,
@@ -1394,56 +1364,6 @@ class _AlignCardPill extends StatelessWidget {
   }
 }
 
-class _ScanCancelButton extends StatelessWidget {
-  const _ScanCancelButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(24),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        key: const Key('scan-figma-cancel'),
-        onTap: onPressed,
-        child: SizedBox(
-          width: 116,
-          height: 36,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 8.9, sigmaY: 8.9),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0x615F6054),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: const Color(0x1FFFFFFF),
-                    width: 0.5,
-                  ),
-                ),
-                child: const Center(
-                  child: Text(
-                    'CANCEL',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Geist',
-                      fontSize: 13,
-                      height: 16 / 13,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _FigmaScanningLine extends StatelessWidget {
   const _FigmaScanningLine({super.key});
 
@@ -1461,22 +1381,7 @@ class _FigmaScanningLinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final arc = Path()
-      ..moveTo(160, 0)
-      ..cubicTo(240.081, 0, 305, 30.0542, 305, 67.1279)
-      ..lineTo(305, 68)
-      ..lineTo(15, 68)
-      ..cubicTo(15, 30.0542, 79.9189, 0, 160, 0)
-      ..close();
-    final arcPaint = Paint()
-      ..shader = const RadialGradient(
-        center: Alignment.bottomCenter,
-        radius: 1.15,
-        colors: [Color(0xBFF0FE6F), Color(0x00FFFFFF)],
-      ).createShader(const Rect.fromLTWH(15, 0, 290, 68));
-    canvas.drawPath(arc, arcPaint);
-
-    const lineRect = Rect.fromLTWH(15, 68, 290, 4);
+    final lineRect = Offset.zero & size;
     final shader = const LinearGradient(
       colors: [Color(0x00F1FE70), Color(0xB3F0FE6F), Color(0x00F1FE70)],
     ).createShader(lineRect);
@@ -1801,7 +1706,6 @@ class _FigmaRevealEntrance extends StatelessWidget {
     required this.translateEnd,
     required this.initialOffsetY,
     required this.child,
-    this.translationCurve = const _FigmaSpringCurve(),
     this.opacityCurve = const Cubic(0.5, 0, 0.5, 1),
   });
 
@@ -1812,7 +1716,6 @@ class _FigmaRevealEntrance extends StatelessWidget {
   final double translateStart;
   final double translateEnd;
   final double initialOffsetY;
-  final Curve translationCurve;
   final Curve opacityCurve;
   final Widget child;
 
@@ -1835,7 +1738,7 @@ class _FigmaRevealEntrance extends StatelessWidget {
           animation.value,
           translateStart,
           translateEnd,
-          translationCurve,
+          const _FigmaSpringCurve(),
         );
         return IgnorePointer(
           ignoring: opacity == 0,
@@ -1934,9 +1837,85 @@ class _FigmaSpringCurve extends Curve {
   }
 }
 
-class _ScanRevealingToast extends StatelessWidget {
-  const _ScanRevealingToast({required this.onClosePressed});
+class _ActiveScanResults extends StatelessWidget {
+  const _ActiveScanResults({
+    required this.items,
+    required this.showRevealingFeedback,
+    required this.onDismissRevealing,
+    required this.onDeleteItem,
+  });
 
+  final List<_ScanItem> items;
+  final bool showRevealingFeedback;
+  final VoidCallback onDismissRevealing;
+  final ValueChanged<_ScanItem> onDeleteItem;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleItems = items.where((item) {
+      final active =
+          item.status == _ScanItemStatus.scanning ||
+          item.status == _ScanItemStatus.recognizing ||
+          item.status == _ScanItemStatus.revealing;
+      return active &&
+          (item.status != _ScanItemStatus.revealing || showRevealingFeedback);
+    }).toList();
+    if (visibleItems.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final completedCount = items.where((item) {
+      return item.status == _ScanItemStatus.matched ||
+          item.status == _ScanItemStatus.failed ||
+          item.status == _ScanItemStatus.noMatch ||
+          item.status == _ScanItemStatus.added;
+    }).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Scanned: $completedCount/${items.length}',
+          style: const TextStyle(
+            color: Color(0xFFEEECD8),
+            fontFamily: 'Geist',
+            fontSize: 13,
+            height: 16 / 13,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 82,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: visibleItems.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final item = visibleItems[index];
+              return _ScanRevealingToast(
+                key: Key('scan-active-item-${item.id}'),
+                closeTooltip: item.status == _ScanItemStatus.revealing
+                    ? 'Dismiss scan feedback'
+                    : 'Cancel scan',
+                onClosePressed: item.status == _ScanItemStatus.revealing
+                    ? onDismissRevealing
+                    : () => onDeleteItem(item),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ScanRevealingToast extends StatelessWidget {
+  const _ScanRevealingToast({
+    required super.key,
+    required this.closeTooltip,
+    required this.onClosePressed,
+  });
+
+  final String closeTooltip;
   final VoidCallback onClosePressed;
 
   @override
@@ -1948,7 +1927,6 @@ class _ScanRevealingToast extends StatelessWidget {
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: DecoratedBox(
-            key: const Key('scan-figma-revealing-toast'),
             decoration: BoxDecoration(
               color: const Color(0xFF222222),
               borderRadius: BorderRadius.circular(16),
@@ -1967,7 +1945,6 @@ class _ScanRevealingToast extends StatelessWidget {
                 const Positioned.fill(
                   child: IgnorePointer(
                     child: DecoratedBox(
-                      key: Key('scan-figma-revealing-toast-glow'),
                       decoration: BoxDecoration(color: Color(0x1AF0FE6F)),
                     ),
                   ),
@@ -2026,11 +2003,8 @@ class _ScanRevealingToast extends StatelessWidget {
                                   ),
                                 ),
                                 Tooltip(
-                                  message: 'Dismiss scan feedback',
+                                  message: closeTooltip,
                                   child: InkWell(
-                                    key: const Key(
-                                      'scan-figma-revealing-dismiss',
-                                    ),
                                     onTap: onClosePressed,
                                     child: Padding(
                                       padding: const EdgeInsets.only(bottom: 6),

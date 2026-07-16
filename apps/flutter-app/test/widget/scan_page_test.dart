@@ -120,7 +120,7 @@ void main() {
     await expectLater(
       find.byKey(const Key('scan-scanning-figma-golden')),
       matchesGoldenFile(
-        'goldens/rendered/figma_scan_scanning_328_10705_390x844.png',
+        'goldens/rendered/figma_scan_scanning_131_19516_390x844.png',
       ),
     );
   });
@@ -144,10 +144,11 @@ void main() {
       );
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
       expect(find.text('CANCEL'), findsNothing);
-      expect(find.byTooltip('Close Scan'), findsNothing);
-      expect(find.byTooltip('Search Cards'), findsNothing);
-      expect(find.text('ALIGN CARD HERE'), findsNothing);
-      expect(find.byTooltip('Take Photo'), findsNothing);
+      expect(find.byTooltip('Close Scan'), findsOneWidget);
+      expect(find.byTooltip('Search Cards'), findsOneWidget);
+      expect(find.text('ALIGN CARD HERE'), findsOneWidget);
+      expect(find.byTooltip('Take Photo'), findsOneWidget);
+      expect(find.byTooltip('Choose from Library'), findsOneWidget);
       expect(find.text('Matched'), findsNothing);
     },
   );
@@ -183,7 +184,7 @@ void main() {
     await expectLater(
       find.byKey(const Key('scan-recognizing-figma-golden')),
       matchesGoldenFile(
-        'goldens/rendered/figma_scan_recognizing_328_13609_390x844.png',
+        'goldens/rendered/figma_scan_recognizing_continuous_390x844.png',
       ),
     );
   });
@@ -196,14 +197,7 @@ void main() {
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump(const Duration(seconds: 2));
 
-      expect(
-        find.byKey(const Key('scan-figma-revealing-toast')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('scan-figma-revealing-toast-glow')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Scanning...'), findsOneWidget);
       expect(find.text('ALIGN CARD HERE'), findsOneWidget);
       expect(find.byTooltip('Take Photo'), findsOneWidget);
@@ -253,7 +247,7 @@ void main() {
     await expectLater(
       find.byKey(const Key('scan-revealing-figma-golden')),
       matchesGoldenFile(
-        'goldens/rendered/figma_scan_revealing_328_13645_390x844.png',
+        'goldens/rendered/figma_scan_revealing_continuous_390x844.png',
       ),
     );
   });
@@ -274,10 +268,10 @@ void main() {
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump(const Duration(seconds: 2));
       await tester.pump(const Duration(milliseconds: 800));
-      await tester.tap(find.byKey(const Key('scan-figma-revealing-dismiss')));
+      await tester.tap(find.byTooltip('Dismiss scan feedback'));
       await tester.pump();
 
-      expect(find.byKey(const Key('scan-figma-revealing-toast')), findsNothing);
+      expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
       expect(find.text('Matched'), findsNothing);
 
       result.complete(
@@ -320,10 +314,7 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       await tester.pump(const Duration(seconds: 2));
 
-      expect(
-        find.byKey(const Key('scan-figma-revealing-toast')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Matched'), findsNothing);
     },
   );
@@ -341,10 +332,7 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       await tester.pump(const Duration(milliseconds: 1530));
 
-      expect(
-        find.byKey(const Key('scan-figma-revealing-toast')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Matched'), findsNothing);
 
       result.complete(
@@ -658,7 +646,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.pump();
-    await tester.tap(find.text('CANCEL'));
+    await tester.tap(find.byTooltip('Cancel scan'));
     await tester.pump();
 
     result.complete(
@@ -735,12 +723,12 @@ void main() {
       );
       expect(
         tester.getTopLeft(find.byKey(const Key('scan-figma-scanning-line'))).dy,
-        221,
+        291,
       );
-      expect(find.text('CANCEL'), findsOneWidget);
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Scanning'), findsNothing);
-      expect(find.byTooltip('Take Photo'), findsNothing);
-      expect(find.byTooltip('Choose from Library'), findsNothing);
+      expect(find.byTooltip('Take Photo'), findsOneWidget);
+      expect(find.byTooltip('Choose from Library'), findsOneWidget);
 
       await _completeFigmaScan(tester);
 
@@ -810,7 +798,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.pump();
-    await tester.tap(find.text('CANCEL'));
+    await tester.tap(find.byTooltip('Cancel scan'));
     await tester.pump();
 
     expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
@@ -820,9 +808,7 @@ void main() {
     expect(find.text('Matched'), findsNothing);
   });
 
-  testWidgets('A pending Figma scan ignores reentrant capture requests', (
-    tester,
-  ) async {
+  testWidgets('Figma scan accepts concurrent capture requests', (tester) async {
     await _pumpScanTestApp(tester);
 
     await tester.tap(find.byTooltip('Take Photo'));
@@ -835,11 +821,15 @@ void main() {
     );
     expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
     expect(find.text('CANCEL'), findsNothing);
+    expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+    expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
+    expect(find.byTooltip('Take Photo'), findsOneWidget);
+    expect(find.byTooltip('Choose from Library'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 1));
     await tester.pump(const Duration(milliseconds: 1530));
-    expect(find.byKey(const Key('scan-figma-complete-result')), findsOneWidget);
-    expect(find.text('No Match Found'), findsNothing);
+    expect(find.text('Mega Lucario ex'), findsOneWidget);
+    expect(find.text('No Match Found'), findsOneWidget);
   });
 
   testWidgets(
@@ -865,65 +855,64 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Scan completes each capture before accepting the next Figma scan',
-    (tester) async {
-      await _pumpScanTestApp(tester);
+  testWidgets('Scan keeps capture controls available across multiple results', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(tester);
 
-      await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump();
-      expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
-      expect(find.byTooltip('Take Photo'), findsNothing);
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
+    expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
+    expect(find.byTooltip('Take Photo'), findsOneWidget);
 
-      await _completeFigmaScan(tester);
+    await _completeFigmaScan(tester);
 
-      await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump();
-      expect(find.byTooltip('Take Photo'), findsNothing);
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
+    expect(find.byTooltip('Take Photo'), findsOneWidget);
 
-      await _completeFigmaScan(tester);
+    await _completeFigmaScan(tester);
 
-      await tester.tap(find.byTooltip('Choose from Library'));
-      await tester.pump();
-      expect(find.byTooltip('Choose from Library'), findsNothing);
+    await tester.tap(find.byTooltip('Choose from Library'));
+    await tester.pump();
+    expect(find.byTooltip('Choose from Library'), findsOneWidget);
 
-      await _completeFigmaScan(tester);
+    await _completeFigmaScan(tester);
 
-      expect(find.text('Mega Lucario ex'), findsOneWidget);
-      expect(find.text('Failed'), findsOneWidget);
-      expect(find.text('No Match Found'), findsOneWidget);
-      expect(find.text('Retry'), findsOneWidget);
-      expect(find.text('Delete'), findsWidgets);
-      expect(find.text('Search Manually'), findsOneWidget);
+    expect(find.text('Mega Lucario ex'), findsOneWidget);
+    expect(find.text('Failed'), findsOneWidget);
+    expect(find.text('No Match Found'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+    expect(find.text('Delete'), findsWidgets);
+    expect(find.text('Search Manually'), findsOneWidget);
 
-      final doneWithMatched = tester.widget<TextButton>(
-        find.widgetWithText(TextButton, 'DONE'),
-      );
-      expect(doneWithMatched.onPressed, isNotNull);
+    final doneWithMatched = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'DONE'),
+    );
+    expect(doneWithMatched.onPressed, isNotNull);
 
-      await tester.tap(find.byTooltip('Take Photo'));
-      await _completeFigmaScan(tester);
-      await tester.tap(find.text('DONE'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tap(find.text('DONE'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Review Your Matches'), findsOneWidget);
-      expect(find.text('Mega Lucario ex'), findsWidgets);
-      expect(find.text('Charizard ex'), findsWidgets);
-      expect(find.text('Failed'), findsNothing);
-      expect(find.text('No Match Found'), findsNothing);
+    expect(find.text('Review Your Matches'), findsOneWidget);
+    expect(find.text('Mega Lucario ex'), findsWidgets);
+    expect(find.text('Charizard ex'), findsWidgets);
+    expect(find.text('Failed'), findsNothing);
+    expect(find.text('No Match Found'), findsNothing);
 
-      await tester.drag(find.byType(ListView), const Offset(0, -500));
-      await tester.pumpAndSettle();
-      expect(find.text('Add all cards'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(find.text('Add all cards'), findsOneWidget);
 
-      await tester.tap(find.text('Add all cards'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Add all cards'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Added 2 cards to Portfolio'), findsOneWidget);
-      expect(find.text('Mega Lucario ex'), findsWidgets);
-      expect(find.text('Charizard ex'), findsWidgets);
-    },
-  );
+    expect(find.text('Added 2 cards to Portfolio'), findsOneWidget);
+    expect(find.text('Mega Lucario ex'), findsWidgets);
+    expect(find.text('Charizard ex'), findsWidgets);
+  });
 
   testWidgets('Scan camera chrome can exit and open manual Search', (
     tester,
