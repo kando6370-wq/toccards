@@ -73,6 +73,23 @@ void main() {
       expect(api.callCount, 2);
     },
   );
+
+  test(
+    'picker cancellation does not call recognition because cancelling capture is not a failed scan',
+    () async {
+      final api = _FakeScanApi(_matchedRecognition);
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(cancelled: true),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      expect((await source.library()).kind, ScanResolutionKind.cancelled);
+      expect(api.callCount, 0);
+    },
+  );
 }
 
 const _session = AuthSession(
@@ -110,11 +127,15 @@ const _matchedRecognition = ScanRecognitionDto(
 );
 
 class _FakeScanImagePicker implements ScanImagePicker {
+  _FakeScanImagePicker({this.cancelled = false});
+
+  final bool cancelled;
   final sources = <ScanImageSource>[];
 
   @override
   Future<ScanImage?> pick(ScanImageSource source) async {
     sources.add(source);
+    if (cancelled) return null;
     return ScanImage(
       bytes: Uint8List.fromList([1, 2, 3]),
       fileName: 'scan.jpg',

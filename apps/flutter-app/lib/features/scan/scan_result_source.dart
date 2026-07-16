@@ -8,7 +8,7 @@ import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
 
-enum ScanResolutionKind { matched, failed, noMatch }
+enum ScanResolutionKind { matched, failed, noMatch, cancelled }
 
 class ScanResolution {
   const ScanResolution.matched({
@@ -27,6 +27,13 @@ class ScanResolution {
 
   const ScanResolution.noMatch()
     : kind = ScanResolutionKind.noMatch,
+      scanId = null,
+      cardRef = null,
+      matchName = null,
+      candidates = const [];
+
+  const ScanResolution.cancelled()
+    : kind = ScanResolutionKind.cancelled,
       scanId = null,
       cardRef = null,
       matchName = null,
@@ -126,7 +133,7 @@ class ApiScanResultSource implements ScanResultSource {
 
   Future<ScanResolution> _pickAndRecognize(ScanImageSource source) async {
     final image = await _imagePicker.pick(source);
-    if (image == null) return const ScanResolution.failed();
+    if (image == null) return const ScanResolution.cancelled();
     _lastImage = image;
     return _recognize(image);
   }

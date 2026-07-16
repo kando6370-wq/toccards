@@ -385,6 +385,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!mounted || pending == null || pending.token != token) {
       return;
     }
+    if (resolution.kind == ScanResolutionKind.cancelled) {
+      _pendingScans.remove(itemId);
+      setState(() {
+        _items.removeWhere((item) => item.id == itemId);
+      });
+      return;
+    }
     pending.resolution = resolution;
     _completeScanIfReady(itemId, token);
   }
@@ -431,6 +438,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       ScanResolutionKind.matched ||
       ScanResolutionKind.failed => _ScanItemStatus.failed,
       ScanResolutionKind.noMatch => _ScanItemStatus.noMatch,
+      ScanResolutionKind.cancelled => _ScanItemStatus.failed,
     };
     final match = status == _ScanItemStatus.matched
         ? _ScanMatch(

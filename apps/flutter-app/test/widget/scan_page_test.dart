@@ -978,6 +978,27 @@ void main() {
       expect(find.text('Overview'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'cancelling the image picker leaves no failed or unsaved scan result',
+    (tester) async {
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.cancelled()),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(find.text('Failed'), findsNothing);
+      await tester.tap(find.byTooltip('Close Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Exit scan result?'), findsNothing);
+      expect(find.text('Overview'), findsOneWidget);
+    },
+  );
 }
 
 Future<void> _completeFigmaScan(WidgetTester tester) async {
