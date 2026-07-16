@@ -7,6 +7,7 @@ import {
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
+import { enrichCollectionDashboard } from "./collection-dashboard";
 import { loadValuationHistory } from "./valuation-history";
 
 type PortfolioFolderRow = {
@@ -262,6 +263,42 @@ const ISO_4217_CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
 export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
   const routes = new Hono<{ Bindings: Env }>();
+
+  routes.get("/collection/dashboard", async (c) => {
+    const auth = await authenticateOwner(
+      c.env,
+      c.req.header("Authorization"),
+    );
+    if (auth.status === "internal_error") {
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+    if (auth.status === "unauthorized") {
+      return c.json(UNAUTHORIZED_RESPONSE, 401);
+    }
+
+    const [folders, portfolioItems, wishlistItems, preference] = await Promise.all([
+      listFolders(c.env.DB, auth.owner),
+      listCollectionItems(c.env.DB, auth.owner),
+      listWishlistItems(c.env.DB, auth.owner),
+      findUserPreference(c.env.DB, auth.owner),
+    ]);
+    if (!preference) {
+      return c.json(NOT_FOUND_RESPONSE, 404);
+    }
+    const enriched = await enrichCollectionDashboard(
+      c.env.DB,
+      portfolioItems,
+      wishlistItems,
+    );
+    return c.json({
+      success: true,
+      data: {
+        folders: folders.map(folderResponse),
+        preference: userPreferenceResponse(preference),
+        ...enriched,
+      },
+    });
+  });
 
   routes.get("/portfolio/valuation-history", async (c) => {
     const auth = await authenticateOwner(

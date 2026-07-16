@@ -15,7 +15,7 @@ type ItemEventRow = {
   effective_at: string;
 };
 
-type SkuRow = {
+export type SkuRow = {
   sku_id: number;
   product_id: number;
   condition_code: string | null;
@@ -29,8 +29,9 @@ type SkuRow = {
 
 type PricePoint = { date: string; price: number };
 
-type CardRow = {
+export type CardRow = {
   product_id: string;
+  game: string | null;
   name: string | null;
   set_name: string | null;
   image_url: string | null;
@@ -159,7 +160,10 @@ function valueOnDate(
   return Math.round(total * 100) / 100;
 }
 
-function matchingSku(event: ItemEventRow, rows: SkuRow[]): SkuRow | null {
+export function matchingSku(
+  event: Pick<ItemEventRow, "grader" | "condition" | "language" | "finish">,
+  rows: SkuRow[],
+): SkuRow | null {
   if (event.grader.toLowerCase() !== "raw") return null;
   const condition = normalizedQualifier(event.condition);
   const language = normalizedQualifier(event.language);
@@ -198,7 +202,7 @@ function skuRank(row: SkuRow): number {
   );
 }
 
-function priceOnDate(history: string, date: string): number | null {
+export function priceOnDate(history: string, date: string): number | null {
   return (
     parsePriceHistory(history)
       .filter((point) => point.date <= date)
@@ -223,7 +227,7 @@ function parsePriceHistory(value: string): PricePoint[] {
   }
 }
 
-async function loadSkus(db: D1Database, cardRefs: string[]): Promise<SkuRow[]> {
+export async function loadSkus(db: D1Database, cardRefs: string[]): Promise<SkuRow[]> {
   const productIds = cardRefs.filter((ref) => /^\d+$/.test(ref)).map(Number);
   const rows: SkuRow[] = [];
   for (let offset = 0; offset < productIds.length; offset += 80) {
@@ -242,14 +246,14 @@ async function loadSkus(db: D1Database, cardRefs: string[]): Promise<SkuRow[]> {
   return rows;
 }
 
-async function loadCards(db: D1Database, cardRefs: string[]): Promise<CardRow[]> {
+export async function loadCards(db: D1Database, cardRefs: string[]): Promise<CardRow[]> {
   const rows: CardRow[] = [];
   for (let offset = 0; offset < cardRefs.length; offset += 80) {
     const chunk = cardRefs.slice(offset, offset + 80);
     const placeholders = chunk.map(() => "?").join(", ");
     const result = await db
       .prepare(
-        `SELECT product_id, name, set_name, image_url
+        `SELECT product_id, game, name, set_name, image_url
          FROM cards_all WHERE product_id IN (${placeholders})`,
       )
       .bind(...chunk)
@@ -259,7 +263,7 @@ async function loadCards(db: D1Database, cardRefs: string[]): Promise<CardRow[]>
   return rows;
 }
 
-function groupSkus(rows: SkuRow[]): Map<string, SkuRow[]> {
+export function groupSkus(rows: SkuRow[]): Map<string, SkuRow[]> {
   const grouped = new Map<string, SkuRow[]>();
   for (const row of rows) {
     const key = String(row.product_id);
