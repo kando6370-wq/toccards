@@ -265,6 +265,19 @@ void main() {
                   {'date': '2026-07-15', 'value_usd': 40},
                   {'date': '2026-07-16', 'value_usd': 42.5},
                 ],
+                'most_valuable': [
+                  {
+                    'item_id': 'item-1',
+                    'card_ref': '9359',
+                    'name': 'Escape Artist',
+                    'set_name': 'Odyssey',
+                    'card_number': '',
+                    'finish': 'Normal',
+                    'image_url': 'https://img.example/9359.jpg',
+                    'price_usd': 0.21,
+                    'previous_30d_price_usd': null,
+                  },
+                ],
               },
             ],
           },
@@ -279,6 +292,8 @@ void main() {
       expect(history.single.currentValueUsd, 42.5);
       expect(history.single.series.first.valueUsd, 40);
       expect(history.single.series.last.date, '2026-07-16');
+      expect(history.single.mostValuable.single.name, 'Escape Artist');
+      expect(history.single.mostValuable.single.previous30dPriceUsd, isNull);
     },
   );
 

@@ -140,20 +140,61 @@ class PortfolioValuationPointDto {
   }
 }
 
+class PortfolioMostValuableDto {
+  const PortfolioMostValuableDto({
+    required this.itemId,
+    required this.cardRef,
+    required this.name,
+    required this.setName,
+    required this.cardNumber,
+    required this.finish,
+    required this.imageUrl,
+    required this.priceUsd,
+    required this.previous30dPriceUsd,
+  });
+
+  final String itemId;
+  final String cardRef;
+  final String name;
+  final String setName;
+  final String cardNumber;
+  final String? finish;
+  final String? imageUrl;
+  final double priceUsd;
+  final double? previous30dPriceUsd;
+
+  factory PortfolioMostValuableDto.fromJson(Map<String, Object?> json) {
+    return PortfolioMostValuableDto(
+      itemId: _requiredString(json['item_id']),
+      cardRef: _requiredString(json['card_ref']),
+      name: _requiredString(json['name']),
+      setName: _requiredString(json['set_name']),
+      cardNumber: _stringOrEmpty(json['card_number']),
+      finish: _nullableString(json['finish']),
+      imageUrl: _nullableString(json['image_url']),
+      priceUsd: _requiredDouble(json['price_usd']),
+      previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
+    );
+  }
+}
+
 class PortfolioFolderValuationDto {
   const PortfolioFolderValuationDto({
     required this.folderId,
     required this.currentValueUsd,
     required this.series,
+    required this.mostValuable,
   });
 
   final String folderId;
   final double currentValueUsd;
   final List<PortfolioValuationPointDto> series;
+  final List<PortfolioMostValuableDto> mostValuable;
 
   factory PortfolioFolderValuationDto.fromJson(Map<String, Object?> json) {
     final series = json['series'];
-    if (series is! List) {
+    final mostValuable = json['most_valuable'];
+    if (series is! List || mostValuable is! List) {
       throw const PortfolioApiException(
         'Something went wrong. Please try again.',
       );
@@ -164,6 +205,10 @@ class PortfolioFolderValuationDto {
       series: series
           .map(_mapItem)
           .map(PortfolioValuationPointDto.fromJson)
+          .toList(),
+      mostValuable: mostValuable
+          .map(_mapItem)
+          .map(PortfolioMostValuableDto.fromJson)
           .toList(),
     );
   }
@@ -591,6 +636,12 @@ String _requiredString(Object? value) {
     );
   }
   return normalized;
+}
+
+String _stringOrEmpty(Object? value) {
+  if (value == null) return '';
+  if (value is String) return value.trim();
+  throw const PortfolioApiException('Something went wrong. Please try again.');
 }
 
 String? _nullableString(Object? value) {

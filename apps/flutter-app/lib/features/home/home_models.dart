@@ -51,7 +51,7 @@ class HomeCardHighlight {
   final String title;
   final String subtitle;
   final double priceUsd;
-  final double previousPriceUsd;
+  final double? previousPriceUsd;
   final String? imageAssetPath;
   final String? imageUrl;
 }

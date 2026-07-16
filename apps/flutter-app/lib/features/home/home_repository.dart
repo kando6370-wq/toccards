@@ -27,16 +27,12 @@ class ApiHomeRepository implements HomeRepository {
   Future<HomeDashboard> loadDashboard() async {
     final source = await Future.wait([
       portfolioApi.listFolders(session),
-      portfolioApi.listCollectionItems(session),
       portfolioApi.getValuationHistory(session),
       managementApi.getPreferences(session),
     ]);
     final folders = source[0] as List<PortfolioFolderDto>;
-    final items = source[1] as List<PortfolioItemDto>;
-    final valuations = source[2] as List<PortfolioFolderValuationDto>;
-    final preferences = source[3] as UserPreferenceDto;
-    final assets = await Future.wait(items.map(_loadAsset));
-    final valuedAssets = assets.whereType<_HomeAsset>().toList();
+    final valuations = source[1] as List<PortfolioFolderValuationDto>;
+    final preferences = source[2] as UserPreferenceDto;
     final trending = await _loadTrending();
     final homeFolders = folders
         .map(
@@ -64,9 +60,6 @@ class ApiHomeRepository implements HomeRepository {
     final highlights = <String, List<HomeCardHighlight>>{};
     final primaryHighlights = <String, HomeCardHighlight?>{};
     for (final folder in homeFolders) {
-      final folderAssets = valuedAssets
-          .where((asset) => asset.item.folderId == folder.id)
-          .toList();
       final valuation = valuations
           .where((item) => item.folderId == folder.id)
           .firstOrNull;
@@ -83,8 +76,9 @@ class ApiHomeRepository implements HomeRepository {
         chartValuesByRange: chartValues,
       );
 
-      folderAssets.sort((left, right) => right.price.compareTo(left.price));
-      final cards = folderAssets.take(3).map(_highlight).toList();
+      final cards = (valuation?.mostValuable ?? const [])
+          .map(_highlight)
+          .toList();
       highlights[folder.id] = cards;
       primaryHighlights[folder.id] = cards.firstOrNull;
     }
@@ -98,22 +92,6 @@ class ApiHomeRepository implements HomeRepository {
       currencyCode: preferences.currency,
       amountHidden: preferences.amountHidden,
     );
-  }
-
-  Future<_HomeAsset?> _loadAsset(PortfolioItemDto item) async {
-    try {
-      final values = await Future.wait<Object>([
-        cardDataApi.getCard(item.cardRef),
-        cardDataApi.getMarketPrices(item.cardRef),
-      ]);
-      final card = values[0] as CardDataCardDto;
-      final prices = values[1] as List<CardDataMarketPriceDto>;
-      final price = _matchingPrice(item, prices);
-      if (price?.price == null) return null;
-      return _HomeAsset(item: item, card: card, price: price!.price!);
-    } catch (_) {
-      return null;
-    }
   }
 
   Future<List<TrendingCard>> _loadTrending() async {
@@ -136,32 +114,6 @@ class ApiHomeRepository implements HomeRepository {
   }
 }
 
-CardDataMarketPriceDto? _matchingPrice(
-  PortfolioItemDto item,
-  List<CardDataMarketPriceDto> prices,
-) {
-  final grader = item.grader.trim().toLowerCase();
-  final matchingGrader = prices.where(
-    (price) => price.grader.trim().toLowerCase() == grader,
-  );
-  for (final price in matchingGrader) {
-    final gradeMatches = item.grade == null || price.grade == item.grade;
-    final conditionMatches =
-        item.condition == null ||
-        _normalizedCondition(price.condition) ==
-            _normalizedCondition(item.condition);
-    if (gradeMatches && conditionMatches) return price;
-  }
-  return matchingGrader.firstOrNull;
-}
-
-String _normalizedCondition(String? value) {
-  return (value ?? '').trim().toLowerCase().replaceFirst(
-    RegExp(r'\s*\([^)]*\)\s*$'),
-    '',
-  );
-}
-
 List<double> _rangeValues(
   List<PortfolioValuationPointDto> series,
   HomeChartRange range,
@@ -173,27 +125,20 @@ List<double> _rangeValues(
       .toList();
 }
 
-HomeCardHighlight _highlight(_HomeAsset asset) {
+HomeCardHighlight _highlight(PortfolioMostValuableDto item) {
+  final subtitle = [
+    if (item.cardNumber.isNotEmpty) '#${item.cardNumber}',
+    if (item.finish != null) item.finish!,
+    item.setName,
+  ].join(' • ');
   return HomeCardHighlight(
-    cardRef: asset.card.cardRef,
-    title: asset.card.name,
-    subtitle: '#${asset.card.cardNumber} • ${asset.card.setName}',
-    priceUsd: asset.price,
-    previousPriceUsd: 0,
-    imageUrl: asset.card.imageUrl,
+    cardRef: item.cardRef,
+    title: item.name,
+    subtitle: subtitle,
+    priceUsd: item.priceUsd,
+    previousPriceUsd: item.previous30dPriceUsd,
+    imageUrl: item.imageUrl,
   );
-}
-
-class _HomeAsset {
-  const _HomeAsset({
-    required this.item,
-    required this.card,
-    required this.price,
-  });
-
-  final PortfolioItemDto item;
-  final CardDataCardDto card;
-  final double price;
 }
 
 const _rangeDays = {

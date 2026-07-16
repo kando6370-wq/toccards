@@ -1441,14 +1441,14 @@ class _ChartPainter extends CustomPainter {
   }
 }
 
-String _percentText({required double current, required double previous}) {
+String _percentText({required double current, required double? previous}) {
   return MarketChange.fromPrices(
     current: current,
     previous: previous,
   ).percentText;
 }
 
-Color _percentColor({required double current, required double previous}) {
+Color _percentColor({required double current, required double? previous}) {
   final percent = MarketChange.fromPrices(
     current: current,
     previous: previous,

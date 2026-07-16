@@ -31,6 +31,12 @@ void main() {
         ),
         [100, 50, 10],
       );
+      expect(
+        dashboard.mostValuableCardsByFolderId['main']!.map(
+          (card) => card.previousPriceUsd,
+        ),
+        [80, 40, 8],
+      );
       expect(dashboard.trending.single.title, 'Trending Card');
       expect(dashboard.trending.single.priceUsd, 60);
       expect(dashboard.trending.single.previousPriceUsd, 50);
@@ -171,6 +177,41 @@ class _PortfolioApi implements PortfolioApi {
           valueUsd: index < 60 ? 500 : (index == days ? 760 : 608),
         ),
       ),
+      mostValuable: const [
+        PortfolioMostValuableDto(
+          itemId: 'item-1',
+          cardRef: 'owned',
+          name: 'Owned Card',
+          setName: 'Server Set',
+          cardNumber: '1',
+          finish: 'Holofoil',
+          imageUrl: 'https://cdn.example.test/owned.png',
+          priceUsd: 100,
+          previous30dPriceUsd: 80,
+        ),
+        PortfolioMostValuableDto(
+          itemId: 'item-3',
+          cardRef: 'owned-mid',
+          name: 'Mid Value Card',
+          setName: 'Server Set',
+          cardNumber: '1',
+          finish: 'Normal',
+          imageUrl: 'https://cdn.example.test/owned-mid.png',
+          priceUsd: 50,
+          previous30dPriceUsd: 40,
+        ),
+        PortfolioMostValuableDto(
+          itemId: 'item-2',
+          cardRef: 'owned-low',
+          name: 'Lower Value Card',
+          setName: 'Server Set',
+          cardNumber: '1',
+          finish: 'Normal',
+          imageUrl: 'https://cdn.example.test/owned-low.png',
+          priceUsd: 10,
+          previous30dPriceUsd: 8,
+        ),
+      ],
     ),
   ];
 
@@ -194,37 +235,16 @@ class _ManagementApi implements PortfolioManagementApi {
 
 class _CardDataApi implements CardDataApi {
   @override
-  Future<CardDataCardDto> getCard(String cardRef) async => _card(cardRef);
+  Future<CardDataCardDto> getCard(String cardRef) async {
+    throw StateError('Home must use batch Most Valuable card data');
+  }
 
   @override
   Future<List<CardDataCardDto>> trendingCards() async => [_card('trending')];
 
   @override
   Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
-    if (cardRef == 'trending') {
-      throw StateError('Trending must use the feed price contract');
-    }
-    return [
-      if (cardRef == 'owned')
-        const CardDataMarketPriceDto(
-          grader: 'Raw',
-          grade: null,
-          condition: 'Lightly Played',
-          price: 10,
-        ),
-      CardDataMarketPriceDto(
-        grader: 'Raw',
-        grade: null,
-        condition: 'Near Mint',
-        price: switch (cardRef) {
-          'owned' => 100,
-          'owned-low' => 10,
-          'owned-mid' => 50,
-          'owned-quantity' => 5,
-          _ => 60,
-        },
-      ),
-    ];
+    throw StateError('Home must use batch Most Valuable prices');
   }
 
   @override
