@@ -172,6 +172,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
     return !_hasScanning && _matchedItems.isNotEmpty;
   }
 
+  bool get _hasUnsavedScanResults {
+    return _items.any((item) => item.status != _ScanItemStatus.added);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -584,25 +588,70 @@ class _ScanPageState extends ConsumerState<ScanPage>
     ref.invalidate(collectionControllerProvider);
   }
 
+  Future<void> _requestExitScan() async {
+    if (_savingReview) {
+      return;
+    }
+    if (!_hasUnsavedScanResults) {
+      if (mounted) context.go('/home');
+      return;
+    }
+
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit scan result?'),
+        content: const Text('Your scanned card has not been collected yet.'),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('NO, STAY HERE'),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('EXIT'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (mounted && shouldExit == true) {
+      context.go('/home');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF10100B),
-      body: _reviewing
-          ? SafeArea(
-              child: _ReviewMatches(
-                items: _matchedItems,
-                selectedItemId: _selectedReviewItemId,
-                target: _reviewTarget,
-                saving: _savingReview,
-                onSelectItem: (item) {
-                  setState(() => _selectedReviewItemId = item.id);
-                },
-                onAddThisCard: _addSelectedItem,
-                onAddAllCards: _addAllMatchedItems,
-              ),
-            )
-          : _ScanCameraView(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _requestExitScan();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF10100B),
+        body: _reviewing
+            ? SafeArea(
+                child: _ReviewMatches(
+                  items: _matchedItems,
+                  selectedItemId: _selectedReviewItemId,
+                  target: _reviewTarget,
+                  saving: _savingReview,
+                  onExit: _requestExitScan,
+                  onSelectItem: (item) {
+                    setState(() => _selectedReviewItemId = item.id);
+                  },
+                  onAddThisCard: _addSelectedItem,
+                  onAddAllCards: _addAllMatchedItems,
+                ),
+              )
+            : _ScanCameraView(
               items: _items,
               addedItems: _addedItems,
               lastAddedCount: _lastAddedCount,
@@ -615,7 +664,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
               revealing: _isRevealing,
               showRevealingFeedback: _showRevealingFeedback,
               revealAnimation: _revealController,
-              onClosePressed: () => context.go('/home'),
+              onClosePressed: _requestExitScan,
               onSearchPressed: () => context.go('/search'),
               onPhotoPressed: _startPhotoScan,
               onLibraryPressed: _startLibraryScan,
@@ -630,7 +679,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 _deleteScan(item);
                 context.go('/search');
               },
-            ),
+              ),
+      ),
     );
   }
 }
@@ -2286,6 +2336,7 @@ class _ReviewMatches extends StatelessWidget {
     required this.selectedItemId,
     required this.target,
     required this.saving,
+    required this.onExit,
     required this.onSelectItem,
     required this.onAddThisCard,
     required this.onAddAllCards,
@@ -2295,6 +2346,7 @@ class _ReviewMatches extends StatelessWidget {
   final int? selectedItemId;
   final ScanReviewTarget? target;
   final bool saving;
+  final VoidCallback onExit;
   final ValueChanged<_ScanItem> onSelectItem;
   final VoidCallback onAddThisCard;
   final VoidCallback onAddAllCards;
@@ -2310,9 +2362,21 @@ class _ReviewMatches extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        Text(
-          'Review Your Matches',
-          style: Theme.of(context).textTheme.titleLarge,
+        Row(
+          children: [
+            IconButton(
+              tooltip: 'Close Scan',
+              onPressed: saving ? null : onExit,
+              icon: const Icon(Icons.close),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Review Your Matches',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         if (items.length > 1)

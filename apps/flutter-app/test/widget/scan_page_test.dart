@@ -938,6 +938,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Squirtle'), findsOneWidget);
   });
+
+  testWidgets(
+    'Scan asks before discarding an unmatched portfolio result because scan results are not auto-saved',
+    (tester) async {
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(
+            const ScanResolution.matched(
+              scanId: 'scan-unsaved',
+              cardRef: 'card-unsaved',
+              matchName: 'Unsaved card',
+              candidates: ['Unsaved card'],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      await tester.tap(find.byTooltip('Close Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Exit scan result?'), findsOneWidget);
+      expect(
+        find.text('Your scanned card has not been collected yet.'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('NO, STAY HERE'));
+      await tester.pumpAndSettle();
+      expect(find.text('Exit scan result?'), findsNothing);
+
+      await tester.tap(find.byTooltip('Close Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Exit scan result?'), findsOneWidget);
+      await tester.tap(find.text('EXIT'));
+      await tester.pumpAndSettle();
+      expect(find.text('Overview'), findsOneWidget);
+    },
+  );
 }
 
 Future<void> _completeFigmaScan(WidgetTester tester) async {
