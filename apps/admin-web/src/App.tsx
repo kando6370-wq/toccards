@@ -106,6 +106,13 @@ type ScanDetail = ScanListItem & {
   candidates: Array<Record<string, unknown>>;
 };
 
+type ScanListResponse = {
+  items: ScanListItem[];
+  page: number;
+  page_size: number;
+  total: number;
+};
+
 type PermissionItem = {
   id: string;
   email: string;
@@ -505,7 +512,17 @@ function FeedbackPage({ session }: { session: AdminSession }) {
 
 function ScansPage({ session }: { session: AdminSession }) {
   const [selected, setSelected] = useState<ScanDetail | null>(null);
-  const { data, loading, reload, error } = useAdminData<{ items: ScanListItem[] }>("/scans?page_size=100", session);
+  const [page, setPage] = useState(1);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const queryPath = useMemo(() => {
+    const params = new URLSearchParams({ page: String(page), page_size: "10" });
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    return `/scans?${params.toString()}`;
+  }, [filters, page]);
+  const { data, loading, reload, error } = useAdminData<ScanListResponse>(queryPath, session);
   const scans = data?.items ?? [];
 
   async function openDetail(scanId: string) {
@@ -515,7 +532,7 @@ function ScansPage({ session }: { session: AdminSession }) {
 
   const columns: ColumnsType<ScanListItem> = [
     { title: "SCAN ID", dataIndex: "scan_id", ellipsis: true },
-    { title: "卡牌图片", dataIndex: "image_url", render: (value: string) => value ? <img className="scan-thumb" src={value} alt="card" /> : <Tag>未存储</Tag> },
+    { title: "卡牌图片", dataIndex: "image_url", render: (value: string) => <AuthenticatedScanImage path={value} session={session} className="scan-thumb" /> },
     { title: "UID", dataIndex: "uid" },
     { title: "APP版本", dataIndex: "app_version" },
     { title: "扫描时间", dataIndex: "scan_time", render: formatTime },
@@ -525,23 +542,50 @@ function ScansPage({ session }: { session: AdminSession }) {
   ];
 
   return (
-    <PagePanel error={error} onRefresh={reload}>
-      <FilterBar>
-        <DatePicker.RangePicker placeholder={["扫描开始", "扫描结束"]} />
-        <Input placeholder="UID" className="filter-control" />
-        <Select placeholder="平台" className="filter-control" options={platformOptions} />
-        <Input placeholder="App 版本" className="filter-control" />
-        <Select placeholder="识别状态" className="filter-control" options={recognitionOptions} />
-        <Select placeholder="用户确认状态" className="filter-control" options={confirmationOptions} />
-        <Button className="cyan-button">查询</Button>
-        <Button>重置</Button>
-      </FilterBar>
-      <DataPanel title="扫描数据" count={scans.length}>
-        <Table rowKey="scan_id" columns={columns} dataSource={scans} loading={loading} pagination={{ pageSize: 8 }} />
-      </DataPanel>
-      <ScanDetailDrawer scan={selected} onClose={() => setSelected(null)} />
-    </PagePanel>
+    <div className="scans-page">
+      {error && <Alert type="error" showIcon message={error} action={<Button onClick={reload}>重试</Button>} />}
+      <section className="scans-filter-panel">
+        <ScanFilterField label="扫描时间">
+          <DatePicker.RangePicker placeholder={["扫描开始", "扫描结束"]} onChange={(_, values) => setDraft((current) => ({ ...current, date_from: values[0], date_to: values[1] }))} />
+        </ScanFilterField>
+        <ScanFilterField label="UID">
+          <Input placeholder="输入用户 ID" value={draft.uid ?? ""} onChange={(event) => setDraft((current) => ({ ...current, uid: event.target.value }))} />
+        </ScanFilterField>
+        <ScanFilterField label="平台">
+          <Select placeholder="全部" allowClear value={draft.platform || undefined} options={scanPlatformOptions} onChange={(value) => setDraft((current) => ({ ...current, platform: value ?? "" }))} />
+        </ScanFilterField>
+        <ScanFilterField label="App 版本">
+          <Input placeholder="e.g. 2.4.0" value={draft.app_version ?? ""} onChange={(event) => setDraft((current) => ({ ...current, app_version: event.target.value }))} />
+        </ScanFilterField>
+        <ScanFilterField label="识别状态">
+          <Select placeholder="全部" allowClear value={draft.recognition_status || undefined} options={recognitionOptions} onChange={(value) => setDraft((current) => ({ ...current, recognition_status: value ?? "" }))} />
+        </ScanFilterField>
+        <ScanFilterField label="用户确认状态">
+          <Select placeholder="全部" allowClear value={draft.user_confirmation_status || undefined} options={confirmationOptions} onChange={(value) => setDraft((current) => ({ ...current, user_confirmation_status: value ?? "" }))} />
+        </ScanFilterField>
+        <ScanFilterField label="是否修改结果">
+          <Select placeholder="全部" allowClear value={draft.modified_result || undefined} options={[{ value: "true", label: "是" }, { value: "false", label: "否" }]} onChange={(value) => setDraft((current) => ({ ...current, modified_result: value ?? "" }))} />
+        </ScanFilterField>
+        <div className="scans-filter-actions">
+          <Button className="cyan-button" onClick={() => { setPage(1); setFilters(draft); }}>查询</Button>
+          <Button onClick={() => { setDraft({}); setFilters({}); setPage(1); }}>重置</Button>
+        </div>
+      </section>
+      <section className="scans-table-panel">
+        <Table rowKey="scan_id" columns={columns} dataSource={scans} loading={loading} pagination={false} />
+        <div className="scans-pagination">
+          <Text>{rangeSummaryPage(page, data?.page_size ?? 10, data?.total ?? 0)}</Text>
+          <Pagination size="small" current={page} pageSize={data?.page_size ?? 10} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} />
+        </div>
+      </section>
+      <p className="scans-data-note">ⓘ 数据用途说明：扫描图片和识别结果仅用于问题排查、支持与识别质量审计。</p>
+      <ScanDetailDrawer scan={selected} session={session} onClose={() => setSelected(null)} />
+    </div>
   );
+}
+
+function ScanFilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="scan-filter-field"><span>{label}</span>{children}</label>;
 }
 
 function PermissionsPage({ session }: { session: AdminSession }) {
@@ -716,14 +760,14 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
   );
 }
 
-function ScanDetailDrawer({ scan, onClose }: { scan: ScanDetail | null; onClose: () => void }) {
+function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null; session: AdminSession; onClose: () => void }) {
   return (
     <Drawer open={!!scan} onClose={onClose} title="扫描详情" width={560} className="scan-detail-drawer">
       {scan && (
         <Space direction="vertical" size={20} className="drawer-stack">
           <DetailSection title="扫描图片">
-            {scan.image_url ? <img className="scan-preview" src={scan.image_url} alt="scan" /> : <Alert message="图片未存储" type="info" showIcon />}
-            <Input value={scan.image_url || "-"} readOnly addonAfter="复制链接" />
+            <AuthenticatedScanImage path={scan.image_url} session={session} className="scan-preview" />
+            <Input value={scan.image_url ? "Private R2 scan image" : "-"} readOnly addonAfter="受控访问" />
           </DetailSection>
           <DetailSection title="基础信息">
             <InfoGrid items={[
@@ -763,7 +807,7 @@ function ScanDetailDrawer({ scan, onClose }: { scan: ScanDetail | null; onClose:
                   <span className="candidate-thumb" />
                   <div>
                     <strong>{displayValue(candidate.name)}</strong>
-                    <Text>{displayValue(candidate.set)} {displayValue(candidate.number)} · {confidenceText(candidate.confidence)}</Text>
+                    <Text>{displayValue(candidate.set_code ?? candidate.set)} {displayValue(candidate.card_number ?? candidate.number)} · {confidenceText(candidate.confidence)}</Text>
                   </div>
                 </div>
               ))}
@@ -773,6 +817,40 @@ function ScanDetailDrawer({ scan, onClose }: { scan: ScanDetail | null; onClose:
       )}
     </Drawer>
   );
+}
+
+function AuthenticatedScanImage({ path, session, className }: { path: string; session: AdminSession; className: string }) {
+  const [source, setSource] = useState<string | null>(null);
+  useEffect(() => {
+    if (!path) {
+      setSource(null);
+      return;
+    }
+    if (isViteDev() && session.accessToken === "local-token") {
+      setSource(demoScanDetail.image_url);
+      return;
+    }
+    let active = true;
+    let objectUrl: string | null = null;
+    fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${session.accessToken}` } })
+      .then((response) => {
+        if (!response.ok) throw new Error("Scan image unavailable");
+        return response.blob();
+      })
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSource(objectUrl);
+      })
+      .catch(() => { if (active) setSource(null); });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [path, session.accessToken]);
+  return source
+    ? <img className={className} src={source} alt="扫描卡牌" />
+    : <span className={`${className} scan-image-placeholder`} aria-label="图片未存储" />;
 }
 
 function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -980,7 +1058,9 @@ function renderAppVersionStatus(value: AppVersionStatus) {
 }
 
 function renderRecognitionStatus(value: string) {
-  return value === "success" ? <Tag color="green">识别成功</Tag> : <Tag color="red">识别失败</Tag>;
+  if (value === "success") return <Tag color="cyan">识别成功</Tag>;
+  if (value === "no_match") return <Tag color="gold">未命中</Tag>;
+  return <Tag color="red">识别失败</Tag>;
 }
 
 function formatDate(value: string | null) {
@@ -1000,7 +1080,15 @@ function displayValue(value: unknown) {
 function confidenceText(value: unknown) {
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) return displayValue(value);
-  return numeric <= 1 ? `${(numeric * 100).toFixed(1)}%` : `${numeric}%`;
+  const rounded = Math.round(numeric * 1000) / 1000;
+  return `${rounded.toFixed(3).replace(/\.?0+$/, "")}%`;
+}
+
+function rangeSummaryPage(page: number, pageSize: number, total: number) {
+  if (total === 0) return "显示 0 条，共 0 条";
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  return `显示 ${start}-${end} 条，共 ${total.toLocaleString()} 条`;
 }
 
 function rangeSummary(count: number, unit: string) {
@@ -1022,7 +1110,12 @@ const feedbackStatusOptions = [
   { value: "processed", label: "已处理" },
   { value: "ignored", label: "无需处理" },
 ];
-const recognitionOptions = [{ value: "success", label: "识别成功" }, { value: "failed", label: "识别失败" }];
+const recognitionOptions = [
+  { value: "success", label: "识别成功" },
+  { value: "no_match", label: "未命中" },
+  { value: "failed", label: "识别失败" },
+];
+const scanPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
 const confirmationOptions = [{ value: "confirmed", label: "已确认" }, { value: "pending", label: "待确认" }];
 const permissionStatusOptions = [{ value: "active", label: "启用" }, { value: "disabled", label: "停用" }];
 
@@ -1092,11 +1185,11 @@ const demoScanDetail: ScanDetail = {
   modified_result: true,
   device_model: "iPhone 15 Pro",
   os_version: "iOS 18.5",
-  system_result: { status: "success", name: "Charizard ex", ip_game: "Pokemon", set: "Obsidian Flames", number: "223/197", confidence: 0.94, candidate_count: 3 },
+  system_result: { status: "success", name: "Charizard ex", ip_game: "Pokemon", set: "Obsidian Flames", number: "223/197", confidence: 80.99, candidate_count: 3 },
   user_result: { confirmation_status: "confirmed", final_card: "Charizard ex - Obsidian Flames 223/197", modified_result: true, added_to_inventory: true, added_to_wishlist: false },
   candidates: [
-    { rank: 1, name: "Charizard ex", set: "Obsidian Flames", number: "223/197", confidence: 0.94 },
-    { rank: 2, name: "Charizard ex", set: "Obsidian Flames", number: "125/197", confidence: 0.71 },
+    { rank: 1, product_id: 10738, name: "Charizard ex", set: "Obsidian Flames", number: "223/197", confidence: 80.99 },
+    { rank: 2, product_id: 240872, name: "Charizard ex", set: "Obsidian Flames", number: "125/197", confidence: 80.729 },
   ],
 };
 
