@@ -7,8 +7,7 @@ export type OAuthIdentity = {
 };
 
 export type GoogleOAuthInput = {
-  code: string | null;
-  redirectUri: string | null;
+  idToken: string | null;
 };
 
 export type AppleOAuthInput = {
@@ -27,10 +26,10 @@ export async function resolveGoogleIdentity(
   input: GoogleOAuthInput,
   clientId: string | undefined,
 ): Promise<OAuthIdentity | null> {
-  if (!input.code || !clientId) return null;
+  if (!input.idToken || !clientId) return null;
 
   const url = new URL("https://oauth2.googleapis.com/tokeninfo");
-  url.searchParams.set("id_token", input.code);
+  url.searchParams.set("id_token", input.idToken);
   try {
     const response = await fetch(url);
     if (!response.ok) return null;

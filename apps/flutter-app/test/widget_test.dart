@@ -134,8 +134,7 @@ class _WidgetTestAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession> googleCallback({
-    required String code,
-    required String redirectUri,
+    required String idToken,
     String? anonymousId,
   }) async {
     return const AuthSession(

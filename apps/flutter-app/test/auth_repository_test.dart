@@ -168,14 +168,12 @@ void main() {
       final repository = HttpAuthRepository(_dio(adapter), storage);
 
       final session = await repository.googleCallback(
-        code: 'google-id-token',
-        redirectUri: 'kando://auth/google',
+        idToken: 'google-id-token',
         anonymousId: 'anon-1',
       );
 
       expect(adapter.requests.single.body, {
-        'code': 'google-id-token',
-        'redirect_uri': 'kando://auth/google',
+        'id_token': 'google-id-token',
         'anonymous_id': 'anon-1',
       });
       expect(adapter.requests.single.authorization, 'Bearer anon-access');

@@ -61,8 +61,7 @@ abstract class AuthRepository {
   });
   Future<AuthSession> login({required String email, required String password});
   Future<AuthSession> googleCallback({
-    required String code,
-    required String redirectUri,
+    required String idToken,
     String? anonymousId,
   });
   Future<AuthSession> appleCallback({
@@ -208,16 +207,14 @@ class HttpAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession> googleCallback({
-    required String code,
-    required String redirectUri,
+    required String idToken,
     String? anonymousId,
   }) async {
     final anonymousSession = await _storage.readSession();
     return _oauthCallback(
       '/auth/oauth/google/callback',
       {
-        'code': code,
-        'redirect_uri': redirectUri,
+        'id_token': idToken,
         if (anonymousId != null) 'anonymous_id': anonymousId,
       },
       session: anonymousSession?.isAnonymous == true ? anonymousSession : null,

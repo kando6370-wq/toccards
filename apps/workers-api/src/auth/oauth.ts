@@ -12,8 +12,7 @@ import {
 } from "./oauth-provider";
 
 type GoogleOAuthCallbackInput = {
-  code: string | null;
-  redirectUri: string | null;
+  idToken: string | null;
   anonymousId: string | null;
 };
 
@@ -51,7 +50,7 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
   routes.post("/oauth/google/callback", async (c) => {
     const input = await readGoogleOAuthCallbackInput(c.req);
     const identity = await resolveGoogleIdentity(
-      { code: input.code, redirectUri: input.redirectUri },
+      { idToken: input.idToken },
       c.env.GOOGLE_CLIENT_ID,
     );
 
@@ -161,16 +160,12 @@ async function readGoogleOAuthCallbackInput(request: {
   try {
     body = await request.json();
   } catch {
-    return { code: null, redirectUri: null, anonymousId: null };
+    return { idToken: null, anonymousId: null };
   }
 
-  const rawCode =
+  const rawIdToken =
     body && typeof body === "object"
-      ? (body as { code?: unknown }).code
-      : undefined;
-  const rawRedirectUri =
-    body && typeof body === "object"
-      ? (body as { redirect_uri?: unknown }).redirect_uri
+      ? (body as { id_token?: unknown }).id_token
       : undefined;
   const rawAnonymousId =
     body && typeof body === "object"
@@ -178,8 +173,7 @@ async function readGoogleOAuthCallbackInput(request: {
       : undefined;
 
   return {
-    code: trimString(rawCode),
-    redirectUri: trimString(rawRedirectUri),
+    idToken: trimString(rawIdToken),
     anonymousId: trimString(rawAnonymousId),
   };
 }

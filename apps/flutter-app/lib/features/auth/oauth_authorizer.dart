@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
-const googleOAuthClientId =
+const googleIosClientId =
     '134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com';
 
 typedef GoogleSignInInitializer =
@@ -85,8 +85,8 @@ class PlatformOAuthAuthorizer implements OAuthAuthorizer {
 
   Future<void> initialize() {
     return _initialization ??= _googleInitializer(
-      clientId: googleOAuthClientId,
-      serverClientId: googleOAuthClientId,
+      clientId: googleIosClientId,
+      serverClientId: null,
     );
   }
 

@@ -15,8 +15,7 @@ describe("resolveGoogleIdentity", () => {
 
     const identity = await resolveGoogleIdentity(
       {
-        code: "mock-google:user-1:user@example.com",
-        redirectUri: "kando://auth/google",
+        idToken: "mock-google:user-1:user@example.com",
       },
       "google-client-id",
     );
@@ -41,7 +40,7 @@ describe("resolveGoogleIdentity", () => {
 
     await expect(
       resolveGoogleIdentity(
-        { code: "real-google-id-token", redirectUri: null },
+        { idToken: "real-google-id-token" },
         "google-client-id",
       ),
     ).resolves.toEqual({

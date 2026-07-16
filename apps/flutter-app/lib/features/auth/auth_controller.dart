@@ -11,7 +11,6 @@ import 'auth_storage.dart';
 const authAuthorizationFailedMessage = oauthAuthorizationFailedMessage;
 const authAccountActionFailedMessage =
     'Unable to complete this action. Please try again later.';
-const _googleRedirectUri = 'kando://auth/google';
 
 enum EmailAuthDestination { login, registerCode }
 
@@ -234,8 +233,7 @@ class AuthController extends Notifier<AuthState> {
       try {
         session = switch (provider) {
           OAuthProvider.google => await _repository.googleCallback(
-            code: authorizationResult.code,
-            redirectUri: _googleRedirectUri,
+            idToken: authorizationResult.code,
             anonymousId: anonymousId,
           ),
           OAuthProvider.apple => await _repository.appleCallback(

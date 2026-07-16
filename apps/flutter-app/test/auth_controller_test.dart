@@ -136,8 +136,7 @@ void main() {
       expect(authorizer.requests, [OAuthProvider.google]);
       expect(repository.googleCallbackRequests, [
         const _GoogleCallbackRequest(
-          code: 'mock-google:flutter-google-user:flutter.google@example.com',
-          redirectUri: 'kando://auth/google',
+          idToken: 'mock-google:flutter-google-user:flutter.google@example.com',
           anonymousId: 'anon-existing',
         ),
       ]);
@@ -378,8 +377,7 @@ void main() {
 
       expect(repository.googleCallbackRequests, [
         const _GoogleCallbackRequest(
-          code: 'mock-google:flutter-google-user:flutter.google@example.com',
-          redirectUri: 'kando://auth/google',
+          idToken: 'mock-google:flutter-google-user:flutter.google@example.com',
           anonymousId: 'anon-existing',
         ),
       ]);
@@ -430,8 +428,7 @@ void main() {
 
       expect(repository.googleCallbackRequests, [
         const _GoogleCallbackRequest(
-          code: 'mock-google:flutter-google-user:flutter.google@example.com',
-          redirectUri: 'kando://auth/google',
+          idToken: 'mock-google:flutter-google-user:flutter.google@example.com',
           anonymousId: 'anon-existing',
         ),
       ]);
@@ -983,16 +980,11 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession> googleCallback({
-    required String code,
-    required String redirectUri,
+    required String idToken,
     String? anonymousId,
   }) async {
     googleCallbackRequests.add(
-      _GoogleCallbackRequest(
-        code: code,
-        redirectUri: redirectUri,
-        anonymousId: anonymousId,
-      ),
+      _GoogleCallbackRequest(idToken: idToken, anonymousId: anonymousId),
     );
     final error = googleCallbackError;
     if (error != null) {
@@ -1044,25 +1036,22 @@ class _FakeAuthRepository implements AuthRepository {
 
 class _GoogleCallbackRequest {
   const _GoogleCallbackRequest({
-    required this.code,
-    required this.redirectUri,
+    required this.idToken,
     required this.anonymousId,
   });
 
-  final String code;
-  final String redirectUri;
+  final String idToken;
   final String? anonymousId;
 
   @override
   bool operator ==(Object other) {
     return other is _GoogleCallbackRequest &&
-        other.code == code &&
-        other.redirectUri == redirectUri &&
+        other.idToken == idToken &&
         other.anonymousId == anonymousId;
   }
 
   @override
-  int get hashCode => Object.hash(code, redirectUri, anonymousId);
+  int get hashCode => Object.hash(idToken, anonymousId);
 }
 
 class _AppleCallbackRequest {

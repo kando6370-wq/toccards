@@ -30,8 +30,8 @@ vi.mock("./oauth-provider", async (importOriginal) => {
   };
   return {
     ...actual,
-    resolveGoogleIdentity: async (input: { code: string | null }) =>
-      resolveTestIdentity(input.code, "mock-google", "google"),
+    resolveGoogleIdentity: async (input: { idToken: string | null }) =>
+      resolveTestIdentity(input.idToken, "mock-google", "google"),
     resolveAppleIdentity: async (input: { idToken: string | null }) =>
       resolveTestIdentity(input.idToken, "mock-apple", "apple"),
   };
@@ -3253,8 +3253,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const db = fakeD1(env);
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:google-1:google.new@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:google-1:google.new@example.com",
     });
     const body = (await response.json()) as OAuthSuccessResponse;
 
@@ -3347,8 +3346,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const response = await requestGoogleOAuthCallbackWithAuthorization(
       env,
       {
-        code: "mock-google:google-existing:new-email@example.com",
-        redirect_uri: "kando://auth/google",
+        id_token: "mock-google:google-existing:new-email@example.com",
         anonymous_id: anonymousId,
       },
       `Bearer ${anonymousBody.data.access_token}`,
@@ -3425,8 +3423,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const response = await requestGoogleOAuthCallbackWithAuthorization(
       env,
       {
-        code: "mock-google:google-shared:shared@example.com",
-        redirect_uri: "kando://auth/google",
+        id_token: "mock-google:google-shared:shared@example.com",
         anonymous_id: anonymousId,
       },
       `Bearer ${anonymousBody.data.access_token}`,
@@ -3470,8 +3467,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     db.createConflictingUserBeforeNextUserInsert = true;
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:google-email-race:race@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:google-email-race:race@example.com",
     });
     const body = (await response.json()) as OAuthSuccessResponse;
 
@@ -3520,8 +3516,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     db.createConflictingIdentityBeforeNextAuthIdentityInsert = true;
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:google-identity-race:identity-race@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:google-identity-race:identity-race@example.com",
     });
     const body = (await response.json()) as OAuthSuccessResponse;
 
@@ -3576,8 +3571,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const response = await requestGoogleOAuthCallbackWithAuthorization(
       env,
       {
-        code: "mock-google:google-migrate:google.migrate@example.com",
-        redirect_uri: "kando://auth/google",
+        id_token: "mock-google:google-migrate:google.migrate@example.com",
         anonymous_id: anonymousBody.data.anonymous_id,
       },
       `Bearer ${anonymousBody.data.access_token}`,
@@ -3655,8 +3649,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const response = await requestGoogleOAuthCallbackWithAuthorization(
       env,
       {
-        code: "mock-google:google-race:google.race@example.com",
-        redirect_uri: "kando://auth/google",
+        id_token: "mock-google:google-race:google.race@example.com",
         anonymous_id: anonymousId,
       },
       `Bearer ${anonymousBody.data.access_token}`,
@@ -3711,8 +3704,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     });
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:google-deleted:fresh@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:google-deleted:fresh@example.com",
     });
     const body = await response.json();
 
@@ -3743,8 +3735,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     });
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:google-deleted-email:deleted-email@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:google-deleted-email:deleted-email@example.com",
     });
     const body = await response.json();
 
@@ -3765,8 +3756,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const env = createTestEnv();
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "bad-code",
-      redirect_uri: "kando://auth/google",
+      id_token: "bad-code",
     });
     const body = await response.json();
 
@@ -3786,8 +3776,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const env = createTestEnv();
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:bad uid:baduid@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:bad uid:baduid@example.com",
     });
     const body = await response.json();
 

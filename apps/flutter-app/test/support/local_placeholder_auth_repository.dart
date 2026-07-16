@@ -86,14 +86,10 @@ class LocalPlaceholderAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession> googleCallback({
-    required String code,
-    required String redirectUri,
+    required String idToken,
     String? anonymousId,
   }) async {
-    if (redirectUri.isEmpty) {
-      throw const OAuthAuthorizationException();
-    }
-    final identity = _parseMockIdentity(code, 'mock-google');
+    final identity = _parseMockIdentity(idToken, 'mock-google');
     return _userSession(
       identity.email,
       userId: identity.providerUid,

@@ -395,7 +395,7 @@ POST /auth/forgot-password/reset
 
 ### 2.8 Google OAuth 回调
 
-**用途**：接收 Google OAuth 授权码，由 Workers 换取用户信息，创建或登录账号。
+**用途**：接收 Google 原生登录签发的 ID Token，由 Workers 验证身份后创建或登录账号。
 
 ```
 POST /auth/oauth/google/callback
@@ -405,13 +405,12 @@ POST /auth/oauth/google/callback
 
 ```json
 {
-  "code": "string",             // Google OAuth authorization code
-  "redirect_uri": "string",     // 与授权时一致
+  "id_token": "string",         // Google identity token
   "anonymous_id": "string"      // 可选：匿名账号 ID，用于注册时迁移资产
 }
 ```
 
-> ⚠️ TBD：Google OAuth Client ID / Secret（见 Spec §6 TBD #4）。
+> Flutter iOS Client ID 与 Workers `GOOGLE_CLIENT_ID` 必须指向同一个 Google OAuth 受众；本流程不向客户端分发 Client Secret。
 
 成功响应（200）：
 
@@ -434,11 +433,11 @@ POST /auth/oauth/google/callback
 
 | code | 触发条件 | 文案 |
 |---|---|---|
-| `VALIDATION_ERROR` | 授权码无效 / 过期 | Authorization failed. Please try again. |
+| `VALIDATION_ERROR` | ID Token 无效 / 过期 / 受众不匹配 | Authorization failed. Please try again. |
 | `INTERNAL_ERROR` | 第三方接口异常 | Authorization failed. Please try again. |
 
 > Workers 内部逻辑：
-> 1. 用授权码换取 Google access_token，获取 `provider_uid`（Google sub）和邮箱。
+> 1. 通过 Google tokeninfo 验证 ID Token 的签发者、受众和邮箱验证状态，获取 `provider_uid`（Google sub）和邮箱。
 > 2. 查 `auth_identity`（provider='google', provider_uid）：若存在则查关联 user，直接登录；若不存在则：
 >    a. 创建 `user` 记录（password_hash=NULL）。
 >    b. 创建 `auth_identity` 记录。

@@ -178,12 +178,12 @@
   ↓
 App 拉起 Google 原生授权页
   ├─ 用户取消授权 → 返回注册登录选项页，不创建账号
-  └─ 授权成功 → App 获取 authorization_code
+  └─ 授权成功 → App 获取 id_token
   ↓
 调用 POST /auth/oauth/google/callback（含 anonymous_id，见 §八）
   ├─ is_new_user=true → 展示注册成功 Toast，进入 App
   ├─ is_new_user=false → 展示登录成功 Toast，进入 App
-  └─ 授权码无效 / 第三方异常 → "Authorization failed. Please try again."
+  └─ ID Token 无效 / 第三方异常 → "Authorization failed. Please try again."
 ```
 
 ### 6.2 接口引用
@@ -192,7 +192,7 @@ App 拉起 Google 原生授权页
 |---|---|
 | Google OAuth 回调 | `POST /auth/oauth/google/callback` — api-spec §2.8 |
 
-> ⚠️ TBD：Google OAuth Client ID / Secret（见 api-spec §6 TBD #1）。
+> iOS Client ID 与 Workers 的 Google 受众配置必须一致；原生登录流程不在 App 中保存 Client Secret。
 
 ---
 
