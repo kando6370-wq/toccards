@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { collectionItemDraftFromBody } from "../collection-item";
+import type { CardSearchResult } from "../data-source/adapter";
+import { createLocalDbDataSourceAdapter } from "../data-source/local-db-adapter";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
@@ -116,22 +118,7 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
   AND user_confirmation_status = 'pending'
 `;
 
-const PASSTHROUGH_FIELDS = [
-  "threshold",
-  "top",
-  "save_crop",
-  "no_detect",
-  "retrieval",
-  "crop_method",
-  "conf",
-  "multi",
-  "no_refine",
-  "ocr_rerank",
-  "ocr_model",
-  "ocr_auto_gap",
-  "phash_cluster_gap",
-  "vector_cluster_gap",
-] as const;
+const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export function createScanRoutes() {
   const routes = new Hono<ScanBindings>();
@@ -144,24 +131,30 @@ export function createScanRoutes() {
     const serviceBaseUrl = normalizeBaseUrl(c.env.OCR_SERVICE_BASE_URL);
     if (!serviceBaseUrl) return c.json(OCR_UNAVAILABLE_RESPONSE, 503);
 
-    const form = await c.req.raw.formData();
-    const image = form.get("image") as unknown;
-    if (!isFileLike(image)) return c.json(VALIDATION_ERROR_RESPONSE, 422);
-
-    const outbound = new FormData();
-    outbound.set("image", image, image.name || "scan.jpg");
-    for (const field of PASSTHROUGH_FIELDS) {
-      const value = readFormString(form, field);
-      if (value !== null) outbound.set(field, value);
+    const body = await readJson(c.req);
+    if (!isRecord(body)) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    const r = readPhash(body.r);
+    const g = readPhash(body.g);
+    const b = readPhash(body.b);
+    const gameId = body.game_id;
+    if (!r || !g || !b || !isOptionalGameId(gameId)) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
-    if (!outbound.has("retrieval")) outbound.set("retrieval", "phash");
-    if (!outbound.has("top")) outbound.set("top", "5");
+
+    const outbound = {
+      r,
+      g,
+      b,
+      ...(typeof gameId === "number" ? { game_id: gameId } : {}),
+    };
 
     let ocrPayload: unknown;
+    const startedAt = Date.now();
     try {
       const response = await fetch(`${serviceBaseUrl}/recognize`, {
         method: "POST",
-        body: outbound,
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify(outbound),
       });
       ocrPayload = await response.json();
       if (!response.ok) return c.json(OCR_UNAVAILABLE_RESPONSE, 502);
@@ -170,14 +163,29 @@ export function createScanRoutes() {
     }
 
     const payload = isRecord(ocrPayload) ? ocrPayload : {};
-    if (payload.ok !== true) return c.json(OCR_UNAVAILABLE_RESPONSE, 502);
+    const productIds = readProductIds(payload.product_ids);
+    if (!productIds) return c.json(OCR_UNAVAILABLE_RESPONSE, 502);
+    const adapter = createLocalDbDataSourceAdapter(c.env.DB);
+    const candidates = (
+      await Promise.all(
+        productIds.map(async (productId, index) => {
+          const card = await adapter.getCard(String(productId));
+          return card ? toCatalogCandidate(card, index) : null;
+        }),
+      )
+    ).filter((candidate): candidate is ScanCandidate => candidate !== null);
+    const results: ScanResult[] = [
+      { index: 1, matched: candidates.length > 0, candidates },
+    ];
 
     const scanId = createId();
     const createdAt = new Date().toISOString();
-    const results = readScanResults(payload);
-    const candidates = results.flatMap((result) => result.candidates);
     const recognitionStatus = candidates.length > 0 ? "success" : "no_match";
-    const systemResult = buildSystemResult(recognitionStatus, candidates[0] ?? null);
+    const systemResult = buildSystemResult(
+      recognitionStatus,
+      candidates[0] ?? null,
+      candidates.length,
+    );
     const userResult = {
       confirmation_status: "pending",
       final_card: null,
@@ -191,12 +199,12 @@ export function createScanRoutes() {
         scanId,
         auth.owner.owner_type,
         auth.owner.owner_id,
-        readFormString(form, "image_url"),
-        readString(payload.filename) ?? image.name ?? "scan.jpg",
-        readFormString(form, "platform") ?? "iOS",
-        readFormString(form, "app_version") ?? "unknown",
-        readFormString(form, "device_model"),
-        readFormString(form, "os_version"),
+        null,
+        readString(body.filename) ?? "scan.jpg",
+        readString(body.platform) ?? "iOS",
+        readString(body.app_version) ?? "unknown",
+        readString(body.device_model),
+        readString(body.os_version),
         recognitionStatus,
         "pending",
         JSON.stringify(systemResult),
@@ -212,9 +220,11 @@ export function createScanRoutes() {
       data: {
         scan_id: scanId,
         recognition_status: recognitionStatus,
-        cards_detected: readNumber(payload.cards_detected) ?? results.length,
-        elapsed: readNumber(payload.elapsed),
-        warnings: readStringArray(payload.warnings),
+        cards_detected: candidates.length > 0 ? 1 : 0,
+        elapsed: (Date.now() - startedAt) / 1000,
+        warnings: productIds.length === candidates.length
+          ? []
+          : ["Some recognized cards are missing from the catalog."],
         results,
       },
     });
@@ -317,22 +327,6 @@ export function createScanRoutes() {
   return routes;
 }
 
-function readScanResults(payload: Record<string, unknown>): ScanResult[] {
-  const results = Array.isArray(payload.results) ? payload.results : [];
-  return results.map((item, itemIndex) => {
-    const row = isRecord(item) ? item : {};
-    const matches = Array.isArray(row.matches) ? row.matches : [];
-    const candidates = matches
-      .map((match, matchIndex) => toScanCandidate(match, matchIndex))
-      .filter((candidate): candidate is ScanCandidate => candidate !== null);
-    return {
-      index: readNumber(row.index) ?? itemIndex + 1,
-      matched: row.matched === true && candidates.length > 0,
-      candidates,
-    };
-  });
-}
-
 async function readJson(request: { json(): Promise<unknown> }): Promise<unknown> {
   try {
     return await request.json();
@@ -356,26 +350,26 @@ function isStoredScanCandidate(value: unknown): value is ScanCandidate {
   return isRecord(value) && readString(value.card_ref) !== null;
 }
 
-function toScanCandidate(value: unknown, index: number): ScanCandidate | null {
-  if (!isRecord(value)) return null;
-  const cardRef = readString(value.product_id);
-  const name = readString(value.name);
-  if (!cardRef || !name) return null;
+function toCatalogCandidate(card: CardSearchResult, index: number): ScanCandidate {
   return {
     rank: index + 1,
-    card_ref: cardRef,
-    game: readString(value.game),
-    name,
-    set_code: readString(value.set),
-    card_number: readString(value.number),
-    rarity: readString(value.rarity),
-    confidence: readNumber(value.confidence),
-    retrieval: readString(value.retrieval),
-    distance: readNumber(value.distance),
+    card_ref: card.card_ref,
+    game: card.game ?? null,
+    name: card.name,
+    set_code: card.set_code || null,
+    card_number: card.card_number || null,
+    rarity: card.rarity,
+    confidence: null,
+    retrieval: "rgb-phash-16-v1",
+    distance: null,
   };
 }
 
-function buildSystemResult(status: string, candidate: ScanCandidate | null) {
+function buildSystemResult(
+  status: string,
+  candidate: ScanCandidate | null,
+  candidateCount: number,
+) {
   return {
     status,
     name: candidate?.name ?? null,
@@ -384,21 +378,43 @@ function buildSystemResult(status: string, candidate: ScanCandidate | null) {
     number: candidate?.card_number ?? null,
     rarity: candidate?.rarity ?? null,
     confidence: candidate?.confidence ?? null,
-    candidate_count: candidate ? 1 : 0,
+    candidate_count: candidateCount,
   };
+}
+
+function readPhash(value: unknown): string | null {
+  return typeof value === "string" && PHASH_PATTERN.test(value) ? value : null;
+}
+
+function isOptionalGameId(value: unknown): boolean {
+  return value === undefined ||
+    (typeof value === "number" &&
+      Number.isInteger(value) &&
+      value >= 1 &&
+      value <= 4_294_967_295);
+}
+
+function readProductIds(value: unknown): number[] | null {
+  if (!Array.isArray(value)) return null;
+  const productIds: number[] = [];
+  for (const item of value) {
+    if (
+      typeof item !== "number" ||
+      !Number.isInteger(item) ||
+      item < 1 ||
+      item > 4_294_967_295
+    ) {
+      return null;
+    }
+    if (!productIds.includes(item)) productIds.push(item);
+  }
+  return productIds;
 }
 
 function normalizeBaseUrl(value: string | undefined): string | null {
   const trimmed = value?.trim();
   if (!trimmed) return null;
   return trimmed.replace(/\/+$/, "");
-}
-
-function readFormString(form: FormData, key: string): string | null {
-  const value = form.get(key);
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 function readString(value: unknown): string | null {
@@ -408,18 +424,6 @@ function readString(value: unknown): string | null {
   }
   if (typeof value === "number") return String(value);
   return null;
-}
-
-function readNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function readStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map(String) : [];
-}
-
-function isFileLike(value: unknown): value is File {
-  return typeof File !== "undefined" && value instanceof File;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

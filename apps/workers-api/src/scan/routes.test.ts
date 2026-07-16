@@ -48,6 +48,19 @@ type CollectionItemRow = {
   notes: string | null;
 };
 type WishlistRow = { owner_type: "anonymous" | "user"; owner_id: string; card_ref: string };
+type CardCatalogRow = {
+  product_id: string;
+  game_id: number;
+  game: string | null;
+  set_name: string | null;
+  set_code: string | null;
+  name: string | null;
+  rarity: string | null;
+  product_type_name: string | null;
+  image_url: string | null;
+};
+
+const PHASH = "vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw";
 
 class FakeD1 {
   sessions: SessionRow[] = [];
@@ -56,6 +69,7 @@ class FakeD1 {
   folders: FolderRow[] = [];
   collectionItems: CollectionItemRow[] = [];
   wishlistItems: WishlistRow[] = [];
+  cards: CardCatalogRow[] = [];
 
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
@@ -90,6 +104,10 @@ class FakeD1Statement {
     if (sql.includes("FROM anonymous_account")) {
       const [id] = this.values as [string];
       return (this.db.anonymousAccounts.find((row) => row.id === id && row.upgraded_user_id === null) ?? null) as T | null;
+    }
+    if (sql.includes("FROM cards_all")) {
+      const [cardRef] = this.values as [string];
+      return (this.db.cards.find((row) => row.product_id === cardRef) ?? null) as T | null;
     }
     if (sql.includes("FROM scan_record")) {
       const [id, ownerType, ownerId] = this.values as [string, string, string];
@@ -238,7 +256,7 @@ describe("scan routes", () => {
     vi.unstubAllGlobals();
   });
 
-  it("proxies images to OCR and stores an audit record because App scans must be visible in Admin", async () => {
+  it("resolves production pHash product ids through D1 and stores an audit record because App scans must be reviewable", async () => {
     const env = createTestEnv();
     env.DB.sessions.push({
       id: "session-1",
@@ -248,6 +266,17 @@ describe("scan routes", () => {
       revoked_at: null,
     });
     env.DB.anonymousAccounts.push({ id: "anon-1", upgraded_user_id: null });
+    env.DB.cards.push({
+      product_id: "11958",
+      game_id: 1,
+      game: "Magic: The Gathering",
+      set_name: "Champions of Kamigawa",
+      set_code: "CHK",
+      name: "Bushi Tenderfoot",
+      rarity: "Uncommon",
+      product_type_name: "Cards",
+      image_url: null,
+    });
     const token = await signAccessToken(
       { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
       env.JWT_SECRET,
@@ -256,43 +285,31 @@ describe("scan routes", () => {
     vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
       expect(url).toBe("https://ocr.example.test/recognize");
       expect(init.method).toBe("POST");
-      expect(init.body).toBeInstanceOf(FormData);
-      return Response.json({
-        ok: true,
-        filename: "scan.jpg",
-        elapsed: 0.25,
-        retrieval: "phash",
-        ocr_model: "small",
-        cards_detected: 1,
-        warnings: [],
-        results: [
-          {
-            index: 1,
-            matched: true,
-            matches: [
-              {
-                product_id: "11958",
-                game: "Magic: The Gathering",
-                name: "Bushi Tenderfoot",
-                set: "CHK",
-                number: "1",
-                confidence: 86.2,
-                retrieval: "phash",
-              },
-            ],
-          },
-        ],
+      expect(init.headers).toEqual({
+        Accept: "application/json",
+        "Content-Type": "application/json",
       });
+      expect(JSON.parse(String(init.body))).toEqual({ r: PHASH, g: PHASH, b: PHASH });
+      return Response.json({ product_ids: [11958] });
     });
-
-    const form = new FormData();
-    form.set("image", new File(["image-bytes"], "scan.jpg", { type: "image/jpeg" }));
-    form.set("platform", "iOS");
-    form.set("app_version", "1.0.0");
 
     const response = await app.request(
       "/api/v1/scan/recognize",
-      { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form },
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          r: PHASH,
+          g: PHASH,
+          b: PHASH,
+          filename: "scan.jpg",
+          platform: "iOS",
+          app_version: "1.0.0",
+        }),
+      },
       env,
     );
     const body = await response.json();
@@ -305,7 +322,15 @@ describe("scan routes", () => {
         results: [
           expect.objectContaining({
             matched: true,
-            candidates: [expect.objectContaining({ card_ref: "11958", confidence: 86.2 })],
+            candidates: [
+              expect.objectContaining({
+                card_ref: "11958",
+                name: "Bushi Tenderfoot",
+                set_code: "CHK",
+                confidence: null,
+                retrieval: "rgb-phash-16-v1",
+              }),
+            ],
           }),
         ],
       }),
@@ -319,6 +344,42 @@ describe("scan routes", () => {
         candidates: expect.stringContaining("11958"),
       }),
     ]);
+  });
+
+  it("stores no_match when recognition ids are absent from D1 because an upstream id is not a reviewable card", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ product_ids: [999] })));
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        recognition_status: "no_match",
+        cards_detected: 0,
+        warnings: ["Some recognized cards are missing from the catalog."],
+        results: [{ index: 1, matched: false, candidates: [] }],
+      }),
+    });
+    expect(env.DB.scanRecords).toEqual([
+      expect.objectContaining({ recognition_status: "no_match", candidates: "[]" }),
+    ]);
+  });
+
+  it("rejects malformed pHashes before calling recognition because protocol errors must not create scan records", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await recognize(env, token, { r: "invalid", g: PHASH, b: PHASH });
+
+    expect(response.status).toBe(422);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(env.DB.scanRecords).toEqual([]);
   });
 
   it("confirms a stored candidate into Portfolio atomically because Review must not report a local-only add", async () => {
@@ -543,6 +604,42 @@ function createTestEnv(): TestEnvWithFakeDb {
     JWT_SECRET: "test-secret",
     OCR_SERVICE_BASE_URL: "https://ocr.example.test",
   };
+}
+
+function createRecognitionEnv(): TestEnvWithFakeDb {
+  const env = createTestEnv();
+  env.DB.sessions.push({
+    id: "session-1",
+    owner_type: "anonymous",
+    owner_id: "anon-1",
+    expires_at: "2099-01-01T00:00:00.000Z",
+    revoked_at: null,
+  });
+  env.DB.anonymousAccounts.push({ id: "anon-1", upgraded_user_id: null });
+  return env;
+}
+
+function recognitionToken(env: TestEnvWithFakeDb): Promise<string> {
+  return signAccessToken(
+    { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+    env.JWT_SECRET,
+  );
+}
+
+async function recognize(
+  env: TestEnvWithFakeDb,
+  token: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return await app.request(
+    "/api/v1/scan/recognize",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
 }
 
 function createConfirmEnv(): TestEnvWithFakeDb {
