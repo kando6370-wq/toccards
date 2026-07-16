@@ -154,9 +154,51 @@ LIMIT 100`,
         );
     },
 
-    async getSoldListings(): Promise<SoldListing[]> {
-      return [];
+    async getSoldListings(card_ref): Promise<SoldListing[]> {
+      const card = await db
+        .prepare(`${CARD_SELECT}WHERE product_id = ? LIMIT 1`)
+        .bind(card_ref)
+        .first<CardCatalogRow>();
+
+      if (!card) {
+        return [];
+      }
+
+      const skuRows = await findSkuRows(db, card_ref);
+
+      return skuRows
+        .map((row) => soldListingFromSku(card, row))
+        .filter((listing): listing is SoldListing => listing !== null)
+        .slice(0, 4);
     },
+  };
+}
+
+function soldListingFromSku(
+  card: CardCatalogRow,
+  sku: TcgplayerSkuRow,
+): SoldListing | null {
+  const latest = latestPricePoint(parsePriceHistory(sku.price_history));
+
+  if (!latest) {
+    return null;
+  }
+
+  const title = [
+    card.name ?? card.product_id,
+    sku.condition_name ?? sku.condition_code,
+    sku.language_name ?? sku.language_code,
+    sku.variant_name ?? sku.variant_code,
+  ]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .join(" · ");
+
+  return {
+    date: latest.date,
+    title,
+    price: latest.price,
+    platform: "TCGplayer",
+    url: `https://www.tcgplayer.com/product/${encodeURIComponent(card.product_id)}`,
   };
 }
 

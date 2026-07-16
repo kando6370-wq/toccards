@@ -213,6 +213,40 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
+  it("builds Shop rows from real SKU history because Card Detail must not rely on mock marketplace data", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            condition_name: "Near Mint",
+            language_name: "English",
+            variant_name: "Normal",
+            price_history: JSON.stringify([
+              { price: 12.5, date: "2026-07-01" },
+              { price: 15.75, date: "2026-07-08" },
+            ]),
+          }),
+          sku({
+            sku_id: 2,
+            variant_name: "Foil",
+            price_history: "[]",
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getSoldListings("100")).resolves.toEqual([
+      {
+        date: "2026-07-08",
+        title: "Charizard · Near Mint · English · Normal",
+        price: 15.75,
+        platform: "TCGplayer",
+        url: "https://www.tcgplayer.com/product/100",
+      },
+    ]);
+  });
+
   it("ranks trending cards from recent price history because Home must not depend on mock or manually pinned data", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
