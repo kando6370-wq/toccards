@@ -21,6 +21,9 @@ export function createLegalRoutes(): Hono<{ Bindings: Env }> {
   routes.get("/legal/privacy", (c) =>
     c.html(legalPage("Privacy Policy", privacyContent()), 200, LEGAL_HEADERS),
   );
+  routes.get("/legal/support", (c) =>
+    c.html(legalPage("Support", supportContent()), 200, LEGAL_HEADERS),
+  );
 
   return routes;
 }
@@ -120,4 +123,16 @@ function privacyContent(): string {
     <p>${PRODUCT_NAME} is not directed to children under 13, and we do not knowingly collect personal information from children under 13. Contact us if you believe a child has provided information.</p>
     <h2>11. Changes to this policy</h2>
     <p>We may update this policy as ${PRODUCT_NAME} changes. Material updates will be communicated through the app or another reasonable channel, and the effective date above will be revised.</p>`;
+}
+
+function supportContent(): string {
+  return `
+    <p>Get help with ${PRODUCT_NAME} scanning, account access, collection data, and app settings.</p>
+    <h2>Contact support</h2>
+    <p>Open Profile in the app and select Customer Support to send a request with the relevant category and details. You may also email <a href="mailto:kando@tcgcard.fun">kando@tcgcard.fun</a>.</p>
+    <p>Do not send passwords, verification codes, or payment information in a support request.</p>
+    <h2>Account deletion</h2>
+    <p>You can delete your account from Profile &gt; Account &gt; Delete account. If you cannot access the app, contact support from the email address associated with your account.</p>
+    <h2>Policies</h2>
+    <p>Review the <a href="/api/v1/legal/terms">Terms of Use</a> and <a href="/api/v1/legal/privacy">Privacy Policy</a> for service and data-handling details.</p>`;
 }

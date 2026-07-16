@@ -30,4 +30,15 @@ describe("public legal routes", () => {
     expect(html).toContain("Cloudflare");
     expect(html).toContain("request account deletion");
   });
+
+  it("serves public support instructions because store review needs a working support URL", async () => {
+    const response = await app.request("/api/v1/legal/support");
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain("<title>Support | Card AI</title>");
+    expect(html).toContain("Profile &gt; Account &gt; Delete account");
+    expect(html).toContain("kando@tcgcard.fun");
+    expect(html).toContain('/api/v1/legal/privacy');
+  });
 });
