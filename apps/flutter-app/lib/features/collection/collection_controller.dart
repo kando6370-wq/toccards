@@ -255,8 +255,10 @@ class CollectionState {
 
     return CollectionSummary(
       totalValueText: _formatPortfolioTotal(total),
-      cardCount: items.length,
-      gradedCount: items.where((item) => item.isGraded).length,
+      cardCount: items.fold(0, (sum, item) => sum + item.quantity),
+      gradedCount: items
+          .where((item) => item.isGraded)
+          .fold(0, (sum, item) => sum + item.quantity),
     );
   }
 

@@ -266,7 +266,7 @@ void main() {
     },
   );
 
-  test('defaults to Portfolio tab and Main folder summary', () async {
+  test('summary counts owned copies because quantity represents physical cards', () async {
     final container = _collectionContainer();
     addTearDown(container.dispose);
     final state = await _loadedState(container);
@@ -274,7 +274,7 @@ void main() {
     expect(state.selectedTab, CollectionTab.portfolio);
     expect(state.selectedFolder.name, 'Main');
     expect(state.portfolioSummary.totalValueText, r'$1,245.00');
-    expect(state.portfolioSummary.cardCount, 3);
+    expect(state.portfolioSummary.cardCount, 4);
     expect(state.portfolioSummary.gradedCount, 2);
     expect(state.visibleItems.map((item) => item.name), [
       'Charizard ex',
@@ -285,6 +285,21 @@ void main() {
     expect(state.visibleItems.first.source.previous30dPriceUsd, 721.55);
     expect(state.visibleItems.first.changeText, '+8.10%');
   });
+
+  test(
+    'graded summary counts graded copies rather than collection rows',
+    () async {
+      final container = _collectionContainer(
+        repository: const _GradedQuantityCollectionRepository(),
+      );
+      addTearDown(container.dispose);
+
+      final state = await _loadedState(container);
+
+      expect(state.portfolioSummary.cardCount, 7);
+      expect(state.portfolioSummary.gradedCount, 5);
+    },
+  );
 
   test(
     'shared selected currency converts collection money while preserving percentages',
@@ -617,6 +632,38 @@ class _FailingThenSuccessfulCollectionRepository
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _GradedQuantityCollectionRepository extends MockCollectionRepository {
+  const _GradedQuantityCollectionRepository();
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    final dashboard = await super.loadDashboard(session);
+    return dashboard.copyWith(
+      portfolioItems: [
+        ...dashboard.portfolioItems,
+        const CollectionItem(
+          id: 'item-graded-copies',
+          cardRef: 'graded-copies',
+          folderId: 'main',
+          name: 'Graded copies',
+          setName: 'Test Set',
+          number: '#001',
+          game: 'Pokemon',
+          language: 'English',
+          finish: 'Holofoil',
+          grader: 'PSA',
+          condition: null,
+          grade: 10,
+          quantity: 3,
+          marketValueUsd: null,
+          previous30dPriceUsd: null,
+          createdAtSort: 5,
+        ),
+      ],
+    );
+  }
 }
 
 class _FakePortfolioApiClient implements PortfolioApi, PortfolioManagementApi {
