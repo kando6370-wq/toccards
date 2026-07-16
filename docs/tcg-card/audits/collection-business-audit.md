@@ -121,3 +121,18 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | 当前 Flutter 按卡请求基础信息、市场价、30D 曲线 | 数据量增长后产生严重 N+1 和超时 | 改为服务端 Collection dashboard 批量接口 |
 | 旧列表客户端固定 `page_size=100` 且不翻页 | 第 101 条起静默不可见 | dashboard 必须返回 owner 的完整集合，旧列表只保留其他页面兼容 |
 | 生产价格历史覆盖率与新鲜度不足 | 大量价格和 30D Change 为空或陈旧 | 不插测试价格掩盖；列为数据管线上线依赖 |
+
+## 10. 本轮整改与验证
+
+| 项目 | 结果 | 证据 |
+|---|---|---|
+| Collection 聚合接口 | 已完成；单次返回文件夹、偏好、完整 Portfolio/Wishlist、卡牌展示字段、当前价和 30D 基准 | `816679e`；`GET /collection/dashboard` |
+| 100 条静默截断 | Collection 主页面已消除；聚合接口不分页，自动化测试覆盖 101 条资产 | `collection-dashboard.test.ts` |
+| Flutter N+1 | 已消除；Collection Repository 只调用聚合接口，旧逐卡卡牌/价格/曲线调用为零 | `96ebfe3`；`collection_controller_test.dart` |
+| Graded 定价 | 保持空价，不使用 Raw 冒充 | `collection-dashboard.test.ts` |
+| Workers 验证 | 236 项测试与 TypeScript 类型检查通过 | 本轮 2026-07-16 验证记录 |
+| Flutter 验证 | 332 项通过、1 项跳过；`flutter analyze` 无问题 | 本轮 2026-07-16 验证记录 |
+| 生产部署 | 已部署 Workers 版本 `6f086420-e86d-4168-a56d-b714d6a072b5` | Cloudflare 部署输出 |
+| 生产真实价格 smoke | `9359 / Escape Artist` 返回当前价 `0.21`、30D 基准 `0.20`、Quantity `2`；临时账户随后删除 | 生产 API 2026-07-16 实测 |
+
+整改后仍未解除的上线依赖只有真实 Graded 价格源和生产价格数据覆盖率/新鲜度；这两项不得用测试价格掩盖。
