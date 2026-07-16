@@ -1281,7 +1281,7 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
             ScanReviewPrice(
               grader: 'Raw',
               grade: null,
-              condition: 'Near Mint (NM)',
+              condition: 'Near Mint',
               price: 25,
             ),
             ScanReviewPrice(

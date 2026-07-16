@@ -199,8 +199,8 @@ String _reviewTotalText(ScanReviewCard card, _ScanCollectionDraft draft) {
           return false;
         }
         if (draft.isRaw) {
-          return candidate.condition?.toLowerCase() ==
-              draft.condition.toLowerCase();
+          return _normalizedReviewCondition(candidate.condition) ==
+              _normalizedReviewCondition(draft.condition);
         }
         final grade = double.tryParse(draft.grade);
         return grade != null && candidate.grade == grade;
@@ -208,6 +208,13 @@ String _reviewTotalText(ScanReviewCard card, _ScanCollectionDraft draft) {
       .firstOrNull
       ?.price;
   return price == null ? '--' : '\$${(price * quantity).toStringAsFixed(2)}';
+}
+
+String _normalizedReviewCondition(String? value) {
+  return (value ?? '')
+      .trim()
+      .toLowerCase()
+      .replaceFirst(RegExp(r'\s*\([^)]*\)\s*$'), '');
 }
 
 class _PendingScan {
