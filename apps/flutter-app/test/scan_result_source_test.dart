@@ -51,7 +51,8 @@ void main() {
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
 
-      expect((await source.library()).kind, ScanResolutionKind.noMatch);
+      final results = await source.library();
+      expect((await results.single).kind, ScanResolutionKind.noMatch);
     },
   );
 
@@ -88,8 +89,34 @@ void main() {
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
 
-      expect((await source.library()).kind, ScanResolutionKind.cancelled);
+      expect(await source.library(), isEmpty);
       expect(api.callCount, 0);
+    },
+  );
+
+  test(
+    'library recognizes up to ten selected images independently because each imported card needs its own scan record',
+    () async {
+      final picker = _FakeScanImagePicker(batchCount: 12);
+      final api = _FakeScanApi(_matchedRecognition);
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: picker,
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final pendingResults = await source.library();
+      final results = await Future.wait(pendingResults);
+
+      expect(picker.batchLimits, [10]);
+      expect(results, hasLength(10));
+      expect(
+        results.every((result) => result.kind == ScanResolutionKind.matched),
+        isTrue,
+      );
+      expect(api.callCount, 10);
     },
   );
 }
@@ -129,10 +156,12 @@ const _matchedRecognition = ScanRecognitionDto(
 );
 
 class _FakeScanImagePicker implements ScanImagePicker {
-  _FakeScanImagePicker({this.cancelled = false});
+  _FakeScanImagePicker({this.cancelled = false, this.batchCount = 1});
 
   final bool cancelled;
+  final int batchCount;
   final sources = <ScanImageSource>[];
+  final batchLimits = <int>[];
 
   @override
   Future<ScanImage?> pick(ScanImageSource source) async {
@@ -142,6 +171,23 @@ class _FakeScanImagePicker implements ScanImagePicker {
       bytes: Uint8List.fromList([1, 2, 3]),
       fileName: 'scan.jpg',
     );
+  }
+
+  @override
+  Future<List<ScanImage>> pickMany(
+    ScanImageSource source, {
+    required int limit,
+  }) async {
+    sources.add(source);
+    batchLimits.add(limit);
+    if (cancelled) return const [];
+    return [
+      for (var index = 0; index < batchCount; index += 1)
+        ScanImage(
+          bytes: Uint8List.fromList([index + 1]),
+          fileName: 'scan-$index.jpg',
+        ),
+    ];
   }
 }
 

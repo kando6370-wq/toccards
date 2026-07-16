@@ -56,7 +56,7 @@ class ScanResolution {
 
 abstract interface class ScanResultSource {
   Future<ScanResolution> photo();
-  Future<ScanResolution> library();
+  Future<List<Future<ScanResolution>>> library();
   Future<ScanResolution> retry();
 }
 
@@ -80,6 +80,10 @@ class ScanImage {
 
 abstract interface class ScanImagePicker {
   Future<ScanImage?> pick(ScanImageSource source);
+  Future<List<ScanImage>> pickMany(
+    ScanImageSource source, {
+    required int limit,
+  });
 }
 
 class ImagePickerScanImagePicker implements ScanImagePicker {
@@ -98,6 +102,30 @@ class ImagePickerScanImagePicker implements ScanImagePicker {
     );
     if (image == null) return null;
     return ScanImage(bytes: await image.readAsBytes(), fileName: image.name);
+  }
+
+  @override
+  Future<List<ScanImage>> pickMany(
+    ScanImageSource source, {
+    required int limit,
+  }) async {
+    if (source != ScanImageSource.gallery) {
+      throw ArgumentError.value(
+        source,
+        'source',
+        'Only gallery supports batches.',
+      );
+    }
+    final images = await _imagePicker.pickMultiImage(
+      requestFullMetadata: false,
+      limit: limit,
+    );
+    return Future.wait([
+      for (final image in images)
+        image.readAsBytes().then(
+          (bytes) => ScanImage(bytes: bytes, fileName: image.name),
+        ),
+    ]);
   }
 }
 
@@ -129,8 +157,16 @@ class ApiScanResultSource implements ScanResultSource {
   Future<ScanResolution> photo() => _pickAndRecognize(ScanImageSource.camera);
 
   @override
-  Future<ScanResolution> library() =>
-      _pickAndRecognize(ScanImageSource.gallery);
+  Future<List<Future<ScanResolution>>> library() async {
+    final images = await _imagePicker.pickMany(
+      ScanImageSource.gallery,
+      limit: 10,
+    );
+    final selectedImages = images.take(10).toList();
+    if (selectedImages.isEmpty) return const [];
+    _lastImage = selectedImages.last;
+    return [for (final image in selectedImages) _recognize(image)];
+  }
 
   @override
   Future<ScanResolution> retry() async {

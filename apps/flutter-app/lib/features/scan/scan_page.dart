@@ -348,8 +348,18 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _addScan(Future.sync(() => ref.read(scanResultSourceProvider).photo()));
   }
 
-  void _startLibraryScan() {
-    _addScan(Future.sync(() => ref.read(scanResultSourceProvider).library()));
+  Future<void> _startLibraryScan() async {
+    try {
+      final scans = await ref.read(scanResultSourceProvider).library();
+      if (!mounted) return;
+      for (final scan in scans) {
+        _addScan(scan);
+      }
+    } catch (_) {
+      if (mounted) {
+        _addScan(Future.value(const ScanResolution.failed()));
+      }
+    }
   }
 
   void _retryScan(_ScanItem item) {

@@ -921,6 +921,36 @@ void main() {
   });
 
   testWidgets(
+    'Gallery creates one Scanning item per selected image because batch imports must remain independently reviewable',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        libraryResults: [
+          for (var index = 0; index < 3; index += 1)
+            Future.value(
+              ScanResolution.matched(
+                scanId: 'gallery-scan-$index',
+                cardRef: 'gallery-card-$index',
+                matchName: 'Gallery card $index',
+                candidates: ['Gallery card $index'],
+                candidateCardRefs: ['gallery-card-$index'],
+              ),
+            ),
+        ],
+      );
+      await _pumpScanTestApp(tester, scanResultSource: source);
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
+      expect(find.byKey(const Key('scan-active-item-3')), findsOneWidget);
+      expect(find.text('Scanned: 0/3'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'No Match scan offers Search Manually because unmatched cards cannot enter review',
     (tester) async {
       await _pumpScanTestApp(tester);
@@ -1236,20 +1266,22 @@ class _TestScanResultSource implements ScanResultSource {
     required Future<ScanResolution> photoResult,
     List<Future<ScanResolution>> subsequentPhotoResults = const [],
     Future<ScanResolution>? libraryResult,
+    List<Future<ScanResolution>>? libraryResults,
     Future<ScanResolution>? retryResult,
   }) : _photoResults = [photoResult, ...subsequentPhotoResults],
-       _libraryResult =
-           libraryResult ?? Future.value(const ScanResolution.noMatch()),
+       _libraryResults =
+           libraryResults ??
+           [libraryResult ?? Future.value(const ScanResolution.noMatch())],
        _retryResult =
            retryResult ?? Future.value(const ScanResolution.failed());
 
   final List<Future<ScanResolution>> _photoResults;
-  final Future<ScanResolution> _libraryResult;
+  final List<Future<ScanResolution>> _libraryResults;
   final Future<ScanResolution> _retryResult;
   var _nextPhotoResult = 0;
 
   @override
-  Future<ScanResolution> library() => _libraryResult;
+  Future<List<Future<ScanResolution>>> library() async => _libraryResults;
 
   @override
   Future<ScanResolution> photo() {
