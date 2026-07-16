@@ -1,5 +1,4 @@
 import 'package:kando_app/features/auth/auth_models.dart';
-import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import 'collection_models.dart';
@@ -27,52 +26,25 @@ class HttpCollectionRepository implements CollectionRepository {
   const HttpCollectionRepository(
     this._api, {
     required PortfolioManagementApi managementApi,
-    CardDataApi? cardDataApi,
-  }) : _managementApi = managementApi,
-       _cardDataApi = cardDataApi;
+  }) : _managementApi = managementApi;
 
-  final PortfolioApi _api;
+  final CollectionDashboardApi _api;
   final PortfolioManagementApi _managementApi;
-  final CardDataApi? _cardDataApi;
 
   @override
   Future<CollectionDashboard> loadDashboard(AuthSession session) async {
-    final results = await Future.wait([
-      _api.listFolders(session),
-      _api.listCollectionItems(session),
-      _api.listWishlistItems(session),
-      _managementApi.getPreferences(session),
-    ]);
-    final folders = results[0] as List<PortfolioFolderDto>;
-    final items = results[1] as List<PortfolioItemDto>;
-    final wishlist = results[2] as List<WishlistItemDto>;
-    final preferences = results[3] as UserPreferenceDto;
-    final presentations = await _loadPresentations(items, wishlist);
-    final portfolioItems = await Future.wait(
-      items.map(
-        (item) => _collectionItemFromPortfolioDto(
-          item,
-          presentations[item.cardRef],
-          _cardDataApi,
-        ),
-      ),
-    );
-    final wishlistItems = await Future.wait(
-      wishlist.map(
-        (item) => _collectionItemFromWishlistDto(
-          item,
-          presentations[item.cardRef],
-          _cardDataApi,
-        ),
-      ),
-    );
+    final dashboard = await _api.getCollectionDashboard(session);
 
     return CollectionDashboard(
-      folders: folders.map(_folderFromDto).toList(),
-      portfolioItems: portfolioItems,
-      wishlistItems: wishlistItems,
-      currencyCode: preferences.currency,
-      amountHidden: preferences.amountHidden,
+      folders: dashboard.folders.map(_folderFromDto).toList(),
+      portfolioItems: dashboard.portfolioItems
+          .map(_collectionItemFromDto)
+          .toList(),
+      wishlistItems: dashboard.wishlistItems
+          .map(_collectionItemFromDto)
+          .toList(),
+      currencyCode: dashboard.preference.currency,
+      amountHidden: dashboard.preference.amountHidden,
     );
   }
 
@@ -127,253 +99,30 @@ class HttpCollectionRepository implements CollectionRepository {
       lastSelectedFolderId: lastSelectedFolderId,
     );
   }
-
-  Future<Map<String, _CollectionPresentation>> _loadPresentations(
-    List<PortfolioItemDto> items,
-    List<WishlistItemDto> wishlist,
-  ) async {
-    final api = _cardDataApi;
-    if (api == null) {
-      return const {};
-    }
-
-    final cardRefs = <String>{
-      for (final item in items) item.cardRef,
-      for (final item in wishlist) item.cardRef,
-    };
-    final entries = await Future.wait(cardRefs.map((cardRef) async {
-      final CardDataCardDto card;
-      try {
-        card = await api.getCard(cardRef);
-      } catch (_) {
-        return MapEntry(cardRef, _missingPresentation(cardRef));
-      }
-      var prices = const <CardDataMarketPriceDto>[];
-      try {
-        prices = await api.getMarketPrices(cardRef);
-      } catch (_) {
-      }
-      return MapEntry(cardRef, _presentationFromCardData(card, prices));
-    }));
-    return Map.fromEntries(entries);
-  }
 }
 
 CollectionFolder _folderFromDto(PortfolioFolderDto dto) {
   return CollectionFolder(id: dto.id, name: dto.name, isDefault: dto.isDefault);
 }
 
-Future<CollectionItem> _collectionItemFromPortfolioDto(
-  PortfolioItemDto dto,
-  _CollectionPresentation? presentation,
-  CardDataApi? api,
-) async {
-  final card = presentation ?? _missingPresentation(dto.cardRef);
-  final marketPrice = _marketPriceFor(
-    card.prices,
-    grader: dto.grader,
-    grade: dto.grade,
-    condition: dto.condition,
-  );
-  final previousPrice = await _previous30dPrice(
-    api,
-    dto.cardRef,
-    marketPrice,
-  );
+CollectionItem _collectionItemFromDto(CollectionDashboardItemDto dto) {
   return CollectionItem(
     id: dto.id,
     cardRef: dto.cardRef,
     folderId: dto.folderId,
-    name: card.name,
-    setName: card.setName,
-    number: card.number,
-    game: card.game,
-    language: dto.language ?? card.language,
-    finish: dto.finish ?? card.finish,
+    name: dto.name,
+    setName: dto.setName,
+    number: dto.cardNumber.isEmpty ? '--' : '#${dto.cardNumber}',
+    game: dto.game,
+    language: dto.language,
+    finish: dto.finish,
     grader: dto.grader,
     condition: dto.condition,
     grade: dto.grade,
     quantity: dto.quantity,
-    marketValueUsd: marketPrice?.price,
-    previous30dPriceUsd: previousPrice,
+    marketValueUsd: dto.marketPriceUsd,
+    previous30dPriceUsd: dto.previous30dPriceUsd,
     createdAtSort: dto.createdAt.millisecondsSinceEpoch,
-    imageUrl: card.imageUrl,
+    imageUrl: dto.imageUrl,
   );
-}
-
-Future<CollectionItem> _collectionItemFromWishlistDto(
-  WishlistItemDto dto,
-  _CollectionPresentation? presentation,
-  CardDataApi? api,
-) async {
-  final card = presentation ?? _missingPresentation(dto.cardRef);
-  final marketPrice = _wishlistMarketPrice(card.prices);
-  final previousPrice = await _previous30dPrice(
-    api,
-    dto.cardRef,
-    marketPrice,
-  );
-  return CollectionItem(
-    id: dto.id,
-    cardRef: dto.cardRef,
-    folderId: null,
-    name: card.name,
-    setName: card.setName,
-    number: card.number,
-    game: card.game,
-    language: card.language,
-    finish: card.finish,
-    grader: 'Raw',
-    condition: marketPrice?.condition,
-    grade: null,
-    quantity: 1,
-    marketValueUsd: marketPrice?.price,
-    previous30dPriceUsd: previousPrice,
-    createdAtSort: dto.createdAt.millisecondsSinceEpoch,
-    imageUrl: card.imageUrl,
-  );
-}
-
-_CollectionPresentation _presentationFromCardData(
-  CardDataCardDto card,
-  List<CardDataMarketPriceDto> prices,
-) {
-  return _CollectionPresentation(
-    name: card.name,
-    setName: card.setName,
-    number: card.cardNumber.isEmpty ? '--' : '#${card.cardNumber}',
-    game: card.game ?? _gameLabelFromObjectType(card.objectType),
-    language: card.language ?? 'Unknown',
-    finish: card.finish ?? 'Unknown',
-    imageUrl: card.imageUrl,
-    prices: prices,
-  );
-}
-
-_CollectionPresentation _missingPresentation(String cardRef) {
-  return _CollectionPresentation(
-    name: cardRef,
-    setName: 'Card data unavailable',
-    number: '--',
-    game: 'Unknown',
-    language: 'Unknown',
-    finish: 'Unknown',
-    imageUrl: null,
-    prices: const [],
-  );
-}
-
-CardDataMarketPriceDto? _marketPriceFor(
-  List<CardDataMarketPriceDto> prices, {
-  required String grader,
-  required double? grade,
-  required String? condition,
-}) {
-  for (final price in prices) {
-    if (_matchesMarketPrice(
-      price,
-      grader: grader,
-      grade: grade,
-      condition: condition,
-    )) {
-      return price;
-    }
-  }
-  return null;
-}
-
-CardDataMarketPriceDto? _wishlistMarketPrice(
-  List<CardDataMarketPriceDto> prices,
-) {
-  for (final price in prices) {
-    if (price.grader.toLowerCase() == 'raw' &&
-        _normalizedCondition(price.condition) == 'near mint') {
-      return price;
-    }
-  }
-  for (final price in prices) {
-    if (price.grader.toLowerCase() == 'raw') {
-      return price;
-    }
-  }
-  return null;
-}
-
-Future<double?> _previous30dPrice(
-  CardDataApi? api,
-  String cardRef,
-  CardDataMarketPriceDto? marketPrice,
-) async {
-  if (api == null || marketPrice?.price == null) {
-    return null;
-  }
-  try {
-    final series = await api.getPriceSeries(
-      cardRef,
-      days: 30,
-      grader: marketPrice!.grader,
-      grade: marketPrice.grade,
-      condition: marketPrice.condition,
-    );
-    return series.length > 1 ? series.first.price : null;
-  } catch (_) {
-    return null;
-  }
-}
-
-bool _matchesMarketPrice(
-  CardDataMarketPriceDto price, {
-  required String grader,
-  required double? grade,
-  required String? condition,
-}) {
-  if (price.grader.toLowerCase() != grader.toLowerCase()) {
-    return false;
-  }
-  if (grade != null && price.grade != grade) {
-    return false;
-  }
-  if (condition != null &&
-      _normalizedCondition(price.condition) != _normalizedCondition(condition)) {
-    return false;
-  }
-  return true;
-}
-
-String _normalizedCondition(String? value) {
-  return (value ?? '')
-      .trim()
-      .toLowerCase()
-      .replaceFirst(RegExp(r'\s*\([^)]*\)\s*$'), '');
-}
-
-String _gameLabelFromObjectType(String objectType) {
-  return switch (objectType.trim().toLowerCase()) {
-    'tcg' => 'TCG',
-    'sports' => 'Sports',
-    'sealed' => 'Sealed',
-    _ => 'Other',
-  };
-}
-
-class _CollectionPresentation {
-  const _CollectionPresentation({
-    required this.name,
-    required this.setName,
-    required this.number,
-    required this.game,
-    required this.language,
-    required this.finish,
-    required this.imageUrl,
-    this.prices = const [],
-  });
-
-  final String name;
-  final String setName;
-  final String number;
-  final String game;
-  final String language;
-  final String finish;
-  final String? imageUrl;
-  final List<CardDataMarketPriceDto> prices;
 }

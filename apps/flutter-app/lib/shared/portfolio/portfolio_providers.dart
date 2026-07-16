@@ -13,7 +13,7 @@ final portfolioDioProvider = Provider((ref) {
   return dio;
 });
 
-final portfolioApiClientProvider = Provider<PortfolioApi>((ref) {
+final portfolioApiClientProvider = Provider<PortfolioApiClient>((ref) {
   return PortfolioApiClient(ref.watch(portfolioDioProvider));
 });
 

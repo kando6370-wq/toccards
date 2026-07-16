@@ -169,6 +169,67 @@ void main() {
   );
 
   test(
+    'collection dashboard maps all display data in one request because Collection must not issue per-card calls',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/collection/dashboard');
+        expect(request.queryParameters, isEmpty);
+        return _json(200, {
+          'success': true,
+          'data': {
+            'folders': [
+              _folderJson(
+                id: 'main',
+                name: 'Main',
+                isDefault: true,
+                sortOrder: 100,
+              ),
+            ],
+            'preference': {
+              'currency': 'NZD',
+              'amount_hidden': true,
+              'last_selected_folder_id': 'main',
+            },
+            'portfolio_items': [
+              {
+                'id': 'item-1',
+                'folder_id': 'main',
+                'card_ref': '100',
+                'name': 'Pikachu',
+                'set_name': 'Base Set',
+                'card_number': '25',
+                'game': 'Pokemon',
+                'language': 'English',
+                'finish': 'Normal',
+                'grader': 'Raw',
+                'condition': 'Near Mint (NM)',
+                'grade': null,
+                'quantity': 2,
+                'market_price_usd': 20,
+                'previous_30d_price_usd': 10,
+                'created_at': '2026-07-01T00:00:00.000Z',
+                'image_url': 'https://img.example/100.jpg',
+              },
+            ],
+            'wishlist_items': <Object?>[],
+          },
+        });
+      });
+
+      final dashboard = await PortfolioApiClient(
+        _dio(adapter),
+      ).getCollectionDashboard(_session);
+
+      expect(dashboard.folders.single.id, 'main');
+      expect(dashboard.preference.currency, 'NZD');
+      expect(dashboard.portfolioItems.single.marketPriceUsd, 20);
+      expect(dashboard.portfolioItems.single.previous30dPriceUsd, 10);
+      expect(adapter.requests, hasLength(1));
+    },
+  );
+
+  test(
     'listCollectionItems maps backend rows because Collection reads Workers asset state',
     () async {
       final adapter = _RecordingAdapter((request) {

@@ -115,18 +115,11 @@ void main() {
       final dashboard = await HttpCollectionRepository(
         api,
         managementApi: api,
-        cardDataApi: cardDataApi,
       ).loadDashboard(_session);
 
       expect(dashboard.defaultFolder.id, 'main');
-      expect(cardDataApi.cardRefs, [
-        'catalog:pikachu-025',
-        'catalog:luffy-001',
-      ]);
-      expect(cardDataApi.marketPriceRefs, [
-        'catalog:pikachu-025',
-        'catalog:luffy-001',
-      ]);
+      expect(cardDataApi.cardRefs, isEmpty);
+      expect(cardDataApi.marketPriceRefs, isEmpty);
       expect(dashboard.portfolioItems.first.cardRef, 'catalog:pikachu-025');
       expect(dashboard.portfolioItems.first.name, 'Pikachu');
       expect(dashboard.portfolioItems.first.setName, 'Base Set');
@@ -138,7 +131,7 @@ void main() {
         dashboard.portfolioItems.first.imageUrl,
         'https://api.tcgcard.fun/api/v1/cards/25/image',
       );
-      expect(dashboard.portfolioItems.last.marketValueUsd, 90);
+      expect(dashboard.portfolioItems.last.marketValueUsd, isNull);
       expect(dashboard.wishlistItems.single.cardRef, 'catalog:luffy-001');
       expect(dashboard.wishlistItems.single.name, 'Monkey D. Luffy');
       expect(dashboard.wishlistItems.single.marketValueUsd, 330);
@@ -146,7 +139,7 @@ void main() {
   );
 
   test(
-    'http repository keeps owned rows when card-data enrichment partially fails because portfolio is the source of truth',
+    'http repository keeps server-enriched owned rows without calling card-data endpoints because dashboard is the source of truth',
     () async {
       final api = _FakePortfolioApiClient(
         folders: const [
@@ -194,7 +187,6 @@ void main() {
       final dashboard = await HttpCollectionRepository(
         api,
         managementApi: api,
-        cardDataApi: cardDataApi,
       ).loadDashboard(_session);
 
       expect(dashboard.portfolioItems.map((item) => item.name), [
@@ -202,7 +194,9 @@ void main() {
         'Pikachu',
       ]);
       expect(dashboard.portfolioItems.first.marketValueUsd, isNull);
-      expect(dashboard.portfolioItems.last.marketValueUsd, isNull);
+      expect(dashboard.portfolioItems.last.marketValueUsd, 12.5);
+      expect(cardDataApi.cardRefs, isEmpty);
+      expect(cardDataApi.marketPriceRefs, isEmpty);
     },
   );
 
@@ -258,11 +252,12 @@ void main() {
       final dashboard = await HttpCollectionRepository(
         api,
         managementApi: api,
-        cardDataApi: cardDataApi,
       ).loadDashboard(_session);
 
       expect(dashboard.portfolioItems.single.marketValueUsd, isNull);
       expect(dashboard.portfolioItems.single.previous30dPriceUsd, isNull);
+      expect(cardDataApi.cardRefs, isEmpty);
+      expect(cardDataApi.marketPriceRefs, isEmpty);
     },
   );
 
@@ -666,7 +661,8 @@ class _GradedQuantityCollectionRepository extends MockCollectionRepository {
   }
 }
 
-class _FakePortfolioApiClient implements PortfolioApi, PortfolioManagementApi {
+class _FakePortfolioApiClient
+    implements PortfolioApi, PortfolioManagementApi, CollectionDashboardApi {
   const _FakePortfolioApiClient({
     required this.folders,
     required this.items,
@@ -676,6 +672,76 @@ class _FakePortfolioApiClient implements PortfolioApi, PortfolioManagementApi {
   final List<PortfolioFolderDto> folders;
   final List<PortfolioItemDto> items;
   final List<WishlistItemDto> wishlist;
+
+  @override
+  Future<CollectionDashboardDto> getCollectionDashboard(
+    AuthSession session,
+  ) async {
+    return CollectionDashboardDto(
+      folders: folders,
+      portfolioItems: items.map((item) {
+        final pikachu = item.cardRef == 'catalog:pikachu-025';
+        return CollectionDashboardItemDto(
+          id: item.id,
+          cardRef: item.cardRef,
+          folderId: item.folderId,
+          name: pikachu ? 'Pikachu' : item.cardRef,
+          setName: pikachu ? 'Base Set' : 'Card data unavailable',
+          cardNumber: pikachu ? '025' : '',
+          game: pikachu ? 'Pokemon' : 'Unknown',
+          language: item.language ?? 'Unknown',
+          finish: item.finish ?? 'Unknown',
+          grader: item.grader,
+          condition: item.condition,
+          grade: item.grade,
+          quantity: item.quantity,
+          marketPriceUsd:
+              pikachu &&
+                  item.grader == 'Raw' &&
+                  item.condition == 'Near Mint (NM)'
+              ? 12.5
+              : null,
+          previous30dPriceUsd:
+              pikachu &&
+                  item.grader == 'Raw' &&
+                  item.condition == 'Near Mint (NM)'
+              ? 10
+              : null,
+          createdAt: item.createdAt,
+          imageUrl: pikachu
+              ? 'https://api.tcgcard.fun/api/v1/cards/25/image'
+              : null,
+        );
+      }).toList(),
+      wishlistItems: wishlist.map((item) {
+        final luffy = item.cardRef == 'catalog:luffy-001';
+        return CollectionDashboardItemDto(
+          id: item.id,
+          cardRef: item.cardRef,
+          folderId: null,
+          name: luffy ? 'Monkey D. Luffy' : item.cardRef,
+          setName: luffy ? 'Romance Dawn' : 'Card data unavailable',
+          cardNumber: luffy ? '001' : '',
+          game: 'Unknown',
+          language: luffy ? 'Japanese' : 'Unknown',
+          finish: luffy ? 'Normal' : 'Unknown',
+          grader: 'Raw',
+          condition: 'Near Mint',
+          grade: null,
+          quantity: 1,
+          marketPriceUsd: luffy ? 330 : null,
+          previous30dPriceUsd: luffy ? 300 : null,
+          createdAt: item.createdAt,
+          imageUrl: null,
+        );
+      }).toList(),
+      preference: const UserPreferenceDto(
+        currency: 'USD',
+        amountHidden: false,
+        lastSelectedFolderId: null,
+      ),
+    );
+  }
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {

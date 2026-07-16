@@ -5,7 +5,6 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
-import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/market/market_change.dart';
@@ -19,7 +18,6 @@ final collectionRepositoryProvider = Provider<CollectionRepository>((ref) {
   return HttpCollectionRepository(
     ref.watch(portfolioApiClientProvider),
     managementApi: ref.watch(portfolioManagementApiProvider),
-    cardDataApi: ref.watch(cardDataApiClientProvider),
   );
 });
 

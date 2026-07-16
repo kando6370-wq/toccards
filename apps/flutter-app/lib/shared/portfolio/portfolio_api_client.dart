@@ -67,6 +67,105 @@ class UserPreferenceDto {
   }
 }
 
+class CollectionDashboardItemDto {
+  const CollectionDashboardItemDto({
+    required this.id,
+    required this.cardRef,
+    required this.folderId,
+    required this.name,
+    required this.setName,
+    required this.cardNumber,
+    required this.game,
+    required this.language,
+    required this.finish,
+    required this.grader,
+    required this.condition,
+    required this.grade,
+    required this.quantity,
+    required this.marketPriceUsd,
+    required this.previous30dPriceUsd,
+    required this.createdAt,
+    required this.imageUrl,
+  });
+
+  final String id;
+  final String cardRef;
+  final String? folderId;
+  final String name;
+  final String setName;
+  final String cardNumber;
+  final String game;
+  final String language;
+  final String finish;
+  final String grader;
+  final String? condition;
+  final double? grade;
+  final int quantity;
+  final double? marketPriceUsd;
+  final double? previous30dPriceUsd;
+  final DateTime createdAt;
+  final String? imageUrl;
+
+  factory CollectionDashboardItemDto.fromJson(Map<String, Object?> json) {
+    return CollectionDashboardItemDto(
+      id: _requiredString(json['id']),
+      cardRef: _requiredString(json['card_ref']),
+      folderId: _nullableString(json['folder_id']),
+      name: _requiredString(json['name']),
+      setName: _requiredString(json['set_name']),
+      cardNumber: _stringOrEmpty(json['card_number']),
+      game: _requiredString(json['game']),
+      language:
+          _nullableString(json['language']) ??
+          _nullableString(json['market_language']) ??
+          'Unknown',
+      finish:
+          _nullableString(json['finish']) ??
+          _nullableString(json['market_finish']) ??
+          'Unknown',
+      grader: _nullableString(json['grader']) ?? 'Raw',
+      condition:
+          _nullableString(json['condition']) ??
+          _nullableString(json['market_condition']),
+      grade: _nullableDouble(json['grade']),
+      quantity: json['quantity'] is int ? json['quantity']! as int : 1,
+      marketPriceUsd: _nullableDouble(json['market_price_usd']),
+      previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
+      createdAt: _requiredDateTime(json['created_at']),
+      imageUrl: _nullableString(json['image_url']),
+    );
+  }
+}
+
+class CollectionDashboardDto {
+  const CollectionDashboardDto({
+    required this.folders,
+    required this.portfolioItems,
+    required this.wishlistItems,
+    required this.preference,
+  });
+
+  final List<PortfolioFolderDto> folders;
+  final List<CollectionDashboardItemDto> portfolioItems;
+  final List<CollectionDashboardItemDto> wishlistItems;
+  final UserPreferenceDto preference;
+
+  factory CollectionDashboardDto.fromJson(Map<String, Object?> json) {
+    return CollectionDashboardDto(
+      folders: _itemsFrom(
+        json['folders'],
+      ).map(PortfolioFolderDto.fromJson).toList(),
+      portfolioItems: _itemsFrom(
+        json['portfolio_items'],
+      ).map(CollectionDashboardItemDto.fromJson).toList(),
+      wishlistItems: _itemsFrom(
+        json['wishlist_items'],
+      ).map(CollectionDashboardItemDto.fromJson).toList(),
+      preference: UserPreferenceDto.fromJson(_mapItem(json['preference'])),
+    );
+  }
+}
+
 class PortfolioItemDto {
   const PortfolioItemDto({
     required this.id,
@@ -322,6 +421,10 @@ abstract interface class PortfolioApi {
   Future<void> deleteWishlist(AuthSession session, String itemId);
 }
 
+abstract interface class CollectionDashboardApi {
+  Future<CollectionDashboardDto> getCollectionDashboard(AuthSession session);
+}
+
 abstract interface class PortfolioManagementApi {
   Future<PortfolioFolderDto> createFolder(AuthSession session, String name);
   Future<PortfolioFolderDto> renameFolder(
@@ -344,10 +447,19 @@ abstract interface class PortfolioManagementApi {
   });
 }
 
-class PortfolioApiClient implements PortfolioApi, PortfolioManagementApi {
+class PortfolioApiClient
+    implements PortfolioApi, PortfolioManagementApi, CollectionDashboardApi {
   const PortfolioApiClient(this._dio);
 
   final Dio _dio;
+
+  @override
+  Future<CollectionDashboardDto> getCollectionDashboard(
+    AuthSession session,
+  ) async {
+    final data = await _requestData('GET', '/collection/dashboard', session);
+    return CollectionDashboardDto.fromJson(data);
+  }
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
@@ -626,6 +738,15 @@ List<Map<String, Object?>> _items(Map<String, Object?> data) {
     }
     return Map<String, Object?>.from(item);
   }).toList();
+}
+
+List<Map<String, Object?>> _itemsFrom(Object? items) {
+  if (items is! List) {
+    throw const PortfolioApiException(
+      'Something went wrong. Please try again.',
+    );
+  }
+  return items.map(_mapItem).toList();
 }
 
 String _requiredString(Object? value) {
