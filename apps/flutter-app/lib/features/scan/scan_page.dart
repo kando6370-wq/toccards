@@ -10,12 +10,14 @@ import 'package:kando_app/features/scan/scan_result_source.dart';
 
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/scan/scan_api_client.dart';
+import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/ui/toast.dart';
 import '../collection/collection_controller.dart';
 import '../card_detail/card_detail_controller.dart';
 import '../home/home_controller.dart';
 import 'scan_camera.dart';
 import 'scan_review_repository.dart';
+import 'scan_stability.dart';
 
 enum _ScanItemStatus {
   scanning,
@@ -211,10 +213,10 @@ String _reviewTotalText(ScanReviewCard card, _ScanCollectionDraft draft) {
 }
 
 String _normalizedReviewCondition(String? value) {
-  return (value ?? '')
-      .trim()
-      .toLowerCase()
-      .replaceFirst(RegExp(r'\s*\([^)]*\)\s*$'), '');
+  return (value ?? '').trim().toLowerCase().replaceFirst(
+    RegExp(r'\s*\([^)]*\)\s*$'),
+    '',
+  );
 }
 
 class _PendingScan {
@@ -240,6 +242,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   final List<_ScanItem> _items = [];
   final List<Timer> _scanTimers = [];
   final Map<int, _PendingScan> _pendingScans = {};
+  final ScanStabilityGate _stabilityGate = ScanStabilityGate();
   ScanCameraSession? _cameraSession;
 
   var _nextScanId = 1;
@@ -248,6 +251,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _openingCamera = false;
   var _appActive = true;
   var _reviewing = false;
+  var _detectingCameraFrame = false;
+  var _automaticRecognitionInFlight = false;
+  var _cameraFrameNumber = 0;
   int? _selectedReviewItemId;
   int? _lastAddedCount;
   ScanReviewTarget? _reviewTarget;
@@ -406,11 +412,16 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _cameraSession = session;
       _openingCamera = false;
     });
+    if (session != null) unawaited(_startAutomaticDetection(session));
   }
 
   Future<void> _closeCamera() async {
     _cameraGeneration += 1;
     _openingCamera = false;
+    _detectingCameraFrame = false;
+    _automaticRecognitionInFlight = false;
+    _cameraFrameNumber = 0;
+    _stabilityGate.reset();
     final session = _cameraSession;
     if (session == null) return;
     if (mounted) {
@@ -424,11 +435,95 @@ class _ScanPageState extends ConsumerState<ScanPage>
   void _startPhotoScan() {
     final source = ref.read(scanResultSourceProvider);
     final camera = _cameraSession;
-    _addScan(
-      camera == null
-          ? Future.sync(source.photo)
-          : camera.takePhoto().then(source.recognize),
-    );
+    if (camera == null) {
+      _addScan(Future.sync(source.photo));
+      return;
+    }
+    if (_automaticRecognitionInFlight) return;
+    _automaticRecognitionInFlight = true;
+    final result = _captureAndRecognize(camera, source);
+    _addScan(result);
+    unawaited(_resumeAfterRecognition(camera, result));
+  }
+
+  Future<void> _startAutomaticDetection(ScanCameraSession session) async {
+    if (!identical(session, _cameraSession) || _automaticRecognitionInFlight) {
+      return;
+    }
+    try {
+      await session.startImageStream((frame) => _onCameraFrame(session, frame));
+    } catch (_) {
+      // Manual capture remains available when a device cannot stream frames.
+    }
+  }
+
+  void _onCameraFrame(ScanCameraSession session, ScanCameraFrame frame) {
+    if (!mounted ||
+        !identical(session, _cameraSession) ||
+        _automaticRecognitionInFlight ||
+        _detectingCameraFrame ||
+        _reviewing) {
+      return;
+    }
+    _cameraFrameNumber += 1;
+    if (_cameraFrameNumber.isOdd) return;
+    _detectingCameraFrame = true;
+    unawaited(_evaluateCameraFrame(session, frame));
+  }
+
+  Future<void> _evaluateCameraFrame(
+    ScanCameraSession session,
+    ScanCameraFrame frame,
+  ) async {
+    try {
+      final detection = await ref
+          .read(scanResultSourceProvider)
+          .detectFrame(frame);
+      if (!mounted ||
+          !identical(session, _cameraSession) ||
+          _automaticRecognitionInFlight) {
+        return;
+      }
+      if (_stabilityGate.add(detection)) {
+        _automaticRecognitionInFlight = true;
+        _stabilityGate.reset();
+        final result = _captureAndRecognize(
+          session,
+          ref.read(scanResultSourceProvider),
+        );
+        _addScan(result);
+        unawaited(_resumeAfterRecognition(session, result));
+      }
+    } catch (_) {
+      _stabilityGate.reset();
+    } finally {
+      _detectingCameraFrame = false;
+    }
+  }
+
+  Future<ScanResolution> _captureAndRecognize(
+    ScanCameraSession camera,
+    ScanResultSource source,
+  ) async {
+    try {
+      await camera.stopImageStream();
+      final image = await camera.takePhoto();
+      return await source.recognize(image);
+    } catch (_) {
+      return const ScanResolution.failed();
+    }
+  }
+
+  Future<void> _resumeAfterRecognition(
+    ScanCameraSession camera,
+    Future<ScanResolution> pending,
+  ) async {
+    final result = await pending;
+    _automaticRecognitionInFlight = false;
+    if (!mounted || !identical(camera, _cameraSession)) return;
+    if (result.kind == ScanResolutionKind.noMatch) {
+      await _startAutomaticDetection(camera);
+    }
   }
 
   Future<void> _toggleFlash() async {

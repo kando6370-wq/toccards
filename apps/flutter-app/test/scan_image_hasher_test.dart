@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/scan/scan_image_hasher.dart';
+import 'package:opencv_dart/opencv_dart.dart' as cv;
 
 void main() {
   test(
@@ -16,9 +17,15 @@ void main() {
       ]);
 
       for (final hash in hashes) {
-        expect(hash.r, '-0KsuPngU1KG5wNNhhrzD9YdE8WGSLNPlh1alYYdn-g');
-        expect(hash.g, '6xJl_MnwYfjLUp4HPa2eBRkvmXSxpZtksalTQpYXLGw');
-        expect(hash.b, 'ulJNGpp4TRuYek0LmHqz8MYps_DGefLyxnjw0oWFTzI');
+        expect(hash.r, 'qxY0w2meSz0-aLTUPGngw2lrnNdhlsOgwZbLPMOWkzw');
+        expect(hash.g, '7wNmh20pZwZtLZh4Mlpnh2ZsYwXGTczYzaWZy82TmMM');
+        expect(hash.b, 'u0dMsDltLPE5LbNPOTizD2ZaTPA5jZMymYGzMpPHszI');
+        final crop = cv.imdecode(hash.cardImageBytes!, cv.IMREAD_COLOR);
+        try {
+          expect((crop.cols, crop.rows), (745, 1043));
+        } finally {
+          crop.dispose();
+        }
       }
     },
     timeout: const Timeout(Duration(minutes: 1)),

@@ -10,13 +10,14 @@ import 'package:kando_app/shared/scan/scan_image_hasher.dart';
 
 void main() {
   test(
-    'recognizeImage sends local RGB pHashes with the session token because production recognition does not accept images',
+    'recognizeImage sends hashes plus only the corrected crop to our API because the external recognizer must never receive an image',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'POST');
         expect(request.path, '/scan/recognize');
         expect(request.authorization, 'Bearer access-token');
-        expect(request.body, {
+        final form = request.body as FormData;
+        expect(Map<String, String>.fromEntries(form.fields), {
           'r': _hash,
           'g': _hash,
           'b': _hash,
@@ -24,6 +25,11 @@ void main() {
           'platform': 'iOS',
           'app_version': '1.0.0',
         });
+        expect(form.files, hasLength(1));
+        expect(form.files.single.key, 'image');
+        expect(form.files.single.value.filename, 'scan-card.jpg');
+        expect(form.files.single.value.length, 4);
+        expect(form.files.single.value.contentType.toString(), 'image/jpeg');
         return _json(200, {
           'success': true,
           'data': {
@@ -35,11 +41,18 @@ void main() {
                 'matched': true,
                 'candidates': [
                   {
-                    'card_ref': '11958',
+                    'card_ref': '10738',
                     'name': 'Bushi Tenderfoot',
                     'set_code': 'CHK',
                     'card_number': '1',
-                    'confidence': 86.2,
+                    'confidence': 80.99,
+                  },
+                  {
+                    'card_ref': '240872',
+                    'name': 'Devoted Retainer',
+                    'set_code': 'CHK',
+                    'card_number': '2',
+                    'confidence': 80.729,
                   },
                 ],
               },
@@ -50,7 +63,12 @@ void main() {
 
       final result = await ScanApiClient(_dio(adapter)).recognizeImage(
         _session,
-        hashes: const ScanImageHashes(r: _hash, g: _hash, b: _hash),
+        hashes: ScanImageHashes(
+          r: _hash,
+          g: _hash,
+          b: _hash,
+          cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
+        ),
         fileName: 'scan.jpg',
         platform: 'iOS',
         appVersion: '1.0.0',
@@ -58,8 +76,52 @@ void main() {
 
       expect(result.scanId, 'scan-1');
       expect(result.recognitionStatus, 'success');
-      expect(result.results.single.candidates.single.cardRef, '11958');
-      expect(result.results.single.candidates.single.name, 'Bushi Tenderfoot');
+      expect(result.results.single.candidates.first.cardRef, '10738');
+      expect(result.results.single.candidates.first.confidence, 80.99);
+      expect(result.results.single.candidates.last.cardRef, '240872');
+      expect(result.results.single.candidates.last.confidence, 80.729);
+    },
+  );
+
+  test(
+    'recognition rejects confidence outside 0 to 100 because pHash similarity is neither a probability nor a client-calibrated value',
+    () async {
+      final adapter = _RecordingAdapter((_) => _json(200, {
+        'success': true,
+        'data': {
+          'scan_id': 'scan-1',
+          'recognition_status': 'success',
+          'results': [
+            {
+              'index': 1,
+              'matched': true,
+              'candidates': [
+                {
+                  'card_ref': '10738',
+                  'name': 'Bushi Tenderfoot',
+                  'confidence': 101,
+                },
+              ],
+            },
+          ],
+        },
+      }));
+
+      await expectLater(
+        ScanApiClient(_dio(adapter)).recognizeImage(
+          _session,
+          hashes: ScanImageHashes(
+            r: _hash,
+            g: _hash,
+            b: _hash,
+            cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
+          ),
+          fileName: 'scan.jpg',
+          platform: 'iOS',
+          appVersion: '1.0.0',
+        ),
+        throwsA(isA<ScanApiException>()),
+      );
     },
   );
 

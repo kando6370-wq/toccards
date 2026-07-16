@@ -29,6 +29,11 @@ class _OpenCvScanImageHasher implements ScanImageHasher {
     });
     return result.future;
   }
+
+  @override
+  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame) {
+    return Isolate.run(() => _detectCameraFrame(frame));
+  }
 }
 
 Future<ScanImageHashes> _runHashIsolate(Uint8List imageBytes) {
@@ -50,6 +55,19 @@ ScanImageHashes _hashImage(Uint8List imageBytes) {
     card = _warpCard(decoded, corners);
     rgb = cv.cvtColor(card, cv.COLOR_BGR2RGB);
     canvas = _letterbox(rgb);
+    final parameters = [cv.IMWRITE_JPEG_QUALITY, 85].i32;
+    late final Uint8List cardImageBytes;
+    try {
+      final (encoded, buffer) = cv.imencode('.jpg', card, params: parameters);
+      if (!encoded) {
+        throw const ScanImageProcessingException(
+          'The corrected card image could not be encoded.',
+        );
+      }
+      cardImageBytes = Uint8List.fromList(buffer);
+    } finally {
+      parameters.dispose();
+    }
 
     final pixelCount = _canvasSize * _canvasSize;
     final red = Uint8List(pixelCount);
@@ -67,6 +85,7 @@ ScanImageHashes _hashImage(Uint8List imageBytes) {
       r: encodeScanPhash(red),
       g: encodeScanPhash(green),
       b: encodeScanPhash(blue),
+      cardImageBytes: cardImageBytes,
     );
   } finally {
     canvas?.dispose();
@@ -77,47 +96,66 @@ ScanImageHashes _hashImage(Uint8List imageBytes) {
 }
 
 List<_ImagePoint> _detectCardCorners(cv.Mat image) {
-  final gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY);
+  const maximumDimension = 960;
+  final scale = math.min(
+    1.0,
+    maximumDimension / math.max(image.cols, image.rows),
+  );
+  cv.Mat? resized;
+  final working = scale < 1
+      ? (resized = cv.resize(image, (
+          (image.cols * scale).round(),
+          (image.rows * scale).round(),
+        ), interpolation: cv.INTER_AREA))
+      : image;
+  final gray = cv.cvtColor(working, cv.COLOR_BGR2GRAY);
   final blurred = cv.gaussianBlur(gray, (5, 5), 0);
-  final edges = cv.canny(blurred, 75, 200);
+  final (_, threshold) = cv.threshold(
+    blurred,
+    0,
+    255,
+    cv.THRESH_BINARY_INV + cv.THRESH_OTSU,
+  );
+  final kernel = cv.getStructuringElement(cv.MORPH_RECT, (15, 15));
+  final closed = cv.morphologyEx(threshold, cv.MORPH_CLOSE, kernel);
   final (contours, hierarchy) = cv.findContours(
-    edges,
+    closed,
     cv.RETR_EXTERNAL,
     cv.CHAIN_APPROX_SIMPLE,
   );
   try {
-    final minimumArea = image.rows * image.cols * 0.12;
-    var bestArea = 0.0;
+    final minimumArea = working.rows * working.cols * 0.04;
+    var bestScore = 0.0;
     List<_ImagePoint>? best;
     for (var index = 0; index < contours.length; index += 1) {
       final contour = contours[index];
       final area = cv.contourArea(contour).abs();
-      if (area < minimumArea || area <= bestArea) continue;
-      final perimeter = cv.arcLength(contour, true);
-      final polygon = cv.approxPolyDP(contour, perimeter * 0.02, true);
+      if (area < minimumArea) continue;
+      final rectangle = cv.minAreaRect(contour);
+      final rectangleWidth = rectangle.size.width;
+      final rectangleHeight = rectangle.size.height;
+      if (rectangleWidth < 1 || rectangleHeight < 1) continue;
+      final shortSide = math.min(rectangleWidth, rectangleHeight);
+      final longSide = math.max(rectangleWidth, rectangleHeight);
+      final aspect = shortSide / longSide;
+      final extent = area / (rectangleWidth * rectangleHeight);
+      const cardRatio = _cardWidth / _cardHeight;
+      final aspectScore = math.max(
+        0.0,
+        1 - (aspect - cardRatio).abs() / cardRatio,
+      );
+      final score = area * extent * aspectScore;
+      if (score <= bestScore) continue;
+      final box = cv.boxPoints(rectangle);
       try {
-        if (polygon.length != 4 || !cv.isContourConvex(polygon)) continue;
         final ordered = _orderCorners([
-          for (var pointIndex = 0; pointIndex < polygon.length; pointIndex += 1)
-            _ImagePoint(
-              polygon[pointIndex].x.toDouble(),
-              polygon[pointIndex].y.toDouble(),
-            ),
+          for (var pointIndex = 0; pointIndex < box.length; pointIndex += 1)
+            _ImagePoint(box[pointIndex].x / scale, box[pointIndex].y / scale),
         ]);
-        final width = math.max(
-          _distance(ordered[0], ordered[1]),
-          _distance(ordered[3], ordered[2]),
-        );
-        final height = math.max(
-          _distance(ordered[0], ordered[3]),
-          _distance(ordered[1], ordered[2]),
-        );
-        final aspect = math.min(width, height) / math.max(width, height);
-        if (aspect < 0.5 || aspect > 0.85) continue;
-        bestArea = area;
+        bestScore = score;
         best = ordered;
       } finally {
-        polygon.dispose();
+        box.dispose();
       }
     }
     if (best == null) {
@@ -129,10 +167,86 @@ List<_ImagePoint> _detectCardCorners(cv.Mat image) {
   } finally {
     hierarchy.dispose();
     contours.dispose();
-    edges.dispose();
+    closed.dispose();
+    kernel.dispose();
+    threshold.dispose();
     blurred.dispose();
     gray.dispose();
+    resized?.dispose();
   }
+}
+
+ScanFrameDetection? _detectCameraFrame(ScanCameraFrame frame) {
+  final image = _cameraFrameToBgr(frame);
+  try {
+    final corners = _detectCardCorners(image);
+    return ScanFrameDetection(
+      width: frame.width,
+      height: frame.height,
+      corners: [for (final point in corners) ScanImagePoint(point.x, point.y)],
+    );
+  } on ScanImageProcessingException {
+    return null;
+  } finally {
+    image.dispose();
+  }
+}
+
+cv.Mat _cameraFrameToBgr(ScanCameraFrame frame) {
+  if (frame.format == ScanFrameFormat.jpeg && frame.planes.isNotEmpty) {
+    return cv.imdecode(frame.planes.first.bytes, cv.IMREAD_COLOR);
+  }
+  final bgr = Uint8List(frame.width * frame.height * 3);
+  if (frame.format == ScanFrameFormat.bgra8888 && frame.planes.length == 1) {
+    final plane = frame.planes.first;
+    for (var y = 0; y < frame.height; y += 1) {
+      for (var x = 0; x < frame.width; x += 1) {
+        final source = y * plane.bytesPerRow + x * plane.bytesPerPixel;
+        final target = (y * frame.width + x) * 3;
+        bgr[target] = plane.bytes[source];
+        bgr[target + 1] = plane.bytes[source + 1];
+        bgr[target + 2] = plane.bytes[source + 2];
+      }
+    }
+    return cv.Mat.fromList(frame.height, frame.width, cv.MatType.CV_8UC3, bgr);
+  }
+  if (frame.format != ScanFrameFormat.yuv420 || frame.planes.length < 3) {
+    throw const ScanImageProcessingException(
+      'Unsupported camera frame format.',
+    );
+  }
+  final yPlane = frame.planes[0];
+  final uPlane = frame.planes[1];
+  final vPlane = frame.planes[2];
+  for (var y = 0; y < frame.height; y += 1) {
+    for (var x = 0; x < frame.width; x += 1) {
+      final luminance = yPlane
+          .bytes[y * yPlane.bytesPerRow + x * yPlane.bytesPerPixel]
+          .toDouble();
+      final chromaX = x ~/ 2;
+      final chromaY = y ~/ 2;
+      final u =
+          uPlane
+              .bytes[chromaY * uPlane.bytesPerRow +
+                  chromaX * uPlane.bytesPerPixel]
+              .toDouble() -
+          128;
+      final v =
+          vPlane
+              .bytes[chromaY * vPlane.bytesPerRow +
+                  chromaX * vPlane.bytesPerPixel]
+              .toDouble() -
+          128;
+      final target = (y * frame.width + x) * 3;
+      bgr[target] = (luminance + 1.772 * u).round().clamp(0, 255);
+      bgr[target + 1] = (luminance - 0.344136 * u - 0.714136 * v).round().clamp(
+        0,
+        255,
+      );
+      bgr[target + 2] = (luminance + 1.402 * v).round().clamp(0, 255);
+    }
+  }
+  return cv.Mat.fromList(frame.height, frame.width, cv.MatType.CV_8UC3, bgr);
 }
 
 List<_ImagePoint> _orderCorners(List<_ImagePoint> points) {

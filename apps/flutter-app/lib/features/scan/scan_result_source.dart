@@ -63,6 +63,7 @@ abstract interface class ScanResultSource {
   Future<List<Future<ScanResolution>>> library();
   Future<ScanResolution> recognize(ScanImage image);
   Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName});
+  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame);
 }
 
 final scanResultSourceProvider = Provider<ScanResultSource>(
@@ -182,6 +183,11 @@ class ApiScanResultSource implements ScanResultSource {
     return recognize(ScanImage(bytes: imageBytes, fileName: fileName));
   }
 
+  @override
+  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame) {
+    return _imageHasher.detectFrame(frame);
+  }
+
   Future<ScanResolution> _pickAndRecognize(ScanImageSource source) async {
     final image = await _imagePicker.pick(source);
     if (image == null) return const ScanResolution.cancelled();
@@ -201,6 +207,11 @@ class ApiScanResultSource implements ScanResultSource {
       }
       final info = await _appInfo();
       final hashes = await _imageHasher.hash(image.bytes);
+      if (hashes.cardImageBytes == null) {
+        throw const ScanImageProcessingException(
+          'The corrected card image is unavailable.',
+        );
+      }
       recognition = await _api.recognizeImage(
         session,
         hashes: hashes,

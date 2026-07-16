@@ -13,4 +13,11 @@ class _UnsupportedScanImageHasher implements ScanImageHasher {
       'Card recognition is not supported on this platform.',
     );
   }
+
+  @override
+  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame) {
+    throw const ScanImageProcessingException(
+      'Card detection is not supported on this platform.',
+    );
+  }
 }

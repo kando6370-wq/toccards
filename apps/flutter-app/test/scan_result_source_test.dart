@@ -32,10 +32,7 @@ void main() {
       expect(result.candidateCardRefs, ['1', '2']);
       expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
       expect(imageHasher.lastBytes, Uint8List.fromList([1, 2, 3]));
-      expect(
-        api.lastHashes,
-        const ScanImageHashes(r: _hash, g: _hash, b: _hash),
-      );
+      expect(api.lastHashes?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
       expect(api.lastPlatform, 'iOS');
       expect(picker.sources, [ScanImageSource.camera]);
     },
@@ -272,6 +269,14 @@ class _FakeScanImageHasher implements ScanImageHasher {
   @override
   Future<ScanImageHashes> hash(Uint8List imageBytes) async {
     lastBytes = imageBytes;
-    return const ScanImageHashes(r: _hash, g: _hash, b: _hash);
+    return ScanImageHashes(
+      r: _hash,
+      g: _hash,
+      b: _hash,
+      cardImageBytes: Uint8List.fromList([4, 5, 6]),
+    );
   }
+
+  @override
+  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame) async => null;
 }

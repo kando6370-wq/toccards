@@ -17,6 +17,7 @@ import 'package:kando_app/features/scan/scan_review_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
+import 'package:kando_app/shared/scan/scan_image_hasher.dart';
 
 import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
@@ -96,6 +97,38 @@ void main() {
       await tester.pump();
       expect(camera.disposed, isTrue);
       expect(camera.flashEnabled, isFalse);
+    },
+  );
+
+  testWidgets(
+    'stable camera frames create only one recognition and no_match resumes streaming because frames are not audit scans',
+    (tester) async {
+      final recognition = Completer<ScanResolution>();
+      final camera = _TestScanCameraSession();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        recognizeResult: recognition.future,
+        frameDetection: _stableFrameDetection,
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: _TestScanCameraFactory(camera),
+      );
+
+      for (var index = 0; index < 16; index += 1) {
+        camera.emitFrame();
+        await tester.pump();
+      }
+      expect(source.detectFrameCount, 8);
+      expect(camera.takePhotoCount, 1);
+      expect(source.recognizedImages, hasLength(1));
+      expect(camera.onFrame, isNull);
+
+      recognition.complete(const ScanResolution.noMatch());
+      await tester.pump();
+      expect(camera.startStreamCount, 2);
+      expect(camera.onFrame, isNotNull);
     },
   );
 
@@ -1351,6 +1384,7 @@ class _TestScanResultSource implements ScanResultSource {
     List<Future<ScanResolution>>? libraryResults,
     Future<ScanResolution>? recognizeResult,
     Future<ScanResolution>? retryResult,
+    this.frameDetection,
   }) : _photoResults = [photoResult, ...subsequentPhotoResults],
        _libraryResults =
            libraryResults ??
@@ -1363,10 +1397,18 @@ class _TestScanResultSource implements ScanResultSource {
   final List<Future<ScanResolution>> _libraryResults;
   final Future<ScanResolution> _recognizeResult;
   final Future<ScanResolution> _retryResult;
+  final ScanFrameDetection? frameDetection;
+  var detectFrameCount = 0;
   var _nextPhotoResult = 0;
   Uint8List? lastRetryBytes;
   String? lastRetryFileName;
   final recognizedImages = <ScanImage>[];
+
+  @override
+  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame) async {
+    detectFrameCount += 1;
+    return frameDetection;
+  }
 
   @override
   Future<List<Future<ScanResolution>>> library() async => _libraryResults;
@@ -1414,6 +1456,9 @@ class _TestScanCameraSession implements ScanCameraSession {
   var _flashEnabled = false;
   var takePhotoCount = 0;
   var disposed = false;
+  var startStreamCount = 0;
+  var stopStreamCount = 0;
+  void Function(ScanCameraFrame frame)? onFrame;
 
   @override
   bool get flashEnabled => _flashEnabled;
@@ -1436,6 +1481,37 @@ class _TestScanCameraSession implements ScanCameraSession {
   }
 
   @override
+  Future<void> startImageStream(
+    void Function(ScanCameraFrame frame) onFrame,
+  ) async {
+    startStreamCount += 1;
+    this.onFrame = onFrame;
+  }
+
+  @override
+  Future<void> stopImageStream() async {
+    stopStreamCount += 1;
+    onFrame = null;
+  }
+
+  void emitFrame() {
+    onFrame?.call(
+      ScanCameraFrame(
+        width: 1280,
+        height: 720,
+        format: ScanFrameFormat.jpeg,
+        planes: [
+          ScanFramePlane(
+            bytes: Uint8List.fromList([1]),
+            bytesPerRow: 1,
+            bytesPerPixel: 1,
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Future<bool> toggleFlash() async {
     _flashEnabled = !_flashEnabled;
     return _flashEnabled;
@@ -1447,6 +1523,17 @@ class _TestScanCameraSession implements ScanCameraSession {
     disposed = true;
   }
 }
+
+const _stableFrameDetection = ScanFrameDetection(
+  width: 1280,
+  height: 720,
+  corners: [
+    ScanImagePoint(400, 100),
+    ScanImagePoint(700, 100),
+    ScanImagePoint(700, 520),
+    ScanImagePoint(400, 520),
+  ],
+);
 
 _searchOverrides() {
   return [

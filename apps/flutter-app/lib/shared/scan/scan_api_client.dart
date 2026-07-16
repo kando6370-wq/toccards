@@ -89,7 +89,7 @@ class ScanCandidateDto {
       name: _requiredString(json['name']),
       setCode: _nullableString(json['set_code']),
       cardNumber: _nullableString(json['card_number']),
-      confidence: _nullableDouble(json['confidence']),
+      confidence: _nullableConfidence(json['confidence']),
     );
   }
 }
@@ -193,7 +193,11 @@ class ScanApiClient implements ScanApi {
     String? deviceModel,
     String? osVersion,
   }) async {
-    final body = <String, Object?>{
+    final cardImageBytes = hashes.cardImageBytes;
+    if (cardImageBytes == null) {
+      throw const ScanApiException('The corrected card image is unavailable.');
+    }
+    final body = FormData.fromMap(<String, Object?>{
       'r': hashes.r,
       'g': hashes.g,
       'b': hashes.b,
@@ -202,7 +206,12 @@ class ScanApiClient implements ScanApi {
       'app_version': appVersion,
       if (deviceModel != null) 'device_model': deviceModel,
       if (osVersion != null) 'os_version': osVersion,
-    };
+      'image': MultipartFile.fromBytes(
+        cardImageBytes,
+        filename: 'scan-card.jpg',
+        contentType: DioMediaType('image', 'jpeg'),
+      ),
+    });
     final data = await _requestData('POST', '/scan/recognize', session, body);
     return ScanRecognitionDto.fromJson(data);
   }
@@ -297,9 +306,15 @@ int _requiredInt(Object? value) {
   throw const ScanApiException('Something went wrong. Please try again.');
 }
 
-double? _nullableDouble(Object? value) {
+double? _nullableConfidence(Object? value) {
   if (value == null) return null;
-  if (value is int) return value.toDouble();
-  if (value is double) return value;
+  final numeric = value is int
+      ? value.toDouble()
+      : value is double
+      ? value
+      : null;
+  if (numeric != null && numeric.isFinite && numeric >= 0 && numeric <= 100) {
+    return numeric;
+  }
   throw const ScanApiException('Something went wrong. Please try again.');
 }
