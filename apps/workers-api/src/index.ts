@@ -6,6 +6,7 @@ import { authRoutes } from "./auth/anonymous";
 import { createDataSourceRoutes } from "./data-source/routes";
 import type { Env } from "./env";
 import { createFeedbackRoutes } from "./feedback/routes";
+import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
 import { createScanRoutes } from "./scan/routes";
 
@@ -34,6 +35,7 @@ api.route("/auth", authRoutes);
 api.route("/", createAppConfigRoutes());
 api.route("/", createDataSourceRoutes());
 api.route("/", createFeedbackRoutes());
+api.route("/", createLegalRoutes());
 api.route("/", createPortfolioRoutes());
 api.route("/", createScanRoutes());
 
