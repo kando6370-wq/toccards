@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,12 +14,15 @@ import 'card_detail_models.dart';
 /// Figma spacing/radius tokens for the card detail module.
 const double _kRadiusLg = 16;
 const double _kRadiusXl = 24;
+const Color _kPositiveColor = Color(0xFF4ADE80);
+const Color _kNegativeColor = Color(0xFFFF8989);
 
 /// Section heading style (Figma: Fraunces SemiBold 24/32).
 const TextStyle _kSectionTitleStyle = TextStyle(
-  fontSize: 22,
+  fontFamily: 'Fraunces',
+  fontSize: 24,
   fontWeight: FontWeight.w600,
-  height: 1.2,
+  height: 32 / 24,
   color: KandoColors.text,
 );
 
@@ -25,7 +30,7 @@ const TextStyle _kSectionTitleStyle = TextStyle(
 const TextStyle _kFieldLabelStyle = TextStyle(
   fontSize: 12,
   height: 1.5,
-  letterSpacing: 0.4,
+  letterSpacing: 0,
   color: KandoColors.mutedText,
 );
 
@@ -75,16 +80,6 @@ class CardDetailPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: KandoColors.ink,
-      appBar: AppBar(
-        backgroundColor: KandoColors.ink,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => _goBack(context),
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: const Text('Card Detail'),
-      ),
       body: SafeArea(
         child: state.loadStatus == KandoLoadStatus.loading
             ? const Padding(
@@ -96,26 +91,51 @@ class CardDetailPage extends ConsumerWidget {
                 padding: const EdgeInsets.all(20),
                 child: KandoFailureBlock(onRefresh: controller.refresh),
               )
-            : ListView(
-                key: const Key('card-detail-scroll'),
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-                children: [
-                  _CardImage(imageUrl: state.detail.imageUrl),
-                  const SizedBox(height: 20),
-                  _CardHeader(state: state, controller: controller),
-                  if (!state.detail.isCollected &&
-                      state.collectionItemDraft != null) ...[
-                    const SizedBox(height: 20),
-                    _CollectionItemForm(state: state, controller: controller),
-                  ],
-                  const SizedBox(height: 28),
-                  _BasicInfo(state: state),
-                  const SizedBox(height: 28),
-                  if (state.detail.isCollected)
-                    _OwnedDetailTabs(state: state, controller: controller)
-                  else
-                    _PriceOverview(state: state, controller: controller),
-                ],
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final horizontalPadding = math.max(
+                    20.0,
+                    (constraints.maxWidth - 672) / 2,
+                  );
+                  return ListView(
+                    key: const Key('card-detail-scroll'),
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      20,
+                      horizontalPadding,
+                      28,
+                    ),
+                    children: [
+                      _CardHero(
+                        state: state,
+                        controller: controller,
+                        onBack: () => _goBack(context),
+                      ),
+                      const SizedBox(height: 10),
+                      _PrimaryActions(state: state, controller: controller),
+                      if (!state.detail.isCollected &&
+                          state.collectionItemDraft != null) ...[
+                        const SizedBox(height: 20),
+                        _CollectionItemForm(
+                          state: state,
+                          controller: controller,
+                        ),
+                      ],
+                      const SizedBox(height: 28),
+                      _BasicInfo(state: state),
+                      const SizedBox(height: 28),
+                      if (state.detail.isCollected)
+                        _OwnedDetailTabs(state: state, controller: controller)
+                      else
+                        _PriceOverview(state: state, controller: controller),
+                      if (state.detail.isWishlisted &&
+                          !state.detail.isCollected) ...[
+                        const SizedBox(height: 28),
+                        _RemoveWishlistButton(controller: controller),
+                      ],
+                    ],
+                  );
+                },
               ),
       ),
     );
@@ -128,44 +148,6 @@ class CardDetailPage extends ConsumerWidget {
     }
 
     context.go('/search');
-  }
-}
-
-class _CardImage extends StatelessWidget {
-  const _CardImage({required this.imageUrl});
-
-  final String? imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 360,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: KandoColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(_kRadiusXl),
-        border: Border.all(color: KandoColors.border.withValues(alpha: 0.7)),
-        boxShadow: [
-          BoxShadow(
-            color: KandoColors.accent.withValues(alpha: 0.08),
-            blurRadius: 40,
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: imageUrl == null
-          ? const _CardImagePlaceholder()
-          : Image.network(
-              imageUrl!,
-              key: const Key('card-detail-image'),
-              fit: BoxFit.contain,
-              width: double.infinity,
-              height: double.infinity,
-              filterQuality: FilterQuality.high,
-              errorBuilder: (context, error, stackTrace) =>
-                  const _CardImagePlaceholder(),
-            ),
-    );
   }
 }
 
@@ -185,8 +167,252 @@ class _CardImagePlaceholder extends StatelessWidget {
   }
 }
 
-class _CardHeader extends ConsumerWidget {
-  const _CardHeader({required this.state, required this.controller});
+class _CardHero extends ConsumerWidget {
+  const _CardHero({
+    required this.state,
+    required this.controller,
+    required this.onBack,
+  });
+
+  final CardDetailState state;
+  final CardDetailController controller;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final detail = state.detail;
+
+    final iconButtonStyle = IconButton.styleFrom(
+      backgroundColor: KandoColors.surface.withValues(alpha: 0.92),
+      foregroundColor: KandoColors.text,
+      side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+      shape: const CircleBorder(),
+      fixedSize: const Size.square(40),
+      padding: EdgeInsets.zero,
+    );
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 350),
+        child: AspectRatio(
+          key: const Key('card-detail-hero'),
+          aspectRatio: 350 / 454,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: const RadialGradient(
+                center: Alignment(0, -0.25),
+                radius: 0.9,
+                colors: [
+                  Color(0xFF4D4D28),
+                  Color(0xFF21220D),
+                  Color(0xFF0C0E06),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(_kRadiusXl),
+              border: Border.all(
+                color: KandoColors.border.withValues(alpha: 0.7),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: KandoColors.accent.withValues(alpha: 0.08),
+                  blurRadius: 40,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_kRadiusXl),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(54, 56, 54, 54),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(_kRadiusLg),
+                      child: detail.imageUrl == null
+                          ? const _CardImagePlaceholder()
+                          : Image.network(
+                              detail.imageUrl!,
+                              key: const Key('card-detail-image'),
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const _CardImagePlaceholder(),
+                            ),
+                    ),
+                  ),
+                  const Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: [0.5, 1],
+                          colors: [Colors.transparent, Color(0xF20D0F08)],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 18,
+                    right: 18,
+                    top: 18,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          key: const Key('card-detail-back'),
+                          tooltip: 'Back',
+                          onPressed: onBack,
+                          style: iconButtonStyle,
+                          icon: const Icon(Icons.arrow_back, size: 22),
+                        ),
+                        if (detail.isCollected)
+                          IconButton(
+                            key: Key('card-detail-share-${detail.id}'),
+                            tooltip: 'Share',
+                            onPressed: () async {
+                              try {
+                                await ref
+                                    .read(cardDetailActionsProvider)
+                                    .shareCard(
+                                      name: detail.name,
+                                      setName: detail.setName,
+                                      marketPrice: state.marketPriceText,
+                                    );
+                              } catch (_) {
+                                if (context.mounted) {
+                                  showKandoFailureToast(context);
+                                }
+                              }
+                            },
+                            style: iconButtonStyle,
+                            icon: const Icon(
+                              Icons.ios_share_outlined,
+                              size: 20,
+                            ),
+                          )
+                        else
+                          IconButton(
+                            key: Key('card-detail-wishlist-${detail.id}'),
+                            tooltip: detail.isWishlisted
+                                ? 'Remove from Wishlist'
+                                : 'Add to Wishlist',
+                            onPressed: () async {
+                              if (detail.isWishlisted) {
+                                await _confirmRemoveWishlist(
+                                  context,
+                                  controller,
+                                );
+                                return;
+                              }
+                              try {
+                                await controller.toggleWishlist();
+                              } catch (_) {
+                                if (context.mounted) {
+                                  showKandoFailureToast(context);
+                                }
+                              }
+                            },
+                            style: iconButtonStyle,
+                            icon: Icon(
+                              detail.isWishlisted
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              size: 20,
+                              color: detail.isWishlisted
+                                  ? KandoColors.accent
+                                  : null,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            detail.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Fraunces',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                              height: 32 / 24,
+                              color: Color(0xFFE4E3D3),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              _HeroChip(label: detail.game, accent: true),
+                              _HeroChip(label: detail.setName),
+                              _HeroChip(label: detail.identityLine),
+                              if (detail.quantity > 0)
+                                _HeroChip(label: 'Qty: ${detail.quantity}'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({required this.label, this.accent = false});
+
+  final String label;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: accent
+            ? KandoColors.accent.withValues(alpha: 0.1)
+            : KandoColors.elevatedSurface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: accent
+              ? KandoColors.accent.withValues(alpha: 0.2)
+              : KandoColors.border,
+        ),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          height: 16 / 12,
+          color: accent ? KandoColors.accent : KandoColors.mutedText,
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryActions extends ConsumerWidget {
+  const _PrimaryActions({required this.state, required this.controller});
 
   final CardDetailState state;
   final CardDetailController controller;
@@ -195,108 +421,57 @@ class _CardHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = state.detail;
 
-    final iconButtonStyle = IconButton.styleFrom(
-      backgroundColor: KandoColors.elevatedSurface,
-      foregroundColor: KandoColors.text,
-      side: BorderSide(color: KandoColors.border.withValues(alpha: 0.7)),
-      shape: const CircleBorder(),
-    );
-
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                detail.name,
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w600,
-                  height: 1.15,
-                  color: KandoColors.text,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (detail.isCollected)
-              IconButton(
-                key: Key('card-detail-share-${detail.id}'),
-                onPressed: () async {
-                  try {
-                    await ref
-                        .read(cardDetailActionsProvider)
-                        .shareCard(
-                          name: detail.name,
-                          setName: detail.setName,
-                          marketPrice: state.marketPriceText,
-                        );
-                  } catch (_) {
-                    if (context.mounted) showKandoFailureToast(context);
-                  }
-                },
-                style: iconButtonStyle,
-                icon: const Icon(Icons.ios_share_outlined),
-              )
-            else
-              IconButton(
-                key: Key('card-detail-wishlist-${detail.id}'),
-                onPressed: () async {
-                  try {
-                    await controller.toggleWishlist();
-                  } catch (_) {
-                    if (context.mounted) showKandoFailureToast(context);
-                  }
-                },
-                style: iconButtonStyle,
-                icon: Icon(
-                  detail.isWishlisted ? Icons.favorite : Icons.favorite_border,
-                  color: detail.isWishlisted ? KandoColors.accent : null,
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            const Text('Market price', style: _kFieldLabelStyle),
-            const SizedBox(width: 8),
-            Text(
-              state.marketPriceText,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: KandoColors.accent,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              '30D ${state.changeText}',
-              style: const TextStyle(
-                fontSize: 13,
-                color: KandoColors.mutedText,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
-          child: FilledButton.icon(
+          child: FilledButton(
+            key: const Key('card-detail-view-sold-listings'),
             style: FilledButton.styleFrom(
               backgroundColor: KandoColors.accent,
               foregroundColor: KandoColors.ink,
-              disabledBackgroundColor: KandoColors.elevatedSurface,
-              disabledForegroundColor: KandoColors.mutedText,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: const StadiumBorder(),
-              textStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+              textStyle: const TextStyle(fontSize: 14),
+            ),
+            onPressed: () async {
+              try {
+                await ref
+                    .read(cardDetailActionsProvider)
+                    .openSoldListings(
+                      name: detail.name,
+                      setName: detail.setName,
+                    );
+              } catch (_) {
+                if (context.mounted) showKandoFailureToast(context);
+              }
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('VIEW SOLD LISTINGS'),
+                SizedBox(width: 8),
+                Icon(Icons.arrow_forward, size: 20),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: detail.isCollected
+                  ? KandoColors.mutedText
+                  : KandoColors.accent,
+              side: BorderSide(
+                color: detail.isCollected
+                    ? KandoColors.border
+                    : KandoColors.accent.withValues(alpha: 0.7),
               ),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: const StadiumBorder(),
             ),
             onPressed: detail.isCollected
                 ? null
@@ -310,11 +485,40 @@ class _CardHeader extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 10),
-        Text(
-          'Qty: ${detail.quantity}',
-          style: const TextStyle(fontSize: 13, color: KandoColors.mutedText),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Market ${state.marketPriceText}', style: _kFieldLabelStyle),
+            const SizedBox(width: 12),
+            Text('30D ${state.changeText}', style: _kFieldLabelStyle),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _RemoveWishlistButton extends StatelessWidget {
+  const _RemoveWishlistButton({required this.controller});
+
+  final CardDetailController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        key: const Key('card-detail-remove-wishlist'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFFFACC15),
+          side: const BorderSide(color: Color(0xFFFACC15)),
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: const StadiumBorder(),
+        ),
+        onPressed: () => _confirmRemoveWishlist(context, controller),
+        icon: const Icon(Icons.bookmark_remove_outlined, size: 20),
+        label: const Text('Remove from Wishlist'),
+      ),
     );
   }
 }
@@ -788,75 +992,106 @@ class _PriceOverview extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final segStyle = SegmentedButton.styleFrom(
-      backgroundColor: KandoColors.elevatedSurface.withValues(alpha: 0.4),
-      foregroundColor: KandoColors.mutedText,
-      selectedBackgroundColor: KandoColors.accent,
-      selectedForegroundColor: KandoColors.ink,
-      side: BorderSide(color: KandoColors.border.withValues(alpha: 0.7)),
-      shape: const StadiumBorder(),
-    );
+    final pricePoints = state.selectedPriceSeries;
+    final chartValues = pricePoints
+        .map((point) => point.priceUsd)
+        .whereType<double>()
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Price overview', style: _kSectionTitleStyle),
+        const Text('Price', style: _kSectionTitleStyle),
         const SizedBox(height: 12),
-        const _PriceSubLabel('Price type'),
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SegmentedButton<CardPriceChartMode>(
-            showSelectedIcon: false,
-            style: segStyle,
-            segments: [
-              for (final mode in CardPriceChartMode.values)
-                ButtonSegment(value: mode, label: Text(mode.label)),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x1F747B26), Color(0x0A141506)],
+            ),
+            borderRadius: BorderRadius.circular(_kRadiusLg),
+            border: Border.all(
+              color: KandoColors.border.withValues(alpha: 0.7),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  for (final mode in CardPriceChartMode.values) ...[
+                    _PriceModeTab(
+                      mode: mode,
+                      selected: state.selectedPriceChartMode == mode,
+                      onSelected: controller.selectPriceChartMode,
+                    ),
+                    if (mode != CardPriceChartMode.values.last)
+                      const SizedBox(width: 16),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                key: const Key('card-detail-price-chart'),
+                height: 192,
+                width: double.infinity,
+                child: chartValues.length < 2
+                    ? Center(
+                        child: Text(
+                          state.priceSeriesFallbackText,
+                          style: const TextStyle(color: KandoColors.mutedText),
+                        ),
+                      )
+                    : CustomPaint(
+                        painter: _PriceChartPainter(values: chartValues),
+                      ),
+              ),
+              if (pricePoints.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      pricePoints.first.dateLabel,
+                      style: _kFieldLabelStyle.copyWith(fontSize: 10),
+                    ),
+                    Text(
+                      state.priceSeriesRows.last.priceText,
+                      style: const TextStyle(
+                        color: KandoColors.accent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      pricePoints.last.dateLabel,
+                      style: _kFieldLabelStyle.copyWith(fontSize: 10),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  for (final range in CardPriceRange.values)
+                    _PriceRangeButton(
+                      range: range,
+                      selected: state.selectedPriceRange == range,
+                      onSelected: controller.selectPriceRange,
+                    ),
+                ],
+              ),
             ],
-            selected: {state.selectedPriceChartMode},
-            onSelectionChanged: (selection) {
-              controller.selectPriceChartMode(selection.first);
-            },
           ),
         ),
-        const SizedBox(height: 16),
-        const _PriceSubLabel('Price range'),
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SegmentedButton<CardPriceRange>(
-            showSelectedIcon: false,
-            style: segStyle,
-            segments: [
-              for (final range in CardPriceRange.values)
-                ButtonSegment(value: range, label: Text(range.label)),
-            ],
-            selected: {state.selectedPriceRange},
-            onSelectionChanged: (selection) {
-              controller.selectPriceRange(selection.first);
-            },
-          ),
-        ),
-        const SizedBox(height: 20),
-        const _PriceSubLabel('Price series'),
-        const SizedBox(height: 8),
-        if (state.hasPriceSeriesRows) ...[
-          for (final row in state.priceSeriesRows)
-            _PriceRowTile(title: row.dateLabel, trailing: row.priceText),
-        ] else
-          Text(
-            state.priceSeriesFallbackText,
-            style: const TextStyle(color: KandoColors.mutedText),
-          ),
         const SizedBox(height: 20),
         const Text('Market Prices', style: _kSectionTitleStyle),
         const SizedBox(height: 12),
-        for (final row in state.priceTabMarketRows)
-          _PriceRowTile(
-            title: row.label,
-            subtitle: '7D ${row.changeText}',
-            trailing: row.priceText,
-          ),
+        _MarketPricesTable(rows: state.priceTabMarketRows),
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -871,10 +1106,8 @@ class _PriceOverview extends ConsumerWidget {
         const SizedBox(height: 12),
         if (state.hasSoldListingRows) ...[
           for (final row in state.soldListingRows)
-            _PriceRowTile(
-              title: row.title,
-              subtitle: '${row.dateText} - ${row.platform}',
-              trailing: row.priceText,
+            _ShopTile(
+              row: row,
               onTap: row.url == null
                   ? null
                   : () async {
@@ -897,68 +1130,384 @@ class _PriceOverview extends ConsumerWidget {
   }
 }
 
-class _PriceSubLabel extends StatelessWidget {
-  const _PriceSubLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: KandoColors.text,
-      ),
-    );
-  }
-}
-
-class _PriceRowTile extends StatelessWidget {
-  const _PriceRowTile({
-    required this.title,
-    required this.trailing,
-    this.subtitle,
-    this.onTap,
+class _PriceModeTab extends StatelessWidget {
+  const _PriceModeTab({
+    required this.mode,
+    required this.selected,
+    required this.onSelected,
   });
 
-  final String title;
-  final String? subtitle;
-  final String trailing;
-  final VoidCallback? onTap;
+  final CardPriceChartMode mode;
+  final bool selected;
+  final ValueChanged<CardPriceChartMode> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: _kPanel(radius: 12),
-      child: ListTile(
-        onTap: onTap,
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 15, color: KandoColors.text),
+    return InkWell(
+      onTap: () => onSelected(mode),
+      child: Container(
+        padding: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: selected ? KandoColors.accent : Colors.transparent,
+              width: 2,
+            ),
+          ),
         ),
-        subtitle: subtitle == null
-            ? null
-            : Text(
-                subtitle!,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: KandoColors.mutedText,
-                ),
-              ),
-        trailing: Text(
-          trailing,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: KandoColors.text,
+        child: Text(
+          mode.label,
+          style: TextStyle(
+            fontSize: 12,
+            color: selected ? KandoColors.text : KandoColors.mutedText,
           ),
         ),
       ),
     );
   }
+}
+
+class _PriceRangeButton extends StatelessWidget {
+  const _PriceRangeButton({
+    required this.range,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final CardPriceRange range;
+  final bool selected;
+  final ValueChanged<CardPriceRange> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: () => onSelected(range),
+      child: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFBAC158) : Colors.transparent,
+          shape: BoxShape.circle,
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: KandoColors.accent.withValues(alpha: 0.2),
+                    blurRadius: 6,
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          range.label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10,
+            color: selected ? const Color(0xFF191E00) : KandoColors.mutedText,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MarketPricesTable extends StatelessWidget {
+  const _MarketPricesTable({required this.rows});
+
+  final List<CardMarketRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: _kPanel(radius: _kRadiusLg),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          const _MarketPricesRow(
+            grade: 'GRADE',
+            market: 'MARKET',
+            change: '7D CHANGE',
+            header: true,
+          ),
+          for (final row in rows)
+            _MarketPricesRow(
+              grade: row.label,
+              market: row.priceText,
+              change: row.changeText,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MarketPricesRow extends StatelessWidget {
+  const _MarketPricesRow({
+    required this.grade,
+    required this.market,
+    required this.change,
+    this.header = false,
+  });
+
+  final String grade;
+  final String market;
+  final String change;
+  final bool header;
+
+  @override
+  Widget build(BuildContext context) {
+    final changeColor = header
+        ? KandoColors.mutedText
+        : change.startsWith('-')
+        ? _kNegativeColor
+        : change.startsWith('+')
+        ? _kPositiveColor
+        : KandoColors.mutedText;
+    final style = TextStyle(
+      fontSize: header ? 10 : 13,
+      color: header ? KandoColors.mutedText : KandoColors.text,
+      fontWeight: header ? FontWeight.w400 : FontWeight.w500,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: header
+            ? KandoColors.elevatedSurface.withValues(alpha: 0.45)
+            : Colors.transparent,
+        border: Border(
+          bottom: BorderSide(color: KandoColors.border.withValues(alpha: 0.35)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(flex: 4, child: Text(grade, style: style)),
+          Expanded(flex: 3, child: Text(market, style: style)),
+          Expanded(
+            flex: 3,
+            child: Text(
+              change,
+              textAlign: TextAlign.right,
+              style: style.copyWith(color: changeColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShopTile extends StatelessWidget {
+  const _ShopTile({required this.row, this.onTap});
+
+  final CardSoldListingRow row;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: _kPanel(radius: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: KandoColors.elevatedSurface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  color: KandoColors.mutedText,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            row.dateText,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: KandoColors.mutedText,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          row.priceText,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFFFFF6AF),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      row.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Fraunces',
+                        fontSize: 14,
+                        color: KandoColors.mutedText,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            row.platform,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: KandoColors.mutedText,
+                            ),
+                          ),
+                        ),
+                        if (onTap != null)
+                          const Icon(
+                            Icons.shopping_cart_outlined,
+                            size: 16,
+                            color: KandoColors.mutedText,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PriceChartPainter extends CustomPainter {
+  const _PriceChartPainter({required this.values});
+
+  final List<double> values;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..strokeWidth = 1;
+    for (var index = 1; index <= 3; index++) {
+      final y = size.height * index / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    if (values.length < 2) return;
+
+    final minValue = values.reduce(math.min);
+    final maxValue = values.reduce(math.max);
+    final range = maxValue - minValue;
+    const topInset = 16.0;
+    const bottomInset = 12.0;
+    final points = <Offset>[];
+
+    for (var index = 0; index < values.length; index++) {
+      final x = size.width * index / (values.length - 1);
+      final normalized = range == 0 ? 0.5 : (values[index] - minValue) / range;
+      final y =
+          size.height -
+          bottomInset -
+          normalized * (size.height - topInset - bottomInset);
+      points.add(Offset(x, y));
+    }
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var index = 1; index < points.length; index++) {
+      path.lineTo(points[index].dx, points[index].dy);
+    }
+
+    final area = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(
+      area,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            KandoColors.accent.withValues(alpha: 0.16),
+            KandoColors.accent.withValues(alpha: 0),
+          ],
+        ).createShader(Offset.zero & size),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = KandoColors.accent
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke,
+    );
+    canvas.drawCircle(points.last, 3, Paint()..color = KandoColors.accent);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PriceChartPainter oldDelegate) {
+    return oldDelegate.values != values;
+  }
+}
+
+Future<void> _confirmRemoveWishlist(
+  BuildContext context,
+  CardDetailController controller,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text('Remove from Wishlist'),
+        content: const Text('Remove this card from your Wishlist?'),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: KandoColors.mutedText),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFACC15),
+              foregroundColor: KandoColors.ink,
+              shape: const StadiumBorder(),
+            ),
+            onPressed: () async {
+              try {
+                await controller.toggleWishlist();
+              } catch (_) {
+                if (dialogContext.mounted) {
+                  showKandoFailureToast(dialogContext);
+                }
+                return;
+              }
+              if (dialogContext.mounted) {
+                Navigator.of(dialogContext).pop();
+              }
+            },
+            icon: const Icon(Icons.bookmark_remove_outlined),
+            label: const Text('Remove'),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 Future<void> _confirmRemoveCollectionItem(

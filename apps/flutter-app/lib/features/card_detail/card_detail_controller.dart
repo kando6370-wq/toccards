@@ -305,13 +305,15 @@ class CardDetailState {
     }).toList();
   }
 
-  List<CardPricePointRow> get priceSeriesRows {
+  List<CardPricePoint> get selectedPriceSeries {
     final seriesByRange = selectedPriceChartMode == CardPriceChartMode.raw
         ? detail.priceSeriesByRange
         : detail.gradedPriceSeriesByRange;
-    final points =
-        seriesByRange[selectedPriceRange] ?? const <CardPricePoint>[];
-    return points.map((point) {
+    return seriesByRange[selectedPriceRange] ?? const <CardPricePoint>[];
+  }
+
+  List<CardPricePointRow> get priceSeriesRows {
+    return selectedPriceSeries.map((point) {
       return CardPricePointRow(
         dateLabel: point.dateLabel,
         priceText: _formatter.formatUsd(point.priceUsd),

@@ -16,6 +16,32 @@ import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_card_detail_repository.dart';
 
 void main() {
+  testWidgets(
+    'mobile CardDetail keeps the Figma hero size because the primary card must stay inspectable',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'squirtle'));
+      await tester.pumpAndSettle();
+
+      final heroSize = tester.getSize(
+        find.byKey(const Key('card-detail-hero')),
+      );
+      expect(heroSize.width, 350);
+      expect(heroSize.height, closeTo(454, 0.01));
+      expect(tester.takeException(), isNull);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-price-chart')),
+        400,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('uncollected CardDetail renders identity and price overview', (
     tester,
   ) async {
@@ -24,35 +50,37 @@ void main() {
 
     expect(find.text('Squirtle'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Basic information'), 300);
-    expect(find.text('Pokemon'), findsOneWidget);
-    expect(find.text('Mega Evolution Promos'), findsOneWidget);
-    expect(find.text('Promo #039'), findsOneWidget);
+    expect(find.text('Pokemon'), findsWidgets);
+    expect(find.text('Mega Evolution Promos'), findsWidgets);
+    expect(find.text('Promo #039'), findsWidgets);
     expect(find.text('Holofoil'), findsOneWidget);
     expect(find.text('English'), findsOneWidget);
     expect(find.text('Add to Portfolio'), findsOneWidget);
     expect(find.text('Collect'), findsNothing);
 
-    await tester.scrollUntilVisible(find.text('Price overview'), 400);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('card-detail-price-chart')),
+      400,
+    );
 
-    expect(find.text('Price overview'), findsOneWidget);
-    expect(find.text('Price range'), findsOneWidget);
-    expect(find.text('1d'), findsOneWidget);
-    expect(find.text('7d'), findsOneWidget);
-    expect(find.text('15d'), findsOneWidget);
-    expect(find.text('1m'), findsOneWidget);
-    expect(find.text('3m'), findsOneWidget);
+    expect(find.text('Price'), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
+    expect(find.text('1D'), findsOneWidget);
+    expect(find.text('7D'), findsOneWidget);
+    expect(find.text('15D'), findsOneWidget);
+    expect(find.text('1M'), findsOneWidget);
+    expect(find.text('3M'), findsOneWidget);
     expect(find.text('6M'), findsNothing);
     expect(find.text('12M'), findsNothing);
     expect(find.text('MAX'), findsNothing);
     expect(find.text('30D'), findsNothing);
-    expect(find.text('Price series'), findsOneWidget);
     expect(find.text('30 days ago'), findsOneWidget);
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
     expect(find.text('Raw Near Mint (NM)'), findsOneWidget);
     expect(find.text(r'$32.13'), findsWidgets);
-    expect(find.text('7D +2.19%'), findsOneWidget);
+    expect(find.text('+2.19%'), findsOneWidget);
     expect(find.text('Collection Item'), findsNothing);
     expect(find.text('Remove from Portfolio'), findsNothing);
   });
@@ -61,14 +89,17 @@ void main() {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'mystery-promo'));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.text('Price overview'), 400);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('card-detail-price-chart')),
+      400,
+    );
 
-    expect(find.text('Price series'), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
     expect(find.text('No price data available.'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Raw'), findsWidgets);
     expect(find.text('--'), findsWidgets);
-    expect(find.text('7D -/-'), findsOneWidget);
+    expect(find.text('-/-'), findsWidgets);
     expect(find.text('Shop'), findsOneWidget);
     expect(find.text('No sold listings available.'), findsOneWidget);
     expect(find.text(noContentAvailableText), findsNothing);
@@ -90,6 +121,54 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(actions.marketplaceUrl, 'https://market.example/squirtle-promo');
+    },
+  );
+
+  testWidgets(
+    'sold listings action uses the real card identity because the external query must match the detail',
+    (tester) async {
+      final actions = _RecordingCardDetailActions();
+      await tester.pumpWidget(
+        _CardDetailTestApp(cardId: 'squirtle', actions: actions),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('card-detail-view-sold-listings')));
+      await tester.pumpAndSettle();
+
+      expect(actions.soldListingsName, 'Squirtle');
+      expect(actions.soldListingsSetName, 'Mega Evolution Promos');
+    },
+  );
+
+  testWidgets(
+    'wishlisted CardDetail asks before removal because Wishlist deletion is destructive',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(cardId: 'one-piece-luffy'),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('card-detail-wishlist-one-piece-luffy')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Remove from Wishlist'), findsWidgets);
+      expect(find.text('Remove this card from your Wishlist?'), findsOneWidget);
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      expect(
+        container
+            .read(cardDetailControllerProvider('one-piece-luffy'))
+            .detail
+            .isWishlisted,
+        isFalse,
+      );
     },
   );
 
@@ -185,7 +264,7 @@ void main() {
     expect(find.text('Total'), findsOneWidget);
     expect(find.text(r'$650.00'), findsWidgets);
     expect(find.text('Pulled from Obsidian Flames binder.'), findsOneWidget);
-    expect(find.text('Price overview'), findsNothing);
+    expect(find.byKey(const Key('card-detail-price-chart')), findsNothing);
   });
 
   testWidgets('owned CardDetail can switch to Price overview', (tester) async {
@@ -196,10 +275,10 @@ void main() {
     await tester.tap(find.text('Price'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Price overview'), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
     expect(find.text('RAW'), findsOneWidget);
     expect(find.text('GRADED'), findsOneWidget);
-    expect(find.text('Price range'), findsOneWidget);
+    expect(find.text('1M'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
     expect(find.text('PSA 10'), findsOneWidget);
@@ -217,7 +296,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('GRADED'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('3m'));
+    await tester.ensureVisible(find.text('3M'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3M'));
     await tester.pumpAndSettle();
 
     expect(find.text('90 days ago'), findsOneWidget);
@@ -347,7 +428,7 @@ void main() {
 
     expect(find.text('Add to Portfolio'), findsOneWidget);
     expect(find.text('Collection Item'), findsNothing);
-    expect(find.text('Price overview'), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
   });
 
   testWidgets('owned CardDetail shares its real identity and market price', (
@@ -411,8 +492,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Squirtle'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Price overview'), 400);
-    expect(find.text('Price overview'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('card-detail-price-chart')),
+      400,
+    );
+    expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
   });
 }
 
