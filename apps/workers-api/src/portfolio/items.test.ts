@@ -80,12 +80,14 @@ class FakeD1Database {
   items: CollectionItemRow[] = [];
   itemEvents: CollectionItemEventRow[] = [];
   wishlist: WishlistRow[] = [];
+  batchSizes: number[] = [];
 
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
   }
 
   async batch(statements: FakeD1Statement[]): Promise<unknown[]> {
+    this.batchSizes.push(statements.length);
     return Promise.all(statements.map((statement) => statement.run()));
   }
 }
@@ -277,8 +279,9 @@ class FakeD1Statement {
       return changed(1);
     }
 
-    if (this.sql.includes("UPDATE collection_item") && this.sql.includes("SET grader")) {
+    if (this.sql.includes("UPDATE collection_item") && this.sql.includes("grader = ?")) {
       const [
+        folderId,
         grader,
         condition,
         grade,
@@ -293,6 +296,7 @@ class FakeD1Statement {
         ownerId,
         itemId,
       ] = this.args as [
+        string,
         string,
         string | null,
         number | null,
@@ -312,6 +316,7 @@ class FakeD1Statement {
       if (!item) return changed(0);
 
       Object.assign(item, {
+        folder_id: folderId,
         grader,
         condition,
         grade,
@@ -618,6 +623,99 @@ describe("collection item routes", () => {
       success: false,
       error: { code: "NOT_FOUND", message: "Not found." },
     });
+  });
+
+  it("edits fields and moves folders in one PATCH because edited moves must complete atomically", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
+    db.items.push(item({ id: "owned", folder_id: "main" }));
+
+    const response = await app.request(
+      "/api/v1/portfolio/items/owned",
+      {
+        method: "PATCH",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({
+          folder_id: "trade",
+          grader: "PSA",
+          condition: null,
+          grade: 10,
+          quantity: 2,
+          notes: "trade binder",
+        }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: itemResponse({
+        id: "owned",
+        folder_id: "trade",
+        grader: "PSA",
+        condition: null,
+        grade: 10,
+        quantity: 2,
+        notes: "trade binder",
+        updated_at: expect.any(String),
+      }),
+    });
+    expect(db.batchSizes).toEqual([2]);
+    expect(db.items).toEqual([
+      expect.objectContaining({
+        id: "owned",
+        folder_id: "trade",
+        grader: "PSA",
+        grade: 10,
+        quantity: 2,
+        notes: "trade binder",
+      }),
+    ]);
+    expect(db.itemEvents).toEqual([
+      expect.objectContaining({
+        item_id: "owned",
+        folder_id: "trade",
+        grader: "PSA",
+        grade: 10,
+        quantity: 2,
+        event_type: "upsert",
+      }),
+    ]);
+  });
+
+  it("keeps the original folder when an edited move targets another owner because failed saves must not move assets", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(
+      folder({ id: "main" }),
+      folder({ id: "private", owner_type: "user", owner_id: "user-2" }),
+    );
+    db.items.push(item({ id: "owned", folder_id: "main" }));
+
+    const response = await app.request(
+      "/api/v1/portfolio/items/owned",
+      {
+        method: "PATCH",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({ folder_id: "private", quantity: 2 }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      success: false,
+      error: { code: "NOT_FOUND", message: "Not found." },
+    });
+    expect(db.batchSizes).toEqual([]);
+    expect(db.items).toEqual([
+      expect.objectContaining({
+        id: "owned",
+        folder_id: "main",
+        quantity: 1,
+      }),
+    ]);
+    expect(db.itemEvents).toEqual([]);
   });
 
   it("gets, updates, moves, and deletes only owned collection items because item operations must stay inside the owner boundary", async () => {

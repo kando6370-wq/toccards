@@ -88,6 +88,7 @@ export function collectionItemPatchFromBody(
 
   return collectionItemDraftFromBody(
     {
+      folder_id: body.folder_id === undefined ? item.folder_id : body.folder_id,
       grader: body.grader === undefined ? item.grader : body.grader,
       condition: body.condition === undefined ? item.condition : body.condition,
       grade: body.grade === undefined ? item.grade : body.grade,
@@ -103,7 +104,6 @@ export function collectionItemPatchFromBody(
       notes: body.notes === undefined ? item.notes : body.notes,
     },
     {
-      folder_id: item.folder_id,
       card_ref: item.card_ref,
       object_type: item.object_type,
     },

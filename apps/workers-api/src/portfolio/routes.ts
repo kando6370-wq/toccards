@@ -192,7 +192,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
 const UPDATE_COLLECTION_ITEM_SQL = `
 UPDATE collection_item
-SET grader = ?, condition = ?, grade = ?, language = ?, finish = ?, quantity = ?,
+SET folder_id = ?, grader = ?, condition = ?, grade = ?, language = ?, finish = ?, quantity = ?,
   purchase_price = ?, purchase_currency = ?, notes = ?, updated_at = ?
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 `;
@@ -798,9 +798,17 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
+    if (
+      draft.folder_id !== item.folder_id &&
+      !(await findFolder(c.env.DB, auth.owner, draft.folder_id))
+    ) {
+      return c.json(NOT_FOUND_RESPONSE, 404);
+    }
+
     const now = new Date().toISOString();
     await c.env.DB.batch([
       c.env.DB.prepare(UPDATE_COLLECTION_ITEM_SQL).bind(
+        draft.folder_id,
         draft.grader,
         draft.condition,
         draft.grade,
