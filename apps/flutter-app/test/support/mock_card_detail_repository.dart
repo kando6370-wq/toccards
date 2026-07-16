@@ -149,6 +149,7 @@ CardDetail _mockDetail(String cardId) {
           title: 'Squirtle Promo Holofoil',
           priceUsd: 32.13,
           platform: 'eBay',
+          url: 'https://market.example/squirtle-promo',
         ),
       ],
     ),

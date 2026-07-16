@@ -186,6 +186,7 @@ class HttpCardDetailRepository implements CardDetailRepository {
               title: listing.title,
               priceUsd: listing.price,
               platform: listing.platform,
+              url: listing.url,
             ),
           )
           .toList(),

@@ -780,14 +780,14 @@ class _CollectionItemForm extends StatelessWidget {
   }
 }
 
-class _PriceOverview extends StatelessWidget {
+class _PriceOverview extends ConsumerWidget {
   const _PriceOverview({required this.state, required this.controller});
 
   final CardDetailState state;
   final CardDetailController controller;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final segStyle = SegmentedButton.styleFrom(
       backgroundColor: KandoColors.elevatedSurface.withValues(alpha: 0.4),
       foregroundColor: KandoColors.mutedText,
@@ -858,7 +858,16 @@ class _PriceOverview extends StatelessWidget {
             trailing: row.priceText,
           ),
         const SizedBox(height: 20),
-        const Text('Sold listings', style: _kSectionTitleStyle),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Shop', style: _kSectionTitleStyle),
+            Text(
+              'MARKETPLACE',
+              style: _kFieldLabelStyle.copyWith(fontSize: 10),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         if (state.hasSoldListingRows) ...[
           for (final row in state.soldListingRows)
@@ -866,6 +875,17 @@ class _PriceOverview extends StatelessWidget {
               title: row.title,
               subtitle: '${row.dateText} - ${row.platform}',
               trailing: row.priceText,
+              onTap: row.url == null
+                  ? null
+                  : () async {
+                      try {
+                        await ref
+                            .read(cardDetailActionsProvider)
+                            .openMarketplaceListing(row.url!);
+                      } catch (_) {
+                        if (context.mounted) showKandoFailureToast(context);
+                      }
+                    },
             ),
         ] else
           Text(
@@ -900,11 +920,13 @@ class _PriceRowTile extends StatelessWidget {
     required this.title,
     required this.trailing,
     this.subtitle,
+    this.onTap,
   });
 
   final String title;
   final String? subtitle;
   final String trailing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -912,6 +934,7 @@ class _PriceRowTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: _kPanel(radius: 12),
       child: ListTile(
+        onTap: onTap,
         title: Text(
           title,
           style: const TextStyle(fontSize: 15, color: KandoColors.text),

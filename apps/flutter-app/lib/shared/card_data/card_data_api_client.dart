@@ -139,12 +139,14 @@ class CardDataSoldListingDto {
     required this.title,
     required this.price,
     required this.platform,
+    this.url,
   });
 
   final String date;
   final String title;
   final double price;
   final String platform;
+  final String? url;
 
   factory CardDataSoldListingDto.fromJson(Map<String, Object?> json) {
     return CardDataSoldListingDto(
@@ -152,6 +154,7 @@ class CardDataSoldListingDto {
       title: _requiredString(json['title']),
       price: _requiredDouble(json['price']),
       platform: _requiredString(json['platform']),
+      url: _nullableString(json['url']),
     );
   }
 }

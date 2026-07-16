@@ -49,7 +49,7 @@ void main() {
     expect(find.text('30 days ago'), findsOneWidget);
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
-    expect(find.text('Sold listings'), findsOneWidget);
+    expect(find.text('Shop'), findsOneWidget);
     expect(find.text('Raw Near Mint (NM)'), findsOneWidget);
     expect(find.text(r'$32.13'), findsWidgets);
     expect(find.text('7D +2.19%'), findsOneWidget);
@@ -69,10 +69,29 @@ void main() {
     expect(find.text('Raw'), findsWidgets);
     expect(find.text('--'), findsWidgets);
     expect(find.text('7D -/-'), findsOneWidget);
-    expect(find.text('Sold listings'), findsOneWidget);
+    expect(find.text('Shop'), findsOneWidget);
     expect(find.text('No sold listings available.'), findsOneWidget);
     expect(find.text(noContentAvailableText), findsNothing);
   });
+
+  testWidgets(
+    'Shop opens the backend listing URL because marketplace routes are server-owned',
+    (tester) async {
+      final actions = _RecordingCardDetailActions();
+      await tester.pumpWidget(
+        _CardDetailTestApp(cardId: 'squirtle', actions: actions),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Shop'), 400);
+      await tester.ensureVisible(find.text('Squirtle Promo Holofoil'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Squirtle Promo Holofoil'));
+      await tester.pumpAndSettle();
+
+      expect(actions.marketplaceUrl, 'https://market.example/squirtle-promo');
+    },
+  );
 
   testWidgets(
     'Add to Portfolio uses item form because details need explicit ownership fields',
@@ -182,7 +201,7 @@ void main() {
     expect(find.text('GRADED'), findsOneWidget);
     expect(find.text('Price range'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
-    expect(find.text('Sold listings'), findsOneWidget);
+    expect(find.text('Shop'), findsOneWidget);
     expect(find.text('PSA 10'), findsOneWidget);
     expect(find.text(r'$215.00'), findsWidgets);
   });
@@ -204,7 +223,7 @@ void main() {
     expect(find.text('90 days ago'), findsOneWidget);
     expect(find.text('Today'), findsOneWidget);
     expect(find.text(r'$780.00'), findsWidgets);
-    expect(find.text('Sold listings'), findsOneWidget);
+    expect(find.text('Shop'), findsOneWidget);
   });
 
   testWidgets('owned Collection Item can be edited from CardDetail', (
@@ -468,6 +487,23 @@ class _RecordingCardDetailActions implements CardDetailActions {
   String? name;
   String? setName;
   String? marketPrice;
+  String? marketplaceUrl;
+  String? soldListingsName;
+  String? soldListingsSetName;
+
+  @override
+  Future<void> openMarketplaceListing(String url) async {
+    marketplaceUrl = url;
+  }
+
+  @override
+  Future<void> openSoldListings({
+    required String name,
+    required String setName,
+  }) async {
+    soldListingsName = name;
+    soldListingsSetName = setName;
+  }
 
   @override
   Future<void> shareCard({

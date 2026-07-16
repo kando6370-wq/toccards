@@ -201,12 +201,14 @@ class CardSoldListingRow {
     required this.title,
     required this.priceText,
     required this.platform,
+    required this.url,
   });
 
   final String dateText;
   final String title;
   final String priceText;
   final String platform;
+  final String? url;
 }
 
 class CardDetailState {
@@ -342,6 +344,7 @@ class CardDetailState {
         title: listing.title,
         priceText: _formatter.formatUsd(listing.priceUsd),
         platform: listing.platform,
+        url: listing.url,
       );
     }).toList();
   }

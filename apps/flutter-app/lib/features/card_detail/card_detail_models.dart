@@ -51,12 +51,14 @@ class CardSoldListing {
     required this.title,
     required this.priceUsd,
     required this.platform,
+    this.url,
   });
 
   final String dateText;
   final String title;
   final double? priceUsd;
   final String platform;
+  final String? url;
 }
 
 class CardPortfolioFolder {
