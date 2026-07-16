@@ -11,6 +11,8 @@ import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../collection/collection_page.dart';
+import '../collection/collection_controller.dart';
+import '../collection/collection_models.dart';
 import 'home_controller.dart';
 import 'home_models.dart';
 
@@ -62,9 +64,18 @@ class HomePage extends ConsumerWidget {
                 _MostValuableSection(
                   state: state,
                   onRefresh: controller.refresh,
+                  onViewAll: () {
+                    ref
+                        .read(collectionInitialSortProvider.notifier)
+                        .select(CollectionSort.valueDesc);
+                    context.go('/collection');
+                  },
                 ),
                 const SizedBox(height: 32),
-                _TrendingSection(state: state),
+                _TrendingSection(
+                  state: state,
+                  onViewAll: () => context.go('/search'),
+                ),
               ],
             ),
           ),
@@ -353,7 +364,7 @@ class _PortfolioCard extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.only(left: 4),
           child: Text(
-            'PORTDOLIO',
+            'PORTFOLIO',
             style: TextStyle(
               color: Color(0xFF92927D),
               fontSize: 16,
@@ -647,10 +658,15 @@ class _FigmaFailurePanel extends StatelessWidget {
 }
 
 class _MostValuableSection extends StatelessWidget {
-  const _MostValuableSection({required this.state, required this.onRefresh});
+  const _MostValuableSection({
+    required this.state,
+    required this.onRefresh,
+    required this.onViewAll,
+  });
 
   final HomeState state;
   final VoidCallback onRefresh;
+  final VoidCallback onViewAll;
 
   @override
   Widget build(BuildContext context) {
@@ -662,6 +678,8 @@ class _MostValuableSection extends StatelessWidget {
         _SectionHeader(
           title: 'Most Valuable',
           isUnavailable: state.isUnavailable,
+          viewAllKey: const Key('home-most-valuable-view-all'),
+          onViewAll: onViewAll,
         ),
         const SizedBox(height: 16),
         if (state.isUnavailable)
@@ -704,9 +722,10 @@ class _MostValuableSection extends StatelessWidget {
 }
 
 class _TrendingSection extends StatelessWidget {
-  const _TrendingSection({required this.state});
+  const _TrendingSection({required this.state, required this.onViewAll});
 
   final HomeState state;
+  final VoidCallback onViewAll;
 
   @override
   Widget build(BuildContext context) {
@@ -718,6 +737,8 @@ class _TrendingSection extends StatelessWidget {
         _SectionHeader(
           title: 'Trending Today',
           isUnavailable: state.isUnavailable,
+          viewAllKey: const Key('home-trending-view-all'),
+          onViewAll: onViewAll,
         ),
         const SizedBox(height: 16),
         for (var index = 0; index < trends.length; index += 1) ...[
@@ -751,9 +772,16 @@ class _TrendingSection extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.isUnavailable = false});
+  const _SectionHeader({
+    required this.title,
+    required this.viewAllKey,
+    required this.onViewAll,
+    this.isUnavailable = false,
+  });
 
   final String title;
+  final Key viewAllKey;
+  final VoidCallback onViewAll;
   final bool isUnavailable;
 
   @override
@@ -798,31 +826,39 @@ class _SectionHeader extends StatelessWidget {
             ),
           )
         else
-          const SizedBox(
+          SizedBox(
             width: 60,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View all',
-                    style: TextStyle(
-                      color: KandoColors.accent,
-                      fontWeight: FontWeight.w400,
-                      fontSize: 13,
-                      height: 16 / 13,
-                    ),
+            child: InkWell(
+              key: viewAllKey,
+              onTap: onViewAll,
+              borderRadius: BorderRadius.circular(8),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'View all',
+                        style: TextStyle(
+                          color: KandoColors.accent,
+                          fontWeight: FontWeight.w400,
+                          fontSize: 13,
+                          height: 16 / 13,
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Image(
+                        key: Key('home-view-all-arrow'),
+                        image: AssetImage('assets/home/view_all_arrow.png'),
+                        width: 14,
+                        height: 10,
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 4),
-                  Image(
-                    key: Key('home-view-all-arrow'),
-                    image: AssetImage('assets/home/view_all_arrow.png'),
-                    width: 14,
-                    height: 10,
-                  ),
-                ],
+                ),
               ),
             ),
           ),

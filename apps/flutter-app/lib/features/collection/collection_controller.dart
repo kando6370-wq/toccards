@@ -28,6 +28,24 @@ final collectionControllerProvider =
       CollectionController.new,
     );
 
+final collectionInitialSortProvider =
+    NotifierProvider<CollectionInitialSortController, CollectionSort?>(
+      CollectionInitialSortController.new,
+    );
+
+class CollectionInitialSortController extends Notifier<CollectionSort?> {
+  @override
+  CollectionSort? build() => null;
+
+  void select(CollectionSort sort) {
+    state = sort;
+  }
+
+  void clear() {
+    state = null;
+  }
+}
+
 class CollectionSummary {
   const CollectionSummary({
     required this.totalValueText,
@@ -422,6 +440,8 @@ class CollectionController extends Notifier<CollectionState> {
             : dashboard.defaultFolder.id;
         final amountHidden =
             ref.read(portfolioAmountHiddenProvider) ?? dashboard.amountHidden;
+        final initialSort =
+            ref.read(collectionInitialSortProvider) ?? CollectionSort.newest;
         ref
             .read(selectedCurrencyProvider.notifier)
             .select(preferredCurrency);
@@ -435,8 +455,8 @@ class CollectionController extends Notifier<CollectionState> {
             CollectionTab.portfolio: '',
             CollectionTab.wishlist: '',
           },
-          sortByTab: const {
-            CollectionTab.portfolio: CollectionSort.newest,
+          sortByTab: {
+            CollectionTab.portfolio: initialSort,
             CollectionTab.wishlist: CollectionSort.newest,
           },
           gamesByTab: const {
@@ -448,6 +468,7 @@ class CollectionController extends Notifier<CollectionState> {
             CollectionTab.wishlist: <String>{},
           },
         );
+        ref.read(collectionInitialSortProvider.notifier).clear();
         if (sharedFolderId == null) {
           ref
               .read(selectedPortfolioFolderProvider.notifier)

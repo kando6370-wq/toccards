@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
+import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
@@ -171,8 +172,8 @@ void main() {
     await tester.pumpWidget(_mockHomeApp());
 
     expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('PORTDOLIO'), findsOneWidget);
-    expect(find.text('PORTFOLIO'), findsNothing);
+    expect(find.text('PORTFOLIO'), findsOneWidget);
+    expect(find.text('PORTDOLIO'), findsNothing);
     expect(find.text('Main'), findsOneWidget);
     expect(find.text(r'$12,450.80'), findsOneWidget);
     expect(find.text('1D'), findsOneWidget);
@@ -191,11 +192,11 @@ void main() {
     );
     expect(
       find.byKey(const Key('home-most-valuable-card-main-1')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const Key('home-most-valuable-card-main-2')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('Trending Today'), findsOneWidget);
     expect(find.text('Ragavan, Nimble Pilferer'), findsOneWidget);
@@ -341,7 +342,7 @@ void main() {
       await tester.pumpWidget(_mockHomeApp());
       await _waitForHomeAuth(tester);
 
-      expect(find.text('+3.20%'), findsNWidgets(3));
+      expect(find.text('+3.20%'), findsOneWidget);
       expect(find.text('0.001%'), findsNothing);
 
       await tester.tap(find.text('Main'));
@@ -532,6 +533,64 @@ void main() {
     expect(collection.selectedFolder.id, 'sealed');
     expect(collection.amountHidden, isTrue);
   });
+
+  testWidgets(
+    'Most Valuable View all opens the selected portfolio by value because Home only shows its top card',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._localAuthOverrides(),
+            collectionRepositoryProvider.overrideWithValue(
+              const MockCollectionRepository(),
+            ),
+            homeRepositoryProvider.overrideWithValue(
+              const MockHomeRepository(),
+            ),
+          ],
+          child: const _HomeTestAppWithRoutes(),
+        ),
+      );
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.byKey(const Key('home-most-valuable-view-all')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CollectionPage), findsOneWidget);
+      final context = tester.element(find.byType(CollectionPage));
+      final collection = ProviderScope.containerOf(
+        context,
+      ).read(collectionControllerProvider);
+      expect(collection.selectedTab, CollectionTab.portfolio);
+      expect(collection.selectedSort, CollectionSort.valueDesc);
+      expect(collection.visibleItems.first.name, 'Charizard ex');
+    },
+  );
+
+  testWidgets(
+    'Trending View all opens Search because Search is backed by the live trending feed',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            homeRepositoryProvider.overrideWithValue(
+              const MockHomeRepository(),
+            ),
+          ],
+          child: const _HomeTestAppWithRoutes(),
+        ),
+      );
+
+      final viewAll = find.byKey(const Key('home-trending-view-all'));
+      await tester.ensureVisible(viewAll);
+      await tester.tap(viewAll);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SearchPage), findsOneWidget);
+      expect(find.text('Squirtle'), findsOneWidget);
+    },
+  );
 
   testWidgets('Search bottom tab navigates to Search page', (tester) async {
     await tester.pumpWidget(

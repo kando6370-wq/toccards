@@ -82,7 +82,7 @@ class ApiHomeRepository implements HomeRepository {
       );
 
       folderAssets.sort((left, right) => right.price.compareTo(left.price));
-      final cards = folderAssets.take(3).map(_highlight).toList();
+      final cards = folderAssets.take(1).map(_highlight).toList();
       highlights[folder.id] = cards;
       primaryHighlights[folder.id] = cards.firstOrNull;
     }

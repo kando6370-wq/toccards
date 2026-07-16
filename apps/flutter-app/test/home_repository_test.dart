@@ -17,8 +17,8 @@ void main() {
       ).loadDashboard();
 
       expect(dashboard.defaultFolder.name, 'Main');
-      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 200);
-      expect(dashboard.portfoliosByFolderId['main']!.previous30dValueUsd, 160);
+      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 210);
+      expect(dashboard.portfoliosByFolderId['main']!.previous30dValueUsd, 168);
       expect(
         dashboard.mostValuableCardsByFolderId['main']!.single.title,
         'Owned Card',
@@ -36,7 +36,7 @@ void main() {
         dashboard
             .portfoliosByFolderId['main']!
             .chartValuesByRange[HomeChartRange.oneMonth],
-        [160, 200],
+        [168, 210],
       );
     },
   );
@@ -51,12 +51,12 @@ void main() {
         cardDataApi: _CardDataApi(failedSeriesDays: {90}),
       ).loadDashboard();
 
-      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 200);
+      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 210);
       expect(
         dashboard
             .portfoliosByFolderId['main']!
             .chartValuesByRange[HomeChartRange.threeMonths],
-        [200],
+        [210],
       );
       expect(dashboard.mostValuableCardsByFolderId['main'], hasLength(1));
     },
@@ -98,6 +98,23 @@ class _PortfolioApi implements PortfolioApi {
       notes: null,
       createdAt: DateTime.utc(2026, 7, 1),
       updatedAt: DateTime.utc(2026, 7, 1),
+    ),
+    PortfolioItemDto(
+      id: 'item-2',
+      folderId: 'main',
+      cardRef: 'owned-low',
+      objectType: 'tcg',
+      grader: 'Raw',
+      condition: 'Near Mint (NM)',
+      grade: null,
+      language: 'English',
+      finish: 'Normal',
+      quantity: 1,
+      purchasePrice: null,
+      purchaseCurrency: null,
+      notes: null,
+      createdAt: DateTime.utc(2026, 7, 2),
+      updatedAt: DateTime.utc(2026, 7, 2),
     ),
   ];
 
@@ -144,7 +161,11 @@ class _CardDataApi implements CardDataApi {
           grader: 'Raw',
           grade: null,
           condition: 'Near Mint',
-          price: cardRef == 'owned' ? 100 : 60,
+          price: switch (cardRef) {
+            'owned' => 100,
+            'owned-low' => 10,
+            _ => 60,
+          },
         ),
       ];
 
@@ -156,24 +177,36 @@ class _CardDataApi implements CardDataApi {
     double? grade,
     String? condition,
   }) async {
-    if (cardRef == 'owned' && failedSeriesDays.contains(days)) {
+    if (cardRef.startsWith('owned') && failedSeriesDays.contains(days)) {
       throw StateError('price series unavailable');
     }
     return [
       CardDataPricePointDto(
         date: '2026-06-15',
-        price: cardRef == 'owned' ? (days == 30 ? 80 : 90) : 50,
+        price: switch (cardRef) {
+          'owned' => days == 30 ? 80 : 90,
+          'owned-low' => days == 30 ? 8 : 9,
+          _ => 50,
+        },
       ),
       CardDataPricePointDto(
         date: '2026-07-15',
-        price: cardRef == 'owned' ? 100 : 60,
+        price: switch (cardRef) {
+          'owned' => 100,
+          'owned-low' => 10,
+          _ => 60,
+        },
       ),
     ];
   }
 
   CardDataCardDto _card(String cardRef) => CardDataCardDto(
     cardRef: cardRef,
-    name: cardRef == 'owned' ? 'Owned Card' : 'Trending Card',
+    name: switch (cardRef) {
+      'owned' => 'Owned Card',
+      'owned-low' => 'Lower Value Card',
+      _ => 'Trending Card',
+    },
     setName: 'Server Set',
     setCode: 'SRV',
     cardNumber: '1',

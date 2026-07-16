@@ -27,7 +27,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('PORTDOLIO'), findsOneWidget);
+    expect(find.text('PORTFOLIO'), findsOneWidget);
     expect(find.text('Guest session'), findsNothing);
     expect(find.text('Delete account'), findsNothing);
 
