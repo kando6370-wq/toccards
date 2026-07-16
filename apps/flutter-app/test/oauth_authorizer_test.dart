@@ -3,6 +3,26 @@ import 'package:kando_app/features/auth/oauth_authorizer.dart';
 
 void main() {
   test(
+    'configures Google server audience because Android rejects authentication without a server client id',
+    () async {
+      String? configuredClientId;
+      String? configuredServerClientId;
+      final authorizer = PlatformOAuthAuthorizer.testing(
+        appleClient: _AppleClient(result: null),
+        googleInitializer: ({clientId, serverClientId}) async {
+          configuredClientId = clientId;
+          configuredServerClientId = serverClientId;
+        },
+      );
+
+      await authorizer.initialize();
+
+      expect(configuredClientId, googleOAuthClientId);
+      expect(configuredServerClientId, googleOAuthClientId);
+    },
+  );
+
+  test(
     'routes Apple authorization through the native client because Apple proof must reach Workers',
     () async {
       final client = _AppleClient(

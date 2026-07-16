@@ -5,6 +5,9 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 const googleOAuthClientId =
     '134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com';
 
+typedef GoogleSignInInitializer =
+    Future<void> Function({String? clientId, String? serverClientId});
+
 enum OAuthProvider { google, apple }
 
 class OAuthAuthorizationResult {
@@ -63,21 +66,27 @@ class NativeAppleOAuthClient implements AppleOAuthClient {
 }
 
 class PlatformOAuthAuthorizer implements OAuthAuthorizer {
-  PlatformOAuthAuthorizer._(this._appleClient);
+  PlatformOAuthAuthorizer._(this._appleClient)
+    : _googleInitializer = _initializeGoogleSignIn;
 
   @visibleForTesting
-  PlatformOAuthAuthorizer.testing({required AppleOAuthClient appleClient})
-    : _appleClient = appleClient;
+  PlatformOAuthAuthorizer.testing({
+    required AppleOAuthClient appleClient,
+    GoogleSignInInitializer? googleInitializer,
+  }) : _appleClient = appleClient,
+       _googleInitializer = googleInitializer ?? _initializeGoogleSignIn;
 
   static final instance = PlatformOAuthAuthorizer._(
     const NativeAppleOAuthClient(),
   );
   final AppleOAuthClient _appleClient;
+  final GoogleSignInInitializer _googleInitializer;
   Future<void>? _initialization;
 
   Future<void> initialize() {
-    return _initialization ??= GoogleSignIn.instance.initialize(
+    return _initialization ??= _googleInitializer(
       clientId: googleOAuthClientId,
+      serverClientId: googleOAuthClientId,
     );
   }
 
@@ -104,6 +113,16 @@ class PlatformOAuthAuthorizer implements OAuthAuthorizer {
       rethrow;
     }
   }
+}
+
+Future<void> _initializeGoogleSignIn({
+  String? clientId,
+  String? serverClientId,
+}) {
+  return GoogleSignIn.instance.initialize(
+    clientId: clientId,
+    serverClientId: serverClientId,
+  );
 }
 
 class OAuthAuthorizationUnavailable implements Exception {
