@@ -1,0 +1,48 @@
+name: iOS build
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - ".github/workflows/ios-build.yml"
+      - "apps/flutter-app/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+  pull_request:
+    paths:
+      - ".github/workflows/ios-build.yml"
+      - "apps/flutter-app/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.35.5"
+          cache: true
+
+      - name: Resolve Flutter workspace dependencies
+        run: flutter pub get
+
+      - name: Install iOS pods
+        working-directory: apps/flutter-app/ios
+        run: pod install
+
+      - name: Build unsigned iOS release
+        working-directory: apps/flutter-app
+        run: flutter build ios --release --no-codesign --no-pub
