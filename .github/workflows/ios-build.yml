@@ -46,7 +46,12 @@ jobs:
 
       - name: Install iOS pods
         working-directory: apps/flutter-app/ios
-        run: pod install
+        run: |
+          pod install 2>&1 | tee "$RUNNER_TEMP/pod-install.log"
+          if grep -Fq "CocoaPods did not set the base configuration" "$RUNNER_TEMP/pod-install.log"; then
+            exit 1
+          fi
+          git diff --exit-code -- Podfile.lock
 
       - name: Upload CocoaPods lockfile
         uses: actions/upload-artifact@v4
