@@ -298,8 +298,23 @@ const SELECT_SCAN_RECORDS_SQL = `
     AND (? IS NULL OR recognition_status = ?)
     AND (? IS NULL OR user_confirmation_status = ?)
     AND (? IS NULL OR modified_result = ?)
+    AND (? IS NULL OR created_at >= ?)
+    AND (? IS NULL OR created_at <= ?)
   ORDER BY created_at DESC
   LIMIT ? OFFSET ?
+`;
+
+const COUNT_SCAN_RECORDS_SQL = `
+  SELECT COUNT(*) AS total
+  FROM scan_record
+  WHERE (? IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
+    AND (? IS NULL OR lower(platform) = ?)
+    AND (? IS NULL OR lower(app_version) = ?)
+    AND (? IS NULL OR recognition_status = ?)
+    AND (? IS NULL OR user_confirmation_status = ?)
+    AND (? IS NULL OR modified_result = ?)
+    AND (? IS NULL OR created_at >= ?)
+    AND (? IS NULL OR created_at <= ?)
 `;
 
 const SELECT_SCAN_RECORD_BY_ID_SQL = `
@@ -682,10 +697,14 @@ adminRoutes.get("/scans", async (c) => {
   const recognitionStatus = normalizeQuery(c.req.query("recognition_status"));
   const confirmationStatus = normalizeQuery(c.req.query("user_confirmation_status"));
   const modifiedResult = readBooleanQuery(c.req.query("modified_result"));
+  const dateFrom = readDateBoundary(c.req.query("date_from"), false);
+  const dateTo = readDateBoundary(c.req.query("date_to"), true);
+  if (dateFrom === "invalid" || dateTo === "invalid") {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
   const modifiedResultValue = modifiedResult === null ? null : modifiedResult ? 1 : 0;
   const offset = (page - 1) * pageSize;
-  const { results = [] } = await c.env.DB.prepare(SELECT_SCAN_RECORDS_SQL)
-    .bind(
+  const filterBindings = [
       uid,
       uid,
       platform,
@@ -698,16 +717,46 @@ adminRoutes.get("/scans", async (c) => {
       confirmationStatus,
       modifiedResultValue,
       modifiedResultValue,
+      dateFrom,
+      dateFrom,
+      dateTo,
+      dateTo,
+  ] as const;
+  const [{ results = [] }, count] = await Promise.all([
+    c.env.DB.prepare(SELECT_SCAN_RECORDS_SQL)
+      .bind(
+        ...filterBindings,
       pageSize,
       offset,
-    )
-    .all<ScanRecordRow>();
+      )
+      .all<ScanRecordRow>(),
+    c.env.DB.prepare(COUNT_SCAN_RECORDS_SQL)
+      .bind(...filterBindings)
+      .first<{ total: number }>(),
+  ]);
   const items = results.map(toScanListItem);
 
   return c.json({
     success: true,
-    data: { items, page, page_size: pageSize },
+    data: { items, page, page_size: pageSize, total: count?.total ?? 0 },
   });
+});
+
+adminRoutes.get("/scans/:scanId/image", async (c) => {
+  const bucket = c.env.SCAN_IMAGES;
+  if (!bucket) return c.json(INTERNAL_ERROR_RESPONSE, 503);
+  const row = await c.env.DB.prepare(SELECT_SCAN_RECORD_BY_ID_SQL)
+    .bind(c.req.param("scanId"))
+    .first<ScanRecordRow>();
+  if (!row?.image_url) return c.json(NOT_FOUND_RESPONSE, 404);
+  const object = await bucket.get(row.image_url);
+  if (!object) return c.json(NOT_FOUND_RESPONSE, 404);
+  const headers = new Headers({
+    "Cache-Control": "private, no-store",
+    "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
+    "X-Content-Type-Options": "nosniff",
+  });
+  return new Response(object.body, { headers });
 });
 
 adminRoutes.get("/scans/:scanId", async (c) => {
@@ -1224,7 +1273,9 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
 function toScanListItem(row: ScanRecordRow) {
   return {
     scan_id: row.id,
-    image_url: row.image_url ?? "",
+    image_url: row.image_url
+      ? `/scans/${encodeURIComponent(row.id)}/image`
+      : "",
     uid: row.owner_id,
     platform: row.platform,
     app_version: row.app_version,
@@ -1233,6 +1284,19 @@ function toScanListItem(row: ScanRecordRow) {
     user_confirmation_status: row.user_confirmation_status,
     modified_result: row.modified_result === 1,
   };
+}
+
+function readDateBoundary(
+  value: string | undefined,
+  endOfDay: boolean,
+): string | null | "invalid" {
+  const normalized = value?.trim();
+  if (!normalized) return null;
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(normalized);
+  const date = new Date(dateOnly
+    ? `${normalized}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`
+    : normalized);
+  return Number.isNaN(date.getTime()) ? "invalid" : date.toISOString();
 }
 
 function toScanDetail(row: ScanRecordRow) {

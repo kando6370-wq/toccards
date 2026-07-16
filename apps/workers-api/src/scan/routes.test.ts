@@ -27,6 +27,8 @@ type ScanRecordRow = {
   user_result: string;
   candidates: string;
   modified_result: number;
+  image_url?: string | null;
+  raw_response?: string;
 };
 
 type FolderRow = { id: string; owner_type: "anonymous" | "user"; owner_id: string };
@@ -62,6 +64,19 @@ type CardCatalogRow = {
 
 const PHASH = "vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw";
 
+class FakeR2 {
+  readonly objects = new Map<string, Uint8Array>();
+
+  async put(key: string, value: Uint8Array): Promise<R2Object> {
+    this.objects.set(key, Uint8Array.from(value));
+    return {} as R2Object;
+  }
+
+  async delete(key: string): Promise<void> {
+    this.objects.delete(key);
+  }
+}
+
 class FakeD1 {
   sessions: SessionRow[] = [];
   anonymousAccounts: AnonymousAccountRow[] = [];
@@ -70,6 +85,7 @@ class FakeD1 {
   collectionItems: CollectionItemRow[] = [];
   wishlistItems: WishlistRow[] = [];
   cards: CardCatalogRow[] = [];
+  failScanInsert = false;
 
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
@@ -127,7 +143,8 @@ class FakeD1Statement {
   async run<T = unknown>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
     if (sql.startsWith("INSERT INTO scan_record")) {
-      const [id, ownerType, ownerId, , , , , , , recognitionStatus, confirmationStatus, systemResult, userResult, candidates] =
+      if (this.db.failScanInsert) throw new Error("scan insert failed");
+      const [id, ownerType, ownerId, imageUrl, , , , , , recognitionStatus, confirmationStatus, systemResult, userResult, candidates, rawResponse] =
         this.values as [
           string,
           "anonymous" | "user",
@@ -156,6 +173,8 @@ class FakeD1Statement {
         user_result: userResult,
         candidates,
         modified_result: 0,
+        image_url: imageUrl,
+        raw_response: rawResponse,
       });
       return okResult<T>();
     }
@@ -267,7 +286,7 @@ describe("scan routes", () => {
     });
     env.DB.anonymousAccounts.push({ id: "anon-1", upgraded_user_id: null });
     env.DB.cards.push({
-      product_id: "11958",
+      product_id: "10738",
       game_id: 1,
       game: "Magic: The Gathering",
       set_name: "Champions of Kamigawa",
@@ -290,24 +309,22 @@ describe("scan routes", () => {
         "Content-Type": "application/json",
       });
       expect(JSON.parse(String(init.body))).toEqual({ r: PHASH, g: PHASH, b: PHASH });
-      return Response.json({ product_ids: [11958] });
+      return Response.json({
+        candidates: [
+          { product_id: 10738, confidence: 80.99 },
+          { product_id: 240872, confidence: 80.729 },
+        ],
+      });
     });
 
     const response = await app.request(
       "/api/v1/scan/recognize",
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          r: PHASH,
-          g: PHASH,
-          b: PHASH,
-          filename: "scan.jpg",
-          platform: "iOS",
-          app_version: "1.0.0",
+        headers: { Authorization: `Bearer ${token}` },
+        body: recognitionForm({
+          r: PHASH, g: PHASH, b: PHASH, filename: "scan.jpg",
+          platform: "iOS", app_version: "1.0.0",
         }),
       },
       env,
@@ -324,10 +341,10 @@ describe("scan routes", () => {
             matched: true,
             candidates: [
               expect.objectContaining({
-                card_ref: "11958",
+                card_ref: "10738",
                 name: "Bushi Tenderfoot",
                 set_code: "CHK",
-                confidence: null,
+                confidence: 80.99,
                 retrieval: "rgb-phash-16-v1",
               }),
             ],
@@ -341,7 +358,14 @@ describe("scan routes", () => {
         owner_id: "anon-1",
         recognition_status: "success",
         system_result: expect.stringContaining("Bushi Tenderfoot"),
-        candidates: expect.stringContaining("11958"),
+        image_url: expect.stringMatching(/^scans\/anonymous\/anon-1\/\d{4}\/\d{2}\/.+\.jpg$/),
+        candidates: expect.stringContaining('"confidence":80.729'),
+        raw_response: JSON.stringify({
+          candidates: [
+            { product_id: 10738, confidence: 80.99 },
+            { product_id: 240872, confidence: 80.729 },
+          ],
+        }),
       }),
     ]);
   });
@@ -349,7 +373,9 @@ describe("scan routes", () => {
   it("stores no_match when recognition ids are absent from D1 because an upstream id is not a reviewable card", async () => {
     const env = createRecognitionEnv();
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ product_ids: [999] })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      candidates: [{ product_id: 999, confidence: 77.125 }],
+    })));
 
     const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
     const body = await response.json();
@@ -365,7 +391,10 @@ describe("scan routes", () => {
       }),
     });
     expect(env.DB.scanRecords).toEqual([
-      expect.objectContaining({ recognition_status: "no_match", candidates: "[]" }),
+      expect.objectContaining({
+        recognition_status: "no_match",
+        candidates: expect.stringContaining('"confidence":77.125'),
+      }),
     ]);
   });
 
@@ -379,6 +408,64 @@ describe("scan routes", () => {
 
     expect(response.status).toBe(422);
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(env.DB.scanRecords).toEqual([]);
+  });
+
+  it("stores failed with the raw upstream payload because every valid recognition attempt must remain auditable", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(
+      { error: "internal_error" },
+      { status: 500 },
+    )));
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const body = await response.json() as { scan_id?: unknown };
+
+    expect(response.status).toBe(502);
+    expect(body.scan_id).toEqual(expect.any(String));
+    expect(env.DB.scanRecords).toEqual([
+      expect.objectContaining({
+        recognition_status: "failed",
+        candidates: "[]",
+      }),
+    ]);
+  });
+
+  it("rejects the retired product_ids response as an upstream failure because clients must not silently lose production confidence", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ product_ids: [10738] })));
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+
+    expect(response.status).toBe(502);
+    expect(env.DB.scanRecords[0]?.recognition_status).toBe("failed");
+  });
+
+  it("rejects out-of-range upstream confidence because similarity must remain the exact finite 0 to 100 service value", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      candidates: [{ product_id: 10738, confidence: 100.001 }],
+    })));
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+
+    expect(response.status).toBe(502);
+    expect(env.DB.scanRecords[0]?.recognition_status).toBe("failed");
+  });
+
+  it("deletes the private image when D1 insert fails because compensation must not leave an orphaned R2 object", async () => {
+    const env = createRecognitionEnv();
+    env.DB.failScanInsert = true;
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+
+    expect(response.status).toBe(500);
+    expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
     expect(env.DB.scanRecords).toEqual([]);
   });
 
@@ -574,7 +661,7 @@ describe("scan routes", () => {
     const nonCandidate = await confirmScan(env, token, {
       ...base,
       folder_id: "main",
-      card_ref: "not-a-candidate",
+      card_ref: "240872",
     });
     const first = await confirmScan(env, token, {
       ...base,
@@ -598,11 +685,13 @@ describe("scan routes", () => {
 type TestEnvWithFakeDb = Omit<TestEnv, "DB"> & { DB: FakeD1 };
 
 function createTestEnv(): TestEnvWithFakeDb {
+  const scanImages = new FakeR2();
   return {
     DB: new FakeD1(),
     CACHE_KV: {} as KVNamespace,
     JWT_SECRET: "test-secret",
     OCR_SERVICE_BASE_URL: "https://ocr.example.test",
+    SCAN_IMAGES: scanImages as unknown as R2Bucket,
   };
 }
 
@@ -635,12 +724,31 @@ async function recognize(
     "/api/v1/scan/recognize",
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      headers: { Authorization: `Bearer ${token}` },
+      body: recognitionForm(body),
     },
     env,
   );
 }
+
+function recognitionForm(body: Record<string, unknown>): FormData {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(body)) {
+    if (value !== undefined && value !== null) form.set(key, String(value));
+  }
+  form.set(
+    "image",
+    new File([SCAN_JPEG], "scan.jpg", { type: "image/jpeg" }),
+  );
+  return form;
+}
+
+const SCAN_JPEG = new Uint8Array([
+  0xff, 0xd8,
+  0xff, 0xc0, 0x00, 0x11, 0x08, 0x04, 0x13, 0x02, 0xe9, 0x03,
+  0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
+  0xff, 0xd9,
+]);
 
 function createConfirmEnv(): TestEnvWithFakeDb {
   const env = createTestEnv();
@@ -661,7 +769,10 @@ function createConfirmEnv(): TestEnvWithFakeDb {
     user_confirmation_status: "pending",
     system_result: "{}",
     user_result: "{}",
-    candidates: JSON.stringify([{ card_ref: "11958", name: "Bushi Tenderfoot" }]),
+    candidates: JSON.stringify([
+      { card_ref: "11958", name: "Bushi Tenderfoot", catalog_matched: true },
+      { card_ref: "240872", name: null, catalog_matched: false },
+    ]),
     modified_result: 0,
   });
   return env;

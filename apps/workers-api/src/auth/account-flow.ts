@@ -343,6 +343,7 @@ async function createOAuthUser(
       migrationStatements.collectionItems,
       migrationStatements.wishlistItems,
       migrationStatements.userPreference,
+      migrationStatements.scanRecords,
       db
         .prepare(INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL)
         .bind(
@@ -362,10 +363,10 @@ async function createOAuthUser(
     }
 
     if (
-      results.length !== 8 ||
+      results.length !== 9 ||
       results[1]?.meta.changes !== 1 ||
       results[2]?.meta.changes !== 1 ||
-      results[7]?.meta.changes !== 1
+      results[8]?.meta.changes !== 1
     ) {
       throw new Error("Failed to create migrated OAuth user.");
     }

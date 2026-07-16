@@ -100,6 +100,19 @@ type ScanRecordRow = {
   created_at: string;
 };
 
+class FakeR2 {
+  readonly objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
+
+  async get(key: string): Promise<R2ObjectBody | null> {
+    const object = this.objects.get(key);
+    if (!object) return null;
+    return {
+      body: new Blob([object.bytes], { type: object.contentType }).stream(),
+      httpMetadata: { contentType: object.contentType },
+    } as R2ObjectBody;
+  }
+}
+
 type AdminLoginResponse = {
   success: true;
   data: {
@@ -143,6 +156,10 @@ class FakeD1Statement {
 
   async first<T = unknown>(): Promise<T | null> {
     const sql = normalizeSql(this.sql);
+
+    if (sql.startsWith("SELECT COUNT(*) AS total FROM scan_record")) {
+      return { total: this.db.scanRecords.length } as T;
+    }
 
     if (sql.includes("FROM admin_user") && sql.includes("WHERE email = ?")) {
       const [email] = this.values as [string];
@@ -690,7 +707,7 @@ describe("admin routes", () => {
       id: "scan-db-1",
       owner_type: "anonymous",
       owner_id: "UID-100284",
-      image_url: "https://images.example/scan.jpg",
+      image_url: "scans/anonymous/UID-100284/2026/07/scan-db-1.jpg",
       filename: "scan.jpg",
       platform: "iOS",
       app_version: "1.0.0",
@@ -728,6 +745,10 @@ describe("admin routes", () => {
       created_at: "2026-07-10T09:00:00.000Z",
     });
     const login = await loginAdmin(env, "scan@example.com", "correct-password");
+    (env.SCAN_IMAGES as unknown as FakeR2).objects.set(
+      "scans/anonymous/UID-100284/2026/07/scan-db-1.jpg",
+      { bytes: new Uint8Array([1, 2, 3]), contentType: "image/jpeg" },
+    );
 
     const listResponse = await requestAdmin(env, "/scans", "GET", undefined, login.data.access_token);
     const listBody = await listResponse.json() as {
@@ -742,10 +763,11 @@ describe("admin routes", () => {
     expect(listBody).toEqual({
       success: true,
       data: expect.objectContaining({
+        total: 1,
         items: [
           expect.objectContaining({
             scan_id: "scan-db-1",
-            image_url: "https://images.example/scan.jpg",
+            image_url: "/scans/scan-db-1/image",
             recognition_status: "success",
             user_confirmation_status: "confirmed",
             modified_result: false,
@@ -763,6 +785,29 @@ describe("admin routes", () => {
         candidates: [expect.objectContaining({ card_ref: "11958" })],
       }),
     });
+
+    const unauthorizedImage = await requestAdmin(env, `/scans/${scanId}/image`, "GET");
+    const imageResponse = await requestAdmin(
+      env,
+      `/scans/${scanId}/image`,
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    expect(unauthorizedImage.status).toBe(401);
+    expect(imageResponse.status).toBe(200);
+    expect(imageResponse.headers.get("cache-control")).toBe("private, no-store");
+    expect(imageResponse.headers.get("content-type")).toBe("image/jpeg");
+    expect(new Uint8Array(await imageResponse.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+
+    const invalidDate = await requestAdmin(
+      env,
+      "/scans?date_from=not-a-date",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    expect(invalidDate.status).toBe(422);
   });
 
   it("manages permission records through admin users because only authorized emails may enter the console", async () => {
@@ -933,6 +978,7 @@ function createTestEnv(): TestEnvWithFakeDb {
     DB: new FakeD1(),
     CACHE_KV: {} as KVNamespace,
     JWT_SECRET: "test-secret",
+    SCAN_IMAGES: new FakeR2() as unknown as R2Bucket,
   };
 }
 

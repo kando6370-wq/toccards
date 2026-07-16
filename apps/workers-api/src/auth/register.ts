@@ -405,6 +405,7 @@ export function registerEmailRegistrationRoutes(
           migrationStatements.collectionItems,
           migrationStatements.wishlistItems,
           migrationStatements.userPreference,
+          migrationStatements.scanRecords,
           c.env.DB.prepare(INSERT_MIGRATED_USER_SESSION_SQL).bind(
             session.sessionId,
             userId,
@@ -425,6 +426,7 @@ export function registerEmailRegistrationRoutes(
           collectionItemsResult,
           wishlistItemsResult,
           userPreferenceResult,
+          scanRecordsResult,
           sessionResult,
         ] = results;
         const assetResults = [
@@ -432,13 +434,14 @@ export function registerEmailRegistrationRoutes(
           collectionItemsResult,
           wishlistItemsResult,
           userPreferenceResult,
+          scanRecordsResult,
         ];
 
         if (codeResult?.meta.changes !== 1) {
           return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
         }
 
-        if (results.length !== 8 || assetResults.some((result) => !result)) {
+        if (results.length !== 9 || assetResults.some((result) => !result)) {
           return c.json(INTERNAL_ERROR_RESPONSE, 500);
         }
 

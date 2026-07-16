@@ -272,6 +272,11 @@ class FakeD1 {
   users: UserRow[] = [];
   authIdentities: AuthIdentityRow[] = [];
   verificationCodes: VerificationCodeRow[] = [];
+  scanRecords: Array<{
+    owner_type: "anonymous" | "user";
+    owner_id: string;
+    image_url: string | null;
+  }> = [];
   consumeNextRegisterCodeBeforeUpdate = false;
   failNextBatch = false;
   failNextFirst = false;
@@ -305,6 +310,7 @@ class FakeD1 {
       users: this.users.map((row) => ({ ...row })),
       authIdentities: this.authIdentities.map((row) => ({ ...row })),
       verificationCodes: this.verificationCodes.map((row) => ({ ...row })),
+      scanRecords: this.scanRecords.map((row) => ({ ...row })),
     };
     const results: D1Result<T>[] = [];
 
@@ -337,6 +343,7 @@ class FakeD1 {
         ...concurrentAuthIdentities,
       ];
       this.verificationCodes = snapshot.verificationCodes;
+      this.scanRecords = snapshot.scanRecords;
       throw error;
     }
 
@@ -612,6 +619,18 @@ class FakeD1 {
     throw new Error(`Unsupported first() SQL: ${normalizedSql}`);
   }
 
+  async all<T = unknown>(sql: string, values: unknown[]): Promise<D1Result<T>> {
+    const normalizedSql = normalizeSql(sql);
+    if (normalizedSql.startsWith("SELECT image_url FROM scan_record")) {
+      const [ownerType, ownerId] = values as ["anonymous" | "user", string];
+      const results = this.scanRecords.filter(
+          (row) => row.owner_type === ownerType && row.owner_id === ownerId && row.image_url,
+        ) as T[];
+      return { ...okResult<T>(), results };
+    }
+    throw new Error(`Unsupported all() SQL: ${normalizedSql}`);
+  }
+
   async run<T = unknown>(sql: string, values: unknown[]): Promise<D1Result<T>> {
     if (this.failNextRun) {
       this.failNextRun = false;
@@ -735,6 +754,36 @@ class FakeD1 {
         created_at: createdAt,
       });
       return okResult<T>();
+    }
+
+    if (normalizedSql.startsWith("DELETE FROM scan_record")) {
+      const [ownerType, ownerId] = values as ["anonymous" | "user", string];
+      const before = this.scanRecords.length;
+      this.scanRecords = this.scanRecords.filter(
+        (row) => row.owner_type !== ownerType || row.owner_id !== ownerId,
+      );
+      return okResult<T>(before - this.scanRecords.length);
+    }
+
+    if (normalizedSql.startsWith("UPDATE scan_record SET owner_type = 'user'")) {
+      const [userId, anonymousId] = values as [string, string];
+      const accountUpgraded = this.hasUpgradedAnonymousAccount(
+        values.length === 6 ? String(values[4]) : String(values[2]),
+        values.length === 6 ? String(values[5]) : String(values[3]),
+      );
+      const guardSatisfied = values.length !== 6 || this.verificationCodes.some(
+        (row) => row.id === values[2] && row.used_at === values[3],
+      );
+      if (!accountUpgraded || !guardSatisfied) return okResult<T>(0);
+      var changes = 0;
+      for (const row of this.scanRecords) {
+        if (row.owner_type === "anonymous" && row.owner_id === anonymousId) {
+          row.owner_type = "user";
+          row.owner_id = userId;
+          changes += 1;
+        }
+      }
+      return okResult<T>(changes);
     }
 
     if (normalizedSql === DELETE_VERIFICATION_CODE_SQL) {
@@ -2237,6 +2286,10 @@ class FakeD1Statement {
     return this.db.first<T>(this.sql, this.values);
   }
 
+  all<T = unknown>(): Promise<D1Result<T>> {
+    return this.db.all<T>(this.sql, this.values);
+  }
+
   run<T = unknown>(): Promise<D1Result<T>> {
     return this.db.run<T>(this.sql, this.values);
   }
@@ -2966,6 +3019,14 @@ function createTestEnv(): TestEnv {
   };
 }
 
+class FakeScanImages {
+  readonly keys = new Set<string>();
+
+  async delete(keys: string | string[]): Promise<void> {
+    for (const key of Array.isArray(keys) ? keys : [keys]) this.keys.delete(key);
+  }
+}
+
 function fakeD1(env: TestEnv): FakeD1 {
   return env.DB as unknown as FakeD1;
 }
@@ -3006,6 +3067,10 @@ describe("migrateGuestAssetsToUser", () => {
     const db = createFakeD1();
     seedGuestMigrationRows(db, "anonymous-source");
     seedGuestMigrationRows(db, "anonymous-other");
+    db.scanRecords.push(
+      { owner_type: "anonymous", owner_id: "anonymous-source", image_url: "source.jpg" },
+      { owner_type: "anonymous", owner_id: "anonymous-other", image_url: "other.jpg" },
+    );
 
     const counts = await migrateGuestAssetsToUser(
       db,
@@ -3065,6 +3130,10 @@ describe("migrateGuestAssetsToUser", () => {
         owner_id: "anonymous-other",
       }),
     );
+    expect(db.scanRecords).toEqual([
+      expect.objectContaining({ owner_type: "user", owner_id: "user-target" }),
+      expect.objectContaining({ owner_type: "anonymous", owner_id: "anonymous-other" }),
+    ]);
   });
 
   it("fails migration for an already upgraded guest because claimed guest assets must not move to another user", async () => {
@@ -7086,6 +7155,31 @@ describe("DELETE /api/v1/auth/account", () => {
       expect.any(String),
       expect.any(String),
     ]);
+  });
+
+  it("delete account removes private scan images and records because account erasure must include R2 audit media", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const accessToken = await seedLiveUserSession(
+      env,
+      "delete-scan-user",
+      "delete-scan-session",
+    );
+    const images = new FakeScanImages();
+    const key = "scans/user/delete-scan-user/2026/07/scan-1.jpg";
+    images.keys.add(key);
+    env.SCAN_IMAGES = images as unknown as R2Bucket;
+    db.scanRecords.push({
+      owner_type: "user",
+      owner_id: "delete-scan-user",
+      image_url: key,
+    });
+
+    const response = await requestDeleteAccount(env, `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(images.keys.size).toBe(0);
+    expect(db.scanRecords).toEqual([]);
   });
 
   it("delete account deletes anonymous guest assets because guest deletion must be irreversible", async () => {

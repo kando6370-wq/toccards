@@ -11,6 +11,8 @@ APPLE_CLIENT_ID = "com.kando.kandoApp"
 ZOHO_ACCOUNT_ID = "554851100000008002"
 ZOHO_FROM_ADDRESS = "kando@tcgcard.fun"
 OCR_SERVICE_BASE_URL = "https://recognize.tcgcard.fun"
+# Production lifecycle is intentionally not configured until retention is approved.
+SCAN_IMAGE_RETENTION_DAYS = "UNCONFIRMED"
 
 [assets]
 directory = "../admin-web/dist"
@@ -26,3 +28,7 @@ migrations_dir = "src/db/migrations"
 [[kv_namespaces]]
 binding = "CACHE_KV"
 id = "c90e2c87b2c042ea93c58d38095973c7" # Cloudflare KV: CACHE_KV
+
+[[r2_buckets]]
+binding = "SCAN_IMAGES"
+bucket_name = "toccards-scan-images"

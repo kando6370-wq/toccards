@@ -5,14 +5,17 @@ import { createLocalDbDataSourceAdapter } from "../data-source/local-db-adapter"
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
+import { validateScanImage, type ValidatedScanImage } from "./scan-image";
 
 type ScanBindings = { Bindings: Env };
 
 type ScanCandidate = {
   rank: number;
+  product_id: number;
   card_ref: string;
+  catalog_matched: boolean;
   game: string | null;
-  name: string;
+  name: string | null;
   set_code: string | null;
   card_number: string | null;
   rarity: string | null;
@@ -20,6 +23,8 @@ type ScanCandidate = {
   retrieval: string | null;
   distance: number | null;
 };
+
+type RecognitionCandidate = { productId: number; confidence: number };
 
 type ScanResult = {
   index: number;
@@ -130,14 +135,17 @@ export function createScanRoutes() {
 
     const serviceBaseUrl = normalizeBaseUrl(c.env.OCR_SERVICE_BASE_URL);
     if (!serviceBaseUrl) return c.json(OCR_UNAVAILABLE_RESPONSE, 503);
+    const imageBucket = c.env.SCAN_IMAGES;
+    if (!imageBucket) return c.json(INTERNAL_ERROR_RESPONSE, 503);
 
-    const body = await readJson(c.req);
-    if (!isRecord(body)) return c.json(VALIDATION_ERROR_RESPONSE, 422);
-    const r = readPhash(body.r);
-    const g = readPhash(body.g);
-    const b = readPhash(body.b);
-    const gameId = body.game_id;
-    if (!r || !g || !b || !isOptionalGameId(gameId)) {
+    const body = await readFormData(c.req);
+    if (!body) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    const r = readPhash(body.get("r"));
+    const g = readPhash(body.get("g"));
+    const b = readPhash(body.get("b"));
+    const gameId = readOptionalGameId(body.get("game_id"));
+    const image = await validateScanImage(body.get("image"));
+    if (!r || !g || !b || gameId === null || !image) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
@@ -145,10 +153,34 @@ export function createScanRoutes() {
       r,
       g,
       b,
-      ...(typeof gameId === "number" ? { game_id: gameId } : {}),
+      ...(gameId === undefined ? {} : { game_id: gameId }),
     };
 
-    let ocrPayload: unknown;
+    const scanId = createId();
+    const createdAt = new Date();
+    const imageKey = scanImageKey(
+      auth.owner.owner_type,
+      auth.owner.owner_id,
+      scanId,
+      image,
+      createdAt,
+    );
+    try {
+      await imageBucket.put(imageKey, image.bytes, {
+        httpMetadata: { contentType: image.contentType },
+        customMetadata: {
+          scanId,
+          ownerType: auth.owner.owner_type,
+          ownerId: auth.owner.owner_id,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to store scan image.", error);
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+
+    let ocrPayload: unknown = null;
+    let upstreamFailed = false;
     const startedAt = Date.now();
     try {
       const response = await fetch(`${serviceBaseUrl}/recognize`, {
@@ -156,35 +188,48 @@ export function createScanRoutes() {
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(outbound),
       });
-      ocrPayload = await response.json();
-      if (!response.ok) return c.json(OCR_UNAVAILABLE_RESPONSE, 502);
-    } catch {
-      return c.json(OCR_UNAVAILABLE_RESPONSE, 502);
+      ocrPayload = await response.json().catch(() => null);
+      upstreamFailed = !response.ok;
+    } catch (error) {
+      upstreamFailed = true;
+      ocrPayload = { error: "upstream_request_failed", message: String(error) };
     }
 
     const payload = isRecord(ocrPayload) ? ocrPayload : {};
-    const productIds = readProductIds(payload.product_ids);
-    if (!productIds) return c.json(OCR_UNAVAILABLE_RESPONSE, 502);
+    const recognized = upstreamFailed ? null : readRecognitionCandidates(payload.candidates);
+    if (!recognized) upstreamFailed = true;
     const adapter = createLocalDbDataSourceAdapter(c.env.DB);
-    const candidates = (
-      await Promise.all(
-        productIds.map(async (productId, index) => {
-          const card = await adapter.getCard(String(productId));
-          return card ? toCatalogCandidate(card, index) : null;
-        }),
-      )
-    ).filter((candidate): candidate is ScanCandidate => candidate !== null);
+    let candidates: ScanCandidate[] = [];
+    let auditCandidates: ScanCandidate[] = [];
+    if (!upstreamFailed && recognized) {
+      try {
+        auditCandidates = await Promise.all(
+          recognized.map(async (candidate, index) => {
+            const card = await adapter.getCard(String(candidate.productId));
+            return card
+              ? toCatalogCandidate(card, candidate, index)
+              : toUnresolvedCandidate(candidate, index);
+          }),
+        );
+        candidates = auditCandidates.filter((candidate) => candidate.catalog_matched);
+      } catch (error) {
+        console.error("Failed to resolve recognition candidates.", error);
+        upstreamFailed = true;
+        candidates = [];
+        auditCandidates = [];
+      }
+    }
     const results: ScanResult[] = [
       { index: 1, matched: candidates.length > 0, candidates },
     ];
 
-    const scanId = createId();
-    const createdAt = new Date().toISOString();
-    const recognitionStatus = candidates.length > 0 ? "success" : "no_match";
+    const recognitionStatus = upstreamFailed
+      ? "failed"
+      : candidates.length > 0 ? "success" : "no_match";
     const systemResult = buildSystemResult(
       recognitionStatus,
       candidates[0] ?? null,
-      candidates.length,
+      auditCandidates.length,
     );
     const userResult = {
       confirmation_status: "pending",
@@ -194,26 +239,44 @@ export function createScanRoutes() {
       added_to_wishlist: false,
     };
 
-    await c.env.DB.prepare(INSERT_SCAN_RECORD_SQL)
-      .bind(
-        scanId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-        null,
-        readString(body.filename) ?? "scan.jpg",
-        readString(body.platform) ?? "iOS",
-        readString(body.app_version) ?? "unknown",
-        readString(body.device_model),
-        readString(body.os_version),
-        recognitionStatus,
-        "pending",
-        JSON.stringify(systemResult),
-        JSON.stringify(userResult),
-        JSON.stringify(candidates),
-        JSON.stringify(payload),
-        createdAt,
-      )
-      .run();
+    try {
+      await c.env.DB.prepare(INSERT_SCAN_RECORD_SQL)
+        .bind(
+          scanId,
+          auth.owner.owner_type,
+          auth.owner.owner_id,
+          imageKey,
+          readString(body.get("filename")) ?? `scan.${image.extension}`,
+          readString(body.get("platform")) ?? "unknown",
+          readString(body.get("app_version")) ?? "unknown",
+          readString(body.get("device_model")),
+          readString(body.get("os_version")),
+          recognitionStatus,
+          "pending",
+          JSON.stringify({
+            ...systemResult,
+            image: {
+              mime_type: image.contentType,
+              byte_size: image.bytes.byteLength,
+              width: image.width,
+              height: image.height,
+            },
+          }),
+          JSON.stringify(userResult),
+          JSON.stringify(auditCandidates),
+          JSON.stringify(ocrPayload),
+          createdAt.toISOString(),
+        )
+        .run();
+    } catch (error) {
+      console.error("Failed to persist scan audit record.", error);
+      await deleteUploadedImage(imageBucket, imageKey);
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+
+    if (upstreamFailed) {
+      return c.json({ ...OCR_UNAVAILABLE_RESPONSE, scan_id: scanId }, 502);
+    }
 
     return c.json({
       success: true,
@@ -222,7 +285,7 @@ export function createScanRoutes() {
         recognition_status: recognitionStatus,
         cards_detected: candidates.length > 0 ? 1 : 0,
         elapsed: (Date.now() - startedAt) / 1000,
-        warnings: productIds.length === candidates.length
+        warnings: recognized?.length === candidates.length
           ? []
           : ["Some recognized cards are missing from the catalog."],
         results,
@@ -327,9 +390,9 @@ export function createScanRoutes() {
   return routes;
 }
 
-async function readJson(request: { json(): Promise<unknown> }): Promise<unknown> {
+async function readFormData(request: { formData(): Promise<FormData> }): Promise<FormData | null> {
   try {
-    return await request.json();
+    return await request.formData();
   } catch {
     return null;
   }
@@ -347,22 +410,58 @@ function parseStoredCandidates(value: string): ScanCandidate[] {
 }
 
 function isStoredScanCandidate(value: unknown): value is ScanCandidate {
-  return isRecord(value) && readString(value.card_ref) !== null;
+  return isRecord(value) &&
+    readString(value.card_ref) !== null &&
+    value.catalog_matched !== false;
 }
 
-function toCatalogCandidate(card: CardSearchResult, index: number): ScanCandidate {
+function toCatalogCandidate(
+  card: CardSearchResult,
+  recognized: RecognitionCandidate,
+  index: number,
+): ScanCandidate {
   return {
     rank: index + 1,
+    product_id: recognized.productId,
     card_ref: card.card_ref,
+    catalog_matched: true,
     game: card.game ?? null,
     name: card.name,
     set_code: card.set_code || null,
     card_number: card.card_number || null,
     rarity: card.rarity,
-    confidence: null,
+    confidence: recognized.confidence,
     retrieval: "rgb-phash-16-v1",
     distance: null,
   };
+}
+
+function toUnresolvedCandidate(
+  recognized: RecognitionCandidate,
+  index: number,
+): ScanCandidate {
+  return {
+    rank: index + 1,
+    product_id: recognized.productId,
+    card_ref: String(recognized.productId),
+    catalog_matched: false,
+    game: null,
+    name: null,
+    set_code: null,
+    card_number: null,
+    rarity: null,
+    confidence: recognized.confidence,
+    retrieval: "rgb-phash-16-v1",
+    distance: null,
+  };
+}
+
+async function readJson(request: { json(): Promise<unknown> }): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    return null;
+  }
 }
 
 function buildSystemResult(
@@ -386,29 +485,55 @@ function readPhash(value: unknown): string | null {
   return typeof value === "string" && PHASH_PATTERN.test(value) ? value : null;
 }
 
-function isOptionalGameId(value: unknown): boolean {
-  return value === undefined ||
-    (typeof value === "number" &&
-      Number.isInteger(value) &&
-      value >= 1 &&
-      value <= 4_294_967_295);
+function readOptionalGameId(value: string | File | null): number | undefined | null {
+  if (value === null || value === "") return undefined;
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 4_294_967_295 ? parsed : null;
 }
 
-function readProductIds(value: unknown): number[] | null {
+function readRecognitionCandidates(value: unknown): RecognitionCandidate[] | null {
   if (!Array.isArray(value)) return null;
-  const productIds: number[] = [];
+  const candidates: RecognitionCandidate[] = [];
+  const seen = new Set<number>();
   for (const item of value) {
+    if (!isRecord(item)) return null;
+    const productId = item.product_id;
+    const confidence = item.confidence;
     if (
-      typeof item !== "number" ||
-      !Number.isInteger(item) ||
-      item < 1 ||
-      item > 4_294_967_295
+      typeof productId !== "number" || !Number.isInteger(productId) ||
+      productId < 1 || productId > 4_294_967_295 ||
+      typeof confidence !== "number" || !Number.isFinite(confidence) ||
+      confidence < 0 || confidence > 100
     ) {
       return null;
     }
-    if (!productIds.includes(item)) productIds.push(item);
+    if (!seen.has(productId)) {
+      seen.add(productId);
+      candidates.push({ productId, confidence });
+    }
   }
-  return productIds;
+  return candidates;
+}
+
+function scanImageKey(
+  ownerType: string,
+  ownerId: string,
+  scanId: string,
+  image: ValidatedScanImage,
+  createdAt: Date,
+): string {
+  const year = createdAt.getUTCFullYear();
+  const month = String(createdAt.getUTCMonth() + 1).padStart(2, "0");
+  return `scans/${ownerType}/${encodeURIComponent(ownerId)}/${year}/${month}/${scanId}.${image.extension}`;
+}
+
+async function deleteUploadedImage(bucket: R2Bucket, key: string): Promise<void> {
+  try {
+    await bucket.delete(key);
+  } catch (error) {
+    console.error("Failed to compensate scan image upload.", { key, error });
+  }
 }
 
 function normalizeBaseUrl(value: string | undefined): string | null {

@@ -1,6 +1,7 @@
 export interface Env {
   DB: D1Database;
   CACHE_KV: KVNamespace;
+  SCAN_IMAGES?: R2Bucket;
   JWT_SECRET: string;
   GOOGLE_CLIENT_ID?: string;
   APPLE_CLIENT_ID?: string;
@@ -10,4 +11,5 @@ export interface Env {
   ZOHO_ACCOUNT_ID?: string;
   ZOHO_FROM_ADDRESS?: string;
   OCR_SERVICE_BASE_URL?: string;
+  SCAN_IMAGE_RETENTION_DAYS?: string;
 }

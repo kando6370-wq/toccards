@@ -3,6 +3,7 @@ import type { Hono } from "hono";
 import type { Env } from "../env";
 import { migrateGuestAssetsToExistingUser } from "./guest-migration";
 import { getBearerToken, hasSigningSecret } from "./http-auth";
+import { deleteOwnerScanData } from "../scan/scan-storage";
 
 type OwnerType = "anonymous" | "user";
 
@@ -153,6 +154,11 @@ export function registerAccountRoutes(routes: Hono<{ Bindings: Env }>): void {
 
     try {
       const nowIso = new Date().toISOString();
+      await deleteOwnerScanData(
+        c.env,
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+      );
 
       if (auth.owner.owner_type === "user") {
         await c.env.DB.batch([

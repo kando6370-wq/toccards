@@ -23,12 +23,15 @@ describe("public legal routes", () => {
     expect(response.status).toBe(200);
     expect(html).toContain("<title>Privacy Policy | Card AI</title>");
     expect(html).toContain("explains how Card AI handles information");
-    expect(html).toContain("perceptual hashes derived from selected card images");
-    expect(html).toContain("the original image is not uploaded");
-    expect(html).not.toContain("card images submitted for recognition");
+    expect(html).toContain("perspective-corrected card-area images");
+    expect(html).toContain("private Cloudflare R2 bucket");
+    expect(html).toContain("not the surrounding camera frame");
+    expect(html).toContain("external card-recognition service receives only the RGB perceptual hashes");
+    expect(html).not.toContain("the original image is not uploaded");
+    expect(html).toContain("configured periods");
     expect(html).toContain("Portfolio folders");
     expect(html).toContain("Cloudflare");
-    expect(html).toContain("request account deletion");
+    expect(html).toContain("Deleting an account removes its stored scan images");
   });
 
   it("serves public support instructions because store review needs a working support URL", async () => {

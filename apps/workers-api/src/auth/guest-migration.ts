@@ -26,6 +26,7 @@ export type GuestMigrationStatements = {
   collectionItems: D1PreparedStatement;
   wishlistItems: D1PreparedStatement;
   userPreference: D1PreparedStatement;
+  scanRecords: D1PreparedStatement;
 };
 
 type CompleteGuestMigrationGuard = Required<GuestMigrationGuard>;
@@ -110,6 +111,20 @@ const UPDATE_ANONYMOUS_USER_PREFERENCE_SQL = `
     )
 `;
 
+const UPDATE_ANONYMOUS_SCAN_RECORDS_SQL = `
+  UPDATE scan_record
+  SET owner_type = 'user', owner_id = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1 FROM verification_code
+      WHERE id = ? AND used_at = ?
+    )
+    AND EXISTS (
+      SELECT 1 FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
 const UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_SQL = `
   UPDATE anonymous_account
   SET upgraded_user_id = ?
@@ -161,6 +176,16 @@ const UPDATE_ANONYMOUS_USER_PREFERENCE_UNGUARDED_SQL = `
     AND EXISTS (
       SELECT 1
       FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
+const UPDATE_ANONYMOUS_SCAN_RECORDS_UNGUARDED_SQL = `
+  UPDATE scan_record
+  SET owner_type = 'user', owner_id = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1 FROM anonymous_account
       WHERE id = ? AND upgraded_user_id = ?
     )
 `;
@@ -401,6 +426,7 @@ export async function migrateGuestAssetsToUser(
     statements.collectionItems,
     statements.wishlistItems,
     statements.userPreference,
+    statements.scanRecords,
   ]);
 
   return readMigrationCounts(results);
@@ -461,6 +487,9 @@ export async function migrateGuestAssetsToExistingUser(
     db
       .prepare(UPDATE_NON_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL)
       .bind(userId, updatedAt, anonymousId, userId, anonymousId, userId),
+    db
+      .prepare(UPDATE_ANONYMOUS_SCAN_RECORDS_UNGUARDED_SQL)
+      .bind(userId, anonymousId, anonymousId, userId),
   ]);
 
   if (results[0]?.meta.changes !== 1) {
@@ -537,6 +566,16 @@ export function createGuestMigrationStatements(
           anonymousId,
           userId,
         ),
+      scanRecords: db
+        .prepare(UPDATE_ANONYMOUS_SCAN_RECORDS_SQL)
+        .bind(
+          userId,
+          anonymousId,
+          verificationGuard.verificationCodeId,
+          verificationGuard.verificationUsedAt,
+          anonymousId,
+          userId,
+        ),
     };
   }
 
@@ -556,6 +595,9 @@ export function createGuestMigrationStatements(
     userPreference: db
       .prepare(UPDATE_ANONYMOUS_USER_PREFERENCE_UNGUARDED_SQL)
       .bind(userId, updatedAt, anonymousId, anonymousId, userId),
+    scanRecords: db
+      .prepare(UPDATE_ANONYMOUS_SCAN_RECORDS_UNGUARDED_SQL)
+      .bind(userId, anonymousId, anonymousId, userId),
   };
 }
 
