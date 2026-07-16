@@ -60,7 +60,6 @@ jobs:
           if grep -Fq "CocoaPods did not set the base configuration" "$RUNNER_TEMP/pod-install.log"; then
             exit 1
           fi
-          git diff --exit-code -- Podfile.lock
 
       - name: Upload iOS release lockfiles
         uses: actions/upload-artifact@v4
@@ -71,6 +70,14 @@ jobs:
             apps/flutter-app/ios/Podfile.lock
           if-no-files-found: error
           retention-days: 7
+
+      - name: Verify committed iOS release lockfiles
+        run: |
+          changes="$(git status --porcelain --untracked-files=all -- apps/flutter-app/Gemfile.lock apps/flutter-app/ios/Podfile.lock)"
+          if [[ -n "$changes" ]]; then
+            echo "$changes"
+            exit 1
+          fi
 
       - name: Build unsigned iOS release
         working-directory: apps/flutter-app
