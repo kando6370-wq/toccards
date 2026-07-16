@@ -104,6 +104,7 @@ flutter:
 
   assets:
     - assets/auth/
+    - assets/branding/
     - assets/home/
     - assets/navigation/
     - assets/onboarding/
