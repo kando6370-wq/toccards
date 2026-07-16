@@ -192,11 +192,11 @@ void main() {
     );
     expect(
       find.byKey(const Key('home-most-valuable-card-main-1')),
-      findsNothing,
+      findsOneWidget,
     );
     expect(
       find.byKey(const Key('home-most-valuable-card-main-2')),
-      findsNothing,
+      findsOneWidget,
     );
     expect(find.text('Trending Today'), findsOneWidget);
     expect(find.text('Ragavan, Nimble Pilferer'), findsOneWidget);
@@ -535,7 +535,7 @@ void main() {
   });
 
   testWidgets(
-    'Most Valuable View all opens the selected portfolio by value because Home only shows its top card',
+    'Most Valuable View all opens the selected portfolio by value because Home only previews the top cards',
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(

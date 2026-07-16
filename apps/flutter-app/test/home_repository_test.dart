@@ -7,7 +7,7 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 void main() {
   test(
-    'API dashboard values owned cards from server prices because Home is an asset summary',
+    'API dashboard previews three highest unit prices because Most Valuable ignores quantity',
     () async {
       final dashboard = await ApiHomeRepository(
         session: _session,
@@ -17,15 +17,19 @@ void main() {
       ).loadDashboard();
 
       expect(dashboard.defaultFolder.name, 'Main');
-      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 210);
-      expect(dashboard.portfoliosByFolderId['main']!.previous30dValueUsd, 168);
+      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 760);
+      expect(dashboard.portfoliosByFolderId['main']!.previous30dValueUsd, 608);
       expect(
-        dashboard.mostValuableCardsByFolderId['main']!.single.title,
-        'Owned Card',
+        dashboard.mostValuableCardsByFolderId['main']!.map(
+          (card) => card.title,
+        ),
+        ['Owned Card', 'Mid Value Card', 'Lower Value Card'],
       );
       expect(
-        dashboard.mostValuableCardsByFolderId['main']!.single.priceUsd,
-        100,
+        dashboard.mostValuableCardsByFolderId['main']!.map(
+          (card) => card.priceUsd,
+        ),
+        [100, 50, 10],
       );
       expect(dashboard.trending.single.title, 'Trending Card');
       expect(dashboard.trending.single.priceUsd, 60);
@@ -36,7 +40,7 @@ void main() {
         dashboard
             .portfoliosByFolderId['main']!
             .chartValuesByRange[HomeChartRange.oneMonth],
-        [168, 210],
+        [608, 760],
       );
     },
   );
@@ -51,14 +55,14 @@ void main() {
         cardDataApi: _CardDataApi(failedSeriesDays: {90}),
       ).loadDashboard();
 
-      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 210);
+      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 760);
       expect(
         dashboard
             .portfoliosByFolderId['main']!
             .chartValuesByRange[HomeChartRange.threeMonths],
-        [210],
+        [760],
       );
-      expect(dashboard.mostValuableCardsByFolderId['main'], hasLength(1));
+      expect(dashboard.mostValuableCardsByFolderId['main'], hasLength(3));
     },
   );
 }
@@ -116,6 +120,40 @@ class _PortfolioApi implements PortfolioApi {
       createdAt: DateTime.utc(2026, 7, 2),
       updatedAt: DateTime.utc(2026, 7, 2),
     ),
+    PortfolioItemDto(
+      id: 'item-3',
+      folderId: 'main',
+      cardRef: 'owned-mid',
+      objectType: 'tcg',
+      grader: 'Raw',
+      condition: 'Near Mint (NM)',
+      grade: null,
+      language: 'English',
+      finish: 'Normal',
+      quantity: 1,
+      purchasePrice: null,
+      purchaseCurrency: null,
+      notes: null,
+      createdAt: DateTime.utc(2026, 7, 3),
+      updatedAt: DateTime.utc(2026, 7, 3),
+    ),
+    PortfolioItemDto(
+      id: 'item-4',
+      folderId: 'main',
+      cardRef: 'owned-quantity',
+      objectType: 'tcg',
+      grader: 'Raw',
+      condition: 'Near Mint (NM)',
+      grade: null,
+      language: 'English',
+      finish: 'Normal',
+      quantity: 100,
+      purchasePrice: null,
+      purchaseCurrency: null,
+      notes: null,
+      createdAt: DateTime.utc(2026, 7, 4),
+      updatedAt: DateTime.utc(2026, 7, 4),
+    ),
   ];
 
   @override
@@ -164,6 +202,8 @@ class _CardDataApi implements CardDataApi {
           price: switch (cardRef) {
             'owned' => 100,
             'owned-low' => 10,
+            'owned-mid' => 50,
+            'owned-quantity' => 5,
             _ => 60,
           },
         ),
@@ -186,6 +226,8 @@ class _CardDataApi implements CardDataApi {
         price: switch (cardRef) {
           'owned' => days == 30 ? 80 : 90,
           'owned-low' => days == 30 ? 8 : 9,
+          'owned-mid' => days == 30 ? 40 : 45,
+          'owned-quantity' => days == 30 ? 4 : 4.5,
           _ => 50,
         },
       ),
@@ -194,6 +236,8 @@ class _CardDataApi implements CardDataApi {
         price: switch (cardRef) {
           'owned' => 100,
           'owned-low' => 10,
+          'owned-mid' => 50,
+          'owned-quantity' => 5,
           _ => 60,
         },
       ),
@@ -205,6 +249,8 @@ class _CardDataApi implements CardDataApi {
     name: switch (cardRef) {
       'owned' => 'Owned Card',
       'owned-low' => 'Lower Value Card',
+      'owned-mid' => 'Mid Value Card',
+      'owned-quantity' => 'High Quantity Card',
       _ => 'Trending Card',
     },
     setName: 'Server Set',

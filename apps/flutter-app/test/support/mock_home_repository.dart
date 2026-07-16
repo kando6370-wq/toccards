@@ -87,6 +87,20 @@ const mockHomeDashboard = HomeDashboard(
         previousPriceUsd: 9690000.12,
         imageAssetPath: 'assets/home/mega_lucario_ex.png',
       ),
+      HomeCardHighlight(
+        title: 'Pikachu',
+        subtitle: '#95 · Diamond & Pearl',
+        priceUsd: 9999000.12,
+        previousPriceUsd: 9690000.12,
+        imageAssetPath: 'assets/home/mega_lucario_ex.png',
+      ),
+      HomeCardHighlight(
+        title: 'Pikachu',
+        subtitle: '#95 · Diamond & Pearl',
+        priceUsd: 9998000.12,
+        previousPriceUsd: 9690000.12,
+        imageAssetPath: 'assets/home/mega_lucario_ex.png',
+      ),
     ],
     'sealed': [
       HomeCardHighlight(
