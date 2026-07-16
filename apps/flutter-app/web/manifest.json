@@ -1,11 +1,11 @@
 {
-    "name": "kando_app",
-    "short_name": "kando_app",
+    "name": "Card AI",
+    "short_name": "Card AI",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#10100B",
+    "theme_color": "#10100B",
+    "description": "Card AI trading card scanner and collection tracker.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

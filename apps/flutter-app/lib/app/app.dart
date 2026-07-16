@@ -13,7 +13,7 @@ class KandoApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      title: 'Kando',
+      title: 'Card AI',
       theme: buildKandoTheme(),
       routerConfig: router,
       builder: (context, child) {
