@@ -239,7 +239,7 @@ describe("local D1 card data source adapter", () => {
     await expect(adapter.getSoldListings("100")).resolves.toEqual([
       {
         date: "2026-07-08",
-        title: "Charizard · Near Mint · English · Normal",
+        title: "Charizard / Near Mint / English / Normal",
         price: 15.75,
         platform: "TCGplayer",
         url: "https://www.tcgplayer.com/product/100",

@@ -191,7 +191,7 @@ function soldListingFromSku(
     sku.variant_name ?? sku.variant_code,
   ]
     .filter((value): value is string => Boolean(value?.trim()))
-    .join(" · ");
+    .join(" / ");
 
   return {
     date: latest.date,
