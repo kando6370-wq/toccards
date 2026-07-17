@@ -79,6 +79,13 @@ type CollectionItemRow = {
   card_ref: string;
   updated_at: string;
 };
+type CollectionItemEventRow = {
+  id: string;
+  item_id: string;
+  owner_type: "anonymous" | "user";
+  owner_id: string;
+  folder_id: string;
+};
 
 type WishlistItemRow = {
   id: string;
@@ -267,6 +274,7 @@ class FakeD1 {
   portfolioFolders: PortfolioFolderRow[] = [];
   userPreferences: UserPreferenceRow[] = [];
   collectionItems: CollectionItemRow[] = [];
+  collectionItemEvents: CollectionItemEventRow[] = [];
   wishlistItems: WishlistItemRow[] = [];
   sessions: SessionRow[] = [];
   users: UserRow[] = [];
@@ -305,6 +313,7 @@ class FakeD1 {
       portfolioFolders: this.portfolioFolders.map((row) => ({ ...row })),
       userPreferences: this.userPreferences.map((row) => ({ ...row })),
       collectionItems: this.collectionItems.map((row) => ({ ...row })),
+      collectionItemEvents: this.collectionItemEvents.map((row) => ({ ...row })),
       wishlistItems: this.wishlistItems.map((row) => ({ ...row })),
       sessions: this.sessions.map((row) => ({ ...row })),
       users: this.users.map((row) => ({ ...row })),
@@ -335,6 +344,7 @@ class FakeD1 {
       this.portfolioFolders = snapshot.portfolioFolders;
       this.userPreferences = snapshot.userPreferences;
       this.collectionItems = snapshot.collectionItems;
+      this.collectionItemEvents = snapshot.collectionItemEvents;
       this.wishlistItems = snapshot.wishlistItems;
       this.sessions = snapshot.sessions;
       this.users = [...snapshot.users, ...concurrentUsers];
@@ -2114,6 +2124,76 @@ class FakeD1 {
       return okResult<T>(user ? 1 : 0);
     }
 
+    if (
+      normalizedSql.startsWith(
+        "UPDATE collection_item_event SET folder_id = COALESCE",
+      )
+    ) {
+      const [userId, anonymousId, targetOwnerId, ownerId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string, string, string];
+      if (
+        userId !== targetOwnerId ||
+        anonymousId !== ownerId ||
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+      let changes = 0;
+      for (const event of this.collectionItemEvents) {
+        if (event.owner_type !== "anonymous" || event.owner_id !== anonymousId) {
+          continue;
+        }
+        const sourceFolder = this.portfolioFolders.find(
+          (folder) =>
+            folder.id === event.folder_id &&
+            folder.owner_type === "anonymous" &&
+            folder.owner_id === anonymousId,
+        );
+        const targetFolder = sourceFolder
+          ? this.portfolioFolders.find(
+              (folder) =>
+                folder.owner_type === "user" &&
+                folder.owner_id === userId &&
+                folder.name === sourceFolder.name,
+            )
+          : null;
+        event.folder_id = targetFolder?.id ?? event.folder_id;
+        event.owner_type = "user";
+        event.owner_id = userId;
+        changes += 1;
+      }
+      return okResult<T>(changes);
+    }
+
+    if (
+      normalizedSql.startsWith(
+        "UPDATE collection_item_event SET owner_type = 'user'",
+      )
+    ) {
+      const [userId, anonymousId] = values as [string, string];
+      const upgradedAnonymousId = values.at(-2) as string;
+      const upgradedUserId = values.at(-1) as string;
+      if (!this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)) {
+        return okResult<T>(0);
+      }
+      if (values.length === 6) {
+        const verificationCodeId = values[2] as string;
+        const verificationUsedAt = values[3] as string;
+        if (!this.hasConsumedRegisterCode(verificationCodeId, verificationUsedAt)) {
+          return okResult<T>(0);
+        }
+      }
+      let changes = 0;
+      for (const event of this.collectionItemEvents) {
+        if (event.owner_type === "anonymous" && event.owner_id === anonymousId) {
+          event.owner_type = "user";
+          event.owner_id = userId;
+          changes += 1;
+        }
+      }
+      return okResult<T>(changes);
+    }
+
     if (normalizedSql === REVOKE_OWNER_SESSIONS_SQL) {
       const [revokedAt, ownerType, ownerId] = values as [
         string,
@@ -2154,6 +2234,19 @@ class FakeD1 {
       );
 
       return okResult<T>(before - this.collectionItems.length);
+    }
+
+    if (
+      normalizedSql.startsWith(
+        "DELETE FROM collection_item_event WHERE owner_type = 'anonymous'",
+      )
+    ) {
+      const [ownerId] = values as [string];
+      const before = this.collectionItemEvents.length;
+      this.collectionItemEvents = this.collectionItemEvents.filter(
+        (row) => row.owner_type !== "anonymous" || row.owner_id !== ownerId,
+      );
+      return okResult<T>(before - this.collectionItemEvents.length);
     }
 
     if (normalizedSql === DELETE_ANONYMOUS_WISHLIST_ITEMS_SQL) {
@@ -3104,6 +3197,11 @@ describe("migrateGuestAssetsToUser", () => {
       ),
     ).toEqual(expect.objectContaining({ owner_type: "user", owner_id: "user-target" }));
     expect(
+      db.collectionItemEvents.find(
+        (row) => row.id === "event-anonymous-source",
+      ),
+    ).toEqual(expect.objectContaining({ owner_type: "user", owner_id: "user-target" }));
+    expect(
       db.wishlistItems.find((row) => row.id === "wishlist-anonymous-source"),
     ).toEqual(expect.objectContaining({ owner_type: "user", owner_id: "user-target" }));
     expect(
@@ -3124,6 +3222,14 @@ describe("migrateGuestAssetsToUser", () => {
     );
     expect(
       db.wishlistItems.find((row) => row.id === "wishlist-anonymous-other"),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-other",
+      }),
+    );
+    expect(
+      db.collectionItemEvents.find((row) => row.id === "event-anonymous-other"),
     ).toEqual(
       expect.objectContaining({
         owner_type: "anonymous",
@@ -3238,6 +3344,13 @@ function seedGuestMigrationRows(
     folder_id: `folder-${anonymousId}`,
     card_ref: `card-${anonymousId}`,
     updated_at: "2026-07-06T00:00:00.000Z",
+  });
+  db.collectionItemEvents.push({
+    id: `event-${anonymousId}`,
+    item_id: `collection-${anonymousId}`,
+    owner_type: "anonymous",
+    owner_id: anonymousId,
+    folder_id: `folder-${anonymousId}`,
   });
   db.wishlistItems.push({
     id: `wishlist-${anonymousId}`,
@@ -7191,6 +7304,13 @@ describe("DELETE /api/v1/auth/account", () => {
       card_ref: "delete-card",
       updated_at: "2026-07-06T00:00:00.000Z",
     });
+    db.collectionItemEvents.push({
+      id: "delete-guest-event",
+      item_id: "delete-guest-collection",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: db.portfolioFolders[0]?.id ?? "missing-folder",
+    });
     db.wishlistItems.push({
       id: "delete-guest-wishlist",
       owner_type: "anonymous",
@@ -7213,6 +7333,13 @@ describe("DELETE /api/v1/auth/account", () => {
     ).toBe(false);
     expect(
       db.collectionItems.some(
+        (row) =>
+          row.owner_type === "anonymous" &&
+          row.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+    expect(
+      db.collectionItemEvents.some(
         (row) =>
           row.owner_type === "anonymous" &&
           row.owner_id === anonymousBody.data.anonymous_id,
@@ -7515,6 +7642,13 @@ describe("POST /api/v1/auth/migrate-assets", () => {
       card_ref: "existing-card",
       updated_at: "2026-07-06T00:00:00.000Z",
     });
+    db.collectionItemEvents.push({
+      id: "migrate-existing-event",
+      item_id: "migrate-existing-collection",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: guestFolder.id,
+    });
     db.wishlistItems.push({
       id: "migrate-existing-wishlist",
       owner_type: "anonymous",
@@ -7570,6 +7704,14 @@ describe("POST /api/v1/auth/migrate-assets", () => {
         folder_id: "user-main-folder",
       }),
     );
+    expect(db.collectionItemEvents).toEqual([
+      expect.objectContaining({
+        id: "migrate-existing-event",
+        owner_type: "user",
+        owner_id: "migrate-existing-user",
+        folder_id: "user-main-folder",
+      }),
+    ]);
     expect(
       db.wishlistItems.find((item) => item.id === "user-existing-wishlist"),
     ).toEqual(

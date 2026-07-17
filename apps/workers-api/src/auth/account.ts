@@ -118,6 +118,11 @@ const DELETE_ANONYMOUS_COLLECTION_ITEMS_SQL = `
   WHERE owner_type = 'anonymous' AND owner_id = ?
 `;
 
+const DELETE_ANONYMOUS_COLLECTION_ITEM_EVENTS_SQL = `
+  DELETE FROM collection_item_event
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+`;
+
 const DELETE_ANONYMOUS_WISHLIST_ITEMS_SQL = `
   DELETE FROM wishlist_item
   WHERE owner_type = 'anonymous' AND owner_id = ?
@@ -172,6 +177,9 @@ export function registerAccountRoutes(routes: Hono<{ Bindings: Env }>): void {
             auth.owner.owner_id,
           ),
           c.env.DB.prepare(DELETE_ANONYMOUS_COLLECTION_ITEMS_SQL).bind(
+            auth.owner.owner_id,
+          ),
+          c.env.DB.prepare(DELETE_ANONYMOUS_COLLECTION_ITEM_EVENTS_SQL).bind(
             auth.owner.owner_id,
           ),
           c.env.DB.prepare(DELETE_ANONYMOUS_WISHLIST_ITEMS_SQL).bind(

@@ -24,6 +24,7 @@ export type GuestMigrationStatements = {
   upgradeAccount: D1PreparedStatement;
   portfolioFolders: D1PreparedStatement;
   collectionItems: D1PreparedStatement;
+  collectionItemEvents: D1PreparedStatement;
   wishlistItems: D1PreparedStatement;
   userPreference: D1PreparedStatement;
   scanRecords: D1PreparedStatement;
@@ -111,6 +112,22 @@ const UPDATE_ANONYMOUS_USER_PREFERENCE_SQL = `
     )
 `;
 
+const UPDATE_ANONYMOUS_COLLECTION_ITEM_EVENTS_SQL = `
+  UPDATE collection_item_event
+  SET owner_type = 'user', owner_id = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM verification_code
+      WHERE id = ? AND used_at = ?
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
 const UPDATE_ANONYMOUS_SCAN_RECORDS_SQL = `
   UPDATE scan_record
   SET owner_type = 'user', owner_id = ?
@@ -180,6 +197,17 @@ const UPDATE_ANONYMOUS_USER_PREFERENCE_UNGUARDED_SQL = `
     )
 `;
 
+const UPDATE_ANONYMOUS_COLLECTION_ITEM_EVENTS_UNGUARDED_SQL = `
+  UPDATE collection_item_event
+  SET owner_type = 'user', owner_id = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
 const UPDATE_ANONYMOUS_SCAN_RECORDS_UNGUARDED_SQL = `
   UPDATE scan_record
   SET owner_type = 'user', owner_id = ?
@@ -222,6 +250,28 @@ const REMAP_CONFLICTING_COLLECTION_ITEMS_TO_USER_FOLDER_SQL = `
         AND source.owner_type = 'anonymous'
         AND source.owner_id = ?
     )
+    AND EXISTS (
+      SELECT 1
+      FROM anonymous_account
+      WHERE id = ? AND upgraded_user_id = ?
+    )
+`;
+
+const UPDATE_EXISTING_USER_COLLECTION_ITEM_EVENTS_SQL = `
+  UPDATE collection_item_event
+  SET folder_id = COALESCE((
+    SELECT target.id
+    FROM portfolio_folder source
+    JOIN portfolio_folder target
+      ON target.owner_type = 'user'
+      AND target.owner_id = ?
+      AND target.name = source.name
+    WHERE source.id = collection_item_event.folder_id
+      AND source.owner_type = 'anonymous'
+      AND source.owner_id = ?
+    LIMIT 1
+  ), folder_id), owner_type = 'user', owner_id = ?
+  WHERE owner_type = 'anonymous' AND owner_id = ?
     AND EXISTS (
       SELECT 1
       FROM anonymous_account
@@ -424,6 +474,7 @@ export async function migrateGuestAssetsToUser(
     statements.upgradeAccount,
     statements.portfolioFolders,
     statements.collectionItems,
+    statements.collectionItemEvents,
     statements.wishlistItems,
     statements.userPreference,
     statements.scanRecords,
@@ -454,6 +505,9 @@ export async function migrateGuestAssetsToExistingUser(
         anonymousId,
         userId,
       ),
+    db
+      .prepare(UPDATE_EXISTING_USER_COLLECTION_ITEM_EVENTS_SQL)
+      .bind(userId, anonymousId, userId, anonymousId, anonymousId, userId),
     db
       .prepare(REMAP_ANONYMOUS_USER_PREFERENCE_FOLDER_SQL)
       .bind(
@@ -498,9 +552,9 @@ export async function migrateGuestAssetsToExistingUser(
 
   return {
     migrated_folders:
-      (results[3]?.meta.changes ?? 0) + (results[4]?.meta.changes ?? 0),
-    migrated_items: results[5]?.meta.changes ?? 0,
-    migrated_wishlist: results[7]?.meta.changes ?? 0,
+      (results[4]?.meta.changes ?? 0) + (results[5]?.meta.changes ?? 0),
+    migrated_items: results[6]?.meta.changes ?? 0,
+    migrated_wishlist: results[8]?.meta.changes ?? 0,
   };
 }
 
@@ -576,6 +630,16 @@ export function createGuestMigrationStatements(
           anonymousId,
           userId,
         ),
+      collectionItemEvents: db
+        .prepare(UPDATE_ANONYMOUS_COLLECTION_ITEM_EVENTS_SQL)
+        .bind(
+          userId,
+          anonymousId,
+          verificationGuard.verificationCodeId,
+          verificationGuard.verificationUsedAt,
+          anonymousId,
+          userId,
+        ),
     };
   }
 
@@ -589,6 +653,9 @@ export function createGuestMigrationStatements(
     collectionItems: db
       .prepare(UPDATE_ANONYMOUS_COLLECTION_ITEMS_UNGUARDED_SQL)
       .bind(userId, updatedAt, anonymousId, anonymousId, userId),
+    collectionItemEvents: db
+      .prepare(UPDATE_ANONYMOUS_COLLECTION_ITEM_EVENTS_UNGUARDED_SQL)
+      .bind(userId, anonymousId, anonymousId, userId),
     wishlistItems: db
       .prepare(UPDATE_ANONYMOUS_WISHLIST_ITEMS_UNGUARDED_SQL)
       .bind(userId, anonymousId, anonymousId, userId),
@@ -609,7 +676,7 @@ function readMigrationCounts(results: D1Result[]): MigrationCounts {
   return {
     migrated_folders: results[1]?.meta.changes ?? 0,
     migrated_items: results[2]?.meta.changes ?? 0,
-    migrated_wishlist: results[3]?.meta.changes ?? 0,
+    migrated_wishlist: results[4]?.meta.changes ?? 0,
   };
 }
 
