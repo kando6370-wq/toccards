@@ -187,6 +187,8 @@ describe("JustTCG price synchronization", () => {
 
     expect(status.status).toBe("blocked");
     expect(status.last_error).toContain("JUSTTCG_API_KEY");
+    expect(status.covered_products).toBe(0);
+    expect(status.total_products).toBe(1);
     expect(fetcher).not.toHaveBeenCalled();
   });
 

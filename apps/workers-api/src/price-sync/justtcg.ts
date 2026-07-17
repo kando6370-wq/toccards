@@ -150,10 +150,13 @@ export async function runJustTcgPriceSync(
   }
 
   if (!hasApiKey(env.JUSTTCG_API_KEY)) {
+    const coverage = await readCoverage(env.DB);
     const blocked = stateFrom(current, {
       status: "blocked",
       last_attempt_at: nowIso,
       next_run_at: addMilliseconds(now, RETRY_DELAY_MS),
+      covered_products: coverage.covered_products,
+      total_products: coverage.total_products,
       last_error: "JUSTTCG_API_KEY is not configured.",
     });
     await writeState(env.DB, blocked);
