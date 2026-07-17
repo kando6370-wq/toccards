@@ -438,9 +438,9 @@ function UsersPage({ session }: { session: AdminSession }) {
   const users = data?.items ?? [];
   const columns: ColumnsType<UserItem> = [
     { title: "UID", dataIndex: "id", width: 230, ellipsis: true },
-    { title: "平台", dataIndex: "platform", width: 100 },
-    { title: "首次安装日期", dataIndex: "created_at", width: 140, render: formatDate },
-    { title: "用户身份", dataIndex: "identity", width: 110, render: renderUserIdentity },
+    { title: "平台", dataIndex: "platform", width: 100, ellipsis: true },
+    { title: "首次安装日期", dataIndex: "created_at", width: 140, ellipsis: true, render: formatDate },
+    { title: "用户身份", dataIndex: "identity", width: 110, ellipsis: true, render: renderUserIdentity },
     { title: "登录账号", width: 260, render: (_, row) => {
       const account = row.email ?? row.device_id ?? "-";
       return <Text ellipsis={{ tooltip: account }} style={{ maxWidth: 240 }}>{account}</Text>;
@@ -461,7 +461,7 @@ function UsersPage({ session }: { session: AdminSession }) {
   }
 
   return (
-    <PagePanel error={error} onRefresh={reload}>
+    <PagePanel error={error} onRefresh={reload} className="users-page">
       <FilterBar>
         <Input value={draft.q} onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value }))} onPressEnter={applyFilters} placeholder="UID、邮箱或设备号" className="filter-control user-search-control" />
         <Select allowClear value={draft.platform} onChange={(platform) => setDraft((current) => ({ ...current, platform }))} placeholder="平台" className="filter-control" options={userPlatformOptions} />
@@ -470,8 +470,8 @@ function UsersPage({ session }: { session: AdminSession }) {
         <Button className="cyan-button" onClick={applyFilters}>查询</Button>
         <Button onClick={resetFilters}>重置</Button>
       </FilterBar>
-      <DataPanel title="用户数据" count={data?.total ?? 0}>
-        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} size="small" scroll={{ x: 840 }} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: setPage }} />
+      <DataPanel title="用户数据" count={data?.total ?? 0} className="users-table-panel">
+        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} size="small" tableLayout="fixed" scroll={{ x: 840, y: "calc(100dvh - 390px)" }} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: setPage }} />
       </DataPanel>
     </PagePanel>
   );
@@ -919,9 +919,9 @@ function DataPanel({ title, count, children, className = "" }: { title: string; 
   );
 }
 
-function PagePanel({ error, onRefresh, children }: { error: string | null; onRefresh: () => void; children: React.ReactNode }) {
+function PagePanel({ error, onRefresh, children, className = "" }: { error: string | null; onRefresh: () => void; children: React.ReactNode; className?: string }) {
   return (
-    <div className="page-panel">
+    <div className={`page-panel ${className}`.trim()}>
       <div className="refresh-row">
         <span />
         <Button onClick={onRefresh}>刷新</Button>

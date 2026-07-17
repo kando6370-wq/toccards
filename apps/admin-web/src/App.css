@@ -355,6 +355,51 @@ body {
   width: 220px;
 }
 
+.users-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.users-page .filter-bar {
+  background: #fff;
+  flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.users-table-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  margin-bottom: 0;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.users-table-panel .ant-table-wrapper {
+  min-width: 0;
+}
+
+.users-table-panel .ant-table-cell {
+  height: 46px;
+  max-height: 46px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.users-table-panel .ant-table-body {
+  height: clamp(220px, calc(100dvh - 390px), 520px);
+}
+
+.users-table-panel .ant-pagination {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
 .stats-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(160px, 1fr));
