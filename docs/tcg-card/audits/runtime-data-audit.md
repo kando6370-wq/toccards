@@ -58,5 +58,5 @@
 
 - Admin：3 项测试通过，TypeScript 类型检查通过，生产构建通过。
 - Workers：28 个测试文件、249 项通过，TypeScript 与 dry-run 通过。
-- Flutter：237 项通过、1 项因缺平台 dartcv 动态库明确跳过，`flutter analyze` 通过。
-- iOS CI：GitHub Actions run `29562484453` 在 `f3e4b2e` 上成功。
+- Flutter：345 项通过、1 项因缺平台 dartcv 动态库明确跳过，machine reporter `success=true`、`flutter analyze` 通过。
+- iOS CI：GitHub Actions run `29563785013` 在当前 Flutter 提交 `670b782` 上成功。
