@@ -17,6 +17,7 @@ const allowedOrigins = new Set([
   "https://admin.tcgcard.fun",
   "http://localhost:3000",
   "http://127.0.0.1:3000",
+  "http://192.168.35.3:3000",
 ]);
 app.use(
   "/api/*",

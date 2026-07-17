@@ -17,7 +17,11 @@ describe("API CORS", () => {
     expect(response.headers.get("access-control-allow-headers")).toContain("Authorization");
   });
 
-  it.each(["http://localhost:3000", "http://127.0.0.1:3000"])(
+  it.each([
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://192.168.35.3:3000",
+  ])(
     "allows Flutter Web preflight requests from the fixed local origin %s",
     async (origin) => {
       const response = await app.request("/api/v1/health", {
