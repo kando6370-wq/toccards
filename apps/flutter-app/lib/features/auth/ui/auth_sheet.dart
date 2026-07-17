@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../auth_controller.dart';
 import 'email_auth_pages.dart';
+import '../../home/home_controller.dart';
 import '../../profile/profile_actions.dart';
 
 Future<void> showAuthSheet(BuildContext context) {
@@ -577,7 +579,10 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
     final successMessage = await showEmailAuthPage(context);
     if (successMessage != null && mounted) {
       final messenger = ScaffoldMessenger.of(context);
+      final router = GoRouter.of(context);
+      ref.read(homeControllerProvider);
       Navigator.of(context).pop();
+      _goHomeAfterAuthSettles(router);
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(buildKandoToast(successMessage));
@@ -605,7 +610,10 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
       }
       final session = ref.read(authControllerProvider).session;
       if (session?.isUser ?? false) {
+        final router = GoRouter.of(context);
+        ref.read(homeControllerProvider);
         Navigator.of(context).pop();
+        _goHomeAfterAuthSettles(router);
       }
     } on Exception catch (error) {
       if (mounted) {
@@ -624,6 +632,10 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
 
   String _displayError(Exception error) {
     return error.toString().replaceFirst('Exception: ', '');
+  }
+
+  void _goHomeAfterAuthSettles(GoRouter router) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => router.go('/home'));
   }
 
   Future<void> _openLegalLink(Future<void> Function() action) async {

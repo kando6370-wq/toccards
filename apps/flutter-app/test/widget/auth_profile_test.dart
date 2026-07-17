@@ -83,7 +83,7 @@ void main() {
     expect(repository.loginRequests, isEmpty);
   });
 
-  testWidgets('successful email login switches profile to user state', (
+  testWidgets('successful email login returns home', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -105,11 +105,10 @@ void main() {
     ]);
     expect(find.byKey(const Key('email-auth-page')), findsNothing);
     expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
-    expect(find.text('person@example.com'), findsWidgets);
-    expect(find.text('Sign in / Sign up'), findsNothing);
+    expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
   });
 
-  testWidgets('google auth sheet button signs in with current guest id', (
+  testWidgets('google auth returns home with the current guest migrated', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -135,10 +134,10 @@ void main() {
         anonymousId: 'anon-existing',
       ),
     ]);
-    expect(find.text('flutter.google@example.com'), findsWidgets);
+    expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
   });
 
-  testWidgets('apple auth sheet button signs in with current guest id', (
+  testWidgets('apple auth returns home with the current guest migrated', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -166,7 +165,7 @@ void main() {
         anonymousId: 'anon-existing',
       ),
     ]);
-    expect(find.text('flutter.apple@example.com'), findsWidgets);
+    expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
   });
 
   testWidgets(
