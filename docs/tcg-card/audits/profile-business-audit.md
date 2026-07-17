@@ -105,8 +105,11 @@ Profile 的页面显隐不是权限边界。反馈和账号删除均由 Workers 
 - 该匿名身份使用真实 `DELETE /auth/account` 删除成功；原 access token 再请求 `GET /auth/me` 返回 401，证明旧 session 不可复用。
 - Terms、Privacy、Support 三个 Legal 页面均返回 `200 text/html`。
 - `/app-config` 已返回真实 `terms_url` 和 `privacy_url`；`app_store_url` 仍为 null。
-- Flutter Profile 定向回归 76 项通过，覆盖身份恢复、Account、Customer Support、退出、删除、失败重试及 Figma 画布约束。
-- Workers 全量回归 27 个测试文件、242 项通过，覆盖反馈鉴权、账号删除、session 吊销和 Scan 私有图片清理。
+- `/app-config.upgrade_prompt` 同样为 null；当前没有可用的升级跳转配置。
+- Figma 游客态 `142:10259`、登录态 `142:10380`、Account `142:10166`、Customer Support `235:3503` 均已成功读取并与当前页面逐项核对。
+- Flutter Profile 定向回归 42 项通过，覆盖登录入口、Account、Customer Support、退出、删除、失败重试及 Figma 画布约束。
+- Workers 全量回归 26 个测试文件、243 项通过，TypeScript 类型检查通过；覆盖反馈鉴权、账号删除、session 吊销和 Scan 私有图片保留。
+- Cloudflare 当前生产 Worker 版本为 `83511391-d10a-41bd-af1b-34528fa0e45e`。
 
 | 问题 | 影响 | 当前处理 |
 |---|---|---|
