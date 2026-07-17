@@ -826,10 +826,6 @@ function AuthenticatedScanImage({ path, session, className }: { path: string; se
       setSource(null);
       return;
     }
-    if (isViteDev() && session.accessToken === "local-token") {
-      setSource(demoScanDetail.image_url);
-      return;
-    }
     let active = true;
     let objectUrl: string | null = null;
     fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${session.accessToken}` } })
@@ -975,10 +971,6 @@ function mutate(session: AdminSession, path: string, init: AdminRequestInit) {
 }
 
 async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promise<T> {
-  if (isViteDev() && init.token === "local-token") {
-    return demoAdminResponse(path, init) as T;
-  }
-
   const headers = new Headers(init.headers);
   if (init.token) headers.set("Authorization", `Bearer ${init.token}`);
   if (init.body !== undefined) headers.set("Content-Type", "application/json");
@@ -996,22 +988,6 @@ async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promi
   return payload.data;
 }
 
-function demoAdminResponse(path: string, init: AdminRequestInit): unknown {
-  if (path.startsWith("/feedbacks/") && path.endsWith("/status")) {
-    return { ...demoFeedbacks[0], status: (init.body as { status?: FeedbackStatus })?.status ?? "processed" };
-  }
-  if (path.startsWith("/scans/")) return demoScanDetail;
-  if (path.startsWith("/permissions/")) return { ...demoPermissions[1], permission_status: "disabled" };
-  if (path.startsWith("/app-versions/")) return { ...demoAppVersions[0], ...(init.body as Partial<AppVersionItem>) };
-  if (path.startsWith("/analytics/installations")) return demoInstallationAnalytics;
-  if (path.startsWith("/users")) return { items: demoUsers };
-  if (path.startsWith("/feedbacks")) return { items: demoFeedbacks };
-  if (path.startsWith("/scans")) return { items: [demoScanDetail] };
-  if (path.startsWith("/permissions")) return { items: demoPermissions };
-  if (path.startsWith("/app-versions")) return { items: demoAppVersions };
-  return {};
-}
-
 class AdminApiError extends Error {
   constructor(readonly code: string, messageText: string) {
     super(messageText);
@@ -1019,25 +995,12 @@ class AdminApiError extends Error {
 }
 
 function readStoredSession(): AdminSession | null {
-  if (isViteDev() && new URLSearchParams(window.location.search).get("demo_admin") === "1") {
-    return {
-      adminId: "local-admin",
-      email: "admin@example.com",
-      role: "super_admin",
-      accessToken: "local-token",
-      refreshToken: "local-refresh",
-    };
-  }
   try {
     const value = window.localStorage.getItem(SESSION_STORAGE_KEY);
     return value ? (JSON.parse(value) as AdminSession) : null;
   } catch {
     return null;
   }
-}
-
-function isViteDev(): boolean {
-  return Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
 }
 
 function FeedbackStatusTag({ status }: { status: FeedbackStatus }) {
@@ -1118,87 +1081,3 @@ const recognitionOptions = [
 const scanPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
 const confirmationOptions = [{ value: "confirmed", label: "已确认" }, { value: "pending", label: "待确认" }];
 const permissionStatusOptions = [{ value: "active", label: "启用" }, { value: "disabled", label: "停用" }];
-
-const demoInstallationAnalytics: InstallationAnalytics = {
-  summary: { total_installations: 19842, countries: 5, platforms: 2 },
-  trend: [
-    { date: "2026-07-04", total: 1200 },
-    { date: "2026-07-05", total: 1840 },
-    { date: "2026-07-06", total: 1680 },
-    { date: "2026-07-07", total: 2380 },
-    { date: "2026-07-08", total: 2960 },
-  ],
-  rows: [
-    { date: "2026-07-08", country: "United States", platform: "iOS", environment: "production", installs: 1280 },
-    { date: "2026-07-08", country: "Canada", platform: "Google", environment: "production", installs: 420 },
-    { date: "2026-07-07", country: "United Kingdom", platform: "iOS", environment: "production", installs: 368 },
-    { date: "2026-07-07", country: "Japan", platform: "Google", environment: "production", installs: 512 },
-  ],
-};
-
-const demoUsers: UserItem[] = [
-  { account_type: "user", id: "UID-100284", email: "collector@example.com", device_id: null, created_at: "2026-07-08T10:18:00.000Z", status: "active" },
-  { account_type: "anonymous", id: "UID-100285", email: null, device_id: "ios-device-72", created_at: "2026-07-08T09:42:00.000Z", status: "guest" },
-  { account_type: "user", id: "UID-100286", email: "apple-user@example.com", device_id: null, created_at: "2026-07-07T18:30:00.000Z", status: "active" },
-];
-
-const demoFeedbacks: FeedbackTicket[] = [
-  {
-    id: "FB-20260708-001",
-    email: "player@example.com",
-    message: "扫描后候选结果不准确，最终卡牌需要手动修改。",
-    status: "pending",
-    created_at: "2026-07-08T11:20:00.000Z",
-    issue_type: "Bug Report",
-    module: "Card Scanner",
-    uid: "UID-100284",
-    platform: "iOS",
-    app_version: "1.9.0",
-    device_model: "iPhone 15 Pro",
-    os_version: "iOS 18.5",
-  },
-  {
-    id: "FB-20260708-002",
-    email: "collector@example.com",
-    message: "希望愿望单支持批量移动到库存。",
-    status: "processed",
-    created_at: "2026-07-08T09:16:00.000Z",
-    issue_type: "Feature Request",
-    module: "Wishlist",
-    uid: "UID-100286",
-    platform: "Google",
-    app_version: "1.9.0",
-    device_model: "Pixel 9",
-    os_version: "Android 16",
-  },
-];
-
-const demoScanDetail: ScanDetail = {
-  scan_id: "scan_20260708_001",
-  image_url: "https://images.pokemontcg.io/sv4/198_hires.png",
-  uid: "UID-100284",
-  platform: "iOS",
-  app_version: "1.9.0",
-  scan_time: "2026-07-08T10:18:00.000Z",
-  recognition_status: "success",
-  user_confirmation_status: "confirmed",
-  modified_result: true,
-  device_model: "iPhone 15 Pro",
-  os_version: "iOS 18.5",
-  system_result: { status: "success", name: "Charizard ex", ip_game: "Pokemon", set: "Obsidian Flames", number: "223/197", confidence: 80.99, candidate_count: 3 },
-  user_result: { confirmation_status: "confirmed", final_card: "Charizard ex - Obsidian Flames 223/197", modified_result: true, added_to_inventory: true, added_to_wishlist: false },
-  candidates: [
-    { rank: 1, product_id: 10738, name: "Charizard ex", set: "Obsidian Flames", number: "223/197", confidence: 80.99 },
-    { rank: 2, product_id: 240872, name: "Charizard ex", set: "Obsidian Flames", number: "125/197", confidence: 80.729 },
-  ],
-};
-
-const demoPermissions: PermissionItem[] = [
-  { id: "admin-1", email: "admin@example.com", role: "super_admin", permission_status: "active", created_at: "2026-07-01T00:00:00.000Z", updated_at: "2026-07-08T00:00:00.000Z" },
-  { id: "ops-1", email: "ops@example.com", role: "operator", permission_status: "active", created_at: "2026-07-03T00:00:00.000Z", updated_at: "2026-07-08T00:00:00.000Z" },
-];
-
-const demoAppVersions: AppVersionItem[] = [
-  { platform: "iOS", min_supported_version: "1.0.0", recommended_version: "1.9.0", recommended_update_message: "优化首页加载速度\n修复已知的部分闪退问题\n适配最新的系统特性", forced_update_message: "由于系统架构重大升级，您需要更新至最新版本才能继续使用核心功能。", status: "disabled", updated_at: "2025-04-30T00:00:00.000Z" },
-  { platform: "Google", min_supported_version: "1.0.0", recommended_version: "1.9.0", recommended_update_message: "优化首页加载速度\n增强数据同步安全性", forced_update_message: "请更新至最新版本后继续使用。", status: "enabled", updated_at: "2025-04-30T00:00:00.000Z" },
-];

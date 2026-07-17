@@ -10,8 +10,15 @@ test("scan images use authenticated blobs because private R2 keys must not becom
   assert.match(app, /URL\.createObjectURL\(blob\)/);
   assert.match(app, /URL\.revokeObjectURL\(objectUrl\)/);
   assert.doesNotMatch(app, /numeric <= 1/);
-  assert.match(app, /confidence: 80\.99/);
-  assert.match(app, /confidence: 80\.729/);
+  assert.doesNotMatch(app, /demoScanDetail/);
+});
+
+test("admin runtime has no demo session or static data fallback because API failures must stay visible", () => {
+  assert.doesNotMatch(app, /demo_admin|local-token|demoAdminResponse/);
+  assert.doesNotMatch(app, /demoInstallationAnalytics|demoUsers|demoFeedbacks|demoPermissions|demoAppVersions/);
+  assert.doesNotMatch(app, /images\.pokemontcg\.io/);
+  assert.match(app, /\.catch\(\(requestError\) => \{/);
+  assert.match(app, /setError\(errorMessage\(requestError\)\)/);
 });
 
 test("scan visual rules are page-scoped because other admin modules must not change", () => {
