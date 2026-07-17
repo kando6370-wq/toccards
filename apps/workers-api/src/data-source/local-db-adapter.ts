@@ -17,7 +17,6 @@ type CardCatalogRow = {
   name: string | null;
   rarity: string | null;
   product_type_name: string | null;
-  image_url: string | null;
 };
 
 type TcgplayerSkuRow = {
@@ -38,7 +37,7 @@ type PriceHistoryEntry = {
 };
 
 const CARD_SELECT = `
-SELECT product_id, game_id, game, set_name, set_code, name, rarity, product_type_name, image_url
+SELECT product_id, game_id, game, set_name, set_code, name, rarity, product_type_name
 FROM cards_all
 `;
 
@@ -445,7 +444,7 @@ function cardFromRow(row: CardCatalogRow): CardSearchResult {
     finish: null,
     language: null,
     object_type: objectTypeFromProductType(row.product_type_name),
-    image_url: row.image_url,
+    image_url: null,
     rarity: row.rarity,
   };
 }

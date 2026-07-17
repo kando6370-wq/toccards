@@ -133,7 +133,6 @@ function card(productId: string, name: string) {
     product_id: productId,
     name,
     set_name: "Server Set",
-    image_url: `https://img.example/${productId}.jpg`,
   };
 }
 

@@ -29,7 +29,6 @@ export const cardsAll = sqliteTable(
     productTypeName: text("product_type_name"),
     foilOnly: integer("foil_only").default(0),
     normalOnly: integer("normal_only").default(0),
-    imageUrl: text("image_url"),
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
     cardType: text("card_type"),

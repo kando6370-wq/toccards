@@ -1,4 +1,5 @@
 import type { AuthenticatedOwner } from "../owner-auth";
+import { cardImageUrl } from "../card-image-url";
 
 type ItemEventRow = {
   id: string;
@@ -34,7 +35,6 @@ export type CardRow = {
   game: string | null;
   name: string | null;
   set_name: string | null;
-  image_url: string | null;
 };
 
 export type MostValuableItem = {
@@ -126,7 +126,7 @@ function mostValuableItems(
       set_name: card.set_name ?? "",
       card_number: "",
       finish: state.finish,
-      image_url: card.image_url,
+      image_url: cardImageUrl(state.card_ref, "thumbnail"),
       price_usd: current,
       previous_30d_price_usd: priceOnDate(sku.price_history, baselineDate),
     });
@@ -253,7 +253,7 @@ export async function loadCards(db: D1Database, cardRefs: string[]): Promise<Car
     const placeholders = chunk.map(() => "?").join(", ");
     const result = await db
       .prepare(
-        `SELECT product_id, game, name, set_name, image_url
+        `SELECT product_id, game, name, set_name
          FROM cards_all WHERE product_id IN (${placeholders})`,
       )
       .bind(...chunk)

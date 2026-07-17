@@ -65,7 +65,6 @@ function card(productId: string) {
     game: "Pokemon",
     name: "Server Card",
     set_name: "Server Set",
-    image_url: "https://img.example/card.jpg",
   };
 }
 

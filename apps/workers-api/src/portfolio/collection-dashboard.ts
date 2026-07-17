@@ -62,7 +62,7 @@ export async function enrichCollectionDashboard(
 
 function presentation(
   item: DashboardPortfolioRow | DashboardWishlistRow,
-  card: { product_id: string; game: string | null; name: string | null; set_name: string | null; image_url: string | null } | undefined,
+  card: { product_id: string; game: string | null; name: string | null; set_name: string | null } | undefined,
   sku: SkuRow | null,
   currentDate: string,
   baselineDate: string,

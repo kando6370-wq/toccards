@@ -222,7 +222,7 @@ describe("local D1 card data source adapter", () => {
         finish: null,
         language: null,
         object_type: "tcg",
-        image_url: "https://img.example/100.jpg",
+        image_url: null,
         rarity: "Rare Holo",
       },
     ]);
