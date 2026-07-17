@@ -98,11 +98,15 @@ Profile 的页面显隐不是权限边界。反馈和账号删除均由 Workers 
 
 ## 9. 生产验证与待确认项
 
-生产验证（2026-07-16）：
+生产验证（2026-07-17）：
 
-- 匿名账号使用真实 `POST /feedback` 成功创建 open 工单；测试工单随后从 D1 删除，专用邮箱剩余计数为 0。
+- 真实 `POST /auth/anonymous` 创建匿名身份后，`GET /auth/me` 返回同一匿名 owner。
+- 该匿名身份使用真实 `POST /feedback` 成功创建 open 工单；测试工单随后从远程 D1 删除，按工单 ID 查询剩余计数为 0。
+- 该匿名身份使用真实 `DELETE /auth/account` 删除成功；原 access token 再请求 `GET /auth/me` 返回 401，证明旧 session 不可复用。
 - Terms、Privacy、Support 三个 Legal 页面均返回 `200 text/html`。
-- `/app-config` 已返回真实 `terms_url` 和 `privacy_url`。
+- `/app-config` 已返回真实 `terms_url` 和 `privacy_url`；`app_store_url` 仍为 null。
+- Flutter Profile 定向回归 76 项通过，覆盖身份恢复、Account、Customer Support、退出、删除、失败重试及 Figma 画布约束。
+- Workers 全量回归 27 个测试文件、242 项通过，覆盖反馈鉴权、账号删除、session 吊销和 Scan 私有图片清理。
 
 | 问题 | 影响 | 当前处理 |
 |---|---|---|
