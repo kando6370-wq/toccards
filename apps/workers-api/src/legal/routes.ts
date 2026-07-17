@@ -19,7 +19,11 @@ export function createLegalRoutes(): Hono<{ Bindings: Env }> {
     c.html(legalPage("Terms of Use", termsContent()), 200, LEGAL_HEADERS),
   );
   routes.get("/legal/privacy", (c) =>
-    c.html(legalPage("Privacy Policy", privacyContent()), 200, LEGAL_HEADERS),
+    c.html(
+      legalPage("Privacy Policy", privacyContent(), "July 17, 2026"),
+      200,
+      LEGAL_HEADERS,
+    ),
   );
   routes.get("/legal/support", (c) =>
     c.html(legalPage("Support", supportContent()), 200, LEGAL_HEADERS),
@@ -28,7 +32,11 @@ export function createLegalRoutes(): Hono<{ Bindings: Env }> {
   return routes;
 }
 
-function legalPage(title: string, content: string): string {
+function legalPage(
+  title: string,
+  content: string,
+  effectiveDate = "July 15, 2026",
+): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -55,7 +63,7 @@ function legalPage(title: string, content: string): string {
 <body>
   <header><div><div class="brand">${PRODUCT_NAME.toUpperCase()}</div><h1>${title}</h1></div></header>
   <main>
-    <p class="effective">Effective date: July 15, 2026</p>
+    <p class="effective">Effective date: ${effectiveDate}</p>
     ${content}
     <footer>Questions may be sent to <a href="mailto:kando@tcgcard.fun">kando@tcgcard.fun</a>.</footer>
   </main>
@@ -112,7 +120,7 @@ function privacyContent(): string {
     <h2>5. Sharing and sale</h2>
     <p>We do not sell personal information. We disclose information only to service providers, when you direct us to, to protect users and the service, during a business reorganization, or when required by law.</p>
     <h2>6. Retention and deletion</h2>
-    <p>We retain information only for configured periods needed to provide ${PRODUCT_NAME}, meet security and legal requirements, resolve disputes, and maintain backups. Uploaded card-area images are retained for no more than 30 days and are then deleted automatically. Deleting an account removes its stored scan images sooner. Some non-image records may remain for a limited period where required for security, legal compliance, or backup restoration.</p>
+    <p>Uploaded card-area images and their scan records are retained without a fixed expiration period for scan auditing, customer support, and recognition-quality review. Deleting an account does not delete these retained scan images or scan records. Other information is retained only for configured periods needed to provide ${PRODUCT_NAME}, meet security and legal requirements, resolve disputes, and maintain backups.</p>
     <h2>7. Security</h2>
     <p>We use technical and organizational safeguards designed to protect information. No storage or transmission method is completely secure.</p>
     <h2>8. International processing</h2>

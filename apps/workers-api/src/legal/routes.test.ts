@@ -22,17 +22,18 @@ describe("public legal routes", () => {
 
     expect(response.status).toBe(200);
     expect(html).toContain("<title>Privacy Policy | Card AI</title>");
+    expect(html).toContain("Effective date: July 17, 2026");
     expect(html).toContain("explains how Card AI handles information");
     expect(html).toContain("perspective-corrected card-area images");
     expect(html).toContain("private Cloudflare R2 bucket");
     expect(html).toContain("not the surrounding camera frame");
     expect(html).toContain("external card-recognition service receives only the RGB perceptual hashes");
     expect(html).not.toContain("the original image is not uploaded");
-    expect(html).toContain("retained for no more than 30 days");
-    expect(html).toContain("deleted automatically");
+    expect(html).toContain("retained without a fixed expiration period");
+    expect(html).toContain("Deleting an account does not delete these retained scan images");
     expect(html).toContain("Portfolio folders");
     expect(html).toContain("Cloudflare");
-    expect(html).toContain("Deleting an account removes its stored scan images");
+    expect(html).not.toContain("retained for no more than 30 days");
   });
 
   it("serves public support instructions because store review needs a working support URL", async () => {

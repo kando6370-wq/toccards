@@ -9,7 +9,6 @@ import { createFeedbackRoutes } from "./feedback/routes";
 import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
 import { createScanRoutes } from "./scan/routes";
-import { purgeExpiredScanImages } from "./scan/scan-retention";
 
 export type { Env } from "./env";
 
@@ -42,12 +41,4 @@ api.route("/", createScanRoutes());
 
 app.notFound((c) => c.json({ error: "NOT_FOUND" }, 404));
 
-export default Object.assign(app, {
-  scheduled(
-    _controller: ScheduledController,
-    env: Env,
-    context: ExecutionContext,
-  ): void {
-    context.waitUntil(purgeExpiredScanImages(env));
-  },
-});
+export default app;

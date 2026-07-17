@@ -7146,7 +7146,7 @@ describe("DELETE /api/v1/auth/account", () => {
     ]);
   });
 
-  it("delete account removes private scan images and records because account erasure must include R2 audit media", async () => {
+  it("delete account retains private scan images and records because product policy requires permanent scan audit media", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
     const accessToken = await seedLiveUserSession(
@@ -7167,8 +7167,14 @@ describe("DELETE /api/v1/auth/account", () => {
     const response = await requestDeleteAccount(env, `Bearer ${accessToken}`);
 
     expect(response.status).toBe(200);
-    expect(images.keys.size).toBe(0);
-    expect(db.scanRecords).toEqual([]);
+    expect(images.keys).toEqual(new Set([key]));
+    expect(db.scanRecords).toEqual([
+      {
+        owner_type: "user",
+        owner_id: "delete-scan-user",
+        image_url: key,
+      },
+    ]);
   });
 
   it("delete account deletes anonymous guest assets because guest deletion must be irreversible", async () => {

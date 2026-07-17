@@ -25,7 +25,7 @@
 | App Review 材料 | 已准备无需 Demo 账号的审核说明；主分类 `Reference`、次分类 `Utilities`；旧截图自动上传已禁用 | `fastlane/metadata/review_information/notes.txt`、`Fastfile` |
 | Fastlane 元数据 | Name、Subtitle、Keywords、Description、Release Notes 均在 Apple 字段长度限制内 | 2026-07-17 确定性长度检查 |
 | 法律与支持页 | Terms、Privacy、Support 均为公开生产页面 | `https://api.tcgcard.fun/api/v1/legal/*` |
-| 扫描图片生命周期 | R2 原生规则在 30 天后删除 `scans/` 对象；每日 Cron 同步清空到期 D1 指针 | R2 rule `Expire scan images after 30 days`、Worker `8c54646a-d05f-49da-a29f-9210c50d2008`、Cron `17 3 * * *` |
+| 扫描图片生命周期 | 产品已确认无固定到期时间，账号删除后仍保留；代码已移除每日清理，生产 R2 30 天规则待移除 | 2026-07-17 产品口径；生产 R2 rule `Expire scan images after 30 days` 仍是部署阻塞项 |
 | iOS 无签名构建 | Xcode 16.4 下 Ruby 依赖安装、`pod install`、两份 lockfile 无漂移检查与 `flutter build ios --release --no-codesign` 全部成功 | GitHub Actions run `29548197764`，commit `aabae85` |
 
 当前生产 `/app-config`：
@@ -47,9 +47,9 @@
 |---|---|
 | Google ID Token 被伪装成授权码和无效 redirect URI | Flutter 与 Workers 已统一为 `id_token` 真实契约 |
 | iOS Client ID 同时被当作 Server Client ID | iOS SDK 只配置 iOS Client ID；Workers 验证同一受众 |
-| R2 扫描图片无明确保留期 | 固定为 30 天并部署每日清理任务；隐私政策同步 |
+| R2 扫描图片保留口径冲突 | 产品已确认无固定到期时间且账号删除后仍保留；代码和披露已同步，生产 30 天生命周期规则待移除 |
 | Runner 自定义 xcconfig 未包含 CocoaPods 配置 | Debug/Release/Profile 分别包含对应 Pods 配置；CI 对警告和 lockfile 漂移设为失败 |
-| 商店描述声称只在设备端处理图片 | 已说明裁剪卡图上传、用途和 30 天上限 |
+| 商店描述声称只在设备端处理图片 | 已说明裁剪卡图上传、用途和无固定到期时间 |
 | Fastlane 会上传业务整改前的旧截图 | `metadata` lane 已设置 `skip_screenshots: true` |
 
 ## 3. 仓库内仍需 Mac 完成
@@ -83,14 +83,14 @@
 |---|---|---|
 | Email Address | 是 | 账号、登录、客服 |
 | User ID / Device ID | 是 | 用户或游客所有权、会话和安全 |
-| Photos or Videos | 是 | 卡牌识别、扫描记录、客服和识别质量审计；图片最多保留 30 天 |
+| Photos or Videos | 是 | 卡牌识别、扫描记录、客服和识别质量审计；图片无固定到期时间，账号删除后仍保留 |
 | Other User Content | 是 | Portfolio、Wishlist、评级、购买值、备注和反馈 |
 | Diagnostics / Other Data | 需最终确认 | 网络、安全事件与故障诊断 |
 
 - 不用于第三方广告。
 - 不出售个人信息。
 - 当前实现不做跨 App/网站跟踪，Tracking 应为 No。
-- 用户可在 App 内删除账号；删除流程同时删除其 R2 扫描图片。
+- 用户可在 App 内删除账号；扫描图片及扫描审计记录不随账号删除而删除。
 
 ## 6. 验证记录
 

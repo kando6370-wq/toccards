@@ -2,9 +2,9 @@ Card AI can be reviewed without a pre-provisioned demo account.
 
 1. On first launch, choose "Skip and start now" to enter as a guest. Guest sessions are real server-backed accounts and can use Home, Search, Scan, Collection, Profile, and account deletion.
 2. A new guest may have an empty Portfolio. Use Search to inspect the production card catalog, or use the center Scan tab to capture/import a card and review recognition candidates. A card is not added until the reviewer confirms it.
-3. Scan detects and crops the card area on device. The cropped card image is uploaded to private Cloudflare storage for scan records, support, and recognition-quality review, and is automatically deleted within 30 days. The external recognition provider receives perceptual hashes, not the image.
+3. Scan detects and crops the card area on device. The cropped card image is uploaded to private Cloudflare storage for scan records, support, and recognition-quality review, and is retained without a fixed expiration period. The external recognition provider receives perceptual hashes, not the image.
 4. Sign in is optional. Native Sign in with Apple and Google Sign-In are available from "Sign In / Sign Up". Email registration requires the verification code delivered to the entered address.
-5. Guest deletion: Profile > Delete Account. Signed-in account deletion: Profile > account row > Delete Account. Both paths require confirmation and delete the current account data, including stored scan images.
+5. Guest deletion: Profile > Delete Account. Signed-in account deletion: Profile > account row > Delete Account. Both paths require confirmation. Retained scan images and scan audit records are not deleted with the account.
 6. Card prices and portfolio values are informational collection-management data, not financial or appraisal advice.
 7. Version 1.0 contains no subscriptions, in-app purchases, paid digital content, or Restore Purchases flow.
 
