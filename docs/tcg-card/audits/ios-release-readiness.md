@@ -2,7 +2,7 @@
 
 ## 0. 审计结论
 
-- 审计日期：2026-07-16。
+- 审计日期：2026-07-17。
 - 目标：Card AI 1.0.0 首次 iPhone 上架，不包含 Android 和订阅。
 - 结论：`NO-GO`。应用代码已经具备无签名 iOS Release 构建条件，但 App Store Connect 记录、签名、原生截图和 TestFlight 真机验收尚未完成。
 - 完成口径：仅以代码、真实生产接口、CI、平台回执或真机结果为证据，不采信进度文档中的完成标记。
@@ -21,11 +21,11 @@
 | App Icon | 19 个声明槽位完整；实际尺寸匹配；1024 图标为 RGB 且无透明通道 | 像素检查、`Contents.json` |
 | Launch Screen | storyboard 与 1x/2x/3x 启动图片齐全 | `LaunchScreen.storyboard`、`LaunchImage.imageset` |
 | 隐私清单 | Flutter 引擎声明 Required Reason API；当前 iOS 插件自带隐私清单；App 未直接调用对应原生 API | Flutter 3.35.5 与已解析插件包 |
-| Ruby / CocoaPods | `Gemfile.lock` 与 `Podfile.lock` 已由 macOS CI 生成并固定；Bundler 4.0.15、CocoaPods 1.17.0；Debug/Release/Profile 均显式包含 Pods 配置 | GitHub Actions run `29507734068` |
+| Ruby / CocoaPods | `Gemfile.lock` 与 `Podfile.lock` 已由 macOS CI 生成并固定；Bundler 4.0.15、CocoaPods 1.17.0；Debug/Release/Profile 均显式包含 Pods 配置 | GitHub Actions run `29512724155` |
 | App Review 材料 | 已准备无需 Demo 账号的审核说明；主分类 `Reference`、次分类 `Utilities`；旧截图自动上传已禁用 | `fastlane/metadata/review_information/notes.txt`、`Fastfile` |
 | 法律与支持页 | Terms、Privacy、Support 均为公开生产页面 | `https://api.tcgcard.fun/api/v1/legal/*` |
-| 扫描图片生命周期 | 私有 R2 卡图最多保留 30 天；每日 Cron 自动删除，到期 D1 指针清空 | Worker `d5710560-...`、Cron `17 3 * * *` |
-| iOS 无签名构建 | Xcode 16.4 下 Ruby 依赖安装、`pod install`、两份 lockfile 无漂移检查与 `flutter build ios --release --no-codesign` 全部成功 | GitHub Actions run `29507734068` |
+| 扫描图片生命周期 | 私有 R2 卡图最多保留 30 天；每日 Cron 自动删除，到期 D1 指针清空 | Worker `8c54646a-d05f-49da-a29f-9210c50d2008`、Cron `17 3 * * *` |
+| iOS 无签名构建 | Xcode 16.4 下 Ruby 依赖安装、`pod install`、两份 lockfile 无漂移检查与 `flutter build ios --release --no-codesign` 全部成功 | GitHub Actions run `29512724155` |
 
 当前生产 `/app-config`：
 
@@ -93,12 +93,14 @@
 
 ## 6. 验证记录
 
-2026-07-16 本轮验证：
+2026-07-17 本轮验证：
 
-- Flutter：332 项通过，1 项明确跳过；`flutter analyze` 无问题。
-- Workers：238 项通过；TypeScript 类型检查与 Wrangler dry-run 通过。
-- GitHub macOS iOS CI：run `29507734068` 在提交 `15d554d` 上成功，覆盖 Xcode 16.4、Bundler 4.0.15、CocoaPods 1.17.0、`Gemfile.lock`/`Podfile.lock` 无漂移检查与无签名 Release 构建。
+- Flutter：335 项通过，1 项明确跳过；跳过项为缺少平台 dartcv 动态库的原生 OpenCV 等价测试；`flutter analyze` 无问题。
+- Workers：27 个测试文件、242 项通过。
+- GitHub macOS iOS CI：run `29512724155` 在最新适用的 Flutter 提交 `7c53d9b` 上成功，Pod 安装、`Gemfile.lock`/`Podfile.lock` 无漂移检查与无签名 Release 构建各步骤均成功。
 - Cloudflare：Google 无效 `id_token` 返回 `422 VALIDATION_ERROR`；30 天前仍带图片指针的生产记录计数为 0。
+- Cloudflare 当前生产 Worker 版本为 `8c54646a-d05f-49da-a29f-9210c50d2008`；`/app-config.app_store_url` 仍为 null。
+- Apple 公开目录按 Bundle ID `com.kando.kandoApp` 查询 `resultCount=0`；当前环境未配置 Fastlane/App Store Connect 凭据，仓库中也没有 `DEVELOPMENT_TEAM`。
 - 图标：全部 PNG 尺寸匹配资产声明，1024 图标无 alpha。
 - 未执行：Xcode Archive、签名、TestFlight、真机 OAuth/评分/分享/权限、Fastlane 上传。
 
