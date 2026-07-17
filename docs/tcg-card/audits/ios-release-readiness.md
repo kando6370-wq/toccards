@@ -104,7 +104,7 @@
 - GitHub macOS iOS CI：run `29558499213` 在提交 `20e8f15` 上成功，Pod 安装、`Gemfile.lock`/`Podfile.lock` 无漂移检查与无签名 Release 构建各步骤均成功；该 push 已包含 `edd8684` Card Detail Flutter 业务改动。
 - 当前 Flutter 卡图提交 `f3e4b2e` 已由 GitHub macOS iOS CI run `29562484453` 再次验证成功，当前 Flutter 基线具备无签名 Release 构建证据。
 - Cloudflare：Google 无效 `id_token` 返回 `422 VALIDATION_ERROR`；30 天前仍带图片指针的生产记录计数为 0。
-- Cloudflare 当前生产 Worker 版本为 `5a6cd356-e2e8-457d-8f28-7e3e60f99d48`；`/app-config.app_store_url` 与 `/app-config.upgrade_prompt` 均为 null。
+- Cloudflare 当前生产 Worker 版本为 `8a482fcb-3e0f-4278-9fb3-f302a1545948`；`/app-config.app_store_url` 与 `/app-config.upgrade_prompt` 均为 null。
 - 卡图：生产 Cards、HOME、Collection、Search、Card Detail 与 Scan Review 已统一到 `image.tcgcard.fun` R2 变体；真实卡 `9359` 原图与缩略变体均返回 200 JPEG。
 - Cloudflare R2 已回读确认没有已完成对象过期规则，仅保留 7 天未完成分片上传清理；扫描图片永久保留且账号删除后仍保留，需要按此口径完成 App Privacy 与审核披露。
 - Cloudflare D1 价格覆盖为 10/4066 个 product，最新价格日期为 2026-07-08；JustTCG Cron 已在生产运行并持久化 `blocked / 10 / 4066 / JUSTTCG_API_KEY is not configured`，未写测试价格；5 条生产资产均为 Raw，未形成 Graded 生产验收样本。

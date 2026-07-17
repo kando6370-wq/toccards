@@ -130,4 +130,4 @@ Auth 恢复或创建匿名会话 -> 并行读取 folders、valuation history、p
 | Workers 全量验证 | 28 个测试文件、249 项通过；TypeScript 与 dry-run 通过 | 2026-07-17 本地验证 |
 | iOS unsigned Release | 当前 Flutter 提交 `f3e4b2e` 上 Ruby、Fastlane、Pods、lockfile 无漂移及 Release 构建全部成功 | GitHub Actions run `29562484453` |
 | 代码提交 | HOME 动态数据、Scan 估值事件、owner 迁移与真实 R2 卡图均分段提交 | `bcc5737`、`04a555f`、`33b8bc9`、`5aa0772`、`6fc05da`、`f3e4b2e` |
-| Cloudflare | 当前生产 Worker 版本为 `5a6cd356-e2e8-457d-8f28-7e3e60f99d48` | `wrangler deployments list` |
+| Cloudflare | 当前生产 Worker 版本为 `8a482fcb-3e0f-4278-9fb3-f302a1545948` | `wrangler deployments list` |

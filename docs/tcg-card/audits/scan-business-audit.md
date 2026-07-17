@@ -156,5 +156,4 @@ Scan 把实体卡牌图像转换为可审计的识别记录。识别成功本身
 | Workers | 28 个测试文件、249 项通过；TypeScript 与 dry-run 通过 | 2026-07-17 本地验证 |
 | Flutter | 237 项通过、1 项因缺原生 dartcv 库明确跳过；analyze 无问题 | 2026-07-17 本地验证 |
 | 代码提交 | Scan 栈、估值事件、身份迁移和卡图均已分段提交 | `41afaea`、`48e3d42`、`0ef9ec9`、`33b8bc9`、`5aa0772`、`6fc05da`、`f3e4b2e` |
-| Cloudflare | 当前生产 Worker 版本 `5a6cd356-e2e8-457d-8f28-7e3e60f99d48` | `wrangler deployments list` |
-
+| Cloudflare | 当前生产 Worker 版本 `8a482fcb-3e0f-4278-9fb3-f302a1545948` | `wrangler deployments list` |
