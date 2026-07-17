@@ -13,6 +13,7 @@ import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'support/in_memory_auth_storage.dart';
@@ -496,6 +497,28 @@ void main() {
       expect(repository.createdItems.single.folderId, 'folder-sealed-db');
       expect(
         container.read(provider).collectionItemRows.single.portfolioName,
+        'Sealed',
+      );
+    },
+  );
+
+  test(
+    'new Collection Item uses the shared selected folder because Card Detail must continue the Collection and Search context',
+    () async {
+      final container = _cardDetailContainer(
+        repository: _FolderAwareCardDetailRepository(),
+      );
+      addTearDown(container.dispose);
+      container
+          .read(selectedPortfolioFolderProvider.notifier)
+          .select('folder-sealed-db');
+      final provider = cardDetailControllerProvider('squirtle');
+      await _loadedState(container, 'squirtle');
+
+      container.read(provider.notifier).startAddingCollectionItem();
+
+      expect(
+        container.read(provider).collectionItemDraft!.portfolioName,
         'Sealed',
       );
     },

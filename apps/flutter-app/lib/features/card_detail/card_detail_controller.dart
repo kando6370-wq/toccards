@@ -571,7 +571,10 @@ class CardDetailController extends Notifier<CardDetailState> {
     if (state.isUnavailable || state.isLoading) {
       return;
     }
-    final defaultFolder = _defaultPortfolioFolder(state.detail);
+    final defaultFolder = _initialPortfolioFolder(
+      state.detail,
+      ref.read(selectedPortfolioFolderProvider),
+    );
     if (defaultFolder == null) {
       return;
     }
@@ -935,7 +938,15 @@ String _defaultGradeForGrader(String grader) {
       : _defaultGrade;
 }
 
-CardPortfolioFolder? _defaultPortfolioFolder(CardDetail detail) {
+CardPortfolioFolder? _initialPortfolioFolder(
+  CardDetail detail,
+  String? selectedFolderId,
+) {
+  for (final folder in detail.portfolioFolders) {
+    if (folder.id == selectedFolderId) {
+      return folder;
+    }
+  }
   for (final folder in detail.portfolioFolders) {
     if (folder.isDefault) {
       return folder;
