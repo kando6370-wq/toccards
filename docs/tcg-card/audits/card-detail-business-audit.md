@@ -93,7 +93,7 @@ Card Detail 将公共卡牌信息、市场价格和当前 owner 的 Portfolio/Wi
 | Figma `40:30` 无法提取 Card Detail 图层 | MCP 连续返回“没有选中图层” | 上架截图前取得正确节点并完成 iOS 视觉验收 |
 | Price 图表、Market Prices、Shop 未分区失败 | Repository 当前统一 Future 链，任一网络异常可令整页失败 | 按 PRD 拆分分区状态与局部 Refresh |
 | Graded 生产价为空 | D1 adapter 对非 Raw 返回空 | 接入真实评级价格源前保持 `--`，不得用 Raw 冒充 |
-| 历史非 USD purchase_currency | 当前新写入统一换算并存 USD；旧非 USD 行缺少回算证据 | 上线前审计生产行并迁移或补原币汇率换算 |
+| 生产 Purchase Price 历史数据 | 远程 D1 查询 `purchase_price IS NOT NULL` 为 0 行 | 无历史币种迁移；新写入统一按当前货币换算并存 USD |
 | sold listings 语义 | 当前由 SKU 最新价格生成，不是真实成交订单 | 产品若要求已成交记录，需接入真实成交数据源 |
 
 ## 10. 本轮验证记录
@@ -101,8 +101,8 @@ Card Detail 将公共卡牌信息、市场价格和当前 owner 的 Portfolio/Wi
 | 验证项 | 结果 |
 |---|---|
 | 生产卡牌 `9359` | 详情、4 档 Raw 市场价、30D 曲线和 4 条 TCGplayer 入口成功 |
+| 生产 Purchase Price 审计 | 远程 D1 扫描 6 条 Collection Item，非空 Purchase Price 为 0 条 |
 | Flutter 定向测试 | Card Detail、页面、Currency 共 51 项通过 |
 | Flutter 全量测试 | 338 项通过、1 项既有 OpenCV 条件跳过 |
 | Flutter analyze | 无问题 |
 | 分段提交 | `3cb0b65` 当前文件夹；`933be1e` Purchase Price 多币种 |
-
