@@ -24,7 +24,7 @@
 | Ruby / CocoaPods | `Gemfile.lock` 与 `Podfile.lock` 已由 macOS CI 生成并固定；Bundler 4.0.15、CocoaPods 1.17.0；Debug/Release/Profile 均显式包含 Pods 配置 | GitHub Actions run `29512724155` |
 | App Review 材料 | 已准备无需 Demo 账号的审核说明；主分类 `Reference`、次分类 `Utilities`；旧截图自动上传已禁用 | `fastlane/metadata/review_information/notes.txt`、`Fastfile` |
 | 法律与支持页 | Terms、Privacy、Support 均为公开生产页面 | `https://api.tcgcard.fun/api/v1/legal/*` |
-| 扫描图片生命周期 | 私有 R2 卡图最多保留 30 天；每日 Cron 自动删除，到期 D1 指针清空 | Worker `8c54646a-d05f-49da-a29f-9210c50d2008`、Cron `17 3 * * *` |
+| 扫描图片生命周期 | R2 原生规则在 30 天后删除 `scans/` 对象；每日 Cron 同步清空到期 D1 指针 | R2 rule `Expire scan images after 30 days`、Worker `8c54646a-d05f-49da-a29f-9210c50d2008`、Cron `17 3 * * *` |
 | iOS 无签名构建 | Xcode 16.4 下 Ruby 依赖安装、`pod install`、两份 lockfile 无漂移检查与 `flutter build ios --release --no-codesign` 全部成功 | GitHub Actions run `29512724155` |
 
 当前生产 `/app-config`：
@@ -100,6 +100,7 @@
 - GitHub macOS iOS CI：run `29512724155` 在最新适用的 Flutter 提交 `7c53d9b` 上成功，Pod 安装、`Gemfile.lock`/`Podfile.lock` 无漂移检查与无签名 Release 构建各步骤均成功。
 - Cloudflare：Google 无效 `id_token` 返回 `422 VALIDATION_ERROR`；30 天前仍带图片指针的生产记录计数为 0。
 - Cloudflare 当前生产 Worker 版本为 `8c54646a-d05f-49da-a29f-9210c50d2008`；`/app-config.app_store_url` 仍为 null。
+- Cloudflare R2 已回读确认 `scans/` 对象 30 天自动过期；远程 D1 无待执行迁移。
 - Apple 公开目录按 Bundle ID `com.kando.kandoApp` 查询 `resultCount=0`；当前环境未配置 Fastlane/App Store Connect 凭据，仓库中也没有 `DEVELOPMENT_TEAM`。
 - 图标：全部 PNG 尺寸匹配资产声明，1024 图标无 alpha。
 - 未执行：Xcode Archive、签名、TestFlight、真机 OAuth/评分/分享/权限、Fastlane 上传。
