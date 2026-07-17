@@ -136,9 +136,9 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | Graded 定价 | 保持空价，不使用 Raw 冒充 | `collection-dashboard.test.ts` |
 | 编辑时移动 | Flutter Item PATCH 发送 `folder_id`；Workers 在同一 batch 更新文件夹、字段和历史事件，目标文件夹按 owner 校验 | `1545251`、`8d9b776`；生产真实 API 闭环 |
 | 默认排序 | 新增并回填 `folder_joined_at`；移动刷新、普通编辑保持不变，Portfolio 默认按该时间倒序 | `07ff54c`、`7c53d9b`；`items.test.ts` |
-| Workers 验证 | 27 个文件、248 项测试、TypeScript 类型检查与 dry-run 构建通过 | 2026-07-17 最新 HEAD 验证 |
-| Flutter 验证 | 344 项通过、1 项原生 OpenCV 条件测试跳过；`flutter analyze` 无问题 | 2026-07-17 最新 HEAD 验证 |
-| 生产部署 | 0005、0006 已应用；当前 Workers 版本 `86e9400d-9514-4b08-b117-bef85fb1ed3b`；价格 Cron blocked 状态准确回读 10/4066 | Cloudflare 生产回读 |
+| Workers 验证 | 28 个文件、251 项测试、TypeScript 类型检查与 dry-run 构建通过 | 2026-07-17 最新 HEAD 验证 |
+| Flutter 验证 | 389 项通过、1 项原生 OpenCV 条件测试跳过；`flutter analyze` 无问题 | 2026-07-17 最新 HEAD 验证 |
+| 生产部署 | 0005-0008 已应用；当前 Workers 版本 `496065fb-5954-4700-b971-039973f043a9`；价格 Cron blocked 状态准确回读 10/4066 | Cloudflare 生产回读 |
 | 生产真实业务 smoke | 临时游客 Main：`9359 / Escape Artist` 先加入 Wishlist，再创建 Quantity `2` 的 Portfolio Item；Dashboard 返回当前价 `0.21`、30D 基准 `0.20`，Wishlist 自动归零；临时账号已删除 | 生产 API 2026-07-17 实测 |
 | 生产数据覆盖 | `collection_item` 仅 5 条且全部 Raw；`tcgplayer_skus` 61 行、10 个 product，目录 4066 个 product，最新价格 2026-07-08 | 生产 D1 只读聚合 2026-07-17 |
 

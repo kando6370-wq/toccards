@@ -103,6 +103,6 @@ Card Detail 将公共卡牌信息、市场价格和当前 owner 的 Portfolio/Wi
 | 生产卡牌 `9359` | `Escape Artist` 详情、4 档 Raw 市场价、12 个 30D 曲线点和 4 条 TCGplayer SKU 最新价格快照成功；未发现真实成交订单证据 |
 | 生产 Purchase Price 审计 | 远程 D1 扫描 6 条 Collection Item，非空 Purchase Price 为 0 条 |
 | Flutter 定向测试 | Card Detail Controller 30 项、Card Detail Widget 18 项通过；390x844、300px 键盘 inset、固定操作栏与保存关闭流程均覆盖 |
-| Flutter 全量测试 | 344 项通过、1 项因本机缺少平台 dartcv 库按既有条件跳过 |
+| Flutter 全量测试 | 389 项通过、1 项因本机缺少平台 dartcv 库按既有条件跳过 |
 | Flutter analyze | 无问题 |
 | 分段提交 | `3cb0b65` 当前文件夹；`933be1e` Purchase Price 多币种；`8c6a26e` Repository 分区；`5f14f9a` 局部失败与 Refresh；`edd8684` Figma Collection Item sheet |
