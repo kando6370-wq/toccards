@@ -921,7 +921,10 @@ class _CollectionItemForm extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 8),
-              _InfoRow(label: 'Total', value: draft.totalText),
+              _InfoRow(
+                label: 'Total',
+                value: state.collectionItemDraftTotalText,
+              ),
               const SizedBox(height: 12),
               TextFormField(
                 key: const Key('card-detail-item-notes'),

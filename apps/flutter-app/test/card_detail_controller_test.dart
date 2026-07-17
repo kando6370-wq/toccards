@@ -546,7 +546,32 @@ void main() {
       expect(draft.portfolioName, 'Main');
       expect(draft.language, 'English');
       expect(draft.finish, 'Holofoil');
-      expect(draft.totalText, '--');
+      expect(container.read(provider).collectionItemDraftTotalText, '--');
+    },
+  );
+
+  test(
+    'Purchase Price uses the selected currency because the form must not persist EUR input as USD',
+    () async {
+      final repository = _RecordingCardDetailRepository();
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final currency = AppCurrency.eur.withUsdRate(0.91);
+      container.read(selectedCurrencyProvider.notifier).select(currency);
+      final provider = cardDetailControllerProvider('squirtle');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'squirtle');
+
+      controller.startAddingCollectionItem();
+      controller.updateCollectionItemDraft(purchasePriceText: '91');
+
+      expect(container.read(provider).collectionItemDraftTotalText, '€91.00');
+      expect(await controller.saveCollectionItemDraft(), isTrue);
+      expect(repository.createdItems.single.purchasePriceUsd, 100);
+      expect(
+        container.read(provider).collectionItemRows.single.purchasePriceText,
+        '€91.00',
+      );
     },
   );
 

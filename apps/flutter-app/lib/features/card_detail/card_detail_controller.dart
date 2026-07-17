@@ -116,15 +116,15 @@ class CardCollectionItemDraft {
 
   bool get isRaw => grader == 'Raw';
 
-  String get totalText {
+  double? get total {
     final quantity = int.tryParse(quantityText.trim());
     final price = double.tryParse(purchasePriceText.trim());
 
     if (quantity == null || quantity < 1 || price == null || price < 0) {
-      return '--';
+      return null;
     }
 
-    return r'$' + (quantity * price).toStringAsFixed(2);
+    return quantity * price;
   }
 
   CardCollectionItemDraft copyWith({
@@ -303,6 +303,10 @@ class CardDetailState {
         notes: item.notes,
       );
     }).toList();
+  }
+
+  String get collectionItemDraftTotalText {
+    return _formatter.formatAmount(collectionItemDraft?.total);
   }
 
   List<CardPricePoint> get selectedPriceSeries {
@@ -620,7 +624,11 @@ class CardDetailController extends Notifier<CardDetailState> {
         grade: item.grade ?? _defaultGradeForGrader(item.grader),
         language: item.language ?? state.detail.language,
         finish: item.finish ?? state.detail.finish,
-        purchasePriceText: item.purchasePriceUsd?.toStringAsFixed(2) ?? '',
+        purchasePriceText:
+            _currencyFormatter
+                .convertUsd(item.purchasePriceUsd)
+                ?.toStringAsFixed(2) ??
+            '',
         notes: item.notes,
       ),
       editingCollectionItemId: item.id,
@@ -702,6 +710,11 @@ class CardDetailController extends Notifier<CardDetailState> {
       _setCollectionItemFormError(purchasePrice.error!);
       return false;
     }
+    final purchasePriceUsd = _currencyFormatter.toUsd(purchasePrice.value);
+    if (purchasePrice.value != null && purchasePriceUsd == null) {
+      _setCollectionItemFormError(_invalidPriceText);
+      return false;
+    }
 
     if (draft.notes.length > 500) {
       _setCollectionItemFormError(_notesTooLongText);
@@ -730,7 +743,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       grade: draft.isRaw ? null : draft.grade,
       language: draft.language,
       finish: draft.finish,
-      purchasePriceUsd: purchasePrice.value,
+      purchasePriceUsd: purchasePriceUsd,
       notes: draft.notes,
     );
     final savedItem = editingItemId == null
@@ -809,6 +822,10 @@ class CardDetailController extends Notifier<CardDetailState> {
 
   CardDetailRepository get _repository =>
       ref.read(cardDetailRepositoryProvider);
+
+  CurrencyFormatter get _currencyFormatter {
+    return CurrencyFormatter(currency: state.currency);
+  }
 
   AuthSession? get _session => ref.read(authControllerProvider).session;
 

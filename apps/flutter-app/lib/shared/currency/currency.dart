@@ -44,20 +44,36 @@ class CurrencyFormatter {
     bool hidden = false,
     bool allowZero = true,
   }) {
+    final normalizedQuantity = quantity < 1 ? 1 : quantity;
+    return formatAmount(
+      convertUsd(valueUsd == null ? null : valueUsd * normalizedQuantity),
+      hidden: hidden,
+      allowZero: allowZero,
+    );
+  }
+
+  double? convertUsd(double? valueUsd) {
+    final rate = currency.usdRate;
+    return valueUsd == null || rate == null ? null : valueUsd * rate;
+  }
+
+  double? toUsd(double? value) {
+    final rate = currency.usdRate;
+    return value == null || rate == null || rate <= 0 ? null : value / rate;
+  }
+
+  String formatAmount(
+    double? value, {
+    bool hidden = false,
+    bool allowZero = true,
+  }) {
     if (hidden) {
       return hiddenMoneyText;
     }
-    if (valueUsd == null || (!allowZero && valueUsd <= 0)) {
+    if (value == null || (!allowZero && value <= 0)) {
       return '--';
     }
-
-    final normalizedQuantity = quantity < 1 ? 1 : quantity;
-    final rate = currency.usdRate;
-    if (rate == null) {
-      return '--';
-    }
-    final converted = valueUsd * normalizedQuantity * rate;
-    return _format(converted);
+    return _format(value);
   }
 
   String _format(double value) {
