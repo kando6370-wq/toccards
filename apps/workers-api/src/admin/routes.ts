@@ -11,6 +11,10 @@ import type { Context, Next } from "hono";
 import type { Env } from "../env";
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
 import { createId } from "../id";
+import {
+  getJustTcgPriceSyncStatus,
+  runJustTcgPriceSync,
+} from "../price-sync/justtcg";
 
 type AdminRole = "super_admin" | "operator";
 type AdminStatus = "active" | "disabled";
@@ -557,6 +561,31 @@ adminRoutes.post("/auth/logout", async (c) => {
     .run();
 
   return c.json({ success: true, data: {} });
+});
+
+adminRoutes.get("/price-sync", async (c) => {
+  const status = await getJustTcgPriceSyncStatus(c.env);
+  return c.json({ success: true, data: status });
+});
+
+adminRoutes.post("/price-sync/run", async (c) => {
+  if (c.get("admin").role !== "super_admin") {
+    return c.json(FORBIDDEN_RESPONSE, 403);
+  }
+  const status = await runJustTcgPriceSync(c.env, { force: true });
+  if (status.status === "blocked" || status.status === "failed") {
+    return c.json({
+      success: false,
+      error: {
+        code: status.status === "blocked"
+          ? "PRICE_SYNC_NOT_CONFIGURED"
+          : "PRICE_SYNC_FAILED",
+        message: status.last_error ?? "Price synchronization failed.",
+      },
+      data: status,
+    }, 503);
+  }
+  return c.json({ success: true, data: status });
 });
 
 adminRoutes.get("/analytics/installations", async (c) => {

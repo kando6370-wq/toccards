@@ -9,6 +9,7 @@ import {
   sqliteTable,
   text,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 // ── 卡牌基础数据源层 ──────────────────────────────────────────
@@ -92,6 +93,8 @@ export const tcgplayerSkus = sqliteTable(
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
     priceHistory: text("price_history").notNull().default("[]"),
+    source: text("source"),
+    sourceVariantId: text("source_variant_id"),
   },
   (t) => [
     index("idx_tcgplayer_skus_product_id").on(t.productId),
@@ -101,8 +104,28 @@ export const tcgplayerSkus = sqliteTable(
       t.variantCode,
       t.conditionCode,
     ),
+    uniqueIndex("uq_tcgplayer_skus_source_variant").on(
+      t.source,
+      t.sourceVariantId,
+    ),
   ],
 );
+
+export const priceSyncState = sqliteTable("price_sync_state", {
+  source: text("source").primaryKey(),
+  status: text("status").notNull(),
+  cursorProductId: integer("cursor_product_id"),
+  cycleStartedAt: text("cycle_started_at"),
+  lastAttemptAt: text("last_attempt_at"),
+  lastSuccessAt: text("last_success_at"),
+  lastCompletedAt: text("last_completed_at"),
+  nextRunAt: text("next_run_at"),
+  productsProcessed: integer("products_processed").notNull().default(0),
+  variantsWritten: integer("variants_written").notNull().default(0),
+  coveredProducts: integer("covered_products").notNull().default(0),
+  totalProducts: integer("total_products").notNull().default(0),
+  lastError: text("last_error"),
+});
 
 // ── 用户 / 账号层 ──────────────────────────────────────────────
 

@@ -213,6 +213,41 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
+  it("prefers the freshest same-specification row because a provider refresh must replace stale imported prices", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            sku_id: 1,
+            product_id: 100,
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-08" },
+            ]),
+          }),
+          sku({
+            sku_id: 2,
+            product_id: 100,
+            price_history: JSON.stringify([
+              { price: 12, date: "2026-07-16" },
+              { price: 13, date: "2026-07-17" },
+            ]),
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getMarketPrices("100")).resolves.toEqual([
+      { grader: "Raw", grade: null, condition: "Near Mint", price: 13 },
+    ]);
+    await expect(
+      adapter.getPriceSeries("100", "Raw", null, "Near Mint", 30),
+    ).resolves.toEqual([
+      { date: "2026-07-16", price: 12 },
+      { date: "2026-07-17", price: 13 },
+    ]);
+  });
+
   it("filters by game before paging and counts the complete set because Search Game controls both tabs", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(

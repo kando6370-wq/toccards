@@ -43,6 +43,13 @@
       "when": 1784220000000,
       "tag": "0005_collection_item_folder_joined_at",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784251800000,
+      "tag": "0006_price_sync",
+      "breakpoints": true
     }
   ]
 }

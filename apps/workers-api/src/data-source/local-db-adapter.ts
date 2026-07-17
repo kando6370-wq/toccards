@@ -327,10 +327,7 @@ function preferredSearchSku(rows: TcgplayerSkuRow[]): TcgplayerSkuRow | null {
   return (
     [...rows]
       .filter((row) => parsePriceHistory(row.price_history).length > 0)
-      .sort(
-        (left, right) =>
-          searchSkuRank(left) - searchSkuRank(right) || left.sku_id - right.sku_id,
-      )[0] ?? null
+      .sort(compareSkuPreference)[0] ?? null
   );
 }
 
@@ -350,7 +347,7 @@ function preferredMarketSkus(rows: TcgplayerSkuRow[]): TcgplayerSkuRow[] {
       !current ||
       searchSkuRank(row) < searchSkuRank(current) ||
       (searchSkuRank(row) === searchSkuRank(current) &&
-        row.sku_id < current.sku_id)
+        isFresherSku(row, current))
     ) {
       rowsByCondition.set(condition, row);
     }
@@ -386,6 +383,31 @@ function searchSkuRank(row: TcgplayerSkuRow): number {
     (row.language_code === "EN" ? 0 : 10) +
     (row.variant_code === "N" ? 0 : 1)
   );
+}
+
+function compareSkuPreference(
+  left: TcgplayerSkuRow,
+  right: TcgplayerSkuRow,
+): number {
+  return (
+    searchSkuRank(left) - searchSkuRank(right) ||
+    latestPriceDate(right).localeCompare(latestPriceDate(left)) ||
+    left.sku_id - right.sku_id
+  );
+}
+
+function isFresherSku(
+  candidate: TcgplayerSkuRow,
+  current: TcgplayerSkuRow,
+): boolean {
+  const candidateDate = latestPriceDate(candidate);
+  const currentDate = latestPriceDate(current);
+  return candidateDate > currentDate ||
+    (candidateDate === currentDate && candidate.sku_id < current.sku_id);
+}
+
+function latestPriceDate(row: TcgplayerSkuRow): string {
+  return latestPricePoint(parsePriceHistory(row.price_history))?.date ?? "";
 }
 
 async function findSkuRows(

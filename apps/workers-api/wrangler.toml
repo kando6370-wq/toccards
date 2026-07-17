@@ -12,6 +12,11 @@ ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Kando"
 OCR_SERVICE_BASE_URL = "https://recognize.tcgcard.fun"
+JUSTTCG_BATCH_SIZE = "100"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
 [assets]
 directory = "../admin-web/dist"
 not_found_handling = "single-page-application"
