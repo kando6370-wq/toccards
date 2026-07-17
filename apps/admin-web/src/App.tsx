@@ -13,6 +13,7 @@ import {
   Select,
   Segmented,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -126,6 +127,8 @@ type AppVersionItem = {
   platform: "iOS" | "Google";
   min_supported_version: string;
   recommended_version: string;
+  force_update: boolean;
+  store_url: string;
   recommended_update_message: string;
   forced_update_message: string;
   status: AppVersionStatus;
@@ -692,6 +695,7 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
     { title: "操作平台", dataIndex: "platform" },
     { title: "最低支持版本", dataIndex: "min_supported_version" },
     { title: "建议更新版本", dataIndex: "recommended_version", render: (value: string) => <Text className="accent-text">{value}</Text> },
+    { title: "强制更新", dataIndex: "force_update", render: (value: boolean) => value ? "开启" : "关闭" },
     { title: "更新时间", dataIndex: "updated_at", render: formatDate },
     { title: "状态", dataIndex: "status", render: renderAppVersionStatus },
     {
@@ -739,6 +743,12 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
               <Input />
             </Form.Item>
           </div>
+          <Form.Item name="force_update" label="强制更新" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Form.Item name="store_url" label="应用商店地址" rules={[{ type: "url", message: "请输入有效的 HTTP(S) 地址" }]}>
+            <Input placeholder="https://..." />
+          </Form.Item>
           <Form.Item name="recommended_update_message" label="建议更新文案">
             <TextArea rows={5} />
           </Form.Item>

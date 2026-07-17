@@ -93,6 +93,50 @@ describe("public app config routes", () => {
       },
     });
   });
+
+  it("selects the enabled platform rule because Admin must control forced updates per store", async () => {
+    const env = createTestEnv([
+      appConfigRow(
+        "admin.app_version.ios",
+        JSON.stringify({
+          status: "enabled",
+          min_supported_version: "1.2.0",
+          recommended_version: "1.5.0",
+          force_update: true,
+          store_url: "https://apps.apple.com/app/kando",
+          recommended_update_message: "A newer version is available.",
+          forced_update_message: "Update to continue.",
+        }),
+      ),
+      appConfigRow(
+        "admin.app_version.google",
+        JSON.stringify({
+          status: "disabled",
+          min_supported_version: "1.1.0",
+          recommended_version: "1.4.0",
+          force_update: true,
+        }),
+      ),
+    ]);
+
+    const ios = await app.request("/api/v1/app-config?platform=ios", {}, env);
+    const google = await app.request("/api/v1/app-config?platform=google", {}, env);
+
+    expect(await ios.json()).toMatchObject({
+      data: {
+        upgrade_prompt: {
+          latest_version: "1.5.0",
+          min_version: "1.2.0",
+          force_update: true,
+          forced_message: "Update to continue.",
+          store_url: "https://apps.apple.com/app/kando",
+        },
+      },
+    });
+    expect(await google.json()).toMatchObject({
+      data: { upgrade_prompt: null },
+    });
+  });
 });
 
 function appConfigRow(key: string, value: string): AppConfigRow {

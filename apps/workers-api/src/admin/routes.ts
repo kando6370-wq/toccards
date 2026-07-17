@@ -89,6 +89,8 @@ type AppVersionRecord = {
   platform: AppVersionPlatform;
   min_supported_version: string;
   recommended_version: string;
+  force_update: boolean;
+  store_url: string;
   recommended_update_message: string;
   forced_update_message: string;
   status: AppVersionStatus;
@@ -865,6 +867,8 @@ adminRoutes.patch("/app-versions/:platform", async (c) => {
   const input = await readJsonObject(c.req);
   const minSupportedVersion = readRequiredString(input.min_supported_version);
   const recommendedVersion = readRequiredString(input.recommended_version);
+  const forceUpdate = input.force_update === true;
+  const storeUrl = typeof input.store_url === "string" ? input.store_url.trim() : "";
   const status = readAppVersionStatus(input.status) ?? "enabled";
   if (
     !minSupportedVersion ||
@@ -880,6 +884,8 @@ adminRoutes.patch("/app-versions/:platform", async (c) => {
     platform,
     min_supported_version: minSupportedVersion,
     recommended_version: recommendedVersion,
+    force_update: forceUpdate,
+    store_url: storeUrl,
     recommended_update_message: typeof input.recommended_update_message === "string"
       ? input.recommended_update_message
       : "",
@@ -1387,9 +1393,11 @@ function defaultAppVersionRecord(platform: AppVersionPlatform): AppVersionRecord
     platform,
     min_supported_version: "1.0.0",
     recommended_version: "1.9.0",
+    force_update: false,
+    store_url: "",
     recommended_update_message: "优化首页加载速度",
     forced_update_message: "请更新至最新版本后继续使用。",
-    status: platform === "iOS" ? "disabled" : "enabled",
+    status: "disabled",
     updated_at: "2025-04-30T00:00:00.000Z",
   };
 }
@@ -1407,6 +1415,8 @@ function parseAppVersionRecord(value: string, updatedAt: string): AppVersionReco
       platform,
       min_supported_version: minSupportedVersion,
       recommended_version: recommendedVersion,
+      force_update: parsed.force_update === true,
+      store_url: typeof parsed.store_url === "string" ? parsed.store_url.trim() : "",
       recommended_update_message: typeof parsed.recommended_update_message === "string"
         ? parsed.recommended_update_message
         : "",

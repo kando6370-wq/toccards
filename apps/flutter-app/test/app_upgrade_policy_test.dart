@@ -65,6 +65,38 @@ void main() {
   );
 
   test(
+    'policy forces only versions below the minimum because newer supported builds may defer the recommendation',
+    () {
+      const config = AppUpgradeConfig(
+        upgradePrompt: UpgradePrompt(
+          latestVersion: '2.0.0',
+          minVersion: '1.2.0',
+          forceUpdate: true,
+          title: 'Update available',
+          message: 'A newer version is available.',
+          forcedMessage: 'Update to continue.',
+          storeUrl: 'https://apps.apple.com/app/kando',
+        ),
+      );
+
+      final supported = AppUpgradePolicy.evaluate(
+        currentVersion: '1.5.0',
+        config: config,
+      );
+      final unsupported = AppUpgradePolicy.evaluate(
+        currentVersion: '1.0.0',
+        config: config,
+      );
+
+      expect(supported.forceUpdate, isFalse);
+      expect(supported.message, 'A newer version is available.');
+      expect(unsupported.forceUpdate, isTrue);
+      expect(unsupported.title, 'Update required');
+      expect(unsupported.message, 'Update to continue.');
+    },
+  );
+
+  test(
     'policy allows matching version because users already satisfy the minimum supported build',
     () {
       final decision = AppUpgradePolicy.evaluate(

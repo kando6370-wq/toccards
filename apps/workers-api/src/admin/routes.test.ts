@@ -851,6 +851,8 @@ describe("admin routes", () => {
       {
         min_supported_version: "1.0.0",
         recommended_version: "1.9.0",
+        force_update: true,
+        store_url: "https://apps.apple.com/app/kando",
         recommended_update_message: "优化首页加载速度",
         forced_update_message: "请更新至最新版本后继续使用。",
         status: "enabled",
@@ -870,6 +872,8 @@ describe("admin routes", () => {
             platform: "iOS",
             min_supported_version: "1.0.0",
             recommended_version: "1.9.0",
+            force_update: true,
+            store_url: "https://apps.apple.com/app/kando",
             status: "enabled",
           }),
         ]),

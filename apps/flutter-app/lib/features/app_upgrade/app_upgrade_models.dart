@@ -32,6 +32,8 @@ class UpgradePrompt {
     required this.title,
     required this.message,
     required this.storeUrl,
+    this.minVersion,
+    this.forcedMessage,
   });
 
   final String latestVersion;
@@ -39,6 +41,8 @@ class UpgradePrompt {
   final String title;
   final String message;
   final String? storeUrl;
+  final String? minVersion;
+  final String? forcedMessage;
 
   factory UpgradePrompt.fromJson(Map<String, Object?> json) {
     return UpgradePrompt(
@@ -52,6 +56,8 @@ class UpgradePrompt {
           _stringOrNull(json['message']) ??
           'Please install the latest Kando version.',
       storeUrl: _stringOrNull(json['store_url']),
+      minVersion: _stringOrNull(json['min_version']),
+      forcedMessage: _stringOrNull(json['forced_message']),
     );
   }
 }
@@ -111,9 +117,15 @@ class AppUpgradePolicy {
 
     final current = _AppVersion.tryParse(currentVersion);
     final latest = _AppVersion.tryParse(prompt.latestVersion);
+    final minimum = _AppVersion.tryParse(
+      prompt.minVersion ?? prompt.latestVersion,
+    );
     final storeUrl = prompt.storeUrl ?? config.appStoreUrl;
 
-    if (current == null || latest == null || storeUrl == null) {
+    if (current == null ||
+        latest == null ||
+        minimum == null ||
+        storeUrl == null) {
       return const AppUpgradeDecision.none();
     }
 
@@ -121,10 +133,13 @@ class AppUpgradePolicy {
       return const AppUpgradeDecision.none();
     }
 
+    final forceUpdate = prompt.forceUpdate && current.compareTo(minimum) < 0;
     return AppUpgradeDecision.update(
-      forceUpdate: prompt.forceUpdate,
-      title: prompt.title,
-      message: prompt.message,
+      forceUpdate: forceUpdate,
+      title: forceUpdate ? 'Update required' : prompt.title,
+      message: forceUpdate
+          ? (prompt.forcedMessage ?? prompt.message)
+          : prompt.message,
       storeUrl: storeUrl,
       latestVersion: prompt.latestVersion,
     );
