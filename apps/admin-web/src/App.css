@@ -184,12 +184,21 @@ body {
 }
 
 .admin-layout {
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-layout > .ant-layout {
+  min-height: 0;
+  min-width: 0;
 }
 
 .admin-sider {
   background: #121c2a !important;
   color: #d8e2ef;
+  height: 100dvh;
+  overflow-y: auto;
   position: relative;
 }
 
@@ -278,11 +287,19 @@ body {
 
 .admin-content {
   background: #f4f7f9;
-  padding: 30px 28px 60px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 24px 28px;
 }
 
 .page-title-row {
-  margin-bottom: 18px;
+  flex: 0 0 auto;
+  margin-bottom: 14px;
 }
 
 .page-title-copy {
@@ -306,8 +323,16 @@ body {
 }
 
 .page-panel {
-  min-height: calc(100vh - 112px);
-  padding: 24px;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: 18px;
+}
+
+.page-panel > .table-panel:last-child {
+  margin-bottom: 0;
 }
 
 .refresh-row {
@@ -421,7 +446,19 @@ body {
 }
 
 .scans-page {
-  min-height: calc(100vh - 112px);
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.table-panel {
+  overflow-x: auto;
+}
+
+.admin-content .ant-table-wrapper .ant-table-cell {
+  padding-bottom: 10px;
+  padding-top: 10px;
 }
 
 .scans-filter-panel {
