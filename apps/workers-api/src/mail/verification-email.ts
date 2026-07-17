@@ -1,5 +1,5 @@
 import type { Env } from "../env";
-import { sendZohoMail } from "./zoho-mail";
+import { sendZeptoMail } from "./zeptomail";
 
 export function sendVerificationEmail(
   env: Env,
@@ -9,7 +9,7 @@ export function sendVerificationEmail(
 ): Promise<string> {
   const action =
     purpose === "register" ? "create your account" : "reset your password";
-  return sendZohoMail(env, {
+  return sendZeptoMail(env, {
     to: email,
     subject: `Kando - This Is Your Verification Code ${code}`,
     html: verificationEmailHtml(code, action),

@@ -5,11 +5,10 @@ export interface Env {
   JWT_SECRET: string;
   GOOGLE_CLIENT_ID?: string;
   APPLE_CLIENT_ID?: string;
-  ZOHO_CLIENT_ID?: string;
-  ZOHO_CLIENT_SECRET?: string;
-  ZOHO_REFRESH_TOKEN?: string;
-  ZOHO_ACCOUNT_ID?: string;
-  ZOHO_FROM_ADDRESS?: string;
+  ZEPTOMAIL_TOKEN?: string;
+  ZEPTOMAIL_API_URL?: string;
+  MAIL_FROM_ADDRESS?: string;
+  MAIL_FROM_NAME?: string;
   OCR_SERVICE_BASE_URL?: string;
   SCAN_IMAGE_RETENTION_DAYS?: string;
 }
