@@ -226,6 +226,8 @@ class _CardHero extends ConsumerWidget {
                               detail.imageUrl!,
                               key: const Key('card-detail-image'),
                               fit: BoxFit.contain,
+                              webHtmlElementStrategy:
+                                  WebHtmlElementStrategy.fallback,
                               filterQuality: FilterQuality.high,
                               errorBuilder: (context, error, stackTrace) =>
                                   const _CardImagePlaceholder(),
@@ -946,7 +948,8 @@ class _AddCollectionItemPreview extends StatelessWidget {
                   ? const _CardImagePlaceholder()
                   : Image.network(
                       detail.imageUrl!,
-                      fit: BoxFit.cover,
+                      fit: BoxFit.contain,
+                      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
                       errorBuilder: (context, error, stackTrace) =>
                           const _CardImagePlaceholder(),
                     ),

@@ -4,6 +4,7 @@ import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/card_data/card_data_api_client.dart';
 import '../../shared/card_data/card_data_providers.dart';
+import '../../shared/card_image/card_image_url.dart';
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
@@ -144,7 +145,7 @@ class ApiScanReviewRepository implements ScanReviewRepository {
             setName: card.setName,
             cardNumber: card.cardNumber,
             game: card.game,
-            imageUrl: card.imageUrl,
+            imageUrl: cardImageUrl(card.cardRef, CardImageVariant.detail),
             language: card.language,
             finish: card.finish,
             prices: prices

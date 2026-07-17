@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/card_image/card_image_url.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import 'home_models.dart';
@@ -123,7 +124,7 @@ Future<List<TrendingCard>> loadTrendingCards(CardDataApi cardDataApi) async {
           subtitle: card.setName,
           priceUsd: card.priceUsd!,
           previousPriceUsd: card.previous1dPriceUsd!,
-          imageUrl: card.imageUrl,
+          imageUrl: cardImageUrl(card.cardRef, CardImageVariant.thumbnail),
         ),
       )
       .toList();
@@ -151,7 +152,7 @@ HomeCardHighlight _highlight(PortfolioMostValuableDto item) {
     subtitle: subtitle,
     priceUsd: item.priceUsd,
     previousPriceUsd: item.previous30dPriceUsd,
-    imageUrl: item.imageUrl,
+    imageUrl: cardImageUrl(item.cardRef, CardImageVariant.thumbnail),
   );
 }
 

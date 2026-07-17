@@ -259,7 +259,10 @@ class _PortfolioSummaryCard extends StatelessWidget {
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text('•', style: TextStyle(color: KandoColors.mutedText)),
+                child: Text(
+                  '•',
+                  style: TextStyle(color: KandoColors.mutedText),
+                ),
               ),
               Text(
                 '${summary.gradedCount} graded',
@@ -425,9 +428,7 @@ class _CollectionCardTile extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => context.push(
-        '/cards/${Uri.encodeComponent(item.cardRef)}',
-      ),
+      onTap: () => context.push('/cards/${Uri.encodeComponent(item.cardRef)}'),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -456,7 +457,8 @@ class _CollectionCardTile extends StatelessWidget {
                       )
                     : Image.network(
                         item.imageUrl!,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
+                        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
                         width: double.infinity,
                         height: double.infinity,
                         filterQuality: FilterQuality.high,
@@ -469,87 +471,93 @@ class _CollectionCardTile extends StatelessWidget {
                       ),
               ),
             ),
-          const SizedBox(height: 10),
-          Text(
-            item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: KandoColors.text,
+            const SizedBox(height: 10),
+            Text(
+              item.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: KandoColors.text,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            item.setName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, color: KandoColors.mutedText),
-          ),
-          Text(
-            item.number,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, color: KandoColors.mutedText),
-          ),
-          const SizedBox(height: 2),
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: item.statusText,
-                  style: const TextStyle(color: KandoColors.accent),
-                ),
-                const TextSpan(
-                  text: '  ·  ',
-                  style: TextStyle(color: KandoColors.mutedText),
-                ),
-                TextSpan(
-                  text: item.finish,
-                  style: const TextStyle(color: KandoColors.mutedText),
-                ),
-              ],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11),
-          ),
-          if (showQuantity) ...[
             const SizedBox(height: 2),
-            Row(
-              children: [
-                const Icon(
-                  Icons.inventory_2_outlined,
-                  size: 12,
-                  color: KandoColors.mutedText,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Qty: ${item.quantity}',
-                  style: const TextStyle(
-                    fontSize: 11,
+            Text(
+              item.setName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                color: KandoColors.mutedText,
+              ),
+            ),
+            Text(
+              item.number,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                color: KandoColors.mutedText,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: item.statusText,
+                    style: const TextStyle(color: KandoColors.accent),
+                  ),
+                  const TextSpan(
+                    text: '  ·  ',
+                    style: TextStyle(color: KandoColors.mutedText),
+                  ),
+                  TextSpan(
+                    text: item.finish,
+                    style: const TextStyle(color: KandoColors.mutedText),
+                  ),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11),
+            ),
+            if (showQuantity) ...[
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.inventory_2_outlined,
+                    size: 12,
                     color: KandoColors.mutedText,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Text(
+                    'Qty: ${item.quantity}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: KandoColors.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              item.valueText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: KandoColors.text,
+              ),
             ),
-          ],
-          const SizedBox(height: 8),
-          Text(
-            item.valueText,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: KandoColors.text,
+            Text(
+              item.changeText,
+              style: TextStyle(fontSize: 11, color: changeColor),
             ),
-          ),
-          Text(
-            item.changeText,
-            style: TextStyle(fontSize: 11, color: changeColor),
-          ),
           ],
         ),
       ),
@@ -732,14 +740,17 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                                   ),
                                 ),
                                 IconButton(
-                                  key: Key('collection-folder-default-${folder.id}'),
+                                  key: Key(
+                                    'collection-folder-default-${folder.id}',
+                                  ),
                                   tooltip: 'Set default portfolio',
                                   onPressed: folder.isDefault
                                       ? null
                                       : () async {
-                                          if (!await controller.setDefaultFolder(
-                                                folder.id,
-                                              ) &&
+                                          if (!await controller
+                                                  .setDefaultFolder(
+                                                    folder.id,
+                                                  ) &&
                                               context.mounted) {
                                             _showCollectionActionError(context);
                                           }
@@ -755,7 +766,9 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                                   ),
                                 ),
                                 IconButton(
-                                  key: Key('collection-folder-edit-${folder.id}'),
+                                  key: Key(
+                                    'collection-folder-edit-${folder.id}',
+                                  ),
                                   tooltip: 'Edit portfolio',
                                   onPressed: () async {
                                     final name = await _promptForFolderName(
@@ -781,7 +794,9 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                                   ),
                                 ),
                                 IconButton(
-                                  key: Key('collection-folder-delete-${folder.id}'),
+                                  key: Key(
+                                    'collection-folder-delete-${folder.id}',
+                                  ),
                                   tooltip: 'Delete portfolio',
                                   onPressed: folder.isDefault
                                       ? null

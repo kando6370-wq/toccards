@@ -48,7 +48,10 @@ void main() {
       expect(detail.type, CardDetailType.tcg);
       expect(detail.name, 'Pikachu');
       expect(detail.game, 'Pokemon');
-      expect(detail.imageUrl, 'https://img.example/pikachu.jpg');
+      expect(
+        detail.imageUrl,
+        'https://image.tcgcard.fun/cdn-cgi/image/width=600,height=800,fit=scale-down,quality=85,format=auto,sharpen=1/cards/catalog%3Apikachu-025.jpg',
+      );
       expect(detail.setName, 'Base Set');
       expect(detail.identityLine, 'Common #025');
       expect(detail.finish, 'Holofoil');

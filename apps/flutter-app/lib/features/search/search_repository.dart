@@ -1,5 +1,6 @@
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/card_image/card_image_url.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import 'search_models.dart';
@@ -216,7 +217,7 @@ SearchCard _cardFromDto(CardDataCardDto dto) {
     isWishlisted: false,
     language: dto.language,
     finish: dto.finish,
-    imageUrl: dto.imageUrl,
+    imageUrl: cardImageUrl(dto.cardRef, CardImageVariant.list),
   );
 }
 

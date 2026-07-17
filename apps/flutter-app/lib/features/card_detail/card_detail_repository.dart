@@ -1,5 +1,6 @@
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/card_image/card_image_url.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import 'card_detail_models.dart';
@@ -276,7 +277,7 @@ class HttpCardDetailRepository
 CardDetail _baseDetailFromDto(CardDataCardDto card) {
   return CardDetail(
     id: card.cardRef,
-    imageUrl: card.imageUrl,
+    imageUrl: cardImageUrl(card.cardRef, CardImageVariant.detail),
     type: _detailTypeFromObjectType(card.objectType),
     name: card.name,
     game: card.game?.trim().isNotEmpty == true

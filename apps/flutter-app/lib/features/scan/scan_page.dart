@@ -2973,7 +2973,7 @@ class _ReviewMatches extends StatelessWidget {
                               ),
                               child: _ReviewNetworkImage(
                                 imageUrl: preview?.imageUrl,
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                               ),
                             ),
                           );
@@ -3119,7 +3119,7 @@ class _ReviewImageComparison extends StatelessWidget {
               label: 'OUR MATCH',
               child: _ReviewNetworkImage(
                 imageUrl: card?.imageUrl,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
               ),
             ),
           ),
@@ -3175,6 +3175,7 @@ class _ReviewNetworkImage extends StatelessWidget {
     return Image.network(
       url,
       fit: fit,
+      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
       errorBuilder: (_, _, _) => const _ReviewImageUnavailable(),
     );
   }
@@ -3235,7 +3236,7 @@ class _ReviewCandidateCard extends StatelessWidget {
                 child: SizedBox.expand(
                   child: _ReviewNetworkImage(
                     imageUrl: card?.imageUrl,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
@@ -3365,7 +3366,7 @@ class _ReviewCollectionItem extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                         child: _ReviewNetworkImage(
                           imageUrl: card.imageUrl,
-                          fit: BoxFit.cover,
+                          fit: BoxFit.contain,
                         ),
                       ),
                     ),

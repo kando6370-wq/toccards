@@ -129,7 +129,7 @@ void main() {
       expect(dashboard.portfolioItems.first.previous30dPriceUsd, 10);
       expect(
         dashboard.portfolioItems.first.imageUrl,
-        'https://api.tcgcard.fun/api/v1/cards/25/image',
+        'https://image.tcgcard.fun/cdn-cgi/image/width=160,height=224,fit=scale-down,quality=60,format=auto,dpr=2/cards/catalog%3Apikachu-025.jpg',
       );
       expect(dashboard.portfolioItems.last.marketValueUsd, isNull);
       expect(dashboard.wishlistItems.single.cardRef, 'catalog:luffy-001');
@@ -261,25 +261,28 @@ void main() {
     },
   );
 
-  test('summary counts owned copies because quantity represents physical cards', () async {
-    final container = _collectionContainer();
-    addTearDown(container.dispose);
-    final state = await _loadedState(container);
+  test(
+    'summary counts owned copies because quantity represents physical cards',
+    () async {
+      final container = _collectionContainer();
+      addTearDown(container.dispose);
+      final state = await _loadedState(container);
 
-    expect(state.selectedTab, CollectionTab.portfolio);
-    expect(state.selectedFolder.name, 'Main');
-    expect(state.portfolioSummary.totalValueText, r'$1,245.00');
-    expect(state.portfolioSummary.cardCount, 4);
-    expect(state.portfolioSummary.gradedCount, 2);
-    expect(state.visibleItems.map((item) => item.name), [
-      'Charizard ex',
-      'Umbreon VMAX',
-      'Pikachu Promo',
-    ]);
-    expect(state.visibleItems.first.valueText, r'$780.00');
-    expect(state.visibleItems.first.source.previous30dPriceUsd, 721.55);
-    expect(state.visibleItems.first.changeText, '+8.10%');
-  });
+      expect(state.selectedTab, CollectionTab.portfolio);
+      expect(state.selectedFolder.name, 'Main');
+      expect(state.portfolioSummary.totalValueText, r'$1,245.00');
+      expect(state.portfolioSummary.cardCount, 4);
+      expect(state.portfolioSummary.gradedCount, 2);
+      expect(state.visibleItems.map((item) => item.name), [
+        'Charizard ex',
+        'Umbreon VMAX',
+        'Pikachu Promo',
+      ]);
+      expect(state.visibleItems.first.valueText, r'$780.00');
+      expect(state.visibleItems.first.source.previous30dPriceUsd, 721.55);
+      expect(state.visibleItems.first.changeText, '+8.10%');
+    },
+  );
 
   test(
     'graded summary counts graded copies rather than collection rows',

@@ -1,4 +1,5 @@
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/card_image/card_image_url.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import 'collection_models.dart';
@@ -73,10 +74,7 @@ class HttpCollectionRepository implements CollectionRepository {
   }
 
   @override
-  Future<void> reorderFolders(
-    AuthSession session,
-    List<String> folderIds,
-  ) {
+  Future<void> reorderFolders(AuthSession session, List<String> folderIds) {
     return _managementApi.reorderFolders(session, folderIds);
   }
 
@@ -123,6 +121,6 @@ CollectionItem _collectionItemFromDto(CollectionDashboardItemDto dto) {
     marketValueUsd: dto.marketPriceUsd,
     previous30dPriceUsd: dto.previous30dPriceUsd,
     addedAtSort: dto.folderJoinedAt.millisecondsSinceEpoch,
-    imageUrl: dto.imageUrl,
+    imageUrl: cardImageUrl(dto.cardRef, CardImageVariant.thumbnail),
   );
 }
