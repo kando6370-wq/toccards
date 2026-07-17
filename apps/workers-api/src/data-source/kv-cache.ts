@@ -33,6 +33,10 @@ export function createKvCachedDataSourceAdapter(
       );
     },
 
+    searchSets(query, options) {
+      return source.searchSets(query, options);
+    },
+
     getCard(card_ref) {
       return source.getCard(card_ref);
     },
@@ -114,12 +118,14 @@ function searchCardsCacheKey(
     DEFAULT_SEARCH_PAGE_SIZE,
   );
   const objectType = options?.object_type ?? "all";
+  const game = options?.game ?? "all";
 
   return [
     CARD_RESPONSE_CACHE_VERSION,
     "searchCards",
     cacheKeyPart(query),
     cacheKeyPart(objectType),
+    cacheKeyPart(game),
     String(page),
     String(pageSize),
   ].join(":");

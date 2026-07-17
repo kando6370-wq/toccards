@@ -4,6 +4,7 @@ import type {
   CardObjectType,
   CardSearchResult,
   DataSourceAdapter,
+  SetSearchResult,
 } from "./adapter";
 import {
   createCacheApiDataSourceAdapter,
@@ -18,14 +19,6 @@ import {
 
 type DataSourceRoutesOptions = {
   createAdapter?: (env: Env) => DataSourceAdapter;
-};
-
-type SetSearchItem = {
-  set_code: string;
-  set_name: string;
-  game: string | null;
-  image_url: string | null;
-  card_count: number;
 };
 
 type CardOverrideRow = {
@@ -123,10 +116,12 @@ export function createDataSourceRoutes(
 
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
     const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 100);
+    const game = nullableString(c.req.query("game")) ?? undefined;
     const adapter = createAdapter(c.env);
     const items = await listOrEmpty(() =>
       adapter.searchCards(query, {
         object_type: objectType,
+        game,
         page,
         page_size: pageSize,
       }),
@@ -156,13 +151,12 @@ export function createDataSourceRoutes(
 
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
     const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 100);
+    const game = nullableString(c.req.query("game")) ?? undefined;
     const adapter = createAdapter(c.env);
-    const cards = await listOrEmpty(() =>
-      adapter.searchCards(query, { page, page_size: pageSize }),
+    const sets = await listOrEmpty(() =>
+      adapter.searchSets(query, { game, page, page_size: pageSize }),
     );
-    const items = setItemsFromCards(
-      cards.map((card) => withProxiedImageUrl(card, c.req.url)),
-    );
+    const items = sets.map((set) => withProxiedSetImageUrl(set, c.req.url));
 
     return c.json({
       success: true,
@@ -552,30 +546,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function setItemsFromCards(
-  cards: Awaited<ReturnType<DataSourceAdapter["searchCards"]>>,
-): SetSearchItem[] {
-  const itemsBySetCode = new Map<string, SetSearchItem>();
+function withProxiedSetImageUrl(
+  set: SetSearchResult,
+  requestUrl: string,
+): Omit<SetSearchResult, "image_card_ref"> {
+  const { image_card_ref: imageCardRef, ...item } = set;
+  if (!item.image_url || !imageCardRef) return item;
 
-  for (const card of cards) {
-    const setKey = `${card.game ?? ""}\u0000${card.set_code}`;
-    const existing = itemsBySetCode.get(setKey);
-
-    if (existing) {
-      existing.card_count += 1;
-      continue;
-    }
-
-    itemsBySetCode.set(setKey, {
-      set_code: card.set_code,
-      set_name: card.set_name,
-      game: card.game ?? null,
-      image_url: card.image_url,
-      card_count: 1,
-    });
-  }
-
-  return Array.from(itemsBySetCode.values());
+  const origin = new URL(requestUrl).origin;
+  return {
+    ...item,
+    image_url: `${origin}/api/v1/cards/${encodeURIComponent(imageCardRef)}/image`,
+  };
 }
 
 function parseObjectType(value: string | undefined): CardObjectType | undefined | "invalid" {

@@ -3,6 +3,7 @@ import type {
   DataSourceAdapter,
   MarketPrice,
   PricePoint,
+  SetSearchResult,
   SoldListing,
 } from "../adapter";
 
@@ -80,17 +81,50 @@ export function createMockDataSourceAdapter(): DataSourceAdapter {
       const filtered = MOCK_CARDS.filter((card) => {
         const matchesType =
           !options.object_type || card.object_type === options.object_type;
+        const matchesGame =
+          !options.game || card.game?.toLowerCase() === options.game.toLowerCase();
         const matchesQuery =
           normalizedQuery.length === 0 ||
           [card.name, card.set_name, card.set_code, card.card_number].some(
             (value) => value.toLowerCase().includes(normalizedQuery),
           );
 
-        return matchesType && matchesQuery;
+        return matchesType && matchesGame && matchesQuery;
       });
       const startIndex = (page - 1) * pageSize;
 
       return filtered.slice(startIndex, startIndex + pageSize);
+    },
+
+    async searchSets(query, options = {}) {
+      const normalizedQuery = query.trim().toLowerCase();
+      const sets = new Map<string, SetSearchResult>();
+      for (const card of MOCK_CARDS) {
+        if (options.game && card.game?.toLowerCase() !== options.game.toLowerCase()) {
+          continue;
+        }
+        if (!`${card.set_name} ${card.set_code}`.toLowerCase().includes(normalizedQuery)) {
+          continue;
+        }
+        const key = `${card.game ?? ""}\u0000${card.set_code}`;
+        const existing = sets.get(key);
+        if (existing) {
+          existing.card_count += 1;
+        } else {
+          sets.set(key, {
+            set_code: card.set_code,
+            set_name: card.set_name,
+            game: card.game ?? null,
+            image_url: card.image_url,
+            image_card_ref: card.image_url ? card.card_ref : null,
+            card_count: 1,
+          });
+        }
+      }
+      const page = positiveIntegerOrDefault(options.page, 1);
+      const pageSize = positiveIntegerOrDefault(options.page_size, 20);
+      const startIndex = (page - 1) * pageSize;
+      return [...sets.values()].slice(startIndex, startIndex + pageSize);
     },
 
     async getCard(cardRef) {

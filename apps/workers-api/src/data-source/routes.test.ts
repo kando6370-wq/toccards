@@ -6,6 +6,7 @@ import type {
   DataSourceAdapter,
   MarketPrice,
   PricePoint,
+  SetSearchResult,
   SoldListing,
 } from "./adapter";
 import { createDataSourceRoutes } from "./routes";
@@ -133,9 +134,46 @@ class FakeD1BoundStatement {
     }
 
     const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
-    const limit = Number(this.values[1]);
-    const offset = Number(this.values[2]);
+    const hasGameFilter = this.sql.includes("lower(game) = lower(?)");
+    const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
+    const limit = Number(this.values[hasGameFilter ? 2 : 1]);
+    const offset = Number(this.values[hasGameFilter ? 3 : 2]);
+    const gameCards = this.cards.filter(
+      (card) => game === null || card.game?.toLowerCase() === game,
+    );
+
+    if (this.sql.includes("GROUP BY game_id")) {
+      const sets = new Map<string, Record<string, unknown>>();
+      for (const card of gameCards) {
+        if (
+          !`${card.set_name ?? ""} ${card.set_code ?? ""}`
+            .toLowerCase()
+            .includes(query) ||
+          !card.set_name?.trim() ||
+          !card.set_code?.trim()
+        ) {
+          continue;
+        }
+        const key = `${card.game_id}\u0000${card.set_code}\u0000${card.set_name}`;
+        const existing = sets.get(key);
+        if (existing) {
+          existing.card_count = Number(existing.card_count) + 1;
+        } else {
+          sets.set(key, {
+            set_code: card.set_code,
+            set_name: card.set_name,
+            game: card.game,
+            image_url: card.image_url,
+            image_card_ref: card.image_url ? card.product_id : null,
+            card_count: 1,
+          });
+        }
+      }
+      return { results: [...sets.values()].slice(offset, offset + limit) as T[] };
+    }
+
     const results = this.cards
+      .filter((card) => gameCards.includes(card))
       .filter((card) =>
         [card.name, card.set_name, card.set_code, card.rarity, card.game]
           .filter(Boolean)
@@ -150,6 +188,10 @@ class FakeD1BoundStatement {
 class FailingDataSourceAdapter implements DataSourceAdapter {
   async searchCards(): Promise<CardSearchResult[]> {
     throw new Error("Injected search failure.");
+  }
+
+  async searchSets(): Promise<SetSearchResult[]> {
+    throw new Error("Injected set search failure.");
   }
 
   async getCard(): Promise<CardSearchResult | null> {
@@ -175,6 +217,10 @@ class FailingDataSourceAdapter implements DataSourceAdapter {
 
 class MissingCardDataSourceAdapter implements DataSourceAdapter {
   async searchCards(): Promise<CardSearchResult[]> {
+    return [];
+  }
+
+  async searchSets() {
     return [];
   }
 
@@ -401,7 +447,7 @@ describe("data source routes", () => {
       {},
       env,
     );
-    const sets = await routeApp.request("/sets/search?q=charizard", {}, env);
+    const sets = await routeApp.request("/sets/search?q=t", {}, env);
     const detail = await routeApp.request(
       `/cards/${encodeURIComponent("mock:tcg:charizard-base-4")}`,
       {},
@@ -558,10 +604,7 @@ describe("data source routes", () => {
   });
 
   it("keeps sets with the same code separate across games because Search filters sets by their real game", async () => {
-    const response = await app.request(
-      "/api/v1/sets/search?q=shared",
-      {},
-      createTestEnv([], [
+    const env = createTestEnv([], [
         {
           product_id: "pokemon-1",
           game_id: 3,
@@ -570,6 +613,17 @@ describe("data source routes", () => {
           set_code: "SHARED",
           name: "Pokemon Card",
           rarity: "Common",
+          product_type_name: "Cards",
+          image_url: null,
+        },
+        {
+          product_id: "pokemon-2",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Shared Pokemon Set",
+          set_code: "SHARED",
+          name: "Pokemon Card Two",
+          rarity: "Uncommon",
           product_type_name: "Cards",
           image_url: null,
         },
@@ -584,7 +638,21 @@ describe("data source routes", () => {
           product_type_name: "Cards",
           image_url: null,
         },
-      ]),
+      ]);
+    const response = await app.request(
+      "/api/v1/sets/search?q=shared",
+      {},
+      env,
+    );
+    const filteredSets = await app.request(
+      "/api/v1/sets/search?q=shared&game=Pokemon",
+      {},
+      env,
+    );
+    const filteredCards = await app.request(
+      "/api/v1/cards/search?q=card&game=Pokemon",
+      {},
+      env,
     );
 
     expect(response.status).toBe(200);
@@ -595,7 +663,7 @@ describe("data source routes", () => {
           expect.objectContaining({
             set_code: "SHARED",
             game: "Pokemon",
-            card_count: 1,
+            card_count: 2,
           }),
           expect.objectContaining({
             set_code: "SHARED",
@@ -606,6 +674,30 @@ describe("data source routes", () => {
         total: 2,
         page: 1,
         page_size: 20,
+      },
+    });
+    expect(await filteredSets.json()).toEqual({
+      success: true,
+      data: {
+        items: [
+          expect.objectContaining({
+            set_code: "SHARED",
+            game: "Pokemon",
+            card_count: 2,
+          }),
+        ],
+        total: 1,
+        page: 1,
+        page_size: 20,
+      },
+    });
+    expect(await filteredCards.json()).toMatchObject({
+      success: true,
+      data: {
+        items: [
+          { card_ref: "pokemon-1", game: "Pokemon" },
+          { card_ref: "pokemon-2", game: "Pokemon" },
+        ],
       },
     });
   });

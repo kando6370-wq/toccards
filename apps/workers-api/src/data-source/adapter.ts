@@ -2,8 +2,18 @@ export type CardObjectType = "tcg" | "sports" | "sealed" | "other";
 
 export type CardSearchOptions = {
   object_type?: CardObjectType;
+  game?: string;
   page?: number;
   page_size?: number;
+};
+
+export type SetSearchResult = {
+  set_code: string;
+  set_name: string;
+  game: string | null;
+  image_url: string | null;
+  image_card_ref: string | null;
+  card_count: number;
 };
 
 export type CardSearchResult = {
@@ -51,6 +61,10 @@ export interface DataSourceAdapter {
     query: string,
     options?: CardSearchOptions,
   ): Promise<CardSearchResult[]>;
+  searchSets(
+    query: string,
+    options?: Pick<CardSearchOptions, "game" | "page" | "page_size">,
+  ): Promise<SetSearchResult[]>;
   getCard(card_ref: string): Promise<CardSearchResult | null>;
   getPriceSeries(
     card_ref: string,

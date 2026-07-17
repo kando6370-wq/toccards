@@ -47,6 +47,10 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
     return this.cards;
   }
 
+  async searchSets() {
+    return [];
+  }
+
   async getCard(): Promise<CardSearchResult | null> {
     return null;
   }
@@ -104,7 +108,7 @@ describe("KV cached data source adapter", () => {
     expect(source.searchCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "v2:searchCards:charizard%20gx:tcg:1:20",
+        key: "v2:searchCards:charizard%20gx:tcg:all:1:20",
         value: JSON.stringify([card]),
         options: { expirationTtl: 3600 },
       },

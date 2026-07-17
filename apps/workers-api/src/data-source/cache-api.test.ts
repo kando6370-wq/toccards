@@ -37,6 +37,10 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
     return [];
   }
 
+  async searchSets() {
+    return [];
+  }
+
   async getCard(): Promise<CardSearchResult | null> {
     return null;
   }

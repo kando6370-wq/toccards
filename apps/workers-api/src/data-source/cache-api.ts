@@ -17,6 +17,10 @@ export function createCacheApiDataSourceAdapter(
       return source.searchCards(query, options);
     },
 
+    searchSets(query, options) {
+      return source.searchSets(query, options);
+    },
+
     getCard(card_ref) {
       return source.getCard(card_ref);
     },

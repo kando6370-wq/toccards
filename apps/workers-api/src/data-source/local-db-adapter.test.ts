@@ -63,10 +63,48 @@ class FakeBoundStatement {
   async all<T>(): Promise<{ results: T[] }> {
     if (this.sql.includes("FROM cards_all") && this.sql.includes("LIKE")) {
       const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
+      const hasGameFilter = this.sql.includes("lower(game) = lower(?)");
+      const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
       const objectType = objectTypeFilterFromSql(this.sql);
-      const limit = Number(this.values[1]);
-      const offset = Number(this.values[2]);
-      const results = this.cards
+      const limit = Number(this.values[hasGameFilter ? 2 : 1]);
+      const offset = Number(this.values[hasGameFilter ? 3 : 2]);
+      const gameCards = this.cards.filter(
+        (card) => game === null || card.game?.toLowerCase() === game,
+      );
+
+      if (this.sql.includes("GROUP BY game_id")) {
+        const sets = new Map<string, Record<string, unknown>>();
+        for (const card of gameCards) {
+          if (
+            !`${card.set_name ?? ""} ${card.set_code ?? ""}`
+              .toLowerCase()
+              .includes(query) ||
+            !card.set_name?.trim() ||
+            !card.set_code?.trim()
+          ) {
+            continue;
+          }
+          const key = `${card.game_id}\u0000${card.set_code}\u0000${card.set_name}`;
+          const existing = sets.get(key);
+          if (existing) {
+            existing.card_count = Number(existing.card_count) + 1;
+          } else {
+            sets.set(key, {
+              set_code: card.set_code,
+              set_name: card.set_name,
+              game: card.game,
+              image_url: card.image_url,
+              image_card_ref: card.image_url ? card.product_id : null,
+              card_count: 1,
+            });
+          }
+        }
+        return {
+          results: [...sets.values()].slice(offset, offset + limit) as T[],
+        };
+      }
+
+      const results = gameCards
         .filter((card) =>
           [card.name, card.set_name, card.set_code, card.rarity, card.game]
             .filter(Boolean)
@@ -172,6 +210,40 @@ describe("local D1 card data source adapter", () => {
     ).resolves.toEqual([
       { date: "2026-07-01", price: 12.5 },
       { date: "2026-07-08", price: 15.75 },
+    ]);
+  });
+
+  it("filters by game before paging and counts the complete set because Search Game controls both tabs", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [
+          card({ product_id: "100", name: "Pokemon One" }),
+          card({ product_id: "101", name: "Pokemon Two" }),
+          card({
+            product_id: "200",
+            game_id: 1,
+            game: "Magic: The Gathering",
+            name: "Magic One",
+          }),
+        ],
+        [],
+      ) as unknown as D1Database,
+    );
+
+    await expect(
+      adapter.searchCards("one", { game: "Pokemon", page_size: 1 }),
+    ).resolves.toMatchObject([{ card_ref: "100", game: "Pokemon" }]);
+    await expect(
+      adapter.searchSets("base", { game: "Pokemon", page_size: 1 }),
+    ).resolves.toEqual([
+      {
+        set_code: "BS",
+        set_name: "Base Set",
+        game: "Pokemon",
+        image_url: "https://img.example/100.jpg",
+        image_card_ref: "100",
+        card_count: 2,
+      },
     ]);
   });
 

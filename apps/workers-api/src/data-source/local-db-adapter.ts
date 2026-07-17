@@ -4,6 +4,7 @@ import type {
   DataSourceAdapter,
   MarketPrice,
   PricePoint,
+  SetSearchResult,
   SoldListing,
 } from "./adapter";
 
@@ -49,6 +50,13 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
       const pageSize = positiveIntegerOrDefault(options.page_size, 20);
       const offset = (page - 1) * pageSize;
       const objectTypeClause = objectTypeWhereClause(options.object_type);
+      const gameClause = options.game ? "AND lower(game) = lower(?)" : "";
+      const bindings = [
+        `%${normalizedQuery}%`,
+        ...(options.game ? [options.game] : []),
+        pageSize,
+        offset,
+      ];
       const results = await db
         .prepare(
           `${CARD_SELECT}
@@ -60,13 +68,48 @@ WHERE lower(
   coalesce(game, '')
 ) LIKE ?
 ${objectTypeClause}
+${gameClause}
 ORDER BY updated_at DESC, product_id ASC
 LIMIT ? OFFSET ?`,
         )
-        .bind(`%${normalizedQuery}%`, pageSize, offset)
+        .bind(...bindings)
         .all<CardCatalogRow>();
 
       return cardsWithSearchPricing(db, results.results ?? []);
+    },
+
+    async searchSets(query, options = {}) {
+      const normalizedQuery = query.trim().toLowerCase();
+      const page = positiveIntegerOrDefault(options.page, 1);
+      const pageSize = positiveIntegerOrDefault(options.page_size, 20);
+      const offset = (page - 1) * pageSize;
+      const gameClause = options.game ? "AND lower(game) = lower(?)" : "";
+      const bindings = [
+        `%${normalizedQuery}%`,
+        ...(options.game ? [options.game] : []),
+        pageSize,
+        offset,
+      ];
+      const results = await db
+        .prepare(
+          `SELECT set_code, set_name, game,
+                  MAX(image_url) AS image_url,
+                  MIN(CASE WHEN image_url IS NOT NULL AND trim(image_url) <> ''
+                           THEN product_id END) AS image_card_ref,
+                  COUNT(*) AS card_count
+           FROM cards_all
+           WHERE lower(coalesce(set_name, '') || ' ' || coalesce(set_code, '')) LIKE ?
+             AND trim(coalesce(set_code, '')) <> ''
+             AND trim(coalesce(set_name, '')) <> ''
+             ${gameClause}
+           GROUP BY game_id, game, set_code, set_name
+           ORDER BY MAX(updated_at) DESC, game_id ASC, set_code ASC
+           LIMIT ? OFFSET ?`,
+        )
+        .bind(...bindings)
+        .all<SetSearchResult>();
+
+      return results.results ?? [];
     },
 
     async getCard(card_ref) {
