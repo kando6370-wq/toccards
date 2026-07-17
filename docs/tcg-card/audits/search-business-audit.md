@@ -15,8 +15,8 @@ Search 的闭环是：加载真实卡牌目录和当前文件夹资产状态 -> 
 | 模块 | 真实接口 | 当前结论 |
 |---|---|---|
 | Cards 默认列表 | `GET /cards/trending` | 真实 D1 数据 |
-| Cards 搜索 | `GET /cards/search?q=` | 真实 D1 数据 |
-| Sets 默认/搜索 | `GET /sets/search?q=` | 返回真实 `game`，按 `game + set_code` 聚合 |
+| Cards 浏览/搜索 | `GET /cards/search?q=&game=` | 真实 D1 数据，服务端按 Game 精确过滤 |
+| Sets 浏览/搜索 | `GET /sets/search?q=&game=` | 按 `game + set_code` 聚合并返回全库卡数 |
 | Qty/Collected | `GET /portfolio/items`、Portfolio CRUD | 当前文件夹真实资产 |
 | Wishlist | `GET /wishlist`、Wishlist CRUD | owner 级真实数据 |
 
@@ -27,13 +27,13 @@ Search 的闭环是：加载真实卡牌目录和当前文件夹资产状态 -> 
 ## 3. 核心业务流程
 
 1. Search 加载 Trending，使用第一条真实卡牌的 Game 查询默认 Sets。
-2. Cards 与 Sets 各自保留搜索词；切换 Tab 不覆盖另一 Tab 的结果。
+2. Cards 与 Sets 各自保留搜索词和查询失败状态；切换 Tab 不覆盖或阻塞另一 Tab。
 3. Game ID 由接口 `game` 统一归一化，Cards 与 Sets 使用同一规则，避免真实 Set 被前端过滤为空。
 4. 输入清空时重新加载默认目录，并继续携带当前会话恢复 Qty/Wishlist。
 5. Collect 写入当前选中文件夹；同卡存在多条 Collection Item 时进入详情管理，避免误删。
 6. Collect 成功后自动移除 Wishlist，并刷新 Home、Collection 和 Card Detail 消费者。
 
-异常规则：目录或资产加载失败时页面进入失败状态；价格缺失显示 `--`，30D 基准缺失显示 `-/-`；写入失败不得把本地状态伪装成成功。
+异常规则：初始目录或资产加载失败时页面进入失败状态；后续 Cards/Sets 查询失败只在当前 Tab 显示重试，不得拖垮另一 Tab；价格缺失显示 `--`，30D 基准缺失显示 `-/-`；写入失败不得把本地状态伪装成成功。
 
 ## 4. 核心数据实体
 
@@ -82,27 +82,27 @@ Search 的闭环是：加载真实卡牌目录和当前文件夹资产状态 -> 
 | E3 | `apps/flutter-app/lib/shared/card_data/card_data_api_client.dart` | Card/Set 接口契约 |
 | E4 | `apps/workers-api/src/data-source/routes.ts` | Cards/Sets/Trending 路由 |
 | E5 | `apps/flutter-app/test/search_controller_test.dart` | Search 业务意图与资产回归测试 |
-| E6 | `apps/workers-api/src/data-source/routes.test.ts` | Set game 契约与跨 Game 聚合测试 |
-| E7 | Worker `b81b3d0c-0987-4b86-978b-232e91742fc8` | 2026-07-17 生产部署 |
+| E6 | `apps/workers-api/src/data-source/routes.test.ts` | Game 精确过滤、空查询浏览与跨 Game 聚合测试 |
+| E7 | Worker `1c9c6511-f395-4848-8885-dbf9a0eb58ef` | 2026-07-17 当前生产部署 |
+| E8 | `b21d7b8`、`272c053`、`8546b4e`、`7ca202e` | Workers Game/Set 聚合、Flutter Game 透传与 Tab 故障隔离 |
 
 ## 9. 待确认问题与上线边界
 
 | 冲突/问题 | 当前决策 | 后续要求 |
 |---|---|---|
 | PRD/Figma 示例默认 Pokémon，生产目录当前主要为 Magic | 默认跟随真实 Trending 的首个 Game，保证 Cards/Sets 同时可见 | 补齐 Pokémon 生产数据后再确认固定默认值 |
-| Cards/Sets API 未接收显式 Game 参数 | Flutter 按接口返回 Game 过滤 | 数据量扩大前增加服务端 Game 过滤，避免分页截断其他 Game |
-| Set `card_count` 来自当前搜索页聚合 | 保留真实但非全库总数的计数 | 若产品要求系列总卡数，应改为 D1 聚合查询 |
 | 本轮未取得可用 Figma 节点上下文 | 不改视觉结构，只修真实数据链路 | 上架截图前按可用节点重新做 iOS 视觉验收 |
 
 ## 10. 本轮验证记录
 
 | 验证项 | 结果 |
 |---|---|
-| 生产 `/sets/search?q=odyssey&page_size=5` | Odyssey 返回 `game: Magic: The Gathering`，`card_count: 2` |
-| 生产 `/cards/trending` | 前三条均返回真实 Magic Game 与卡牌数据 |
-| Workers 全量测试 | 27 个文件、243 项通过 |
+| 生产 Cards/Sets Game 浏览 | `game=magic: the gathering` 仅返回 `Magic: The Gathering`；部分值 `Magic` 返回 0 |
+| 生产 Set 完整计数 | `ECC` API `card_count: 176`，生产 D1 同条件 `COUNT(*): 176` |
+| 生产图片代理 | `/cards/596128/image` 返回 `200 image/jpeg` |
+| Workers 全量测试 | 26 个文件、242 项通过 |
 | Workers 类型检查 | 通过 |
-| Flutter 全量测试 | 336 项通过、1 项按既有条件跳过 |
+| Workers dry-run | 通过，绑定生产 D1、KV 与独立 Scan R2 |
+| Flutter 全量测试 | 344 项通过、1 项原生 OpenCV 条件测试按既有环境跳过 |
 | Flutter analyze | 无问题 |
-| 分段提交 | `432bcbc` Workers；`2f70d38` Flutter |
-
+| 分段提交 | `b21d7b8`、`272c053` Workers；`8546b4e`、`7ca202e` Flutter |
