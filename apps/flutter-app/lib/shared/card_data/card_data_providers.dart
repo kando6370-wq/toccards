@@ -11,3 +11,7 @@ final cardDataDioProvider = Provider((ref) {
 final cardDataApiClientProvider = Provider<CardDataApi>((ref) {
   return CardDataApiClient(ref.watch(cardDataDioProvider));
 });
+
+final setCatalogApiClientProvider = Provider<SetCatalogApi>((ref) {
+  return CardDataApiClient(ref.watch(cardDataDioProvider));
+});

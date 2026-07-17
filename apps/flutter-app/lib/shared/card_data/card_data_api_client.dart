@@ -112,6 +112,30 @@ class CardDataSetDto {
   }
 }
 
+class CardDataGameDto {
+  const CardDataGameDto({required this.id, required this.name});
+
+  final String id;
+  final String name;
+
+  factory CardDataGameDto.fromJson(Map<String, Object?> json) {
+    return CardDataGameDto(
+      id: _requiredString(json['id']),
+      name: _requiredString(json['name']),
+    );
+  }
+}
+
+abstract interface class SetCatalogApi {
+  Future<List<CardDataGameDto>> listGames();
+  Future<List<CardDataSetDto>> searchCatalogSets(String query, {String? game});
+  Future<List<CardDataCardDto>> cardsForSet(
+    String setCode, {
+    required String game,
+    int page,
+  });
+}
+
 class CardDataMarketPriceDto {
   const CardDataMarketPriceDto({
     required this.grader,
@@ -191,7 +215,7 @@ abstract interface class CardDataApi {
   Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef);
 }
 
-class CardDataApiClient implements CardDataApi {
+class CardDataApiClient implements CardDataApi, SetCatalogApi {
   const CardDataApiClient(this._dio);
 
   final Dio _dio;
@@ -225,6 +249,48 @@ class CardDataApiClient implements CardDataApi {
       },
     );
     return _items(data).map(CardDataSetDto.fromJson).toList();
+  }
+
+  @override
+  Future<List<CardDataGameDto>> listGames() async {
+    final data = await _requestData('GET', '/games');
+    return _items(data).map(CardDataGameDto.fromJson).toList();
+  }
+
+  @override
+  Future<List<CardDataSetDto>> searchCatalogSets(
+    String query, {
+    String? game,
+  }) async {
+    final data = await _requestData(
+      'GET',
+      '/sets/search',
+      queryParameters: {
+        'q': query,
+        if (game != null) 'game': game,
+        'page_size': 1000,
+      },
+    );
+    return _items(data).map(CardDataSetDto.fromJson).toList();
+  }
+
+  @override
+  Future<List<CardDataCardDto>> cardsForSet(
+    String setCode, {
+    required String game,
+    int page = 1,
+  }) async {
+    final data = await _requestData(
+      'GET',
+      '/cards/search',
+      queryParameters: {
+        'game': game,
+        'set_code': setCode,
+        'page': page,
+        'page_size': 40,
+      },
+    );
+    return _items(data).map(CardDataCardDto.fromJson).toList();
   }
 
   @override

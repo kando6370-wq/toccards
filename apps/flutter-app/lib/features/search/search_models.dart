@@ -115,6 +115,8 @@ class SearchSet {
     required this.subtitle,
     required this.releaseText,
     required this.cardCountText,
+    this.game = 'TCG',
+    this.imageUrl,
   });
 
   final String id;
@@ -123,6 +125,8 @@ class SearchSet {
   final String subtitle;
   final String releaseText;
   final String cardCountText;
+  final String game;
+  final String? imageUrl;
 
   String get searchableText {
     return '$name $subtitle $releaseText'.toLowerCase();

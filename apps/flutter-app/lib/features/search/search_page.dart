@@ -532,67 +532,87 @@ class _SearchSetRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: KandoColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KandoColors.border),
+    return InkWell(
+      onTap: () => context.push(
+        '/sets/${Uri.encodeComponent(set.id)}'
+        '?game=${Uri.encodeQueryComponent(set.game)}'
+        '&name=${Uri.encodeQueryComponent(set.name)}',
       ),
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: KandoColors.ink,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: KandoColors.border),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: KandoColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: KandoColors.border),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: KandoColors.ink,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: KandoColors.border),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: set.imageUrl == null
+                  ? const Icon(
+                      Icons.layers_outlined,
+                      color: KandoColors.mutedText,
+                    )
+                  : Image.network(
+                      set.imageUrl!,
+                      fit: BoxFit.contain,
+                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.layers_outlined,
+                        color: KandoColors.mutedText,
+                      ),
+                    ),
             ),
-            child: const Icon(
-              Icons.layers_outlined,
-              color: KandoColors.mutedText,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    set.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: KandoColors.text,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    set.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: KandoColors.mutedText,
+                    ),
+                  ),
+                  Text(
+                    '${set.releaseText} · ${set.cardCountText}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: KandoColors.mutedText,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  set.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: KandoColors.text,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  set.subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: KandoColors.mutedText,
-                  ),
-                ),
-                Text(
-                  '${set.releaseText} · ${set.cardCountText}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: KandoColors.mutedText,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+            const Icon(Icons.chevron_right, color: KandoColors.mutedText),
+          ],
+        ),
       ),
     );
   }

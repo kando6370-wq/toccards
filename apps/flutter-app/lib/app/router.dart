@@ -10,6 +10,7 @@ import '../features/profile/customer_support_page.dart';
 import '../features/profile/profile_page.dart';
 import '../features/scan/scan_page.dart';
 import '../features/search/search_page.dart';
+import '../features/search/set_detail_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -33,6 +34,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(path: '/search', builder: (context, state) => const SearchPage()),
+      GoRoute(
+        path: '/sets/:setCode',
+        builder: (context, state) => SetDetailPage(
+          setCode: state.pathParameters['setCode'] ?? '',
+          game: state.uri.queryParameters['game'] ?? '',
+          setName: state.uri.queryParameters['name'] ?? '',
+        ),
+      ),
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfilePage(),

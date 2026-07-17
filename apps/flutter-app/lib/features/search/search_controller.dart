@@ -16,6 +16,7 @@ import 'search_repository.dart';
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
   return HttpSearchRepository(
     ref.watch(cardDataApiClientProvider),
+    setCatalogApi: ref.watch(setCatalogApiClientProvider),
     portfolioApi: ref.watch(portfolioApiClientProvider),
   );
 });

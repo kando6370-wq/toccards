@@ -51,25 +51,39 @@ class SearchCardAssetState {
 class HttpSearchRepository implements SearchRepository, SearchAssetRepository {
   const HttpSearchRepository(
     this._api, {
+    SetCatalogApi? setCatalogApi,
     PortfolioApi? portfolioApi,
     String? defaultSetQuery,
-  }) : _portfolioApi = portfolioApi,
+  }) : _setCatalogApi = setCatalogApi,
+       _portfolioApi = portfolioApi,
        _defaultSetQuery = defaultSetQuery;
 
   final CardDataApi _api;
+  final SetCatalogApi? _setCatalogApi;
   final PortfolioApi? _portfolioApi;
   final String? _defaultSetQuery;
 
   @override
   Future<SearchCatalog> loadCatalog() async {
     final cards = await _api.trendingCards();
-    final setQuery =
-        _defaultSetQuery ??
-        (cards.isEmpty ? 'tcg' : _gameLabelFromCard(cards.first));
-    final sets = await _api.searchSets('', game: setQuery);
+    final gameDtos = await _setCatalogApi?.listGames();
+    final games = gameDtos == null
+        ? _gamesFromCards(cards)
+        : gameDtos
+              .map(
+                (game) => SearchGame(
+                  id: _gameIdFromValue(game.name),
+                  label: game.name,
+                ),
+              )
+              .toList();
+    final setQuery = _defaultSetQuery ?? games.first.label;
+    final sets = _setCatalogApi == null
+        ? await _api.searchSets('', game: setQuery)
+        : await _setCatalogApi.searchCatalogSets('', game: setQuery);
 
     return SearchCatalog(
-      games: _gamesFromCards(cards),
+      games: games,
       cards: cards.map(_cardFromDto).toList(),
       sets: sets.map(_setFromDto).toList(),
     );
@@ -83,7 +97,9 @@ class HttpSearchRepository implements SearchRepository, SearchAssetRepository {
 
   @override
   Future<List<SearchSet>> searchSets(String query, {String? game}) async {
-    final sets = await _api.searchSets(query, game: game);
+    final sets = _setCatalogApi == null
+        ? await _api.searchSets(query, game: game)
+        : await _setCatalogApi.searchCatalogSets(query, game: game);
     return sets.map(_setFromDto).toList();
   }
 
@@ -229,6 +245,8 @@ SearchSet _setFromDto(CardDataSetDto dto) {
     subtitle: dto.game ?? 'Card catalog set',
     releaseText: dto.setCode,
     cardCountText: '${dto.cardCount} cards',
+    game: dto.game ?? 'TCG',
+    imageUrl: dto.imageUrl,
   );
 }
 
