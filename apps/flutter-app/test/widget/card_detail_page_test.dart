@@ -204,8 +204,14 @@ void main() {
   );
 
   testWidgets(
-    'Add to Portfolio uses item form because details need explicit ownership fields',
+    'Add to Portfolio opens the Figma item sheet because creation is a focused workflow',
     (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewInsets);
+
       await tester.pumpWidget(
         const _CardDetailTestApp(cardId: 'one-piece-luffy'),
       );
@@ -215,24 +221,42 @@ void main() {
 
       await tester.tap(find.text('Add to Portfolio'));
       await tester.pumpAndSettle();
-      await tester.drag(
-        find.byKey(const Key('card-detail-scroll')),
-        const Offset(0, -300),
-      );
-      await tester.pumpAndSettle();
 
-      expect(find.text('OWNERSHIP SUMMARY'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-add-item-sheet')),
+        findsOneWidget,
+      );
+      expect(find.text('Collection item'), findsOneWidget);
       expect(find.text('Adding to Main'), findsOneWidget);
       expect(find.byKey(const Key('card-detail-item-portfolio')), findsNothing);
-      expect(find.text('Language'), findsOneWidget);
-      expect(find.text('Finish'), findsOneWidget);
-      expect(find.text('Total'), findsOneWidget);
+      expect(find.text('Language'), findsWidgets);
+      expect(find.text('Finish'), findsWidgets);
+      expect(find.text('TOTAL VALUE'), findsOneWidget);
+      expect(find.text('Add this card'), findsOneWidget);
       expect(find.text('Near Mint (NM)'), findsOneWidget);
-      await tester.drag(
-        find.byKey(const Key('card-detail-scroll')),
-        const Offset(0, -240),
+      expect(tester.takeException(), isNull);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        tester
+            .getBottomRight(find.byKey(const Key('card-detail-item-submit')))
+            .dy,
+        lessThanOrEqualTo(544),
+      );
+      tester.view.resetViewInsets();
+      await tester.pumpAndSettle();
+      final submitTopBeforeScroll = tester.getTopLeft(
+        find.byKey(const Key('card-detail-item-submit')),
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-item-condition')),
       );
       await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.byKey(const Key('card-detail-item-submit'))).dy,
+        submitTopBeforeScroll.dy,
+      );
       await tester.tap(find.byKey(const Key('card-detail-item-condition')));
       await tester.pumpAndSettle();
       expect(find.text('Lightly Played (LP)'), findsOneWidget);
@@ -240,9 +264,8 @@ void main() {
       await tester.tap(find.text('Near Mint (NM)').last);
       await tester.pumpAndSettle();
 
-      await tester.drag(
-        find.byKey(const Key('card-detail-scroll')),
-        const Offset(0, -500),
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-item-submit')),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('card-detail-item-submit')));
@@ -258,6 +281,7 @@ void main() {
       expect(savedDetail.isCollected, isTrue);
       expect(savedDetail.quantity, 1);
       expect(savedDetail.isWishlisted, isFalse);
+      expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
       expect(find.text('OWNERSHIP SUMMARY'), findsNothing);
       expect(savedState.collectionItemRows.single.portfolioName, 'Main');
       expect(
@@ -349,14 +373,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit item'));
     await tester.pumpAndSettle();
-    await tester.drag(
-      find.byKey(const Key('card-detail-scroll')),
-      const Offset(0, 1000),
-    );
-    await tester.pumpAndSettle();
-    await tester.drag(
-      find.byKey(const Key('card-detail-scroll')),
-      const Offset(0, -300),
+    await tester.ensureVisible(
+      find.byKey(const Key('card-detail-item-quantity')),
     );
     await tester.pumpAndSettle();
 
@@ -385,7 +403,7 @@ void main() {
       'Cracked slab for binder.',
     );
     await tester.drag(
-      find.byKey(const Key('card-detail-collection-items')),
+      find.byKey(const Key('card-detail-scroll')),
       const Offset(0, -500),
     );
     await tester.pumpAndSettle();
@@ -409,14 +427,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit item'));
     await tester.pumpAndSettle();
-    await tester.drag(
-      find.byKey(const Key('card-detail-scroll')),
-      const Offset(0, 1000),
-    );
-    await tester.pumpAndSettle();
-    await tester.drag(
-      find.byKey(const Key('card-detail-scroll')),
-      const Offset(0, -300),
+    await tester.ensureVisible(
+      find.byKey(const Key('card-detail-item-quantity')),
     );
     await tester.pumpAndSettle();
     await tester.enterText(
