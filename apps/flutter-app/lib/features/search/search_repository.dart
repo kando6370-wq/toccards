@@ -51,18 +51,21 @@ class HttpSearchRepository implements SearchRepository, SearchAssetRepository {
   const HttpSearchRepository(
     this._api, {
     PortfolioApi? portfolioApi,
-    String defaultSetQuery = 'pokemon',
+    String? defaultSetQuery,
   }) : _portfolioApi = portfolioApi,
        _defaultSetQuery = defaultSetQuery;
 
   final CardDataApi _api;
   final PortfolioApi? _portfolioApi;
-  final String _defaultSetQuery;
+  final String? _defaultSetQuery;
 
   @override
   Future<SearchCatalog> loadCatalog() async {
     final cards = await _api.trendingCards();
-    final sets = await _api.searchSets(_defaultSetQuery);
+    final setQuery =
+        _defaultSetQuery ??
+        (cards.isEmpty ? 'tcg' : _gameLabelFromCard(cards.first));
+    final sets = await _api.searchSets(setQuery);
 
     return SearchCatalog(
       games: _gamesFromCards(cards),
@@ -220,9 +223,9 @@ SearchCard _cardFromDto(CardDataCardDto dto) {
 SearchSet _setFromDto(CardDataSetDto dto) {
   return SearchSet(
     id: dto.setCode,
-    gameId: 'tcg',
+    gameId: _gameIdFromValue(dto.game),
     name: dto.setName,
-    subtitle: 'Card catalog set',
+    subtitle: dto.game ?? 'Card catalog set',
     releaseText: dto.setCode,
     cardCountText: '${dto.cardCount} cards',
   );
@@ -256,10 +259,17 @@ String _gameLabelFromObjectType(String objectType) {
 }
 
 String _gameIdFromCard(CardDataCardDto card) {
-  final game = card.game?.trim();
-  if (game == null || game.isEmpty) {
+  if (card.game == null || card.game!.trim().isEmpty) {
     return _gameIdFromObjectType(card.objectType);
   }
+
+  return _gameIdFromValue(card.game);
+}
+
+String _gameIdFromValue(String? value) {
+  final game = value?.trim();
+  if (game == null || game.isEmpty) return 'tcg';
+
   return game
       .toLowerCase()
       .replaceAll(RegExp(r'[^a-z0-9]+'), '-')

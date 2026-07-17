@@ -90,12 +90,14 @@ class CardDataSetDto {
   const CardDataSetDto({
     required this.setCode,
     required this.setName,
+    this.game,
     required this.imageUrl,
     required this.cardCount,
   });
 
   final String setCode;
   final String setName;
+  final String? game;
   final String? imageUrl;
   final int cardCount;
 
@@ -103,6 +105,7 @@ class CardDataSetDto {
     return CardDataSetDto(
       setCode: _requiredString(json['set_code']),
       setName: _requiredString(json['set_name']),
+      game: _nullableString(json['game']),
       imageUrl: _nullableString(json['image_url']),
       cardCount: _requiredInt(json['card_count']),
     );

@@ -422,7 +422,7 @@ class SearchController extends Notifier<SearchState> {
     _searchDebounce?.cancel();
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
-      _startLoad(preserveState: state);
+      _startLoad(preserveState: state, session: _assetSession);
       return;
     }
 

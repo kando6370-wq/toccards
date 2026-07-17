@@ -73,6 +73,37 @@ void main() {
   );
 
   test(
+    'searchSets maps game because Search must keep real sets visible under the selected game',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/sets/search');
+        expect(request.queryParameters, {'q': 'odyssey', 'page_size': '40'});
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'set_code': 'ODY',
+                'set_name': 'Odyssey',
+                'game': 'Magic: The Gathering',
+                'image_url': null,
+                'card_count': 350,
+              },
+            ],
+          },
+        });
+      });
+
+      final sets = await CardDataApiClient(_dio(adapter)).searchSets('odyssey');
+
+      expect(sets.single.setCode, 'ODY');
+      expect(sets.single.game, 'Magic: The Gathering');
+      expect(sets.single.cardCount, 350);
+    },
+  );
+
+  test(
     'searchCards accepts an empty card number because the D1 catalog does not invent identifiers',
     () async {
       final adapter = _RecordingAdapter((request) {

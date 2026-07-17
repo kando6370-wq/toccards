@@ -66,6 +66,7 @@ void main() {
           CardDataSetDto(
             setCode: 'BS',
             setName: 'Base Set',
+            game: 'Pokemon',
             imageUrl: null,
             cardCount: 102,
           ),
@@ -75,7 +76,7 @@ void main() {
       final catalog = await HttpSearchRepository(api).loadCatalog();
 
       expect(api.trendingCalls, 1);
-      expect(api.searchSetQueries, ['pokemon']);
+      expect(api.searchSetQueries, ['Pokemon']);
       expect(catalog.games.map((game) => game.id), ['pokemon']);
       expect(catalog.defaultGame.label, 'Pokemon');
       expect(catalog.cards.first.id, 'catalog:pikachu-025');
@@ -88,13 +89,15 @@ void main() {
       expect(catalog.cards.first.changeText, '+4.76%');
       expect(catalog.cards.last.type, SearchCardType.sealed);
       expect(catalog.sets.single.id, 'BS');
+      expect(catalog.sets.single.gameId, 'pokemon');
+      expect(catalog.sets.single.subtitle, 'Pokemon');
       expect(catalog.sets.single.cardCountText, '102 cards');
 
       final cards = await HttpSearchRepository(api).searchCards('pikachu');
       final sets = await HttpSearchRepository(api).searchSets('base');
 
       expect(api.searchCardQueries, ['pikachu']);
-      expect(api.searchSetQueries, ['pokemon', 'base']);
+      expect(api.searchSetQueries, ['Pokemon', 'base']);
       expect(cards.single.name, 'Pikachu');
       expect(cards.single.priceText, r'$32.13');
       expect(cards.single.changeText, '+4.76%');
@@ -184,6 +187,15 @@ void main() {
       expect(card.quantity, 2);
       expect(card.collectionItemId, 'item-1');
 
+      controller.updateSearch('escape');
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+      controller.updateSearch('');
+      await controller.loadComplete;
+      card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.quantity, 2);
+      expect(card.collectionItemId, 'item-1');
+
       final collect = controller.toggleCollect('9359');
       expect(
         await controller.toggleCollect('9359'),
@@ -195,6 +207,15 @@ void main() {
       expect(await controller.toggleWishlist('9359'), isTrue);
       card = container.read(searchControllerProvider).cardById('9359');
       expect(card.wishlistItemId, 'wishlist-1');
+
+      controller.updateSearch('escape');
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+      controller.updateSearch('');
+      await controller.loadComplete;
+      card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.wishlistItemId, 'wishlist-1');
+      expect(card.isWishlisted, isTrue);
 
       expect(
         await controller.toggleCollect('9359'),
