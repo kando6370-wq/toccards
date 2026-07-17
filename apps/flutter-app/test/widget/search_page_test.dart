@@ -426,12 +426,12 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
   }
 
   @override
-  Future<List<SearchCard>> searchCards(String query) {
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
     return const MockSearchRepository().searchCards(query);
   }
 
   @override
-  Future<List<SearchSet>> searchSets(String query) {
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
     return const MockSearchRepository().searchSets(query);
   }
 }
@@ -464,12 +464,13 @@ class _ImageSearchRepository implements SearchRepository {
   }
 
   @override
-  Future<List<SearchCard>> searchCards(String query) async {
+  Future<List<SearchCard>> searchCards(String query, {String? game}) async {
     return (await loadCatalog()).cards;
   }
 
   @override
-  Future<List<SearchSet>> searchSets(String query) async => const [];
+  Future<List<SearchSet>> searchSets(String query, {String? game}) async =>
+      const [];
 }
 
 _searchOverrides() {

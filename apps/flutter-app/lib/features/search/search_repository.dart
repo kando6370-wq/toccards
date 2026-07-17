@@ -6,8 +6,8 @@ import 'search_models.dart';
 
 abstract interface class SearchRepository {
   Future<SearchCatalog> loadCatalog();
-  Future<List<SearchCard>> searchCards(String query);
-  Future<List<SearchSet>> searchSets(String query);
+  Future<List<SearchCard>> searchCards(String query, {String? game});
+  Future<List<SearchSet>> searchSets(String query, {String? game});
 }
 
 abstract interface class SearchAssetRepository implements SearchRepository {
@@ -65,7 +65,7 @@ class HttpSearchRepository implements SearchRepository, SearchAssetRepository {
     final setQuery =
         _defaultSetQuery ??
         (cards.isEmpty ? 'tcg' : _gameLabelFromCard(cards.first));
-    final sets = await _api.searchSets(setQuery);
+    final sets = await _api.searchSets('', game: setQuery);
 
     return SearchCatalog(
       games: _gamesFromCards(cards),
@@ -75,14 +75,14 @@ class HttpSearchRepository implements SearchRepository, SearchAssetRepository {
   }
 
   @override
-  Future<List<SearchCard>> searchCards(String query) async {
-    final cards = await _api.searchCards(query);
+  Future<List<SearchCard>> searchCards(String query, {String? game}) async {
+    final cards = await _api.searchCards(query, game: game);
     return cards.map(_cardFromDto).toList();
   }
 
   @override
-  Future<List<SearchSet>> searchSets(String query) async {
-    final sets = await _api.searchSets(query);
+  Future<List<SearchSet>> searchSets(String query, {String? game}) async {
+    final sets = await _api.searchSets(query, game: game);
     return sets.map(_setFromDto).toList();
   }
 

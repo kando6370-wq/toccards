@@ -76,7 +76,8 @@ void main() {
       final catalog = await HttpSearchRepository(api).loadCatalog();
 
       expect(api.trendingCalls, 1);
-      expect(api.searchSetQueries, ['Pokemon']);
+      expect(api.searchSetQueries, ['']);
+      expect(api.searchSetGames, ['Pokemon']);
       expect(catalog.games.map((game) => game.id), ['pokemon']);
       expect(catalog.defaultGame.label, 'Pokemon');
       expect(catalog.cards.first.id, 'catalog:pikachu-025');
@@ -93,11 +94,17 @@ void main() {
       expect(catalog.sets.single.subtitle, 'Pokemon');
       expect(catalog.sets.single.cardCountText, '102 cards');
 
-      final cards = await HttpSearchRepository(api).searchCards('pikachu');
-      final sets = await HttpSearchRepository(api).searchSets('base');
+      final cards = await HttpSearchRepository(
+        api,
+      ).searchCards('pikachu', game: 'Pokemon');
+      final sets = await HttpSearchRepository(
+        api,
+      ).searchSets('base', game: 'Pokemon');
 
       expect(api.searchCardQueries, ['pikachu']);
-      expect(api.searchSetQueries, ['Pokemon', 'base']);
+      expect(api.searchCardGames, ['Pokemon']);
+      expect(api.searchSetQueries, ['', 'base']);
+      expect(api.searchSetGames, ['Pokemon', 'Pokemon']);
       expect(cards.single.name, 'Pikachu');
       expect(cards.single.priceText, r'$32.13');
       expect(cards.single.changeText, '+4.76%');
@@ -136,12 +143,38 @@ void main() {
 
       final state = container.read(searchControllerProvider);
       expect(repository.cardQueries, ['pikachu']);
+      expect(repository.cardGames, ['Pokemon']);
       expect(state.searchText, 'pikachu');
       expect(state.visibleCards.map((card) => card.name), ['Pikachu']);
       expect(
         state.catalog.sets.map((set) => set.name),
         containsAll(['Mega Evolution Promos', 'Obsidian Flames']),
       );
+    },
+  );
+
+  test(
+    'changing Game performs a scoped browse and preserves every selector option because Game controls both tabs',
+    () async {
+      final repository = _RecordingSearchRepository();
+      final container = _searchContainer(repository: repository);
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      controller.selectGame('one-piece');
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+
+      final state = container.read(searchControllerProvider);
+      expect(repository.cardQueries, ['']);
+      expect(repository.cardGames, ['One Piece']);
+      expect(state.selectedGameId, 'one-piece');
+      expect(state.catalog.games.map((game) => game.id), [
+        'pokemon',
+        'lorcana',
+        'one-piece',
+      ]);
     },
   );
 
@@ -458,12 +491,12 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
   }
 
   @override
-  Future<List<SearchCard>> searchCards(String query) {
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
     return const MockSearchRepository().searchCards(query);
   }
 
   @override
-  Future<List<SearchSet>> searchSets(String query) {
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
     return const MockSearchRepository().searchSets(query);
   }
 }
@@ -496,12 +529,12 @@ class _MultiCollectionSearchRepository implements SearchRepository {
   }
 
   @override
-  Future<List<SearchCard>> searchCards(String query) async {
+  Future<List<SearchCard>> searchCards(String query, {String? game}) async {
     return (await loadCatalog()).cards;
   }
 
   @override
-  Future<List<SearchSet>> searchSets(String query) async {
+  Future<List<SearchSet>> searchSets(String query, {String? game}) async {
     return const [];
   }
 }
@@ -529,26 +562,34 @@ class _RecordingSearchRepository implements SearchRepository {
   final List<SearchSet> setResults;
   static final List<String> _cardQueries = [];
   static final List<String> _setQueries = [];
+  static final List<String?> _cardGames = [];
+  static final List<String?> _setGames = [];
 
   List<String> get cardQueries => _cardQueries;
   List<String> get setQueries => _setQueries;
+  List<String?> get cardGames => _cardGames;
+  List<String?> get setGames => _setGames;
 
   @override
   Future<SearchCatalog> loadCatalog() {
     _cardQueries.clear();
     _setQueries.clear();
+    _cardGames.clear();
+    _setGames.clear();
     return const MockSearchRepository().loadCatalog();
   }
 
   @override
-  Future<List<SearchCard>> searchCards(String query) async {
+  Future<List<SearchCard>> searchCards(String query, {String? game}) async {
     _cardQueries.add(query);
+    _cardGames.add(game);
     return cardResults;
   }
 
   @override
-  Future<List<SearchSet>> searchSets(String query) async {
+  Future<List<SearchSet>> searchSets(String query, {String? game}) async {
     _setQueries.add(query);
+    _setGames.add(game);
     return setResults;
   }
 }
@@ -566,16 +607,23 @@ class _FakeCardDataApi implements CardDataApi {
   var trendingCalls = 0;
   final List<String> searchCardQueries = [];
   final List<String> searchSetQueries = [];
+  final List<String?> searchCardGames = [];
+  final List<String?> searchSetGames = [];
 
   @override
-  Future<List<CardDataCardDto>> searchCards(String query) async {
+  Future<List<CardDataCardDto>> searchCards(
+    String query, {
+    String? game,
+  }) async {
     searchCardQueries.add(query);
+    searchCardGames.add(game);
     return searchCardRows;
   }
 
   @override
-  Future<List<CardDataSetDto>> searchSets(String query) async {
+  Future<List<CardDataSetDto>> searchSets(String query, {String? game}) async {
     searchSetQueries.add(query);
+    searchSetGames.add(game);
     return sets;
   }
 

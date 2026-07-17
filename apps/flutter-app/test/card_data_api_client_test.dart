@@ -13,7 +13,11 @@ void main() {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'GET');
         expect(request.path, '/cards/search');
-        expect(request.queryParameters, {'q': 'pikachu', 'page_size': '40'});
+        expect(request.queryParameters, {
+          'q': 'pikachu',
+          'game': 'Pokemon',
+          'page_size': '40',
+        });
         return _json(200, {
           'success': true,
           'data': {
@@ -24,7 +28,7 @@ void main() {
 
       final cards = await CardDataApiClient(
         _dio(adapter),
-      ).searchCards('pikachu');
+      ).searchCards('pikachu', game: 'Pokemon');
 
       expect(cards.single.cardRef, 'catalog:pikachu-025');
       expect(cards.single.name, 'Pikachu');
@@ -78,7 +82,11 @@ void main() {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'GET');
         expect(request.path, '/sets/search');
-        expect(request.queryParameters, {'q': 'odyssey', 'page_size': '40'});
+        expect(request.queryParameters, {
+          'q': '',
+          'game': 'Magic: The Gathering',
+          'page_size': '40',
+        });
         return _json(200, {
           'success': true,
           'data': {
@@ -95,7 +103,9 @@ void main() {
         });
       });
 
-      final sets = await CardDataApiClient(_dio(adapter)).searchSets('odyssey');
+      final sets = await CardDataApiClient(
+        _dio(adapter),
+      ).searchSets('', game: 'Magic: The Gathering');
 
       expect(sets.single.setCode, 'ODY');
       expect(sets.single.game, 'Magic: The Gathering');

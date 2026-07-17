@@ -176,8 +176,8 @@ class CardDataSoldListingDto {
 }
 
 abstract interface class CardDataApi {
-  Future<List<CardDataCardDto>> searchCards(String query);
-  Future<List<CardDataSetDto>> searchSets(String query);
+  Future<List<CardDataCardDto>> searchCards(String query, {String? game});
+  Future<List<CardDataSetDto>> searchSets(String query, {String? game});
   Future<List<CardDataCardDto>> trendingCards();
   Future<CardDataCardDto> getCard(String cardRef);
   Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef);
@@ -197,21 +197,32 @@ class CardDataApiClient implements CardDataApi {
   final Dio _dio;
 
   @override
-  Future<List<CardDataCardDto>> searchCards(String query) async {
+  Future<List<CardDataCardDto>> searchCards(
+    String query, {
+    String? game,
+  }) async {
     final data = await _requestData(
       'GET',
       '/cards/search',
-      queryParameters: {'q': query, 'page_size': 40},
+      queryParameters: {
+        'q': query,
+        if (game != null) 'game': game,
+        'page_size': 40,
+      },
     );
     return _items(data).map(CardDataCardDto.fromJson).toList();
   }
 
   @override
-  Future<List<CardDataSetDto>> searchSets(String query) async {
+  Future<List<CardDataSetDto>> searchSets(String query, {String? game}) async {
     final data = await _requestData(
       'GET',
       '/sets/search',
-      queryParameters: {'q': query, 'page_size': 40},
+      queryParameters: {
+        'q': query,
+        if (game != null) 'game': game,
+        'page_size': 40,
+      },
     );
     return _items(data).map(CardDataSetDto.fromJson).toList();
   }

@@ -837,12 +837,15 @@ class _FakeCardDataApi implements CardDataApi {
   final List<String> marketPriceRefs = [];
 
   @override
-  Future<List<CardDataCardDto>> searchCards(String query) async {
+  Future<List<CardDataCardDto>> searchCards(
+    String query, {
+    String? game,
+  }) async {
     throw UnimplementedError();
   }
 
   @override
-  Future<List<CardDataSetDto>> searchSets(String query) async {
+  Future<List<CardDataSetDto>> searchSets(String query, {String? game}) async {
     throw UnimplementedError();
   }
 

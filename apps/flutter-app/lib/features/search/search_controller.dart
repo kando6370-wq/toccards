@@ -262,7 +262,7 @@ class SearchController extends Notifier<SearchState> {
     state = state.copyWith(
       searchByTab: {...state.searchByTab, state.selectedTab: ''},
     );
-    _startLoad(preserveState: state, session: _assetSession);
+    _scheduleSearch(tab: state.selectedTab, query: '', allowEmpty: true);
   }
 
   void selectGame(String gameId) {
@@ -279,6 +279,7 @@ class SearchController extends Notifier<SearchState> {
       selectedGameId: gameId,
       searchByTab: {...state.searchByTab, state.selectedTab: ''},
     );
+    _scheduleSearch(tab: state.selectedTab, query: '', allowEmpty: true);
   }
 
   Future<SearchCollectAction> toggleCollect(String cardId) async {
@@ -418,10 +419,14 @@ class SearchController extends Notifier<SearchState> {
     );
   }
 
-  void _scheduleSearch({required SearchTab tab, required String query}) {
+  void _scheduleSearch({
+    required SearchTab tab,
+    required String query,
+    bool allowEmpty = false,
+  }) {
     _searchDebounce?.cancel();
     final trimmed = query.trim();
-    if (trimmed.isEmpty) {
+    if (trimmed.isEmpty && !allowEmpty) {
       _startLoad(preserveState: state, session: _assetSession);
       return;
     }
@@ -443,14 +448,15 @@ class SearchController extends Notifier<SearchState> {
     try {
       final repository = ref.read(searchRepositoryProvider);
       final currentCatalog = state.catalog;
+      final game = state.selectedGame.label;
       var catalog = switch (tab) {
         SearchTab.cards => _catalogWithCards(
           currentCatalog,
-          await repository.searchCards(query),
+          await repository.searchCards(query, game: game),
         ),
         SearchTab.sets => _catalogWithSets(
           currentCatalog,
-          await repository.searchSets(query),
+          await repository.searchSets(query, game: game),
         ),
       };
       catalog = await _withAssets(repository, catalog, _assetSession);
@@ -506,9 +512,8 @@ class SearchController extends Notifier<SearchState> {
     SearchCatalog currentCatalog,
     List<SearchCard> cards,
   ) {
-    final games = _gamesFromCards(cards);
     return SearchCatalog(
-      games: games.isEmpty ? currentCatalog.games : games,
+      games: currentCatalog.games,
       cards: cards,
       sets: currentCatalog.sets,
     );
@@ -523,19 +528,6 @@ class SearchController extends Notifier<SearchState> {
       cards: currentCatalog.cards,
       sets: sets,
     );
-  }
-
-  List<SearchGame> _gamesFromCards(List<SearchCard> cards) {
-    final gamesById = <String, SearchGame>{};
-    for (final card in cards) {
-      final existing = state.catalog.games.where(
-        (game) => game.id == card.gameId,
-      );
-      gamesById[card.gameId] = existing.isEmpty
-          ? SearchGame(id: card.gameId, label: card.gameId)
-          : existing.first;
-    }
-    return gamesById.values.toList();
   }
 
   Future<SearchCatalog> _withAssets(

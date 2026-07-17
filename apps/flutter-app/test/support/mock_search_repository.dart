@@ -118,7 +118,7 @@ class MockSearchRepository implements SearchRepository {
   }
 
   @override
-  Future<List<SearchCard>> searchCards(String query) async {
+  Future<List<SearchCard>> searchCards(String query, {String? game}) async {
     final catalog = await loadCatalog();
     final normalized = query.trim().toLowerCase();
     return catalog.cards
@@ -127,7 +127,7 @@ class MockSearchRepository implements SearchRepository {
   }
 
   @override
-  Future<List<SearchSet>> searchSets(String query) async {
+  Future<List<SearchSet>> searchSets(String query, {String? game}) async {
     final catalog = await loadCatalog();
     final normalized = query.trim().toLowerCase();
     return catalog.sets

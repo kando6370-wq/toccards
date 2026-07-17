@@ -1193,12 +1193,15 @@ class _FakeCardDataApi implements CardDataApi {
   var maxConcurrentSeriesRequests = 0;
 
   @override
-  Future<List<CardDataCardDto>> searchCards(String query) async {
+  Future<List<CardDataCardDto>> searchCards(
+    String query, {
+    String? game,
+  }) async {
     throw UnimplementedError();
   }
 
   @override
-  Future<List<CardDataSetDto>> searchSets(String query) async {
+  Future<List<CardDataSetDto>> searchSets(String query, {String? game}) async {
     throw UnimplementedError();
   }
 
