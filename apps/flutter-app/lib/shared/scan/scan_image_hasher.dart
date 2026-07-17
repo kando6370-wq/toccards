@@ -1,6 +1,7 @@
 import 'scan_image_hasher_contract.dart';
 import 'scan_image_hasher_unsupported.dart'
     if (dart.library.ffi) 'scan_image_hasher_native.dart'
+    if (dart.library.js_interop) 'scan_image_hasher_web.dart'
     as implementation;
 
 export 'scan_image_hasher_contract.dart';
