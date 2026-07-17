@@ -458,12 +458,14 @@ describe("data source routes", () => {
           {
             set_code: "BS",
             set_name: "Base Set",
+            game: null,
             image_url: null,
             card_count: 1,
           },
           {
             set_code: "EVO",
             set_name: "Evolutions",
+            game: null,
             image_url: null,
             card_count: 1,
           },
@@ -551,6 +553,59 @@ describe("data source routes", () => {
         rates: { JPY: 162.22, EUR: 0.87681 },
         updated_at: "2026-07-14T00:00:00.000Z",
         stale: false,
+      },
+    });
+  });
+
+  it("keeps sets with the same code separate across games because Search filters sets by their real game", async () => {
+    const response = await app.request(
+      "/api/v1/sets/search?q=shared",
+      {},
+      createTestEnv([], [
+        {
+          product_id: "pokemon-1",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Shared Pokemon Set",
+          set_code: "SHARED",
+          name: "Pokemon Card",
+          rarity: "Common",
+          product_type_name: "Cards",
+          image_url: null,
+        },
+        {
+          product_id: "magic-1",
+          game_id: 1,
+          game: "Magic: The Gathering",
+          set_name: "Shared Magic Set",
+          set_code: "SHARED",
+          name: "Magic Card",
+          rarity: "Common",
+          product_type_name: "Cards",
+          image_url: null,
+        },
+      ]),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        items: [
+          expect.objectContaining({
+            set_code: "SHARED",
+            game: "Pokemon",
+            card_count: 1,
+          }),
+          expect.objectContaining({
+            set_code: "SHARED",
+            game: "Magic: The Gathering",
+            card_count: 1,
+          }),
+        ],
+        total: 2,
+        page: 1,
+        page_size: 20,
       },
     });
   });

@@ -23,6 +23,7 @@ type DataSourceRoutesOptions = {
 type SetSearchItem = {
   set_code: string;
   set_name: string;
+  game: string | null;
   image_url: string | null;
   card_count: number;
 };
@@ -557,16 +558,18 @@ function setItemsFromCards(
   const itemsBySetCode = new Map<string, SetSearchItem>();
 
   for (const card of cards) {
-    const existing = itemsBySetCode.get(card.set_code);
+    const setKey = `${card.game ?? ""}\u0000${card.set_code}`;
+    const existing = itemsBySetCode.get(setKey);
 
     if (existing) {
       existing.card_count += 1;
       continue;
     }
 
-    itemsBySetCode.set(card.set_code, {
+    itemsBySetCode.set(setKey, {
       set_code: card.set_code,
       set_name: card.set_name,
+      game: card.game ?? null,
       image_url: card.image_url,
       card_count: 1,
     });
