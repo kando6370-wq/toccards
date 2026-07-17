@@ -48,6 +48,26 @@ type CollectionItemRow = {
   purchase_price: number | null;
   purchase_currency: string | null;
   notes: string | null;
+  folder_joined_at: string;
+};
+type CollectionItemEventRow = Pick<
+  CollectionItemRow,
+  | "owner_type"
+  | "owner_id"
+  | "folder_id"
+  | "card_ref"
+  | "object_type"
+  | "grader"
+  | "condition"
+  | "grade"
+  | "language"
+  | "finish"
+  | "quantity"
+> & {
+  id: string;
+  item_id: string;
+  event_type: "upsert" | "delete";
+  effective_at: string;
 };
 type WishlistRow = { owner_type: "anonymous" | "user"; owner_id: string; card_ref: string };
 type CardCatalogRow = {
@@ -83,6 +103,7 @@ class FakeD1 {
   scanRecords: ScanRecordRow[] = [];
   folders: FolderRow[] = [];
   collectionItems: CollectionItemRow[] = [];
+  collectionItemEvents: CollectionItemEventRow[] = [];
   wishlistItems: WishlistRow[] = [];
   cards: CardCatalogRow[] = [];
   failScanInsert = false;
@@ -178,6 +199,37 @@ class FakeD1Statement {
       });
       return okResult<T>();
     }
+    if (sql.startsWith("INSERT INTO collection_item_event")) {
+      const [id, effectiveAt, itemId, ownerType, ownerId] = this.values as [
+        string,
+        string,
+        string,
+        "anonymous" | "user",
+        string,
+      ];
+      const item = this.db.collectionItems.find(
+        (row) => row.id === itemId && row.owner_type === ownerType && row.owner_id === ownerId,
+      );
+      if (!item) return okResult<T>([], 0);
+      this.db.collectionItemEvents.push({
+        id,
+        item_id: item.id,
+        owner_type: item.owner_type,
+        owner_id: item.owner_id,
+        folder_id: item.folder_id,
+        card_ref: item.card_ref,
+        object_type: item.object_type,
+        grader: item.grader,
+        condition: item.condition,
+        grade: item.grade,
+        language: item.language,
+        finish: item.finish,
+        quantity: item.quantity,
+        event_type: "upsert",
+        effective_at: effectiveAt,
+      });
+      return okResult<T>();
+    }
     if (sql.startsWith("INSERT INTO collection_item")) {
       const [
         id,
@@ -195,6 +247,7 @@ class FakeD1Statement {
         purchasePrice,
         purchaseCurrency,
         notes,
+        folderJoinedAt,
         ,
         ,
         scanId,
@@ -214,6 +267,7 @@ class FakeD1Statement {
         number | null,
         string | null,
         string | null,
+        string,
         string,
         string,
         string,
@@ -241,6 +295,7 @@ class FakeD1Statement {
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
         notes,
+        folder_joined_at: folderJoinedAt,
       });
       return okResult<T>();
     }
@@ -469,7 +524,7 @@ describe("scan routes", () => {
     expect(env.DB.scanRecords).toEqual([]);
   });
 
-  it("confirms a stored candidate into Portfolio atomically because Review must not report a local-only add", async () => {
+  it("confirms a stored candidate and records its valuation event because Scan additions must reach Collection and HOME", async () => {
     const env = createTestEnv();
     env.DB.sessions.push({
       id: "session-1",
@@ -548,6 +603,25 @@ describe("scan routes", () => {
         purchase_price: 12.5,
         purchase_currency: "USD",
         notes: "reviewed scan",
+        folder_joined_at: expect.any(String),
+      }),
+    ]);
+    expect(env.DB.collectionItemEvents).toEqual([
+      expect.objectContaining({
+        item_id: env.DB.collectionItems[0]?.id,
+        owner_type: "anonymous",
+        owner_id: "anon-1",
+        folder_id: "main",
+        card_ref: "11958",
+        object_type: "tcg",
+        grader: "PSA",
+        condition: null,
+        grade: 10,
+        language: "Japanese",
+        finish: "Foil",
+        quantity: 2,
+        event_type: "upsert",
+        effective_at: env.DB.collectionItems[0]?.folder_joined_at,
       }),
     ]);
     expect(env.DB.wishlistItems).toEqual([]);

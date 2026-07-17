@@ -102,13 +102,24 @@ const INSERT_CONFIRMED_COLLECTION_ITEM_SQL = `
 INSERT INTO collection_item
   (id, owner_type, owner_id, folder_id, card_ref, object_type, grader, condition,
    grade, language, finish, quantity, purchase_price, purchase_currency, notes,
-   created_at, updated_at)
-SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+   folder_joined_at, created_at, updated_at)
+SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 WHERE EXISTS (
   SELECT 1 FROM scan_record
   WHERE id = ? AND owner_type = ? AND owner_id = ?
     AND user_confirmation_status = 'pending'
 )
+`;
+
+const INSERT_CONFIRMED_COLLECTION_ITEM_EVENT_SQL = `
+INSERT INTO collection_item_event
+  (id, item_id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
+   condition, grade, language, finish, quantity, event_type, effective_at)
+SELECT ?, id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
+  condition, grade, language, finish, quantity, 'upsert', ?
+FROM collection_item
+WHERE id = ? AND owner_type = ? AND owner_id = ?
+LIMIT 1
 `;
 
 const DELETE_CONFIRMED_WISHLIST_CARD_SQL = `
@@ -351,7 +362,15 @@ export function createScanRoutes() {
         draft.notes,
         now,
         now,
+        now,
         scanId,
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+      ),
+      c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_EVENT_SQL).bind(
+        createId(),
+        now,
+        itemId,
         auth.owner.owner_type,
         auth.owner.owner_id,
       ),
@@ -369,7 +388,11 @@ export function createScanRoutes() {
       ),
     ]);
 
-    if (results[0]?.meta.changes !== 1 || results[2]?.meta.changes !== 1) {
+    if (
+      results[0]?.meta.changes !== 1 ||
+      results[1]?.meta.changes !== 1 ||
+      results[3]?.meta.changes !== 1
+    ) {
       return c.json(CONFLICT_RESPONSE, 409);
     }
 
