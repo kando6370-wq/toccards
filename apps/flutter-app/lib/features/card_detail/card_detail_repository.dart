@@ -25,7 +25,40 @@ abstract interface class CardDetailRepository {
   Future<void> deleteWishlist(AuthSession session, String wishlistItemId);
 }
 
-class HttpCardDetailRepository implements CardDetailRepository {
+class CardDetailMarketData {
+  const CardDetailMarketData({
+    required this.prices,
+    required this.marketPrices,
+  });
+
+  final List<CardDataMarketPriceDto> prices;
+  final List<CardMarketPrice> marketPrices;
+}
+
+class CardDetailSeriesData {
+  const CardDetailSeriesData({
+    required this.marketPrices,
+    required this.rawSeriesByRange,
+    required this.gradedSeriesByRange,
+  });
+
+  final List<CardMarketPrice> marketPrices;
+  final Map<CardPriceRange, List<CardPricePoint>> rawSeriesByRange;
+  final Map<CardPriceRange, List<CardPricePoint>> gradedSeriesByRange;
+}
+
+abstract interface class CardDetailSectionRepository {
+  Future<CardDetail> loadBaseDetail(AuthSession session, String cardId);
+  Future<CardDetailMarketData> loadMarketPrices(String cardId);
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, [
+    CardDetailMarketData? market,
+  ]);
+  Future<List<CardSoldListing>> loadSoldListings(String cardId);
+}
+
+class HttpCardDetailRepository
+    implements CardDetailRepository, CardDetailSectionRepository {
   const HttpCardDetailRepository({
     required PortfolioApi api,
     required CardDataApi cardDataApi,
@@ -37,7 +70,16 @@ class HttpCardDetailRepository implements CardDetailRepository {
 
   @override
   Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
-    final detail = await _loadCardDataDetail(cardId);
+    final detail = await loadBaseDetail(session, cardId);
+    final market = await loadMarketPrices(cardId);
+    final series = await loadPriceSeries(cardId, market);
+    final soldListings = await loadSoldListings(cardId);
+    return _mergeSections(detail, series, soldListings);
+  }
+
+  @override
+  Future<CardDetail> loadBaseDetail(AuthSession session, String cardId) async {
+    final detail = _baseDetailFromDto(await _cardDataApi.getCard(cardId));
     final results = await Future.wait([
       _api.listFolders(session),
       _api.listCollectionItems(session),
@@ -47,6 +89,76 @@ class HttpCardDetailRepository implements CardDetailRepository {
     final items = results[1] as List<PortfolioItemDto>;
     final wishlist = results[2] as List<WishlistItemDto>;
     return _mergeAssetState(detail, folders, items, wishlist);
+  }
+
+  @override
+  Future<CardDetailMarketData> loadMarketPrices(String cardId) async {
+    final prices = await _cardDataApi.getMarketPrices(cardId);
+    final sevenDaySeries = await Future.wait(
+      prices.map(
+        (price) => _loadSeries(cardId, price, CardPriceRange.sevenDays),
+      ),
+    );
+    return CardDetailMarketData(
+      prices: prices,
+      marketPrices: [
+        for (var index = 0; index < prices.length; index += 1)
+          _marketPriceFromDto(prices[index], {
+            CardPriceRange.sevenDays: sevenDaySeries[index],
+          }),
+      ],
+    );
+  }
+
+  @override
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, [
+    CardDetailMarketData? market,
+  ]) async {
+    final prices = market?.prices ?? await _cardDataApi.getMarketPrices(cardId);
+    final seriesByPrice = Map.fromEntries(
+      await Future.wait(
+        prices.map(
+          (price) async =>
+              MapEntry(price, await _loadSeriesByRange(cardId, price)),
+        ),
+      ),
+    );
+    final rawPrice = _firstWhereOrNull(
+      prices,
+      (price) => price.grader.toLowerCase() == 'raw',
+    );
+    final gradedPrice = _firstWhereOrNull(
+      prices,
+      (price) => price.grader.toLowerCase() != 'raw',
+    );
+    return CardDetailSeriesData(
+      marketPrices: prices
+          .map((price) => _marketPriceFromDto(price, seriesByPrice[price]!))
+          .toList(),
+      rawSeriesByRange: rawPrice == null
+          ? const <CardPriceRange, List<CardPricePoint>>{}
+          : seriesByPrice[rawPrice]!,
+      gradedSeriesByRange: gradedPrice == null
+          ? const <CardPriceRange, List<CardPricePoint>>{}
+          : seriesByPrice[gradedPrice]!,
+    );
+  }
+
+  @override
+  Future<List<CardSoldListing>> loadSoldListings(String cardId) async {
+    final listings = await _cardDataApi.getSoldListings(cardId);
+    return listings
+        .map(
+          (listing) => CardSoldListing(
+            dateText: listing.date,
+            title: listing.title,
+            priceUsd: listing.price,
+            platform: listing.platform,
+            url: listing.url,
+          ),
+        )
+        .toList();
   }
 
   @override
@@ -122,107 +234,92 @@ class HttpCardDetailRepository implements CardDetailRepository {
     return _api.deleteWishlist(session, wishlistItemId);
   }
 
-  Future<CardDetail> _loadCardDataDetail(String cardId) async {
-    final api = _cardDataApi;
-    final card = await api.getCard(cardId);
-    final prices = await api.getMarketPrices(cardId);
-    final seriesByPrice = Map.fromEntries(
-      await Future.wait(
-        prices.map(
-          (price) async =>
-              MapEntry(price, await _loadSeriesByRange(card.cardRef, price)),
-        ),
-      ),
+  Future<List<CardPricePoint>> _loadSeries(
+    String cardRef,
+    CardDataMarketPriceDto price,
+    CardPriceRange range,
+  ) async {
+    final series = await _cardDataApi.getPriceSeries(
+      cardRef,
+      days: range.days,
+      grader: price.grader,
+      grade: price.grade,
+      condition: price.condition,
     );
-
-    final rawPrice = _firstWhereOrNull(
-      prices,
-      (price) => price.grader.toLowerCase() == 'raw',
-    );
-    final gradedPrice = _firstWhereOrNull(
-      prices,
-      (price) => price.grader.toLowerCase() != 'raw',
-    );
-    final rawSeries = rawPrice == null
-        ? const <CardPriceRange, List<CardPricePoint>>{}
-        : seriesByPrice[rawPrice]!;
-    final gradedSeries = gradedPrice == null
-        ? const <CardPriceRange, List<CardPricePoint>>{}
-        : seriesByPrice[gradedPrice]!;
-    final marketPrices = prices
-        .map((price) => _marketPriceFromDto(price, seriesByPrice[price]!))
+    return series
+        .map(
+          (point) =>
+              CardPricePoint(dateLabel: point.date, priceUsd: point.price),
+        )
         .toList();
-    final soldListings = await api.getSoldListings(card.cardRef);
-
-    return CardDetail(
-      id: card.cardRef,
-      imageUrl: card.imageUrl,
-      type: _detailTypeFromObjectType(card.objectType),
-      name: card.name,
-      game: card.game?.trim().isNotEmpty == true
-          ? card.game!.trim()
-          : _gameLabelFromObjectType(card.objectType),
-      setName: card.setName,
-      identityLine: _identityLine(card),
-      finish: card.finish ?? 'Unknown',
-      language: card.language ?? 'Unknown',
-      quantity: 0,
-      isWishlisted: false,
-      marketPrices: marketPrices.isEmpty
-          ? const [
-              CardMarketPrice(
-                label: 'Raw',
-                priceUsd: null,
-                previous30dPriceUsd: null,
-              ),
-            ]
-          : marketPrices,
-      priceSeriesByRange: rawSeries,
-      gradedPriceSeriesByRange: gradedSeries,
-      soldListings: soldListings
-          .map(
-            (listing) => CardSoldListing(
-              dateText: listing.date,
-              title: listing.title,
-              priceUsd: listing.price,
-              platform: listing.platform,
-              url: listing.url,
-            ),
-          )
-          .toList(),
-    );
   }
 
   Future<Map<CardPriceRange, List<CardPricePoint>>> _loadSeriesByRange(
     String cardRef,
     CardDataMarketPriceDto price,
   ) async {
-    final api = _cardDataApi;
     return Map.fromEntries(
       await Future.wait(
         CardPriceRange.values.map((range) async {
-          final series = await api.getPriceSeries(
-            cardRef,
-            days: range.days,
-            grader: price.grader,
-            grade: price.grade,
-            condition: price.condition,
-          );
-          return MapEntry(
-            range,
-            series
-                .map(
-                  (point) => CardPricePoint(
-                    dateLabel: point.date,
-                    priceUsd: point.price,
-                  ),
-                )
-                .toList(),
-          );
+          return MapEntry(range, await _loadSeries(cardRef, price, range));
         }),
       ),
     );
   }
+}
+
+CardDetail _baseDetailFromDto(CardDataCardDto card) {
+  return CardDetail(
+    id: card.cardRef,
+    imageUrl: card.imageUrl,
+    type: _detailTypeFromObjectType(card.objectType),
+    name: card.name,
+    game: card.game?.trim().isNotEmpty == true
+        ? card.game!.trim()
+        : _gameLabelFromObjectType(card.objectType),
+    setName: card.setName,
+    identityLine: _identityLine(card),
+    finish: card.finish ?? 'Unknown',
+    language: card.language ?? 'Unknown',
+    quantity: 0,
+    isWishlisted: false,
+    marketPrices: [
+      CardMarketPrice(
+        label: 'Raw',
+        priceUsd: card.priceUsd,
+        previous30dPriceUsd: card.previous30dPriceUsd,
+      ),
+    ],
+  );
+}
+
+CardDetail _mergeSections(
+  CardDetail detail,
+  CardDetailSeriesData series,
+  List<CardSoldListing> soldListings,
+) {
+  return CardDetail(
+    id: detail.id,
+    imageUrl: detail.imageUrl,
+    type: detail.type,
+    name: detail.name,
+    game: detail.game,
+    setName: detail.setName,
+    identityLine: detail.identityLine,
+    finish: detail.finish,
+    language: detail.language,
+    quantity: detail.quantity,
+    isWishlisted: detail.isWishlisted,
+    wishlistItemId: detail.wishlistItemId,
+    marketPrices: series.marketPrices.isEmpty
+        ? detail.marketPrices
+        : series.marketPrices,
+    portfolioFolders: detail.portfolioFolders,
+    collectionItems: detail.collectionItems,
+    priceSeriesByRange: series.rawSeriesByRange,
+    gradedPriceSeriesByRange: series.gradedSeriesByRange,
+    soldListings: soldListings,
+  );
 }
 
 CardMarketPrice _marketPriceFromDto(

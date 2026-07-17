@@ -78,6 +78,52 @@ void main() {
   );
 
   test(
+    'http detail repository isolates optional endpoint failures because the PRD keeps base card information available',
+    () async {
+      final failingOptionalApi = _FakeCardDataApi(
+        failMarketPrices: true,
+        failSoldListings: true,
+      );
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: failingOptionalApi,
+      );
+
+      final base = await repository.loadBaseDetail(
+        _session,
+        'catalog:pikachu-025',
+      );
+
+      expect(base.name, 'Pikachu');
+      await expectLater(
+        repository.loadMarketPrices('catalog:pikachu-025'),
+        throwsStateError,
+      );
+      await expectLater(
+        repository.loadSoldListings('catalog:pikachu-025'),
+        throwsStateError,
+      );
+
+      final failingSeriesRepository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: _FakeCardDataApi(failPriceSeries: true),
+      );
+      await expectLater(
+        failingSeriesRepository.loadPriceSeries('catalog:pikachu-025'),
+        throwsStateError,
+      );
+    },
+  );
+
+  test(
     'http detail repository overlays backend collection rows onto local card detail because ownership state is backend-owned',
     () async {
       final api = _FakePortfolioApiClient(
@@ -1081,9 +1127,17 @@ class _FakePortfolioApiClient implements PortfolioApi {
 }
 
 class _FakeCardDataApi implements CardDataApi {
-  _FakeCardDataApi({this.card = _pikachuCard});
+  _FakeCardDataApi({
+    this.card = _pikachuCard,
+    this.failMarketPrices = false,
+    this.failPriceSeries = false,
+    this.failSoldListings = false,
+  });
 
   final CardDataCardDto card;
+  final bool failMarketPrices;
+  final bool failPriceSeries;
+  final bool failSoldListings;
   final List<String> cardRefs = [];
   var activeSeriesRequests = 0;
   var maxConcurrentSeriesRequests = 0;
@@ -1111,6 +1165,9 @@ class _FakeCardDataApi implements CardDataApi {
 
   @override
   Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+    if (failMarketPrices) {
+      throw StateError('market prices unavailable');
+    }
     return const [
       CardDataMarketPriceDto(
         grader: 'Raw',
@@ -1135,6 +1192,9 @@ class _FakeCardDataApi implements CardDataApi {
     double? grade,
     String? condition,
   }) async {
+    if (failPriceSeries) {
+      throw StateError('price series unavailable');
+    }
     activeSeriesRequests += 1;
     if (activeSeriesRequests > maxConcurrentSeriesRequests) {
       maxConcurrentSeriesRequests = activeSeriesRequests;
@@ -1158,6 +1218,9 @@ class _FakeCardDataApi implements CardDataApi {
 
   @override
   Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef) async {
+    if (failSoldListings) {
+      throw StateError('sold listings unavailable');
+    }
     return const [
       CardDataSoldListingDto(
         date: '2026-07-09',
