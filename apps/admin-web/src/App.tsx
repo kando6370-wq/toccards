@@ -67,10 +67,12 @@ type UserItem = {
   device_id: string | null;
   created_at: string;
   status: string;
-  platform?: string;
-  identity?: string;
-  environment?: string;
+  platform: string;
+  identity: "anonymous" | "email" | "google" | "apple";
 };
+
+type UserListResponse = { items: UserItem[]; total: number; page: number; page_size: number };
+type UserFilters = { q: string; platform?: string; identity?: string; date_from: string; date_to: string };
 
 type FeedbackTicket = {
   id: string;
@@ -423,29 +425,53 @@ function InstallationsPage({ session }: { session: AdminSession }) {
 }
 
 function UsersPage({ session }: { session: AdminSession }) {
-  const { data, loading, reload, error } = useAdminData<{ items: UserItem[] }>("/users?page_size=100", session);
+  const [page, setPage] = useState(1);
+  const [dateRangeKey, setDateRangeKey] = useState(0);
+  const [draft, setDraft] = useState<UserFilters>({ q: "", date_from: "", date_to: "" });
+  const [filters, setFilters] = useState<UserFilters>(draft);
+  const path = useMemo(() => {
+    const params = new URLSearchParams({ page: String(page), page_size: "8" });
+    Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+    return `/users?${params.toString()}`;
+  }, [filters, page]);
+  const { data, loading, reload, error } = useAdminData<UserListResponse>(path, session);
   const users = data?.items ?? [];
   const columns: ColumnsType<UserItem> = [
-    { title: "UID", dataIndex: "id", ellipsis: true },
-    { title: "平台", render: () => "iOS" },
-    { title: "首次安装日期", dataIndex: "created_at", render: formatDate },
-    { title: "用户身份", render: (_, row) => (row.account_type === "anonymous" ? <Tag>游客</Tag> : <Tag color="cyan">邮箱</Tag>) },
-    { title: "登录账号", render: (_, row) => row.email ?? row.device_id ?? "-" },
+    { title: "UID", dataIndex: "id", width: 230, ellipsis: true },
+    { title: "平台", dataIndex: "platform", width: 100 },
+    { title: "首次安装日期", dataIndex: "created_at", width: 140, render: formatDate },
+    { title: "用户身份", dataIndex: "identity", width: 110, render: renderUserIdentity },
+    { title: "登录账号", width: 260, render: (_, row) => {
+      const account = row.email ?? row.device_id ?? "-";
+      return <Text ellipsis={{ tooltip: account }} style={{ maxWidth: 240 }}>{account}</Text>;
+    } },
   ];
+
+  function applyFilters() {
+    setPage(1);
+    setFilters(draft);
+  }
+
+  function resetFilters() {
+    const empty = { q: "", date_from: "", date_to: "" };
+    setDraft(empty);
+    setFilters(empty);
+    setPage(1);
+    setDateRangeKey((value) => value + 1);
+  }
 
   return (
     <PagePanel error={error} onRefresh={reload}>
       <FilterBar>
-        <Input placeholder="UID" className="filter-control" />
-        <Select placeholder="平台" className="filter-control" options={platformOptions} />
-        <Select placeholder="用户身份" className="filter-control" options={identityOptions} />
-        <Select placeholder="环境" className="filter-control" options={environmentOptions} />
-        <DatePicker.RangePicker />
-        <Button className="cyan-button">查询</Button>
-        <Button>重置</Button>
+        <Input value={draft.q} onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value }))} onPressEnter={applyFilters} placeholder="UID、邮箱或设备号" className="filter-control user-search-control" />
+        <Select allowClear value={draft.platform} onChange={(platform) => setDraft((current) => ({ ...current, platform }))} placeholder="平台" className="filter-control" options={userPlatformOptions} />
+        <Select allowClear value={draft.identity} onChange={(identity) => setDraft((current) => ({ ...current, identity }))} placeholder="用户身份" className="filter-control" options={identityOptions} />
+        <DatePicker.RangePicker key={dateRangeKey} onChange={(_, values) => setDraft((current) => ({ ...current, date_from: values[0], date_to: values[1] }))} />
+        <Button className="cyan-button" onClick={applyFilters}>查询</Button>
+        <Button onClick={resetFilters}>重置</Button>
       </FilterBar>
-      <DataPanel title="用户数据" count={users.length}>
-        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} pagination={{ pageSize: 8 }} />
+      <DataPanel title="用户数据" count={data?.total ?? 0}>
+        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} size="small" scroll={{ x: 840 }} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: setPage }} />
       </DataPanel>
     </PagePanel>
   );
@@ -1036,6 +1062,12 @@ function renderRecognitionStatus(value: string) {
   return <Tag color="red">识别失败</Tag>;
 }
 
+function renderUserIdentity(value: UserItem["identity"]) {
+  const labels = { anonymous: "游客", email: "邮箱", google: "Google", apple: "Apple" };
+  const colors = { anonymous: "default", email: "cyan", google: "blue", apple: "purple" };
+  return <Tag color={colors[value]}>{labels[value]}</Tag>;
+}
+
 function formatDate(value: string | null) {
   return value ? value.slice(0, 10) : "-";
 }
@@ -1076,7 +1108,11 @@ function errorMessage(error: unknown) {
 const countryOptions = ["United States", "Canada", "United Kingdom", "Japan", "Australia"].map((value) => ({ value, label: value }));
 const platformOptions = ["iOS", "Google"].map((value) => ({ value, label: value }));
 const environmentOptions = [{ value: "production", label: "Production" }, { value: "staging", label: "Staging" }];
-const identityOptions = ["Google", "游客", "Apple", "邮箱"].map((value) => ({ value, label: value }));
+const userPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
+const identityOptions = [
+  { value: "google", label: "Google" }, { value: "anonymous", label: "游客" },
+  { value: "apple", label: "Apple" }, { value: "email", label: "邮箱" },
+];
 const feedbackTypeOptions = ["Bug Report", "Feature Request", "Account", "Other"].map((value) => ({ value, label: value }));
 const feedbackStatusOptions = [
   { value: "pending", label: "待处理" },

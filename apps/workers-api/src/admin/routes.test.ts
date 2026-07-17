@@ -100,6 +100,11 @@ type ScanRecordRow = {
   created_at: string;
 };
 
+type AuthIdentityRow = {
+  user_id: string;
+  provider: "google" | "apple";
+};
+
 class FakeR2 {
   readonly objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
 
@@ -130,6 +135,7 @@ class FakeD1 {
   sessions: SessionRow[] = [];
   users: UserRow[] = [];
   anonymousAccounts: AnonymousAccountRow[] = [];
+  authIdentities: AuthIdentityRow[] = [];
   feedbackTickets: FeedbackTicketRow[] = [];
   appConfigs: AppConfigRow[] = [];
   trendingPins: TrendingPinRow[] = [];
@@ -156,6 +162,10 @@ class FakeD1Statement {
 
   async first<T = unknown>(): Promise<T | null> {
     const sql = normalizeSql(this.sql);
+
+    if (sql.startsWith("SELECT COUNT(*) AS total FROM ( WITH accounts AS")) {
+      return { total: adminUserResults(this.db, this.values).length } as T;
+    }
 
     if (sql.startsWith("SELECT COUNT(*) AS total FROM scan_record")) {
       return { total: this.db.scanRecords.length } as T;
@@ -254,32 +264,11 @@ class FakeD1Statement {
       );
     }
 
-    if (sql.includes("FROM user") && sql.includes("UNION ALL")) {
-      const [type, q] = this.values as [string | null, string | null];
-      const query = q?.toLowerCase() ?? "";
-      const formalUsers = this.db.users
-        .filter(() => !type || type === "user")
-        .filter((row) => !query || row.email.toLowerCase().includes(query))
-        .map((row) => ({
-          account_type: "user",
-          id: row.id,
-          email: row.email,
-          device_id: null,
-          created_at: row.created_at,
-          status: row.deleted_at ? "disabled" : "active",
-        }));
-      const anonymousUsers = this.db.anonymousAccounts
-        .filter(() => !type || type === "anonymous")
-        .filter((row) => !query || row.device_id.toLowerCase().includes(query))
-        .map((row) => ({
-          account_type: "anonymous",
-          id: row.id,
-          email: null,
-          device_id: row.device_id,
-          created_at: row.created_at,
-          status: row.upgraded_user_id ? "upgraded" : "guest",
-        }));
-      return okResult<T>([...formalUsers, ...anonymousUsers] as T[]);
+    if (sql.includes("WITH accounts AS")) {
+      const rows = adminUserResults(this.db, this.values);
+      const pageSize = Number(this.values[13] ?? rows.length);
+      const offset = Number(this.values[14] ?? 0);
+      return okResult<T>(rows.slice(offset, offset + pageSize) as T[]);
     }
 
     if (sql.includes("FROM feedback_ticket")) {
@@ -572,9 +561,42 @@ describe("admin routes", () => {
           expect.objectContaining({ account_type: "user", id: "user-1", status: "active" }),
           expect.objectContaining({ account_type: "anonymous", id: "anon-1", status: "guest" }),
         ],
+        total: 2,
         page: 1,
         page_size: 20,
       },
+    });
+  });
+
+  it("searches App identities by UID and returns the latest real platform because support must see the same account used by the App", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-users", "users@example.com", "correct-password", "operator");
+    env.DB.users.push(userRow("UID-GOOGLE-1", "collector@example.com"));
+    env.DB.authIdentities.push({ user_id: "UID-GOOGLE-1", provider: "google" });
+    env.DB.scanRecords.push({
+      id: "scan-user-1", owner_type: "user", owner_id: "UID-GOOGLE-1", image_url: null,
+      filename: "card.jpg", platform: "Android", app_version: "2.0.0", device_model: null,
+      os_version: null, recognition_status: "success", user_confirmation_status: "confirmed",
+      modified_result: 0, system_result: "{}", user_result: "{}", candidates: "[]",
+      created_at: "2026-07-08T00:00:00.000Z",
+    });
+    const login = await loginAdmin(env, "users@example.com", "correct-password");
+
+    const response = await requestAdmin(
+      env,
+      "/users?q=uid-google&identity=google&platform=android&page_size=8",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    const body = await response.json() as { data: unknown };
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual({
+      items: [expect.objectContaining({ id: "UID-GOOGLE-1", identity: "google", platform: "Android" })],
+      total: 1,
+      page: 1,
+      page_size: 8,
     });
   });
 
@@ -1000,6 +1022,44 @@ function userRow(
     updated_at: createdAt,
     deleted_at: null,
   };
+}
+
+function adminUserResults(db: FakeD1, values: unknown[]) {
+  const [type, , q, , , identity, , platform, , dateFrom, , dateTo] = values as Array<string | null>;
+  const latestPlatform = (accountType: "user" | "anonymous", id: string) =>
+    [...db.scanRecords]
+      .filter((row) => row.owner_type === accountType && row.owner_id === id)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))[0]?.platform ?? "Unknown";
+  const formalUsers = db.users.map((row) => ({
+    account_type: "user" as const,
+    id: row.id,
+    email: row.email,
+    device_id: null,
+    created_at: row.created_at,
+    status: row.deleted_at ? "disabled" : "active",
+    identity: db.authIdentities.some((item) => item.user_id === row.id && item.provider === "google")
+      ? "google"
+      : db.authIdentities.some((item) => item.user_id === row.id && item.provider === "apple") ? "apple" : "email",
+    platform: latestPlatform("user", row.id),
+  }));
+  const anonymousUsers = db.anonymousAccounts.map((row) => ({
+    account_type: "anonymous" as const,
+    id: row.id,
+    email: null,
+    device_id: row.device_id,
+    created_at: row.created_at,
+    status: row.upgraded_user_id ? "upgraded" : "guest",
+    identity: "anonymous",
+    platform: latestPlatform("anonymous", row.id),
+  }));
+  return [...formalUsers, ...anonymousUsers]
+    .filter((row) => !type || row.account_type === type)
+    .filter((row) => !q || row.id.toLowerCase().includes(q) || (row.email ?? row.device_id ?? "").toLowerCase().includes(q))
+    .filter((row) => !identity || row.identity === identity)
+    .filter((row) => !platform || row.platform.toLowerCase() === platform)
+    .filter((row) => !dateFrom || row.created_at >= dateFrom)
+    .filter((row) => !dateTo || row.created_at <= dateTo)
+    .sort((left, right) => right.created_at.localeCompare(left.created_at));
 }
 
 function normalizeSql(sql: string): string {

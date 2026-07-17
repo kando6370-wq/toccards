@@ -351,6 +351,10 @@ body {
   min-width: 156px;
 }
 
+.user-search-control {
+  width: 220px;
+}
+
 .stats-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(160px, 1fr));

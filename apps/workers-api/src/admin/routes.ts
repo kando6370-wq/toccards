@@ -220,21 +220,46 @@ const REVOKE_SESSION_SQL = `
   WHERE id = ? AND revoked_at IS NULL
 `;
 
-const SELECT_ADMIN_USERS_SQL = `
-  SELECT 'user' AS account_type, id, email, NULL AS device_id, created_at,
-    CASE WHEN deleted_at IS NULL THEN 'active' ELSE 'disabled' END AS status
-  FROM user
-  WHERE (? IS NULL OR ? = 'user')
-    AND (? IS NULL OR lower(email) LIKE '%' || ? || '%')
-  UNION ALL
-  SELECT 'anonymous' AS account_type, id, NULL AS email, device_id, created_at,
-    CASE WHEN upgraded_user_id IS NULL THEN 'guest' ELSE 'upgraded' END AS status
-  FROM anonymous_account
-  WHERE (? IS NULL OR ? = 'anonymous')
-    AND (? IS NULL OR lower(device_id) LIKE '%' || ? || '%')
+const ADMIN_USERS_FILTERED_SQL = `
+  WITH accounts AS (
+    SELECT 'user' AS account_type, u.id, u.email, NULL AS device_id, u.created_at,
+      CASE WHEN u.deleted_at IS NULL THEN 'active' ELSE 'disabled' END AS status,
+      COALESCE((
+        SELECT ai.provider FROM auth_identity ai WHERE ai.user_id = u.id
+        ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END LIMIT 1
+      ), 'email') AS identity,
+      COALESCE((
+        SELECT sr.platform FROM scan_record sr
+        WHERE sr.owner_type = 'user' AND sr.owner_id = u.id
+        ORDER BY sr.created_at DESC LIMIT 1
+      ), 'Unknown') AS platform
+    FROM user u
+    UNION ALL
+    SELECT 'anonymous', a.id, NULL, a.device_id, a.created_at,
+      CASE WHEN a.upgraded_user_id IS NULL THEN 'guest' ELSE 'upgraded' END,
+      'anonymous',
+      COALESCE((
+        SELECT sr.platform FROM scan_record sr
+        WHERE sr.owner_type = 'anonymous' AND sr.owner_id = a.id
+        ORDER BY sr.created_at DESC LIMIT 1
+      ), 'Unknown')
+    FROM anonymous_account a
+  )
+  SELECT * FROM accounts
+  WHERE (? IS NULL OR account_type = ?)
+    AND (? IS NULL OR lower(id) LIKE '%' || ? || '%' OR lower(COALESCE(email, device_id, '')) LIKE '%' || ? || '%')
+    AND (? IS NULL OR identity = ?)
+    AND (? IS NULL OR lower(platform) = ?)
+    AND (? IS NULL OR created_at >= ?)
+    AND (? IS NULL OR created_at <= ?)
+`;
+
+const SELECT_ADMIN_USERS_SQL = `${ADMIN_USERS_FILTERED_SQL}
   ORDER BY created_at DESC
   LIMIT ? OFFSET ?
 `;
+
+const COUNT_ADMIN_USERS_SQL = `SELECT COUNT(*) AS total FROM (${ADMIN_USERS_FILTERED_SQL})`;
 
 const SELECT_INSTALLATION_SOURCES_SQL = `
   SELECT 'user' AS install_type, id AS uid, 'iOS' AS platform,
@@ -632,14 +657,30 @@ adminRoutes.get("/users", async (c) => {
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
   const type = readUserType(c.req.query("type"));
   const q = normalizeQuery(c.req.query("q"));
+  const identity = normalizeQuery(c.req.query("identity"));
+  const platform = normalizeQuery(c.req.query("platform"));
+  const dateFrom = readDateBoundary(c.req.query("date_from"), false);
+  const dateTo = readDateBoundary(c.req.query("date_to"), true);
+  if (dateFrom === "invalid" || dateTo === "invalid") {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
   const offset = (page - 1) * pageSize;
-  const { results = [] } = await c.env.DB.prepare(SELECT_ADMIN_USERS_SQL)
-    .bind(type, type, q, q, type, type, q, q, pageSize, offset)
-    .all();
+  const filterBindings = [
+    type, type, q, q, q, identity, identity, platform, platform,
+    dateFrom, dateFrom, dateTo, dateTo,
+  ] as const;
+  const [{ results = [] }, count] = await Promise.all([
+    c.env.DB.prepare(SELECT_ADMIN_USERS_SQL)
+      .bind(...filterBindings, pageSize, offset)
+      .all(),
+    c.env.DB.prepare(COUNT_ADMIN_USERS_SQL)
+      .bind(...filterBindings)
+      .first<{ total: number }>(),
+  ]);
 
   return c.json({
     success: true,
-    data: { items: results, page, page_size: pageSize },
+    data: { items: results, total: count?.total ?? 0, page, page_size: pageSize },
   });
 });
 
