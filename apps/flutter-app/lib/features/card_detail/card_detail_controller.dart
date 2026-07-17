@@ -221,6 +221,9 @@ class CardDetailState {
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
+    this.priceSeriesStatus = KandoLoadStatus.content,
+    this.marketPricesStatus = KandoLoadStatus.content,
+    this.soldListingsStatus = KandoLoadStatus.content,
   }) : _detail = detail,
        loadStatus = KandoLoadStatus.content;
 
@@ -233,7 +236,10 @@ class CardDetailState {
     this.editingCollectionItemId,
     this.collectionItemFormError,
   }) : _detail = null,
-       loadStatus = KandoLoadStatus.failure;
+       loadStatus = KandoLoadStatus.failure,
+       priceSeriesStatus = KandoLoadStatus.failure,
+       marketPricesStatus = KandoLoadStatus.failure,
+       soldListingsStatus = KandoLoadStatus.failure;
 
   const CardDetailState.loading({
     required this.cardId,
@@ -244,7 +250,10 @@ class CardDetailState {
     this.editingCollectionItemId,
     this.collectionItemFormError,
   }) : _detail = null,
-       loadStatus = KandoLoadStatus.loading;
+       loadStatus = KandoLoadStatus.loading,
+       priceSeriesStatus = KandoLoadStatus.loading,
+       marketPricesStatus = KandoLoadStatus.loading,
+       soldListingsStatus = KandoLoadStatus.loading;
 
   final String cardId;
   final CardDetail? _detail;
@@ -255,6 +264,9 @@ class CardDetailState {
   final String? editingCollectionItemId;
   final String? collectionItemFormError;
   final KandoLoadStatus loadStatus;
+  final KandoLoadStatus priceSeriesStatus;
+  final KandoLoadStatus marketPricesStatus;
+  final KandoLoadStatus soldListingsStatus;
 
   bool get isUnavailable => loadStatus == KandoLoadStatus.failure;
   bool get isLoading => loadStatus == KandoLoadStatus.loading;
@@ -401,6 +413,9 @@ class CardDetailState {
     Object? collectionItemDraft = _cardDetailStateUnset,
     Object? editingCollectionItemId = _cardDetailStateUnset,
     Object? collectionItemFormError = _cardDetailStateUnset,
+    KandoLoadStatus? priceSeriesStatus,
+    KandoLoadStatus? marketPricesStatus,
+    KandoLoadStatus? soldListingsStatus,
   }) {
     return CardDetailState(
       cardId: cardId,
@@ -418,6 +433,9 @@ class CardDetailState {
       collectionItemFormError: collectionItemFormError == _cardDetailStateUnset
           ? this.collectionItemFormError
           : collectionItemFormError as String?,
+      priceSeriesStatus: priceSeriesStatus ?? this.priceSeriesStatus,
+      marketPricesStatus: marketPricesStatus ?? this.marketPricesStatus,
+      soldListingsStatus: soldListingsStatus ?? this.soldListingsStatus,
     );
   }
 }
@@ -464,6 +482,51 @@ class CardDetailController extends Notifier<CardDetailState> {
     state = CardDetailState.loading(cardId: cardId, currency: state.currency);
     _startLoad(session: session, currency: state.currency);
     return loadComplete;
+  }
+
+  Future<void> refreshPriceSeries() {
+    return _refreshSection(
+      status: (value) => state = state.copyWith(priceSeriesStatus: value),
+      load: (repository, isCurrent) async {
+        final data = await repository.loadPriceSeries(cardId);
+        if (!isCurrent()) return;
+        state = state.copyWith(
+          detail: state.detail.copyWith(
+            marketPrices: _resolvedMarketPrices(data.marketPrices),
+            priceSeriesByRange: data.rawSeriesByRange,
+            gradedPriceSeriesByRange: data.gradedSeriesByRange,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> refreshMarketPrices() {
+    return _refreshSection(
+      status: (value) => state = state.copyWith(marketPricesStatus: value),
+      load: (repository, isCurrent) async {
+        final data = await repository.loadMarketPrices(cardId);
+        if (!isCurrent()) return;
+        state = state.copyWith(
+          detail: state.detail.copyWith(
+            marketPrices: _resolvedMarketPrices(data.marketPrices),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> refreshSoldListings() {
+    return _refreshSection(
+      status: (value) => state = state.copyWith(soldListingsStatus: value),
+      load: (repository, isCurrent) async {
+        final listings = await repository.loadSoldListings(cardId);
+        if (!isCurrent()) return;
+        state = state.copyWith(
+          detail: state.detail.copyWith(soldListings: listings),
+        );
+      },
+    );
   }
 
   Future<void> quickCollect() async {
@@ -868,8 +931,20 @@ class CardDetailController extends Notifier<CardDetailState> {
     int generation,
     Completer<void> completer,
   ) async {
+    final repository = _repository;
+    if (repository is CardDetailSectionRepository) {
+      final sectionRepository = repository as CardDetailSectionRepository;
+      await _loadSectionedDetail(
+        sectionRepository,
+        session,
+        currency,
+        generation,
+        completer,
+      );
+      return;
+    }
     try {
-      final detail = await _repository.loadDetail(session, cardId);
+      final detail = await repository.loadDetail(session, cardId);
       if (generation == _loadGeneration) {
         state = CardDetailState(
           cardId: cardId,
@@ -886,6 +961,136 @@ class CardDetailController extends Notifier<CardDetailState> {
         completer.complete();
       }
     }
+  }
+
+  Future<void> _loadSectionedDetail(
+    CardDetailSectionRepository repository,
+    AuthSession session,
+    AppCurrency currency,
+    int generation,
+    Completer<void> completer,
+  ) async {
+    try {
+      final detail = await repository.loadBaseDetail(session, cardId);
+      if (generation != _loadGeneration) return;
+      state = CardDetailState(
+        cardId: cardId,
+        detail: detail,
+        currency: currency,
+        priceSeriesStatus: KandoLoadStatus.loading,
+        marketPricesStatus: KandoLoadStatus.loading,
+        soldListingsStatus: KandoLoadStatus.loading,
+      );
+
+      final marketFuture = _loadMarketPrices(repository, generation);
+      await Future.wait([
+        marketFuture.then(
+          (market) => _loadPriceSeries(repository, generation, market),
+        ),
+        _loadSoldListings(repository, generation),
+      ]);
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = CardDetailState.unavailable(cardId: cardId, currency: currency);
+      }
+    } finally {
+      if (!completer.isCompleted) completer.complete();
+    }
+  }
+
+  Future<CardDetailMarketData?> _loadMarketPrices(
+    CardDetailSectionRepository repository,
+    int generation,
+  ) async {
+    try {
+      final data = await repository.loadMarketPrices(cardId);
+      if (generation == _loadGeneration) {
+        state = state.copyWith(
+          detail: state.detail.copyWith(
+            marketPrices: _resolvedMarketPrices(data.marketPrices),
+          ),
+          marketPricesStatus: KandoLoadStatus.content,
+        );
+      }
+      return data;
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = state.copyWith(marketPricesStatus: KandoLoadStatus.failure);
+      }
+      return null;
+    }
+  }
+
+  Future<void> _loadPriceSeries(
+    CardDetailSectionRepository repository,
+    int generation,
+    CardDetailMarketData? market,
+  ) async {
+    try {
+      final data = await repository.loadPriceSeries(cardId, market);
+      if (generation == _loadGeneration) {
+        state = state.copyWith(
+          detail: state.detail.copyWith(
+            marketPrices: _resolvedMarketPrices(data.marketPrices),
+            priceSeriesByRange: data.rawSeriesByRange,
+            gradedPriceSeriesByRange: data.gradedSeriesByRange,
+          ),
+          priceSeriesStatus: KandoLoadStatus.content,
+        );
+      }
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = state.copyWith(priceSeriesStatus: KandoLoadStatus.failure);
+      }
+    }
+  }
+
+  Future<void> _loadSoldListings(
+    CardDetailSectionRepository repository,
+    int generation,
+  ) async {
+    try {
+      final listings = await repository.loadSoldListings(cardId);
+      if (generation == _loadGeneration) {
+        state = state.copyWith(
+          detail: state.detail.copyWith(soldListings: listings),
+          soldListingsStatus: KandoLoadStatus.content,
+        );
+      }
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = state.copyWith(soldListingsStatus: KandoLoadStatus.failure);
+      }
+    }
+  }
+
+  Future<void> _refreshSection({
+    required void Function(KandoLoadStatus status) status,
+    required Future<void> Function(
+      CardDetailSectionRepository repository,
+      bool Function() isCurrent,
+    )
+    load,
+  }) async {
+    if (state.isUnavailable || state.isLoading) return;
+    final repository = _repository;
+    if (repository is! CardDetailSectionRepository) return;
+    final sectionRepository = repository as CardDetailSectionRepository;
+    final generation = _loadGeneration;
+    bool isCurrent() => generation == _loadGeneration;
+    status(KandoLoadStatus.loading);
+    try {
+      await load(sectionRepository, isCurrent);
+      if (isCurrent()) status(KandoLoadStatus.content);
+    } catch (_) {
+      if (isCurrent()) status(KandoLoadStatus.failure);
+    }
+  }
+
+  List<CardMarketPrice> _resolvedMarketPrices(
+    List<CardMarketPrice> marketPrices,
+  ) {
+    return marketPrices.isEmpty ? state.detail.marketPrices : marketPrices;
   }
 
   CardCollectionItem? _findCollectionItem(String itemId) {

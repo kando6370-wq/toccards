@@ -94,19 +94,24 @@ class HttpCardDetailRepository
   @override
   Future<CardDetailMarketData> loadMarketPrices(String cardId) async {
     final prices = await _cardDataApi.getMarketPrices(cardId);
-    final sevenDaySeries = await Future.wait(
-      prices.map(
-        (price) => _loadSeries(cardId, price, CardPriceRange.sevenDays),
+    final seriesByPrice = Map.fromEntries(
+      await Future.wait(
+        prices.map((price) async {
+          final entries = await Future.wait(
+            [CardPriceRange.sevenDays, CardPriceRange.oneMonth].map(
+              (range) async =>
+                  MapEntry(range, await _loadSeries(cardId, price, range)),
+            ),
+          );
+          return MapEntry(price, Map.fromEntries(entries));
+        }),
       ),
     );
     return CardDetailMarketData(
       prices: prices,
-      marketPrices: [
-        for (var index = 0; index < prices.length; index += 1)
-          _marketPriceFromDto(prices[index], {
-            CardPriceRange.sevenDays: sevenDaySeries[index],
-          }),
-      ],
+      marketPrices: prices
+          .map((price) => _marketPriceFromDto(price, seriesByPrice[price]!))
+          .toList(),
     );
   }
 

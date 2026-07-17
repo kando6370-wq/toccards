@@ -189,8 +189,12 @@ class CardDetail {
     int? quantity,
     bool? isWishlisted,
     Object? wishlistItemId = _cardCollectionItemUnset,
+    List<CardMarketPrice>? marketPrices,
     List<CardPortfolioFolder>? portfolioFolders,
     List<CardCollectionItem>? collectionItems,
+    Map<CardPriceRange, List<CardPricePoint>>? priceSeriesByRange,
+    Map<CardPriceRange, List<CardPricePoint>>? gradedPriceSeriesByRange,
+    List<CardSoldListing>? soldListings,
   }) {
     return CardDetail(
       id: id,
@@ -207,12 +211,13 @@ class CardDetail {
       wishlistItemId: wishlistItemId == _cardCollectionItemUnset
           ? this.wishlistItemId
           : wishlistItemId as String?,
-      marketPrices: marketPrices,
+      marketPrices: marketPrices ?? this.marketPrices,
       portfolioFolders: portfolioFolders ?? this.portfolioFolders,
       collectionItems: collectionItems ?? this.collectionItems,
-      priceSeriesByRange: priceSeriesByRange,
-      gradedPriceSeriesByRange: gradedPriceSeriesByRange,
-      soldListings: soldListings,
+      priceSeriesByRange: priceSeriesByRange ?? this.priceSeriesByRange,
+      gradedPriceSeriesByRange:
+          gradedPriceSeriesByRange ?? this.gradedPriceSeriesByRange,
+      soldListings: soldListings ?? this.soldListings,
     );
   }
 }

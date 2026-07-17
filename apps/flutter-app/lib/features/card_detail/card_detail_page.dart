@@ -1041,7 +1041,16 @@ class _PriceOverview extends ConsumerWidget {
                 key: const Key('card-detail-price-chart'),
                 height: 192,
                 width: double.infinity,
-                child: chartValues.length < 2
+                child: state.priceSeriesStatus == KandoLoadStatus.loading
+                    ? const KandoLoadingBlock(
+                        key: Key('card-detail-price-chart-loading'),
+                      )
+                    : state.priceSeriesStatus == KandoLoadStatus.failure
+                    ? KandoFailureBlock(
+                        key: const Key('card-detail-price-chart-failure'),
+                        onRefresh: controller.refreshPriceSeries,
+                      )
+                    : chartValues.length < 2
                     ? Center(
                         child: Text(
                           state.priceSeriesFallbackText,
@@ -1094,7 +1103,15 @@ class _PriceOverview extends ConsumerWidget {
         const SizedBox(height: 20),
         const Text('Market Prices', style: _kSectionTitleStyle),
         const SizedBox(height: 12),
-        _MarketPricesTable(rows: state.priceTabMarketRows),
+        if (state.marketPricesStatus == KandoLoadStatus.loading)
+          const SizedBox(height: 120, child: KandoLoadingBlock())
+        else if (state.marketPricesStatus == KandoLoadStatus.failure)
+          KandoFailureBlock(
+            key: const Key('card-detail-market-prices-failure'),
+            onRefresh: controller.refreshMarketPrices,
+          )
+        else
+          _MarketPricesTable(rows: state.priceTabMarketRows),
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1107,7 +1124,14 @@ class _PriceOverview extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 12),
-        if (state.hasSoldListingRows) ...[
+        if (state.soldListingsStatus == KandoLoadStatus.loading)
+          const SizedBox(height: 120, child: KandoLoadingBlock())
+        else if (state.soldListingsStatus == KandoLoadStatus.failure)
+          KandoFailureBlock(
+            key: const Key('card-detail-shop-failure'),
+            onRefresh: controller.refreshSoldListings,
+          )
+        else if (state.hasSoldListingRows) ...[
           for (final row in state.soldListingRows)
             _ShopTile(
               row: row,

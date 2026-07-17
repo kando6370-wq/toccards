@@ -6,6 +6,7 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_actions.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -104,6 +105,36 @@ void main() {
     expect(find.text('No sold listings available.'), findsOneWidget);
     expect(find.text(noContentAvailableText), findsNothing);
   });
+
+  testWidgets(
+    'optional endpoint failures stay inside Price Market and Shop because base card navigation must remain usable',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'squirtle',
+          repository: _FailingSectionCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Squirtle'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-price-chart-failure')),
+        400,
+      );
+
+      expect(
+        find.byKey(const Key('card-detail-price-chart-failure')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-market-prices-failure')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('card-detail-shop-failure')), findsOneWidget);
+      expect(find.text(noContentAvailableText), findsNWidgets(3));
+    },
+  );
 
   testWidgets(
     'Shop opens the backend listing URL because marketplace routes are server-owned',
@@ -607,5 +638,33 @@ class _FailingWishlistCardDetailRepository extends MockCardDetailRepository {
   @override
   Future<String> addWishlist(AuthSession session, String cardRef) {
     throw StateError('Wishlist backend rejected the mutation.');
+  }
+}
+
+class _FailingSectionCardDetailRepository extends MockCardDetailRepository
+    implements CardDetailSectionRepository {
+  const _FailingSectionCardDetailRepository();
+
+  @override
+  Future<CardDetail> loadBaseDetail(AuthSession session, String cardId) {
+    return loadDetail(session, cardId);
+  }
+
+  @override
+  Future<CardDetailMarketData> loadMarketPrices(String cardId) {
+    throw StateError('market prices unavailable');
+  }
+
+  @override
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, [
+    CardDetailMarketData? market,
+  ]) {
+    throw StateError('price series unavailable');
+  }
+
+  @override
+  Future<List<CardSoldListing>> loadSoldListings(String cardId) {
+    throw StateError('sold listings unavailable');
   }
 }

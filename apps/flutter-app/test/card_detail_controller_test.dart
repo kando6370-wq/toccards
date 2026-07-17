@@ -785,6 +785,56 @@ void main() {
     expect(restored.detail.name, 'Squirtle');
     expect(repository.calls, 2);
   });
+
+  test(
+    'optional detail sections recover independently because one endpoint must not replace the base card with a page failure',
+    () async {
+      final cardDataApi = _RecoveringSectionCardDataApi();
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+
+      final failedSections = await _loadedState(
+        container,
+        'catalog:pikachu-025',
+      );
+
+      expect(failedSections.loadStatus, KandoLoadStatus.content);
+      expect(failedSections.detail.name, 'Pikachu');
+      expect(failedSections.marketPricesStatus, KandoLoadStatus.failure);
+      expect(failedSections.priceSeriesStatus, KandoLoadStatus.failure);
+      expect(failedSections.soldListingsStatus, KandoLoadStatus.failure);
+
+      final controller = container.read(provider.notifier);
+      await controller.refreshMarketPrices();
+      expect(
+        container.read(provider).marketPricesStatus,
+        KandoLoadStatus.content,
+      );
+      expect(
+        container.read(provider).priceSeriesStatus,
+        KandoLoadStatus.failure,
+      );
+      await controller.refreshPriceSeries();
+      expect(
+        container.read(provider).priceSeriesStatus,
+        KandoLoadStatus.content,
+      );
+      await controller.refreshSoldListings();
+      expect(
+        container.read(provider).soldListingsStatus,
+        KandoLoadStatus.content,
+      );
+    },
+  );
 }
 
 class _FailingThenSuccessfulCardDetailRepository
@@ -1229,6 +1279,51 @@ class _FakeCardDataApi implements CardDataApi {
         platform: 'eBay',
       ),
     ];
+  }
+}
+
+class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
+  var _marketFailuresRemaining = 1;
+  var _seriesFailuresRemaining = 1;
+  var _soldFailuresRemaining = 1;
+
+  @override
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) {
+    if (_marketFailuresRemaining > 0) {
+      _marketFailuresRemaining -= 1;
+      throw StateError('market prices unavailable');
+    }
+    return super.getMarketPrices(cardRef);
+  }
+
+  @override
+  Future<List<CardDataPricePointDto>> getPriceSeries(
+    String cardRef, {
+    required int days,
+    String grader = 'Raw',
+    double? grade,
+    String? condition,
+  }) {
+    if (_seriesFailuresRemaining > 0) {
+      _seriesFailuresRemaining -= 1;
+      throw StateError('price series unavailable');
+    }
+    return super.getPriceSeries(
+      cardRef,
+      days: days,
+      grader: grader,
+      grade: grade,
+      condition: condition,
+    );
+  }
+
+  @override
+  Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef) {
+    if (_soldFailuresRemaining > 0) {
+      _soldFailuresRemaining -= 1;
+      throw StateError('sold listings unavailable');
+    }
+    return super.getSoldListings(cardRef);
   }
 }
 
