@@ -46,7 +46,6 @@ type CardCatalogRow = {
 type SetCatalogRow = {
   game: string;
   name: string;
-  set_name: string | null;
   set_code: string | null;
   product_id: string | null;
   total_cards: number | null;
@@ -181,7 +180,7 @@ class FakeD1BoundStatement {
         .filter(
           (set) =>
             (game === null || set.game.toLowerCase() === game) &&
-            `${set.set_name ?? set.name} ${set.set_code ?? ""}`
+            `${set.name} ${set.set_code ?? ""}`
               .toLowerCase()
               .includes(query) &&
             Boolean(set.set_code?.trim()),
@@ -192,7 +191,7 @@ class FakeD1BoundStatement {
         .slice(offset, offset + limit)
         .map((set) => ({
           set_code: set.set_code,
-          set_name: set.set_name?.trim() || set.name,
+          set_name: set.name,
           game: set.game,
           image_url: null,
           image_card_ref: set.product_id?.trim() || null,
@@ -705,7 +704,6 @@ describe("data source routes", () => {
         {
           game: "Pokemon",
           name: "Shared Pokemon Set",
-          set_name: "Shared Pokemon Set",
           set_code: "SHARED",
           product_id: "pokemon-1",
           total_cards: 2,
@@ -714,7 +712,6 @@ describe("data source routes", () => {
         {
           game: "Magic: The Gathering",
           name: "Shared Magic Set",
-          set_name: "Shared Magic Set",
           set_code: "SHARED",
           product_id: "magic-1",
           total_cards: 1,

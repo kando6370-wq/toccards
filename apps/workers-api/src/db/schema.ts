@@ -64,7 +64,6 @@ export const sets = sqliteTable(
     id: integer("id").primaryKey({ autoIncrement: true }),
     game: text("game").notNull(),
     name: text("name").notNull(),
-    setName: text("set_name"),
     setCode: text("set_code"),
     setId: text("set_id"),
     productId: text("product_id"),

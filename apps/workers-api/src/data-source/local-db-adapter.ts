@@ -96,13 +96,13 @@ LIMIT ? OFFSET ?`,
       const results = await db
         .prepare(
           `SELECT s.set_code,
-                  coalesce(nullif(trim(s.set_name), ''), s.name) AS set_name,
+                  s.name AS set_name,
                   s.game,
                   NULL AS image_url,
                   nullif(trim(s.product_id), '') AS image_card_ref,
                   coalesce(s.total_cards, 0) AS card_count
            FROM sets s
-           WHERE lower(coalesce(s.set_name, s.name, '') || ' ' || coalesce(s.set_code, '')) LIKE ?
+           WHERE lower(s.name || ' ' || coalesce(s.set_code, '')) LIKE ?
              AND trim(coalesce(s.set_code, '')) <> ''
              ${gameClause}
            ORDER BY coalesce(s.release_date, '') DESC, s.name ASC

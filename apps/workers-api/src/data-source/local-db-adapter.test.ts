@@ -16,7 +16,6 @@ type CardRow = {
 type SetRow = {
   game: string;
   name: string;
-  set_name: string | null;
   set_code: string | null;
   product_id: string | null;
   total_cards: number | null;
@@ -84,7 +83,7 @@ class FakeBoundStatement {
         .filter(
           (set) =>
             (game === null || set.game.toLowerCase() === game) &&
-            `${set.set_name ?? set.name} ${set.set_code ?? ""}`
+            `${set.name} ${set.set_code ?? ""}`
               .toLowerCase()
               .includes(query) &&
             Boolean(set.set_code?.trim()),
@@ -95,7 +94,7 @@ class FakeBoundStatement {
         .slice(offset, offset + limit)
         .map((set) => ({
           set_code: set.set_code,
-          set_name: set.set_name?.trim() || set.name,
+          set_name: set.name,
           game: set.game,
           image_url: null,
           image_card_ref: set.product_id?.trim() || null,
@@ -316,7 +315,6 @@ describe("local D1 card data source adapter", () => {
           {
             game: "Pokemon",
             name: "Base Set",
-            set_name: "Base Set",
             set_code: "BS",
             product_id: "100",
             total_cards: 2,
