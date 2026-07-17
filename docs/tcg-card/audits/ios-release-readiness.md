@@ -28,7 +28,7 @@
 | 扫描图片生命周期 | 产品已确认无固定到期时间，账号删除后仍保留；代码已移除每日清理，生产 R2 已无对象过期规则 | 生产生命周期仅保留 7 天未完成分片上传清理，不会删除已完成对象 |
 | 生产价格数据 | 4066 个目录 product 中仅 10 个有价格；61 条 SKU 价格历史的最新日期为 2026-07-08；5 条生产资产均为 Raw，无 Graded 样本 | 2026-07-17 生产 D1 只读聚合 |
 | 价格同步链路 | JustTCG v1 增量同步器、D1 游标/状态、5 分钟 Cron、Admin 状态与手动触发接口已部署；缺 Key 时显式 blocked，不写价格 | `4140f8b`、`712d32a`、D1 `price_sync_state` |
-| iOS 无签名构建 | Xcode 16.4 下 Ruby 依赖安装、`pod install`、两份 lockfile 无漂移检查与 `flutter build ios --release --no-codesign` 全部成功 | GitHub Actions run `29558499213`，commit `20e8f15`，已包含 `edd8684` Card Detail Flutter 改动 |
+| iOS 无签名构建 | Xcode 16.4 下 Ruby 依赖安装、`pod install`、两份 lockfile 无漂移检查与 `flutter build ios --release --no-codesign` 在当前 Flutter 提交 `f3e4b2e` 全部成功 | GitHub Actions run `29562484453` |
 
 当前生产 `/app-config`：
 
@@ -99,11 +99,13 @@
 
 2026-07-17 本轮验证：
 
-- Flutter：344 项通过，1 项明确跳过；跳过项为缺少平台 dartcv 动态库的原生 OpenCV 等价测试；`flutter analyze` 无问题。
-- Workers：27 个测试文件、248 项通过；TypeScript 类型检查与 dry-run 构建通过。
-- GitHub macOS iOS CI：run `29558499213` 在提交 `20e8f15` 上成功，Pod 安装、`Gemfile.lock`/`Podfile.lock` 无漂移检查与无签名 Release 构建各步骤均成功；该 push 已包含 `edd8684` Card Detail Flutter 业务改动，后续提交只涉及 Workers 价格同步。
+- Flutter：237 项通过，1 项明确跳过；跳过项为缺少平台 dartcv 动态库的原生 OpenCV 等价测试；`flutter analyze` 无问题。
+- Workers：28 个测试文件、249 项通过；TypeScript 类型检查与 dry-run 构建通过。
+- GitHub macOS iOS CI：run `29558499213` 在提交 `20e8f15` 上成功，Pod 安装、`Gemfile.lock`/`Podfile.lock` 无漂移检查与无签名 Release 构建各步骤均成功；该 push 已包含 `edd8684` Card Detail Flutter 业务改动。
+- 当前 Flutter 卡图提交 `f3e4b2e` 已由 GitHub macOS iOS CI run `29562484453` 再次验证成功，当前 Flutter 基线具备无签名 Release 构建证据。
 - Cloudflare：Google 无效 `id_token` 返回 `422 VALIDATION_ERROR`；30 天前仍带图片指针的生产记录计数为 0。
-- Cloudflare 当前生产 Worker 版本为 `86e9400d-9514-4b08-b117-bef85fb1ed3b`；`/app-config.app_store_url` 与 `/app-config.upgrade_prompt` 均为 null。
+- Cloudflare 当前生产 Worker 版本为 `5a6cd356-e2e8-457d-8f28-7e3e60f99d48`；`/app-config.app_store_url` 与 `/app-config.upgrade_prompt` 均为 null。
+- 卡图：生产 Cards、HOME、Collection、Search、Card Detail 与 Scan Review 已统一到 `image.tcgcard.fun` R2 变体；真实卡 `9359` 原图与缩略变体均返回 200 JPEG。
 - Cloudflare R2 已回读确认没有已完成对象过期规则，仅保留 7 天未完成分片上传清理；扫描图片永久保留且账号删除后仍保留，需要按此口径完成 App Privacy 与审核披露。
 - Cloudflare D1 价格覆盖为 10/4066 个 product，最新价格日期为 2026-07-08；JustTCG Cron 已在生产运行并持久化 `blocked / 10 / 4066 / JUSTTCG_API_KEY is not configured`，未写测试价格；5 条生产资产均为 Raw，未形成 Graded 生产验收样本。
 - Apple 公开目录按 Bundle ID `com.kando.kandoApp` 查询 `resultCount=0`；当前环境未配置 Fastlane/App Store Connect 凭据，仓库中也没有 `DEVELOPMENT_TEAM`。

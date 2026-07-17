@@ -123,9 +123,11 @@ Auth 恢复或创建匿名会话 -> 并行读取 folders、valuation history、p
 | 验证项 | 结果 | 证据 |
 |---|---|---|
 | 生产 Trending | 成功返回 10 条真实卡牌；前三条包含 `card_ref`、当前价与 1D 基准价 | 2026-07-16 生产 API smoke |
-| 生产 valuation | 新匿名文件夹成功返回 91 个连续 `date/value_usd` 点；测试账号随后删除 | 2026-07-16 生产 API smoke |
+| 生产 valuation | Scan 确认真实卡 `9359`、Quantity 2 后返回 91 个连续点，当前值与末点均为 `0.42`，Most Valuable 为 `9359`；测试账号随后删除 | 2026-07-17 生产 API/D1 smoke |
 | Flutter 聚焦测试 | 42 项通过 | Repository、Controller、HOME widget |
-| Flutter 全量测试 | 335 项通过、1 项明确跳过 | 2026-07-16 本地验证 |
-| Flutter analyze | 无问题 | 2026-07-16 本地验证 |
-| iOS unsigned Release | `04a555f` 上 Ruby、Fastlane、Pods、lockfile 无漂移及 Release 构建全部成功 | GitHub Actions run `29510010922` |
-| 代码提交 | 动态真实 tooltip 与 Trending 局部失败分段提交 | `bcc5737`、`04a555f` |
+| Flutter 全量测试 | 237 项通过、1 项因缺少平台 dartcv 动态库明确跳过 | 2026-07-17 本地验证 |
+| Flutter analyze | 无问题 | 2026-07-17 本地验证 |
+| Workers 全量验证 | 28 个测试文件、249 项通过；TypeScript 与 dry-run 通过 | 2026-07-17 本地验证 |
+| iOS unsigned Release | 当前 Flutter 提交 `f3e4b2e` 上 Ruby、Fastlane、Pods、lockfile 无漂移及 Release 构建全部成功 | GitHub Actions run `29562484453` |
+| 代码提交 | HOME 动态数据、Scan 估值事件、owner 迁移与真实 R2 卡图均分段提交 | `bcc5737`、`04a555f`、`33b8bc9`、`5aa0772`、`6fc05da`、`f3e4b2e` |
+| Cloudflare | 当前生产 Worker 版本为 `5a6cd356-e2e8-457d-8f28-7e3e60f99d48` | `wrangler deployments list` |
