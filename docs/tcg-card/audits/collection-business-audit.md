@@ -6,6 +6,7 @@
 - 设计真源：Figma `DjacfTioobtRy59SnqH7SY`，Portfolio `142:10516`、Wishlist `847:15418`。
 - 结论等级：`代码明确` 表示可执行代码有直接证据；`代码推断` 表示多处证据一致但缺少显式产品声明；`待确认` 表示当前实现或数据源不足。
 - 本文记录审计事实，不以进度文档中的完成标记作为验收证据。
+- 审计日期：2026-07-17。
 
 ## 1. 业务总览与主线
 
@@ -35,6 +36,8 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 
 选择当前文件夹 -> 加载该 owner 的文件夹和资产 -> 按 `folder_id` 限定展示 -> 每条 Collection Item 按 Grader、Condition/Grade、Language、Finish 匹配价格 -> 计算当前价值与 30D Change -> 编辑、移动或删除后刷新 Collection 和 Home。
 
+冷启动时 `selectedPortfolioFolderProvider` 重新为空，Controller 选择星标默认文件夹；本次运行内从 Home 或 Collection 手动选择后，该内存状态优先并跨页面同步。服务端虽保存 `last_selected_folder_id`，Flutter 冷启动加载时不读取它，符合“下一次冷启动回到默认文件夹”的 PRD 规则。
+
 | 动作 | 服务端结果 | 下游影响 | 结论 |
 |---|---|---|---|
 | 新增资产 | 写入 `collection_item` 和 `collection_item_event`，并删除同卡 Wishlist | Collection、Home、Qty、历史曲线 | 代码明确 |
@@ -54,6 +57,7 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | 市场价缺失 | 可保存资产，数值为空 | 不计入总资产、Most Valuable | 代码明确 |
 | 默认文件夹删除 | 服务端返回 403 | UI 应保留原状态并提示 | 代码明确 |
 | 同卡加入 Wishlist 与 Portfolio | Portfolio 优先，Wishlist 写入冲突或被删除 | 不允许共存 | 代码明确 |
+| Collection 直接分享入口 | Figma Portfolio `142:10516` 无卡片分享按钮；点击卡片进入 Card Detail 后使用 iOS 原生分享 | 采用 Figma 真源，PRD 的“列表直接分享”文案待清理 | 代码明确/文档冲突 |
 
 ## 4. 核心数据实体
 
@@ -112,13 +116,15 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | E6 | `apps/workers-api/src/db/schema.ts`、`0005_collection_item_folder_joined_at.sql` | D1 实体、加入当前文件夹时间与旧数据回填 |
 | E7 | `docs/tcg-card/source-tcg-card-docs/20260708/TCG_PRD_整合版.md:1852` | Collection 产品规则 |
 | E8 | Figma `142:10516`、`847:15418` | Portfolio/Wishlist 页面设计真源 |
+| E9 | `apps/flutter-app/lib/shared/portfolio/portfolio_providers.dart` | 本次运行内 Home/Collection 文件夹联动；冷启动状态重新为空 |
 
 ## 9. 待确认问题与上线阻断
 
 | 问题 | 影响 | 当前决定 |
 |---|---|---|
 | 没有真实 Graded 价格源 | Graded Item 当前价、30D Change、总资产均无法计算 | 显示 `--`，不以 Raw 冒充；接入数据源前作为上线依赖 |
-| 生产价格历史覆盖率与新鲜度不足 | 大量价格和 30D Change 为空或陈旧 | 不插测试价格掩盖；列为数据管线上线依赖 |
+| 生产价格历史覆盖率与新鲜度不足 | 4066 个目录 product 中仅 10 个存在 SKU 价格，最新日期为 2026-04-12 | 不插测试价格掩盖；外部采集程序补齐前为 P0 数据管线上线依赖 |
+| 实时浏览器视觉验收未完成 | 无法对当前 LAN Web 与 Figma 做实时像素对照 | 浏览器运行时失败：`failed to write kernel assets: 系统找不到指定的路径 (os error 3)`；iOS 截图前必须补验 |
 
 ## 10. 本轮整改与验证
 
@@ -130,9 +136,10 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | Graded 定价 | 保持空价，不使用 Raw 冒充 | `collection-dashboard.test.ts` |
 | 编辑时移动 | Flutter Item PATCH 发送 `folder_id`；Workers 在同一 batch 更新文件夹、字段和历史事件，目标文件夹按 owner 校验 | `1545251`、`8d9b776`；生产真实 API 闭环 |
 | 默认排序 | 新增并回填 `folder_joined_at`；移动刷新、普通编辑保持不变，Portfolio 默认按该时间倒序 | `07ff54c`、`7c53d9b`；`items.test.ts` |
-| Workers 验证 | 242 项测试、TypeScript 类型检查、本地 0005 迁移与 dry-run 构建通过 | 本轮 2026-07-16 验证记录 |
-| Flutter 验证 | 335 项通过、1 项跳过；`flutter analyze` 无问题 | 本轮 2026-07-16 验证记录 |
-| 生产部署 | 0005 已应用；已部署 Workers 版本 `8c54646a-d05f-49da-a29f-9210c50d2008` | Cloudflare 迁移与部署输出 |
-| 生产真实业务 smoke | `9359 / Escape Artist` 原子移动并编辑后返回当前价 `0.21`、30D 基准 `0.20`、Quantity `2`；移动旧资产默认排在目标文件夹原有资产之前，普通编辑不改变加入时间；两个临时账户均删除 | 生产 API 2026-07-16 实测 |
+| Workers 验证 | 26 个文件、242 项测试、TypeScript 类型检查与 dry-run 构建通过 | 2026-07-17 最新 HEAD 验证 |
+| Flutter 验证 | 344 项通过、1 项原生 OpenCV 条件测试跳过；`flutter analyze` 无问题 | 2026-07-17 最新 HEAD 验证 |
+| 生产部署 | 0005 已应用；当前 Workers 版本 `1c9c6511-f395-4848-8885-dbf9a0eb58ef` | Cloudflare 生产回读 |
+| 生产真实业务 smoke | 临时游客 Main：`9359 / Escape Artist` 先加入 Wishlist，再创建 Quantity `2` 的 Portfolio Item；Dashboard 返回当前价 `0.21`、30D 基准 `0.20`，Wishlist 自动归零；临时账号已删除 | 生产 API 2026-07-17 实测 |
+| 生产数据覆盖 | `collection_item` 仅 5 条且全部 Raw；`tcgplayer_skus` 61 行、10 个 product，目录 4066 个 product，最新价格 2026-04-12 | 生产 D1 只读聚合 2026-07-17 |
 
-整改后仍未解除的上线依赖只有真实 Graded 价格源和生产价格数据覆盖率/新鲜度；这两项不得用测试价格掩盖。
+代码主链路已闭环；仍未解除的上线依赖是外部采集程序负责的生产价格覆盖率/新鲜度和真实 Graded 价格源。这两项不得用测试价格掩盖，也不能把代码测试通过写成运营数据已就绪。
