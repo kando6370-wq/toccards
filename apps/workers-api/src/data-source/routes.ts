@@ -95,8 +95,9 @@ export function createDataSourceRoutes(
   routes.get("/cards/search", async (c) => {
     const query = c.req.query("q")?.trim() ?? "";
     const game = nullableString(c.req.query("game")) ?? undefined;
+    const setCode = nullableString(c.req.query("set_code")) ?? undefined;
 
-    if (!query && !game) {
+    if (!query && !game && !setCode) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
@@ -113,6 +114,7 @@ export function createDataSourceRoutes(
       adapter.searchCards(query, {
         object_type: objectType,
         game,
+        set_code: setCode,
         page,
         page_size: pageSize,
       }),
@@ -133,6 +135,17 @@ export function createDataSourceRoutes(
     });
   });
 
+  routes.get("/games", async (c) => {
+    const result = await c.env.DB.prepare(
+      `SELECT CAST(game_id AS TEXT) AS id, name
+       FROM games
+       WHERE load = 1 AND trim(coalesce(name, '')) <> ''
+       ORDER BY game_id ASC`,
+    ).all<{ id: string; name: string }>();
+
+    return c.json({ success: true, data: { items: result.results ?? [] } });
+  });
+
   routes.get("/sets/search", async (c) => {
     const query = c.req.query("q")?.trim() ?? "";
     const game = nullableString(c.req.query("game")) ?? undefined;
@@ -142,7 +155,7 @@ export function createDataSourceRoutes(
     }
 
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
-    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 100);
+    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 1000);
     const adapter = createAdapter(c.env);
     const sets = await listOrEmpty(() =>
       adapter.searchSets(query, { game, page, page_size: pageSize }),

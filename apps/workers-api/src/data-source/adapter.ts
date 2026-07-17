@@ -3,6 +3,7 @@ export type CardObjectType = "tcg" | "sports" | "sealed" | "other";
 export type CardSearchOptions = {
   object_type?: CardObjectType;
   game?: string;
+  set_code?: string;
   page?: number;
   page_size?: number;
 };

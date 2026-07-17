@@ -67,6 +67,7 @@ export const sets = sqliteTable(
     setName: text("set_name"),
     setCode: text("set_code"),
     setId: text("set_id"),
+    productId: text("product_id"),
     series: text("series"),
     totalCards: integer("total_cards").default(0),
     releaseDate: text("release_date"),

@@ -50,6 +50,13 @@
       "when": 1784251800000,
       "tag": "0006_price_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1784276000000,
+      "tag": "0007_sets_product_id",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,16 @@ type CardRow = {
   image_url: string | null;
 };
 
+type SetRow = {
+  game: string;
+  name: string;
+  set_name: string | null;
+  set_code: string | null;
+  product_id: string | null;
+  total_cards: number | null;
+  release_date: string | null;
+};
+
 type SkuRow = {
   sku_id: number;
   product_id: number;
@@ -29,10 +39,11 @@ class FakeCardDatabase {
   constructor(
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
+    private readonly sets: SetRow[] = [],
   ) {}
 
   prepare(sql: string): FakeStatement {
-    return new FakeStatement(sql, this.cards, this.skus);
+    return new FakeStatement(sql, this.cards, this.skus, this.sets);
   }
 }
 
@@ -41,14 +52,15 @@ class FakeStatement {
     private readonly sql: string,
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
+    private readonly sets: SetRow[],
   ) {}
 
   bind(...values: unknown[]): FakeBoundStatement {
-    return new FakeBoundStatement(this.sql, this.cards, this.skus, values);
+    return new FakeBoundStatement(this.sql, this.cards, this.skus, this.sets, values);
   }
 
   all<T>(): Promise<{ results: T[] }> {
-    return new FakeBoundStatement(this.sql, this.cards, this.skus, []).all<T>();
+    return new FakeBoundStatement(this.sql, this.cards, this.skus, this.sets, []).all<T>();
   }
 }
 
@@ -57,19 +69,57 @@ class FakeBoundStatement {
     private readonly sql: string,
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
+    private readonly sets: SetRow[],
     private readonly values: unknown[],
   ) {}
 
   async all<T>(): Promise<{ results: T[] }> {
+    if (this.sql.includes("FROM sets s")) {
+      const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
+      const hasGameFilter = this.sql.includes("lower(s.game) = lower(?)");
+      const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
+      const limit = Number(this.values[hasGameFilter ? 2 : 1]);
+      const offset = Number(this.values[hasGameFilter ? 3 : 2]);
+      const results = this.sets
+        .filter(
+          (set) =>
+            (game === null || set.game.toLowerCase() === game) &&
+            `${set.set_name ?? set.name} ${set.set_code ?? ""}`
+              .toLowerCase()
+              .includes(query) &&
+            Boolean(set.set_code?.trim()),
+        )
+        .sort((left, right) =>
+          (right.release_date ?? "").localeCompare(left.release_date ?? ""),
+        )
+        .slice(offset, offset + limit)
+        .map((set) => ({
+          set_code: set.set_code,
+          set_name: set.set_name?.trim() || set.name,
+          game: set.game,
+          image_url: null,
+          image_card_ref: set.product_id?.trim() || null,
+          card_count: set.total_cards ?? 0,
+        }));
+      return { results: results as T[] };
+    }
+
     if (this.sql.includes("FROM cards_all") && this.sql.includes("LIKE")) {
       const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
       const hasGameFilter = this.sql.includes("lower(game) = lower(?)");
+      const hasSetFilter = this.sql.includes("lower(set_code) = lower(?)");
       const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
+      const setCode = hasSetFilter
+        ? String(this.values[hasGameFilter ? 2 : 1]).toLowerCase()
+        : null;
       const objectType = objectTypeFilterFromSql(this.sql);
-      const limit = Number(this.values[hasGameFilter ? 2 : 1]);
-      const offset = Number(this.values[hasGameFilter ? 3 : 2]);
+      const filterCount = Number(hasGameFilter) + Number(hasSetFilter);
+      const limit = Number(this.values[1 + filterCount]);
+      const offset = Number(this.values[2 + filterCount]);
       const gameCards = this.cards.filter(
-        (card) => game === null || card.game?.toLowerCase() === game,
+        (card) =>
+          (game === null || card.game?.toLowerCase() === game) &&
+          (setCode === null || card.set_code?.toLowerCase() === setCode),
       );
 
       if (this.sql.includes("GROUP BY game_id")) {
@@ -262,6 +312,17 @@ describe("local D1 card data source adapter", () => {
           }),
         ],
         [],
+        [
+          {
+            game: "Pokemon",
+            name: "Base Set",
+            set_name: "Base Set",
+            set_code: "BS",
+            product_id: "100",
+            total_cards: 2,
+            release_date: "1999-01-09",
+          },
+        ],
       ) as unknown as D1Database,
     );
 
@@ -275,11 +336,18 @@ describe("local D1 card data source adapter", () => {
         set_code: "BS",
         set_name: "Base Set",
         game: "Pokemon",
-        image_url: "https://img.example/100.jpg",
+        image_url: null,
         image_card_ref: "100",
         card_count: 2,
       },
     ]);
+    await expect(
+      adapter.searchCards("", {
+        game: "Pokemon",
+        set_code: "BS",
+        page_size: 10,
+      }),
+    ).resolves.toHaveLength(2);
   });
 
   it("adds the preferred SKU price to search results because Search must show real market reference data without per-card HTTP requests", async () => {

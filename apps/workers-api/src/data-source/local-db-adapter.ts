@@ -51,9 +51,11 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
       const offset = (page - 1) * pageSize;
       const objectTypeClause = objectTypeWhereClause(options.object_type);
       const gameClause = options.game ? "AND lower(game) = lower(?)" : "";
+      const setClause = options.set_code ? "AND lower(set_code) = lower(?)" : "";
       const bindings = [
         `%${normalizedQuery}%`,
         ...(options.game ? [options.game] : []),
+        ...(options.set_code ? [options.set_code] : []),
         pageSize,
         offset,
       ];
@@ -69,6 +71,7 @@ WHERE lower(
 ) LIKE ?
 ${objectTypeClause}
 ${gameClause}
+${setClause}
 ORDER BY updated_at DESC, product_id ASC
 LIMIT ? OFFSET ?`,
         )
@@ -83,7 +86,7 @@ LIMIT ? OFFSET ?`,
       const page = positiveIntegerOrDefault(options.page, 1);
       const pageSize = positiveIntegerOrDefault(options.page_size, 20);
       const offset = (page - 1) * pageSize;
-      const gameClause = options.game ? "AND lower(game) = lower(?)" : "";
+      const gameClause = options.game ? "AND lower(s.game) = lower(?)" : "";
       const bindings = [
         `%${normalizedQuery}%`,
         ...(options.game ? [options.game] : []),
@@ -92,18 +95,17 @@ LIMIT ? OFFSET ?`,
       ];
       const results = await db
         .prepare(
-          `SELECT set_code, set_name, game,
-                  MAX(image_url) AS image_url,
-                  MIN(CASE WHEN image_url IS NOT NULL AND trim(image_url) <> ''
-                           THEN product_id END) AS image_card_ref,
-                  COUNT(*) AS card_count
-           FROM cards_all
-           WHERE lower(coalesce(set_name, '') || ' ' || coalesce(set_code, '')) LIKE ?
-             AND trim(coalesce(set_code, '')) <> ''
-             AND trim(coalesce(set_name, '')) <> ''
+          `SELECT s.set_code,
+                  coalesce(nullif(trim(s.set_name), ''), s.name) AS set_name,
+                  s.game,
+                  NULL AS image_url,
+                  nullif(trim(s.product_id), '') AS image_card_ref,
+                  coalesce(s.total_cards, 0) AS card_count
+           FROM sets s
+           WHERE lower(coalesce(s.set_name, s.name, '') || ' ' || coalesce(s.set_code, '')) LIKE ?
+             AND trim(coalesce(s.set_code, '')) <> ''
              ${gameClause}
-           GROUP BY game_id, game, set_code, set_name
-           ORDER BY MAX(updated_at) DESC, game_id ASC, set_code ASC
+           ORDER BY coalesce(s.release_date, '') DESC, s.name ASC
            LIMIT ? OFFSET ?`,
         )
         .bind(...bindings)

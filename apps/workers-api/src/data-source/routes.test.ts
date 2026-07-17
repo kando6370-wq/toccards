@@ -43,6 +43,22 @@ type CardCatalogRow = {
   image_url: string | null;
 };
 
+type SetCatalogRow = {
+  game: string;
+  name: string;
+  set_name: string | null;
+  set_code: string | null;
+  product_id: string | null;
+  total_cards: number | null;
+  release_date: string | null;
+};
+
+type GameCatalogRow = {
+  game_id: number;
+  name: string;
+  load: number;
+};
+
 type TrendingPinRow = {
   card_ref: string;
   rank: number;
@@ -54,10 +70,19 @@ class FakeD1Database {
     private readonly cardOverrides: CardOverrideRow[] = [],
     private readonly cards: CardCatalogRow[] = [],
     private readonly trendingPins: TrendingPinRow[] = [],
+    private readonly sets: SetCatalogRow[] = [],
+    private readonly games: GameCatalogRow[] = [],
   ) {}
 
   prepare(sql: string): FakeD1Statement {
-    return new FakeD1Statement(sql, this.cardOverrides, this.cards, this.trendingPins);
+    return new FakeD1Statement(
+      sql,
+      this.cardOverrides,
+      this.cards,
+      this.trendingPins,
+      this.sets,
+      this.games,
+    );
   }
 }
 
@@ -67,6 +92,8 @@ class FakeD1Statement {
     private readonly cardOverrides: CardOverrideRow[],
     private readonly cards: CardCatalogRow[],
     private readonly trendingPins: TrendingPinRow[],
+    private readonly sets: SetCatalogRow[],
+    private readonly games: GameCatalogRow[],
   ) {}
 
   bind(...values: unknown[]): FakeD1BoundStatement {
@@ -75,6 +102,8 @@ class FakeD1Statement {
       this.cardOverrides,
       this.cards,
       this.trendingPins,
+      this.sets,
+      this.games,
       values,
     );
   }
@@ -85,6 +114,8 @@ class FakeD1Statement {
       this.cardOverrides,
       this.cards,
       this.trendingPins,
+      this.sets,
+      this.games,
       [],
     ).all<T>();
   }
@@ -96,6 +127,8 @@ class FakeD1BoundStatement {
     private readonly cardOverrides: CardOverrideRow[],
     private readonly cards: CardCatalogRow[],
     private readonly trendingPins: TrendingPinRow[],
+    private readonly sets: SetCatalogRow[],
+    private readonly games: GameCatalogRow[],
     private readonly values: unknown[],
   ) {}
 
@@ -129,17 +162,63 @@ class FakeD1BoundStatement {
       };
     }
 
+    if (this.sql.includes("FROM games")) {
+      return {
+        results: this.games
+          .filter((game) => game.load === 1 && game.name.trim())
+          .sort((left, right) => left.game_id - right.game_id)
+          .map((game) => ({ id: String(game.game_id), name: game.name })) as T[],
+      };
+    }
+
+    if (this.sql.includes("FROM sets s")) {
+      const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
+      const hasGameFilter = this.sql.includes("lower(s.game) = lower(?)");
+      const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
+      const limit = Number(this.values[hasGameFilter ? 2 : 1]);
+      const offset = Number(this.values[hasGameFilter ? 3 : 2]);
+      const results = this.sets
+        .filter(
+          (set) =>
+            (game === null || set.game.toLowerCase() === game) &&
+            `${set.set_name ?? set.name} ${set.set_code ?? ""}`
+              .toLowerCase()
+              .includes(query) &&
+            Boolean(set.set_code?.trim()),
+        )
+        .sort((left, right) =>
+          (right.release_date ?? "").localeCompare(left.release_date ?? ""),
+        )
+        .slice(offset, offset + limit)
+        .map((set) => ({
+          set_code: set.set_code,
+          set_name: set.set_name?.trim() || set.name,
+          game: set.game,
+          image_url: null,
+          image_card_ref: set.product_id?.trim() || null,
+          card_count: set.total_cards ?? 0,
+        }));
+      return { results: results as T[] };
+    }
+
     if (!this.sql.includes("FROM cards_all")) {
       return { results: [] };
     }
 
     const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
     const hasGameFilter = this.sql.includes("lower(game) = lower(?)");
+    const hasSetFilter = this.sql.includes("lower(set_code) = lower(?)");
     const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
-    const limit = Number(this.values[hasGameFilter ? 2 : 1]);
-    const offset = Number(this.values[hasGameFilter ? 3 : 2]);
+    const setCode = hasSetFilter
+      ? String(this.values[hasGameFilter ? 2 : 1]).toLowerCase()
+      : null;
+    const filterCount = Number(hasGameFilter) + Number(hasSetFilter);
+    const limit = Number(this.values[1 + filterCount]);
+    const offset = Number(this.values[2 + filterCount]);
     const gameCards = this.cards.filter(
-      (card) => game === null || card.game?.toLowerCase() === game,
+      (card) =>
+        (game === null || card.game?.toLowerCase() === game) &&
+        (setCode === null || card.set_code?.toLowerCase() === setCode),
     );
 
     if (this.sql.includes("GROUP BY game_id")) {
@@ -584,7 +663,9 @@ describe("data source routes", () => {
   });
 
   it("keeps sets with the same code separate across games because Search filters sets by their real game", async () => {
-    const env = createTestEnv([], [
+    const env = createTestEnv(
+      [],
+      [
         {
           product_id: "pokemon-1",
           game_id: 3,
@@ -618,7 +699,29 @@ describe("data source routes", () => {
           product_type_name: "Cards",
           image_url: null,
         },
-      ]);
+      ],
+      [],
+      [
+        {
+          game: "Pokemon",
+          name: "Shared Pokemon Set",
+          set_name: "Shared Pokemon Set",
+          set_code: "SHARED",
+          product_id: "pokemon-1",
+          total_cards: 2,
+          release_date: "2026-01-02",
+        },
+        {
+          game: "Magic: The Gathering",
+          name: "Shared Magic Set",
+          set_name: "Shared Magic Set",
+          set_code: "SHARED",
+          product_id: "magic-1",
+          total_cards: 1,
+          release_date: "2026-01-01",
+        },
+      ],
+    );
     const response = await app.request(
       "/api/v1/sets/search?q=shared",
       {},
@@ -644,6 +747,8 @@ describe("data source routes", () => {
             set_code: "SHARED",
             game: "Pokemon",
             card_count: 2,
+            image_url:
+              "https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=75,format=auto/cards/pokemon-1.jpg",
           }),
           expect.objectContaining({
             set_code: "SHARED",
@@ -677,6 +782,33 @@ describe("data source routes", () => {
         items: [
           { card_ref: "pokemon-1", game: "Pokemon" },
           { card_ref: "pokemon-2", game: "Pokemon" },
+        ],
+      },
+    });
+  });
+
+  it("returns only enabled database games because Search filters must follow the catalog configuration", async () => {
+    const env = createTestEnv(
+      [],
+      [],
+      [],
+      [],
+      [
+        { game_id: 3, name: "Pokemon", load: 1 },
+        { game_id: 1, name: "Magic: The Gathering", load: 1 },
+        { game_id: 9, name: "Disabled", load: 0 },
+      ],
+    );
+
+    const response = await app.request("/api/v1/games", {}, env);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        items: [
+          { id: "1", name: "Magic: The Gathering" },
+          { id: "3", name: "Pokemon" },
         ],
       },
     });
@@ -918,9 +1050,17 @@ function createTestEnv(
   cardOverrides: CardOverrideRow[] = [],
   cards: CardCatalogRow[] = [],
   trendingPins: TrendingPinRow[] = [],
+  sets: SetCatalogRow[] = [],
+  games: GameCatalogRow[] = [],
 ): Env {
   return {
-    DB: new FakeD1Database(cardOverrides, cards, trendingPins) as unknown as D1Database,
+    DB: new FakeD1Database(
+      cardOverrides,
+      cards,
+      trendingPins,
+      sets,
+      games,
+    ) as unknown as D1Database,
     CACHE_KV: new FakeKvNamespace() as unknown as KVNamespace,
     JWT_SECRET: "test-secret",
   };
