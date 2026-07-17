@@ -124,6 +124,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Ignore the root `README.md` for implementation guidance; it is still the default GitLab template.
 - The real project brief lives under `docs/tcg-card/`.
 - Start with `docs/tcg-card/README.md`, which links the intended reading order for product, architecture, data model, API spec, admin behavior, and milestones.
+- Before any Flutter App UI change, read `docs/tcg-card/00-product/ui-design-system.md` and follow it as a hard design contract. Do not freestyle colors, spacing, button styles, card styles, bottom navigation, modals, or typography when Figma / this UI design system already defines them.
 - The tcg-card docs are unusually important here: many code comments explicitly say they must stay aligned with those docs.
 
 ### Monorepo shape

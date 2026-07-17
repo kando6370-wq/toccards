@@ -585,7 +585,12 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
       _goHomeAfterAuthSettles(router);
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(buildKandoToast(successMessage));
+        ..showSnackBar(
+          buildKandoToast(
+            successMessage,
+            onClose: messenger.hideCurrentSnackBar,
+          ),
+        );
     }
   }
 

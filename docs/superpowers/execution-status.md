@@ -1,12 +1,12 @@
 # 执行状态文档
 
 ## 当前任务
-- 状态：本轮完成（验证通过）
-- 计划编号：M2-2
-- 最近开始：2026-07-13 18:21:43
-- 最近完成：2026-07-13 18:28:24
-- 最近验证：通过
-- 最近任务摘要：D1 卡牌基础数据适配实现
+- 状态：本轮完成（局部验证通过）
+- 计划编号：无（非 dev-plan 里程碑任务）
+- 最近开始：2026-07-17 17:12:27
+- 最近完成：2026-07-17 17:41:34
+- 最近验证：局部通过（`flutter test apps/flutter-app/test/toast_test.dart` 通过）
+- 最近任务摘要：为顶部 Overlay Toast 增加两行省略和向上滑动关闭
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
 ## dev-plan 子任务状态
@@ -124,6 +124,14 @@
 - 已完成：归一 execution-status 隐藏状态块
 
 ## 执行日志
+- 2026-07-17 17:41:34 | 完成（局部验证通过） | 为顶部 Overlay Toast 增加两行省略和向上滑动关闭；`flutter test apps/flutter-app/test/toast_test.dart` 通过
+- 2026-07-17 17:39:00 | 完成（局部验证通过） | 新增顶部 Overlay Toast 公共组件，支持 failure/network/success/warning/info 类型；`flutter test apps/flutter-app/test/toast_test.dart` 通过
+- 2026-07-17 17:27:09 | 完成（局部验证通过） | 将 Delete Account 确认弹窗替换为共享 Figma danger modal；toast/modal 定向测试通过；iPhone 17 模拟器已启动 `com.kando.kandoApp`
+- 2026-07-17 17:16:59 | 完成（验证受限） | 为共享 toast/modal 组件补充中文使用场景 DartDoc 备注；已执行 `git diff --check`
+- 2026-07-17 17:15:02 | 完成（验证受限） | 为共享 toast/modal 组件补充使用场景 DartDoc 备注；已执行 `git diff --check`
+- 2026-07-17 17:12:27 | 完成（验证受限） | 按 Figma 弹窗规范新增共享 toast/modal 组件；`dart` / `flutter` 不在 PATH，已完成 `git diff --check` 与引用扫描
+- 2026-07-17 17:01:39 | 完成（文档变更，代码验证不适用） | 补充 Figma `736:13751` 弹窗 section 的 toast、确认弹窗、更新弹窗使用规范
+- 2026-07-17 16:59:03 | 完成（文档变更，代码验证不适用） | 基于 Figma `卡牌app` 生成 Vault & Vellum UI 设计系统硬规范，并加入 `docs/tcg-card/README.md` 与 `CLAUDE.md` 入口
 - 2026-07-06 00:00:00 | 开始 | 为仓库落地 Claude Code harness 规则：共享 settings、规则文档、执行状态文档与完成后自动验证
 - 2026-07-06 00:05:00 | 进展 | 已创建 `.claude/settings.json`、`.claude/hooks/task_status.py`、`.claude/hooks/task_complete_verify.sh`
 - 2026-07-06 00:10:00 | 进展 | 已补充 `CLAUDE.md` 的 harness 规则，并新增 `docs/superpowers/claude-harness-rules.md`

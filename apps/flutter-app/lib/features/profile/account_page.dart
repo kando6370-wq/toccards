@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/ui/kando_modal.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -9,9 +10,6 @@ import '../auth/auth_models.dart';
 import '../auth/auth_repository.dart';
 import '../../shared/ui/toast.dart';
 import 'profile_detail_scaffold.dart';
-
-// Destructive action red from the Figma spec (no matching design token exists).
-const _dangerColor = Color(0xFFFF8989);
 
 class AccountPage extends ConsumerWidget {
   const AccountPage({super.key});
@@ -68,17 +66,9 @@ class _AccountContent extends ConsumerWidget {
         const SizedBox(height: 32),
         _SectionLabel('Account Details'),
         const SizedBox(height: 8),
-        _DetailRow(
-          icon: Icons.mail_outline,
-          label: 'EMAIL',
-          value: email,
-        ),
+        _DetailRow(icon: Icons.mail_outline, label: 'EMAIL', value: email),
         const SizedBox(height: 8),
-        _DetailRow(
-          icon: Icons.fingerprint,
-          label: 'ID',
-          value: userId,
-        ),
+        _DetailRow(icon: Icons.fingerprint, label: 'ID', value: userId),
         const SizedBox(height: 8),
         _DetailRow(
           icon: Icons.vpn_key_outlined,
@@ -119,9 +109,9 @@ class _AccountContent extends ConsumerWidget {
               child: _ManagementButton(
                 icon: Icons.delete_outline,
                 label: 'Delete Account',
-                background: _dangerColor.withValues(alpha: 0.15),
-                borderColor: _dangerColor.withValues(alpha: 0.3),
-                foreground: _dangerColor,
+                background: KandoColors.errorText.withValues(alpha: 0.15),
+                borderColor: KandoColors.errorText.withValues(alpha: 0.3),
+                foreground: KandoColors.errorText,
                 onTap: () async {
                   final confirmed = await showDeleteAccountConfirmation(
                     context,
@@ -256,10 +246,7 @@ class _ProfileHeader extends StatelessWidget {
           child: Text(
             'ID:$userId',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: KandoColors.mutedText,
-              fontSize: 16,
-            ),
+            style: const TextStyle(color: KandoColors.mutedText, fontSize: 16),
           ),
         ),
       ],
@@ -402,10 +389,7 @@ class _ManagementButton extends StatelessWidget {
             children: [
               Icon(icon, size: 20, color: foreground),
               const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(color: foreground, fontSize: 16),
-              ),
+              Text(label, style: TextStyle(color: foreground, fontSize: 16)),
             ],
           ),
         ),
@@ -415,47 +399,11 @@ class _ManagementButton extends StatelessWidget {
 }
 
 Future<bool> showDeleteAccountConfirmation(BuildContext context) async {
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        backgroundColor: KandoColors.elevatedSurface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        titleTextStyle: const TextStyle(
-          color: KandoColors.text,
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
-        ),
-        contentTextStyle: const TextStyle(
-          color: KandoColors.mutedText,
-          fontSize: 15,
-          height: 1.4,
-        ),
-        title: const Text('Delete Account?'),
-        content: const Text("This action is permanent and can't be undone."),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            style: TextButton.styleFrom(
-              foregroundColor: KandoColors.mutedText,
-            ),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: _dangerColor,
-              foregroundColor: KandoColors.ink,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      );
-    },
+  return showKandoDangerConfirmModal(
+    context,
+    title: 'Delete Account?',
+    message: "This action is permanent and can't be undone.",
+    confirmLabel: 'Delete',
+    cancelLabel: 'Cancel',
   );
-
-  return result ?? false;
 }
