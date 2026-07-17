@@ -102,9 +102,10 @@ export function createDataSourceRoutes(
   const createAdapter = options.createAdapter ?? createDefaultAdapter;
 
   routes.get("/cards/search", async (c) => {
-    const query = requiredQuery(c.req.query("q"));
+    const query = c.req.query("q")?.trim() ?? "";
+    const game = nullableString(c.req.query("game")) ?? undefined;
 
-    if (!query) {
+    if (!query && !game) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
@@ -116,7 +117,6 @@ export function createDataSourceRoutes(
 
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
     const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 100);
-    const game = nullableString(c.req.query("game")) ?? undefined;
     const adapter = createAdapter(c.env);
     const items = await listOrEmpty(() =>
       adapter.searchCards(query, {
@@ -143,15 +143,15 @@ export function createDataSourceRoutes(
   });
 
   routes.get("/sets/search", async (c) => {
-    const query = requiredQuery(c.req.query("q"));
+    const query = c.req.query("q")?.trim() ?? "";
+    const game = nullableString(c.req.query("game")) ?? undefined;
 
-    if (!query) {
+    if (!query && !game) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
     const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 100);
-    const game = nullableString(c.req.query("game")) ?? undefined;
     const adapter = createAdapter(c.env);
     const sets = await listOrEmpty(() =>
       adapter.searchSets(query, { game, page, page_size: pageSize }),
@@ -570,12 +570,6 @@ function parseObjectType(value: string | undefined): CardObjectType | undefined 
   return SUPPORTED_OBJECT_TYPES.has(normalized as CardObjectType)
     ? (normalized as CardObjectType)
     : "invalid";
-}
-
-function requiredQuery(value: string | undefined): string | null {
-  const normalized = value?.trim() ?? "";
-
-  return normalized.length > 0 ? normalized : null;
 }
 
 function cardRefParam(value: string): string {

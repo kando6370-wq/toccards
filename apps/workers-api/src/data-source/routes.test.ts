@@ -645,12 +645,12 @@ describe("data source routes", () => {
       env,
     );
     const filteredSets = await app.request(
-      "/api/v1/sets/search?q=shared&game=Pokemon",
+      "/api/v1/sets/search?game=Pokemon",
       {},
       env,
     );
     const filteredCards = await app.request(
-      "/api/v1/cards/search?q=card&game=Pokemon",
+      "/api/v1/cards/search?game=Pokemon",
       {},
       env,
     );
