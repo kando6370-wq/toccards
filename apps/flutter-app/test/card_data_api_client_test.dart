@@ -114,6 +114,95 @@ void main() {
   );
 
   test(
+    'listGames reads the database catalog because Search filters must not be inferred from Trending cards',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/games');
+        expect(request.queryParameters, isEmpty);
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {'id': '1', 'name': 'Magic: The Gathering'},
+              {'id': '3', 'name': 'Pokemon'},
+            ],
+          },
+        });
+      });
+
+      final games = await CardDataApiClient(_dio(adapter)).listGames();
+
+      expect(games.map((game) => game.name), [
+        'Magic: The Gathering',
+        'Pokemon',
+      ]);
+    },
+  );
+
+  test(
+    'searchCatalogSets requests the complete selected game because the Sets tab has no hidden 40-row cutoff',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.path, '/sets/search');
+        expect(request.queryParameters, {
+          'q': '',
+          'game': 'Magic: The Gathering',
+          'page_size': '1000',
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'set_code': 'TMC',
+                'set_name': 'Commander: Teenage Mutant Ninja Turtles',
+                'game': 'Magic: The Gathering',
+                'image_url': 'https://image.tcgcard.fun/cards/679068.jpg',
+                'card_count': 277,
+              },
+            ],
+          },
+        });
+      });
+
+      final sets = await CardDataApiClient(
+        _dio(adapter),
+      ).searchCatalogSets('', game: 'Magic: The Gathering');
+
+      expect(sets.single.setCode, 'TMC');
+      expect(sets.single.imageUrl, 'https://image.tcgcard.fun/cards/679068.jpg');
+    },
+  );
+
+  test(
+    'cardsForSet sends both game and set code because duplicate codes must not leak cards across games',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.path, '/cards/search');
+        expect(request.queryParameters, {
+          'game': 'Pokemon',
+          'set_code': 'BASE',
+          'page': '2',
+          'page_size': '40',
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [_cardJson(cardRef: 'catalog:base-2')],
+          },
+        });
+      });
+
+      final cards = await CardDataApiClient(
+        _dio(adapter),
+      ).cardsForSet('BASE', game: 'Pokemon', page: 2);
+
+      expect(cards.single.cardRef, 'catalog:base-2');
+    },
+  );
+
+  test(
     'searchCards accepts an empty card number because the D1 catalog does not invent identifiers',
     () async {
       final adapter = _RecordingAdapter((request) {
