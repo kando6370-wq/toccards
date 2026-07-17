@@ -138,7 +138,7 @@ Collection 是用户管理已拥有卡牌与关注卡牌的核心页面。完整
 | 默认排序 | 新增并回填 `folder_joined_at`；移动刷新、普通编辑保持不变，Portfolio 默认按该时间倒序 | `07ff54c`、`7c53d9b`；`items.test.ts` |
 | Workers 验证 | 26 个文件、242 项测试、TypeScript 类型检查与 dry-run 构建通过 | 2026-07-17 最新 HEAD 验证 |
 | Flutter 验证 | 344 项通过、1 项原生 OpenCV 条件测试跳过；`flutter analyze` 无问题 | 2026-07-17 最新 HEAD 验证 |
-| 生产部署 | 0005 已应用；当前 Workers 版本 `1c9c6511-f395-4848-8885-dbf9a0eb58ef` | Cloudflare 生产回读 |
+| 生产部署 | 0005 已应用；当前 Workers 版本 `83511391-d10a-41bd-af1b-34528fa0e45e` | Cloudflare 生产回读 |
 | 生产真实业务 smoke | 临时游客 Main：`9359 / Escape Artist` 先加入 Wishlist，再创建 Quantity `2` 的 Portfolio Item；Dashboard 返回当前价 `0.21`、30D 基准 `0.20`，Wishlist 自动归零；临时账号已删除 | 生产 API 2026-07-17 实测 |
 | 生产数据覆盖 | `collection_item` 仅 5 条且全部 Raw；`tcgplayer_skus` 61 行、10 个 product，目录 4066 个 product，最新价格 2026-04-12 | 生产 D1 只读聚合 2026-07-17 |
 

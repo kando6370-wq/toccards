@@ -83,7 +83,7 @@ Search 的闭环是：加载真实卡牌目录和当前文件夹资产状态 -> 
 | E4 | `apps/workers-api/src/data-source/routes.ts` | Cards/Sets/Trending 路由 |
 | E5 | `apps/flutter-app/test/search_controller_test.dart` | Search 业务意图与资产回归测试 |
 | E6 | `apps/workers-api/src/data-source/routes.test.ts` | Game 精确过滤、空查询浏览与跨 Game 聚合测试 |
-| E7 | Worker `1c9c6511-f395-4848-8885-dbf9a0eb58ef` | 2026-07-17 当前生产部署 |
+| E7 | Worker `83511391-d10a-41bd-af1b-34528fa0e45e` | 2026-07-17 当前生产部署 |
 | E8 | `b21d7b8`、`272c053`、`8546b4e`、`7ca202e` | Workers Game/Set 聚合、Flutter Game 透传与 Tab 故障隔离 |
 
 ## 9. 待确认问题与上线边界
