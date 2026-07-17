@@ -347,6 +347,40 @@ void main() {
     },
   );
 
+  test(
+    'Cards query failure stays in Cards because Sets must remain usable and the failed query must be retryable',
+    () async {
+      final repository = _FailingCardSearchRepository();
+      final container = _searchContainer(repository: repository);
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      controller.updateSearch('squirtle');
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+
+      var state = container.read(searchControllerProvider);
+      expect(state.isUnavailable, isFalse);
+      expect(state.isCurrentSearchUnavailable, isTrue);
+
+      controller.selectTab(SearchTab.sets);
+      state = container.read(searchControllerProvider);
+      expect(state.isCurrentSearchUnavailable, isFalse);
+      expect(state.visibleSets, isNotEmpty);
+
+      controller.selectTab(SearchTab.cards);
+      controller.retrySearch();
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+
+      state = container.read(searchControllerProvider);
+      expect(repository.cardCalls, 2);
+      expect(state.isCurrentSearchUnavailable, isFalse);
+      expect(state.visibleCards.map((card) => card.name), ['Squirtle']);
+    },
+  );
+
   test('Cards and Sets search state stays independent', () async {
     final container = _searchContainer();
     addTearDown(container.dispose);
@@ -492,6 +526,29 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
 
   @override
   Future<List<SearchCard>> searchCards(String query, {String? game}) {
+    return const MockSearchRepository().searchCards(query);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query);
+  }
+}
+
+class _FailingCardSearchRepository implements SearchRepository {
+  var cardCalls = 0;
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    return const MockSearchRepository().loadCatalog();
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) async {
+    cardCalls += 1;
+    if (cardCalls == 1) {
+      throw StateError('mock card search unavailable');
+    }
     return const MockSearchRepository().searchCards(query);
   }
 

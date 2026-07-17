@@ -38,6 +38,7 @@ class SearchState {
     required this.selectedGameId,
     required this.searchByTab,
     required this.cardOverrides,
+    this.failedSearchTabs = const {},
   }) : _catalog = catalog,
        loadStatus = KandoLoadStatus.content;
 
@@ -47,6 +48,7 @@ class SearchState {
       selectedGameId = '',
       searchByTab = const {SearchTab.cards: '', SearchTab.sets: ''},
       cardOverrides = const {},
+      failedSearchTabs = const {},
       loadStatus = KandoLoadStatus.failure;
 
   const SearchState.loading()
@@ -55,6 +57,7 @@ class SearchState {
       selectedGameId = '',
       searchByTab = const {SearchTab.cards: '', SearchTab.sets: ''},
       cardOverrides = const {},
+      failedSearchTabs = const {},
       loadStatus = KandoLoadStatus.loading;
 
   const SearchState._({
@@ -63,6 +66,7 @@ class SearchState {
     required this.selectedGameId,
     required this.searchByTab,
     required this.cardOverrides,
+    required this.failedSearchTabs,
     required this.loadStatus,
   }) : _catalog = catalog;
 
@@ -71,6 +75,7 @@ class SearchState {
   final String selectedGameId;
   final Map<SearchTab, String> searchByTab;
   final Map<String, SearchCard> cardOverrides;
+  final Set<SearchTab> failedSearchTabs;
   final KandoLoadStatus loadStatus;
 
   SearchCatalog get catalog {
@@ -83,6 +88,7 @@ class SearchState {
 
   bool get isUnavailable => loadStatus == KandoLoadStatus.failure;
   bool get isLoading => loadStatus == KandoLoadStatus.loading;
+  bool get isCurrentSearchUnavailable => failedSearchTabs.contains(selectedTab);
 
   SearchGame get selectedGame {
     return catalog.games.firstWhere(
@@ -124,6 +130,7 @@ class SearchState {
     String? selectedGameId,
     Map<SearchTab, String>? searchByTab,
     Map<String, SearchCard>? cardOverrides,
+    Set<SearchTab>? failedSearchTabs,
   }) {
     return SearchState._(
       catalog: _catalog,
@@ -131,6 +138,7 @@ class SearchState {
       selectedGameId: selectedGameId ?? this.selectedGameId,
       searchByTab: searchByTab ?? this.searchByTab,
       cardOverrides: cardOverrides ?? this.cardOverrides,
+      failedSearchTabs: failedSearchTabs ?? this.failedSearchTabs,
       loadStatus: loadStatus,
     );
   }
@@ -282,6 +290,15 @@ class SearchController extends Notifier<SearchState> {
     _scheduleSearch(tab: state.selectedTab, query: '', allowEmpty: true);
   }
 
+  void retrySearch() {
+    if (state.isUnavailable || state.isLoading) return;
+    _scheduleSearch(
+      tab: state.selectedTab,
+      query: state.searchText,
+      allowEmpty: true,
+    );
+  }
+
   Future<SearchCollectAction> toggleCollect(String cardId) async {
     if (state.isUnavailable ||
         state.isLoading ||
@@ -425,6 +442,11 @@ class SearchController extends Notifier<SearchState> {
     bool allowEmpty = false,
   }) {
     _searchDebounce?.cancel();
+    if (state.failedSearchTabs.contains(tab)) {
+      state = state.copyWith(
+        failedSearchTabs: {...state.failedSearchTabs}..remove(tab),
+      );
+    }
     final trimmed = query.trim();
     if (trimmed.isEmpty && !allowEmpty) {
       _startLoad(preserveState: state, session: _assetSession);
@@ -462,15 +484,19 @@ class SearchController extends Notifier<SearchState> {
       catalog = await _withAssets(repository, catalog, _assetSession);
       if (!ref.mounted) return;
       if (generation == _loadGeneration) {
+        final failedSearchTabs = {...state.failedSearchTabs}..remove(tab);
         state = _stateForCatalog(
           catalog,
           preserveState: state,
           clearOverrides: repository is SearchAssetRepository,
+          failedSearchTabs: failedSearchTabs,
         );
       }
     } catch (_) {
       if (ref.mounted && generation == _loadGeneration) {
-        state = const SearchState.unavailable();
+        state = state.copyWith(
+          failedSearchTabs: {...state.failedSearchTabs, tab},
+        );
       }
     } finally {
       if (!completer.isCompleted) {
@@ -483,6 +509,7 @@ class SearchController extends Notifier<SearchState> {
     SearchCatalog catalog, {
     SearchState? preserveState,
     bool clearOverrides = false,
+    Set<SearchTab> failedSearchTabs = const {},
   }) {
     final selectedTab = preserveState?.selectedTab ?? SearchTab.cards;
     final selectedGameId = _selectedGameIdFor(catalog, preserveState);
@@ -496,6 +523,7 @@ class SearchController extends Notifier<SearchState> {
       cardOverrides: clearOverrides
           ? const {}
           : preserveState?.cardOverrides ?? const {},
+      failedSearchTabs: failedSearchTabs,
     );
   }
 

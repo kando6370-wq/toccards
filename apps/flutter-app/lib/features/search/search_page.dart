@@ -242,6 +242,12 @@ class _SearchResults extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (state.isCurrentSearchUnavailable) {
+      return KandoFailureBlock(
+        onRefresh: ref.read(searchControllerProvider.notifier).retrySearch,
+      );
+    }
+
     if (state.isNoMatch) {
       return const _SearchEmptyState(
         title: 'No results found',

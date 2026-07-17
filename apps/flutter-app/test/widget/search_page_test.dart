@@ -114,6 +114,42 @@ void main() {
     expect(find.text('Squirtle'), findsOneWidget);
   });
 
+  testWidgets(
+    'Cards query failure keeps Sets available and Refresh retries Cards',
+    (tester) async {
+      final repository = _FailingCardSearchRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField), 'squirtle');
+      await tester.pump(searchDebounceDuration * 2);
+      await tester.pump();
+      expect(find.text(noContentAvailableText), findsOneWidget);
+      expect(find.text(refreshText), findsOneWidget);
+      expect(find.text('Sets'), findsOneWidget);
+
+      await tester.tap(find.text('Sets'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mega Evolution Promos'), findsOneWidget);
+      expect(find.text(noContentAvailableText), findsNothing);
+
+      await tester.tap(find.text('Cards').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(refreshText));
+      await tester.pump(searchDebounceDuration * 2);
+      await tester.pump();
+
+      expect(repository.cardCalls, 2);
+      expect(find.text('Squirtle'), findsOneWidget);
+      expect(find.text(noContentAvailableText), findsNothing);
+    },
+  );
+
   testWidgets('Sets tab keeps its own search state', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -427,6 +463,29 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
 
   @override
   Future<List<SearchCard>> searchCards(String query, {String? game}) {
+    return const MockSearchRepository().searchCards(query);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query);
+  }
+}
+
+class _FailingCardSearchRepository implements SearchRepository {
+  var cardCalls = 0;
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    return const MockSearchRepository().loadCatalog();
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) async {
+    cardCalls += 1;
+    if (cardCalls == 1) {
+      throw StateError('mock card search unavailable');
+    }
     return const MockSearchRepository().searchCards(query);
   }
 
