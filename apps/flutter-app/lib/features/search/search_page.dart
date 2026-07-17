@@ -380,7 +380,7 @@ class _SearchCardTile extends ConsumerWidget {
                                   card.imageUrl!,
                                   fit: BoxFit.contain,
                                   webHtmlElementStrategy:
-                                      WebHtmlElementStrategy.fallback,
+                                      WebHtmlElementStrategy.prefer,
                                   semanticLabel: card.name,
                                   errorBuilder: (context, error, stackTrace) {
                                     return const Icon(

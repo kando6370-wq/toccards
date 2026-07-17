@@ -3175,7 +3175,7 @@ class _ReviewNetworkImage extends StatelessWidget {
     return Image.network(
       url,
       fit: fit,
-      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
       errorBuilder: (_, _, _) => const _ReviewImageUnavailable(),
     );
   }

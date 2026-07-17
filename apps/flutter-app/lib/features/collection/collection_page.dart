@@ -458,7 +458,7 @@ class _CollectionCardTile extends StatelessWidget {
                     : Image.network(
                         item.imageUrl!,
                         fit: BoxFit.contain,
-                        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                         width: double.infinity,
                         height: double.infinity,
                         filterQuality: FilterQuality.high,

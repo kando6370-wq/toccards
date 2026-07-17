@@ -1177,7 +1177,7 @@ class _HomeCardImage extends StatelessWidget {
         url,
         height: height,
         fit: BoxFit.contain,
-        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
         filterQuality: FilterQuality.high,
         errorBuilder: (context, error, stackTrace) =>
             const ColoredBox(color: KandoColors.surface),
