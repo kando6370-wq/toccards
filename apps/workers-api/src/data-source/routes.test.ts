@@ -315,7 +315,7 @@ describe("data source routes", () => {
     expect(await response.json()).toEqual({ success: true, data: { items: [] } });
   });
 
-  it("serves trusted catalog images through the API because Flutter Web canvas cannot render upstream images without CORS", async () => {
+  it("returns transformed R2 detail images and redirects the legacy image route to the R2 master because card rendering must not depend on provider images", async () => {
     const imageUrl =
       "https://product-images.tcgplayer.com/filters:quality(100)/9359.jpg";
     const env = createTestEnv([], [
@@ -331,19 +331,6 @@ describe("data source routes", () => {
         image_url: imageUrl,
       },
     ]);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: string) => {
-        expect(url).toBe(imageUrl);
-        return new Response(Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]), {
-          headers: {
-            "cache-control": "max-age=31536000,public",
-            "content-type": "image/jpeg",
-          },
-        });
-      }),
-    );
-
     const detail = await app.request(
       "https://api.tcgcard.fun/api/v1/cards/9359",
       { headers: { Origin: "http://localhost:3000" } },
@@ -359,26 +346,19 @@ describe("data source routes", () => {
       success: true,
       data: expect.objectContaining({
         card_ref: "9359",
-        image_url: "https://api.tcgcard.fun/api/v1/cards/9359/image",
+        image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=600,height=800,fit=scale-down,quality=85,format=auto,sharpen=1/cards/9359.jpg",
       }),
     });
-    expect(image.status).toBe(200);
-    expect(image.headers.get("content-type")).toBe("image/jpeg");
+    expect(image.status).toBe(302);
+    expect(image.headers.get("location")).toBe(
+      "https://image.tcgcard.fun/cards/9359.jpg",
+    );
     expect(image.headers.get("access-control-allow-origin")).toBe(
       "http://localhost:3000",
     );
-    expect(image.headers.get("cache-control")).toBe(
-      "max-age=31536000,public",
-    );
-    expect(Array.from(new Uint8Array(await image.arrayBuffer()))).toEqual([
-      0xff,
-      0xd8,
-      0xff,
-      0xd9,
-    ]);
   });
 
-  it("keeps untrusted image hosts direct because the card image endpoint must not become an open proxy", async () => {
+  it("ignores provider image hosts because every catalog card must render from R2", async () => {
     const response = await app.request(
       "/api/v1/cards/search?q=pikachu",
       {},
@@ -403,7 +383,7 @@ describe("data source routes", () => {
         items: [
           expect.objectContaining({
             card_ref: "300",
-            image_url: "https://img.example/300.jpg",
+            image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=75,format=auto/cards/300.jpg",
           }),
         ],
         total: 1,
@@ -736,7 +716,7 @@ describe("data source routes", () => {
         name: "Corrected Charizard",
         set_code: "BS",
         rarity: "Promo",
-        image_url: "https://cdn.example.test/charizard.png",
+        image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=600,height=800,fit=scale-down,quality=85,format=auto,sharpen=1/cards/mock%3Atcg%3Acharizard-base-4.jpg",
         override_applied: true,
       }),
     });
@@ -786,7 +766,7 @@ describe("data source routes", () => {
         finish: null,
         language: "English",
         object_type: "tcg",
-        image_url: "https://cdn.example.test/missing-promo.png",
+        image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=600,height=800,fit=scale-down,quality=85,format=auto,sharpen=1/cards/admin%3Atcg%3Amissing-promo.jpg",
         rarity: "Promo",
         override_applied: true,
       },
@@ -824,7 +804,7 @@ describe("data source routes", () => {
           expect.objectContaining({
             card_ref: cardRef,
             name: "Trending Charizard",
-            image_url: "https://cdn.example.test/trending-charizard.png",
+            image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=75,format=auto/cards/mock%3Atcg%3Acharizard-base-4.jpg",
             pinned: false,
             override_applied: true,
           }),

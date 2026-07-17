@@ -6,6 +6,7 @@ import {
   priceOnDate,
   type SkuRow,
 } from "./valuation-history";
+import { cardImageUrl } from "../card-image-url";
 
 export type DashboardPortfolioRow = {
   id: string;
@@ -72,7 +73,7 @@ function presentation(
     set_name: card?.set_name ?? "Card data unavailable",
     card_number: "",
     game: card?.game ?? "Unknown",
-    image_url: card?.image_url ?? null,
+    image_url: cardImageUrl(item.card_ref, "thumbnail"),
     market_price_usd: sku ? priceOnDate(sku.price_history, currentDate) : null,
     previous_30d_price_usd: sku ? priceOnDate(sku.price_history, baselineDate) : null,
     market_language: sku?.language_name ?? null,

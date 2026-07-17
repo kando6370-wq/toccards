@@ -43,6 +43,7 @@ describe("collection dashboard enrichment", () => {
     expect(result.portfolio_items).toHaveLength(101);
     expect(result.portfolio_items[0]).toMatchObject({
       name: "Server Card",
+      image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=160,height=224,fit=scale-down,quality=60,format=auto,dpr=2/cards/100.jpg",
       market_price_usd: 20,
       previous_30d_price_usd: 10,
     });
