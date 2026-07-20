@@ -299,12 +299,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
         .toList();
   }
 
-  List<_ScanItem> get _addedItems {
-    return _items
-        .where((item) => item.status == _ScanItemStatus.added)
-        .toList();
-  }
-
   _ScanItem? get _singleTerminalCameraItem {
     if (_hasScanning) {
       return null;
@@ -1191,7 +1185,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 cameraPreview: _cameraSession?.buildPreview(),
                 flashEnabled: _cameraSession?.flashEnabled ?? false,
                 items: _items,
-                addedItems: _addedItems,
                 lastAddedCount: _lastAddedCount,
                 canReview: _canReview,
                 completedItem: _completedCameraItem,
@@ -1228,7 +1221,6 @@ class _ScanCameraView extends StatelessWidget {
     required this.cameraPreview,
     required this.flashEnabled,
     required this.items,
-    required this.addedItems,
     required this.lastAddedCount,
     required this.canReview,
     required this.completedItem,
@@ -1256,7 +1248,6 @@ class _ScanCameraView extends StatelessWidget {
   final Widget? cameraPreview;
   final bool flashEnabled;
   final List<_ScanItem> items;
-  final List<_ScanItem> addedItems;
   final int? lastAddedCount;
 
   final bool canReview;
@@ -1417,20 +1408,6 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ],
-        if ((scanning || recognizing || revealing) &&
-            !completed &&
-            !showingFailedFeedback)
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 134,
-            child: _ActiveScanResults(
-              items: items,
-              showRevealingFeedback: showRevealingFeedback,
-              onDismissRevealing: onDismissScanFeedback,
-              onDeleteItem: onDeleteItem,
-            ),
-          ),
         if (completed)
           _FigmaCompletedActions(
             item: completedItem!,
@@ -1451,29 +1428,20 @@ class _ScanCameraView extends StatelessWidget {
             onRetryPressed: () => onRetryItem(failedItem!),
             onDismissPressed: onDismissFailedFeedback,
           ),
-        if (!scanning &&
-            !recognizing &&
-            !revealing &&
-            !completed &&
-            !failed &&
-            items.isNotEmpty)
+        if (!completed && !failed && items.isNotEmpty)
           Positioned(
             left: 16,
             right: 16,
-            bottom: 144,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 292),
-              child: SingleChildScrollView(
-                child: _ScanResults(
-                  items: items,
-                  addedItems: addedItems,
-                  lastAddedCount: lastAddedCount,
-                  onReviewItem: onReviewItem,
-                  onRetryItem: onRetryItem,
-                  onDeleteItem: onDeleteItem,
-                  onSearchPressed: onSearchItem,
-                ),
-              ),
+            bottom: 134,
+            child: _ScanResults(
+              items: items,
+              lastAddedCount: lastAddedCount,
+              showRevealingFeedback: showRevealingFeedback,
+              onDismissRevealing: onDismissScanFeedback,
+              onReviewItem: onReviewItem,
+              onRetryItem: onRetryItem,
+              onDeleteItem: onDeleteItem,
+              onSearchPressed: onSearchItem,
             ),
           ),
         if (!completed && !showingFailedFeedback)
@@ -2414,77 +2382,6 @@ class _FigmaSpringCurve extends Curve {
   }
 }
 
-class _ActiveScanResults extends StatelessWidget {
-  const _ActiveScanResults({
-    required this.items,
-    required this.showRevealingFeedback,
-    required this.onDismissRevealing,
-    required this.onDeleteItem,
-  });
-
-  final List<_ScanItem> items;
-  final bool showRevealingFeedback;
-  final VoidCallback onDismissRevealing;
-  final ValueChanged<_ScanItem> onDeleteItem;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleItems = items.where((item) {
-      final active =
-          item.status == _ScanItemStatus.scanning ||
-          item.status == _ScanItemStatus.recognizing ||
-          item.status == _ScanItemStatus.revealing;
-      return active &&
-          (item.status != _ScanItemStatus.revealing || showRevealingFeedback);
-    }).toList();
-    if (visibleItems.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final completedCount = items.where((item) {
-      return item.status == _ScanItemStatus.matched ||
-          item.status == _ScanItemStatus.failed ||
-          item.status == _ScanItemStatus.noMatch ||
-          item.status == _ScanItemStatus.added;
-    }).length;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Scanned: $completedCount/${items.length}',
-          style: const TextStyle(
-            color: Color(0xFFEEECD8),
-            fontFamily: 'Geist',
-            fontSize: 13,
-            height: 16 / 13,
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 82,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: visibleItems.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final item = visibleItems[index];
-              return _ScanRevealingToast(
-                key: Key('scan-active-item-${item.id}'),
-                closeTooltip: item.status == _ScanItemStatus.revealing
-                    ? 'Dismiss scan feedback'
-                    : 'Cancel scan',
-                onClosePressed: item.status == _ScanItemStatus.revealing
-                    ? onDismissRevealing
-                    : () => onDeleteItem(item),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _ScanRevealingToast extends StatelessWidget {
   const _ScanRevealingToast({
     required super.key,
@@ -2692,8 +2589,9 @@ class _ViewfinderPainter extends CustomPainter {
 class _ScanResults extends StatelessWidget {
   const _ScanResults({
     required this.items,
-    required this.addedItems,
     required this.lastAddedCount,
+    required this.showRevealingFeedback,
+    required this.onDismissRevealing,
     required this.onReviewItem,
     required this.onRetryItem,
     required this.onDeleteItem,
@@ -2701,8 +2599,9 @@ class _ScanResults extends StatelessWidget {
   });
 
   final List<_ScanItem> items;
-  final List<_ScanItem> addedItems;
   final int? lastAddedCount;
+  final bool showRevealingFeedback;
+  final VoidCallback onDismissRevealing;
   final ValueChanged<int?> onReviewItem;
   final ValueChanged<_ScanItem> onRetryItem;
   final ValueChanged<_ScanItem> onDeleteItem;
@@ -2710,46 +2609,82 @@ class _ScanResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
+    final visibleItems = items.where((item) {
+      return item.status != _ScanItemStatus.revealing || showRevealingFeedback;
+    }).toList();
+    if (visibleItems.isEmpty) {
       return const SizedBox.shrink();
     }
+    final completedCount = items.where((item) {
+      return item.status == _ScanItemStatus.matched ||
+          item.status == _ScanItemStatus.failed ||
+          item.status == _ScanItemStatus.noMatch ||
+          item.status == _ScanItemStatus.added;
+    }).length;
+    final hasValuedCards = items.any(
+      (item) =>
+          item.status == _ScanItemStatus.matched ||
+          item.status == _ScanItemStatus.added,
+    );
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (lastAddedCount != null)
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.check_circle_outline),
-              title: Text(
-                lastAddedCount == 1
+        SizedBox(
+          height: 16,
+          child: Row(
+            children: [
+              Text(
+                lastAddedCount == null
+                    ? 'Scanned: $completedCount/${items.length}'
+                    : lastAddedCount == 1
                     ? 'Added to Portfolio'
                     : 'Added $lastAddedCount cards to Portfolio',
+                style: const TextStyle(
+                  color: Color(0xFFEEECD8),
+                  fontFamily: 'Geist',
+                  fontSize: 13,
+                  height: 16 / 13,
+                ),
               ),
-            ),
+              const Spacer(),
+              if (hasValuedCards)
+                const Text(
+                  'Total: \$16,874.16',
+                  style: TextStyle(
+                    color: Color(0xFFFFF6AF),
+                    fontFamily: 'Geist Mono',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 15 / 13,
+                  ),
+                ),
+            ],
           ),
-        Text('Scan Results', style: Theme.of(context).textTheme.titleMedium),
+        ),
         const SizedBox(height: 8),
-        for (final item in items)
-          _ScanItemCard(
-            item: item,
-            onReview: () => onReviewItem(item.id),
-            onRetry: () => onRetryItem(item),
-            onDelete: () => onDeleteItem(item),
-            onSearch: () => onSearchPressed(item),
+        SizedBox(
+          height: 82,
+          child: ListView.separated(
+            key: const Key('scan-figma-result-rail'),
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            itemCount: visibleItems.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final item = visibleItems[index];
+              return _ScanItemCard(
+                key: Key('scan-active-item-${item.id}'),
+                item: item,
+                onReview: () => onReviewItem(item.id),
+                onRetry: () => onRetryItem(item),
+                onDelete: () => onDeleteItem(item),
+                onDismissRevealing: onDismissRevealing,
+                onSearch: () => onSearchPressed(item),
+              );
+            },
           ),
-        if (addedItems.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text('Added Cards', style: Theme.of(context).textTheme.titleMedium),
-          for (final item in addedItems)
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.check_circle_outline),
-                title: const Text('Added to Portfolio'),
-                subtitle: Text(item.match?.name ?? item.pictureLabel),
-              ),
-            ),
-        ],
+        ),
       ],
     );
   }
@@ -2757,10 +2692,12 @@ class _ScanResults extends StatelessWidget {
 
 class _ScanItemCard extends StatelessWidget {
   const _ScanItemCard({
+    required super.key,
     required this.item,
     required this.onReview,
     required this.onRetry,
     required this.onDelete,
+    required this.onDismissRevealing,
     required this.onSearch,
   });
 
@@ -2768,124 +2705,202 @@ class _ScanItemCard extends StatelessWidget {
   final VoidCallback onReview;
   final VoidCallback onRetry;
   final VoidCallback onDelete;
+  final VoidCallback onDismissRevealing;
   final VoidCallback onSearch;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: switch (item.status) {
-          _ScanItemStatus.scanning => ListTile(
-            leading: const Icon(Icons.document_scanner_outlined),
-            title: const Text('Scanning'),
-            subtitle: Text(item.pictureLabel),
-          ),
-          _ScanItemStatus.recognizing => ListTile(
-            leading: const Icon(Icons.document_scanner_outlined),
-            title: const Text('Recognizing'),
-            subtitle: Text(item.pictureLabel),
-          ),
-          _ScanItemStatus.revealing => ListTile(
-            leading: const Icon(Icons.document_scanner_outlined),
-            title: const Text('Scanning...'),
-            subtitle: Text(item.pictureLabel),
-          ),
-          _ScanItemStatus.matched => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.check_circle_outline),
-                title: Text('Matched'),
+    if (item.status == _ScanItemStatus.scanning ||
+        item.status == _ScanItemStatus.recognizing ||
+        item.status == _ScanItemStatus.revealing) {
+      return _ScanRevealingToast(
+        key: null,
+        closeTooltip: item.status == _ScanItemStatus.revealing
+            ? 'Dismiss scan feedback'
+            : 'Cancel scan',
+        onClosePressed: item.status == _ScanItemStatus.revealing
+            ? onDismissRevealing
+            : onDelete,
+      );
+    }
+
+    final matched = item.status == _ScanItemStatus.matched;
+    final added = item.status == _ScanItemStatus.added;
+    final failed = item.status == _ScanItemStatus.failed;
+    final width = matched || added ? 218.0 : 176.0;
+    final title = matched || added
+        ? item.match?.name ?? item.pictureLabel
+        : failed
+        ? 'Failed'
+        : 'No Match Found';
+    final action = matched
+        ? onReview
+        : failed
+        ? onRetry
+        : item.status == _ScanItemStatus.noMatch
+        ? onSearch
+        : null;
+
+    return Tooltip(
+      message: matched
+          ? 'Review scan result'
+          : failed
+          ? 'Retry scan'
+          : 'Search manually',
+      child: InkWell(
+        onTap: action,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: width,
+          height: 82,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF292B20),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: failed ? const Color(0x668C5260) : const Color(0x1A90927C),
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x40000000),
+                blurRadius: 50,
+                spreadRadius: -12,
+                offset: Offset(0, 25),
               ),
-              Text(item.match?.name ?? item.pictureLabel),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: onReview,
-                  icon: const Icon(Icons.fact_check_outlined),
-                  label: const Text('Review'),
+            ],
+          ),
+          child: Row(
+            children: [
+              _ScanResultThumbnail(item: item),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: failed
+                                  ? const Color(0xFFFF8493)
+                                  : const Color(0xFFEEECD8),
+                              fontFamily: 'Geist',
+                              fontSize: 16,
+                              height: 24 / 16,
+                            ),
+                          ),
+                        ),
+                        if (!matched && !added)
+                          Tooltip(
+                            message: 'Delete scan result',
+                            child: InkWell(
+                              onTap: onDelete,
+                              child: SvgPicture.asset(
+                                'assets/scan/reveal_close.svg',
+                                width: 10.5,
+                                height: 10.5,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (matched || added)
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0x33F0FE6F),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              added ? 'ADDED' : 'PSA 10',
+                              style: const TextStyle(
+                                color: Color(0xFFF0FE6F),
+                                fontFamily: 'Geist Mono',
+                                fontSize: 11,
+                                height: 16 / 11,
+                              ),
+                            ),
+                          ),
+                          if (!added) ...[
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                '\$16,785.28',
+                                maxLines: 1,
+                                overflow: TextOverflow.clip,
+                                style: TextStyle(
+                                  color: Color(0xFFFFF6AF),
+                                  fontFamily: 'Geist Mono',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  height: 15 / 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      )
+                    else
+                      Text(
+                        failed ? 'Tap to retry' : 'Search Manually',
+                        maxLines: 1,
+                        style: const TextStyle(
+                          color: Color(0xFFF0FE6F),
+                          fontFamily: 'Geist',
+                          fontSize: 13,
+                          height: 16 / 13,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
           ),
-          _ScanItemStatus.failed => _ActionResult(
-            icon: Icons.error_outline,
-            title: 'Failed',
-            subtitle: 'Recognition failed',
-            primaryLabel: 'Retry',
-            onPrimary: onRetry,
-            secondaryLabel: 'Delete',
-            onSecondary: onDelete,
-          ),
-          _ScanItemStatus.noMatch => _ActionResult(
-            icon: Icons.search_off_outlined,
-            title: 'No Match Found',
-            subtitle: 'No database match for this scan',
-            primaryLabel: 'Search Manually',
-            onPrimary: onSearch,
-            secondaryLabel: 'Delete',
-            onSecondary: onDelete,
-          ),
-          _ScanItemStatus.added => ListTile(
-            leading: const Icon(Icons.check_circle_outline),
-            title: const Text('Added to Portfolio'),
-            subtitle: Text(item.match?.name ?? item.pictureLabel),
-          ),
-        },
+        ),
       ),
     );
   }
 }
 
-class _ActionResult extends StatelessWidget {
-  const _ActionResult({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.primaryLabel,
-    required this.onPrimary,
-    required this.secondaryLabel,
-    required this.onSecondary,
-  });
+class _ScanResultThumbnail extends StatelessWidget {
+  const _ScanResultThumbnail({required this.item});
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String primaryLabel;
-  final VoidCallback onPrimary;
-  final String secondaryLabel;
-  final VoidCallback onSecondary;
+  final _ScanItem item;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon),
-          title: Text(title),
-          subtitle: Text(subtitle),
-        ),
-        Wrap(
-          spacing: 8,
-          children: [
-            FilledButton.icon(
-              onPressed: onPrimary,
-              icon: const Icon(Icons.search_outlined),
-              label: Text(primaryLabel),
-            ),
-            TextButton.icon(
-              onPressed: onSecondary,
-              icon: const Icon(Icons.delete_outline),
-              label: Text(secondaryLabel),
-            ),
-          ],
-        ),
-      ],
+    final bytes = item.imageBytes;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        width: 42,
+        height: 58,
+        color: const Color(0xFF10100B),
+        alignment: Alignment.center,
+        child: bytes == null
+            ? SvgPicture.asset(
+                'assets/scan/reveal_question.svg',
+                width: 18,
+                height: 28,
+              )
+            : Image.memory(
+                bytes,
+                width: 42,
+                height: 58,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+              ),
+      ),
     );
   }
 }

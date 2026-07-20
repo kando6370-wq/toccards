@@ -1114,9 +1114,25 @@ void main() {
     expect(find.text('Mega Lucario ex'), findsOneWidget);
     expect(find.text('Failed'), findsOneWidget);
     expect(find.text('No Match Found'), findsOneWidget);
-    expect(find.text('Retry'), findsOneWidget);
-    expect(find.text('Delete'), findsWidgets);
+    expect(find.text('Tap to retry'), findsOneWidget);
+    expect(find.byTooltip('Delete scan result'), findsNWidgets(2));
     expect(find.text('Search Manually'), findsOneWidget);
+    expect(find.text('Scan Results'), findsNothing);
+
+    final resultRail = tester.getRect(
+      find.byKey(const Key('scan-figma-result-rail')),
+    );
+    final firstResult = tester.getRect(
+      find.byKey(const Key('scan-active-item-1')),
+    );
+    final secondResult = tester.getRect(
+      find.byKey(const Key('scan-active-item-2')),
+    );
+    expect(resultRail.height, 82);
+    expect(firstResult.height, 82);
+    expect(secondResult.height, 82);
+    expect(secondResult.left, greaterThan(firstResult.left));
+    expect(secondResult.top, firstResult.top);
 
     final doneWithMatched = tester.widget<TextButton>(
       find.widgetWithText(TextButton, 'DONE'),
