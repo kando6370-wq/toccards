@@ -60,18 +60,14 @@ export const games = sqliteTable("games", {
 export const sets = sqliteTable(
   "sets",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
     game: text("game").notNull(),
     name: text("name").notNull(),
     setCode: text("set_code"),
-    setId: text("set_id"),
+    setId: text("set_id").primaryKey(),
     productId: text("product_id"),
     totalCards: integer("total_cards").default(0),
   },
-  (t) => [
-    unique("uq_sets_game_name").on(t.game, t.name),
-    index("idx_sets_set_id").on(t.setId),
-  ],
+  (t) => [unique("uq_sets_game_name").on(t.game, t.name)],
 );
 
 export const tcgplayerSkus = sqliteTable(
