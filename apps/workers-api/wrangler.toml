@@ -24,8 +24,8 @@ run_worker_first = ["/api/*"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "cards_basic_information"
-database_id = "6096d92e-571b-4668-9e83-543f64300de4" # Cloudflare D1: cards_basic_information
+database_name = "cards_basic_information_all"
+database_id = "6a22aeca-e7e9-4064-a301-f18c4a0acb41" # Cloudflare D1: cards_basic_information_all
 migrations_dir = "src/db/migrations"
 
 [[kv_namespaces]]

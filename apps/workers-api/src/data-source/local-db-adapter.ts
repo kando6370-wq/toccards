@@ -104,7 +104,7 @@ LIMIT ? OFFSET ?`,
            WHERE lower(s.name || ' ' || coalesce(s.set_code, '')) LIKE ?
              AND trim(coalesce(s.set_code, '')) <> ''
              ${gameClause}
-           ORDER BY coalesce(s.release_date, '') DESC, s.name ASC
+           ORDER BY s.name ASC
            LIMIT ? OFFSET ?`,
         )
         .bind(...bindings)

@@ -66,10 +66,7 @@ export const sets = sqliteTable(
     setCode: text("set_code"),
     setId: text("set_id"),
     productId: text("product_id"),
-    series: text("series"),
     totalCards: integer("total_cards").default(0),
-    releaseDate: text("release_date"),
-    createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
   },
   (t) => [
     unique("uq_sets_game_name").on(t.game, t.name),

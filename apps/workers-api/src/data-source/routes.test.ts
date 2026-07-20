@@ -49,7 +49,6 @@ type SetCatalogRow = {
   set_code: string | null;
   product_id: string | null;
   total_cards: number | null;
-  release_date: string | null;
 };
 
 type GameCatalogRow = {
@@ -185,9 +184,7 @@ class FakeD1BoundStatement {
               .includes(query) &&
             Boolean(set.set_code?.trim()),
         )
-        .sort((left, right) =>
-          (right.release_date ?? "").localeCompare(left.release_date ?? ""),
-        )
+        .sort((left, right) => left.name.localeCompare(right.name))
         .slice(offset, offset + limit)
         .map((set) => ({
           set_code: set.set_code,
@@ -707,7 +704,6 @@ describe("data source routes", () => {
           set_code: "SHARED",
           product_id: "pokemon-1",
           total_cards: 2,
-          release_date: "2026-01-02",
         },
         {
           game: "Magic: The Gathering",
@@ -715,7 +711,6 @@ describe("data source routes", () => {
           set_code: "SHARED",
           product_id: "magic-1",
           total_cards: 1,
-          release_date: "2026-01-01",
         },
       ],
     );
@@ -742,15 +737,15 @@ describe("data source routes", () => {
         items: [
           expect.objectContaining({
             set_code: "SHARED",
+            game: "Magic: The Gathering",
+            card_count: 1,
+          }),
+          expect.objectContaining({
+            set_code: "SHARED",
             game: "Pokemon",
             card_count: 2,
             image_url:
               "https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=75,format=auto/cards/pokemon-1.jpg",
-          }),
-          expect.objectContaining({
-            set_code: "SHARED",
-            game: "Magic: The Gathering",
-            card_count: 1,
           }),
         ],
         total: 2,

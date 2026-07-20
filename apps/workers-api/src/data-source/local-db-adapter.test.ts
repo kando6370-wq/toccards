@@ -19,7 +19,6 @@ type SetRow = {
   set_code: string | null;
   product_id: string | null;
   total_cards: number | null;
-  release_date: string | null;
 };
 
 type SkuRow = {
@@ -88,9 +87,7 @@ class FakeBoundStatement {
               .includes(query) &&
             Boolean(set.set_code?.trim()),
         )
-        .sort((left, right) =>
-          (right.release_date ?? "").localeCompare(left.release_date ?? ""),
-        )
+        .sort((left, right) => left.name.localeCompare(right.name))
         .slice(offset, offset + limit)
         .map((set) => ({
           set_code: set.set_code,
@@ -318,7 +315,6 @@ describe("local D1 card data source adapter", () => {
             set_code: "BS",
             product_id: "100",
             total_cards: 2,
-            release_date: "1999-01-09",
           },
         ],
       ) as unknown as D1Database,
