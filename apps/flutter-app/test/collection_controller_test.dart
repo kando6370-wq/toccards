@@ -516,6 +516,30 @@ void main() {
     ]);
   });
 
+  test(
+    'price ascending keeps missing values last for the Figma filter',
+    () async {
+      final container = _collectionContainer();
+      addTearDown(container.dispose);
+      await _loadedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      controller.applySortAndFilters(
+        sort: CollectionSort.valueAsc,
+        games: {'Pokemon'},
+        languages: {'English'},
+      );
+
+      expect(
+        container
+            .read(collectionControllerProvider)
+            .visibleItems
+            .map((item) => item.name),
+        ['Umbreon VMAX', 'Charizard ex'],
+      );
+    },
+  );
+
   test('amount hiding masks money but leaves percentages readable', () async {
     final container = _collectionContainer();
     addTearDown(container.dispose);

@@ -1,6 +1,6 @@
 enum CollectionTab { portfolio, wishlist }
 
-enum CollectionSort { newest, valueDesc, changeDesc, nameAsc }
+enum CollectionSort { newest, valueDesc, valueAsc, changeDesc, nameAsc }
 
 class CollectionFolder {
   const CollectionFolder({

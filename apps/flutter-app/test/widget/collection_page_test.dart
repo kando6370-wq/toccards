@@ -24,6 +24,32 @@ import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  testWidgets('Collection filter matches the 390x884 Figma viewport', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 884);
+    addTearDown(tester.view.reset);
+
+    await _pumpCollection(tester);
+    await tester.tap(find.byKey(const Key('collection-filter-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Filter'), findsOneWidget);
+    expect(find.text('Price: High to Low'), findsOneWidget);
+    expect(find.text('Price: Low to High'), findsOneWidget);
+    expect(find.text('English'), findsOneWidget);
+    expect(find.text('Pokémon'), findsOneWidget);
+    expect(find.byKey(const Key('collection-filter-apply')), findsOneWidget);
+    expect(
+      tester
+          .getBottomRight(find.byKey(const Key('collection-filter-apply')))
+          .dy,
+      lessThanOrEqualTo(884),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Collection shows Portfolio summary and rows by default', (
     tester,
   ) async {
@@ -218,11 +244,24 @@ void main() {
 
     await tester.tap(find.byKey(const Key('collection-filter-button')));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).last, const Offset(0, -500));
-    await tester.pumpAndSettle();
+    expect(find.text('Price: High to Low'), findsOneWidget);
+    expect(find.text('Price: Low to High'), findsOneWidget);
+    expect(find.text('LANGUAGE'), findsOneWidget);
+    expect(find.text('GAME / IP'), findsOneWidget);
     await tester.tap(find.text('Japanese').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Apply'));
+    await tester.scrollUntilVisible(
+      find.text('Pokémon'),
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Pokémon'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('collection-filter-apply')),
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byKey(const Key('collection-filter-apply')));
     await tester.pumpAndSettle();
 
     expect(find.text('Pikachu Promo'), findsOneWidget);
@@ -331,9 +370,16 @@ void main() {
       await tester.tap(find.text('Empty').last);
       await tester.pumpAndSettle();
 
-      expect(find.text('No cards in this portfolio yet.'), findsOneWidget);
+      expect(find.text('Start your portfolio'), findsOneWidget);
+      expect(find.text('Scan or search cards to track value'), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-portfolio-empty-illustration')),
+        findsOneWidget,
+      );
 
-      await tester.tap(find.text('Scan a Card'));
+      await tester.ensureVisible(find.text('SCAN A CARD'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('SCAN A CARD'));
       await tester.pumpAndSettle();
 
       expect(find.text('ALIGN CARD HERE'), findsOneWidget);
@@ -365,15 +411,46 @@ void main() {
       await tester.tap(find.text('Empty').last);
       await tester.pumpAndSettle();
 
-      expect(find.text('No cards in this portfolio yet.'), findsOneWidget);
+      expect(find.text('Start your portfolio'), findsOneWidget);
 
-      await tester.tap(find.text('Search Cards'));
+      await tester.ensureVisible(find.text('SEARCH A CARD'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('SEARCH A CARD'));
       await tester.pumpAndSettle();
 
       expect(find.text('Search cards, sets, or characters'), findsOneWidget);
       expect(find.text('Squirtle'), findsOneWidget);
     },
   );
+
+  testWidgets('Wishlist empty state matches the Figma recovery layout', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._localAuthOverrides(),
+          collectionRepositoryProvider.overrideWithValue(
+            const _EmptyWishlistCollectionRepository(),
+          ),
+        ],
+        child: const _CollectionTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Wishlist'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your wishlist is empty'), findsOneWidget);
+    expect(find.text('Add cards you want to collect later'), findsOneWidget);
+    expect(find.text('SEARCH CARDS'), findsOneWidget);
+    expect(
+      find.byKey(const Key('collection-wishlist-empty-illustration')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('collection-portfolio-summary')), findsNothing);
+  });
 
   testWidgets('Scan bottom tab opens the Scan workflow page', (tester) async {
     await tester.pumpWidget(
@@ -520,5 +597,15 @@ class _FailingPreferenceCollectionRepository extends MockCollectionRepository {
     String? lastSelectedFolderId,
   }) {
     throw StateError('Preference backend rejected the mutation.');
+  }
+}
+
+class _EmptyWishlistCollectionRepository extends MockCollectionRepository {
+  const _EmptyWishlistCollectionRepository();
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    final dashboard = await super.loadDashboard(session);
+    return dashboard.copyWith(wishlistItems: const []);
   }
 }

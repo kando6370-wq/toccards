@@ -43,7 +43,8 @@ void main() {
     expect(find.text('+4.76%'), findsOneWidget);
     expect(find.text('+8.10%'), findsOneWidget);
     expect(find.text('Qty: 0'), findsWidgets);
-    expect(find.text('Collect'), findsWidgets);
+    expect(find.byKey(const Key('search-collect-squirtle')), findsOneWidget);
+    expect(find.text('Collect'), findsNothing);
   });
 
   testWidgets(
@@ -207,13 +208,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.favorite), findsOneWidget);
 
-    final collectButton = find.widgetWithText(TextButton, 'Collect').first;
+    final collectButton = find.byKey(const Key('search-collect-squirtle'));
     await tester.ensureVisible(collectButton);
     await tester.pumpAndSettle();
     await tester.tap(collectButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('Collected'), findsWidgets);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('search-card-squirtle')),
+        matching: find.byTooltip('Collected'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Collected'), findsNothing);
     expect(
       find.descendant(
         of: find.byKey(const Key('search-card-squirtle')),

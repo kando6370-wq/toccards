@@ -221,6 +221,10 @@ class CollectionState {
           a.marketValueUsd,
           b.marketValueUsd,
         ),
+        CollectionSort.valueAsc => _nullableDoubleAsc(
+          a.marketValueUsd,
+          b.marketValueUsd,
+        ),
         CollectionSort.changeDesc => _nullableDoubleDesc(
           _changePercent(a),
           _changePercent(b),
@@ -344,6 +348,19 @@ class CollectionState {
     }
     return right.compareTo(left);
   }
+
+  static int _nullableDoubleAsc(double? left, double? right) {
+    if (left == null && right == null) {
+      return 0;
+    }
+    if (left == null) {
+      return 1;
+    }
+    if (right == null) {
+      return -1;
+    }
+    return left.compareTo(right);
+  }
 }
 
 class CollectionController extends Notifier<CollectionState> {
@@ -433,18 +450,15 @@ class CollectionController extends Notifier<CollectionState> {
         }
         if (generation != _loadGeneration) return;
         final sharedFolderId = ref.read(selectedPortfolioFolderProvider);
-        final selectedFolderId = dashboard.folders.any(
-          (folder) => folder.id == sharedFolderId,
-        )
+        final selectedFolderId =
+            dashboard.folders.any((folder) => folder.id == sharedFolderId)
             ? sharedFolderId!
             : dashboard.defaultFolder.id;
         final amountHidden =
             ref.read(portfolioAmountHiddenProvider) ?? dashboard.amountHidden;
         final initialSort =
             ref.read(collectionInitialSortProvider) ?? CollectionSort.newest;
-        ref
-            .read(selectedCurrencyProvider.notifier)
-            .select(preferredCurrency);
+        ref.read(selectedCurrencyProvider.notifier).select(preferredCurrency);
         state = CollectionState(
           dashboard: dashboard,
           selectedTab: CollectionTab.portfolio,
@@ -475,9 +489,7 @@ class CollectionController extends Notifier<CollectionState> {
               .select(selectedFolderId);
         }
         if (ref.read(portfolioAmountHiddenProvider) == null) {
-          ref
-              .read(portfolioAmountHiddenProvider.notifier)
-              .select(amountHidden);
+          ref.read(portfolioAmountHiddenProvider.notifier).select(amountHidden);
         }
       }
     } catch (_) {
@@ -515,13 +527,10 @@ class CollectionController extends Notifier<CollectionState> {
     state = state.copyWith(selectedFolderId: folderId);
     try {
       final session = ref.read(authControllerProvider).session!;
-      await ref.read(collectionRepositoryProvider).updatePreferences(
-        session,
-        lastSelectedFolderId: folderId,
-      );
-      ref
-          .read(selectedPortfolioFolderProvider.notifier)
-          .select(folderId);
+      await ref
+          .read(collectionRepositoryProvider)
+          .updatePreferences(session, lastSelectedFolderId: folderId);
+      ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
       return true;
     } catch (_) {
       state = state.copyWith(selectedFolderId: previousFolderId);
@@ -649,10 +658,9 @@ class CollectionController extends Notifier<CollectionState> {
     }
     try {
       final session = ref.read(authControllerProvider).session!;
-      await ref.read(collectionRepositoryProvider).deleteFolder(
-        session,
-        folderId,
-      );
+      await ref
+          .read(collectionRepositoryProvider)
+          .deleteFolder(session, folderId);
       final fallbackId = state.dashboard.defaultFolder.id;
       final selectedFolderId = state.selectedFolderId == folderId
           ? fallbackId
@@ -669,9 +677,7 @@ class CollectionController extends Notifier<CollectionState> {
         selectedFolderId: selectedFolderId,
       );
       if (selectedFolderId == fallbackId) {
-        ref
-            .read(selectedPortfolioFolderProvider.notifier)
-            .select(fallbackId);
+        ref.read(selectedPortfolioFolderProvider.notifier).select(fallbackId);
       }
       _invalidateFolderConsumers();
       return true;
@@ -727,13 +733,10 @@ class CollectionController extends Notifier<CollectionState> {
     state = state.copyWith(amountHidden: !previous);
     try {
       final session = ref.read(authControllerProvider).session!;
-      await ref.read(collectionRepositoryProvider).updatePreferences(
-        session,
-        amountHidden: !previous,
-      );
-      ref
-          .read(portfolioAmountHiddenProvider.notifier)
-          .select(!previous);
+      await ref
+          .read(collectionRepositoryProvider)
+          .updatePreferences(session, amountHidden: !previous);
+      ref.read(portfolioAmountHiddenProvider.notifier).select(!previous);
       return true;
     } catch (_) {
       state = state.copyWith(amountHidden: previous);
