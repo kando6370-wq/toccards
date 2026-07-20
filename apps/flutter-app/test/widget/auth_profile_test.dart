@@ -11,6 +11,7 @@ import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/oauth_authorizer.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/ui/auth_sheet.dart';
+import 'package:kando_app/features/auth/ui/email_auth_pages.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
@@ -26,10 +27,10 @@ void main() {
       initialSession: _anonymousSession('anon-existing'),
     );
 
-    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpWidget(_testEmailAuthPageApp(repository));
     await tester.pumpAndSettle();
-    await _openProfileTab(tester);
-    await _openEmailAuth(tester);
+    await tester.tap(find.text('Open email auth'));
+    await tester.pumpAndSettle();
 
     final continueButton = find.widgetWithText(FilledButton, 'CONTINUE');
     expect(tester.widget<FilledButton>(continueButton).onPressed, isNull);
@@ -125,10 +126,10 @@ void main() {
       initialSession: _anonymousSession('anon-existing'),
     );
 
-    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpWidget(_testEmailAuthPageApp(repository));
     await tester.pumpAndSettle();
-    await _openProfileTab(tester);
-    await _openEmailAuth(tester);
+    await tester.tap(find.text('Open email auth'));
+    await tester.pumpAndSettle();
     await _continueWithEmail(tester, ' PERSON@example.com ');
 
     await tester.enterText(find.byType(TextFormField), 'password123');
@@ -626,17 +627,17 @@ void main() {
     },
   );
 
-  testWidgets('register password mismatch blocks submit', (tester) async {
+  testWidgets('register password page matches figma validation states', (
+    tester,
+  ) async {
     final repository = _WidgetAuthRepository(
       initialSession: _anonymousSession('anon-existing'),
       emailRegistered: false,
     );
 
-    await tester.pumpWidget(_testAuthSheetApp(repository));
+    await tester.pumpWidget(_testEmailAuthPageApp(repository));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Open auth'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Continue with Email'));
+    await tester.tap(find.text('Open email auth'));
     await tester.pumpAndSettle();
     await _continueWithEmail(
       tester,
@@ -650,13 +651,28 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'password123');
-    await tester.enterText(fields.at(1), 'password456');
-    await tester.tap(find.widgetWithText(FilledButton, 'CREATE ACCOUNT'));
-    await tester.pumpAndSettle();
+    expect(find.text('Set Password'), findsOneWidget);
+    expect(find.text('Set New Password'), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'Create Account'), findsOneWidget);
+    final emptyCreateButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Create Account'),
+    );
+    expect(emptyCreateButton.onPressed, isNull);
 
-    expect(find.text('Passwords do not match.'), findsOneWidget);
+    final fields = find.byType(TextFormField);
+    expect(find.text('Your password'), findsOneWidget);
+    expect(find.text('Confirm your password'), findsOneWidget);
+
+    await tester.enterText(fields.at(0), 'short');
+    await tester.enterText(fields.at(1), 'password456');
+    await tester.pump();
+
+    expect(find.text('At least 8 characters'), findsOneWidget);
+    expect(find.text('Inconsistent with last input'), findsOneWidget);
+    final invalidCreateButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Create Account'),
+    );
+    expect(invalidCreateButton.onPressed, isNull);
     expect(repository.registerRequests, isEmpty);
   });
 
@@ -692,6 +708,7 @@ void main() {
     expect(toastTitle.textAlign, TextAlign.center);
     expect(toastTitle.style?.color, const Color(0xFFF1FE70));
     expect(toastTitle.style?.fontSize, 24);
+    expect(toastTitle.style?.decoration, TextDecoration.none);
 
     expect(find.text("Didn't get the code? Check your spam"), findsOneWidget);
     expect(
@@ -710,10 +727,10 @@ void main() {
       emailRegistered: false,
     );
 
-    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpWidget(_testEmailAuthPageApp(repository));
     await tester.pumpAndSettle();
-    await _openProfileTab(tester);
-    await _openEmailAuth(tester);
+    await tester.tap(find.text('Open email auth'));
+    await tester.pumpAndSettle();
     await _continueWithEmail(
       tester,
       'person@example.com',
@@ -756,10 +773,10 @@ void main() {
       emailRegistered: false,
     );
 
-    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpWidget(_testEmailAuthPageApp(repository));
     await tester.pumpAndSettle();
-    await _openProfileTab(tester);
-    await _openEmailAuth(tester);
+    await tester.tap(find.text('Open email auth'));
+    await tester.pumpAndSettle();
     await _continueWithEmail(
       tester,
       'person@example.com',
@@ -775,7 +792,8 @@ void main() {
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'password123');
     await tester.enterText(fields.at(1), 'password123');
-    await tester.tap(find.widgetWithText(FilledButton, 'CREATE ACCOUNT'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
     await tester.pumpAndSettle();
 
     expect(repository.registerCodeEmails, ['person@example.com']);
@@ -1614,6 +1632,32 @@ ProviderScope _testAuthSheetApp(
             child: TextButton(
               onPressed: () => showAuthSheet(context),
               child: const Text('Open auth'),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+ProviderScope _testEmailAuthPageApp(_WidgetAuthRepository repository) {
+  return ProviderScope(
+    overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    child: MaterialApp(
+      theme: buildKandoTheme(),
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: TextButton(
+              onPressed: () async {
+                final message = await showEmailAuthPage(context);
+                if (message != null && context.mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(message)));
+                }
+              },
+              child: const Text('Open email auth'),
             ),
           ),
         ),

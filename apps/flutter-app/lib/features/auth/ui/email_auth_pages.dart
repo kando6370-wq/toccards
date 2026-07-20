@@ -144,6 +144,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         buttonLabel: 'Create account',
         errorText: _errorText,
         onSubmit: _verifyRegister,
+        fullScreen: widget.fullScreen,
       ),
       _EmailPage.forgotEmail => _EmailOnlyPage(
         controller: _emailController,
@@ -1305,6 +1306,7 @@ class _PasswordPairPage extends StatelessWidget {
             passwordController: passwordController,
             confirmController: confirmController,
             loading: loading,
+            buttonLabel: buttonLabel,
             errorText: errorText,
             onSubmit: onSubmit,
             anchorActionsToBottom: !shouldScroll,
@@ -1351,6 +1353,7 @@ class _FigmaPasswordPairContent extends StatelessWidget {
     required this.passwordController,
     required this.confirmController,
     required this.loading,
+    required this.buttonLabel,
     required this.errorText,
     required this.onSubmit,
     required this.anchorActionsToBottom,
@@ -1359,58 +1362,83 @@ class _FigmaPasswordPairContent extends StatelessWidget {
   final TextEditingController passwordController;
   final TextEditingController confirmController;
   final bool loading;
+  final String buttonLabel;
   final String? errorText;
   final VoidCallback onSubmit;
   final bool anchorActionsToBottom;
 
   @override
   Widget build(BuildContext context) {
-    final passwordError = errorText == _shortPasswordMessage
-        ? 'At least 8 characters'
-        : null;
-    final confirmError = errorText == _passwordMismatchMessage
-        ? 'Inconsistent with last input'
-        : null;
+    final isCreateAccount = buttonLabel.toLowerCase().contains('create');
+    final title = isCreateAccount ? 'Set Password' : 'Set New Password';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _FigmaAuthTitle('Set New Password'),
-        const SizedBox(height: 32),
-        _LabeledField(
-          label: 'Password',
-          child: _PasswordField(
-            controller: passwordController,
-            hasError: passwordError != null,
-          ),
-        ),
-        if (passwordError != null) ...[
-          const SizedBox(height: 8),
-          _FieldErrorText(passwordError),
-        ],
-        const SizedBox(height: 32),
-        _LabeledField(
-          label: 'Confirm Password',
-          child: _PasswordField(
-            controller: confirmController,
-            hasError: confirmError != null,
-          ),
-        ),
-        if (confirmError != null) ...[
-          const SizedBox(height: 8),
-          _FieldErrorText(confirmError),
-        ],
-        if (anchorActionsToBottom)
-          const Spacer()
-        else
-          const SizedBox(height: 32),
-        _CodeActionButton(
-          label: 'Confirm',
-          loading: loading,
-          enabled: true,
-          onPressed: onSubmit,
-        ),
-      ],
+    return AnimatedBuilder(
+      animation: Listenable.merge([passwordController, confirmController]),
+      builder: (context, _) {
+        final password = passwordController.text;
+        final confirmPassword = confirmController.text;
+        final passwordError =
+            (password.isNotEmpty && password.length < 8) ||
+                errorText == _shortPasswordMessage
+            ? 'At least 8 characters'
+            : null;
+        final confirmError =
+            (confirmPassword.isNotEmpty && confirmPassword != password) ||
+                errorText == _passwordMismatchMessage
+            ? 'Inconsistent with last input'
+            : null;
+        final canSubmit =
+            password.length >= 8 &&
+            confirmPassword.isNotEmpty &&
+            confirmPassword == password;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _FigmaAuthTitle(title),
+            const SizedBox(height: 32),
+            _LabeledField(
+              label: 'Password',
+              child: _PasswordField(
+                controller: passwordController,
+                hint: 'Your password',
+                hasError: passwordError != null,
+                textInputAction: TextInputAction.next,
+                autofocus: true,
+              ),
+            ),
+            if (passwordError != null) ...[
+              const SizedBox(height: 8),
+              _FieldErrorText(passwordError),
+            ],
+            const SizedBox(height: 32),
+            _LabeledField(
+              label: 'Confirm Password',
+              child: _PasswordField(
+                controller: confirmController,
+                hint: 'Confirm your password',
+                hasError: confirmError != null,
+                textInputAction: TextInputAction.go,
+                onSubmitted: canSubmit ? onSubmit : null,
+              ),
+            ),
+            if (confirmError != null) ...[
+              const SizedBox(height: 8),
+              _FieldErrorText(confirmError),
+            ],
+            if (anchorActionsToBottom)
+              const Spacer()
+            else
+              const SizedBox(height: 32),
+            _CodeActionButton(
+              label: isCreateAccount ? 'Create Account' : buttonLabel,
+              loading: loading,
+              enabled: canSubmit,
+              onPressed: onSubmit,
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1445,7 +1473,10 @@ InputDecoration _fieldDecoration({
     hintText: hint,
     hintStyle: hintStyle ?? _fieldTextStyle,
     suffixIcon: suffixIcon,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    suffixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 20),
+    constraints: const BoxConstraints.tightFor(height: 52),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
     border: hasError ? errorBorder : normalBorder,
     enabledBorder: hasError ? errorBorder : normalBorder,
     focusedBorder: hasError
@@ -1554,10 +1585,21 @@ class _ReadOnlyEmailField extends StatelessWidget {
 }
 
 class _PasswordField extends StatefulWidget {
-  const _PasswordField({required this.controller, this.hasError = false});
+  const _PasswordField({
+    required this.controller,
+    this.hasError = false,
+    this.hint = '••••••••',
+    this.autofocus = false,
+    this.textInputAction,
+    this.onSubmitted,
+  });
 
   final TextEditingController controller;
   final bool hasError;
+  final String hint;
+  final bool autofocus;
+  final TextInputAction? textInputAction;
+  final VoidCallback? onSubmitted;
 
   @override
   State<_PasswordField> createState() => _PasswordFieldState();
@@ -1571,19 +1613,33 @@ class _PasswordFieldState extends State<_PasswordField> {
     return TextFormField(
       controller: widget.controller,
       obscureText: _obscure,
+      autofocus: widget.autofocus,
+      textInputAction: widget.textInputAction,
+      onFieldSubmitted: (_) => widget.onSubmitted?.call(),
       style: _fieldTextStyle,
       decoration: _fieldDecoration(
-        hint: '••••••••',
+        hint: widget.hint,
+        hintStyle: const TextStyle(
+          color: Color(0xFF615D3B),
+          fontFamily: 'Geist',
+          fontSize: 15,
+          height: 22 / 15,
+          fontWeight: FontWeight.w400,
+        ),
         hasError: widget.hasError,
-        suffixIcon: IconButton(
-          icon: Icon(
-            _obscure
-                ? Icons.visibility_outlined
-                : Icons.visibility_off_outlined,
-            size: 20,
-            color: const Color(0xFF92927D),
+        suffixIcon: Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _obscure = !_obscure),
+            child: Icon(
+              _obscure
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
+              size: 20,
+              color: const Color(0xFF92927D),
+            ),
           ),
-          onPressed: () => setState(() => _obscure = !_obscure),
         ),
       ),
     );
@@ -1706,6 +1762,7 @@ class _CodeSentToast extends StatelessWidget {
                       fontSize: 24,
                       height: 32 / 24,
                       fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                   SizedBox(height: 6),
@@ -1720,6 +1777,7 @@ class _CodeSentToast extends StatelessWidget {
                       fontSize: 15,
                       height: 22 / 15,
                       fontWeight: FontWeight.w400,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                 ],
