@@ -145,6 +145,7 @@ const API_BASE = resolveAdminApiBase({
   VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
 });
 const SESSION_STORAGE_KEY = "kando_admin_session";
+const SESSION_EXPIRED_EVENT = "kando-admin-session-expired";
 const PERIOD_OPTIONS = ["1d", "7d", "15d", "1m", "3m"];
 
 const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: string }> }> = [
@@ -181,6 +182,15 @@ export default function App() {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
     }
   }, [session]);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setAuthView("login");
+      setSession(null);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
 
   if (!session) {
     if (authView === "password") return <PasswordSetupView onBack={() => setAuthView("login")} />;
@@ -866,6 +876,7 @@ function AuthenticatedScanImage({ path, session, className }: { path: string; se
     let objectUrl: string | null = null;
     fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${session.accessToken}` } })
       .then((response) => {
+        dispatchSessionExpiredOnUnauthorized(response, session.accessToken);
         if (!response.ok) throw new Error("Scan image unavailable");
         return response.blob();
       })
@@ -1016,12 +1027,19 @@ async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promi
     headers,
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
   });
+  dispatchSessionExpiredOnUnauthorized(response, init.token);
   const payload = (await response.json()) as ApiResponse<T>;
   if (!response.ok || !payload.success) {
     if (payload.success) throw new AdminApiError("REQUEST_FAILED", "请求失败");
     throw new AdminApiError(payload.error.code, payload.error.message);
   }
   return payload.data;
+}
+
+function dispatchSessionExpiredOnUnauthorized(response: Response, token?: string) {
+  if (token && response.status === 401) {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
 }
 
 class AdminApiError extends Error {
