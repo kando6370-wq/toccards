@@ -201,6 +201,15 @@ SET folder_id = ?, folder_joined_at = ?, grader = ?, condition = ?, grade = ?, l
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 `;
 
+const SELECT_COLLECTION_ITEM_BY_SKU_SQL = `
+SELECT id
+FROM collection_item
+WHERE owner_type = ? AND owner_id = ? AND folder_id = ? AND card_ref = ?
+  AND object_type = ? AND grader = ? AND condition IS ? AND grade IS ?
+  AND language IS ? AND finish IS ?
+LIMIT 1
+`;
+
 const MOVE_COLLECTION_ITEM_SQL = `
 UPDATE collection_item
 SET folder_id = ?, folder_joined_at = ?, updated_at = ?
@@ -371,6 +380,10 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
 
     if (!draft) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+
+    if (await findCollectionItemBySku(c.env.DB, auth.owner, draft)) {
+      return c.json(CONFLICT_RESPONSE, 409);
     }
 
     const now = new Date().toISOString();
@@ -662,6 +675,10 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
 
     if (!folder) {
       return c.json(NOT_FOUND_RESPONSE, 404);
+    }
+
+    if (await findCollectionItemBySku(c.env.DB, auth.owner, draft)) {
+      return c.json(CONFLICT_RESPONSE, 409);
     }
 
     const now = new Date().toISOString();
@@ -1311,6 +1328,28 @@ function collectItemDraftFromBody(
     folder_id: folderId,
     card_ref: cardRef,
   });
+}
+
+async function findCollectionItemBySku(
+  db: D1Database,
+  owner: AuthenticatedOwner,
+  draft: CollectionItemDraft,
+): Promise<{ id: string } | null> {
+  return db
+    .prepare(SELECT_COLLECTION_ITEM_BY_SKU_SQL)
+    .bind(
+      owner.owner_type,
+      owner.owner_id,
+      draft.folder_id,
+      draft.card_ref,
+      draft.object_type,
+      draft.grader,
+      draft.condition,
+      draft.grade,
+      draft.language,
+      draft.finish,
+    )
+    .first<{ id: string }>();
 }
 
 function collectionItemEventStatement(

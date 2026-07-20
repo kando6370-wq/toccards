@@ -158,6 +158,14 @@ class FakeD1Statement {
         (row) => row.id === id && row.owner_type === ownerType && row.owner_id === ownerId,
       ) ?? null) as T | null;
     }
+    if (sql.includes("FROM collection_item") && sql.includes("folder_id = ?")) {
+      const [ownerType, ownerId, folderId, cardRef, objectType, grader, condition, grade, language, finish] = this.values;
+      return (this.db.collectionItems.find((row) =>
+        row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
+        row.card_ref === cardRef && row.object_type === objectType && row.grader === grader &&
+        row.condition === condition && row.grade === grade && row.language === language && row.finish === finish
+      ) ?? null) as T | null;
+    }
     return null;
   }
 
@@ -754,6 +762,27 @@ describe("scan routes", () => {
     expect(repeated.status).toBe(409);
     expect(env.DB.collectionItems).toHaveLength(1);
   });
+
+  it("rejects a scanned SKU already owned in the target folder because Scan must not create an identical copy", async () => {
+    const env = createConfirmEnv();
+    env.DB.collectionItems.push({
+      id: "owned", owner_type: "anonymous", owner_id: "anon-1", folder_id: "main",
+      card_ref: "11958", object_type: "tcg", grader: "Raw",
+      condition: "Near Mint (NM)", grade: null, language: "English",
+      finish: "Holofoil", quantity: 1, purchase_price: null,
+      purchase_currency: null, notes: null, folder_joined_at: "2026-07-20T00:00:00.000Z",
+    });
+
+    const response = await confirmScan(env, await confirmToken(env), {
+      folder_id: "main", card_ref: "11958", quantity: 1, grader: "Raw",
+      condition: "Near Mint (NM)", grade: null, language: "English",
+      finish: "Holofoil", purchase_price: null, purchase_currency: null, notes: null,
+    });
+
+    expect(response.status).toBe(409);
+    expect(env.DB.collectionItems).toHaveLength(1);
+    expect(env.DB.scanRecords[0]?.user_confirmation_status).toBe("pending");
+  });
 });
 
 type TestEnvWithFakeDb = Omit<TestEnv, "DB"> & { DB: FakeD1 };
@@ -778,6 +807,7 @@ function createRecognitionEnv(): TestEnvWithFakeDb {
     expires_at: "2099-01-01T00:00:00.000Z",
     revoked_at: null,
   });
+
   env.DB.anonymousAccounts.push({ id: "anon-1", upgraded_user_id: null });
   return env;
 }

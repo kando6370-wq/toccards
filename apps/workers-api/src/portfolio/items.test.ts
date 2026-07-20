@@ -138,6 +138,14 @@ class FakeD1Statement {
     }
 
     if (this.sql.includes("FROM collection_item")) {
+      if (this.sql.includes("folder_id = ?")) {
+        const [ownerType, ownerId, folderId, cardRef, objectType, grader, condition, grade, language, finish] = this.args;
+        return (this.db.items.find((row) =>
+          row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
+          row.card_ref === cardRef && row.object_type === objectType && row.grader === grader &&
+          row.condition === condition && row.grade === grade && row.language === language && row.finish === finish
+        ) ?? null) as T | null;
+      }
       const [ownerType, ownerId, itemId] = this.args;
       return (this.db.items.find(
         (row) =>
@@ -630,6 +638,25 @@ describe("collection item routes", () => {
       success: false,
       error: { code: "NOT_FOUND", message: "Not found." },
     });
+  });
+
+  it("rejects the same card SKU in one folder because quantity represents identical copies", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    db.items.push(item({ id: "owned", folder_id: "main", card_ref: "card-a" }));
+
+    const response = await app.request("/api/v1/portfolio/items", {
+      method: "POST",
+      headers: await authHeaders("anonymous", "anon-1"),
+      body: JSON.stringify({
+        folder_id: "main", card_ref: "card-a", object_type: "tcg", grader: "Raw",
+        condition: "Near Mint (NM)", grade: null, language: "English",
+        finish: "Holofoil", quantity: 1,
+      }),
+    }, createTestEnv(db));
+
+    expect(response.status).toBe(409);
+    expect(db.items).toHaveLength(1);
   });
 
   it("defaults to current-folder join time because moved assets must appear before older folder entries", async () => {

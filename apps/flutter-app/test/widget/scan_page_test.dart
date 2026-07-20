@@ -881,6 +881,14 @@ void main() {
 
       expect(find.text('Adding to Main'), findsOneWidget);
       expect(find.text('Collection item'), findsOneWidget);
+      final collectionTitleRect = tester.getRect(find.text('Collection item'));
+      final folderTriggerRect = tester.getRect(
+        find.byKey(const Key('scan-review-folder-1')),
+      );
+      expect(
+        collectionTitleRect.right,
+        lessThanOrEqualTo(folderTriggerRect.left),
+      );
       expect(find.text('Portfolio'), findsNothing);
       expect(find.text('YOUR PICTURE'), findsOneWidget);
       expect(find.text('OUR MATCH'), findsOneWidget);
@@ -896,7 +904,21 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('scan-review-folder-1')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Adding to Trade').last);
+      expect(find.text('Add scanned cards to'), findsOneWidget);
+      expect(
+        find.byKey(const Key('scan-review-folder-sheet-handle')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-review-folder-selected-indicator')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const Key('scan-review-folder-option-trade')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Add scanned cards to'), findsNothing);
+      expect(find.text('Adding to Trade'), findsOneWidget);
       await tester.enterText(
         find.byKey(const Key('scan-review-quantity-1')),
         '2',

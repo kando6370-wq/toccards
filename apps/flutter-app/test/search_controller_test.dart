@@ -301,6 +301,60 @@ void main() {
     },
   );
 
+  test(
+    'mutation conflicts reload backend assets because stale Search icons must reflect existing ownership',
+    () async {
+      final portfolioApi = _FakePortfolioApi(
+        conflictOnWishlist: true,
+        conflictOnCollect: true,
+      );
+      final repository = HttpSearchRepository(
+        _FakeCardDataApi(
+          trendingCardRows: const [
+            CardDataCardDto(
+              cardRef: '9359',
+              name: 'Escape Artist',
+              setName: 'Odyssey',
+              setCode: 'ODY',
+              cardNumber: '',
+              finish: 'Normal',
+              language: 'English',
+              objectType: 'tcg',
+              imageUrl: null,
+              rarity: 'Common',
+              priceUsd: 0.21,
+              previous30dPriceUsd: 0.17,
+            ),
+          ],
+          sets: const [],
+        ),
+        portfolioApi: portfolioApi,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(repository),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      expect(await controller.toggleWishlist('9359'), isTrue);
+      expect(
+        container.read(searchControllerProvider).cardById('9359').isWishlisted,
+        isTrue,
+      );
+      expect(
+        await controller.toggleCollect('9359'),
+        SearchCollectAction.updated,
+      );
+      final card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.isCollected, isTrue);
+      expect(card.isWishlisted, isFalse);
+    },
+  );
+
   test('defaults to Cards tab and Pokemon results', () async {
     final container = _searchContainer();
     addTearDown(container.dispose);
@@ -728,13 +782,18 @@ const _session = AuthSession(
 );
 
 class _FakePortfolioApi extends Fake implements PortfolioApi {
-  _FakePortfolioApi({List<PortfolioItemDto> items = const []})
-    : collectionItems = [...items];
+  _FakePortfolioApi({
+    List<PortfolioItemDto> items = const [],
+    this.conflictOnWishlist = false,
+    this.conflictOnCollect = false,
+  }) : collectionItems = [...items];
 
   final List<PortfolioItemDto> collectionItems;
   final List<WishlistItemDto> wishlistItems = [];
   final List<String> deletedCollectionItemIds = [];
   PortfolioItemDraftDto? lastCollectedDraft;
+  final bool conflictOnWishlist;
+  final bool conflictOnCollect;
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
@@ -770,6 +829,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
     wishlistItems.removeWhere((item) => item.cardRef == cardRef);
     final item = _portfolioItem(id: 'item-created', quantity: draft.quantity);
     collectionItems.add(item);
+    if (conflictOnCollect) throw StateError('already collected');
     return item;
   }
 
@@ -790,6 +850,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
       createdAt: DateTime.utc(2026, 7, 15),
     );
     wishlistItems.add(item);
+    if (conflictOnWishlist) throw StateError('already wishlisted');
     return item;
   }
 

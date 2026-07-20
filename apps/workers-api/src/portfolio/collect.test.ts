@@ -123,6 +123,15 @@ class FakeD1Statement {
       ) ?? null) as T | null;
     }
 
+    if (this.sql.includes("FROM collection_item") && this.sql.includes("folder_id = ?")) {
+      const [ownerType, ownerId, folderId, cardRef, objectType, grader, condition, grade, language, finish] = this.args;
+      return (this.db.items.find((row) =>
+        row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
+        row.card_ref === cardRef && row.object_type === objectType && row.grader === grader &&
+        row.condition === condition && row.grade === grade && row.language === language && row.finish === finish
+      ) ?? null) as T | null;
+    }
+
     if (this.sql.includes("FROM collection_item")) {
       const [ownerType, ownerId, itemId] = this.args;
       return (this.db.items.find(
@@ -310,6 +319,33 @@ describe("collect shortcut route", () => {
         updated_at: expect.any(String),
       }),
     });
+  });
+
+  it("rejects an identical SKU but accepts another finish because quantity owns exact duplicates", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main", is_default: 1 }));
+    db.items.push({
+      id: "owned", owner_type: "anonymous", owner_id: "anon-1", folder_id: "main",
+      card_ref: "card-a", object_type: "tcg", grader: "Raw", condition: "Near Mint (NM)",
+      grade: null, language: "English", finish: "Holofoil", quantity: 1,
+      purchase_price: null, purchase_currency: null, notes: null, created_at: NOW, updated_at: NOW,
+    });
+    const headers = await authHeaders("anonymous", "anon-1");
+    const request = (finish: string) => app.request("/api/v1/cards/card-a/collect", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ folder_id: "main", object_type: "tcg", grader: "Raw", condition: "Near Mint (NM)", grade: null, language: "English", finish, quantity: 1 }),
+    }, createTestEnv(db));
+
+    const duplicate = await app.request("/api/v1/cards/card-a/collect", {
+      method: "POST", headers,
+      body: JSON.stringify({ folder_id: "main", object_type: "tcg", grader: "Raw", condition: "Near Mint (NM)", grade: null, language: "English", finish: "Holofoil", quantity: 1 }),
+    }, createTestEnv(db));
+    expect(db.items).toHaveLength(1);
+    const distinct = await request("Reverse Holofoil");
+
+    expect(duplicate.status).toBe(409);
+    expect(distinct.status).toBe(201);
   });
 
   it("rejects invalid grading and another owner's folder because Collect must preserve collection item invariants", async () => {

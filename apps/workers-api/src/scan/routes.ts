@@ -111,6 +111,15 @@ WHERE EXISTS (
 )
 `;
 
+const SELECT_COLLECTION_ITEM_BY_SKU_SQL = `
+SELECT id
+FROM collection_item
+WHERE owner_type = ? AND owner_id = ? AND folder_id = ? AND card_ref = ?
+  AND object_type = ? AND grader = ? AND condition IS ? AND grade IS ?
+  AND language IS ? AND finish IS ?
+LIMIT 1
+`;
+
 const INSERT_CONFIRMED_COLLECTION_ITEM_EVENT_SQL = `
 INSERT INTO collection_item_event
   (id, item_id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
@@ -332,6 +341,22 @@ export function createScanRoutes() {
       .bind(draft.folder_id, auth.owner.owner_type, auth.owner.owner_id)
       .first<PortfolioFolderRow>();
     if (!folder) return c.json(NOT_FOUND_RESPONSE, 404);
+
+    const duplicate = await c.env.DB.prepare(SELECT_COLLECTION_ITEM_BY_SKU_SQL)
+      .bind(
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+        draft.folder_id,
+        draft.card_ref,
+        draft.object_type,
+        draft.grader,
+        draft.condition,
+        draft.grade,
+        draft.language,
+        draft.finish,
+      )
+      .first<{ id: string }>();
+    if (duplicate) return c.json(CONFLICT_RESPONSE, 409);
 
     const itemId = createId();
     const now = new Date().toISOString();

@@ -15,6 +15,7 @@ import '../../shared/ui/toast.dart';
 import '../collection/collection_controller.dart';
 import '../card_detail/card_detail_controller.dart';
 import '../home/home_controller.dart';
+import '../search/search_controller.dart';
 import 'scan_camera.dart';
 import 'scan_review_repository.dart';
 import 'scan_stability.dart';
@@ -1111,6 +1112,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   void _refreshPortfolioSurfaces() {
     ref.invalidate(homeControllerProvider);
     ref.invalidate(collectionControllerProvider);
+    ref.invalidate(searchControllerProvider);
   }
 
   Future<void> _requestExitScan() async {
@@ -3321,32 +3323,18 @@ class _ReviewCollectionItem extends StatelessWidget {
                 ),
               ),
             ),
-            DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 150),
+              child: TextButton(
                 key: Key('scan-review-folder-$itemId'),
-                value: draft.folderId,
-                dropdownColor: const Color(0xFF2A2B20),
-                icon: const Text(
-                  'v',
-                  style: TextStyle(color: Color(0xFFF0FE6F), fontSize: 12),
-                ),
-                style: const TextStyle(
-                  color: Color(0xFFF0FE6F),
-                  fontFamily: 'Geist',
-                  fontSize: 13,
-                ),
-                items: [
-                  for (final folder in target.folders)
-                    DropdownMenuItem(
-                      value: folder.id,
-                      child: Text('Adding to ${folder.name}'),
-                    ),
-                ],
-                onChanged: enabled
-                    ? (folderId) {
-                        final folder = target.folders
-                            .where((folder) => folder.id == folderId)
-                            .firstOrNull;
+                onPressed: enabled
+                    ? () async {
+                        final folder = await _showScanFolderSheet(
+                          context,
+                          folders: target.folders,
+                          selectedFolderId: draft.folderId,
+                        );
                         if (folder != null) {
                           onChanged(
                             draft.copyWith(
@@ -3357,6 +3345,23 @@ class _ReviewCollectionItem extends StatelessWidget {
                         }
                       }
                     : null,
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFF0FE6F),
+                  disabledForegroundColor: const Color(0x66615D3B),
+                  minimumSize: const Size(0, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'Adding to ${draft.folderName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Geist',
+                    fontSize: 13,
+                    height: 16 / 13,
+                  ),
+                ),
               ),
             ),
           ],
@@ -3671,6 +3676,155 @@ class _ReviewDropdownRow extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<ScanReviewFolder?> _showScanFolderSheet(
+  BuildContext context, {
+  required List<ScanReviewFolder> folders,
+  required String selectedFolderId,
+}) {
+  return showModalBottomSheet<ScanReviewFolder>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: const Color(0x99000000),
+    builder: (context) {
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+        ),
+        child: Material(
+          color: const Color(0xFF222222),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 21, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  key: const Key('scan-review-folder-sheet-handle'),
+                  width: 48,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF615D3B),
+                    borderRadius: BorderRadius.circular(9999),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Add scanned cards to',
+                    style: TextStyle(
+                      color: Color(0xFFF0FE6F),
+                      fontFamily: 'Geist',
+                      fontSize: 16,
+                      height: 24 / 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: 48,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FE6F),
+                      borderRadius: BorderRadius.circular(9999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.separated(
+                    key: const Key('scan-review-folder-sheet-list'),
+                    shrinkWrap: true,
+                    itemCount: folders.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final folder = folders[index];
+                      final selected = folder.id == selectedFolderId;
+                      return InkWell(
+                        key: Key('scan-review-folder-option-${folder.id}'),
+                        onTap: () => Navigator.of(context).pop(folder),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          height: 58,
+                          padding: const EdgeInsets.symmetric(horizontal: 17),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? const Color(0x0DF0FE6F)
+                                : const Color(0xFF1A1C14),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: selected
+                                  ? const Color(0xFFF0FE6F)
+                                  : const Color(0xFF464835),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.folder_outlined,
+                                size: 20,
+                                color: selected
+                                    ? const Color(0xFFF0FE6F)
+                                    : const Color(0xFF92927D),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  folder.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: selected
+                                        ? const Color(0xFFEEECD8)
+                                        : const Color(0xFF92927D),
+                                    fontFamily: 'Geist',
+                                    fontSize: selected ? 15 : 16,
+                                    height: selected ? 22 / 15 : 24 / 16,
+                                  ),
+                                ),
+                              ),
+                              if (selected)
+                                const Icon(
+                                  Icons.check_circle,
+                                  key: Key(
+                                    'scan-review-folder-selected-indicator',
+                                  ),
+                                  size: 20,
+                                  color: Color(0xFFF0FE6F),
+                                )
+                              else
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFF464835),
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 InputDecoration _reviewInputDecoration(String label) {

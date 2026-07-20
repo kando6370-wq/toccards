@@ -372,6 +372,11 @@ class SearchController extends Notifier<SearchState> {
         _invalidateAssetConsumers(cardId);
         return SearchCollectAction.updated;
       } catch (_) {
+        final synced = await _reloadAssetsAfterMutation(cardId);
+        if (synced?.isCollected ?? false) {
+          _invalidateAssetConsumers(cardId);
+          return SearchCollectAction.updated;
+        }
         return SearchCollectAction.ignored;
       }
     }
@@ -420,6 +425,12 @@ class SearchController extends Notifier<SearchState> {
         _invalidateAssetConsumers(cardId);
         return true;
       } catch (_) {
+        final desiredWishlisted = card.wishlistItemId == null;
+        final synced = await _reloadAssetsAfterMutation(cardId);
+        if (synced?.isWishlisted == desiredWishlisted) {
+          _invalidateAssetConsumers(cardId);
+          return true;
+        }
         return false;
       }
     }
@@ -597,6 +608,25 @@ class SearchController extends Notifier<SearchState> {
       isWishlisted: quantity == 0 && assets?.wishlistItemId != null,
       wishlistItemId: quantity == 0 ? assets?.wishlistItemId : null,
     );
+  }
+
+  Future<SearchCard?> _reloadAssetsAfterMutation(String cardId) async {
+    final repository = ref.read(searchRepositoryProvider);
+    final session = _assetSession;
+    if (repository is! SearchAssetRepository || session == null) return null;
+    try {
+      final catalog = await _withAssets(repository, state.catalog, session);
+      if (!ref.mounted) return null;
+      state = _stateForCatalog(
+        catalog,
+        preserveState: state,
+        clearOverrides: true,
+        failedSearchTabs: state.failedSearchTabs,
+      );
+      return state.cardById(cardId);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _invalidateAssetConsumers(String cardId) {
