@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final onboardingStorageProvider = Provider<OnboardingStorage>((ref) {
-  return const SecureOnboardingStorage();
+  return const PreferencesOnboardingStorage();
 });
 
 final onboardingRepositoryProvider = Provider<OnboardingRepository>((ref) {
@@ -14,23 +14,21 @@ abstract interface class OnboardingStorage {
   Future<void> writeCompleted();
 }
 
-class SecureOnboardingStorage implements OnboardingStorage {
-  const SecureOnboardingStorage({
-    FlutterSecureStorage storage = const FlutterSecureStorage(),
-  }) : _storage = storage;
+class PreferencesOnboardingStorage implements OnboardingStorage {
+  const PreferencesOnboardingStorage();
 
   static const _completedKey = 'onboarding.completed';
 
-  final FlutterSecureStorage _storage;
-
   @override
   Future<bool> readCompleted() async {
-    return await _storage.read(key: _completedKey) == 'true';
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getBool(_completedKey) ?? false;
   }
 
   @override
-  Future<void> writeCompleted() {
-    return _storage.write(key: _completedKey, value: 'true');
+  Future<void> writeCompleted() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(_completedKey, true);
   }
 }
 

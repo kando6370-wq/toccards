@@ -1,19 +1,19 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test(
-    'secure storage keeps onboarding completion because the first-launch decision must survive app restarts',
+    'app preferences keep completion across restarts within one installation',
     () async {
-      FlutterSecureStorage.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({});
 
-      const firstLaunch = SecureOnboardingStorage();
+      const firstLaunch = PreferencesOnboardingStorage();
       expect(await firstLaunch.readCompleted(), isFalse);
 
       await firstLaunch.writeCompleted();
 
-      const restartedApp = SecureOnboardingStorage();
+      const restartedApp = PreferencesOnboardingStorage();
       expect(await restartedApp.readCompleted(), isTrue);
     },
   );

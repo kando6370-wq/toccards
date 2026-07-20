@@ -35,8 +35,51 @@ target 'Runner' do
   end
 end
 
+def patch_runner_embed_frameworks_phase
+  runner_project_path = File.join(__dir__, 'Runner.xcodeproj')
+  runner_project = Xcodeproj::Project.open(runner_project_path)
+  runner_target = runner_project.targets.find { |target| target.name == 'Runner' }
+  embed_phase = runner_target&.shell_script_build_phases&.find do |phase|
+    phase.name == '[CP] Embed Pods Frameworks'
+  end
+
+  return unless embed_phase
+
+  embed_phase.input_file_list_paths = []
+  embed_phase.output_file_list_paths = []
+  embed_phase.input_paths = [
+    '${BUILT_PRODUCTS_DIR}/sign_in_with_apple/sign_in_with_apple.framework',
+  ]
+  embed_phase.output_paths = [
+    '${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/sign_in_with_apple.framework',
+  ]
+  embed_phase.shell_script = <<~SCRIPT
+    set -e
+    if [ -z ${FRAMEWORKS_FOLDER_PATH+x} ]; then
+      exit 0
+    fi
+    SOURCE="${BUILT_PRODUCTS_DIR}/sign_in_with_apple/sign_in_with_apple.framework"
+    DESTINATION="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}"
+    mkdir -p "${DESTINATION}"
+    if [ -d "${SOURCE}" ]; then
+      rsync --delete -av --links --filter "- CVS/" --filter "- .svn/" --filter "- .git/" --filter "- .hg/" --filter "- Headers" --filter "- PrivateHeaders" --filter "- Modules" "${SOURCE}" "${DESTINATION}"
+      BINARY="${DESTINATION}/sign_in_with_apple.framework/sign_in_with_apple"
+      if [ -r "${BINARY}" ] && lipo -info "${BINARY}" | grep -q x86_64 && [[ "${ARCHS}" != *"x86_64"* ]]; then
+        lipo -remove x86_64 -output "${BINARY}" "${BINARY}"
+      fi
+    else
+      echo "warning: sign_in_with_apple.framework was not found at ${SOURCE}"
+    fi
+  SCRIPT
+  runner_project.save
+end
+
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
   end
+end
+
+post_integrate do |_installer|
+  patch_runner_embed_frameworks_phase
 end

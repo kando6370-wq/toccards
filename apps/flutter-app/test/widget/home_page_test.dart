@@ -494,6 +494,32 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No cards in this portfolio yet'), findsOneWidget);
+    expect(find.text('PORTDOLIO'), findsOneWidget);
+    expect(find.text('PORTFOLIO'), findsNothing);
+    expect(find.text('Add your first card'), findsOneWidget);
+    expect(
+      find.text(
+        "Start tracking your collection's\nvalue,price trends, and top cards.",
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('home-portfolio-empty-illustration')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('home-card-empty-illustration')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('home-portfolio-empty-primary-refresh')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('home-portfolio-empty-secondary-refresh')),
+      findsOneWidget,
+    );
+    expect(find.text('1D'), findsNothing);
     expect(find.text('Trending Today'), findsOneWidget);
   });
 

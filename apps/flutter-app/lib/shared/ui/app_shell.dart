@@ -83,6 +83,12 @@ class KandoTabScaffold extends StatelessWidget {
 class _FigmaTabBar extends StatelessWidget {
   const _FigmaTabBar({required this.currentTab, required this.onSelected});
 
+  static const double _barWidth = 350;
+  static const double _barHeight = 62;
+  static const double _tabHorizontalInset = 2;
+  static const double _scanButtonSize = 64;
+  static const double _scanButtonTop = -21;
+
   final KandoMainTab currentTab;
   final ValueChanged<KandoMainTab> onSelected;
 
@@ -99,8 +105,8 @@ class _FigmaTabBar extends StatelessWidget {
       ),
       child: SizedBox(
         key: const Key('kando-tab-bar'),
-        width: 350,
-        height: 62,
+        width: _barWidth,
+        height: _barHeight,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -130,73 +136,100 @@ class _FigmaTabBar extends StatelessWidget {
               ),
             ),
             Positioned.fill(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  children: [
-                    _FigmaTabItem(
-                      key: const Key('kando-tab-home'),
-                      label: 'Home',
-                      iconAsset: 'assets/navigation/home_off.svg',
-                      selectedIconAsset: 'assets/navigation/home_on.svg',
-                      selected: currentTab == KandoMainTab.home,
-                      onTap: () => onSelected(KandoMainTab.home),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _FigmaTabItem(
+                            key: const Key('kando-tab-home'),
+                            horizontalInset: _tabHorizontalInset,
+                            label: 'Home',
+                            iconAsset: 'assets/navigation/home_off.svg',
+                            selectedIconAsset: 'assets/navigation/home_on.svg',
+                            selected: currentTab == KandoMainTab.home,
+                            onTap: () => onSelected(KandoMainTab.home),
+                          ),
+                        ),
+                        Expanded(
+                          child: _FigmaTabItem(
+                            key: const Key('kando-tab-search'),
+                            horizontalInset: _tabHorizontalInset,
+                            label: 'Search',
+                            iconAsset: 'assets/navigation/search_off.svg',
+                            selectedIconAsset:
+                                'assets/navigation/search_on.svg',
+                            selected: currentTab == KandoMainTab.search,
+                            onTap: () => onSelected(KandoMainTab.search),
+                          ),
+                        ),
+                      ],
                     ),
-                    _FigmaTabItem(
-                      key: const Key('kando-tab-search'),
-                      label: 'Search',
-                      iconAsset: 'assets/navigation/search_off.svg',
-                      selectedIconAsset: 'assets/navigation/search_on.svg',
-                      selected: currentTab == KandoMainTab.search,
-                      onTap: () => onSelected(KandoMainTab.search),
+                  ),
+                  const SizedBox(width: _scanButtonSize),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _FigmaTabItem(
+                            key: const Key('kando-tab-collection'),
+                            horizontalInset: _tabHorizontalInset,
+                            label: 'collection',
+                            iconAsset: 'assets/navigation/collection_off.svg',
+                            selectedIconAsset:
+                                'assets/navigation/collection_on.svg',
+                            selected: currentTab == KandoMainTab.collection,
+                            onTap: () => onSelected(KandoMainTab.collection),
+                          ),
+                        ),
+                        Expanded(
+                          child: _FigmaTabItem(
+                            key: const Key('kando-tab-profile'),
+                            horizontalInset: _tabHorizontalInset,
+                            label: 'Profile',
+                            iconAsset: 'assets/navigation/profile_off.svg',
+                            selectedIconAsset:
+                                'assets/navigation/profile_on.svg',
+                            selected: currentTab == KandoMainTab.profile,
+                            onTap: () => onSelected(KandoMainTab.profile),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 64),
-                    _FigmaTabItem(
-                      key: const Key('kando-tab-collection'),
-                      label: 'collection',
-                      iconAsset: 'assets/navigation/collection_off.svg',
-                      selectedIconAsset: 'assets/navigation/collection_on.svg',
-                      selected: currentTab == KandoMainTab.collection,
-                      onTap: () => onSelected(KandoMainTab.collection),
-                    ),
-                    _FigmaTabItem(
-                      key: const Key('kando-tab-profile'),
-                      label: 'Profile',
-                      iconAsset: 'assets/navigation/profile_off.svg',
-                      selectedIconAsset: 'assets/navigation/profile_on.svg',
-                      selected: currentTab == KandoMainTab.profile,
-                      onTap: () => onSelected(KandoMainTab.profile),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             Positioned(
-              left: 143,
-              top: -21,
+              top: _scanButtonTop,
+              left: 0,
+              right: 0,
               child: Semantics(
                 button: true,
                 label: 'Scan',
-                child: GestureDetector(
-                  key: const Key('kando-tab-scan'),
-                  onTap: () => onSelected(KandoMainTab.scan),
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFFBBFF6F), Color(0xFFF5E650)],
+                child: Center(
+                  child: GestureDetector(
+                    key: const Key('kando-tab-scan'),
+                    onTap: () => onSelected(KandoMainTab.scan),
+                    child: Container(
+                      width: _scanButtonSize,
+                      height: _scanButtonSize,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFBBFF6F), Color(0xFFF5E650)],
+                        ),
                       ),
-                    ),
-                    child: Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: SvgPicture.asset(
-                          'assets/navigation/identify.svg',
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: SvgPicture.asset(
+                            'assets/navigation/identify.svg',
+                          ),
                         ),
                       ),
                     ),
@@ -214,6 +247,7 @@ class _FigmaTabBar extends StatelessWidget {
 class _FigmaTabItem extends StatelessWidget {
   const _FigmaTabItem({
     super.key,
+    required this.horizontalInset,
     required this.label,
     required this.iconAsset,
     required this.selectedIconAsset,
@@ -221,6 +255,7 @@ class _FigmaTabItem extends StatelessWidget {
     required this.onTap,
   });
 
+  final double horizontalInset;
   final String label;
   final String iconAsset;
   final String selectedIconAsset;
@@ -231,15 +266,15 @@ class _FigmaTabItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = selected ? KandoColors.accent : KandoColors.mutedText;
 
-    return SizedBox(
-      width: 69.5,
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: label,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(27),
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(27),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalInset),
           child: Container(
             height: 54,
             alignment: Alignment.center,

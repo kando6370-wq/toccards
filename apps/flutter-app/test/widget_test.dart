@@ -16,13 +16,16 @@ void main() {
     final storage = InMemoryOnboardingStorage();
 
     await tester.pumpWidget(_testApp(storage));
+    await _finishStartup(tester);
 
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const ValueKey('onboarding-entry')), findsOneWidget);
-    expect(find.byTooltip('Sign In / Sign Up'), findsOneWidget);
+    expect(find.byKey(const ValueKey('onboarding-guides')), findsOneWidget);
+    expect(find.text('Instantly Scan Cards'), findsOneWidget);
     expect(find.text('Overview'), findsNothing);
 
+    await tester.tap(find.byTooltip("LET'S START"));
+    await _finishPageTransition(tester);
+    await tester.tap(find.byTooltip('NEXT'));
+    await _finishPageTransition(tester);
     await tester.tap(find.byTooltip('Skip and start now'));
     await tester.pumpAndSettle();
 
@@ -32,11 +35,22 @@ void main() {
     expect(find.text('Delete account'), findsNothing);
 
     await tester.pumpWidget(_testApp(storage));
-    await tester.pumpAndSettle();
+    await _finishStartup(tester);
 
-    expect(find.byKey(const ValueKey('onboarding-entry')), findsNothing);
+    expect(find.byKey(const ValueKey('onboarding-guides')), findsNothing);
     expect(find.text('Overview'), findsOneWidget);
   });
+}
+
+Future<void> _finishStartup(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 1200));
+  await tester.pump();
+}
+
+Future<void> _finishPageTransition(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pump();
 }
 
 ProviderScope _testApp(InMemoryOnboardingStorage storage) {

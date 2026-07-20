@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
@@ -360,14 +361,16 @@ class _PortfolioCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chartValues = state.chartValues;
+    final showEmptyState =
+        !state.isUnavailable && state.mostValuableCards.isEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4),
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
           child: Text(
-            'PORTFOLIO',
-            style: TextStyle(
+            showEmptyState ? 'PORTDOLIO' : 'PORTFOLIO',
+            style: const TextStyle(
               color: Color(0xFF92927D),
               fontSize: 16,
               fontWeight: FontWeight.w400,
@@ -429,7 +432,7 @@ class _PortfolioCard extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: showEmptyState ? 24 : 8),
         if (state.isUnavailable)
           _FigmaFailurePanel(
             key: const Key('home-failure-chart'),
@@ -437,6 +440,8 @@ class _PortfolioCard extends StatelessWidget {
             refreshKey: const Key('home-failure-chart-refresh'),
             onRefresh: onRefresh,
           )
+        else if (showEmptyState)
+          _PortfolioEmptyPanel(onRefresh: onRefresh)
         else
           SizedBox(
             height: 203,
@@ -595,6 +600,164 @@ class _ChartRangePicker extends StatelessWidget {
   }
 }
 
+class _PortfolioEmptyPanel extends StatelessWidget {
+  const _PortfolioEmptyPanel({required this.onRefresh});
+
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 410,
+      width: double.infinity,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 25),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0x14FFFFFF)),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0x1F747B26), Color(0x0A141506)],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Image.asset(
+                'assets/home/empty_state_illustration.png',
+                key: const Key('home-portfolio-empty-illustration'),
+                width: 100,
+                height: 100,
+                filterQuality: FilterQuality.high,
+              ),
+              const SizedBox(height: 24),
+              const Column(
+                children: [
+                  Text(
+                    'Add your first card',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: KandoColors.text,
+                      fontFamily: 'Fraunces',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 20 / 14,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Start tracking your collection's\nvalue,price trends, and top cards.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: KandoColors.mutedText,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      height: 24 / 16,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Column(
+                children: [
+                  _FigmaEmptyActionButton(
+                    key: const Key('home-portfolio-empty-primary-refresh'),
+                    iconAssetPath: 'assets/home/empty_action_camera.svg',
+                    iconSize: const Size(16.0417, 14.5417),
+                    label: refreshText,
+                    isPrimary: true,
+                    onPressed: onRefresh,
+                  ),
+                  const SizedBox(height: 12),
+                  _FigmaEmptyActionButton(
+                    key: const Key('home-portfolio-empty-secondary-refresh'),
+                    iconAssetPath: 'assets/home/empty_action_search.svg',
+                    iconSize: const Size(15.2707, 15.8891),
+                    label: refreshText,
+                    onPressed: onRefresh,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FigmaEmptyActionButton extends StatelessWidget {
+  const _FigmaEmptyActionButton({
+    super.key,
+    required this.iconAssetPath,
+    required this.iconSize,
+    required this.label,
+    required this.onPressed,
+    this.isPrimary = false,
+  });
+
+  final String iconAssetPath;
+  final Size iconSize;
+  final String label;
+  final VoidCallback onPressed;
+  final bool isPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = isPrimary
+        ? KandoColors.primaryOnDefault
+        : KandoColors.text;
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Container(
+          height: 36,
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isPrimary ? KandoColors.accent : KandoColors.elevatedSurface,
+            borderRadius: BorderRadius.circular(99),
+            border: isPrimary
+                ? null
+                : Border.all(color: const Color(0x14FFFFFF)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: Center(
+                  child: SvgPicture.asset(
+                    iconAssetPath,
+                    width: iconSize.width,
+                    height: iconSize.height,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  height: 16 / 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FigmaFailurePanel extends StatelessWidget {
   const _FigmaFailurePanel({
     super.key,
@@ -686,6 +849,7 @@ class _MostValuableSection extends StatelessWidget {
         _SectionHeader(
           title: 'Most Valuable',
           isUnavailable: state.isUnavailable,
+          useShortViewLabel: cards.isEmpty,
           viewAllKey: const Key('home-most-valuable-view-all'),
           onViewAll: onViewAll,
         ),
@@ -801,12 +965,14 @@ class _SectionHeader extends StatelessWidget {
     required this.viewAllKey,
     required this.onViewAll,
     this.isUnavailable = false,
+    this.useShortViewLabel = false,
   });
 
   final String title;
   final Key viewAllKey;
   final VoidCallback onViewAll;
   final bool isUnavailable;
+  final bool useShortViewLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -856,32 +1022,44 @@ class _SectionHeader extends StatelessWidget {
               key: viewAllKey,
               onTap: onViewAll,
               borderRadius: BorderRadius.circular(8),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'View all',
-                        style: TextStyle(
-                          color: KandoColors.accent,
-                          fontWeight: FontWeight.w400,
-                          fontSize: 13,
-                          height: 16 / 13,
+                  child: useShortViewLabel
+                      ? const Text(
+                          'View',
+                          style: TextStyle(
+                            color: Color(0xFF2C3400),
+                            fontWeight: FontWeight.w400,
+                            fontSize: 13,
+                            height: 16 / 13,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'View all',
+                              style: TextStyle(
+                                color: KandoColors.accent,
+                                fontWeight: FontWeight.w400,
+                                fontSize: 13,
+                                height: 16 / 13,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Image(
+                              key: Key('home-view-all-arrow'),
+                              image: AssetImage(
+                                'assets/home/view_all_arrow.png',
+                              ),
+                              width: 14,
+                              height: 10,
+                            ),
+                          ],
                         ),
-                      ),
-                      SizedBox(width: 4),
-                      Image(
-                        key: Key('home-view-all-arrow'),
-                        image: AssetImage('assets/home/view_all_arrow.png'),
-                        width: 14,
-                        height: 10,
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -1203,24 +1381,42 @@ class _EmptyCardBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
+      height: 200,
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: KandoColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: KandoColors.border),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      child: Column(
-        children: [
-          const Icon(Icons.search_rounded, size: 40, color: KandoColors.accent),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: KandoColors.mutedText),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0x14FFFFFF)),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0x1F747B26), Color(0x0A141506)],
           ),
-        ],
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Image.asset(
+              'assets/home/empty_state_illustration.png',
+              key: const Key('home-card-empty-illustration'),
+              width: 100,
+              height: 100,
+              filterQuality: FilterQuality.high,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: KandoColors.text,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                height: 24 / 16,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

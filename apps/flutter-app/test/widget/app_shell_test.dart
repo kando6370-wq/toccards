@@ -31,6 +31,8 @@ void main() {
       expect(tester.getSize(bar), const Size(350, 62));
       expect(tester.getBottomRight(bar), const Offset(370, 812));
       expect(tester.getSize(scan), const Size.square(64));
+      expect(tester.getTopLeft(home).dx, 20);
+      expect(tester.getBottomRight(profile).dx, 370);
       expect(tester.getCenter(home).dx, lessThan(tester.getCenter(search).dx));
       expect(tester.getCenter(search).dx, lessThan(tester.getCenter(scan).dx));
       expect(
@@ -40,6 +42,27 @@ void main() {
       expect(
         tester.getCenter(collection).dx,
         lessThan(tester.getCenter(profile).dx),
+      );
+      expect(
+        tester.getCenter(home).dx - tester.getTopLeft(bar).dx,
+        closeTo(
+          tester.getBottomRight(bar).dx - tester.getCenter(profile).dx,
+          0.01,
+        ),
+      );
+      expect(
+        tester.getCenter(scan).dx - tester.getCenter(search).dx,
+        closeTo(
+          tester.getCenter(collection).dx - tester.getCenter(scan).dx,
+          0.01,
+        ),
+      );
+      expect(
+        tester.getCenter(search).dx - tester.getCenter(home).dx,
+        closeTo(
+          tester.getCenter(profile).dx - tester.getCenter(collection).dx,
+          0.01,
+        ),
       );
       expect(find.text('Scan'), findsNothing);
       expect(find.text('collection'), findsOneWidget);

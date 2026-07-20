@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +12,7 @@ import '../auth_controller.dart';
 
 const _shortPasswordMessage = 'Password must be at least 8 characters.';
 const _passwordMismatchMessage = 'Passwords do not match.';
-const _incorrectCodeMessage = 'Incorrect verification code.';
+const _incorrectCodeMessage = 'Incorrect verification code';
 const _expiredCodeMessage = 'Code expired. Please request a new code.';
 
 enum _EmailPage {
@@ -57,16 +58,26 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
   String? _resetToken;
   String? _errorText;
   Timer? _resendTimer;
+  Timer? _codeSentToastTimer;
   var _resendSeconds = 0;
+  var _isCodeSentToastVisible = false;
 
   @override
   void dispose() {
     _resendTimer?.cancel();
+    _codeSentToastTimer?.cancel();
+    _emailController.removeListener(_syncEmailValidationState);
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _codeController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_syncEmailValidationState);
   }
 
   @override
@@ -83,10 +94,14 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       return form;
     }
 
-    return _EmailAuthFullScreen(
-      page: _page,
-      onBack: () => Navigator.of(context).pop(false),
-      child: form,
+    return Stack(
+      children: [
+        _EmailAuthFullScreen(page: _page, onBack: _handleBack, child: form),
+        if (_isCodeSentToastVisible)
+          const Positioned.fill(
+            child: IgnorePointer(child: Center(child: _CodeSentToast())),
+          ),
+      ],
     );
   }
 
@@ -109,6 +124,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         secondaryLabel: 'Create account',
         onSecondary: _sendRegisterCode,
         onForgotPassword: () => _setPage(_EmailPage.forgotEmail),
+        fullScreen: widget.fullScreen,
       ),
       _EmailPage.registerCode => _CodePage(
         controller: _codeController,
@@ -134,12 +150,14 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         loading: _loading,
         errorText: _errorText,
         onContinue: _sendForgotCode,
+        fullScreen: widget.fullScreen,
       ),
       _EmailPage.forgotCode => _CodePage(
         controller: _codeController,
         email: _email ?? '',
-        title: 'Forgot password',
+        title: 'Reset Password',
         fullScreen: widget.fullScreen,
+        isForgotFlow: true,
         loading: _loading,
         errorText: _errorText,
         onContinue: _verifyForgotCode,
@@ -150,9 +168,10 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         passwordController: _passwordController,
         confirmController: _confirmPasswordController,
         loading: _loading,
-        buttonLabel: 'Reset password',
+        buttonLabel: 'Confirm',
         errorText: _errorText,
         onSubmit: _resetPassword,
+        fullScreen: widget.fullScreen,
       ),
     };
 
@@ -164,10 +183,68 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
     _passwordController.clear();
     _confirmPasswordController.clear();
     _codeController.clear();
+    final errorText = _showsEmailInputValidation(page)
+        ? _visibleEmailValidationMessage()
+        : null;
+    if (!_isCodePage(page)) {
+      _codeSentToastTimer?.cancel();
+    }
     setState(() {
-      _errorText = null;
+      _errorText = errorText;
       _page = page;
+      if (!_isCodePage(page)) {
+        _isCodeSentToastVisible = false;
+      }
     });
+  }
+
+  bool _isCodePage(_EmailPage page) {
+    return page == _EmailPage.registerCode || page == _EmailPage.forgotCode;
+  }
+
+  void _syncEmailValidationState() {
+    if (!_showsEmailInputValidation(_page)) {
+      return;
+    }
+    final nextErrorText = _visibleEmailValidationMessage();
+    if (_errorText == nextErrorText) {
+      return;
+    }
+    setState(() => _errorText = nextErrorText);
+  }
+
+  bool _showsEmailInputValidation(_EmailPage page) {
+    return page == _EmailPage.email || page == _EmailPage.forgotEmail;
+  }
+
+  String? _visibleEmailValidationMessage() {
+    final email = _normalizedEmail();
+    if (email.isEmpty) {
+      return null;
+    }
+    return _emailValidationMessage(email);
+  }
+
+  void _handleBack() {
+    if (_loading) {
+      return;
+    }
+
+    switch (_page) {
+      case _EmailPage.email:
+        Navigator.of(context).pop();
+      case _EmailPage.login:
+      case _EmailPage.registerCode:
+        _setPage(_EmailPage.email);
+      case _EmailPage.registerPassword:
+        _setPage(_EmailPage.registerCode);
+      case _EmailPage.forgotEmail:
+        _setPage(_email == null ? _EmailPage.email : _EmailPage.login);
+      case _EmailPage.forgotCode:
+        _setPage(_EmailPage.forgotEmail);
+      case _EmailPage.forgotPassword:
+        _setPage(_EmailPage.forgotCode);
+    }
   }
 
   Future<void> _beginEmailAuth() async {
@@ -190,6 +267,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       });
       if (destination == EmailAuthDestination.registerCode) {
         _startResendCountdown();
+        _revealCodeSentToast();
       }
     });
   }
@@ -220,6 +298,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       _clearSensitiveInputs();
       setState(() => _page = _EmailPage.registerCode);
       _startResendCountdown();
+      _revealCodeSentToast();
     });
   }
 
@@ -234,9 +313,11 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
           .read(authControllerProvider.notifier)
           .verifyRegisterCode(email: _email!, code: code);
       if (!mounted) return;
+      _codeSentToastTimer?.cancel();
       setState(() {
         _code = code;
         _page = _EmailPage.registerPassword;
+        _isCodeSentToastVisible = false;
       });
       _clearSensitiveInputs();
     });
@@ -282,6 +363,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         _page = _EmailPage.forgotCode;
       });
       _startResendCountdown();
+      _revealCodeSentToast();
     });
   }
 
@@ -298,11 +380,13 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       if (!mounted) {
         return;
       }
+      _codeSentToastTimer?.cancel();
       _clearSensitiveInputs();
       setState(() {
         _code = code;
         _resetToken = token;
         _page = _EmailPage.forgotPassword;
+        _isCodeSentToastVisible = false;
       });
     });
   }
@@ -331,21 +415,29 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
 
   Future<void> _resendRegisterCode() => _resendCode(
     () => ref.read(authControllerProvider.notifier).sendRegisterCode(_email!),
+    showCodeSentToast: true,
   );
 
   Future<void> _resendForgotCode() => _resendCode(
     () => ref
         .read(authControllerProvider.notifier)
         .sendForgotPasswordCode(_email!),
+    showCodeSentToast: true,
   );
 
-  Future<void> _resendCode(Future<void> Function() send) async {
+  Future<void> _resendCode(
+    Future<void> Function() send, {
+    bool showCodeSentToast = false,
+  }) async {
     if (_resendSeconds > 0) return;
     await _run(() async {
       await send();
       if (!mounted) return;
       _codeController.clear();
       _startResendCountdown();
+      if (showCodeSentToast) {
+        _revealCodeSentToast();
+      }
     });
   }
 
@@ -359,6 +451,16 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         return;
       }
       setState(() => _resendSeconds--);
+    });
+  }
+
+  void _revealCodeSentToast() {
+    _codeSentToastTimer?.cancel();
+    setState(() => _isCodeSentToastVisible = true);
+    _codeSentToastTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _isCodeSentToastVisible = false);
+      }
     });
   }
 
@@ -469,14 +571,24 @@ class _EmailInputPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasError = errorText != null;
     final emailField = _LabeledField(
       label: 'Email Address',
       child: TextFormField(
         controller: controller,
         autofocus: fullScreen,
         keyboardType: TextInputType.emailAddress,
+        textInputAction: TextInputAction.go,
+        onFieldSubmitted: (_) {
+          if (_hasValidEmailInput(controller.text)) {
+            onContinue();
+          }
+        },
         style: _fieldTextStyle,
-        decoration: _fieldDecoration(hint: 'name@exclusive.com'),
+        decoration: _fieldDecoration(
+          hint: 'name@exclusive.com',
+          hasError: hasError,
+        ),
       ),
     );
 
@@ -512,7 +624,7 @@ class _EmailInputPage extends StatelessWidget {
           builder: (context, value, _) => _PrimaryButton(
             label: 'Continue',
             loading: loading,
-            enabled: value.text.trim().isNotEmpty,
+            enabled: _hasValidEmailInput(value.text),
             onPressed: onContinue,
           ),
         ),
@@ -527,15 +639,41 @@ class _EmailOnlyPage extends StatelessWidget {
     required this.loading,
     required this.errorText,
     required this.onContinue,
+    this.fullScreen = false,
   });
 
   final TextEditingController controller;
   final bool loading;
   final String? errorText;
   final VoidCallback onContinue;
+  final bool fullScreen;
 
   @override
   Widget build(BuildContext context) {
+    final hasError = errorText != null;
+    if (fullScreen) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final content = _ForgotEmailContent(
+            controller: controller,
+            loading: loading,
+            errorText: errorText,
+            onContinue: onContinue,
+          );
+          if (constraints.maxHeight >= 520) {
+            return content;
+          }
+
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: content,
+            ),
+          );
+        },
+      );
+    }
+
     return _SheetColumn(
       errorText: errorText,
       children: [
@@ -545,14 +683,93 @@ class _EmailOnlyPage extends StatelessWidget {
             controller: controller,
             keyboardType: TextInputType.emailAddress,
             style: _fieldTextStyle,
-            decoration: _fieldDecoration(hint: 'name@exclusive.com'),
+            decoration: _fieldDecoration(
+              hint: 'name@exclusive.com',
+              hasError: hasError,
+            ),
           ),
         ),
         const SizedBox(height: 24),
-        _PrimaryButton(
-          label: 'Continue',
-          loading: loading,
-          onPressed: onContinue,
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, _) => _PrimaryButton(
+            label: 'Continue',
+            loading: loading,
+            enabled: _hasValidEmailInput(value.text),
+            onPressed: onContinue,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ForgotEmailContent extends StatelessWidget {
+  const _ForgotEmailContent({
+    required this.controller,
+    required this.loading,
+    required this.errorText,
+    required this.onContinue,
+  });
+
+  final TextEditingController controller;
+  final bool loading;
+  final String? errorText;
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = errorText != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _FigmaAuthTitle('Reset Password'),
+        const SizedBox(height: 32),
+        _LabeledField(
+          label: 'Email Address',
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.go,
+            onFieldSubmitted: (_) {
+              if (_hasValidEmailInput(controller.text)) {
+                onContinue();
+              }
+            },
+            style: _fieldTextStyle,
+            decoration: _fieldDecoration(
+              hint: 'Your Address',
+              hintStyle: const TextStyle(
+                color: Color(0xFF615D3B),
+                fontFamily: 'Geist',
+                fontSize: 15,
+                height: 22 / 15,
+              ),
+              hasError: hasError,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          errorText ??
+              'Enter the email associated with your Collection Vault account.',
+          style: TextStyle(
+            color: hasError ? const Color(0xFFE57373) : const Color(0xFF615D3B),
+            fontFamily: 'Geist',
+            fontSize: 11,
+            height: 18 / 11,
+          ),
+        ),
+        const Spacer(),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, _) => _CodeActionButton(
+            label: 'Get verification code',
+            loading: loading,
+            enabled: _hasValidEmailInput(value.text),
+            onPressed: onContinue,
+          ),
         ),
       ],
     );
@@ -570,6 +787,7 @@ class _PasswordPage extends StatelessWidget {
     required this.secondaryLabel,
     required this.onSecondary,
     required this.onForgotPassword,
+    this.fullScreen = false,
   });
 
   final String title;
@@ -581,9 +799,40 @@ class _PasswordPage extends StatelessWidget {
   final String secondaryLabel;
   final VoidCallback onSecondary;
   final VoidCallback onForgotPassword;
+  final bool fullScreen;
 
   @override
   Widget build(BuildContext context) {
+    if (fullScreen) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final shouldScroll = constraints.maxHeight < 620;
+          final content = _FigmaPasswordContent(
+            email: title,
+            controller: controller,
+            loading: loading,
+            errorText: errorText,
+            onSubmit: onSubmit,
+            secondaryLabel: secondaryLabel,
+            onSecondary: onSecondary,
+            onForgotPassword: onForgotPassword,
+            anchorActionsToBottom: !shouldScroll,
+          );
+
+          if (!shouldScroll) {
+            return content;
+          }
+
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: content,
+            ),
+          );
+        },
+      );
+    }
+
     return _SheetColumn(
       errorText: errorText,
       children: [
@@ -635,6 +884,115 @@ class _PasswordPage extends StatelessWidget {
   }
 }
 
+class _FigmaPasswordContent extends StatelessWidget {
+  const _FigmaPasswordContent({
+    required this.email,
+    required this.controller,
+    required this.loading,
+    required this.errorText,
+    required this.onSubmit,
+    required this.secondaryLabel,
+    required this.onSecondary,
+    required this.onForgotPassword,
+    required this.anchorActionsToBottom,
+  });
+
+  final String email;
+  final TextEditingController controller;
+  final bool loading;
+  final String? errorText;
+  final VoidCallback onSubmit;
+  final String secondaryLabel;
+  final VoidCallback onSecondary;
+  final VoidCallback onForgotPassword;
+  final bool anchorActionsToBottom;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Sign in',
+          style: TextStyle(
+            color: KandoColors.text,
+            fontFamily: 'Fraunces',
+            fontSize: 32,
+            height: 40 / 32,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Enter your email and password to login',
+          style: TextStyle(
+            color: Color(0xFF92927D),
+            fontFamily: 'Geist',
+            fontSize: 11,
+            height: 18 / 11,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        const SizedBox(height: 32),
+        _LabeledField(
+          label: 'Email Address',
+          child: _ReadOnlyEmailField(email: email),
+        ),
+        const SizedBox(height: 32),
+        _LabeledField(
+          label: 'Password',
+          child: _PasswordField(controller: controller),
+        ),
+        const SizedBox(height: 8),
+        _LinkButton(
+          label: 'Forgot Password ?',
+          loading: loading,
+          onPressed: onForgotPassword,
+          alignment: Alignment.centerRight,
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            errorText!,
+            style: const TextStyle(
+              color: KandoColors.errorText,
+              fontFamily: 'Geist',
+              fontSize: 12,
+              height: 18 / 12,
+            ),
+          ),
+        ],
+        if (anchorActionsToBottom)
+          const Spacer()
+        else
+          const SizedBox(height: 32),
+        _PrimaryButton(label: 'Sign in', loading: loading, onPressed: onSubmit),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              "Don't have an account?",
+              style: TextStyle(
+                color: Color(0xFF837D40),
+                fontFamily: 'Geist',
+                fontSize: 16,
+                height: 24 / 16,
+              ),
+            ),
+            const SizedBox(width: 4),
+            _InlineLinkButton(
+              label: secondaryLabel,
+              loading: loading,
+              onPressed: onSecondary,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _CodePage extends StatefulWidget {
   const _CodePage({
     required this.controller,
@@ -646,6 +1004,7 @@ class _CodePage extends StatefulWidget {
     required this.onContinue,
     required this.resendSeconds,
     required this.onResend,
+    this.isForgotFlow = false,
   });
 
   final TextEditingController controller;
@@ -657,6 +1016,7 @@ class _CodePage extends StatefulWidget {
   final VoidCallback onContinue;
   final int resendSeconds;
   final VoidCallback onResend;
+  final bool isForgotFlow;
 
   @override
   State<_CodePage> createState() => _CodePageState();
@@ -711,44 +1071,31 @@ class _CodePageState extends State<_CodePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          widget.title,
-          style: const TextStyle(
-            color: KandoColors.text,
-            fontFamily: 'Fraunces',
-            fontSize: 32,
-            height: 1.25,
+        _FigmaAuthTitle(widget.title),
+        if (!widget.isForgotFlow) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Enter the correct email CAPTCHA login',
+            style: TextStyle(
+              color: Color(0xFF92927D),
+              fontFamily: 'Geist',
+              fontSize: 11,
+              height: 18 / 11,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Enter the correct email CAPTCHA login',
-          style: TextStyle(
-            color: Color(0xFF92927D),
-            fontSize: 11,
-            height: 18 / 11,
-          ),
-        ),
+        ],
         const SizedBox(height: 32),
         const Text(
           'Email Address',
           style: TextStyle(
             color: Color(0xFF92927D),
+            fontFamily: 'Geist',
             fontSize: 11,
             height: 18 / 11,
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          height: 52,
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            border: Border.all(color: KandoColors.border),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(widget.email, style: _fieldTextStyle),
-        ),
+        _ReadOnlyEmailField(email: widget.email),
         const SizedBox(height: 32),
         Expanded(child: content),
       ],
@@ -790,6 +1137,9 @@ class _VerificationCodeInput extends StatelessWidget {
                 child: Text(
                   errorText!,
                   textAlign: TextAlign.end,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
                   style: const TextStyle(
                     color: Color(0xFFFF8787),
                     fontSize: 12,
@@ -907,10 +1257,21 @@ class _CodeActionButton extends StatelessWidget {
         foregroundColor: const Color(0xFF2C3400),
         disabledBackgroundColor: KandoColors.elevatedSurface,
         disabledForegroundColor: const Color(0xFF615D3B),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
+        textStyle: const TextStyle(
+          fontFamily: 'Geist',
+          fontSize: 16,
+          height: 24 / 16,
+          fontWeight: FontWeight.w400,
+        ),
       ),
       onPressed: loading || !enabled ? null : onPressed,
-      child: Text(loading ? 'Loading...' : label),
+      child: loading
+          ? const _LoadingButtonContent(
+              foregroundColor: Color(0xFF615D3B),
+              indicatorColor: KandoColors.accent,
+              strokeWidth: 2,
+            )
+          : Text(label),
     );
   }
 }
@@ -923,6 +1284,7 @@ class _PasswordPairPage extends StatelessWidget {
     required this.buttonLabel,
     required this.errorText,
     required this.onSubmit,
+    this.fullScreen = false,
   });
 
   final TextEditingController passwordController;
@@ -931,9 +1293,36 @@ class _PasswordPairPage extends StatelessWidget {
   final String buttonLabel;
   final String? errorText;
   final VoidCallback onSubmit;
+  final bool fullScreen;
 
   @override
   Widget build(BuildContext context) {
+    if (fullScreen) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final shouldScroll = constraints.maxHeight < 560;
+          final content = _FigmaPasswordPairContent(
+            passwordController: passwordController,
+            confirmController: confirmController,
+            loading: loading,
+            errorText: errorText,
+            onSubmit: onSubmit,
+            anchorActionsToBottom: !shouldScroll,
+          );
+          if (!shouldScroll) {
+            return content;
+          }
+
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: content,
+            ),
+          );
+        },
+      );
+    }
+
     return _SheetColumn(
       errorText: errorText,
       children: [
@@ -957,25 +1346,156 @@ class _PasswordPairPage extends StatelessWidget {
   }
 }
 
-const _fieldTextStyle = TextStyle(fontSize: 15, color: KandoColors.text);
+class _FigmaPasswordPairContent extends StatelessWidget {
+  const _FigmaPasswordPairContent({
+    required this.passwordController,
+    required this.confirmController,
+    required this.loading,
+    required this.errorText,
+    required this.onSubmit,
+    required this.anchorActionsToBottom,
+  });
 
-InputDecoration _fieldDecoration({String? hint, Widget? suffixIcon}) {
-  const border = OutlineInputBorder(
+  final TextEditingController passwordController;
+  final TextEditingController confirmController;
+  final bool loading;
+  final String? errorText;
+  final VoidCallback onSubmit;
+  final bool anchorActionsToBottom;
+
+  @override
+  Widget build(BuildContext context) {
+    final passwordError = errorText == _shortPasswordMessage
+        ? 'At least 8 characters'
+        : null;
+    final confirmError = errorText == _passwordMismatchMessage
+        ? 'Inconsistent with last input'
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _FigmaAuthTitle('Set New Password'),
+        const SizedBox(height: 32),
+        _LabeledField(
+          label: 'Password',
+          child: _PasswordField(
+            controller: passwordController,
+            hasError: passwordError != null,
+          ),
+        ),
+        if (passwordError != null) ...[
+          const SizedBox(height: 8),
+          _FieldErrorText(passwordError),
+        ],
+        const SizedBox(height: 32),
+        _LabeledField(
+          label: 'Confirm Password',
+          child: _PasswordField(
+            controller: confirmController,
+            hasError: confirmError != null,
+          ),
+        ),
+        if (confirmError != null) ...[
+          const SizedBox(height: 8),
+          _FieldErrorText(confirmError),
+        ],
+        if (anchorActionsToBottom)
+          const Spacer()
+        else
+          const SizedBox(height: 32),
+        _CodeActionButton(
+          label: 'Confirm',
+          loading: loading,
+          enabled: true,
+          onPressed: onSubmit,
+        ),
+      ],
+    );
+  }
+}
+
+const _fieldTextStyle = TextStyle(
+  color: KandoColors.text,
+  fontFamily: 'Geist',
+  fontSize: 15,
+  height: 22 / 15,
+  fontWeight: FontWeight.w400,
+);
+
+bool _hasValidEmailInput(String value) {
+  return emailValidationMessage(normalizedEmail(value)) == null;
+}
+
+InputDecoration _fieldDecoration({
+  String? hint,
+  TextStyle? hintStyle,
+  Widget? suffixIcon,
+  bool hasError = false,
+}) {
+  const normalBorder = OutlineInputBorder(
     borderRadius: BorderRadius.all(Radius.circular(12)),
     borderSide: BorderSide(color: KandoColors.border),
   );
+  const errorBorder = OutlineInputBorder(
+    borderRadius: BorderRadius.all(Radius.circular(12)),
+    borderSide: BorderSide(color: Color(0xFFFF8787)),
+  );
   return InputDecoration(
     hintText: hint,
-    hintStyle: const TextStyle(color: KandoColors.mutedText, fontSize: 15),
+    hintStyle: hintStyle ?? _fieldTextStyle,
     suffixIcon: suffixIcon,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-    border: border,
-    enabledBorder: border,
-    focusedBorder: const OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(12)),
-      borderSide: BorderSide(color: KandoColors.accent),
-    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    border: hasError ? errorBorder : normalBorder,
+    enabledBorder: hasError ? errorBorder : normalBorder,
+    focusedBorder: hasError
+        ? errorBorder
+        : const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderSide: BorderSide(color: KandoColors.accent),
+          ),
+    errorBorder: errorBorder,
+    focusedErrorBorder: errorBorder,
   );
+}
+
+class _FigmaAuthTitle extends StatelessWidget {
+  const _FigmaAuthTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: KandoColors.text,
+        fontFamily: 'Fraunces',
+        fontSize: 32,
+        height: 40 / 32,
+        fontWeight: FontWeight.w400,
+      ),
+    );
+  }
+}
+
+class _FieldErrorText extends StatelessWidget {
+  const _FieldErrorText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Color(0xFFE57373),
+        fontFamily: 'Geist',
+        fontSize: 11,
+        height: 18 / 11,
+      ),
+    );
+  }
 }
 
 class _LabeledField extends StatelessWidget {
@@ -993,7 +1513,13 @@ class _LabeledField extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
             label,
-            style: const TextStyle(color: KandoColors.mutedText, fontSize: 12),
+            style: const TextStyle(
+              color: Color(0xFF92927D),
+              fontFamily: 'Geist',
+              fontSize: 11,
+              height: 18 / 11,
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ),
         child,
@@ -1002,10 +1528,36 @@ class _LabeledField extends StatelessWidget {
   }
 }
 
+class _ReadOnlyEmailField extends StatelessWidget {
+  const _ReadOnlyEmailField({required this.email});
+
+  final String email;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 52,
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        border: Border.all(color: KandoColors.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        email.isEmpty ? 'name@exclusive.com' : email,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: _fieldTextStyle,
+      ),
+    );
+  }
+}
+
 class _PasswordField extends StatefulWidget {
-  const _PasswordField({required this.controller});
+  const _PasswordField({required this.controller, this.hasError = false});
 
   final TextEditingController controller;
+  final bool hasError;
 
   @override
   State<_PasswordField> createState() => _PasswordFieldState();
@@ -1022,13 +1574,14 @@ class _PasswordFieldState extends State<_PasswordField> {
       style: _fieldTextStyle,
       decoration: _fieldDecoration(
         hint: '••••••••',
+        hasError: widget.hasError,
         suffixIcon: IconButton(
           icon: Icon(
             _obscure
-                ? Icons.visibility_off_outlined
-                : Icons.visibility_outlined,
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
             size: 20,
-            color: KandoColors.mutedText,
+            color: const Color(0xFF92927D),
           ),
           onPressed: () => setState(() => _obscure = !_obscure),
         ),
@@ -1057,13 +1610,124 @@ class _PrimaryButton extends StatelessWidget {
         minimumSize: const Size.fromHeight(56),
         shape: const StadiumBorder(),
         backgroundColor: KandoColors.accent,
-        foregroundColor: KandoColors.ink,
+        foregroundColor: KandoColors.primaryOnDefault,
         disabledBackgroundColor: KandoColors.elevatedSurface,
         disabledForegroundColor: KandoColors.mutedText.withValues(alpha: 0.45),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontFamily: 'Geist',
+          fontSize: 16,
+          height: 24 / 16,
+          fontWeight: FontWeight.w400,
+        ),
       ),
       onPressed: loading || !enabled ? null : onPressed,
-      child: Text(loading ? 'Loading...' : label.toUpperCase()),
+      child: loading
+          ? const _LoadingButtonContent(
+              foregroundColor: KandoColors.mutedText,
+              indicatorColor: KandoColors.accent,
+              strokeWidth: 2.4,
+            )
+          : Text(label.toUpperCase()),
+    );
+  }
+}
+
+class _LoadingButtonContent extends StatelessWidget {
+  const _LoadingButtonContent({
+    required this.foregroundColor,
+    required this.indicatorColor,
+    required this.strokeWidth,
+  });
+
+  final Color foregroundColor;
+  final Color indicatorColor;
+  final double strokeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox.square(
+          dimension: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: strokeWidth,
+            color: indicatorColor,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text('Loading...', style: TextStyle(color: foregroundColor)),
+      ],
+    );
+  }
+}
+
+class _CodeSentToast extends StatelessWidget {
+  const _CodeSentToast();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('code-sent-toast'),
+      width: 260,
+      height: 122,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            offset: Offset(0, 4),
+            blurRadius: 60,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0x0FFFFFFF),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Code sent',
+                    textAlign: TextAlign.center,
+                    textScaler: TextScaler.noScaling,
+                    style: TextStyle(
+                      color: Color(0xFFF1FE70),
+                      fontFamily: 'Fraunces',
+                      fontSize: 24,
+                      height: 32 / 24,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Check your email to continue creating your account.',
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    textScaler: TextScaler.noScaling,
+                    style: TextStyle(
+                      color: Color(0xFFE3E3D6),
+                      fontFamily: 'Geist',
+                      fontSize: 15,
+                      height: 22 / 15,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1082,8 +1746,7 @@ class _EmailAuthFullScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showEmailHeading = page == _EmailPage.email;
-    final isCodePage =
-        page == _EmailPage.registerCode || page == _EmailPage.forgotCode;
+    final usesFigmaTopNavigation = !showEmailHeading;
 
     return SizedBox.expand(
       key: const Key('email-auth-page'),
@@ -1091,7 +1754,12 @@ class _EmailAuthFullScreen extends StatelessWidget {
         backgroundColor: KandoColors.ink,
         body: SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(20, isCodePage ? 2 : 28, 20, 32),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              usesFigmaTopNavigation ? 2 : 28,
+              20,
+              32,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1109,7 +1777,7 @@ class _EmailAuthFullScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(height: isCodePage ? 42 : 35),
+                SizedBox(height: usesFigmaTopNavigation ? 42 : 35),
                 if (showEmailHeading) ...[
                   const Text(
                     'Continue With Email',
@@ -1134,6 +1802,39 @@ class _EmailAuthFullScreen extends StatelessWidget {
                 Expanded(child: child),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineLinkButton extends StatelessWidget {
+  const _InlineLinkButton({
+    required this.label,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool loading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: !loading,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: loading ? null : onPressed,
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: KandoColors.accent,
+            fontFamily: 'Geist',
+            fontSize: 16,
+            height: 24 / 16,
           ),
         ),
       ),

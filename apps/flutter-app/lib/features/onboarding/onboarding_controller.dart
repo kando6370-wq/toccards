@@ -6,9 +6,13 @@ final onboardingControllerProvider =
     AsyncNotifierProvider<OnboardingController, bool>(OnboardingController.new);
 
 class OnboardingController extends AsyncNotifier<bool> {
+  static const minimumSplashDuration = Duration(milliseconds: 1200);
+
   @override
-  Future<bool> build() {
-    return ref.watch(onboardingRepositoryProvider).readCompleted();
+  Future<bool> build() async {
+    final completed = ref.watch(onboardingRepositoryProvider).readCompleted();
+    await Future<void>.delayed(minimumSplashDuration);
+    return completed;
   }
 
   Future<bool> complete() async {

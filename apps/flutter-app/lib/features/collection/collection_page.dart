@@ -789,8 +789,7 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                     child: ReorderableListView.builder(
                       buildDefaultDragHandles: false,
                       itemCount: folders.length,
-                      onReorder: (oldIndex, newIndex) async {
-                        if (newIndex > oldIndex) newIndex -= 1;
+                      onReorderItem: (oldIndex, newIndex) async {
                         final ids = folders.map((folder) => folder.id).toList();
                         final moved = ids.removeAt(oldIndex);
                         ids.insert(newIndex, moved);
@@ -1025,68 +1024,308 @@ Future<String?> _promptForFolderName(
   String initialName = '',
 }) async {
   var value = initialName;
-  return showDialog<String>(
+  return showModalBottomSheet<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      backgroundColor: KandoColors.elevatedSurface,
-      title: Text(title, style: const TextStyle(color: KandoColors.text)),
-      content: TextFormField(
-        key: const Key('collection-folder-name'),
-        initialValue: initialName,
-        onChanged: (next) => value = next,
-        autofocus: true,
-        maxLength: 50,
-        style: const TextStyle(color: KandoColors.text),
-        decoration: const InputDecoration(
-          labelText: 'Portfolio name',
-          labelStyle: TextStyle(color: KandoColors.mutedText),
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: const Color(0xBF0D0F08),
+    builder: (context) {
+      final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+      return Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: _FolderNameBottomSheet(
+          title: title,
+          initialName: initialName,
+          onChanged: (next) => value = next,
+          onSave: () {
+            final normalized = value.trim();
+            if (normalized.isNotEmpty) {
+              Navigator.of(context).pop(normalized);
+            }
+          },
+        ),
+      );
+    },
+  );
+}
+
+class _FolderNameBottomSheet extends StatelessWidget {
+  const _FolderNameBottomSheet({
+    required this.title,
+    required this.initialName,
+    required this.onChanged,
+    required this.onSave,
+  });
+
+  final String title;
+  final String initialName;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PortfolioActionSheet(
+      key: const Key('collection-folder-name-sheet'),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFFE4E3D3),
+              fontFamily: 'Fraunces',
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              height: 32 / 24,
+              fontVariations: [
+                FontVariation('SOFT', 0),
+                FontVariation('WONK', 1),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          const Text(
+            'Name of portfolio',
+            style: TextStyle(
+              color: Color(0xFF92927D),
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              height: 18 / 11,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            key: const Key('collection-folder-name'),
+            initialValue: initialName,
+            onChanged: onChanged,
+            autofocus: true,
+            maxLength: 50,
+            style: const TextStyle(
+              color: KandoColors.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              height: 22 / 15,
+            ),
+            cursorColor: KandoColors.accent,
+            decoration: InputDecoration(
+              counterText: '',
+              filled: true,
+              fillColor: Colors.transparent,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 15,
+              ),
+              border: _folderInputBorder(KandoColors.accent),
+              enabledBorder: _folderInputBorder(KandoColors.accent),
+              focusedBorder: _folderInputBorder(KandoColors.accent),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Row(
+            children: [
+              _RoundSheetButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: KandoColors.accent,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _PillSheetButton(
+                  key: const Key('collection-folder-name-save'),
+                  backgroundColor: KandoColors.accent,
+                  foregroundColor: KandoColors.primaryOnDefault,
+                  label: 'SAVE',
+                  onPressed: onSave,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+OutlineInputBorder _folderInputBorder(Color color) {
+  return OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: color),
+  );
+}
+
+class _PortfolioActionSheet extends StatelessWidget {
+  const _PortfolioActionSheet({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        decoration: BoxDecoration(
+          color: KandoColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          border: Border(
+            top: BorderSide(color: KandoColors.accent.withValues(alpha: 0.1)),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x40000000),
+              offset: Offset(0, -8),
+              blurRadius: 28,
+            ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: KandoColors.border.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 28),
+              child,
+            ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+    );
+  }
+}
+
+class _RoundSheetButton extends StatelessWidget {
+  const _RoundSheetButton({required this.onPressed, required this.child});
+
+  final VoidCallback onPressed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: Container(
+        width: 56,
+        height: 56,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0x1FFFFFFF),
+          shape: BoxShape.circle,
+          border: Border.all(color: KandoColors.border.withValues(alpha: 0.4)),
         ),
-        FilledButton(
-          key: const Key('collection-folder-name-save'),
-          onPressed: () {
-            final normalized = value.trim();
-            if (normalized.isNotEmpty) Navigator.of(context).pop(normalized);
-          },
-          child: const Text('Save'),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _PillSheetButton extends StatelessWidget {
+  const _PillSheetButton({
+    super.key,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: Container(
+        height: 56,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: KandoColors.borderSubtle),
         ),
-      ],
-    ),
-  );
+        child: Text(
+          label,
+          style: TextStyle(
+            color: foregroundColor,
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            height: 24 / 16,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 Future<bool> _confirmDeleteFolder(
   BuildContext context,
   CollectionFolder folder,
 ) async {
-  return await showDialog<bool>(
+  return await showModalBottomSheet<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: KandoColors.elevatedSurface,
-          title: const Text(
-            'Delete Portfolio?',
-            style: TextStyle(color: KandoColors.text),
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: const Color(0xBF0D0F08),
+        builder: (context) => _PortfolioActionSheet(
+          key: const Key('collection-folder-delete-sheet'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Are you sure you want to delete this ${folder.name} portfolio?',
+                style: const TextStyle(
+                  color: KandoColors.errorText,
+                  fontFamily: 'Fraunces',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  height: 32 / 24,
+                  fontVariations: [
+                    FontVariation('SOFT', 0),
+                    FontVariation('WONK', 1),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PillSheetButton(
+                      backgroundColor: KandoColors.elevatedSurface,
+                      foregroundColor: KandoColors.text,
+                      label: 'CANCEL',
+                      onPressed: () => Navigator.of(context).pop(false),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PillSheetButton(
+                      key: const Key('collection-folder-delete-confirm'),
+                      backgroundColor: KandoColors.error,
+                      foregroundColor: KandoColors.primaryOnDefault,
+                      label: 'DELETE',
+                      onPressed: () => Navigator.of(context).pop(true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          content: Text(
-            'All cards in ${folder.name} will be deleted.',
-            style: const TextStyle(color: KandoColors.mutedText),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              key: const Key('collection-folder-delete-confirm'),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Delete'),
-            ),
-          ],
         ),
       ) ??
       false;

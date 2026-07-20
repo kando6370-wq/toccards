@@ -157,6 +157,11 @@ void main() {
 
       await tester.tap(find.byKey(const Key('collection-folder-add')));
       await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('collection-folder-name-sheet')),
+        findsOneWidget,
+      );
+      expect(find.byType(AlertDialog), findsNothing);
       await tester.enterText(
         find.byKey(const Key('collection-folder-name')),
         'Trade',
@@ -176,6 +181,31 @@ void main() {
       );
     },
   );
+
+  testWidgets('folder delete confirmation opens as a bottom sheet', (
+    tester,
+  ) async {
+    await _pumpCollection(tester);
+
+    await tester.tap(find.text('Main'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('collection-folder-delete-sealed')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('collection-folder-delete-sheet')),
+      findsOneWidget,
+    );
+    expect(find.byType(AlertDialog), findsNothing);
+
+    await tester.tap(find.byKey(const Key('collection-folder-delete-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('collection-folder-delete-sealed')),
+      findsNothing,
+    );
+  });
 
   testWidgets('Wishlist tab uses wishlist copy and hides quantity', (
     tester,

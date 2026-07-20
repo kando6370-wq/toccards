@@ -19,7 +19,7 @@ import 'package:kando_app/features/profile/profile_actions.dart';
 import '../support/in_memory_onboarding_storage.dart';
 
 void main() {
-  testWidgets('email auth disables blank submit and rejects invalid email', (
+  testWidgets('email auth validates input before enabling submit', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -36,9 +36,7 @@ void main() {
 
     await tester.enterText(find.byType(TextFormField), 'not-an-email');
     await tester.pump();
-    expect(tester.widget<FilledButton>(continueButton).onPressed, isNotNull);
-    await tester.tap(continueButton);
-    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(continueButton).onPressed, isNull);
     expect(find.text('Please enter a valid email address.'), findsOneWidget);
 
     for (final email in [
@@ -51,14 +49,51 @@ void main() {
     ]) {
       await tester.enterText(find.byType(TextFormField), email);
       await tester.pump();
-      await tester.tap(continueButton);
-      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(continueButton).onPressed, isNull);
       expect(
         find.text('Please enter a valid email address.'),
         findsOneWidget,
         reason: '$email must be rejected by PRD email validation',
       );
     }
+
+    await tester.enterText(find.byType(TextFormField), 'person@example.com');
+    await tester.pump();
+
+    expect(find.text('Please enter a valid email address.'), findsNothing);
+    expect(tester.widget<FilledButton>(continueButton).onPressed, isNotNull);
+  });
+
+  testWidgets('email continue shows loading while checking registration', (
+    tester,
+  ) async {
+    final registerCodeCompleter = Completer<void>();
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+      registerCodeCompleter: registerCodeCompleter,
+    );
+
+    await tester.pumpWidget(_testAuthSheetApp(repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Email'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'person@example.com');
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+    await tester.pump();
+
+    final loadingButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Loading...'),
+    );
+    expect(loadingButton.onPressed, isNull);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(repository.registerCodeEmails, ['person@example.com']);
+
+    registerCodeCompleter.complete();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('short login password blocks submit', (tester) async {
@@ -66,14 +101,16 @@ void main() {
       initialSession: _anonymousSession('anon-existing'),
     );
 
-    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpWidget(_testAuthSheetApp(repository));
     await tester.pumpAndSettle();
-    await _openProfileTab(tester);
-    await _openEmailAuth(tester);
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Email'));
+    await tester.pumpAndSettle();
     await _continueWithEmail(tester, 'person@example.com');
 
     await tester.enterText(find.byType(TextFormField), 'short');
-    await tester.tap(find.widgetWithText(FilledButton, 'LOG IN'));
+    await tester.tap(find.widgetWithText(FilledButton, 'SIGN IN'));
     await tester.pumpAndSettle();
 
     expect(
@@ -83,9 +120,7 @@ void main() {
     expect(repository.loginRequests, isEmpty);
   });
 
-  testWidgets('successful email login returns home', (
-    tester,
-  ) async {
+  testWidgets('successful email login returns home', (tester) async {
     final repository = _WidgetAuthRepository(
       initialSession: _anonymousSession('anon-existing'),
     );
@@ -97,7 +132,7 @@ void main() {
     await _continueWithEmail(tester, ' PERSON@example.com ');
 
     await tester.enterText(find.byType(TextFormField), 'password123');
-    await tester.tap(find.widgetWithText(FilledButton, 'LOG IN'));
+    await tester.tap(find.widgetWithText(FilledButton, 'SIGN IN'));
     await tester.pumpAndSettle();
 
     expect(repository.loginRequests, [
@@ -449,6 +484,52 @@ void main() {
     },
   );
 
+  testWidgets('email auth back returns to the auth options sheet', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+
+    await tester.pumpWidget(_testAuthSheetApp(repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Email'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('email-auth-back')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('email-auth-page')), findsNothing);
+    expect(find.byKey(const Key('auth-sheet-panel')), findsOneWidget);
+    expect(find.text('Continue with Email'), findsOneWidget);
+  });
+
+  testWidgets('email auth back steps from password entry to email entry', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+
+    await tester.pumpWidget(_testAuthSheetApp(repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Email'));
+    await tester.pumpAndSettle();
+    await _continueWithEmail(tester, 'person@example.com');
+
+    await tester.tap(find.byKey(const Key('email-auth-back')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('email-auth-page')), findsOneWidget);
+    expect(find.text('Continue With Email'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'CONTINUE'), findsOneWidget);
+  });
+
   testWidgets('oauth authorization failure shows retry copy and keeps guest', (
     tester,
   ) async {
@@ -528,8 +609,8 @@ void main() {
       await _continueWithEmail(tester, 'person@example.com');
 
       await tester.enterText(find.byType(TextFormField), 'password123');
-      await tester.tap(find.widgetWithText(FilledButton, 'LOG IN'));
-      await tester.tap(find.widgetWithText(FilledButton, 'LOG IN'));
+      await tester.tap(find.widgetWithText(FilledButton, 'SIGN IN'));
+      await tester.tap(find.widgetWithText(FilledButton, 'SIGN IN'));
       await tester.pump();
 
       final loadingButton = tester.widget<FilledButton>(
@@ -551,10 +632,12 @@ void main() {
       emailRegistered: false,
     );
 
-    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpWidget(_testAuthSheetApp(repository));
     await tester.pumpAndSettle();
-    await _openProfileTab(tester);
-    await _openEmailAuth(tester);
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Email'));
+    await tester.pumpAndSettle();
     await _continueWithEmail(
       tester,
       'person@example.com',
@@ -575,6 +658,46 @@ void main() {
 
     expect(find.text('Passwords do not match.'), findsOneWidget);
     expect(repository.registerRequests, isEmpty);
+  });
+
+  testWidgets('register code page starts the resend countdown after sending', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+      emailRegistered: false,
+    );
+
+    await tester.pumpWidget(_testAuthSheetApp(repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Email'));
+    await tester.pumpAndSettle();
+    await _continueWithEmail(
+      tester,
+      'person@example.com',
+      destinationLabel: 'Verification Code',
+    );
+
+    final toast = find.byKey(const Key('code-sent-toast'));
+    expect(toast, findsOneWidget);
+    expect(tester.getSize(toast), const Size(260, 122));
+    expect(find.text('Code sent'), findsOneWidget);
+    expect(
+      find.text('Check your email to continue creating your account.'),
+      findsOneWidget,
+    );
+    final toastTitle = tester.widget<Text>(find.text('Code sent'));
+    expect(toastTitle.textAlign, TextAlign.center);
+    expect(toastTitle.style?.color, const Color(0xFFF1FE70));
+    expect(toastTitle.style?.fontSize, 24);
+
+    expect(find.text("Didn't get the code? Check your spam"), findsOneWidget);
+    expect(
+      find.widgetWithText(FilledButton, 'Retry in 60 seconds'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('register verification requires all six code digits', (
@@ -677,10 +800,12 @@ void main() {
       emailRegistered: false,
     );
 
-    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpWidget(_testAuthSheetApp(repository));
     await tester.pumpAndSettle();
-    await _openProfileTab(tester);
-    await _openEmailAuth(tester);
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Email'));
+    await tester.pumpAndSettle();
     await _continueWithEmail(
       tester,
       'person@example.com',
@@ -693,7 +818,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Incorrect verification code.'), findsOneWidget);
+    final errorText = tester.widget<Text>(
+      find.text('Incorrect verification code'),
+    );
+    expect(errorText.maxLines, 1);
+    expect(errorText.softWrap, isFalse);
     expect(find.text('Signed in'), findsNothing);
     final firstBox = tester.widget<Container>(
       find.byKey(const Key('verification-code-box-0')),
@@ -733,7 +862,7 @@ void main() {
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'newpass123');
     await tester.enterText(fields.at(1), 'newpass123');
-    await tester.tap(find.widgetWithText(FilledButton, 'RESET PASSWORD'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -745,7 +874,7 @@ void main() {
       const _ResetRequest('person@example.com', 'reset-token', 'newpass123'),
     ]);
     expect(find.text('Password reset successfully.'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'LOG IN'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'SIGN IN'), findsOneWidget);
     final loginPasswordField = tester.widget<TextFormField>(
       find.byType(TextFormField),
     );
@@ -768,7 +897,9 @@ void main() {
     await tester.tap(find.text('Forgot Password ?'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), 'person@example.com');
-    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), '654321');
     await tester.pump();
@@ -1246,33 +1377,32 @@ void main() {
     },
   );
 
-  testWidgets(
-    'offline logout from Account keeps the user on account details',
-    (tester) async {
-      final repository = _WidgetAuthRepository(
-        initialSession: _userSession(),
-        logoutError: const AuthNetworkException(),
-      );
+  testWidgets('offline logout from Account keeps the user on account details', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _userSession(),
+      logoutError: const AuthNetworkException(),
+    );
 
-      await tester.pumpWidget(_testApp(repository));
-      await tester.pumpAndSettle();
-      await _openProfileTab(tester);
-      await tester.tap(find.text('person@example.com').first);
-      await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('Log Out'), 200);
-      await tester.tap(find.text('Log Out'));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
+    await tester.tap(find.text('person@example.com').first);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Log Out'), 200);
+    await tester.tap(find.text('Log Out'));
+    await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('account-content-list')), findsOneWidget);
-      expect(
-        find.text(
-          'No internet connection. Please check your network and try again.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('person@example.com'), findsWidgets);
-    },
-  );
+    expect(find.byKey(const Key('account-content-list')), findsOneWidget);
+    expect(
+      find.text(
+        'No internet connection. Please check your network and try again.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('person@example.com'), findsWidgets);
+  });
 
   testWidgets(
     'guest delete discards the old anonymous id and creates a fresh guest',
@@ -1531,6 +1661,7 @@ class _WidgetAuthRepository implements AuthRepository {
     List<String> createdAnonymousIds = const [],
     List<Exception> initialSessionErrors = const [],
     this.registerError,
+    this.registerCodeCompleter,
     this.forgotCodeError,
     this.loginCompleter,
     this.googleCallbackError,
@@ -1545,6 +1676,7 @@ class _WidgetAuthRepository implements AuthRepository {
   final List<String> _createdAnonymousIds;
   final List<Exception> _initialSessionErrors;
   final Exception? registerError;
+  final Completer<void>? registerCodeCompleter;
   final Exception? forgotCodeError;
   final Completer<AuthSession>? loginCompleter;
   final Exception? googleCallbackError;
@@ -1630,6 +1762,10 @@ class _WidgetAuthRepository implements AuthRepository {
   @override
   Future<void> sendRegisterCode(String email) async {
     registerCodeEmails.add(email);
+    final completer = registerCodeCompleter;
+    if (completer != null) {
+      await completer.future;
+    }
     if (emailRegistered) {
       throw const AuthApiException(
         'Email is already registered.',
