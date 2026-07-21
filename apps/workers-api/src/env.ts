@@ -10,6 +10,4 @@ export interface Env {
   MAIL_FROM_ADDRESS?: string;
   MAIL_FROM_NAME?: string;
   OCR_SERVICE_BASE_URL?: string;
-  JUSTTCG_API_KEY?: string;
-  JUSTTCG_BATCH_SIZE?: string;
 }

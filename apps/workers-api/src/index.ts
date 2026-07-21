@@ -8,7 +8,6 @@ import type { Env } from "./env";
 import { createFeedbackRoutes } from "./feedback/routes";
 import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
-import { runJustTcgPriceSync } from "./price-sync/justtcg";
 import { createScanRoutes } from "./scan/routes";
 
 export type { Env } from "./env";
@@ -44,22 +43,4 @@ api.route("/", createScanRoutes());
 
 app.notFound((c) => c.json({ error: "NOT_FOUND" }, 404));
 
-export default Object.assign(app, {
-  scheduled(
-    _controller: ScheduledController,
-    env: Env,
-    ctx: ExecutionContext,
-  ): void {
-    const now = new Date();
-    ctx.waitUntil(
-      runJustTcgPriceSync(env, { now }).then((result) => {
-        if (
-          result.last_attempt_at === now.toISOString() &&
-          (result.status === "blocked" || result.status === "failed")
-        ) {
-          console.error(result.last_error ?? "Price synchronization failed.");
-        }
-      }),
-    );
-  },
-});
+export default app;

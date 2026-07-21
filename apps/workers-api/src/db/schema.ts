@@ -105,22 +105,6 @@ export const tcgplayerSkus = sqliteTable(
   ],
 );
 
-export const priceSyncState = sqliteTable("price_sync_state", {
-  source: text("source").primaryKey(),
-  status: text("status").notNull(),
-  cursorProductId: integer("cursor_product_id"),
-  cycleStartedAt: text("cycle_started_at"),
-  lastAttemptAt: text("last_attempt_at"),
-  lastSuccessAt: text("last_success_at"),
-  lastCompletedAt: text("last_completed_at"),
-  nextRunAt: text("next_run_at"),
-  productsProcessed: integer("products_processed").notNull().default(0),
-  variantsWritten: integer("variants_written").notNull().default(0),
-  coveredProducts: integer("covered_products").notNull().default(0),
-  totalProducts: integer("total_products").notNull().default(0),
-  lastError: text("last_error"),
-});
-
 // ── 用户 / 账号层 ──────────────────────────────────────────────
 
 export const user = sqliteTable("user", {
