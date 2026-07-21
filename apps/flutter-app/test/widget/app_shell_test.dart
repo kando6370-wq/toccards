@@ -69,6 +69,22 @@ void main() {
     },
   );
 
+  testWidgets('tab scaffold extends content behind translucent tab bar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: KandoTabScaffold(
+          currentTab: KandoMainTab.home,
+          body: SizedBox.expand(),
+        ),
+      ),
+    );
+
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(scaffold.extendBody, isTrue);
+  });
+
   testWidgets('Figma tab bar renders at the approved 390x844 baseline', (
     tester,
   ) async {

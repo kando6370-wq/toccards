@@ -229,23 +229,26 @@ void main() {
 
       final agreement = find.byKey(const Key('auth-agreement-text'));
       expect(agreement, findsOneWidget);
-      final agreementText = tester
-          .widget<RichText>(agreement)
-          .text
-          .toPlainText();
+      final agreementCopy = tester.widget<Text>(
+        find.byKey(const Key('auth-agreement-copy')),
+      );
+      final agreementLinks = tester.widget<RichText>(
+        find.byKey(const Key('auth-agreement-links')),
+      );
+      final agreementText =
+          '${agreementCopy.data} ${agreementLinks.text.toPlainText()}';
       expect(
         agreementText,
-        'By continuing, you agree to our Terms of Use and Privacy Policy.',
+        'By continuing, you agree to our Terms of Use and Privacy Policy',
       );
       expect(agreementText, contains('Terms of Use'));
       expect(agreementText, contains('Privacy Policy'));
 
-      final spans = (tester.widget<RichText>(agreement).text as TextSpan)
-          .children!
+      final spans = (agreementLinks.text as TextSpan).children!
           .cast<TextSpan>();
-      (spans[1].recognizer! as TapGestureRecognizer).onTap!();
+      (spans[0].recognizer! as TapGestureRecognizer).onTap!();
       await tester.pumpAndSettle();
-      (spans[3].recognizer! as TapGestureRecognizer).onTap!();
+      (spans[2].recognizer! as TapGestureRecognizer).onTap!();
       await tester.pumpAndSettle();
 
       expect(profileActions.calls, ['terms', 'privacy']);
@@ -275,6 +278,10 @@ void main() {
       expect(tester.getSize(panel), const Size(390, 343));
       expect(tester.getBottomRight(panel), const Offset(390, 844));
       expect(tester.getSize(closeButton), const Size.square(40));
+      expect(
+        tester.getSize(find.byKey(const Key('auth-home-indicator'))),
+        const Size(390, 25.154),
+      );
 
       await tester.tap(closeButton);
       await tester.pumpAndSettle();
@@ -285,7 +292,7 @@ void main() {
     },
   );
 
-  testWidgets('normal auth options render the Figma panel canvas', (
+  testWidgets('normal auth options render sharp native controls', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -303,20 +310,14 @@ void main() {
 
     final panelCanvas = find.byKey(const Key('auth-options-panel-canvas'));
     expect(panelCanvas, findsOneWidget);
-    expect(tester.widget<RepaintBoundary>(panelCanvas), isNotNull);
     expect(find.byKey(const Key('auth-options-close-canvas')), findsOneWidget);
-    await tester.runAsync(
-      () => precacheImage(
-        const AssetImage('assets/auth/auth_options_panel_canvas.png'),
-        tester.element(panelCanvas),
-      ),
-    );
-    await tester.pump();
-    await expectLater(
-      panelCanvas,
-      matchesGoldenFile(
-        'goldens/rendered/figma_auth_options_panel_183_11494_390x343.png',
-      ),
+    expect(find.byKey(const Key('auth-home-indicator')), findsOneWidget);
+    expect(find.byKey(const Key('auth-google-option')), findsOneWidget);
+    expect(find.byKey(const Key('auth-apple-option')), findsOneWidget);
+    expect(find.byKey(const Key('auth-email-option')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('auth-google-option'))),
+      const Size(342, 56),
     );
   });
 
@@ -335,7 +336,7 @@ void main() {
         await tester.pumpAndSettle();
 
         final agreement = tester.getSemantics(
-          find.byKey(const Key('auth-agreement-text')),
+          find.byKey(const Key('auth-agreement-links')),
         );
         final linkLabels = <String>[];
         agreement.visitChildren((child) {
@@ -350,7 +351,7 @@ void main() {
     },
   );
 
-  testWidgets('oauth failure renders the Figma panel canvas', (tester) async {
+  testWidgets('oauth failure renders sharp native controls', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -382,18 +383,11 @@ void main() {
     expect(tester.getTopLeft(closeButton), const Offset(175, 381));
     expect(failureCanvas, findsOneWidget);
     expect(find.byKey(const Key('auth-options-close-canvas')), findsOneWidget);
-    await tester.runAsync(
-      () => precacheImage(
-        const AssetImage('assets/auth/auth_failure_panel_canvas.png'),
-        tester.element(failureCanvas),
-      ),
-    );
-    await tester.pump();
-    await expectLater(
-      failureCanvas,
-      matchesGoldenFile(
-        'goldens/rendered/figma_auth_failure_panel_183_11556_390x407.png',
-      ),
+    expect(find.byKey(const Key('auth-home-indicator')), findsOneWidget);
+    expect(find.byKey(const Key('auth-oauth-warning')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('auth-email-option'))),
+      const Size(342, 56),
     );
   });
 

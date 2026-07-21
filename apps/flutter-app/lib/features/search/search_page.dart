@@ -21,6 +21,7 @@ class SearchPage extends ConsumerWidget {
     return KandoTabScaffold(
       currentTab: KandoMainTab.search,
       body: SafeArea(
+        bottom: false,
         child: NotificationListener<ScrollNotification>(
           onNotification: (notification) {
             if (notification.depth == 0 &&

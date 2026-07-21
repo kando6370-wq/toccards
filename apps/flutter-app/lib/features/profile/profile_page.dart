@@ -31,6 +31,7 @@ class ProfilePage extends ConsumerWidget {
     return KandoTabScaffold(
       currentTab: KandoMainTab.profile,
       body: SafeArea(
+        bottom: false,
         child: authState.isLoading
             ? const Center(child: CircularProgressIndicator())
             : authState.hasError

@@ -23,6 +23,7 @@ class KandoTabScaffold extends StatelessWidget {
     return Theme(
       data: _tabTheme(context),
       child: Scaffold(
+        extendBody: true,
         backgroundColor: KandoColors.ink,
         body: body,
         bottomNavigationBar: _FigmaTabBar(
@@ -111,15 +112,17 @@ class _FigmaTabBar extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(31),
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0x3310100B),
-                      border: Border.all(color: const Color(0x1FFFFFFF)),
-                      borderRadius: BorderRadius.circular(31),
+              child: IgnorePointer(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(31),
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0x3310100B),
+                        border: Border.all(color: const Color(0x1FFFFFFF)),
+                        borderRadius: BorderRadius.circular(31),
+                      ),
                     ),
                   ),
                 ),

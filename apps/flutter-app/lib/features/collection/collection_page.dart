@@ -26,6 +26,7 @@ class CollectionPage extends ConsumerWidget {
     return KandoTabScaffold(
       currentTab: KandoMainTab.collection,
       body: SafeArea(
+        bottom: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
