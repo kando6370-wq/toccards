@@ -215,15 +215,30 @@ abstract interface class CardDataApi {
   Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef);
 }
 
-class CardDataApiClient implements CardDataApi, SetCatalogApi {
+abstract interface class PaginatedCardDataApi {
+  Future<List<CardDataCardDto>> searchCardPage(
+    String query, {
+    String? game,
+    required int page,
+  });
+}
+
+class CardDataApiClient
+    implements CardDataApi, PaginatedCardDataApi, SetCatalogApi {
   const CardDataApiClient(this._dio);
 
   final Dio _dio;
 
   @override
-  Future<List<CardDataCardDto>> searchCards(
+  Future<List<CardDataCardDto>> searchCards(String query, {String? game}) {
+    return searchCardPage(query, game: game, page: 1);
+  }
+
+  @override
+  Future<List<CardDataCardDto>> searchCardPage(
     String query, {
     String? game,
+    required int page,
   }) async {
     final data = await _requestData(
       'GET',
@@ -231,6 +246,7 @@ class CardDataApiClient implements CardDataApi, SetCatalogApi {
       queryParameters: {
         'q': query,
         if (game != null) 'game': game,
+        'page': page,
         'page_size': 40,
       },
     );

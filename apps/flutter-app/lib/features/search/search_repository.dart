@@ -11,6 +11,14 @@ abstract interface class SearchRepository {
   Future<List<SearchSet>> searchSets(String query, {String? game});
 }
 
+abstract interface class PaginatedSearchRepository {
+  Future<List<SearchCard>> searchCardPage(
+    String query, {
+    String? game,
+    required int page,
+  });
+}
+
 abstract interface class SearchAssetRepository implements SearchRepository {
   Future<SearchAssetSnapshot> loadAssets(
     AuthSession session, {
@@ -48,7 +56,11 @@ class SearchCardAssetState {
   final String? wishlistItemId;
 }
 
-class HttpSearchRepository implements SearchRepository, SearchAssetRepository {
+class HttpSearchRepository
+    implements
+        SearchRepository,
+        PaginatedSearchRepository,
+        SearchAssetRepository {
   const HttpSearchRepository(
     this._api, {
     SetCatalogApi? setCatalogApi,
@@ -65,18 +77,22 @@ class HttpSearchRepository implements SearchRepository, SearchAssetRepository {
 
   @override
   Future<SearchCatalog> loadCatalog() async {
-    final cards = await _api.trendingCards();
     final gameDtos = await _setCatalogApi?.listGames();
-    final games = gameDtos == null
-        ? _gamesFromCards(cards)
-        : gameDtos
-              .map(
-                (game) => SearchGame(
-                  id: _gameIdFromValue(game.name),
-                  label: game.name,
-                ),
-              )
-              .toList();
+    late final List<SearchGame> games;
+    late final List<SearchCard> cards;
+    if (gameDtos == null) {
+      final seedCards = await _api.trendingCards();
+      games = _gamesFromCards(seedCards);
+      cards = seedCards.map(_cardFromDto).toList();
+    } else {
+      games = gameDtos
+          .map(
+            (game) =>
+                SearchGame(id: _gameIdFromValue(game.name), label: game.name),
+          )
+          .toList();
+      cards = await searchCardPage('', game: games.first.label, page: 1);
+    }
     final setQuery = _defaultSetQuery ?? games.first.label;
     final sets = _setCatalogApi == null
         ? await _api.searchSets('', game: setQuery)
@@ -84,14 +100,31 @@ class HttpSearchRepository implements SearchRepository, SearchAssetRepository {
 
     return SearchCatalog(
       games: games,
-      cards: cards.map(_cardFromDto).toList(),
+      cards: cards,
       sets: sets.map(_setFromDto).toList(),
     );
   }
 
   @override
   Future<List<SearchCard>> searchCards(String query, {String? game}) async {
-    final cards = await _api.searchCards(query, game: game);
+    return searchCardPage(query, game: game, page: 1);
+  }
+
+  @override
+  Future<List<SearchCard>> searchCardPage(
+    String query, {
+    String? game,
+    required int page,
+  }) async {
+    final cards = _api is PaginatedCardDataApi
+        ? await (_api as PaginatedCardDataApi).searchCardPage(
+            query,
+            game: game,
+            page: page,
+          )
+        : page == 1
+        ? await _api.searchCards(query, game: game)
+        : const <CardDataCardDto>[];
     return cards.map(_cardFromDto).toList();
   }
 

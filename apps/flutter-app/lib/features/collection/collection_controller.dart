@@ -5,6 +5,7 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/market/market_change.dart';
@@ -18,6 +19,7 @@ final collectionRepositoryProvider = Provider<CollectionRepository>((ref) {
   return HttpCollectionRepository(
     ref.watch(portfolioApiClientProvider),
     managementApi: ref.watch(portfolioManagementApiProvider),
+    gameCatalogApi: ref.watch(setCatalogApiClientProvider),
   );
 });
 
@@ -90,6 +92,7 @@ class CollectionState {
     required this.sortByTab,
     required this.gamesByTab,
     required this.languagesByTab,
+    this.gameOptions = const [],
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.content;
 
@@ -114,6 +117,7 @@ class CollectionState {
         CollectionTab.portfolio: <String>{},
         CollectionTab.wishlist: <String>{},
       },
+      gameOptions = const [],
       loadStatus = KandoLoadStatus.failure;
 
   const CollectionState.loading({required this.currency})
@@ -137,6 +141,7 @@ class CollectionState {
         CollectionTab.portfolio: <String>{},
         CollectionTab.wishlist: <String>{},
       },
+      gameOptions = const [],
       loadStatus = KandoLoadStatus.loading;
 
   const CollectionState._({
@@ -149,6 +154,7 @@ class CollectionState {
     required this.sortByTab,
     required this.gamesByTab,
     required this.languagesByTab,
+    required this.gameOptions,
     required this.loadStatus,
   }) : _dashboard = dashboard;
 
@@ -161,6 +167,7 @@ class CollectionState {
   final Map<CollectionTab, CollectionSort> sortByTab;
   final Map<CollectionTab, Set<String>> gamesByTab;
   final Map<CollectionTab, Set<String>> languagesByTab;
+  final List<String> gameOptions;
   final KandoLoadStatus loadStatus;
 
   CollectionDashboard get dashboard {
@@ -244,9 +251,7 @@ class CollectionState {
   }
 
   CollectionSummary get portfolioSummary {
-    final items = dashboard.portfolioItems
-        .where((item) => item.folderId == selectedFolder.id)
-        .toList();
+    final items = visibleItems.map((item) => item.source).toList();
     final total = items.fold<double>(0, (sum, item) {
       final value = item.marketValueUsd;
       if (value == null || value <= 0) {
@@ -269,8 +274,7 @@ class CollectionState {
   bool get isNoMatch => _baseItems.isNotEmpty && visibleItems.isEmpty;
 
   List<String> get availableGames {
-    final values = _baseItems.map((item) => item.game).toSet().toList()..sort();
-    return values;
+    return gameOptions;
   }
 
   List<String> get availableLanguages {
@@ -289,6 +293,7 @@ class CollectionState {
     Map<CollectionTab, CollectionSort>? sortByTab,
     Map<CollectionTab, Set<String>>? gamesByTab,
     Map<CollectionTab, Set<String>>? languagesByTab,
+    List<String>? gameOptions,
   }) {
     return CollectionState._(
       dashboard: dashboard ?? _dashboard,
@@ -300,6 +305,7 @@ class CollectionState {
       sortByTab: sortByTab ?? this.sortByTab,
       gamesByTab: gamesByTab ?? this.gamesByTab,
       languagesByTab: languagesByTab ?? this.languagesByTab,
+      gameOptions: gameOptions ?? this.gameOptions,
       loadStatus: loadStatus,
     );
   }
@@ -428,9 +434,19 @@ class CollectionController extends Notifier<CollectionState> {
     Completer<void> completer,
   ) async {
     try {
-      final dashboard = await ref
-          .read(collectionRepositoryProvider)
-          .loadDashboard(session);
+      final repository = ref.read(collectionRepositoryProvider);
+      final dashboardFuture = repository.loadDashboard(session);
+      final gameOptionsFuture = _loadGameOptions(repository);
+      final dashboard = await dashboardFuture;
+      final catalogGames = await gameOptionsFuture;
+      final gameOptions =
+          catalogGames.isNotEmpty
+                ? catalogGames
+                : {
+                    ...dashboard.portfolioItems.map((item) => item.game),
+                    ...dashboard.wishlistItems.map((item) => item.game),
+                  }.toList()
+            ..sort();
       if (generation == _loadGeneration) {
         final currencyMetadata = AppCurrency.fromCode(dashboard.currencyCode);
         var preferredCurrency = ref.read(selectedCurrencyProvider);
@@ -481,6 +497,7 @@ class CollectionController extends Notifier<CollectionState> {
             CollectionTab.portfolio: <String>{},
             CollectionTab.wishlist: <String>{},
           },
+          gameOptions: gameOptions,
         );
         ref.read(collectionInitialSortProvider.notifier).clear();
         if (sharedFolderId == null) {
@@ -503,12 +520,32 @@ class CollectionController extends Notifier<CollectionState> {
     }
   }
 
+  Future<List<String>> _loadGameOptions(CollectionRepository repository) async {
+    if (repository is! CollectionGameCatalogRepository) {
+      return const [];
+    }
+    final gameCatalogRepository = repository as CollectionGameCatalogRepository;
+    try {
+      return await gameCatalogRepository.loadGameOptions();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   void selectTab(CollectionTab tab) {
     if (state.isUnavailable || state.isLoading) {
       return;
     }
+    if (tab == state.selectedTab) return;
 
-    state = state.copyWith(selectedTab: tab);
+    final previousTab = state.selectedTab;
+    state = state.copyWith(
+      selectedTab: tab,
+      searchByTab: {...state.searchByTab, previousTab: ''},
+      sortByTab: {...state.sortByTab, previousTab: CollectionSort.newest},
+      gamesByTab: {...state.gamesByTab, previousTab: <String>{}},
+      languagesByTab: {...state.languagesByTab, previousTab: <String>{}},
+    );
   }
 
   Future<bool> selectFolder(String folderId) async {

@@ -87,7 +87,7 @@ void main() {
       expect(catalog.cards.first.variantLine, 'Holofoil / English');
       expect(
         catalog.cards.first.imageUrl,
-        'https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=75,format=auto/cards/catalog%3Apikachu-025.jpg',
+        'https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=50,format=auto/cards/catalog%3Apikachu-025.jpg',
       );
       expect(catalog.cards.first.priceText, r'$32.13');
       expect(catalog.cards.first.changeText, '+4.76%');
@@ -182,6 +182,66 @@ void main() {
   );
 
   test(
+    'initial Search loads the first game option instead of unrelated trending cards',
+    () async {
+      final api = _FakeCardDataApi(
+        trendingCardRows: const [],
+        searchCardRows: const [
+          CardDataCardDto(
+            cardRef: '664850',
+            name: 'Bravo, Flattering Showman',
+            setName: 'Silver Age Chapter 1',
+            setCode: '',
+            cardNumber: '',
+            finish: 'Normal',
+            language: 'English',
+            objectType: 'tcg',
+            game: 'Flesh and Blood TCG',
+            imageUrl: null,
+            rarity: 'Rare',
+          ),
+        ],
+        sets: const [],
+      );
+
+      final catalog = await HttpSearchRepository(
+        api,
+        setCatalogApi: const _FakeSetCatalogApi(),
+      ).loadCatalog();
+
+      expect(api.trendingCalls, 0);
+      expect(api.searchCardQueries, ['']);
+      expect(api.searchCardGames, ['Flesh and Blood TCG']);
+      expect(catalog.defaultGame.label, 'Flesh and Blood TCG');
+      expect(catalog.cards.single.id, '664850');
+    },
+  );
+
+  test(
+    'loading the next card page appends results because Search pages contain forty cards',
+    () async {
+      final repository = _PaginatedSearchRepository();
+      final container = _searchContainer(repository: repository);
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      expect(
+        container.read(searchControllerProvider).visibleCards,
+        hasLength(40),
+      );
+      await controller.loadNextCardPage();
+
+      final state = container.read(searchControllerProvider);
+      expect(repository.requestedPages, [2]);
+      expect(state.visibleCards, hasLength(41));
+      expect(state.visibleCards.last.id, 'card-41');
+      expect(state.cardPage, 2);
+      expect(state.hasMoreCards, isFalse);
+    },
+  );
+
+  test(
     'Search loads and mutates backend asset state because Qty Collect and Wishlist must survive page refresh',
     () async {
       final portfolioApi = _FakePortfolioApi(
@@ -266,6 +326,45 @@ void main() {
       card = container.read(searchControllerProvider).cardById('9359');
       expect(card.quantity, 1);
       expect(card.isWishlisted, isFalse);
+    },
+  );
+
+  test(
+    'asset enrichment failure keeps primary card results visible because collection state is supplemental',
+    () async {
+      final repository = HttpSearchRepository(
+        _FakeCardDataApi(
+          trendingCardRows: const [
+            CardDataCardDto(
+              cardRef: '9359',
+              name: 'Escape Artist',
+              setName: 'Odyssey',
+              setCode: 'ODY',
+              cardNumber: '',
+              finish: 'Normal',
+              language: 'English',
+              objectType: 'tcg',
+              game: 'Magic: The Gathering',
+              imageUrl: null,
+              rarity: 'Common',
+            ),
+          ],
+          sets: const [],
+        ),
+        portfolioApi: _FakePortfolioApi(failAssetLoad: true),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(repository),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final state = await _loadedSearchState(container);
+
+      expect(state.isUnavailable, isFalse);
+      expect(state.visibleCards.single.name, 'Escape Artist');
     },
   );
 
@@ -666,6 +765,56 @@ Future<SearchState> _loadedSearchState(ProviderContainer container) async {
   return container.read(searchControllerProvider);
 }
 
+class _PaginatedSearchRepository
+    implements SearchRepository, PaginatedSearchRepository {
+  final requestedPages = <int>[];
+
+  @override
+  Future<SearchCatalog> loadCatalog() async {
+    return SearchCatalog(
+      games: const [SearchGame(id: 'pokemon', label: 'Pokemon')],
+      cards: List.generate(40, (index) => _card(index + 1)),
+      sets: const [],
+    );
+  }
+
+  @override
+  Future<List<SearchCard>> searchCardPage(
+    String query, {
+    String? game,
+    required int page,
+  }) async {
+    requestedPages.add(page);
+    return page == 2 ? [_card(41)] : const [];
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) async {
+    return (await loadCatalog()).cards;
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) async {
+    return const [];
+  }
+
+  static SearchCard _card(int index) {
+    return SearchCard(
+      id: 'card-$index',
+      gameId: 'pokemon',
+      type: SearchCardType.tcg,
+      name: 'Card $index',
+      priceUsd: index.toDouble(),
+      previous30dPriceUsd: index.toDouble(),
+      setName: 'Test Set',
+      metadataLine: '#$index',
+      variantLine: 'Normal',
+      quantity: 0,
+      isWishlisted: false,
+    );
+  }
+}
+
 class _RecordingSearchRepository implements SearchRepository {
   const _RecordingSearchRepository({
     this.cardResults = const [],
@@ -705,6 +854,35 @@ class _RecordingSearchRepository implements SearchRepository {
     _setQueries.add(query);
     _setGames.add(game);
     return setResults;
+  }
+}
+
+class _FakeSetCatalogApi implements SetCatalogApi {
+  const _FakeSetCatalogApi();
+
+  @override
+  Future<List<CardDataGameDto>> listGames() async {
+    return const [
+      CardDataGameDto(id: 'fab', name: 'Flesh and Blood TCG'),
+      CardDataGameDto(id: 'pokemon', name: 'Pokemon'),
+    ];
+  }
+
+  @override
+  Future<List<CardDataSetDto>> searchCatalogSets(
+    String query, {
+    String? game,
+  }) async {
+    return const [];
+  }
+
+  @override
+  Future<List<CardDataCardDto>> cardsForSet(
+    String setCode, {
+    required String game,
+    int page = 1,
+  }) async {
+    return const [];
   }
 }
 
@@ -786,6 +964,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
     List<PortfolioItemDto> items = const [],
     this.conflictOnWishlist = false,
     this.conflictOnCollect = false,
+    this.failAssetLoad = false,
   }) : collectionItems = [...items];
 
   final List<PortfolioItemDto> collectionItems;
@@ -794,6 +973,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   PortfolioItemDraftDto? lastCollectedDraft;
   final bool conflictOnWishlist;
   final bool conflictOnCollect;
+  final bool failAssetLoad;
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
@@ -811,6 +991,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   Future<List<PortfolioItemDto>> listCollectionItems(
     AuthSession session,
   ) async {
+    if (failAssetLoad) throw StateError('asset state unavailable');
     return [...collectionItems];
   }
 

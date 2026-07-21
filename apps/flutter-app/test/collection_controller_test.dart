@@ -475,27 +475,43 @@ void main() {
     },
   );
 
-  test('search is scoped per tab and current folder', () async {
-    final container = _collectionContainer();
-    addTearDown(container.dispose);
-    await _loadedState(container);
-    final controller = container.read(collectionControllerProvider.notifier);
+  test(
+    'leaving a tab resets its search and filters before returning',
+    () async {
+      final container = _collectionContainer();
+      addTearDown(container.dispose);
+      await _loadedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
 
-    controller.updateSearch('umbreon');
-    expect(
-      container.read(collectionControllerProvider).visibleItems.single.name,
-      'Umbreon VMAX',
-    );
+      controller.updateSearch('umbreon');
+      controller.applySortAndFilters(
+        sort: CollectionSort.valueDesc,
+        games: {'Pokemon'},
+        languages: {'English'},
+      );
+      expect(
+        container.read(collectionControllerProvider).visibleItems.single.name,
+        'Umbreon VMAX',
+      );
 
-    controller.selectTab(CollectionTab.wishlist);
-    expect(container.read(collectionControllerProvider).searchText, '');
+      controller.selectTab(CollectionTab.wishlist);
+      expect(container.read(collectionControllerProvider).searchText, '');
 
-    controller.updateSearch('luffy');
-    expect(
-      container.read(collectionControllerProvider).visibleItems.single.name,
-      'One Piece Manga Luffy',
-    );
-  });
+      controller.updateSearch('luffy');
+      expect(
+        container.read(collectionControllerProvider).visibleItems.single.name,
+        'One Piece Manga Luffy',
+      );
+
+      controller.selectTab(CollectionTab.portfolio);
+      final portfolio = container.read(collectionControllerProvider);
+      expect(portfolio.searchText, '');
+      expect(portfolio.selectedSort, CollectionSort.newest);
+      expect(portfolio.selectedGames, isEmpty);
+      expect(portfolio.selectedLanguages, isEmpty);
+      expect(portfolio.visibleItems, hasLength(3));
+    },
+  );
 
   test('sort and filters combine for the selected tab', () async {
     final container = _collectionContainer();
@@ -566,9 +582,50 @@ void main() {
 
     await controller.selectFolder('main');
     controller.updateSearch('missing');
-    expect(container.read(collectionControllerProvider).isEmpty, isFalse);
-    expect(container.read(collectionControllerProvider).isNoMatch, isTrue);
+    final state = container.read(collectionControllerProvider);
+    expect(state.isEmpty, isFalse);
+    expect(state.isNoMatch, isTrue);
+    expect(state.portfolioSummary.totalValueText, r'$0.00');
+    expect(state.portfolioSummary.cardCount, 0);
+    expect(state.portfolioSummary.gradedCount, 0);
   });
+
+  test(
+    'game filters use the database catalog order so Collection stays aligned with Search',
+    () async {
+      final container = _collectionContainer(
+        repository: const _GameCatalogCollectionRepository([
+          'Magic: The Gathering',
+          'Pokemon',
+          'Flesh and Blood TCG',
+        ]),
+      );
+      addTearDown(container.dispose);
+
+      final state = await _loadedState(container);
+
+      expect(state.availableGames, [
+        'Magic: The Gathering',
+        'Pokemon',
+        'Flesh and Blood TCG',
+      ]);
+    },
+  );
+
+  test(
+    'a failed game catalog falls back to owned assets without failing Collection',
+    () async {
+      final container = _collectionContainer(
+        repository: const _GameCatalogCollectionRepository(null),
+      );
+      addTearDown(container.dispose);
+
+      final state = await _loadedState(container);
+
+      expect(state.isUnavailable, isFalse);
+      expect(state.availableGames, ['Lorcana', 'One Piece', 'Pokemon']);
+    },
+  );
 }
 
 ProviderContainer _collectionContainer({
@@ -636,6 +693,20 @@ class _RecordingCollectionRepository extends MockCollectionRepository {
     if (lastSelectedFolderId != null) {
       selectedFolderIds.add(lastSelectedFolderId);
     }
+  }
+}
+
+class _GameCatalogCollectionRepository extends MockCollectionRepository
+    implements CollectionGameCatalogRepository {
+  const _GameCatalogCollectionRepository(this.games);
+
+  final List<String>? games;
+
+  @override
+  Future<List<String>> loadGameOptions() async {
+    final values = games;
+    if (values == null) throw StateError('game catalog unavailable');
+    return values;
   }
 }
 

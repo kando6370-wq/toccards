@@ -12,7 +12,7 @@ void main() {
     expect(
       cardImageUrl('93', CardImageVariant.list),
       contains(
-        '/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=75,format=auto/cards/93.jpg',
+        '/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=50,format=auto/cards/93.jpg',
       ),
     );
     expect(

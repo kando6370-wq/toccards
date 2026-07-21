@@ -16,6 +16,7 @@ void main() {
         expect(request.queryParameters, {
           'q': 'pikachu',
           'game': 'Pokemon',
+          'page': '1',
           'page_size': '40',
         });
         return _json(200, {

@@ -1,4 +1,5 @@
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_image/card_image_url.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
@@ -23,14 +24,28 @@ abstract interface class CollectionRepository {
   });
 }
 
-class HttpCollectionRepository implements CollectionRepository {
+abstract interface class CollectionGameCatalogRepository {
+  Future<List<String>> loadGameOptions();
+}
+
+class HttpCollectionRepository
+    implements CollectionRepository, CollectionGameCatalogRepository {
   const HttpCollectionRepository(
     this._api, {
     required PortfolioManagementApi managementApi,
-  }) : _managementApi = managementApi;
+    SetCatalogApi? gameCatalogApi,
+  }) : _managementApi = managementApi,
+       _gameCatalogApi = gameCatalogApi;
 
   final CollectionDashboardApi _api;
   final PortfolioManagementApi _managementApi;
+  final SetCatalogApi? _gameCatalogApi;
+
+  @override
+  Future<List<String>> loadGameOptions() async {
+    final games = await _gameCatalogApi?.listGames();
+    return games?.map((game) => game.name).toSet().toList() ?? const [];
+  }
 
   @override
   Future<CollectionDashboard> loadDashboard(AuthSession session) async {

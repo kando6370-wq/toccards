@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
@@ -20,79 +21,94 @@ class SearchPage extends ConsumerWidget {
     return KandoTabScaffold(
       currentTab: KandoMainTab.search,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (state.isLoading) ...[
-              Text('Search', style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 16),
-              const KandoLoadingBlock(),
-            ] else if (state.isUnavailable) ...[
-              Text('Search', style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 16),
-              KandoFailureBlock(onRefresh: controller.refresh),
-            ] else ...[
-              TextFormField(
-                key: ValueKey(
-                  'search-field-${state.selectedTab}-${state.searchText}',
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.depth == 0 &&
+                notification.metrics.extentAfter <= 320) {
+              controller.loadNextCardPage();
+            }
+            return false;
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (state.isLoading) ...[
+                Text(
+                  'Search',
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                initialValue: state.searchText,
-                style: const TextStyle(fontSize: 15, color: KandoColors.text),
-                decoration: InputDecoration(
-                  hintText: 'Search cards, sets, or characters',
-                  hintStyle: const TextStyle(
-                    fontSize: 15,
-                    color: KandoColors.mutedText,
+                const SizedBox(height: 16),
+                const KandoLoadingBlock(),
+              ] else if (state.isUnavailable) ...[
+                Text(
+                  'Search',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 16),
+                KandoFailureBlock(onRefresh: controller.refresh),
+              ] else ...[
+                TextFormField(
+                  key: ValueKey(
+                    'search-field-${state.selectedTab}-${state.searchText}',
                   ),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  filled: true,
-                  fillColor: KandoColors.surface,
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    size: 20,
-                    color: KandoColors.mutedText,
-                  ),
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (state.hasQuery)
+                  initialValue: state.searchText,
+                  style: const TextStyle(fontSize: 15, color: KandoColors.text),
+                  decoration: InputDecoration(
+                    hintText: 'Search cards, sets, or characters',
+                    hintStyle: const TextStyle(
+                      fontSize: 15,
+                      color: KandoColors.mutedText,
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    filled: true,
+                    fillColor: KandoColors.surface,
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      size: 20,
+                      color: KandoColors.mutedText,
+                    ),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (state.hasQuery)
+                          IconButton(
+                            key: const Key('search-clear-button'),
+                            onPressed: controller.clearSearch,
+                            icon: const Icon(Icons.close, size: 20),
+                            color: KandoColors.mutedText,
+                          ),
                         IconButton(
-                          key: const Key('search-clear-button'),
-                          onPressed: controller.clearSearch,
-                          icon: const Icon(Icons.close, size: 20),
-                          color: KandoColors.mutedText,
+                          onPressed: () => context.go('/scan'),
+                          icon: const Icon(
+                            Icons.qr_code_scanner_outlined,
+                            size: 20,
+                          ),
+                          color: KandoColors.accent,
                         ),
-                      IconButton(
-                        onPressed: () => context.go('/scan'),
-                        icon: const Icon(
-                          Icons.qr_code_scanner_outlined,
-                          size: 20,
-                        ),
-                        color: KandoColors.accent,
-                      ),
-                    ],
+                      ],
+                    ),
+                    border: _inputBorder(KandoColors.border),
+                    enabledBorder: _inputBorder(KandoColors.border),
+                    focusedBorder: _inputBorder(KandoColors.accent),
                   ),
-                  border: _inputBorder(KandoColors.border),
-                  enabledBorder: _inputBorder(KandoColors.border),
-                  focusedBorder: _inputBorder(KandoColors.accent),
+                  onChanged: controller.updateSearch,
                 ),
-                onChanged: controller.updateSearch,
-              ),
-              const SizedBox(height: 12),
-              _GameSelectorField(
-                selectedGame: state.selectedGame,
-                onPressed: () => _showGameSheet(context, ref),
-              ),
-              const SizedBox(height: 16),
-              _SearchTabs(
-                selected: state.selectedTab,
-                onSelect: controller.selectTab,
-              ),
-              const SizedBox(height: 16),
-              _SearchResults(state: state),
+                const SizedBox(height: 12),
+                _GameSelectorField(
+                  selectedGame: state.selectedGame,
+                  onPressed: () => _showGameSheet(context, ref),
+                ),
+                const SizedBox(height: 16),
+                _SearchTabs(
+                  selected: state.selectedTab,
+                  onSelect: controller.selectTab,
+                ),
+                const SizedBox(height: 16),
+                _SearchResults(state: state),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -243,15 +259,16 @@ class _SearchResults extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (state.isCurrentSearchUnavailable) {
-      return KandoFailureBlock(
+      return _SearchEmptyState(
+        title: noContentAvailableText,
         onRefresh: ref.read(searchControllerProvider.notifier).retrySearch,
       );
     }
 
     if (state.isNoMatch) {
-      return const _SearchEmptyState(
-        title: 'No results found',
-        body: 'Try a different keyword',
+      return _SearchEmptyState(
+        title: noContentAvailableText,
+        onRefresh: ref.read(searchControllerProvider.notifier).retrySearch,
       );
     }
 
@@ -263,60 +280,80 @@ class _SearchResults extends ConsumerWidget {
       );
     }
 
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 10,
-      childAspectRatio: 0.5,
-      physics: const NeverScrollableScrollPhysics(),
+    return Column(
       children: [
-        for (final card in state.visibleCards) _SearchCardTile(card: card),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 10,
+          childAspectRatio: 0.5,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            for (final card in state.visibleCards) _SearchCardTile(card: card),
+          ],
+        ),
+        if (state.isLoadingMoreCards) ...[
+          const SizedBox(height: 20),
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ],
       ],
     );
   }
 }
 
 class _SearchEmptyState extends StatelessWidget {
-  const _SearchEmptyState({required this.title, this.body});
+  const _SearchEmptyState({required this.title, required this.onRefresh});
 
   final String title;
-  final String? body;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 40),
+      padding: const EdgeInsets.only(top: 16),
       child: Column(
         children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 72,
-            color: KandoColors.accent.withValues(alpha: 0.85),
+          SvgPicture.asset(
+            'assets/search/no_content_available.svg',
+            width: 100,
+            height: 100,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Text(
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 20,
+              height: 26 / 20,
+              fontFamily: 'Fraunces',
               fontWeight: FontWeight.w600,
               color: KandoColors.text,
             ),
           ),
-          if (body != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              body!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                height: 20 / 14,
-                letterSpacing: 0.2,
-                color: KandoColors.mutedText,
+          const SizedBox(height: 32),
+          SizedBox(
+            height: 44,
+            child: FilledButton.icon(
+              key: const Key('search-empty-refresh'),
+              onPressed: onRefresh,
+              style: FilledButton.styleFrom(
+                backgroundColor: KandoColors.accent,
+                foregroundColor: KandoColors.ink,
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                shape: const StadiumBorder(),
+              ),
+              icon: const Icon(Icons.refresh, size: 20),
+              label: const Text(
+                refreshText,
+                style: TextStyle(fontSize: 13, height: 16 / 13),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );

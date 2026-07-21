@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
@@ -358,7 +359,7 @@ class _CollectionContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state.isNoMatch) {
-      return const KandoEmptyBlock(title: 'No matching cards found.');
+      return const _CollectionNoMatchState();
     }
     if (state.isEmpty && state.selectedTab == CollectionTab.portfolio) {
       return _CollectionEmptyState(
@@ -391,6 +392,49 @@ class _CollectionContent extends StatelessWidget {
     return _CollectionGrid(
       items: state.visibleItems,
       showQuantity: state.selectedTab == CollectionTab.portfolio,
+    );
+  }
+}
+
+class _CollectionNoMatchState extends StatelessWidget {
+  const _CollectionNoMatchState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const Key('collection-no-match-state'),
+      padding: const EdgeInsets.only(top: 24),
+      child: Column(
+        children: [
+          SvgPicture.asset(
+            'assets/search/no_content_available.svg',
+            width: 100,
+            height: 88,
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'No matching cards found.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Fraunces',
+              fontSize: 20,
+              height: 26 / 20,
+              fontWeight: FontWeight.w600,
+              color: KandoColors.text,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Try adjusting your search or filters.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              height: 22 / 14,
+              color: KandoColors.mutedText,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1348,13 +1392,7 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
     'Chinese',
     ...state.availableLanguages,
   }.toList();
-  final gameOptions = <String>{
-    'Pokemon',
-    'Yu-Gi-Oh!',
-    'Magic',
-    'One Piece',
-    ...state.availableGames,
-  }.toList();
+  final gameOptions = state.availableGames;
 
   return showModalBottomSheet<void>(
     context: context,
@@ -1474,7 +1512,7 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
                               SizedBox(
                                 width: width,
                                 child: _FilterChip(
-                                  label: _gameFilterLabel(game),
+                                  label: game,
                                   selected: games.contains(game),
                                   onTap: () => toggle(games, game),
                                   expanded: true,
@@ -1533,10 +1571,6 @@ String _sortLabel(CollectionSort sort) {
     CollectionSort.changeDesc => '30D gain high to low',
     CollectionSort.nameAsc => 'Name A-Z',
   };
-}
-
-String _gameFilterLabel(String game) {
-  return game.toLowerCase() == 'pokemon' ? 'Pokémon' : game;
 }
 
 class _FilterSortOption extends StatelessWidget {

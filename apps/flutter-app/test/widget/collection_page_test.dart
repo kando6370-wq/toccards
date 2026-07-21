@@ -39,7 +39,7 @@ void main() {
     expect(find.text('Price: High to Low'), findsOneWidget);
     expect(find.text('Price: Low to High'), findsOneWidget);
     expect(find.text('English'), findsOneWidget);
-    expect(find.text('Pokémon'), findsOneWidget);
+    expect(find.text('Pokemon'), findsOneWidget);
     expect(find.byKey(const Key('collection-filter-apply')), findsOneWidget);
     expect(
       tester
@@ -229,6 +229,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No matching cards found.'), findsOneWidget);
+    expect(find.text('Try adjusting your search or filters.'), findsOneWidget);
+    expect(find.byKey(const Key('collection-no-match-state')), findsOneWidget);
+    expect(find.text(r'$0.00'), findsOneWidget);
+    expect(find.text('0 cards'), findsOneWidget);
+    expect(find.text('0 graded'), findsOneWidget);
     expect(find.text('No cards in this portfolio yet.'), findsNothing);
   });
 
@@ -281,11 +286,11 @@ void main() {
     await tester.tap(find.text('Japanese').last);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('Pokémon'),
+      find.text('Pokemon'),
       240,
       scrollable: find.byType(Scrollable).last,
     );
-    expect(find.text('Pokémon'), findsOneWidget);
+    expect(find.text('Pokemon'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('collection-filter-apply')),
       240,

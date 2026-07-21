@@ -40,6 +40,9 @@ class SearchState {
     required this.searchByTab,
     required this.cardOverrides,
     this.failedSearchTabs = const {},
+    this.cardPage = 1,
+    this.hasMoreCards = false,
+    this.isLoadingMoreCards = false,
   }) : _catalog = catalog,
        loadStatus = KandoLoadStatus.content;
 
@@ -50,6 +53,9 @@ class SearchState {
       searchByTab = const {SearchTab.cards: '', SearchTab.sets: ''},
       cardOverrides = const {},
       failedSearchTabs = const {},
+      cardPage = 1,
+      hasMoreCards = false,
+      isLoadingMoreCards = false,
       loadStatus = KandoLoadStatus.failure;
 
   const SearchState.loading()
@@ -59,6 +65,9 @@ class SearchState {
       searchByTab = const {SearchTab.cards: '', SearchTab.sets: ''},
       cardOverrides = const {},
       failedSearchTabs = const {},
+      cardPage = 1,
+      hasMoreCards = false,
+      isLoadingMoreCards = false,
       loadStatus = KandoLoadStatus.loading;
 
   const SearchState._({
@@ -68,6 +77,9 @@ class SearchState {
     required this.searchByTab,
     required this.cardOverrides,
     required this.failedSearchTabs,
+    required this.cardPage,
+    required this.hasMoreCards,
+    required this.isLoadingMoreCards,
     required this.loadStatus,
   }) : _catalog = catalog;
 
@@ -77,6 +89,9 @@ class SearchState {
   final Map<SearchTab, String> searchByTab;
   final Map<String, SearchCard> cardOverrides;
   final Set<SearchTab> failedSearchTabs;
+  final int cardPage;
+  final bool hasMoreCards;
+  final bool isLoadingMoreCards;
   final KandoLoadStatus loadStatus;
 
   SearchCatalog get catalog {
@@ -132,6 +147,9 @@ class SearchState {
     Map<SearchTab, String>? searchByTab,
     Map<String, SearchCard>? cardOverrides,
     Set<SearchTab>? failedSearchTabs,
+    int? cardPage,
+    bool? hasMoreCards,
+    bool? isLoadingMoreCards,
   }) {
     return SearchState._(
       catalog: _catalog,
@@ -140,6 +158,9 @@ class SearchState {
       searchByTab: searchByTab ?? this.searchByTab,
       cardOverrides: cardOverrides ?? this.cardOverrides,
       failedSearchTabs: failedSearchTabs ?? this.failedSearchTabs,
+      cardPage: cardPage ?? this.cardPage,
+      hasMoreCards: hasMoreCards ?? this.hasMoreCards,
+      isLoadingMoreCards: isLoadingMoreCards ?? this.isLoadingMoreCards,
       loadStatus: loadStatus,
     );
   }
@@ -298,6 +319,50 @@ class SearchController extends Notifier<SearchState> {
       query: state.searchText,
       allowEmpty: true,
     );
+  }
+
+  Future<void> loadNextCardPage() async {
+    if (state.isUnavailable ||
+        state.isLoading ||
+        state.selectedTab != SearchTab.cards ||
+        state.isCurrentSearchUnavailable ||
+        state.isLoadingMoreCards ||
+        !state.hasMoreCards) {
+      return;
+    }
+    final repository = ref.read(searchRepositoryProvider);
+    if (repository is! PaginatedSearchRepository) return;
+    final paginatedRepository = repository as PaginatedSearchRepository;
+
+    final generation = ++_loadGeneration;
+    final requestedPage = state.cardPage + 1;
+    state = state.copyWith(isLoadingMoreCards: true);
+    try {
+      final items = await paginatedRepository.searchCardPage(
+        state.searchText.trim(),
+        game: state.selectedGame.label,
+        page: requestedPage,
+      );
+      if (!ref.mounted || generation != _loadGeneration) return;
+      final cardsById = {
+        for (final card in state.catalog.cards) card.id: card,
+        for (final card in items) card.id: card,
+      };
+      var catalog = _catalogWithCards(state.catalog, cardsById.values.toList());
+      catalog = await _withAssets(repository, catalog, _assetSession);
+      if (!ref.mounted || generation != _loadGeneration) return;
+      state = _stateForCatalog(
+        catalog,
+        preserveState: state,
+        failedSearchTabs: state.failedSearchTabs,
+        cardPage: requestedPage,
+        hasMoreCards: items.length == 40,
+      );
+    } catch (_) {
+      if (ref.mounted && generation == _loadGeneration) {
+        state = state.copyWith(isLoadingMoreCards: false);
+      }
+    }
   }
 
   Future<SearchCollectAction> toggleCollect(String cardId) async {
@@ -522,6 +587,8 @@ class SearchController extends Notifier<SearchState> {
     SearchState? preserveState,
     bool clearOverrides = false,
     Set<SearchTab> failedSearchTabs = const {},
+    int cardPage = 1,
+    bool? hasMoreCards,
   }) {
     final selectedTab = preserveState?.selectedTab ?? SearchTab.cards;
     final selectedGameId = _selectedGameIdFor(catalog, preserveState);
@@ -536,6 +603,9 @@ class SearchController extends Notifier<SearchState> {
           ? const {}
           : preserveState?.cardOverrides ?? const {},
       failedSearchTabs: failedSearchTabs,
+      cardPage: cardPage,
+      hasMoreCards: hasMoreCards ?? catalog.cards.length == 40,
+      isLoadingMoreCards: false,
     );
   }
 
@@ -578,10 +648,15 @@ class SearchController extends Notifier<SearchState> {
     if (repository is! SearchAssetRepository || session == null) {
       return catalog;
     }
-    final snapshot = await repository.loadAssets(
-      session,
-      selectedFolderId: ref.read(selectedPortfolioFolderProvider),
-    );
+    late final SearchAssetSnapshot snapshot;
+    try {
+      snapshot = await repository.loadAssets(
+        session,
+        selectedFolderId: ref.read(selectedPortfolioFolderProvider),
+      );
+    } catch (_) {
+      return catalog;
+    }
     if (!ref.mounted) return catalog;
     if (ref.read(selectedPortfolioFolderProvider) == null) {
       ref
@@ -622,6 +697,8 @@ class SearchController extends Notifier<SearchState> {
         preserveState: state,
         clearOverrides: true,
         failedSearchTabs: state.failedSearchTabs,
+        cardPage: state.cardPage,
+        hasMoreCards: state.hasMoreCards,
       );
       return state.cardById(cardId);
     } catch (_) {
