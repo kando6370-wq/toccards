@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -94,6 +95,7 @@ class HomePage extends ConsumerWidget {
   }
 
   Future<void> _showCurrencySheet(BuildContext context, WidgetRef ref) {
+    unawaited(ref.read(homeControllerProvider.notifier).preloadCurrencyRates());
     final selected = ref.read(homeControllerProvider).currencyCode;
     final pageContext = context;
     var query = '';
@@ -191,15 +193,18 @@ class HomePage extends ConsumerWidget {
                                   label: currency.label,
                                   symbol: currency.symbol,
                                   isSelected: currency.code == selected,
-                                  onTap: () async {
-                                    final success = await ref
+                                  onTap: () {
+                                    final selection = ref
                                         .read(homeControllerProvider.notifier)
                                         .selectCurrency(currency.code);
-                                    if (!context.mounted) return;
                                     Navigator.of(context).pop();
-                                    if (!success) {
-                                      showKandoFailureToast(pageContext);
-                                    }
+                                    unawaited(
+                                      selection.then((success) {
+                                        if (!success && pageContext.mounted) {
+                                          showKandoFailureToast(pageContext);
+                                        }
+                                      }),
+                                    );
                                   },
                                 ),
                                 const SizedBox(height: 12),

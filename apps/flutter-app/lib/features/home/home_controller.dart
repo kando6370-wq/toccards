@@ -214,6 +214,7 @@ class HomeState {
 class HomeController extends Notifier<HomeState> {
   var _loadGeneration = 0;
   var _trendingLoadGeneration = 0;
+  var _isSelectingCurrency = false;
   String? _restoringCurrencyCode;
 
   @override
@@ -446,26 +447,36 @@ class HomeController extends Notifier<HomeState> {
   }
 
   Future<bool> selectCurrency(String currencyCode) async {
+    if (_isSelectingCurrency) return false;
     final metadata = AppCurrency.fromCode(currencyCode);
     if (metadata.code != currencyCode) {
       return false;
     }
     final previous = state.currency;
+    _isSelectingCurrency = true;
     try {
       final rate = metadata.code == 'USD'
           ? 1.0
           : await ref.read(currencyRateApiProvider).loadUsdRate(metadata.code);
       final currency = metadata.withUsdRate(rate);
-      await _updatePreferences(currency: currency.code);
       ref.read(selectedCurrencyProvider.notifier).select(currency);
-      state = state.copyWith(currency: currency);
+      await _updatePreferences(currency: currency.code);
       return true;
     } catch (_) {
       if (state.currency.code != previous.code) {
         ref.read(selectedCurrencyProvider.notifier).select(previous);
-        state = state.copyWith(currency: previous);
       }
       return false;
+    } finally {
+      _isSelectingCurrency = false;
+    }
+  }
+
+  Future<void> preloadCurrencyRates() async {
+    try {
+      await ref.read(currencyRateApiProvider).loadUsdRate('EUR');
+    } catch (_) {
+      // Selection reports the error if rates are still unavailable on tap.
     }
   }
 

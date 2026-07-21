@@ -498,7 +498,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       }
     });
 
-    final currency = ref.watch(selectedCurrencyProvider);
+    final currency = ref.read(selectedCurrencyProvider);
     final authState = ref.watch(authControllerProvider);
     final session = authState.session;
     if (authState.isLoading || session == null) {

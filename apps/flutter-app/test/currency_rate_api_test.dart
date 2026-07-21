@@ -28,7 +28,10 @@ void main() {
 
       expect(rate, 0.87681);
       expect(adapter.path, '/rates');
-      expect(adapter.query, {'base': 'USD', 'targets': 'EUR'});
+      expect(adapter.query, {
+        'base': 'USD',
+        'targets': 'EUR,JPY,GBP,CAD,AUD,NZD,SGD',
+      });
     },
   );
 
@@ -53,6 +56,29 @@ void main() {
       );
     },
   );
+
+  test(
+    'reuses the loaded rate set so later currency switches are instant',
+    () async {
+      final adapter = _RateAdapter(
+        statusCode: 200,
+        body: {
+          'success': true,
+          'data': {
+            'base': 'USD',
+            'rates': {'EUR': 0.87, 'GBP': 0.75},
+          },
+        },
+      );
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1'))
+        ..httpClientAdapter = adapter;
+      final api = HttpCurrencyRateApi(dio);
+
+      expect(await api.loadUsdRate('EUR'), 0.87);
+      expect(await api.loadUsdRate('GBP'), 0.75);
+      expect(adapter.calls, 1);
+    },
+  );
 }
 
 class _RateAdapter implements HttpClientAdapter {
@@ -62,6 +88,7 @@ class _RateAdapter implements HttpClientAdapter {
   final Map<String, Object?> body;
   String? path;
   Map<String, dynamic>? query;
+  var calls = 0;
 
   @override
   Future<ResponseBody> fetch(
@@ -69,6 +96,7 @@ class _RateAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    calls += 1;
     path = options.path;
     query = options.queryParameters;
     return ResponseBody.fromString(
