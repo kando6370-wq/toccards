@@ -151,7 +151,7 @@ describe("KV cached data source adapter", () => {
     expect(source.trendingCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "v3:getTrending",
+        key: "v4:getTrending",
         value: JSON.stringify([card]),
         options: { expirationTtl: 900 },
       },
