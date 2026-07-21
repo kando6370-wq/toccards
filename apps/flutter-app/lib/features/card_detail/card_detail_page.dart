@@ -114,8 +114,8 @@ class CardDetailPage extends ConsumerWidget {
                       const SizedBox(height: 10),
                       _PrimaryActions(state: state, controller: controller),
                       const SizedBox(height: 28),
-                      _BasicInfo(state: state),
-                      const SizedBox(height: 28),
+                      // _BasicInfo(state: state),
+                      // const SizedBox(height: 28),
                       if (state.detail.isCollected)
                         _OwnedDetailTabs(state: state, controller: controller)
                       else
@@ -478,15 +478,15 @@ class _PrimaryActions extends ConsumerWidget {
             label: Text(detail.isCollected ? 'Collected' : 'Add to Portfolio'),
           ),
         ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Market ${state.marketPriceText}', style: _kFieldLabelStyle),
-            const SizedBox(width: 12),
-            Text('30D ${state.changeText}', style: _kFieldLabelStyle),
-          ],
-        ),
+        // const SizedBox(height: 10),
+        // Row(
+        //   mainAxisAlignment: MainAxisAlignment.center,
+        //   children: [
+        //     Text('Market ${state.marketPriceText}', style: _kFieldLabelStyle),
+        //     const SizedBox(width: 12),
+        //     Text('30D ${state.changeText}', style: _kFieldLabelStyle),
+        //   ],
+        // ),
       ],
     );
   }
@@ -1100,48 +1100,24 @@ class _CollectionItemForm extends StatelessWidget {
             },
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          _ChoiceField(
             key: const Key('card-detail-item-grader'),
-            initialValue: draft.grader,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Grader',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              for (final grader in cardCollectionGraders)
-                DropdownMenuItem(
-                  value: grader,
-                  child: Text(grader, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                controller.updateCollectionItemDraft(grader: value);
-              }
+            label: 'Grader',
+            value: draft.grader,
+            options: cardCollectionGraders,
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(grader: value);
             },
           ),
           const SizedBox(height: 12),
           if (draft.isRaw)
-            DropdownButtonFormField<String>(
+            _ChoiceField(
               key: const Key('card-detail-item-condition'),
-              initialValue: draft.condition,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Condition',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                for (final condition in cardCollectionConditions)
-                  DropdownMenuItem(
-                    value: condition,
-                    child: Text(condition, overflow: TextOverflow.ellipsis),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  controller.updateCollectionItemDraft(condition: value);
-                }
+              label: 'Condition',
+              value: draft.condition,
+              options: cardCollectionConditions,
+              onSelected: (value) {
+                controller.updateCollectionItemDraft(condition: value);
               },
             )
           else
@@ -1170,47 +1146,23 @@ class _CollectionItemForm extends StatelessWidget {
               },
             ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          _ChoiceField(
             key: const Key('card-detail-item-language'),
-            initialValue: languageValue,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Language',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              for (final language in cardCollectionLanguages)
-                DropdownMenuItem(
-                  value: language,
-                  child: Text(language, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                controller.updateCollectionItemDraft(language: value);
-              }
+            label: 'Language',
+            value: languageValue,
+            options: cardCollectionLanguages,
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(language: value);
             },
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          _ChoiceField(
             key: const Key('card-detail-item-finish'),
-            initialValue: finishValue,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Finish',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              for (final finish in cardCollectionFinishes)
-                DropdownMenuItem(
-                  value: finish,
-                  child: Text(finish, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                controller.updateCollectionItemDraft(finish: value);
-              }
+            label: 'Finish',
+            value: finishValue,
+            options: cardCollectionFinishes,
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(finish: value);
             },
           ),
           const SizedBox(height: 12),
@@ -1297,6 +1249,211 @@ class _CollectionItemForm extends StatelessWidget {
     return Container(
       decoration: _kPanel(strong: true),
       child: Padding(padding: const EdgeInsets.all(16), child: content),
+    );
+  }
+}
+
+class _ChoiceField extends StatelessWidget {
+  const _ChoiceField({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onSelected,
+    super.key,
+  });
+
+  final String label;
+  final String? value;
+  final List<String> options;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = options.contains(value) ? value! : options.first;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () async {
+        final next = await _showChoiceSheet(
+          context,
+          title: label,
+          selected: selected,
+          options: options,
+        );
+        if (next != null) {
+          onSelected(next);
+        }
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
+        ),
+        child: RichText(
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          text: TextSpan(
+            text: selected,
+            style: const TextStyle(
+              color: KandoColors.text,
+              fontSize: 16,
+              height: 24 / 16,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<String?> _showChoiceSheet(
+  BuildContext context, {
+  required String title,
+  required String selected,
+  required List<String> options,
+}) {
+  return showModalBottomSheet<String>(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) {
+      final screenHeight = MediaQuery.sizeOf(sheetContext).height;
+      final maxHeight = math.min(screenHeight * 0.68, 520.0);
+
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: Material(
+              color: const Color(0xFF191A12),
+              clipBehavior: Clip.antiAlias,
+              borderRadius: BorderRadius.circular(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 12, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Fraunces',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                              height: 32 / 24,
+                              color: KandoColors.text,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Close',
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                          color: KandoColors.mutedText,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+                      itemCount: options.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 4),
+                      itemBuilder: (context, index) {
+                        final option = options[index];
+                        final isSelected = option == selected;
+                        return _ChoiceSheetOption(
+                          option: option,
+                          selected: isSelected,
+                          onTap: () => Navigator.of(sheetContext).pop(option),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _ChoiceSheetOption extends StatelessWidget {
+  const _ChoiceSheetOption({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? KandoColors.accent.withValues(alpha: 0.16)
+              : KandoColors.surface.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? KandoColors.accent.withValues(alpha: 0.8)
+                : KandoColors.border.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                option,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected ? KandoColors.text : KandoColors.mutedText,
+                  fontSize: 15,
+                  height: 22 / 15,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(
+              selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+              size: 20,
+              color: selected
+                  ? KandoColors.accent
+                  : KandoColors.border.withValues(alpha: 0.8),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
