@@ -127,7 +127,7 @@ function priceSeriesCacheKey(
 }
 
 function soldListingsCacheKey(card_ref: string): string {
-  return ["getSoldListings", "v3", cacheKeyPart(card_ref)].join(":");
+  return ["getSoldListings", "v4", cacheKeyPart(card_ref)].join(":");
 }
 
 function nullableCacheKeyPart(value: string | number | null): string {

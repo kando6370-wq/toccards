@@ -30,6 +30,11 @@ enum _ScanItemStatus {
   added,
 }
 
+const _maxAutomaticScanItems = 10;
+const _viewfinderTop = 163.0;
+const _viewfinderWidth = 280.0;
+const _viewfinderHeight = 400.0;
+
 class _ScanMatch {
   const _ScanMatch({
     required this.scanId,
@@ -254,6 +259,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _reviewing = false;
   var _detectingCameraFrame = false;
   var _automaticRecognitionInFlight = false;
+  var _automaticScanCount = 0;
   var _cameraFrameNumber = 0;
   int? _selectedReviewItemId;
   int? _lastAddedCount;
@@ -401,6 +407,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
         !_appActive ||
         _reviewing) {
       await session?.dispose();
+      if (!mounted) return;
+      _openingCamera = false;
+      if (_appActive && !_reviewing && _cameraSession == null) {
+        unawaited(_openCamera());
+      }
       return;
     }
     setState(() {
@@ -412,7 +423,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _closeCamera() async {
     _cameraGeneration += 1;
-    _openingCamera = false;
     _detectingCameraFrame = false;
     _automaticRecognitionInFlight = false;
     _cameraFrameNumber = 0;
@@ -431,6 +441,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final source = ref.read(scanResultSourceProvider);
     final camera = _cameraSession;
     if (camera == null) {
+      if (_openingCamera) return;
       _addScan(Future.sync(source.photo));
       return;
     }
@@ -443,6 +454,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _startAutomaticDetection(ScanCameraSession session) async {
     if (!identical(session, _cameraSession) || _automaticRecognitionInFlight) {
+      return;
+    }
+    if (_automaticScanCount >= _maxAutomaticScanItems) {
+      await session.stopImageStream();
       return;
     }
     try {
@@ -458,6 +473,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _automaticRecognitionInFlight ||
         _detectingCameraFrame ||
         _reviewing) {
+      return;
+    }
+    if (_automaticScanCount >= _maxAutomaticScanItems) {
+      unawaited(session.stopImageStream());
       return;
     }
     _cameraFrameNumber += 1;
@@ -479,8 +498,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
           _automaticRecognitionInFlight) {
         return;
       }
+      if (_automaticScanCount >= _maxAutomaticScanItems) {
+        await session.stopImageStream();
+        return;
+      }
       if (_stabilityGate.add(detection)) {
         _automaticRecognitionInFlight = true;
+        _automaticScanCount += 1;
         _stabilityGate.reset();
         final result = _captureAndRecognize(
           session,
@@ -1390,7 +1414,7 @@ class _ScanCameraView extends StatelessWidget {
           ),
         if (!completed && !showingFailedFeedback)
           Positioned(
-            top: 163,
+            top: _viewfinderTop,
             left: 0,
             right: 0,
             child: Center(
@@ -2124,9 +2148,27 @@ class _FigmaRecognizingOverlay extends StatelessWidget {
           child: SizedBox(
             width: constraints.maxWidth,
             height: constraints.maxHeight < 884 ? 884 : constraints.maxHeight,
-            child: CustomPaint(
-              key: const Key('scan-figma-recognizing-overlay'),
-              painter: const _FigmaRecognizingOverlayPainter(),
+            child: Stack(
+              children: [
+                const Positioned.fill(
+                  child: CustomPaint(
+                    key: Key('scan-figma-recognizing-overlay'),
+                    painter: _FigmaRecognizingOverlayPainter(),
+                  ),
+                ),
+                const Positioned(
+                  top: _viewfinderTop,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: SizedBox(
+                      key: Key('scan-figma-overlay-viewfinder'),
+                      width: _viewfinderWidth,
+                      height: _viewfinderHeight,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -2140,28 +2182,21 @@ class _FigmaRecognizingOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const designSize = Size(390, 884);
-    canvas.save();
-    canvas.scale(
-      size.width / designSize.width,
-      size.height / designSize.height,
-    );
-
     final vignette = Paint()
       ..shader = ui.Gradient.radial(
-        const Offset(195, 442),
-        483.104,
+        size.center(Offset.zero),
+        size.longestSide * 0.55,
         const [Color(0x000D0F08), Color(0xD90D0F08)],
         const [0.6, 1],
       );
-    canvas.drawRect(Offset.zero & designSize, vignette);
+    canvas.drawRect(Offset.zero & size, vignette);
 
     final dimOutsideViewfinder = Path()
       ..fillType = PathFillType.evenOdd
-      ..addRect(Offset.zero & designSize)
+      ..addRect(Offset.zero & size)
       ..addRRect(
         RRect.fromRectAndRadius(
-          const Rect.fromLTWH(55, 163, 280, 400),
+          _viewfinderRect(size),
           const Radius.circular(16),
         ),
       );
@@ -2169,8 +2204,7 @@ class _FigmaRecognizingOverlayPainter extends CustomPainter {
       dimOutsideViewfinder,
       Paint()..color = const Color(0x66000000),
     );
-    canvas.drawRect(Offset.zero & designSize, vignette);
-    canvas.restore();
+    canvas.drawRect(Offset.zero & size, vignette);
   }
 
   @override
@@ -2190,9 +2224,27 @@ class _FigmaRevealingOverlay extends StatelessWidget {
           child: SizedBox(
             width: constraints.maxWidth,
             height: constraints.maxHeight < 884 ? 884 : constraints.maxHeight,
-            child: CustomPaint(
-              key: const Key('scan-figma-revealing-overlay'),
-              painter: const _FigmaRevealingOverlayPainter(),
+            child: Stack(
+              children: [
+                const Positioned.fill(
+                  child: CustomPaint(
+                    key: Key('scan-figma-revealing-overlay'),
+                    painter: _FigmaRevealingOverlayPainter(),
+                  ),
+                ),
+                const Positioned(
+                  top: _viewfinderTop,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: SizedBox(
+                      key: Key('scan-figma-overlay-viewfinder'),
+                      width: _viewfinderWidth,
+                      height: _viewfinderHeight,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -2206,28 +2258,21 @@ class _FigmaRevealingOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const designSize = Size(390, 884);
-    canvas.save();
-    canvas.scale(
-      size.width / designSize.width,
-      size.height / designSize.height,
-    );
-
     final vignette = Paint()
       ..shader = ui.Gradient.radial(
-        const Offset(195, 442),
-        483.1,
+        size.center(Offset.zero),
+        size.longestSide * 0.55,
         const [Color(0x000D0F08), Color(0xD90D0F08)],
         const [0.6, 1],
       );
-    canvas.drawRect(Offset.zero & designSize, vignette);
+    canvas.drawRect(Offset.zero & size, vignette);
 
     final dimOutsideViewfinder = Path()
       ..fillType = PathFillType.evenOdd
-      ..addRect(Offset.zero & designSize)
+      ..addRect(Offset.zero & size)
       ..addRRect(
         RRect.fromRectAndRadius(
-          const Rect.fromLTWH(55, 163, 280, 400),
+          _viewfinderRect(size),
           const Radius.circular(16),
         ),
       );
@@ -2235,7 +2280,6 @@ class _FigmaRevealingOverlayPainter extends CustomPainter {
       dimOutsideViewfinder,
       Paint()..color = const Color(0x66000000),
     );
-    canvas.restore();
   }
 
   @override
@@ -2524,13 +2568,23 @@ class _ViewfinderCorners extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 280,
-      height: 400,
+      key: const Key('scan-figma-viewfinder'),
+      width: _viewfinderWidth,
+      height: _viewfinderHeight,
       child: CustomPaint(
         painter: _ViewfinderPainter(focusFrameShadow: focusFrameShadow),
       ),
     );
   }
+}
+
+Rect _viewfinderRect(Size size) {
+  return Rect.fromLTWH(
+    (size.width - _viewfinderWidth) / 2,
+    _viewfinderTop,
+    _viewfinderWidth,
+    _viewfinderHeight,
+  );
 }
 
 class _ViewfinderPainter extends CustomPainter {

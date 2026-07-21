@@ -1417,6 +1417,11 @@ class _PriceOverview extends ConsumerWidget {
         const SizedBox(height: 20),
         const Text('Market Prices', style: _kSectionTitleStyle),
         const SizedBox(height: 12),
+        _MarketPriceCategories(
+          selected: state.selectedMarketPriceCategory,
+          onSelected: controller.selectMarketPriceCategory,
+        ),
+        const SizedBox(height: 12),
         if (state.marketPricesStatus == KandoLoadStatus.loading)
           const SizedBox(height: 120, child: KandoLoadingBlock())
         else if (state.marketPricesStatus == KandoLoadStatus.failure)
@@ -1449,6 +1454,7 @@ class _PriceOverview extends ConsumerWidget {
           for (final row in state.soldListingRows)
             _ShopTile(
               row: row,
+              imageUrl: state.detail.imageUrl,
               onTap: row.url == null
                   ? null
                   : () async {
@@ -1576,8 +1582,59 @@ class _MarketPricesTable extends StatelessWidget {
               market: row.priceText,
               change: row.changeText,
             ),
+          if (rows.isEmpty)
+            const _MarketPricesRow(grade: '--', market: '--', change: '-/-'),
         ],
       ),
+    );
+  }
+}
+
+class _MarketPriceCategories extends StatelessWidget {
+  const _MarketPriceCategories({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final CardMarketPriceCategory selected;
+  final ValueChanged<CardMarketPriceCategory> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 4,
+      runSpacing: 8,
+      children: [
+        for (final category in CardMarketPriceCategory.values)
+          InkWell(
+            key: Key('card-detail-market-category-${category.name}'),
+            borderRadius: BorderRadius.circular(999),
+            onTap: () => onSelected(category),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+              decoration: BoxDecoration(
+                color: selected == category
+                    ? const Color(0xFFBAC158)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: selected == category
+                      ? const Color(0xFFBAC158)
+                      : KandoColors.border,
+                ),
+              ),
+              child: Text(
+                category.label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: selected == category
+                      ? const Color(0xFF191E00)
+                      : KandoColors.mutedText,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1639,9 +1696,10 @@ class _MarketPricesRow extends StatelessWidget {
 }
 
 class _ShopTile extends StatelessWidget {
-  const _ShopTile({required this.row, this.onTap});
+  const _ShopTile({required this.row, required this.imageUrl, this.onTap});
 
   final CardSoldListingRow row;
+  final String? imageUrl;
   final VoidCallback? onTap;
 
   @override
@@ -1657,16 +1715,29 @@ class _ShopTile extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                key: Key('card-detail-shop-image-${row.dateText}-${row.title}'),
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
                   color: KandoColors.elevatedSurface,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.storefront_outlined,
-                  color: KandoColors.mutedText,
-                ),
+                clipBehavior: Clip.antiAlias,
+                child: imageUrl == null
+                    ? const Icon(
+                        Icons.storefront_outlined,
+                        color: KandoColors.mutedText,
+                      )
+                    : Image.network(
+                        imageUrl!,
+                        fit: BoxFit.contain,
+                        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.storefront_outlined,
+                              color: KandoColors.mutedText,
+                            ),
+                      ),
               ),
               const SizedBox(width: 14),
               Expanded(

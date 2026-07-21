@@ -79,7 +79,11 @@ void main() {
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
-    expect(find.text('Raw Near Mint (NM)'), findsOneWidget);
+    expect(find.text('Ungraded'), findsOneWidget);
+    expect(find.text('PSA'), findsOneWidget);
+    expect(find.text('ACE'), findsOneWidget);
+    expect(find.text('BGS'), findsOneWidget);
+    expect(find.text('Near Mint (NM)'), findsOneWidget);
     expect(find.text(r'$32.13'), findsWidgets);
     expect(find.text('+2.19%'), findsOneWidget);
     expect(find.text('Collection Item'), findsNothing);
@@ -148,6 +152,14 @@ void main() {
       await tester.scrollUntilVisible(find.text('Shop'), 400);
       await tester.ensureVisible(find.text('Squirtle Promo Holofoil'));
       await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const Key(
+            'card-detail-shop-image-2026-07-02-Squirtle Promo Holofoil',
+          ),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Squirtle Promo Holofoil'));
       await tester.pumpAndSettle();
 
@@ -336,8 +348,13 @@ void main() {
     expect(find.text('1M'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
-    expect(find.text('PSA 10'), findsOneWidget);
+    expect(find.text('Ungraded'), findsOneWidget);
     expect(find.text(r'$215.00'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('card-detail-market-category-psa')));
+    await tester.pumpAndSettle();
+    expect(find.text('10'), findsOneWidget);
+    expect(find.text(r'$780.00'), findsWidgets);
   });
 
   testWidgets('owned Price Tab selectors update visible series rows', (

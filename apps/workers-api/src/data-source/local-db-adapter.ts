@@ -220,6 +220,7 @@ LIMIT 100`,
       return skuRows
         .map((row) => soldListingFromSku(card, row))
         .filter((listing): listing is SoldListing => listing !== null)
+        .sort((left, right) => right.date.localeCompare(left.date))
         .slice(0, 4);
     },
   };

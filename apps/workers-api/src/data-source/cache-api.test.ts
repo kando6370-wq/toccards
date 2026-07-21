@@ -173,7 +173,7 @@ describe("Cache API data source adapter", () => {
     await adapter.getSoldListings("mock:tcg:charizard");
 
     expect(cache.puts[0]?.requestUrl).toBe(
-      "https://data-source-cache.invalid/getSoldListings:v3:mock%3Atcg%3Acharizard",
+      "https://data-source-cache.invalid/getSoldListings:v4:mock%3Atcg%3Acharizard",
     );
   });
 });

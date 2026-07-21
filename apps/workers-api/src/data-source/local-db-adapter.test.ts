@@ -435,6 +435,17 @@ describe("local D1 card data source adapter", () => {
             ]),
           }),
           sku({
+            sku_id: 3,
+            condition_code: "LP",
+            condition_name: "Lightly Played",
+            language_name: "English",
+            variant_name: "Normal",
+            price_history: JSON.stringify([
+              { price: 11, date: "2026-07-01" },
+              { price: 12, date: "2026-07-10" },
+            ]),
+          }),
+          sku({
             sku_id: 2,
             variant_name: "Foil",
             price_history: "[]",
@@ -444,6 +455,13 @@ describe("local D1 card data source adapter", () => {
     );
 
     await expect(adapter.getSoldListings("100")).resolves.toEqual([
+      {
+        date: "2026-07-10",
+        title: "Charizard / Lightly Played / English / Normal",
+        price: 12,
+        platform: "TCGplayer",
+        url: "https://www.tcgplayer.com/product/100",
+      },
       {
         date: "2026-07-08",
         title: "Charizard / Near Mint / English / Normal",

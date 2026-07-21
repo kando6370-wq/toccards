@@ -87,6 +87,21 @@ const _priceSeriesFallbackText = 'No price data available.';
 const _soldListingsFallbackText = 'No sold listings available.';
 const _cardDetailStateUnset = Object();
 
+String _gradeText(double grade) {
+  return grade == grade.truncateToDouble()
+      ? grade.toInt().toString()
+      : grade.toString();
+}
+
+int _compareListingDates(String left, String right) {
+  final leftDate = DateTime.tryParse(left);
+  final rightDate = DateTime.tryParse(right);
+  if (leftDate != null && rightDate != null) {
+    return leftDate.compareTo(rightDate);
+  }
+  return left.compareTo(right);
+}
+
 List<String> cardCollectionGradeLabelsFor(String grader) {
   return cardCollectionGradeValues.map((grade) => '$grader $grade').toList();
 }
@@ -218,6 +233,7 @@ class CardDetailState {
     required this.currency,
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
+    this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -232,6 +248,7 @@ class CardDetailState {
     required this.currency,
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
+    this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -246,6 +263,7 @@ class CardDetailState {
     required this.currency,
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
+    this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -260,6 +278,7 @@ class CardDetailState {
   final AppCurrency currency;
   final CardPriceChartMode selectedPriceChartMode;
   final CardPriceRange selectedPriceRange;
+  final CardMarketPriceCategory selectedMarketPriceCategory;
   final CardCollectionItemDraft? collectionItemDraft;
   final String? editingCollectionItemId;
   final String? collectionItemFormError;
@@ -346,17 +365,34 @@ class CardDetailState {
   }
 
   List<CardMarketRow> get priceTabMarketRows {
-    return detail.marketPrices.map((price) {
-      return CardMarketRow(
-        label: price.label,
-        priceText: _formatter.formatUsd(price.priceUsd),
-        changeText: _marketChange7d(price).percentText,
-      );
-    }).toList();
+    return detail.marketPrices
+        .where(
+          (price) =>
+              price.grader.toLowerCase() ==
+              selectedMarketPriceCategory.grader.toLowerCase(),
+        )
+        .map((price) {
+          return CardMarketRow(
+            label:
+                selectedMarketPriceCategory == CardMarketPriceCategory.ungraded
+                ? price.condition ??
+                      price.label.replaceFirst(RegExp(r'^Raw\s*'), '')
+                : price.grade == null
+                ? price.label
+                : _gradeText(price.grade!),
+            priceText: _formatter.formatUsd(price.priceUsd),
+            changeText: _marketChange7d(price).percentText,
+          );
+        })
+        .toList();
   }
 
   List<CardSoldListingRow> get soldListingRows {
-    return detail.soldListings.map((listing) {
+    final listings = [...detail.soldListings]
+      ..sort(
+        (left, right) => _compareListingDates(right.dateText, left.dateText),
+      );
+    return listings.map((listing) {
       return CardSoldListingRow(
         dateText: listing.dateText,
         title: listing.title,
@@ -410,6 +446,7 @@ class CardDetailState {
     AppCurrency? currency,
     CardPriceChartMode? selectedPriceChartMode,
     CardPriceRange? selectedPriceRange,
+    CardMarketPriceCategory? selectedMarketPriceCategory,
     Object? collectionItemDraft = _cardDetailStateUnset,
     Object? editingCollectionItemId = _cardDetailStateUnset,
     Object? collectionItemFormError = _cardDetailStateUnset,
@@ -424,6 +461,8 @@ class CardDetailState {
       selectedPriceChartMode:
           selectedPriceChartMode ?? this.selectedPriceChartMode,
       selectedPriceRange: selectedPriceRange ?? this.selectedPriceRange,
+      selectedMarketPriceCategory:
+          selectedMarketPriceCategory ?? this.selectedMarketPriceCategory,
       collectionItemDraft: collectionItemDraft == _cardDetailStateUnset
           ? this.collectionItemDraft
           : collectionItemDraft as CardCollectionItemDraft?,
@@ -632,6 +671,11 @@ class CardDetailController extends Notifier<CardDetailState> {
     }
 
     state = state.copyWith(selectedPriceChartMode: mode);
+  }
+
+  void selectMarketPriceCategory(CardMarketPriceCategory category) {
+    if (state.isUnavailable || state.isLoading) return;
+    state = state.copyWith(selectedMarketPriceCategory: category);
   }
 
   void startAddingCollectionItem() {

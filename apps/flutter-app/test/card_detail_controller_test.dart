@@ -735,9 +735,13 @@ void main() {
       ]);
       expect(state.selectedPriceChartMode, CardPriceChartMode.raw);
       expect(state.selectedPriceRange, CardPriceRange.oneMonth);
+      expect(
+        state.selectedMarketPriceCategory,
+        CardMarketPriceCategory.ungraded,
+      );
       expect(state.priceSeriesRows.last.dateLabel, 'Today');
       expect(state.priceSeriesRows.last.priceText, r'$215.00');
-      expect(state.priceTabMarketRows.first.label, 'PSA 10');
+      expect(state.priceTabMarketRows.first.label, 'Near Mint (NM)');
       expect(state.priceTabMarketRows.first.changeText, startsWith('+'));
       expect(state.soldListingRows.first.platform, 'eBay');
       expect(state.soldListingRows.first.priceText, r'$780.00');
@@ -758,13 +762,17 @@ void main() {
       container
           .read(provider.notifier)
           .selectPriceRange(CardPriceRange.threeMonths);
+      container
+          .read(provider.notifier)
+          .selectMarketPriceCategory(CardMarketPriceCategory.psa);
       final state = container.read(provider);
 
       expect(state.selectedPriceChartMode, CardPriceChartMode.graded);
       expect(state.selectedPriceRange, CardPriceRange.threeMonths);
       expect(state.priceSeriesRows.first.dateLabel, '90 days ago');
       expect(state.priceSeriesRows.last.priceText, r'$780.00');
-      expect(state.priceTabMarketRows.first.label, 'PSA 10');
+      expect(state.selectedMarketPriceCategory, CardMarketPriceCategory.psa);
+      expect(state.priceTabMarketRows.first.label, '10');
     },
   );
 

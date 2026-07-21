@@ -76,6 +76,7 @@ CardDetail _mockDetail(String cardId) {
   return switch (cardId) {
     'squirtle' => const CardDetail(
       id: 'squirtle',
+      imageUrl: 'https://image.tcgcard.fun/cards/squirtle.jpg',
       type: CardDetailType.tcg,
       name: 'Squirtle',
       game: 'Pokemon',
@@ -88,12 +89,15 @@ CardDetail _mockDetail(String cardId) {
       marketPrices: [
         CardMarketPrice(
           label: 'Raw Near Mint (NM)',
+          condition: 'Near Mint (NM)',
           priceUsd: 32.13,
           previous30dPriceUsd: 30.67,
           previous7dPriceUsd: 31.44,
         ),
         CardMarketPrice(
           label: 'PSA 10',
+          grader: 'PSA',
+          grade: 10,
           priceUsd: 124.5,
           previous30dPriceUsd: 117.2,
           previous7dPriceUsd: 121.3,
@@ -167,12 +171,15 @@ CardDetail _mockDetail(String cardId) {
       marketPrices: [
         CardMarketPrice(
           label: 'PSA 10',
+          grader: 'PSA',
+          grade: 10,
           priceUsd: 780,
           previous30dPriceUsd: 721.58,
           previous7dPriceUsd: 760,
         ),
         CardMarketPrice(
           label: 'Raw Near Mint (NM)',
+          condition: 'Near Mint (NM)',
           priceUsd: 215,
           previous30dPriceUsd: 204.5,
           previous7dPriceUsd: 209,
@@ -242,16 +249,16 @@ CardDetail _mockDetail(String cardId) {
       },
       soldListings: [
         CardSoldListing(
-          dateText: '2026-07-03',
-          title: 'Charizard ex PSA 10',
-          priceUsd: 780,
-          platform: 'eBay',
-        ),
-        CardSoldListing(
           dateText: '2026-06-28',
           title: 'Charizard ex Raw Near Mint (NM)',
           priceUsd: 215,
           platform: 'TCGplayer',
+        ),
+        CardSoldListing(
+          dateText: '2026-07-03',
+          title: 'Charizard ex PSA 10',
+          priceUsd: 780,
+          platform: 'eBay',
         ),
       ],
     ),

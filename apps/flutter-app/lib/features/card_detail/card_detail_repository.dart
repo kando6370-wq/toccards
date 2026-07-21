@@ -334,6 +334,9 @@ CardMarketPrice _marketPriceFromDto(
 ) {
   return CardMarketPrice(
     label: _marketPriceLabel(dto),
+    grader: dto.grader,
+    grade: dto.grade,
+    condition: dto.condition,
     priceUsd: dto.price,
     previous30dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.oneMonth]),
     previous7dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.sevenDays]),

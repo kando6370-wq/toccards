@@ -133,6 +133,40 @@ void main() {
   );
 
   testWidgets(
+    'real-time camera recognition stops after ten images because one scan session must not create an eleventh automatic item',
+    (tester) async {
+      final camera = _TestScanCameraSession();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        recognizeResult: Future.value(const ScanResolution.noMatch()),
+        frameDetection: _stableFrameDetection,
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: _TestScanCameraFactory(camera),
+      );
+
+      for (var scan = 0; scan < 10; scan += 1) {
+        for (var frame = 0; frame < 16; frame += 1) {
+          camera.emitFrame();
+          await tester.pump();
+        }
+        await tester.pump();
+      }
+
+      expect(camera.takePhotoCount, 10);
+      expect(source.recognizedImages, hasLength(10));
+      expect(camera.onFrame, isNull);
+
+      camera.emitFrame();
+      await tester.pump();
+      expect(camera.takePhotoCount, 10);
+      expect(source.recognizedImages, hasLength(10));
+    },
+  );
+
+  testWidgets(
     'Scan closes flash in background and reopens the camera on resume because camera resources cannot outlive the active page',
     (tester) async {
       final first = _TestScanCameraSession();
@@ -157,6 +191,63 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
       expect(second.disposed, isTrue);
+    },
+  );
+
+  testWidgets(
+    'Scan retries the in-app camera after first permission approval because lifecycle changes must not fall back to the system camera',
+    (tester) async {
+      final first = _TestScanCameraSession();
+      final second = _TestScanCameraSession();
+      final factory = _PermissionDelayedScanCameraFactory(second);
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: factory,
+      );
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(source.photoCallCount, 0);
+
+      factory.firstOpen.complete(first);
+      await tester.pump();
+      await tester.pump();
+
+      expect(first.disposed, isTrue);
+      expect(factory.openCount, 2);
+      expect(find.byKey(const Key('scan-live-camera-preview')), findsOneWidget);
+      expect(find.byKey(const Key('test-live-camera-preview')), findsOneWidget);
+      expect(second.disposed, isFalse);
+    },
+  );
+
+  testWidgets(
+    'Recognition mask matches the visible viewfinder on narrow screens because detected cards must stay inside the targeting frame',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 800);
+      addTearDown(tester.view.reset);
+
+      await _pumpScanTestApp(tester);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 1));
+
+      final visible = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final mask = tester.getRect(
+        find.byKey(const Key('scan-figma-overlay-viewfinder')),
+      );
+      expect(mask, visible);
     },
   );
 
@@ -1437,6 +1528,7 @@ class _TestScanResultSource implements ScanResultSource {
   final Future<ScanResolution> _retryResult;
   final ScanFrameDetection? frameDetection;
   var detectFrameCount = 0;
+  var photoCallCount = 0;
   var _nextPhotoResult = 0;
   Uint8List? lastRetryBytes;
   String? lastRetryFileName;
@@ -1453,6 +1545,7 @@ class _TestScanResultSource implements ScanResultSource {
 
   @override
   Future<ScanResolution> photo() {
+    photoCallCount += 1;
     final resultIndex = _nextPhotoResult < _photoResults.length
         ? _nextPhotoResult
         : _photoResults.length - 1;
@@ -1488,6 +1581,20 @@ class _TestScanCameraFactory implements ScanCameraFactory {
 
   @override
   Future<ScanCameraSession?> open() async => session;
+}
+
+class _PermissionDelayedScanCameraFactory implements ScanCameraFactory {
+  _PermissionDelayedScanCameraFactory(this.secondSession);
+
+  final firstOpen = Completer<ScanCameraSession?>();
+  final _TestScanCameraSession secondSession;
+  var openCount = 0;
+
+  @override
+  Future<ScanCameraSession?> open() {
+    openCount += 1;
+    return openCount == 1 ? firstOpen.future : Future.value(secondSession);
+  }
 }
 
 class _TestScanCameraSession implements ScanCameraSession {

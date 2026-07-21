@@ -24,18 +24,36 @@ enum CardPriceChartMode {
   final String label;
 }
 
+enum CardMarketPriceCategory {
+  ungraded('Raw', 'Ungraded'),
+  psa('PSA', 'PSA'),
+  ace('ACE', 'ACE'),
+  bgs('BGS', 'BGS');
+
+  const CardMarketPriceCategory(this.grader, this.label);
+
+  final String grader;
+  final String label;
+}
+
 class CardMarketPrice {
   const CardMarketPrice({
     required this.label,
     required this.priceUsd,
     required this.previous30dPriceUsd,
     this.previous7dPriceUsd,
+    this.grader = 'Raw',
+    this.grade,
+    this.condition,
   });
 
   final String label;
   final double? priceUsd;
   final double? previous30dPriceUsd;
   final double? previous7dPriceUsd;
+  final String grader;
+  final double? grade;
+  final String? condition;
 }
 
 class CardPricePoint {
