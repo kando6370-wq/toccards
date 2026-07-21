@@ -12,6 +12,7 @@ import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_camera.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/features/scan/scan_review_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
@@ -519,6 +520,14 @@ void main() {
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text(r'$25.00'), findsOneWidget);
       expect(find.text(r'Total: $25.00'), findsOneWidget);
+
+      ProviderScope.containerOf(tester.element(find.byType(ScanPage)))
+          .read(selectedCurrencyProvider.notifier)
+          .select(AppCurrency.eur.withUsdRate(0.91));
+      await tester.pump();
+
+      expect(find.text('€22.75'), findsOneWidget);
+      expect(find.text('Total: €22.75'), findsOneWidget);
       expect(
         tester
             .widget<Container>(
@@ -544,7 +553,7 @@ void main() {
       await tester.tap(find.byKey(const Key('scan-figma-done-background')));
       await tester.pumpAndSettle();
       expect(find.text('Review your matches'), findsOneWidget);
-      expect(find.text(r'$25.00'), findsOneWidget);
+      expect(find.text('€22.75'), findsOneWidget);
     },
   );
 

@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 
+import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/ui/toast.dart';
@@ -195,11 +196,17 @@ List<String> _optionsIncluding(List<String> options, String current) {
   return options.contains(current) ? options : [current, ...options];
 }
 
-String _reviewTotalText(ScanReviewCard card, _ScanCollectionDraft draft) {
+String _reviewTotalText(
+  ScanReviewCard card,
+  _ScanCollectionDraft draft,
+  AppCurrency currency,
+) {
   final quantity = int.tryParse(draft.quantityText.trim());
   if (quantity == null || quantity < 1) return '--';
   final price = _selectedReviewPrice(card, draft);
-  return price == null ? '--' : '\$${(price * quantity).toStringAsFixed(2)}';
+  return CurrencyFormatter(
+    currency: currency,
+  ).formatUsd(price, quantity: quantity);
 }
 
 double? _selectedReviewPrice(ScanReviewCard card, _ScanCollectionDraft draft) {
@@ -1077,6 +1084,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   @override
   Widget build(BuildContext context) {
+    final currency = ref.watch(selectedCurrencyProvider);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -1094,6 +1102,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   drafts: _reviewDrafts,
                   formError: _reviewFormError,
                   saving: _savingReview,
+                  currency: currency,
                   onExit: _requestExitScan,
                   onSelectItem: _selectReviewItem,
                   onSelectCandidate: _selectReviewCandidate,
@@ -1116,6 +1125,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 showRevealingFeedback: _showRevealingFeedback,
                 revealAnimation: _revealAnimation,
                 cards: _reviewCards,
+                currency: currency,
                 onClosePressed: _requestExitScan,
                 onFlashPressed: _cameraSession == null ? null : _toggleFlash,
                 onSearchPressed: () => context.go('/search'),
@@ -1149,6 +1159,7 @@ class _ScanCameraView extends StatelessWidget {
     required this.showRevealingFeedback,
     required this.revealAnimation,
     required this.cards,
+    required this.currency,
     required this.onClosePressed,
     required this.onFlashPressed,
     required this.onSearchPressed,
@@ -1174,6 +1185,7 @@ class _ScanCameraView extends StatelessWidget {
   final bool showRevealingFeedback;
   final Animation<double> revealAnimation;
   final Map<String, ScanReviewCard> cards;
+  final AppCurrency currency;
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final VoidCallback onSearchPressed;
@@ -1320,6 +1332,7 @@ class _ScanCameraView extends StatelessWidget {
             child: _ScanResults(
               items: items,
               cards: cards,
+              currency: currency,
               lastAddedCount: lastAddedCount,
               showRevealingFeedback: showRevealingFeedback,
               onDismissRevealing: onDismissScanFeedback,
@@ -2228,6 +2241,7 @@ class _ScanResults extends StatelessWidget {
   const _ScanResults({
     required this.items,
     required this.cards,
+    required this.currency,
     required this.lastAddedCount,
     required this.showRevealingFeedback,
     required this.onDismissRevealing,
@@ -2239,6 +2253,7 @@ class _ScanResults extends StatelessWidget {
 
   final List<_ScanItem> items;
   final Map<String, ScanReviewCard> cards;
+  final AppCurrency currency;
   final int? lastAddedCount;
   final bool showRevealingFeedback;
   final VoidCallback onDismissRevealing;
@@ -2296,7 +2311,7 @@ class _ScanResults extends StatelessWidget {
               const Spacer(),
               if (hasValuedCards && total > 0)
                 Text(
-                  'Total: \$${total.toStringAsFixed(2)}',
+                  'Total: ${CurrencyFormatter(currency: currency).formatUsd(total)}',
                   style: const TextStyle(
                     color: Color(0xFFFFF6AF),
                     fontFamily: 'Geist Mono',
@@ -2323,6 +2338,7 @@ class _ScanResults extends StatelessWidget {
                 key: Key('scan-active-item-${item.id}'),
                 item: item,
                 card: cards[item.match?.cardRef],
+                currency: currency,
                 onReview: () => onReviewItem(item.id),
                 onRetry: () => onRetryItem(item),
                 onDelete: () => onDeleteItem(item),
@@ -2342,6 +2358,7 @@ class _ScanItemCard extends StatelessWidget {
     required super.key,
     required this.item,
     required this.card,
+    required this.currency,
     required this.onReview,
     required this.onRetry,
     required this.onDelete,
@@ -2351,6 +2368,7 @@ class _ScanItemCard extends StatelessWidget {
 
   final _ScanItem item;
   final ScanReviewCard? card;
+  final AppCurrency currency;
   final VoidCallback onReview;
   final VoidCallback onRetry;
   final VoidCallback onDelete;
@@ -2497,7 +2515,9 @@ class _ScanItemCard extends StatelessWidget {
                                 child: Text(
                                   price == null
                                       ? '--'
-                                      : '\$${price.toStringAsFixed(2)}',
+                                      : CurrencyFormatter(
+                                          currency: currency,
+                                        ).formatUsd(price),
                                   maxLines: 1,
                                   style: TextStyle(
                                     color: Color(0xFFFFF6AF),
@@ -2591,6 +2611,7 @@ class _ReviewMatches extends StatelessWidget {
     required this.drafts,
     required this.formError,
     required this.saving,
+    required this.currency,
     required this.onExit,
     required this.onSelectItem,
     required this.onSelectCandidate,
@@ -2608,6 +2629,7 @@ class _ReviewMatches extends StatelessWidget {
   final Map<int, _ScanCollectionDraft> drafts;
   final String? formError;
   final bool saving;
+  final AppCurrency currency;
   final VoidCallback onExit;
   final ValueChanged<_ScanItem> onSelectItem;
   final void Function(_ScanItem, _ScanCandidate) onSelectCandidate;
@@ -2768,7 +2790,7 @@ class _ReviewMatches extends StatelessWidget {
           Align(
             alignment: Alignment.bottomCenter,
             child: _ReviewFooter(
-              totalText: _reviewTotalText(card, draft),
+              totalText: _reviewTotalText(card, draft, currency),
               saving: saving,
               onAddThisCard: onAddThisCard,
               onAddAllCards: onAddAllCards,

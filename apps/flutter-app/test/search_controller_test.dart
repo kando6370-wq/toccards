@@ -5,6 +5,7 @@ import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -89,7 +90,7 @@ void main() {
         catalog.cards.first.imageUrl,
         'https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=50,format=auto/cards/catalog%3Apikachu-025.jpg',
       );
-      expect(catalog.cards.first.priceText, r'$32.13');
+      expect(catalog.cards.first.priceText(AppCurrency.usd), r'$32.13');
       expect(catalog.cards.first.changeText, '+4.76%');
       expect(catalog.cards.last.type, SearchCardType.sealed);
       expect(catalog.sets.single.id, 'BS');
@@ -109,7 +110,7 @@ void main() {
       expect(api.searchSetQueries, ['', 'base']);
       expect(api.searchSetGames, ['Pokemon', 'Pokemon']);
       expect(cards.single.name, 'Pikachu');
-      expect(cards.single.priceText, r'$32.13');
+      expect(cards.single.priceText(AppCurrency.usd), r'$32.13');
       expect(cards.single.changeText, '+4.76%');
       expect(sets.single.name, 'Base Set');
     },
@@ -662,7 +663,7 @@ void main() {
       container,
     )).cardById('mystery-promo');
 
-    expect(card.priceText, '--');
+    expect(card.priceText(AppCurrency.usd), '--');
     expect(card.previous30dPriceUsd, isNull);
     expect(card.changeText, '-/-');
   });

@@ -1,3 +1,4 @@
+import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 
 const _searchCardFieldUnset = Object();
@@ -58,13 +59,8 @@ class SearchCard {
     return '$name $setName $metadataLine $variantLine'.toLowerCase();
   }
 
-  String get priceText {
-    final value = priceUsd;
-    if (value == null) {
-      return '--';
-    }
-
-    return r'$' + value.toStringAsFixed(2);
+  String priceText(AppCurrency currency) {
+    return CurrencyFormatter(currency: currency).formatUsd(priceUsd);
   }
 
   String get changeText {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -369,6 +370,7 @@ class _SearchCardTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(searchControllerProvider.notifier);
+    final currency = ref.watch(selectedCurrencyProvider);
     final showFilledHeart = card.isWishlisted && !card.isCollected;
     final change = card.changeText;
     final changeColor = change.startsWith('-')
@@ -517,7 +519,7 @@ class _SearchCardTile extends ConsumerWidget {
               Text('Qty: ${card.quantity}', style: mutedLine),
               const SizedBox(height: 6),
               Text(
-                card.priceText,
+                card.priceText(currency),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

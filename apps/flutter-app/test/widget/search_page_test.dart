@@ -14,6 +14,7 @@ import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
+import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import '../support/in_memory_auth_storage.dart';
@@ -45,6 +46,14 @@ void main() {
     expect(find.text('Qty: 0'), findsWidgets);
     expect(find.byKey(const Key('search-collect-squirtle')), findsOneWidget);
     expect(find.text('Collect'), findsNothing);
+
+    ProviderScope.containerOf(tester.element(find.byType(SearchPage)))
+        .read(selectedCurrencyProvider.notifier)
+        .select(AppCurrency.eur.withUsdRate(0.91));
+    await tester.pump();
+
+    expect(find.text('€29.24'), findsOneWidget);
+    expect(find.text(r'$32.13'), findsNothing);
   });
 
   testWidgets(
