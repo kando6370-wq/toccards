@@ -22,6 +22,76 @@ import 'package:kando_app/shared/scan/scan_api_client.dart';
 import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
 
+const _transparentPngBytes = <int>[
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x0D,
+  0x0A,
+  0x1A,
+  0x0A,
+  0x00,
+  0x00,
+  0x00,
+  0x0D,
+  0x49,
+  0x48,
+  0x44,
+  0x52,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x08,
+  0x06,
+  0x00,
+  0x00,
+  0x00,
+  0x1F,
+  0x15,
+  0xC4,
+  0x89,
+  0x00,
+  0x00,
+  0x00,
+  0x0A,
+  0x49,
+  0x44,
+  0x41,
+  0x54,
+  0x78,
+  0x9C,
+  0x63,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x05,
+  0x00,
+  0x01,
+  0x0D,
+  0x0A,
+  0x2D,
+  0xB4,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x49,
+  0x45,
+  0x4E,
+  0x44,
+  0xAE,
+  0x42,
+  0x60,
+  0x82,
+];
+
 void main() {
   test('Figma scan SVG icons use Flutter-compatible fill colors', () async {
     const iconAssets = [
@@ -214,9 +284,6 @@ void main() {
   testWidgets('Figma scan pre-scan renders at the 390x844 baseline', (
     tester,
   ) async {
-    await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
@@ -248,9 +315,6 @@ void main() {
   testWidgets('Figma scan scanning renders at the 390x844 baseline', (
     tester,
   ) async {
-    await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
@@ -315,9 +379,6 @@ void main() {
   testWidgets('Figma recognition renders at the 390x844 baseline', (
     tester,
   ) async {
-    await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
@@ -372,9 +433,6 @@ void main() {
   testWidgets('Figma scan reveal renders at the 390x844 baseline', (
     tester,
   ) async {
-    await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
@@ -399,7 +457,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1500));
 
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 31);
-    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 741);
+    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 745);
 
     await expectLater(
       find.byKey(const Key('scan-revealing-figma-golden')),
@@ -601,9 +659,6 @@ void main() {
 
   testWidgets('Figma review renders at the 390x844 baseline', (tester) async {
     await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
-    await (FontLoader(
       'Fraunces',
     )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
     tester.view.devicePixelRatio = 1;
@@ -650,7 +705,7 @@ void main() {
     final source = _TestScanResultSource(
       photoResult: Future.value(
         ScanResolution.failed(
-          imageBytes: Uint8List.fromList([1, 2, 3]),
+          imageBytes: Uint8List.fromList(_transparentPngBytes),
           imageFileName: 'failed-card.jpg',
         ),
       ),
@@ -667,10 +722,10 @@ void main() {
 
     await tester.tap(find.byTooltip('Take Photo'));
     await _completeFigmaScan(tester);
-    await tester.tap(find.byTooltip('Tap to retry'));
+    await tester.tap(find.byTooltip('Retry scan'));
     await tester.pump();
 
-    expect(source.lastRetryBytes, Uint8List.fromList([1, 2, 3]));
+    expect(source.lastRetryBytes, Uint8List.fromList(_transparentPngBytes));
     expect(source.lastRetryFileName, 'failed-card.jpg');
     expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
 
@@ -761,20 +816,21 @@ void main() {
     },
   );
 
-  testWidgets('Figma scan pre-scan keeps its camera overlay and label font', (
-    tester,
-  ) async {
-    await _pumpScanTestApp(tester);
+  testWidgets(
+    'Figma scan pre-scan keeps its camera overlay and platform label font',
+    (tester) async {
+      await _pumpScanTestApp(tester);
 
-    final overlay = find.byKey(const Key('scan-figma-camera-overlay'));
-    expect(overlay, findsOneWidget);
-    expect(tester.widget<ColoredBox>(overlay).color, const Color(0x1A0D0F08));
-    expect(
-      tester.widget<Text>(find.text('GALLERY')).style?.fontFamily,
-      'Geist',
-    );
-    expect(tester.widget<Text>(find.text('DONE')).style?.fontFamily, 'Geist');
-  });
+      final overlay = find.byKey(const Key('scan-figma-camera-overlay'));
+      expect(overlay, findsOneWidget);
+      expect(tester.widget<ColoredBox>(overlay).color, const Color(0x1A0D0F08));
+      expect(
+        tester.widget<Text>(find.text('GALLERY')).style?.fontFamily,
+        isNull,
+      );
+      expect(tester.widget<Text>(find.text('DONE')).style?.fontFamily, isNull);
+    },
+  );
 
   testWidgets(
     'Scan creates reviewable matches because scans are not saved automatically',

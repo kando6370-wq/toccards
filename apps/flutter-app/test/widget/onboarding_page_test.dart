@@ -17,15 +17,12 @@ import '../support/local_placeholder_auth_repository.dart';
 void main() {
   setUpAll(() async {
     await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
-    await (FontLoader(
       'Fraunces',
     )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
   });
 
-  test('app body typography uses the Figma Geist family', () {
-    expect(buildKandoTheme().textTheme.bodyMedium?.fontFamily, 'Geist');
+  test('app body typography uses the platform default family', () {
+    expect(buildKandoTheme().textTheme.bodyMedium?.fontFamily, 'Roboto');
   });
 
   testWidgets(

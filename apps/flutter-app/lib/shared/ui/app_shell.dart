@@ -307,7 +307,6 @@ class _FigmaTabItem extends StatelessWidget {
                       softWrap: false,
                       style: TextStyle(
                         color: color,
-                        fontFamily: 'Geist',
                         fontSize: 11,
                         height: 18 / 11,
                       ),

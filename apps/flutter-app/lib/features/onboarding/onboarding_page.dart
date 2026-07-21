@@ -227,18 +227,17 @@ class _OnboardingSlideView extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: KandoColors.mutedText,
-                          fontFamily: 'Geist',
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                           height: 24 / 16,
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
                       _PageIndicator(
                         currentIndex: currentIndex,
                         pageCount: pageCount,
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: controlInset),
                         child: _OnboardingButton(
@@ -249,7 +248,7 @@ class _OnboardingSlideView extends StatelessWidget {
                         ),
                       ),
                       if (onContinueAsGuest != null) ...[
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         Padding(
                           padding: EdgeInsets.symmetric(
                             horizontal: controlInset,
@@ -630,7 +629,6 @@ class _OnboardingButton extends StatelessWidget {
                     : BorderSide.none,
               ),
               textStyle: const TextStyle(
-                fontFamily: 'Geist',
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
                 height: 16 / 13,

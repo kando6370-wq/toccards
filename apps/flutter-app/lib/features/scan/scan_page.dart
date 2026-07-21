@@ -1485,7 +1485,6 @@ class _AlignCardPill extends StatelessWidget {
             'ALIGN CARD HERE',
             style: TextStyle(
               color: Color(0xFFE4E3D3),
-              fontFamily: 'Geist',
               fontSize: 13,
               height: 16 / 13,
             ),
@@ -1618,6 +1617,7 @@ class _ScanDoneAction extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: SizedBox(
           width: 72,
+          height: 72,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1659,15 +1659,19 @@ class _ScanDoneAction extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                'DONE',
-                style: TextStyle(
-                  color: enabled
-                      ? const Color(0xFFEEECD8)
-                      : const Color(0x66EEECD8),
-                  fontFamily: 'Geist',
-                  fontSize: 13,
-                  height: 16 / 13,
+              SizedBox(
+                height: 16,
+                child: Text(
+                  'DONE',
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(
+                    color: enabled
+                        ? const Color(0xFFEEECD8)
+                        : const Color(0x66EEECD8),
+                    fontSize: 13,
+                    height: 16 / 13,
+                  ),
                 ),
               ),
             ],
@@ -1697,6 +1701,7 @@ class _ScanSideAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
+      height: 72,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1716,13 +1721,17 @@ class _ScanSideAction extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFFEEECD8),
-              fontFamily: 'Geist',
-              fontSize: 13,
-              height: 16 / 13,
+          SizedBox(
+            height: 16,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              style: const TextStyle(
+                color: Color(0xFFEEECD8),
+                fontSize: 13,
+                height: 16 / 13,
+              ),
             ),
           ),
         ],
@@ -2110,7 +2119,6 @@ class _ScanRevealingToast extends StatelessWidget {
                                 'Scanning...',
                                 style: TextStyle(
                                   color: Color(0xFFEEECD8),
-                                  fontFamily: 'Geist',
                                   fontSize: 16,
                                   height: 24 / 16,
                                 ),
@@ -2303,7 +2311,6 @@ class _ScanResults extends StatelessWidget {
                     : 'Added $lastAddedCount cards to Portfolio',
                 style: const TextStyle(
                   color: Color(0xFFEEECD8),
-                  fontFamily: 'Geist',
                   fontSize: 13,
                   height: 16 / 13,
                 ),
@@ -2314,7 +2321,6 @@ class _ScanResults extends StatelessWidget {
                   'Total: ${CurrencyFormatter(currency: currency).formatUsd(total)}',
                   style: const TextStyle(
                     color: Color(0xFFFFF6AF),
-                    fontFamily: 'Geist Mono',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     height: 15 / 13,
@@ -2460,7 +2466,6 @@ class _ScanItemCard extends StatelessWidget {
                               color: failed
                                   ? const Color(0xFFFF8493)
                                   : const Color(0xFFEEECD8),
-                              fontFamily: 'Geist',
                               fontSize: 16,
                               height: 24 / 16,
                             ),
@@ -2483,25 +2488,28 @@ class _ScanItemCard extends StatelessWidget {
                     if (matched || added)
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0x33F0FE6F),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              added
-                                  ? 'ADDED'
-                                  : previewDraft?.condition.toUpperCase() ??
-                                        'RAW',
-                              style: const TextStyle(
-                                color: Color(0xFFF0FE6F),
-                                fontFamily: 'Geist Mono',
-                                fontSize: 11,
-                                height: 16 / 11,
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0x33F0FE6F),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                added
+                                    ? 'ADDED'
+                                    : previewDraft?.condition.toUpperCase() ??
+                                          'RAW',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFFF0FE6F),
+                                  fontSize: 11,
+                                  height: 16 / 11,
+                                ),
                               ),
                             ),
                           ),
@@ -2521,7 +2529,6 @@ class _ScanItemCard extends StatelessWidget {
                                   maxLines: 1,
                                   style: TextStyle(
                                     color: Color(0xFFFFF6AF),
-                                    fontFamily: 'Geist Mono',
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                     height: 15 / 13,
@@ -2538,7 +2545,6 @@ class _ScanItemCard extends StatelessWidget {
                         maxLines: 1,
                         style: const TextStyle(
                           color: Color(0xFFF0FE6F),
-                          fontFamily: 'Geist',
                           fontSize: 13,
                           height: 16 / 13,
                         ),
@@ -2865,11 +2871,7 @@ class _ReviewPicture extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFF92927D),
-            fontFamily: 'Geist',
-            fontSize: 11,
-          ),
+          style: const TextStyle(color: Color(0xFF92927D), fontSize: 11),
         ),
       ],
     );
@@ -3053,11 +3055,7 @@ class _ReviewCollectionItem extends StatelessWidget {
                   'Adding to ${draft.folderName}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Geist',
-                    fontSize: 13,
-                    height: 16 / 13,
-                  ),
+                  style: const TextStyle(fontSize: 13, height: 16 / 13),
                 ),
               ),
             ),
@@ -3334,11 +3332,7 @@ class _ReviewDropdownRow extends StatelessWidget {
                   'v',
                   style: TextStyle(color: Color(0xFFC7C8B0), fontSize: 12),
                 ),
-                style: const TextStyle(
-                  color: Color(0xFFEEECD8),
-                  fontFamily: 'Geist',
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Color(0xFFEEECD8), fontSize: 14),
                 selectedItemBuilder: (context) => [
                   for (final option in options)
                     Align(
@@ -3416,7 +3410,6 @@ Future<ScanReviewFolder?> _showScanFolderSheet(
                     'Add scanned cards to',
                     style: TextStyle(
                       color: Color(0xFFF0FE6F),
-                      fontFamily: 'Geist',
                       fontSize: 16,
                       height: 24 / 16,
                     ),
@@ -3481,7 +3474,6 @@ Future<ScanReviewFolder?> _showScanFolderSheet(
                                     color: selected
                                         ? const Color(0xFFEEECD8)
                                         : const Color(0xFF92927D),
-                                    fontFamily: 'Geist',
                                     fontSize: selected ? 15 : 16,
                                     height: selected ? 22 / 15 : 24 / 16,
                                   ),

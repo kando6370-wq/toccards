@@ -781,7 +781,6 @@ class _ForgotEmailContent extends StatelessWidget {
               hint: 'Your Address',
               hintStyle: const TextStyle(
                 color: Color(0xFF615D3B),
-                fontFamily: 'Geist',
                 fontSize: 15,
                 height: 22 / 15,
               ),
@@ -795,7 +794,6 @@ class _ForgotEmailContent extends StatelessWidget {
               'Enter the email associated with your Collection Vault account.',
           style: TextStyle(
             color: hasError ? const Color(0xFFE57373) : const Color(0xFF615D3B),
-            fontFamily: 'Geist',
             fontSize: 11,
             height: 18 / 11,
           ),
@@ -957,7 +955,6 @@ class _FigmaPasswordContent extends StatelessWidget {
           'Enter your email and password to login',
           style: TextStyle(
             color: Color(0xFF92927D),
-            fontFamily: 'Geist',
             fontSize: 11,
             height: 18 / 11,
             fontWeight: FontWeight.w400,
@@ -986,7 +983,6 @@ class _FigmaPasswordContent extends StatelessWidget {
             errorText!,
             style: const TextStyle(
               color: KandoColors.errorText,
-              fontFamily: 'Geist',
               fontSize: 12,
               height: 18 / 12,
             ),
@@ -1006,7 +1002,6 @@ class _FigmaPasswordContent extends StatelessWidget {
               "Don't have an account?",
               style: TextStyle(
                 color: Color(0xFF837D40),
-                fontFamily: 'Geist',
                 fontSize: 16,
                 height: 24 / 16,
               ),
@@ -1109,7 +1104,6 @@ class _CodePageState extends State<_CodePage> {
             'Enter the correct email CAPTCHA login',
             style: TextStyle(
               color: Color(0xFF92927D),
-              fontFamily: 'Geist',
               fontSize: 11,
               height: 18 / 11,
             ),
@@ -1120,7 +1114,6 @@ class _CodePageState extends State<_CodePage> {
           'Email Address',
           style: TextStyle(
             color: Color(0xFF92927D),
-            fontFamily: 'Geist',
             fontSize: 11,
             height: 18 / 11,
           ),
@@ -1320,7 +1313,6 @@ class _CodeActionButton extends StatelessWidget {
         disabledBackgroundColor: KandoColors.elevatedSurface,
         disabledForegroundColor: const Color(0xFF615D3B),
         textStyle: const TextStyle(
-          fontFamily: 'Geist',
           fontSize: 16,
           height: 24 / 16,
           fontWeight: FontWeight.w400,
@@ -1494,7 +1486,6 @@ class _FigmaPasswordPairContent extends StatelessWidget {
 
 const _fieldTextStyle = TextStyle(
   color: KandoColors.text,
-  fontFamily: 'Geist',
   fontSize: 15,
   height: 22 / 15,
   fontWeight: FontWeight.w400,
@@ -1570,7 +1561,6 @@ class _FieldErrorText extends StatelessWidget {
       text,
       style: const TextStyle(
         color: Color(0xFFE57373),
-        fontFamily: 'Geist',
         fontSize: 11,
         height: 18 / 11,
       ),
@@ -1595,7 +1585,6 @@ class _LabeledField extends StatelessWidget {
             label,
             style: const TextStyle(
               color: Color(0xFF92927D),
-              fontFamily: 'Geist',
               fontSize: 11,
               height: 18 / 11,
               fontWeight: FontWeight.w400,
@@ -1670,7 +1659,6 @@ class _PasswordFieldState extends State<_PasswordField> {
         hint: widget.hint,
         hintStyle: const TextStyle(
           color: Color(0xFF615D3B),
-          fontFamily: 'Geist',
           fontSize: 15,
           height: 22 / 15,
           fontWeight: FontWeight.w400,
@@ -1719,7 +1707,6 @@ class _PrimaryButton extends StatelessWidget {
         disabledBackgroundColor: KandoColors.elevatedSurface,
         disabledForegroundColor: KandoColors.mutedText.withValues(alpha: 0.45),
         textStyle: const TextStyle(
-          fontFamily: 'Geist',
           fontSize: 16,
           height: 24 / 16,
           fontWeight: FontWeight.w400,
@@ -1822,7 +1809,6 @@ class _CodeSentToast extends StatelessWidget {
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
                       color: Color(0xFFE3E3D6),
-                      fontFamily: 'Geist',
                       fontSize: 15,
                       height: 22 / 15,
                       fontWeight: FontWeight.w400,
@@ -1895,7 +1881,6 @@ class _PasswordResetSuccessToast extends StatelessWidget {
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
                       color: Color(0xFFE3E3D6),
-                      fontFamily: 'Geist',
                       fontSize: 15,
                       height: 22 / 15,
                       fontWeight: FontWeight.w400,
@@ -1962,7 +1947,7 @@ class _EmailAuthFullScreen extends StatelessWidget {
                     'Continue With Email',
                     style: TextStyle(
                       color: KandoColors.text,
-                      fontFamily: 'Georgia',
+                      fontFamily: 'Fraunces',
                       fontSize: 31,
                       height: 1.1,
                     ),
@@ -2011,7 +1996,6 @@ class _InlineLinkButton extends StatelessWidget {
           label,
           style: const TextStyle(
             color: KandoColors.accent,
-            fontFamily: 'Geist',
             fontSize: 16,
             height: 24 / 16,
           ),

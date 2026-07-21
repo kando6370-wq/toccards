@@ -789,7 +789,6 @@ class _AuthSuccessToast extends StatelessWidget {
                     textScaler: TextScaler.noScaling,
                     style: const TextStyle(
                       color: Color(0xFFE3E3D6),
-                      fontFamily: 'Geist',
                       fontSize: 15,
                       height: 22 / 15,
                       fontWeight: FontWeight.w400,
@@ -835,7 +834,6 @@ class _OAuthWarning extends StatelessWidget {
             child: Text(
               message,
               style: const TextStyle(
-                fontFamily: 'Geist',
                 fontSize: 14,
                 height: 24 / 14,
                 color: KandoColors.text,
@@ -886,7 +884,6 @@ class _OptionButton extends StatelessWidget {
                     overflow: TextOverflow.fade,
                     softWrap: false,
                     style: const TextStyle(
-                      fontFamily: 'Geist',
                       fontSize: 16,
                       height: 1.5,
                       color: KandoColors.text,
@@ -915,14 +912,12 @@ class _AgreementText extends StatelessWidget {
   Widget build(BuildContext context) {
     const bodyStyle = TextStyle(
       color: KandoColors.text,
-      fontFamily: 'Geist',
       fontSize: 12,
       height: 16 / 12,
       fontWeight: FontWeight.w400,
     );
     const linkStyle = TextStyle(
       color: KandoColors.accent,
-      fontFamily: 'Geist',
       fontSize: 12,
       height: 16 / 12,
       fontWeight: FontWeight.w400,

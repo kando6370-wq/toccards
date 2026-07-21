@@ -100,10 +100,6 @@ flutter:
     - family: Fraunces
       fonts:
         - asset: assets/fonts/Fraunces-Variable.ttf
-    - family: Geist
-      fonts:
-        - asset: assets/fonts/Geist-Regular.ttf
-          weight: 400
 
   assets:
     - assets/auth/

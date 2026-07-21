@@ -113,7 +113,6 @@ class _StartupPage extends StatelessWidget {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: KandoColors.mutedText,
-                            fontFamily: 'Geist',
                             fontSize: 12 * scale,
                             height: 16 / 12,
                           ),

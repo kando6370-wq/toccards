@@ -490,6 +490,7 @@ class _SearchCardTile extends ConsumerWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
+                  fontFamily: 'Fraunces',
                   fontSize: 14,
                   height: 20 / 14,
                   fontWeight: FontWeight.w600,
@@ -641,6 +642,7 @@ class _SearchSetRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
+                      fontFamily: 'Fraunces',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: KandoColors.text,

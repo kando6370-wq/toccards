@@ -40,6 +40,10 @@ void main() {
     expect(find.text('Cards'), findsWidgets);
     expect(find.text('Sets'), findsOneWidget);
     expect(find.text('Squirtle'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('Squirtle')).style?.fontFamily,
+      'Fraunces',
+    );
     expect(find.text(r'$32.13'), findsOneWidget);
     expect(find.text('+4.76%'), findsOneWidget);
     expect(find.text('+8.10%'), findsOneWidget);
@@ -175,6 +179,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Mega Evolution Promos'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('Mega Evolution Promos')).style?.fontFamily,
+      'Fraunces',
+    );
     await tester.enterText(find.byType(TextFormField), 'flames');
     await tester.pumpAndSettle();
     expect(find.text('Obsidian Flames'), findsOneWidget);

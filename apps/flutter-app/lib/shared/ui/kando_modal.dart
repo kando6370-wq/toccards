@@ -421,11 +421,7 @@ class KandoModalButton extends StatelessWidget {
           disabledBackgroundColor: KandoColors.elevatedSurface,
           disabledForegroundColor: KandoColors.disabledText,
           shape: StadiumBorder(side: BorderSide(color: colors.border)),
-          textStyle: const TextStyle(
-            fontFamily: 'Geist',
-            fontSize: 13,
-            height: 16 / 13,
-          ),
+          textStyle: const TextStyle(fontSize: 13, height: 16 / 13),
         ),
         child: Text(label),
       ),

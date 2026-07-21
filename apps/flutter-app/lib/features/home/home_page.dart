@@ -1154,7 +1154,6 @@ class _MostValuableTile extends StatelessWidget {
                           percent,
                           style: const TextStyle(
                             color: KandoColors.text,
-                            fontFamily: 'Geist',
                             fontSize: 9,
                             height: 12 / 9,
                           ),
@@ -1614,7 +1613,6 @@ class _ChartPainter extends CustomPainter {
         text: 'Date: ${_formatChartDate(dates, selectedIndex)}',
         style: const TextStyle(
           color: Color(0xFF92927D),
-          fontFamily: 'Geist',
           fontSize: 11,
           fontWeight: FontWeight.w400,
           height: 16 / 11,
@@ -1628,7 +1626,6 @@ class _ChartPainter extends CustomPainter {
         text: 'Price: ${_chartPrice(formattedValues, selectedIndex)}',
         style: const TextStyle(
           color: KandoColors.accent,
-          fontFamily: 'Geist',
           fontSize: 11,
           fontWeight: FontWeight.w500,
           height: 16 / 11,

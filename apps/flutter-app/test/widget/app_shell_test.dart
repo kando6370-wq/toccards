@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
@@ -88,9 +87,6 @@ void main() {
   testWidgets('Figma tab bar renders at the approved 390x844 baseline', (
     tester,
   ) async {
-    await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);

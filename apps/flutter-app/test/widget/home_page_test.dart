@@ -85,9 +85,6 @@ void main() {
     tester,
   ) async {
     await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
-    await (FontLoader(
       'Fraunces',
     )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
     tester.view.devicePixelRatio = 1;
@@ -125,9 +122,6 @@ void main() {
     tester,
   ) async {
     final repository = _SuccessfulThenFailingHomeRepository();
-    await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
     await (FontLoader(
       'Fraunces',
     )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
