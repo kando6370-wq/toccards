@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/api/api_environment.dart';
+import '../../shared/api/api_request_log.dart';
 import 'app_upgrade_models.dart';
 
 const appUpgradeApiBaseUrl = kandoApiBaseUrl;
@@ -16,6 +17,9 @@ final appUpgradeDioProvider = Provider<Dio>((ref) {
       connectTimeout: const Duration(seconds: 2),
       receiveTimeout: const Duration(seconds: 2),
     ),
+  );
+  dio.interceptors.add(
+    ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
   );
   ref.onDispose(dio.close);
   return dio;

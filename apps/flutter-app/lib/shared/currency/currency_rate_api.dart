@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_environment.dart';
+import '../api/api_request_log.dart';
 
 class CurrencyRateApiException implements Exception {
   const CurrencyRateApiException();
@@ -95,6 +96,9 @@ final currencyRateDioProvider = Provider((ref) {
       connectTimeout: const Duration(seconds: 5),
       receiveTimeout: const Duration(seconds: 5),
     ),
+  );
+  dio.interceptors.add(
+    ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
   );
   ref.onDispose(dio.close);
   return dio;

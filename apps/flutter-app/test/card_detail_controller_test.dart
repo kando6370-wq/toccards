@@ -798,6 +798,35 @@ void main() {
   });
 
   test(
+    'sectioned detail load completes after base detail because optional endpoints render independently',
+    () async {
+      final repository = _BlockingOptionalSectionRepository();
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('charizard-ex');
+
+      await container.read(authControllerProvider.notifier).startupComplete;
+      final controller = container.read(provider.notifier);
+      await controller.loadComplete.timeout(const Duration(milliseconds: 100));
+
+      final baseLoaded = container.read(provider);
+      expect(baseLoaded.loadStatus, KandoLoadStatus.content);
+      expect(baseLoaded.detail.name, 'Charizard ex');
+      expect(baseLoaded.marketPricesStatus, KandoLoadStatus.loading);
+      expect(baseLoaded.priceSeriesStatus, KandoLoadStatus.loading);
+      expect(baseLoaded.soldListingsStatus, KandoLoadStatus.loading);
+
+      repository.completeOptionalSections();
+      await Future<void>.delayed(Duration.zero);
+
+      final sectionsLoaded = container.read(provider);
+      expect(sectionsLoaded.marketPricesStatus, KandoLoadStatus.content);
+      expect(sectionsLoaded.priceSeriesStatus, KandoLoadStatus.content);
+      expect(sectionsLoaded.soldListingsStatus, KandoLoadStatus.content);
+    },
+  );
+
+  test(
     'optional detail sections recover independently because one endpoint must not replace the base card with a page failure',
     () async {
       final cardDataApi = _RecoveringSectionCardDataApi();
@@ -817,12 +846,14 @@ void main() {
         container,
         'catalog:pikachu-025',
       );
+      await _drainSectionLoads();
 
       expect(failedSections.loadStatus, KandoLoadStatus.content);
       expect(failedSections.detail.name, 'Pikachu');
-      expect(failedSections.marketPricesStatus, KandoLoadStatus.failure);
-      expect(failedSections.priceSeriesStatus, KandoLoadStatus.failure);
-      expect(failedSections.soldListingsStatus, KandoLoadStatus.failure);
+      final failedSectionState = container.read(provider);
+      expect(failedSectionState.marketPricesStatus, KandoLoadStatus.failure);
+      expect(failedSectionState.priceSeriesStatus, KandoLoadStatus.failure);
+      expect(failedSectionState.soldListingsStatus, KandoLoadStatus.failure);
 
       final controller = container.read(provider.notifier);
       await controller.refreshMarketPrices();
@@ -914,6 +945,56 @@ class _FailingThenSuccessfulCardDetailRepository
       session,
       wishlistItemId,
     );
+  }
+}
+
+class _BlockingOptionalSectionRepository extends _RecordingCardDetailRepository
+    implements CardDetailSectionRepository {
+  final _marketCompleter = Completer<CardDetailMarketData>();
+  final _seriesCompleter = Completer<CardDetailSeriesData>();
+  final _soldListingsCompleter = Completer<List<CardSoldListing>>();
+
+  @override
+  Future<CardDetail> loadBaseDetail(AuthSession session, String cardId) {
+    return super.loadDetail(session, cardId);
+  }
+
+  @override
+  Future<CardDetailMarketData> loadMarketPrices(String cardId) {
+    return _marketCompleter.future;
+  }
+
+  @override
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, [
+    CardDetailMarketData? market,
+  ]) {
+    return _seriesCompleter.future;
+  }
+
+  @override
+  Future<List<CardSoldListing>> loadSoldListings(String cardId) {
+    return _soldListingsCompleter.future;
+  }
+
+  void completeOptionalSections() {
+    if (!_marketCompleter.isCompleted) {
+      _marketCompleter.complete(
+        const CardDetailMarketData(prices: [], marketPrices: []),
+      );
+    }
+    if (!_seriesCompleter.isCompleted) {
+      _seriesCompleter.complete(
+        const CardDetailSeriesData(
+          marketPrices: [],
+          rawSeriesByRange: {},
+          gradedSeriesByRange: {},
+        ),
+      );
+    }
+    if (!_soldListingsCompleter.isCompleted) {
+      _soldListingsCompleter.complete(const []);
+    }
   }
 }
 
@@ -1091,6 +1172,12 @@ Future<CardDetailState> _loadedState(
       .read(cardDetailControllerProvider(cardId).notifier)
       .loadComplete;
   return container.read(cardDetailControllerProvider(cardId));
+}
+
+Future<void> _drainSectionLoads() async {
+  for (var i = 0; i < 5; i += 1) {
+    await Future<void>.delayed(Duration.zero);
+  }
 }
 
 class _FakePortfolioApiClient implements PortfolioApi {

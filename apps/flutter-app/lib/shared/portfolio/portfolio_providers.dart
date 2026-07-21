@@ -2,10 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_session_interceptor.dart';
 
+import '../api/api_request_log.dart';
 import 'portfolio_api_client.dart';
 
 final portfolioDioProvider = Provider((ref) {
   final dio = createPortfolioDio();
+  dio.interceptors.add(
+    ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
+  );
   dio.interceptors.add(
     AuthSessionInterceptor(dio: dio, storage: ref.watch(authStorageProvider)),
   );

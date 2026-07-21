@@ -7,6 +7,7 @@ import 'oauth_authorizer.dart';
 import 'auth_repository.dart';
 import 'auth_session_interceptor.dart';
 import 'auth_storage.dart';
+import '../../shared/api/api_request_log.dart';
 
 const authAuthorizationFailedMessage = oauthAuthorizationFailedMessage;
 const authAccountActionFailedMessage =
@@ -29,6 +30,9 @@ final authStorageProvider = Provider<AuthStorage>((ref) {
 
 final authDioProvider = Provider((ref) {
   final dio = createAuthDio();
+  dio.interceptors.add(
+    ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
+  );
   dio.interceptors.add(
     AuthSessionInterceptor(dio: dio, storage: ref.watch(authStorageProvider)),
   );

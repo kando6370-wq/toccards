@@ -46,14 +46,23 @@ class ProfilePage extends ConsumerWidget {
   }
 }
 
-class _ProfileContent extends ConsumerWidget {
+class _ProfileContent extends ConsumerStatefulWidget {
   const _ProfileContent({required this.authState});
 
   final AuthState authState;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = authState.session;
+  ConsumerState<_ProfileContent> createState() => _ProfileContentState();
+}
+
+class _ProfileContentState extends ConsumerState<_ProfileContent> {
+  static const _apiLogPasscode = 'testapp';
+
+  var _versionTapCount = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final session = widget.authState.session;
     final isUser = session?.ownerType == OwnerType.user;
     final emailText = session?.email ?? 'Unknown email';
     final userIdText = session?.userId ?? 'Unknown user';
@@ -180,19 +189,54 @@ class _ProfileContent extends ConsumerWidget {
               ),
             const SizedBox(height: 16),
             Center(
-              child: Text(
-                versionText,
-                style: TextStyle(
-                  color: KandoColors.mutedText.withValues(alpha: 0.7),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _handleVersionTap(context),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  child: Text(
+                    versionText,
+                    key: const Key('profile-version-text'),
+                    style: TextStyle(
+                      color: KandoColors.mutedText.withValues(alpha: 0.7),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
                 ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _handleVersionTap(BuildContext context) async {
+    _versionTapCount += 1;
+    if (_versionTapCount < 5) return;
+
+    _versionTapCount = 0;
+    final authorized = await _showApiLogPasscodeDialog(context);
+    if (!mounted || !context.mounted) return;
+
+    if (authorized == true) {
+      context.push('/profile/api-requests');
+    } else if (authorized == false) {
+      showKandoToast(context, message: 'Invalid code.');
+    }
+  }
+
+  Future<bool?> _showApiLogPasscodeDialog(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return const _ApiLogPasscodeDialog(passcode: _apiLogPasscode);
+      },
     );
   }
 
@@ -239,6 +283,64 @@ class _ProfileContent extends ConsumerWidget {
         showKandoFailureToast(context);
       }
     }
+  }
+}
+
+class _ApiLogPasscodeDialog extends StatefulWidget {
+  const _ApiLogPasscodeDialog({required this.passcode});
+
+  final String passcode;
+
+  @override
+  State<_ApiLogPasscodeDialog> createState() => _ApiLogPasscodeDialogState();
+}
+
+class _ApiLogPasscodeDialogState extends State<_ApiLogPasscodeDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: KandoColors.surface,
+      title: const Text('Access code'),
+      content: TextField(
+        key: const Key('api-request-log-passcode-field'),
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(hintText: 'Enter code'),
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(context),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('api-request-log-passcode-submit'),
+          onPressed: () => _submit(context),
+          child: const Text('Open'),
+        ),
+      ],
+    );
+  }
+
+  void _submit(BuildContext context) {
+    Navigator.of(context).pop(_controller.text == widget.passcode);
   }
 }
 
@@ -326,10 +428,7 @@ class _MenuRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
-                  color: KandoColors.text,
-                  fontSize: 16,
-                ),
+                style: const TextStyle(color: KandoColors.text, fontSize: 16),
               ),
             ),
             const Icon(
@@ -364,11 +463,7 @@ class _IconBadge extends StatelessWidget {
 }
 
 class _AccountRow extends StatelessWidget {
-  const _AccountRow({
-    required this.email,
-    required this.userId,
-    this.onTap,
-  });
+  const _AccountRow({required this.email, required this.userId, this.onTap});
 
   final String email;
   final String userId;

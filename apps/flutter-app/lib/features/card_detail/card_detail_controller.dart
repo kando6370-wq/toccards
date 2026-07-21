@@ -1025,6 +1025,7 @@ class CardDetailController extends Notifier<CardDetailState> {
         marketPricesStatus: KandoLoadStatus.loading,
         soldListingsStatus: KandoLoadStatus.loading,
       );
+      if (!completer.isCompleted) completer.complete();
 
       final marketFuture = _loadMarketPrices(repository, generation);
       await Future.wait([

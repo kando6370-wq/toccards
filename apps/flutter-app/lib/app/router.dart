@@ -6,6 +6,7 @@ import '../features/collection/collection_page.dart';
 import '../features/home/home_page.dart';
 import '../features/onboarding/onboarding_gate.dart';
 import '../features/profile/account_page.dart';
+import '../features/profile/api_request_log_page.dart';
 import '../features/profile/customer_support_page.dart';
 import '../features/profile/profile_page.dart';
 import '../features/scan/scan_page.dart';
@@ -53,6 +54,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/customer-support',
         builder: (context, state) => const CustomerSupportPage(),
+      ),
+      GoRoute(
+        path: '/profile/api-requests',
+        builder: (context, state) => const ApiRequestLogPage(),
       ),
     ],
   );
