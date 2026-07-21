@@ -87,7 +87,10 @@ void main() {
     expect(find.text(r'$32.13'), findsWidgets);
     expect(find.text('+2.19%'), findsOneWidget);
     expect(find.text('Collection Item'), findsNothing);
-    expect(find.text('Remove from Portfolio'), findsNothing);
+    expect(
+      find.byKey(const Key('card-detail-remove-from-portfolio')),
+      findsNothing,
+    );
   });
 
   testWidgets('Price Tab missing data renders fallback copy', (tester) async {
@@ -245,7 +248,7 @@ void main() {
       expect(find.text('Finish'), findsWidgets);
       expect(find.text('TOTAL VALUE'), findsOneWidget);
       expect(find.text('Add this card'), findsOneWidget);
-      expect(find.text('Near Mint (NM)'), findsOneWidget);
+      expect(find.text('Near Mint (NM)'), findsWidgets);
       expect(tester.takeException(), isNull);
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       await tester.pumpAndSettle();
@@ -272,7 +275,7 @@ void main() {
       await tester.tap(find.byKey(const Key('card-detail-item-condition')));
       await tester.pumpAndSettle();
       expect(find.text('Lightly Played (LP)'), findsOneWidget);
-      expect(find.text('Nearly Mint (NM)'), findsNothing);
+      expect(find.text('Near Mint (NM)'), findsWidgets);
       await tester.tap(find.text('Near Mint (NM)').last);
       await tester.pumpAndSettle();
 
@@ -321,18 +324,49 @@ void main() {
 
     expect(find.text('Collection Item'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
-    expect(find.text('PSA 10'), findsOneWidget);
-    expect(find.text('Purchase price'), findsOneWidget);
+    expect(find.text('GRADER'), findsOneWidget);
+    expect(find.text('PSA'), findsOneWidget);
+    expect(find.text('GRADE'), findsOneWidget);
+    expect(find.text('10'), findsOneWidget);
+    expect(find.text('PURCHASE PRICE'), findsOneWidget);
     expect(find.text(r'$650.00'), findsWidgets);
-    expect(find.text('Language'), findsWidgets);
+    expect(find.text('LANGUAGE'), findsOneWidget);
     expect(find.text('English'), findsWidgets);
-    expect(find.text('Finish'), findsWidgets);
+    expect(find.text('FINISH'), findsOneWidget);
     expect(find.text('Holofoil'), findsWidgets);
-    expect(find.text('Total'), findsOneWidget);
-    expect(find.text(r'$650.00'), findsWidgets);
+    expect(find.text('Total'), findsNothing);
     expect(find.text('Pulled from Obsidian Flames binder.'), findsOneWidget);
     expect(find.byKey(const Key('card-detail-price-chart')), findsNothing);
   });
+
+  testWidgets(
+    'owned CardDetail displays one Collection Item while keeping list data',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          repository: _MultiItemCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+
+      expect(find.text('Main'), findsOneWidget);
+      expect(find.text('Pulled from Obsidian Flames binder.'), findsOneWidget);
+      expect(find.text('Hidden duplicate item.'), findsNothing);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      expect(
+        container
+            .read(cardDetailControllerProvider('charizard-ex'))
+            .collectionItemRows,
+        hasLength(2),
+      );
+    },
+  );
 
   testWidgets('owned CardDetail can switch to Price overview', (tester) async {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
@@ -395,7 +429,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('OWNERSHIP SUMMARY'), findsOneWidget);
+    expect(find.text('OWNERSHIP\nSUMMARY'), findsOneWidget);
     expect(find.byKey(const Key('card-detail-item-portfolio')), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('card-detail-item-quantity')),
@@ -405,13 +439,11 @@ void main() {
       find.byKey(const Key('card-detail-item-grader')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('card-detail-item-grader')));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Raw').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Condition'), findsOneWidget);
-    expect(find.text('Grade'), findsNothing);
+    expect(find.text('CONDITION'), findsOneWidget);
+    expect(find.text('GRADE'), findsNothing);
 
     await tester.ensureVisible(find.byKey(const Key('card-detail-item-notes')));
     await tester.pumpAndSettle();
@@ -419,17 +451,22 @@ void main() {
       find.byKey(const Key('card-detail-item-notes')),
       'Cracked slab for binder.',
     );
-    await tester.drag(
-      find.byKey(const Key('card-detail-scroll')),
-      const Offset(0, -500),
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('card-detail-item-submit')),
+      -400,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('card-detail-item-submit')));
     await tester.pumpAndSettle();
 
-    expect(find.text('OWNERSHIP SUMMARY'), findsNothing);
-    expect(find.text('Qty: 3'), findsOneWidget);
-    expect(find.text('Raw / Near Mint (NM)'), findsOneWidget);
+    expect(find.text('Save changes'), findsNothing);
+    expect(find.text('QUANTITY'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('Raw'), findsOneWidget);
+    expect(find.text('Near Mint (NM)'), findsOneWidget);
     expect(find.text('Cracked slab for binder.'), findsOneWidget);
   });
 
@@ -464,7 +501,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Quantity must be at least 1.'), findsOneWidget);
-    expect(find.text('OWNERSHIP SUMMARY'), findsOneWidget);
+    expect(find.text('OWNERSHIP\nSUMMARY'), findsOneWidget);
   });
 
   testWidgets('owned Collection Item can be removed after confirmation', (
@@ -474,9 +511,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Collection Item'), 400);
-    await tester.ensureVisible(find.text('Remove from Portfolio'));
+    await tester.ensureVisible(
+      find.byKey(const Key('card-detail-remove-from-portfolio')),
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Remove from Portfolio'));
+    await tester.tap(
+      find.byKey(const Key('card-detail-remove-from-portfolio')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Remove'));
     await tester.pumpAndSettle();
@@ -667,6 +708,30 @@ class _FailingWishlistCardDetailRepository extends MockCardDetailRepository {
   @override
   Future<String> addWishlist(AuthSession session, String cardRef) {
     throw StateError('Wishlist backend rejected the mutation.');
+  }
+}
+
+class _MultiItemCardDetailRepository extends MockCardDetailRepository {
+  const _MultiItemCardDetailRepository();
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    final detail = await super.loadDetail(session, cardId);
+    final firstItem = detail.collectionItems.first;
+    return detail.copyWith(
+      collectionItems: [
+        firstItem,
+        firstItem.copyWith(
+          portfolioName: 'Sealed',
+          quantity: 2,
+          grader: 'Raw',
+          condition: 'Lightly Played (LP)',
+          grade: null,
+          purchasePriceUsd: 20.0,
+          notes: 'Hidden duplicate item.',
+        ),
+      ],
+    );
   }
 }
 
