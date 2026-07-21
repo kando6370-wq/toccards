@@ -24,22 +24,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.scrollUntilVisible(
-        find.text('Load more'),
-        500,
-        scrollable: find.byType(Scrollable),
+      await tester.fling(
+        find.byKey(const Key('set-detail-card-grid')),
+        const Offset(0, -5000),
+        10000,
       );
-      await tester.ensureVisible(find.text('Load more'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
 
       expect(api.requestedPages, [1, 2]);
-      expect(find.text('Load more'), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+      expect(find.byTooltip('Retry loading cards'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Load more'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Load more'));
+      await tester.tap(find.byTooltip('Retry loading cards'));
       await tester.pumpAndSettle();
 
       expect(api.requestedPages, [1, 2, 2]);

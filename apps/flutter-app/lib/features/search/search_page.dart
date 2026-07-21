@@ -640,27 +640,193 @@ Future<void> _showGameSheet(BuildContext context, WidgetRef ref) {
   final state = ref.read(searchControllerProvider);
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: const Color(0xB3000000),
     builder: (context) {
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final game in state.catalog.games)
-              ListTile(
-                title: Text(game.label),
-                trailing: game.id == state.selectedGame.id
-                    ? const Icon(Icons.check)
-                    : null,
-                onTap: () {
-                  ref
-                      .read(searchControllerProvider.notifier)
-                      .selectGame(game.id);
-                  Navigator.of(context).pop();
-                },
-              ),
-          ],
-        ),
+      return _GameFilterSheet(
+        games: state.catalog.games,
+        selectedGameId: state.selectedGame.id,
+        onApply: (gameId) {
+          ref.read(searchControllerProvider.notifier).selectGame(gameId);
+          Navigator.of(context).pop();
+        },
       );
     },
   );
+}
+
+class _GameFilterSheet extends StatefulWidget {
+  const _GameFilterSheet({
+    required this.games,
+    required this.selectedGameId,
+    required this.onApply,
+  });
+
+  final List<SearchGame> games;
+  final String selectedGameId;
+  final ValueChanged<String> onApply;
+
+  @override
+  State<_GameFilterSheet> createState() => _GameFilterSheetState();
+}
+
+class _GameFilterSheetState extends State<_GameFilterSheet> {
+  late String _selectedGameId = widget.selectedGameId;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        key: const Key('search-game-filter-sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        decoration: const BoxDecoration(
+          color: Color(0xFF222222),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Align(
+              alignment: Alignment.center,
+              child: Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF77734A),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Filter',
+              style: TextStyle(
+                fontFamily: 'Fraunces',
+                fontSize: 28,
+                height: 32 / 28,
+                fontWeight: FontWeight.w600,
+                color: KandoColors.text,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'GAME / IP',
+              style: TextStyle(
+                fontFamily: 'Fraunces',
+                fontSize: 18,
+                height: 24 / 18,
+                fontWeight: FontWeight.w600,
+                color: KandoColors.text,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final game in widget.games)
+                      _GameFilterChip(
+                        game: game,
+                        selected: game.id == _selectedGameId,
+                        onTap: () => setState(() => _selectedGameId = game.id),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                key: const Key('search-game-apply-filter'),
+                onPressed: () => widget.onApply(_selectedGameId),
+                style: FilledButton.styleFrom(
+                  backgroundColor: KandoColors.accent,
+                  foregroundColor: KandoColors.ink,
+                  shape: const StadiumBorder(),
+                ),
+                child: const Text('APPLY FILTERS'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GameFilterChip extends StatelessWidget {
+  const _GameFilterChip({
+    required this.game,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final SearchGame game;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? const Color(0xFF303125) : const Color(0xFF1A1C14),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        key: Key('search-game-filter-${game.id}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? KandoColors.accent : KandoColors.border,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                game.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: selected ? KandoColors.text : KandoColors.mutedText,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 14,
+                height: 14,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? KandoColors.accent : KandoColors.border,
+                  ),
+                ),
+                child: selected
+                    ? const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: KandoColors.accent,
+                          shape: BoxShape.circle,
+                        ),
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

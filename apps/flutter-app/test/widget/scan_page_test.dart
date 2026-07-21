@@ -362,9 +362,7 @@ void main() {
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
       expect(find.text('Matched'), findsNothing);
       expect(
-        tester
-            .widget<TextButton>(find.widgetWithText(TextButton, 'DONE'))
-            .onPressed,
+        tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
         isNull,
       );
     },
@@ -534,10 +532,61 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('DONE'));
+      final galleryButton = tester.getRect(
+        find.byTooltip('Choose from Library'),
+      );
+      final doneButton = tester.getRect(
+        find.byKey(const Key('scan-figma-done-background')),
+      );
+      expect(doneButton.size, galleryButton.size);
+      expect(doneButton.top, galleryButton.top);
+
+      await tester.tap(find.byKey(const Key('scan-figma-done-background')));
       await tester.pumpAndSettle();
       expect(find.text('Review your matches'), findsOneWidget);
       expect(find.text(r'$25.00'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Each scan shows its complete market price because the total must equal the visible item prices',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-one',
+            cardRef: 'card-mega',
+            matchName: 'Escape Artist',
+            candidates: ['Escape Artist'],
+          ),
+        ),
+        subsequentPhotoResults: [
+          Future.value(
+            const ScanResolution.matched(
+              scanId: 'scan-two',
+              cardRef: 'card-mega',
+              matchName: 'Escape Artist',
+              candidates: ['Escape Artist'],
+            ),
+          ),
+        ],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanReviewRepository: _FakeScanReviewRepository(rawPrice: 0.21),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.pump();
+
+      expect(find.text(r'$0.21'), findsNWidgets(2));
+      expect(find.text(r'Total: $0.42'), findsOneWidget);
+      expect(find.byKey(const Key('scan-item-price-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-item-price-2')), findsOneWidget);
     },
   );
 
@@ -964,9 +1013,7 @@ void main() {
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
       expect(
-        tester
-            .widget<TextButton>(find.widgetWithText(TextButton, 'DONE'))
-            .onPressed,
+        tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
         isNotNull,
       );
       final decoration =
@@ -1020,10 +1067,10 @@ void main() {
 
       expect(find.text('No Match Found'), findsOneWidget);
       expect(find.text('Search Manually'), findsOneWidget);
-      final noMatchDone = tester.widget<TextButton>(
-        find.widgetWithText(TextButton, 'DONE'),
+      final noMatchDone = tester.widget<InkWell>(
+        find.byKey(const Key('scan-done-action')),
       );
-      expect(noMatchDone.onPressed, isNull);
+      expect(noMatchDone.onTap, isNull);
 
       await tester.tap(find.text('Search Manually'));
       await tester.pumpAndSettle();
@@ -1081,10 +1128,10 @@ void main() {
     expect(secondResult.left, greaterThan(firstResult.left));
     expect(secondResult.top, firstResult.top);
 
-    final doneWithMatched = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'DONE'),
+    final doneWithMatched = tester.widget<InkWell>(
+      find.byKey(const Key('scan-done-action')),
     );
-    expect(doneWithMatched.onPressed, isNotNull);
+    expect(doneWithMatched.onTap, isNotNull);
 
     await tester.tap(find.byTooltip('Take Photo'));
     await _completeFigmaScan(tester);
@@ -1235,9 +1282,10 @@ Future<void> _pumpScanTestApp(
 }
 
 class _FakeScanReviewRepository implements ScanReviewRepository {
-  _FakeScanReviewRepository({this.failure});
+  _FakeScanReviewRepository({this.failure, this.rawPrice = 25});
 
   final Exception? failure;
+  final double rawPrice;
   final List<String> confirmedScanIds = [];
   final List<ScanCollectionItemInput> confirmedItems = [];
 
@@ -1273,12 +1321,12 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
           imageUrl: null,
           language: 'English',
           finish: 'Holofoil',
-          prices: const [
+          prices: [
             ScanReviewPrice(
               grader: 'Raw',
               grade: null,
               condition: 'Near Mint',
-              price: 25,
+              price: rawPrice,
             ),
             ScanReviewPrice(
               grader: 'PSA',

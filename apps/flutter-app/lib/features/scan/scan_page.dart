@@ -1577,65 +1577,7 @@ class _ScanBottomControls extends StatelessWidget {
             ),
           ),
         ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              key: const Key('scan-figma-done-background'),
-              width: 48,
-              height: 48,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: canReview
-                    ? const Color(0xFFF0FE6F)
-                    : const Color(0x7A222222),
-                shape: BoxShape.circle,
-                border: canReview
-                    ? null
-                    : Border.all(color: const Color(0x1A394E2C)),
-                boxShadow: canReview
-                    ? const [
-                        BoxShadow(color: Color(0x66F1FE70), blurRadius: 7.5),
-                      ]
-                    : null,
-              ),
-              child: Opacity(
-                opacity: canReview ? 1 : 0.4,
-                child: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    canReview
-                        ? const Color(0xFF394E2C)
-                        : const Color(0xFFC7C8B0),
-                    BlendMode.srcIn,
-                  ),
-                  child: SvgPicture.asset(
-                    'assets/scan/done.svg',
-                    key: const Key('scan-figma-done-icon'),
-                    width: 16.3,
-                    height: 12.025,
-                  ),
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: canReview ? onReviewPressed : null,
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFEEECD8),
-                disabledForegroundColor: const Color(0x66EEECD8),
-                minimumSize: const Size(62, 28),
-                padding: EdgeInsets.zero,
-              ),
-              child: const Text(
-                'DONE',
-                style: TextStyle(
-                  fontFamily: 'Geist',
-                  fontSize: 13,
-                  height: 16 / 13,
-                ),
-              ),
-            ),
-          ],
-        ),
+        _ScanDoneAction(enabled: canReview, onPressed: onReviewPressed),
       ],
     );
     return centered
@@ -1644,6 +1586,82 @@ class _ScanBottomControls extends StatelessWidget {
             child: controls,
           )
         : controls;
+  }
+}
+
+class _ScanDoneAction extends StatelessWidget {
+  const _ScanDoneAction({required this.enabled, required this.onPressed});
+
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Review completed scan',
+      child: InkWell(
+        key: const Key('scan-done-action'),
+        onTap: enabled ? onPressed : null,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 72,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                key: const Key('scan-figma-done-background'),
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: enabled
+                      ? const Color(0xFFF0FE6F)
+                      : const Color(0x7A222222),
+                  shape: BoxShape.circle,
+                  border: enabled
+                      ? null
+                      : Border.all(color: const Color(0x1A394E2C)),
+                  boxShadow: enabled
+                      ? const [
+                          BoxShadow(color: Color(0x66F1FE70), blurRadius: 7.5),
+                        ]
+                      : null,
+                ),
+                child: Opacity(
+                  opacity: enabled ? 1 : 0.4,
+                  child: ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      enabled
+                          ? const Color(0xFF394E2C)
+                          : const Color(0xFFC7C8B0),
+                      BlendMode.srcIn,
+                    ),
+                    child: SvgPicture.asset(
+                      'assets/scan/done.svg',
+                      key: const Key('scan-figma-done-icon'),
+                      width: 16.3,
+                      height: 12.025,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'DONE',
+                style: TextStyle(
+                  color: enabled
+                      ? const Color(0xFFEEECD8)
+                      : const Color(0x66EEECD8),
+                  fontFamily: 'Geist',
+                  fontSize: 13,
+                  height: 16 / 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2358,7 +2376,7 @@ class _ScanItemCard extends StatelessWidget {
     final matched = item.status == _ScanItemStatus.matched;
     final added = item.status == _ScanItemStatus.added;
     final failed = item.status == _ScanItemStatus.failed;
-    final width = matched || added ? 218.0 : 176.0;
+    final width = matched || added ? 240.0 : 176.0;
     final title = matched || added
         ? item.match?.name ?? item.pictureLabel
         : failed
@@ -2472,18 +2490,22 @@ class _ScanItemCard extends StatelessWidget {
                           if (!added) ...[
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                price == null
-                                    ? '--'
-                                    : '\$${price.toStringAsFixed(2)}',
-                                maxLines: 1,
-                                overflow: TextOverflow.clip,
-                                style: TextStyle(
-                                  color: Color(0xFFFFF6AF),
-                                  fontFamily: 'Geist Mono',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  height: 15 / 13,
+                              child: FittedBox(
+                                key: Key('scan-item-price-${item.id}'),
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  price == null
+                                      ? '--'
+                                      : '\$${price.toStringAsFixed(2)}',
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    color: Color(0xFFFFF6AF),
+                                    fontFamily: 'Geist Mono',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    height: 15 / 13,
+                                  ),
                                 ),
                               ),
                             ),

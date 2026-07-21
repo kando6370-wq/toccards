@@ -24,7 +24,10 @@ class SetDetailPage extends ConsumerStatefulWidget {
 }
 
 class _SetDetailPageState extends ConsumerState<SetDetailPage> {
+  static const _loadMoreThreshold = 320.0;
+
   final _cards = <CardDataCardDto>[];
+  final _scrollController = ScrollController();
   var _page = 1;
   var _loading = true;
   var _failed = false;
@@ -33,7 +36,27 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_loadNextPageNearBottom);
     _load(reset: true);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_loadNextPageNearBottom)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _loadNextPageNearBottom() {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.extentAfter > _loadMoreThreshold ||
+        !_hasMore ||
+        _loading ||
+        _failed) {
+      return;
+    }
+    _load(reset: false);
   }
 
   Future<void> _load({required bool reset}) async {
@@ -85,6 +108,8 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
     }
 
     return GridView.builder(
+      key: const Key('set-detail-card-grid'),
+      controller: _scrollController,
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -92,15 +117,17 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
         mainAxisSpacing: 12,
         childAspectRatio: 0.62,
       ),
-      itemCount: _cards.length + (_hasMore || _loading ? 1 : 0),
+      itemCount: _cards.length + (_loading || _failed ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == _cards.length) {
           return Center(
             child: _loading
                 ? const CircularProgressIndicator()
-                : TextButton(
+                : IconButton(
+                    key: const Key('set-detail-retry-page'),
+                    tooltip: 'Retry loading cards',
                     onPressed: () => _load(reset: false),
-                    child: const Text('Load more'),
+                    icon: const Icon(Icons.refresh),
                   ),
           );
         }

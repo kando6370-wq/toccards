@@ -186,7 +186,15 @@ void main() {
 
     await tester.tap(find.text('Pokemon'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Lorcana').last);
+    expect(find.byKey(const Key('search-game-filter-sheet')), findsOneWidget);
+    expect(find.text('GAME / IP'), findsOneWidget);
+    expect(find.text('APPLY FILTERS'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('search-game-filter-lorcana')));
+    await tester.pump();
+    expect(find.text('Squirtle'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('search-game-apply-filter')));
     await tester.pumpAndSettle();
 
     expect(find.text('Lorcana Elsa'), findsOneWidget);
