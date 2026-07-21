@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/ui/kando_modal.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
@@ -578,19 +580,54 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   Future<void> _openEmailAuthPage() async {
     final successMessage = await showEmailAuthPage(context);
     if (successMessage != null && mounted) {
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      final rootContext = rootNavigator.context;
       final messenger = ScaffoldMessenger.of(context);
       final router = GoRouter.of(context);
       ref.read(homeControllerProvider);
       Navigator.of(context).pop();
       _goHomeAfterAuthSettles(router);
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          buildKandoToast(
-            successMessage,
-            onClose: messenger.hideCurrentSnackBar,
+
+      final toastCopy = _successToastCopy(successMessage);
+      if (toastCopy != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!rootNavigator.mounted) {
+            return;
+          }
+          _showCenteredAuthSuccessToast(
+            rootContext,
+            title: toastCopy.title,
+            message: toastCopy.message,
+          );
+        });
+        return;
+      }
+
+      final modalCopy = _successModalCopy(successMessage);
+      if (modalCopy == null) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            buildKandoToast(
+              successMessage,
+              onClose: messenger.hideCurrentSnackBar,
+            ),
+          );
+        return;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!rootNavigator.mounted) {
+          return;
+        }
+        unawaited(
+          showKandoWelcomeModal(
+            rootContext,
+            title: modalCopy.title,
+            message: modalCopy.message,
           ),
         );
+      });
     }
   }
 
@@ -639,6 +676,40 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
     return error.toString().replaceFirst('Exception: ', '');
   }
 
+  ({String title, String message})? _successModalCopy(String message) {
+    final parts = message.split('\n');
+    if (parts.length >= 2) {
+      return (title: parts.first, message: parts.skip(1).join('\n'));
+    }
+    return null;
+  }
+
+  ({String title, String message})? _successToastCopy(String message) {
+    if (message == 'Welcome back') {
+      return (title: 'Welcome back', message: 'Let’s collect the cards.');
+    }
+    return null;
+  }
+
+  void _showCenteredAuthSuccessToast(
+    BuildContext context, {
+    required String title,
+    required String message,
+  }) {
+    unawaited(
+      showGeneralDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: title,
+        barrierColor: Colors.transparent,
+        transitionDuration: Duration.zero,
+        pageBuilder: (_, _, _) => Center(
+          child: _AuthSuccessToast(title: title, message: message),
+        ),
+      ),
+    );
+  }
+
   void _goHomeAfterAuthSettles(GoRouter router) {
     WidgetsBinding.instance.addPostFrameCallback((_) => router.go('/home'));
   }
@@ -651,6 +722,83 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
         showKandoToast(context, message: profileActionFailureText);
       }
     }
+  }
+}
+
+class _AuthSuccessToast extends StatelessWidget {
+  const _AuthSuccessToast({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('auth-success-toast'),
+      width: 260,
+      height: 122,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            offset: Offset(0, 4),
+            blurRadius: 60,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0x0FFFFFFF),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    textScaler: TextScaler.noScaling,
+                    style: const TextStyle(
+                      color: Color(0xFFF1FE70),
+                      fontFamily: 'Fraunces',
+                      fontSize: 24,
+                      height: 32 / 24,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    textScaler: TextScaler.noScaling,
+                    style: const TextStyle(
+                      color: Color(0xFFE3E3D6),
+                      fontFamily: 'Geist',
+                      fontSize: 15,
+                      height: 22 / 15,
+                      fontWeight: FontWeight.w400,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

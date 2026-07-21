@@ -16,6 +16,7 @@ import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
+import 'package:kando_app/shared/ui/kando_modal.dart';
 
 import '../support/in_memory_onboarding_storage.dart';
 
@@ -121,7 +122,9 @@ void main() {
     expect(repository.loginRequests, isEmpty);
   });
 
-  testWidgets('successful email login returns home', (tester) async {
+  testWidgets('successful email login shows the Figma welcome back modal', (
+    tester,
+  ) async {
     final repository = _WidgetAuthRepository(
       initialSession: _anonymousSession('anon-existing'),
     );
@@ -141,7 +144,12 @@ void main() {
     ]);
     expect(find.byKey(const Key('email-auth-page')), findsNothing);
     expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
-    expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Let’s collect the cards.'), findsOneWidget);
+    final successToast = find.byKey(const Key('auth-success-toast'));
+    expect(successToast, findsOneWidget);
+    expect(tester.getSize(successToast), const Size(260, 122));
+    expect(find.byType(SnackBar), findsNothing);
   });
 
   testWidgets('google auth returns home with the current guest migrated', (
@@ -531,6 +539,48 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'CONTINUE'), findsOneWidget);
   });
 
+  testWidgets('login password field keeps focus while keyboard resizes page', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewInsets);
+
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+
+    await tester.pumpWidget(_testAuthSheetApp(repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Email'));
+    await tester.pumpAndSettle();
+    await _continueWithEmail(tester, 'person@example.com');
+
+    final passwordField = find.byType(TextFormField);
+    await tester.tap(passwordField);
+    await tester.pump();
+
+    var editableText = tester.widget<EditableText>(find.byType(EditableText));
+    expect(editableText.focusNode.hasFocus, isTrue);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 330);
+    await tester.pumpAndSettle();
+
+    editableText = tester.widget<EditableText>(find.byType(EditableText));
+    expect(editableText.focusNode.hasFocus, isTrue);
+
+    await tester.enterText(passwordField, 'password123');
+    await tester.pump();
+
+    editableText = tester.widget<EditableText>(find.byType(EditableText));
+    expect(editableText.controller.text, 'password123');
+    expect(editableText.focusNode.hasFocus, isTrue);
+  });
+
   testWidgets('oauth authorization failure shows retry copy and keeps guest', (
     tester,
   ) async {
@@ -805,7 +855,10 @@ void main() {
         anonymousId: 'anon-existing',
       ),
     ]);
-    expect(find.text('Welcome\nLet’s collect the cards.'), findsOneWidget);
+    expect(find.text('Welcome'), findsOneWidget);
+    expect(find.text('Let’s collect the cards.'), findsOneWidget);
+    expect(find.byKey(const Key('kando-modal-frame')), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
     expect(find.byKey(const Key('email-auth-page')), findsNothing);
   });
 
@@ -860,15 +913,17 @@ void main() {
       initialSession: _anonymousSession('anon-existing'),
     );
 
-    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpWidget(_testEmailAuthPageApp(repository));
     await tester.pumpAndSettle();
-    await _openProfileTab(tester);
-    await _openEmailAuth(tester);
+    await tester.tap(find.text('Open email auth'));
+    await tester.pumpAndSettle();
     await _continueWithEmail(tester, 'person@example.com');
     await tester.tap(find.text('Forgot Password ?'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), ' PERSON@example.com ');
-    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), '654321');
     await tester.pump();
@@ -880,6 +935,7 @@ void main() {
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'newpass123');
     await tester.enterText(fields.at(1), 'newpass123');
+    await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -891,7 +947,12 @@ void main() {
     expect(repository.resetRequests, [
       const _ResetRequest('person@example.com', 'reset-token', 'newpass123'),
     ]);
+    expect(find.text('Success'), findsOneWidget);
     expect(find.text('Password reset successfully.'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    final successToast = find.byKey(const Key('password-reset-success-toast'));
+    expect(successToast, findsOneWidget);
+    expect(tester.getSize(successToast), const Size(260, 122));
     expect(find.widgetWithText(FilledButton, 'SIGN IN'), findsOneWidget);
     final loginPasswordField = tester.widget<TextFormField>(
       find.byType(TextFormField),
@@ -1652,9 +1713,40 @@ ProviderScope _testEmailAuthPageApp(_WidgetAuthRepository repository) {
               onPressed: () async {
                 final message = await showEmailAuthPage(context);
                 if (message != null && context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(message)));
+                  final toastCopy = _successToastCopy(message);
+                  if (toastCopy != null) {
+                    unawaited(
+                      showGeneralDialog<void>(
+                        context: context,
+                        barrierDismissible: true,
+                        barrierLabel: toastCopy.title,
+                        barrierColor: Colors.transparent,
+                        transitionDuration: Duration.zero,
+                        pageBuilder: (_, _, _) => Center(
+                          child: _TestAuthSuccessToast(
+                            title: toastCopy.title,
+                            message: toastCopy.message,
+                          ),
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final modalCopy = _successModalCopy(message);
+                  if (modalCopy == null) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(message)));
+                    return;
+                  }
+                  unawaited(
+                    showKandoWelcomeModal(
+                      context,
+                      title: modalCopy.title,
+                      message: modalCopy.message,
+                    ),
+                  );
                 }
               },
               child: const Text('Open email auth'),
@@ -1664,6 +1756,53 @@ ProviderScope _testEmailAuthPageApp(_WidgetAuthRepository repository) {
       ),
     ),
   );
+}
+
+({String title, String message})? _successModalCopy(String message) {
+  final parts = message.split('\n');
+  if (parts.length >= 2) {
+    return (title: parts.first, message: parts.skip(1).join('\n'));
+  }
+  return null;
+}
+
+({String title, String message})? _successToastCopy(String message) {
+  if (message == 'Welcome back') {
+    return (title: 'Welcome back', message: 'Let’s collect the cards.');
+  }
+  return null;
+}
+
+class _TestAuthSuccessToast extends StatelessWidget {
+  const _TestAuthSuccessToast({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const Key('auth-success-toast'),
+      width: 260,
+      height: 122,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            textScaler: TextScaler.noScaling,
+            style: const TextStyle(fontSize: 24, height: 32 / 24),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            textScaler: TextScaler.noScaling,
+            style: const TextStyle(fontSize: 15, height: 22 / 15),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PendingMigrationAuthController extends AuthController {

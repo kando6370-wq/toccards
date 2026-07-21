@@ -59,13 +59,16 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
   String? _errorText;
   Timer? _resendTimer;
   Timer? _codeSentToastTimer;
+  Timer? _passwordResetSuccessTimer;
   var _resendSeconds = 0;
   var _isCodeSentToastVisible = false;
+  var _isPasswordResetSuccessVisible = false;
 
   @override
   void dispose() {
     _resendTimer?.cancel();
     _codeSentToastTimer?.cancel();
+    _passwordResetSuccessTimer?.cancel();
     _emailController.removeListener(_syncEmailValidationState);
     _emailController.dispose();
     _passwordController.dispose();
@@ -100,6 +103,12 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         if (_isCodeSentToastVisible)
           const Positioned.fill(
             child: IgnorePointer(child: Center(child: _CodeSentToast())),
+          ),
+        if (_isPasswordResetSuccessVisible)
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: Center(child: _PasswordResetSuccessToast()),
+            ),
           ),
       ],
     );
@@ -410,7 +419,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       }
       _clearSensitiveInputs();
       setState(() => _page = _EmailPage.login);
-      showKandoToast(context, message: 'Password reset successfully.');
+      _showPasswordResetSuccess();
     });
   }
 
@@ -461,6 +470,43 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
     _codeSentToastTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) {
         setState(() => _isCodeSentToastVisible = false);
+      }
+    });
+  }
+
+  void _revealPasswordResetSuccess() {
+    _passwordResetSuccessTimer?.cancel();
+    setState(() => _isPasswordResetSuccessVisible = true);
+    _passwordResetSuccessTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _isPasswordResetSuccessVisible = false);
+      }
+    });
+  }
+
+  void _showPasswordResetSuccess() {
+    if (widget.fullScreen) {
+      _revealPasswordResetSuccess();
+      return;
+    }
+
+    _passwordResetSuccessTimer?.cancel();
+    var dismissed = false;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    unawaited(
+      showGeneralDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        barrierLabel: 'Password reset successfully.',
+        barrierColor: Colors.transparent,
+        transitionDuration: Duration.zero,
+        pageBuilder: (_, _, _) =>
+            const Center(child: _PasswordResetSuccessToast()),
+      ).whenComplete(() => dismissed = true),
+    );
+    _passwordResetSuccessTimer = Timer(const Duration(seconds: 2), () {
+      if (!dismissed && navigator.mounted) {
+        navigator.pop();
       }
     });
   }
@@ -653,25 +699,15 @@ class _EmailOnlyPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasError = errorText != null;
     if (fullScreen) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final content = _ForgotEmailContent(
-            controller: controller,
-            loading: loading,
-            errorText: errorText,
-            onContinue: onContinue,
-          );
-          if (constraints.maxHeight >= 520) {
-            return content;
-          }
-
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: content,
-            ),
-          );
-        },
+      return _FullScreenFormViewport(
+        minHeightForAnchoredActions: 520,
+        builder: (context, anchorActionsToBottom) => _ForgotEmailContent(
+          controller: controller,
+          loading: loading,
+          errorText: errorText,
+          onContinue: onContinue,
+          anchorActionsToBottom: anchorActionsToBottom,
+        ),
       );
     }
 
@@ -711,12 +747,14 @@ class _ForgotEmailContent extends StatelessWidget {
     required this.loading,
     required this.errorText,
     required this.onContinue,
+    required this.anchorActionsToBottom,
   });
 
   final TextEditingController controller;
   final bool loading;
   final String? errorText;
   final VoidCallback onContinue;
+  final bool anchorActionsToBottom;
 
   @override
   Widget build(BuildContext context) {
@@ -762,7 +800,10 @@ class _ForgotEmailContent extends StatelessWidget {
             height: 18 / 11,
           ),
         ),
-        const Spacer(),
+        if (anchorActionsToBottom)
+          const Spacer()
+        else
+          const SizedBox(height: 32),
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: controller,
           builder: (context, value, _) => _CodeActionButton(
@@ -805,32 +846,19 @@ class _PasswordPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (fullScreen) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final shouldScroll = constraints.maxHeight < 620;
-          final content = _FigmaPasswordContent(
-            email: title,
-            controller: controller,
-            loading: loading,
-            errorText: errorText,
-            onSubmit: onSubmit,
-            secondaryLabel: secondaryLabel,
-            onSecondary: onSecondary,
-            onForgotPassword: onForgotPassword,
-            anchorActionsToBottom: !shouldScroll,
-          );
-
-          if (!shouldScroll) {
-            return content;
-          }
-
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: content,
-            ),
-          );
-        },
+      return _FullScreenFormViewport(
+        minHeightForAnchoredActions: 620,
+        builder: (context, anchorActionsToBottom) => _FigmaPasswordContent(
+          email: title,
+          controller: controller,
+          loading: loading,
+          errorText: errorText,
+          onSubmit: onSubmit,
+          secondaryLabel: secondaryLabel,
+          onSecondary: onSecondary,
+          onForgotPassword: onForgotPassword,
+          anchorActionsToBottom: anchorActionsToBottom,
+        ),
       );
     }
 
@@ -866,8 +894,9 @@ class _PasswordPage extends StatelessWidget {
           onPressed: onSubmit,
         ),
         const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const Text(
               "Don't have an account?",
@@ -969,8 +998,9 @@ class _FigmaPasswordContent extends StatelessWidget {
           const SizedBox(height: 32),
         _PrimaryButton(label: 'Sign in', loading: loading, onPressed: onSubmit),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const Text(
               "Don't have an account?",
@@ -1235,6 +1265,37 @@ class _VerificationCodeInput extends StatelessWidget {
   }
 }
 
+class _FullScreenFormViewport extends StatelessWidget {
+  const _FullScreenFormViewport({
+    required this.minHeightForAnchoredActions,
+    required this.builder,
+  });
+
+  final double minHeightForAnchoredActions;
+  final Widget Function(BuildContext context, bool anchorActionsToBottom)
+  builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: IntrinsicHeight(
+              child: builder(
+                context,
+                constraints.maxHeight >= minHeightForAnchoredActions,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _CodeActionButton extends StatelessWidget {
   const _CodeActionButton({
     required this.label,
@@ -1299,29 +1360,17 @@ class _PasswordPairPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (fullScreen) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final shouldScroll = constraints.maxHeight < 560;
-          final content = _FigmaPasswordPairContent(
-            passwordController: passwordController,
-            confirmController: confirmController,
-            loading: loading,
-            buttonLabel: buttonLabel,
-            errorText: errorText,
-            onSubmit: onSubmit,
-            anchorActionsToBottom: !shouldScroll,
-          );
-          if (!shouldScroll) {
-            return content;
-          }
-
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: content,
-            ),
-          );
-        },
+      return _FullScreenFormViewport(
+        minHeightForAnchoredActions: 560,
+        builder: (context, anchorActionsToBottom) => _FigmaPasswordPairContent(
+          passwordController: passwordController,
+          confirmController: confirmController,
+          loading: loading,
+          buttonLabel: buttonLabel,
+          errorText: errorText,
+          onSubmit: onSubmit,
+          anchorActionsToBottom: anchorActionsToBottom,
+        ),
       );
     }
 
@@ -1778,6 +1827,78 @@ class _CodeSentToast extends StatelessWidget {
                       height: 22 / 15,
                       fontWeight: FontWeight.w400,
                       decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PasswordResetSuccessToast extends StatelessWidget {
+  const _PasswordResetSuccessToast();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('password-reset-success-toast'),
+      width: 260,
+      height: 122,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            offset: Offset(0, 4),
+            blurRadius: 60,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0x0FFFFFFF),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Success',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    textScaler: TextScaler.noScaling,
+                    style: TextStyle(
+                      color: Color(0xFFF1FE70),
+                      fontFamily: 'Fraunces',
+                      fontSize: 24,
+                      height: 32 / 24,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Password reset successfully.',
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    textScaler: TextScaler.noScaling,
+                    style: TextStyle(
+                      color: Color(0xFFE3E3D6),
+                      fontFamily: 'Geist',
+                      fontSize: 15,
+                      height: 22 / 15,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ],
