@@ -29,11 +29,6 @@ class _OpenCvScanImageHasher implements ScanImageHasher {
     });
     return result.future;
   }
-
-  @override
-  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame) {
-    return Isolate.run(() => _detectCameraFrame(frame));
-  }
 }
 
 Future<ScanImageHashes> _runHashIsolate(Uint8List imageBytes) {
@@ -174,79 +169,6 @@ List<_ImagePoint> _detectCardCorners(cv.Mat image) {
     gray.dispose();
     resized?.dispose();
   }
-}
-
-ScanFrameDetection? _detectCameraFrame(ScanCameraFrame frame) {
-  final image = _cameraFrameToBgr(frame);
-  try {
-    final corners = _detectCardCorners(image);
-    return ScanFrameDetection(
-      width: frame.width,
-      height: frame.height,
-      corners: [for (final point in corners) ScanImagePoint(point.x, point.y)],
-    );
-  } on ScanImageProcessingException {
-    return null;
-  } finally {
-    image.dispose();
-  }
-}
-
-cv.Mat _cameraFrameToBgr(ScanCameraFrame frame) {
-  if (frame.format == ScanFrameFormat.jpeg && frame.planes.isNotEmpty) {
-    return cv.imdecode(frame.planes.first.bytes, cv.IMREAD_COLOR);
-  }
-  final bgr = Uint8List(frame.width * frame.height * 3);
-  if (frame.format == ScanFrameFormat.bgra8888 && frame.planes.length == 1) {
-    final plane = frame.planes.first;
-    for (var y = 0; y < frame.height; y += 1) {
-      for (var x = 0; x < frame.width; x += 1) {
-        final source = y * plane.bytesPerRow + x * plane.bytesPerPixel;
-        final target = (y * frame.width + x) * 3;
-        bgr[target] = plane.bytes[source];
-        bgr[target + 1] = plane.bytes[source + 1];
-        bgr[target + 2] = plane.bytes[source + 2];
-      }
-    }
-    return cv.Mat.fromList(frame.height, frame.width, cv.MatType.CV_8UC3, bgr);
-  }
-  if (frame.format != ScanFrameFormat.yuv420 || frame.planes.length < 3) {
-    throw const ScanImageProcessingException(
-      'Unsupported camera frame format.',
-    );
-  }
-  final yPlane = frame.planes[0];
-  final uPlane = frame.planes[1];
-  final vPlane = frame.planes[2];
-  for (var y = 0; y < frame.height; y += 1) {
-    for (var x = 0; x < frame.width; x += 1) {
-      final luminance = yPlane
-          .bytes[y * yPlane.bytesPerRow + x * yPlane.bytesPerPixel]
-          .toDouble();
-      final chromaX = x ~/ 2;
-      final chromaY = y ~/ 2;
-      final u =
-          uPlane
-              .bytes[chromaY * uPlane.bytesPerRow +
-                  chromaX * uPlane.bytesPerPixel]
-              .toDouble() -
-          128;
-      final v =
-          vPlane
-              .bytes[chromaY * vPlane.bytesPerRow +
-                  chromaX * vPlane.bytesPerPixel]
-              .toDouble() -
-          128;
-      final target = (y * frame.width + x) * 3;
-      bgr[target] = (luminance + 1.772 * u).round().clamp(0, 255);
-      bgr[target + 1] = (luminance - 0.344136 * u - 0.714136 * v).round().clamp(
-        0,
-        255,
-      );
-      bgr[target + 2] = (luminance + 1.402 * v).round().clamp(0, 255);
-    }
-  }
-  return cv.Mat.fromList(frame.height, frame.width, cv.MatType.CV_8UC3, bgr);
 }
 
 List<_ImagePoint> _orderCorners(List<_ImagePoint> points) {

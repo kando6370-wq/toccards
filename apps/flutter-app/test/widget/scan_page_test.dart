@@ -17,7 +17,6 @@ import 'package:kando_app/features/scan/scan_review_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
-import 'package:kando_app/shared/scan/scan_image_hasher.dart';
 
 import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
@@ -101,45 +100,12 @@ void main() {
   );
 
   testWidgets(
-    'stable camera frames create only one recognition and no_match resumes streaming because frames are not audit scans',
-    (tester) async {
-      final recognition = Completer<ScanResolution>();
-      final camera = _TestScanCameraSession();
-      final source = _TestScanResultSource(
-        photoResult: Future.value(const ScanResolution.failed()),
-        recognizeResult: recognition.future,
-        frameDetection: _stableFrameDetection,
-      );
-      await _pumpScanTestApp(
-        tester,
-        scanResultSource: source,
-        scanCameraFactory: _TestScanCameraFactory(camera),
-      );
-
-      for (var index = 0; index < 16; index += 1) {
-        camera.emitFrame();
-        await tester.pump();
-      }
-      expect(source.detectFrameCount, 8);
-      expect(camera.takePhotoCount, 1);
-      expect(source.recognizedImages, hasLength(1));
-      expect(camera.onFrame, isNull);
-
-      recognition.complete(const ScanResolution.noMatch());
-      await tester.pump();
-      expect(camera.startStreamCount, 2);
-      expect(camera.onFrame, isNotNull);
-    },
-  );
-
-  testWidgets(
-    'real-time camera recognition stops after ten images because one scan session must not create an eleventh automatic item',
+    'Opening the camera does not recognize anything until the shutter is pressed',
     (tester) async {
       final camera = _TestScanCameraSession();
       final source = _TestScanResultSource(
         photoResult: Future.value(const ScanResolution.failed()),
         recognizeResult: Future.value(const ScanResolution.noMatch()),
-        frameDetection: _stableFrameDetection,
       );
       await _pumpScanTestApp(
         tester,
@@ -147,25 +113,18 @@ void main() {
         scanCameraFactory: _TestScanCameraFactory(camera),
       );
 
-      for (var scan = 0; scan < 10; scan += 1) {
-        for (var frame = 0; frame < 16; frame += 1) {
-          camera.emitFrame();
-          await tester.pump();
-        }
-        await tester.pump();
-      }
+      await tester.pump(const Duration(seconds: 5));
 
-      expect(camera.takePhotoCount, 10);
-      expect(source.recognizedImages, hasLength(10));
-      expect(camera.onFrame, isNull);
+      expect(camera.takePhotoCount, 0);
+      expect(source.recognizedImages, isEmpty);
 
-      camera.emitFrame();
+      await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
-      expect(camera.takePhotoCount, 10);
-      expect(source.recognizedImages, hasLength(10));
+
+      expect(camera.takePhotoCount, 1);
+      expect(source.recognizedImages, hasLength(1));
     },
   );
-
   testWidgets(
     'Scan closes flash in background and reopens the camera on resume because camera resources cannot outlive the active page',
     (tester) async {
@@ -484,10 +443,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 800));
       await tester.pump();
-      expect(
-        find.byKey(const Key('scan-figma-complete-result')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
     },
   );
 
@@ -545,17 +501,13 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(
-        find.byKey(const Key('scan-figma-complete-result')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
     },
   );
 
   testWidgets(
-    'Figma scan completion renders its camera result overlay before review',
+    'A matched card uses the real-time result rail, enables Done, and keeps its price in review',
     (tester) async {
-      final semanticsHandle = tester.ensureSemantics();
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
       addTearDown(tester.view.reset);
@@ -564,89 +516,30 @@ void main() {
       await tester.tap(find.byTooltip('Take Photo'));
       await _completeFigmaScan(tester);
 
+      await tester.pump();
+      expect(find.byKey(const Key('scan-figma-result-rail')), findsOneWidget);
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.text(r'$25.00'), findsOneWidget);
+      expect(find.text(r'Total: $25.00'), findsOneWidget);
       expect(
-        find.byKey(const Key('scan-figma-complete-background')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('scan-figma-complete-result')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('scan-figma-complete-count')),
-        findsOneWidget,
-      );
-      expect(
-        find.bySemanticsLabel(
-          'Scanned: 1/1. Mega Lucario ex. PSA 10. Estimated value '
-          r'$16,785.28. Total $16,874.16.',
+        tester
+            .widget<Container>(
+              find.byKey(const Key('scan-figma-done-background')),
+            )
+            .decoration,
+        isA<BoxDecoration>().having(
+          (decoration) => decoration.color,
+          'highlight color',
+          const Color(0xFFF0FE6F),
         ),
-        findsOneWidget,
-      );
-      semanticsHandle.dispose();
-      expect(find.byTooltip('Modify scan match'), findsOneWidget);
-      expect(find.text('Matched'), findsNothing);
-      expect(find.byTooltip('Review completed scan'), findsOneWidget);
-      expect(
-        find.byKey(const Key('scan-figma-complete-focus-outline')),
-        findsNothing,
       );
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      expect(
-        find.byKey(const Key('scan-figma-complete-focus-outline')),
-        findsOneWidget,
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.tap(find.text('DONE'));
       await tester.pumpAndSettle();
       expect(find.text('Review your matches'), findsOneWidget);
+      expect(find.text(r'$25.00'), findsOneWidget);
     },
   );
-
-  testWidgets('Figma scan completion renders at the 390x844 baseline', (
-    tester,
-  ) async {
-    await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 844);
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: buildKandoTheme(),
-        home: ProviderScope(
-          overrides: [
-            scanResultSourceProvider.overrideWithValue(
-              _defaultTestScanResultSource(),
-            ),
-          ],
-          child: const RepaintBoundary(
-            key: Key('scan-completed-figma-golden'),
-            child: ScanPage(),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Take Photo'));
-    await _completeFigmaScan(tester);
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 100)),
-    );
-    await tester.pump();
-
-    await expectLater(
-      find.byKey(const Key('scan-completed-figma-golden')),
-      matchesGoldenFile(
-        'goldens/rendered/figma_scan_completed_131_19700_390x844.png',
-      ),
-    );
-  });
 
   testWidgets('Figma review renders at the 390x844 baseline', (tester) async {
     await (FontLoader(
@@ -674,7 +567,7 @@ void main() {
   });
 
   testWidgets(
-    'Figma scan failure dismisses feedback without restoring the generic failure card',
+    'A failed single scan uses the same result rail as real-time scanning',
     (tester) async {
       await _pumpScanTestApp(
         tester,
@@ -686,19 +579,10 @@ void main() {
       await tester.tap(find.byTooltip('Take Photo'));
       await _completeFigmaScan(tester);
 
-      expect(find.byKey(const Key('scan-figma-failure-toast')), findsOneWidget);
-      expect(find.text('Failed'), findsNothing);
-
-      await tester.tap(find.byTooltip('Dismiss failed scan feedback'));
-      await tester.pump();
-
-      expect(find.byKey(const Key('scan-figma-failure-toast')), findsNothing);
-      expect(find.text('Failed'), findsNothing);
-
-      await tester.tap(find.byTooltip('Take Photo'));
-      await _completeFigmaScan(tester);
-
-      expect(find.text('Failed'), findsNWidgets(2));
+      expect(find.byKey(const Key('scan-figma-result-rail')), findsOneWidget);
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.text('Failed'), findsOneWidget);
+      expect(find.text('Tap to retry'), findsOneWidget);
     },
   );
 
@@ -733,31 +617,7 @@ void main() {
     expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
 
     await _completeFigmaScan(tester);
-    expect(find.byKey(const Key('scan-figma-complete-result')), findsOneWidget);
-  });
-
-  testWidgets('Figma failure exposes retry feedback to semantics', (
-    tester,
-  ) async {
-    final semanticsHandle = tester.ensureSemantics();
-    await _pumpScanTestApp(
-      tester,
-      scanResultSource: _TestScanResultSource(
-        photoResult: Future.value(const ScanResolution.failed()),
-      ),
-    );
-
-    await tester.tap(find.byTooltip('Take Photo'));
-    await _completeFigmaScan(tester);
-
-    expect(
-      find.bySemanticsLabel(
-        '0 of 1 cards scanned. Scan 1 failed. Tap to retry.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.bySemanticsLabel('Tap to retry'), findsOneWidget);
-    semanticsHandle.dispose();
+    expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
   });
 
   testWidgets(
@@ -783,7 +643,7 @@ void main() {
 
       await tester.tap(find.byTooltip('Take Photo'));
       await _completeFigmaScan(tester);
-      await tester.tap(find.byTooltip('Modify scan match'));
+      await tester.tap(find.byTooltip('Review scan result'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add this card'));
       await tester.pumpAndSettle();
@@ -795,71 +655,6 @@ void main() {
       expect(find.text('Failed'), findsOneWidget);
     },
   );
-
-  testWidgets('Figma failure retries from the right edge of its retry label', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 844);
-    addTearDown(tester.view.reset);
-    await _pumpScanTestApp(
-      tester,
-      scanResultSource: _TestScanResultSource(
-        photoResult: Future.value(const ScanResolution.failed()),
-      ),
-    );
-
-    await tester.tap(find.byTooltip('Take Photo'));
-    await _completeFigmaScan(tester);
-    await tester.tapAt(const Offset(174, 675));
-    await tester.pump();
-
-    expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
-  });
-
-  testWidgets('Figma scan failure renders at the 390x844 baseline', (
-    tester,
-  ) async {
-    await (FontLoader(
-      'Geist',
-    )..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))).load();
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 844);
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: buildKandoTheme(),
-        home: ProviderScope(
-          overrides: [
-            scanResultSourceProvider.overrideWithValue(
-              _TestScanResultSource(
-                photoResult: Future.value(const ScanResolution.failed()),
-              ),
-            ),
-          ],
-          child: const RepaintBoundary(
-            key: Key('scan-failed-figma-golden'),
-            child: ScanPage(),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Take Photo'));
-    await _completeFigmaScan(tester);
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 100)),
-    );
-    await tester.pump();
-
-    await expectLater(
-      find.byKey(const Key('scan-failed-figma-golden')),
-      matchesGoldenFile(
-        'goldens/rendered/figma_scan_failed_131_19795_390x844.png',
-      ),
-    );
-  });
 
   testWidgets('Cancelling a Figma scan ignores its eventual recognition', (
     tester,
@@ -961,11 +756,8 @@ void main() {
 
       await _completeFigmaScan(tester);
 
-      expect(
-        find.byKey(const Key('scan-figma-complete-result')),
-        findsOneWidget,
-      );
-      expect(find.byTooltip('Modify scan match'), findsOneWidget);
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.byTooltip('Review scan result'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Review completed scan'));
       await tester.pumpAndSettle();
@@ -1145,6 +937,48 @@ void main() {
     expect(find.text('Mega Lucario ex'), findsOneWidget);
     expect(find.text('No Match Found'), findsOneWidget);
   });
+
+  testWidgets(
+    'Done highlights after the first match while another scan is pending because completed cards must remain reviewable',
+    (tester) async {
+      final pendingLibrary = Completer<ScanResolution>();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(
+            const ScanResolution.matched(
+              scanId: 'scan-mega',
+              cardRef: 'card-mega',
+              matchName: 'Mega Lucario ex',
+              candidates: ['Mega Lucario ex'],
+            ),
+          ),
+          libraryResults: [pendingLibrary.future],
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await _completeFigmaScan(tester);
+
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'DONE'))
+            .onPressed,
+        isNotNull,
+      );
+      final decoration =
+          tester
+                  .widget<Container>(
+                    find.byKey(const Key('scan-figma-done-background')),
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(decoration.color, const Color(0xFFF0FE6F));
+    },
+  );
 
   testWidgets(
     'Gallery creates one Scanning item per selected image because batch imports must remain independently reviewable',
@@ -1513,7 +1347,6 @@ class _TestScanResultSource implements ScanResultSource {
     List<Future<ScanResolution>>? libraryResults,
     Future<ScanResolution>? recognizeResult,
     Future<ScanResolution>? retryResult,
-    this.frameDetection,
   }) : _photoResults = [photoResult, ...subsequentPhotoResults],
        _libraryResults =
            libraryResults ??
@@ -1526,19 +1359,11 @@ class _TestScanResultSource implements ScanResultSource {
   final List<Future<ScanResolution>> _libraryResults;
   final Future<ScanResolution> _recognizeResult;
   final Future<ScanResolution> _retryResult;
-  final ScanFrameDetection? frameDetection;
-  var detectFrameCount = 0;
   var photoCallCount = 0;
   var _nextPhotoResult = 0;
   Uint8List? lastRetryBytes;
   String? lastRetryFileName;
   final recognizedImages = <ScanImage>[];
-
-  @override
-  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame) async {
-    detectFrameCount += 1;
-    return frameDetection;
-  }
 
   @override
   Future<List<Future<ScanResolution>>> library() async => _libraryResults;
@@ -1601,9 +1426,6 @@ class _TestScanCameraSession implements ScanCameraSession {
   var _flashEnabled = false;
   var takePhotoCount = 0;
   var disposed = false;
-  var startStreamCount = 0;
-  var stopStreamCount = 0;
-  void Function(ScanCameraFrame frame)? onFrame;
 
   @override
   bool get flashEnabled => _flashEnabled;
@@ -1626,37 +1448,6 @@ class _TestScanCameraSession implements ScanCameraSession {
   }
 
   @override
-  Future<void> startImageStream(
-    void Function(ScanCameraFrame frame) onFrame,
-  ) async {
-    startStreamCount += 1;
-    this.onFrame = onFrame;
-  }
-
-  @override
-  Future<void> stopImageStream() async {
-    stopStreamCount += 1;
-    onFrame = null;
-  }
-
-  void emitFrame() {
-    onFrame?.call(
-      ScanCameraFrame(
-        width: 1280,
-        height: 720,
-        format: ScanFrameFormat.jpeg,
-        planes: [
-          ScanFramePlane(
-            bytes: Uint8List.fromList([1]),
-            bytesPerRow: 1,
-            bytesPerPixel: 1,
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
   Future<bool> toggleFlash() async {
     _flashEnabled = !_flashEnabled;
     return _flashEnabled;
@@ -1668,17 +1459,6 @@ class _TestScanCameraSession implements ScanCameraSession {
     disposed = true;
   }
 }
-
-const _stableFrameDetection = ScanFrameDetection(
-  width: 1280,
-  height: 720,
-  corners: [
-    ScanImagePoint(400, 100),
-    ScanImagePoint(700, 100),
-    ScanImagePoint(700, 520),
-    ScanImagePoint(400, 520),
-  ],
-);
 
 _searchOverrides() {
   return [

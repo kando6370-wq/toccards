@@ -3,15 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../shared/scan/scan_image_hasher.dart';
 import 'scan_result_source.dart';
 
 abstract interface class ScanCameraSession {
   Widget buildPreview();
   bool get flashEnabled;
   Future<ScanImage> takePhoto();
-  Future<void> startImageStream(void Function(ScanCameraFrame frame) onFrame);
-  Future<void> stopImageStream();
   Future<bool> toggleFlash();
   Future<void> dispose();
 }
@@ -86,46 +83,6 @@ class PluginScanCameraSession implements ScanCameraSession {
   }
 
   @override
-  Future<void> startImageStream(
-    void Function(ScanCameraFrame frame) onFrame,
-  ) async {
-    if (_controller.value.isStreamingImages) return;
-    await _controller.startImageStream((image) {
-      final format = switch (image.format.group) {
-        ImageFormatGroup.bgra8888 => ScanFrameFormat.bgra8888,
-        ImageFormatGroup.yuv420 => ScanFrameFormat.yuv420,
-        ImageFormatGroup.jpeg => ScanFrameFormat.jpeg,
-        _ => null,
-      };
-      if (format == null) return;
-      onFrame(
-        ScanCameraFrame(
-          width: image.width,
-          height: image.height,
-          format: format,
-          planes: [
-            for (final plane in image.planes)
-              ScanFramePlane(
-                bytes: Uint8List.fromList(plane.bytes),
-                bytesPerRow: plane.bytesPerRow,
-                bytesPerPixel:
-                    plane.bytesPerPixel ??
-                    (format == ScanFrameFormat.bgra8888 ? 4 : 1),
-              ),
-          ],
-        ),
-      );
-    });
-  }
-
-  @override
-  Future<void> stopImageStream() async {
-    if (_controller.value.isStreamingImages) {
-      await _controller.stopImageStream();
-    }
-  }
-
-  @override
   Future<bool> toggleFlash() async {
     _flashEnabled = !_flashEnabled;
     try {
@@ -142,7 +99,6 @@ class PluginScanCameraSession implements ScanCameraSession {
 
   @override
   Future<void> dispose() async {
-    await stopImageStream();
     try {
       await _controller.setFlashMode(FlashMode.off);
     } on CameraException {

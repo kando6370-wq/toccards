@@ -26,9 +26,6 @@ class _WebScanImageHasher implements ScanImageHasher {
       );
     }
   }
-
-  @override
-  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame) async => null;
 }
 
 @JS('kandoScan.processImage')

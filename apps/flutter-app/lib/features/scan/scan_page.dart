@@ -1,16 +1,15 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/scan/scan_api_client.dart';
-import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/ui/toast.dart';
 import '../collection/collection_controller.dart';
 import '../card_detail/card_detail_controller.dart';
@@ -18,7 +17,6 @@ import '../home/home_controller.dart';
 import '../search/search_controller.dart';
 import 'scan_camera.dart';
 import 'scan_review_repository.dart';
-import 'scan_stability.dart';
 
 enum _ScanItemStatus {
   scanning,
@@ -30,7 +28,6 @@ enum _ScanItemStatus {
   added,
 }
 
-const _maxAutomaticScanItems = 10;
 const _viewfinderTop = 163.0;
 const _viewfinderWidth = 280.0;
 const _viewfinderHeight = 400.0;
@@ -201,7 +198,12 @@ List<String> _optionsIncluding(List<String> options, String current) {
 String _reviewTotalText(ScanReviewCard card, _ScanCollectionDraft draft) {
   final quantity = int.tryParse(draft.quantityText.trim());
   if (quantity == null || quantity < 1) return '--';
-  final price = card.prices
+  final price = _selectedReviewPrice(card, draft);
+  return price == null ? '--' : '\$${(price * quantity).toStringAsFixed(2)}';
+}
+
+double? _selectedReviewPrice(ScanReviewCard card, _ScanCollectionDraft draft) {
+  return card.prices
       .where((candidate) {
         if (candidate.grader.toLowerCase() != draft.grader.toLowerCase()) {
           return false;
@@ -215,7 +217,6 @@ String _reviewTotalText(ScanReviewCard card, _ScanCollectionDraft draft) {
       })
       .firstOrNull
       ?.price;
-  return price == null ? '--' : '\$${(price * quantity).toStringAsFixed(2)}';
 }
 
 String _normalizedReviewCondition(String? value) {
@@ -248,7 +249,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
   final List<_ScanItem> _items = [];
   final List<Timer> _scanTimers = [];
   final Map<int, _PendingScan> _pendingScans = {};
-  final ScanStabilityGate _stabilityGate = ScanStabilityGate();
   ScanCameraSession? _cameraSession;
 
   var _nextScanId = 1;
@@ -257,10 +257,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _openingCamera = false;
   var _appActive = true;
   var _reviewing = false;
-  var _detectingCameraFrame = false;
-  var _automaticRecognitionInFlight = false;
-  var _automaticScanCount = 0;
-  var _cameraFrameNumber = 0;
+  var _photoRecognitionInFlight = false;
   int? _selectedReviewItemId;
   int? _lastAddedCount;
   ScanReviewTarget? _reviewTarget;
@@ -269,16 +266,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
   String? _reviewFormError;
   var _savingReview = false;
   int? _dismissedFeedbackItemId;
-  int? _dismissedFailureFeedbackItemId;
-
-  bool get _hasScanning {
-    return _items.any(
-      (item) =>
-          item.status == _ScanItemStatus.scanning ||
-          item.status == _ScanItemStatus.recognizing ||
-          item.status == _ScanItemStatus.revealing,
-    );
-  }
 
   bool get _isScanning {
     return _items.any((item) => item.status == _ScanItemStatus.scanning);
@@ -306,39 +293,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
         .toList();
   }
 
-  _ScanItem? get _singleTerminalCameraItem {
-    if (_hasScanning) {
-      return null;
-    }
-    final terminalItems = _items
-        .where(
-          (item) =>
-              item.status == _ScanItemStatus.matched ||
-              item.status == _ScanItemStatus.failed ||
-              item.status == _ScanItemStatus.noMatch ||
-              item.status == _ScanItemStatus.added,
-        )
-        .toList();
-    return terminalItems.length == 1 ? terminalItems.single : null;
-  }
-
-  _ScanItem? get _completedCameraItem {
-    final item = _singleTerminalCameraItem;
-    return item?.status == _ScanItemStatus.matched ? item : null;
-  }
-
-  _ScanItem? get _failedCameraItem {
-    final item = _singleTerminalCameraItem;
-    return item?.status == _ScanItemStatus.failed ? item : null;
-  }
-
-  bool get _showFailedCameraFeedback {
-    final item = _failedCameraItem;
-    return item != null && item.id != _dismissedFailureFeedbackItemId;
-  }
-
   bool get _canReview {
-    return !_hasScanning && _matchedItems.isNotEmpty;
+    return _matchedItems.isNotEmpty;
   }
 
   Animation<double> get _revealAnimation {
@@ -418,15 +374,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _cameraSession = session;
       _openingCamera = false;
     });
-    if (session != null) unawaited(_startAutomaticDetection(session));
   }
 
   Future<void> _closeCamera() async {
     _cameraGeneration += 1;
-    _detectingCameraFrame = false;
-    _automaticRecognitionInFlight = false;
-    _cameraFrameNumber = 0;
-    _stabilityGate.reset();
+    _photoRecognitionInFlight = false;
     final session = _cameraSession;
     if (session == null) return;
     if (mounted) {
@@ -445,79 +397,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _addScan(Future.sync(source.photo));
       return;
     }
-    if (_automaticRecognitionInFlight) return;
-    _automaticRecognitionInFlight = true;
+    if (_photoRecognitionInFlight) return;
+    _photoRecognitionInFlight = true;
     final result = _captureAndRecognize(camera, source);
     _addScan(result);
-    unawaited(_resumeAfterRecognition(camera, result));
-  }
-
-  Future<void> _startAutomaticDetection(ScanCameraSession session) async {
-    if (!identical(session, _cameraSession) || _automaticRecognitionInFlight) {
-      return;
-    }
-    if (_automaticScanCount >= _maxAutomaticScanItems) {
-      await session.stopImageStream();
-      return;
-    }
-    try {
-      await session.startImageStream((frame) => _onCameraFrame(session, frame));
-    } catch (_) {
-      // Manual capture remains available when a device cannot stream frames.
-    }
-  }
-
-  void _onCameraFrame(ScanCameraSession session, ScanCameraFrame frame) {
-    if (!mounted ||
-        !identical(session, _cameraSession) ||
-        _automaticRecognitionInFlight ||
-        _detectingCameraFrame ||
-        _reviewing) {
-      return;
-    }
-    if (_automaticScanCount >= _maxAutomaticScanItems) {
-      unawaited(session.stopImageStream());
-      return;
-    }
-    _cameraFrameNumber += 1;
-    if (_cameraFrameNumber.isOdd) return;
-    _detectingCameraFrame = true;
-    unawaited(_evaluateCameraFrame(session, frame));
-  }
-
-  Future<void> _evaluateCameraFrame(
-    ScanCameraSession session,
-    ScanCameraFrame frame,
-  ) async {
-    try {
-      final detection = await ref
-          .read(scanResultSourceProvider)
-          .detectFrame(frame);
-      if (!mounted ||
-          !identical(session, _cameraSession) ||
-          _automaticRecognitionInFlight) {
-        return;
-      }
-      if (_automaticScanCount >= _maxAutomaticScanItems) {
-        await session.stopImageStream();
-        return;
-      }
-      if (_stabilityGate.add(detection)) {
-        _automaticRecognitionInFlight = true;
-        _automaticScanCount += 1;
-        _stabilityGate.reset();
-        final result = _captureAndRecognize(
-          session,
-          ref.read(scanResultSourceProvider),
-        );
-        _addScan(result);
-        unawaited(_resumeAfterRecognition(session, result));
-      }
-    } catch (_) {
-      _stabilityGate.reset();
-    } finally {
-      _detectingCameraFrame = false;
-    }
+    unawaited(_finishPhotoRecognition(result));
   }
 
   Future<ScanResolution> _captureAndRecognize(
@@ -525,7 +409,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
     ScanResultSource source,
   ) async {
     try {
-      await camera.stopImageStream();
       final image = await camera.takePhoto();
       return await source.recognize(image);
     } catch (_) {
@@ -533,16 +416,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
   }
 
-  Future<void> _resumeAfterRecognition(
-    ScanCameraSession camera,
-    Future<ScanResolution> pending,
-  ) async {
-    final result = await pending;
-    _automaticRecognitionInFlight = false;
-    if (!mounted || !identical(camera, _cameraSession)) return;
-    if (result.kind == ScanResolutionKind.noMatch) {
-      await _startAutomaticDetection(camera);
-    }
+  Future<void> _finishPhotoRecognition(Future<ScanResolution> pending) async {
+    await pending;
+    _photoRecognitionInFlight = false;
   }
 
   Future<void> _toggleFlash() async {
@@ -588,23 +464,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() => _dismissedFeedbackItemId = revealingItem.id);
   }
 
-  void _dismissFailedScanFeedback() {
-    final failedItem = _failedCameraItem;
-    if (failedItem == null) {
-      return;
-    }
-    setState(() => _dismissedFailureFeedbackItemId = failedItem.id);
-  }
-
   void _deleteScan(_ScanItem item) {
     _pendingScans.remove(item.id)?.revealController?.dispose();
     setState(() {
       _items.removeWhere((candidate) => candidate.id == item.id);
       if (_selectedReviewItemId == item.id) {
         _selectedReviewItemId = _matchedItems.firstOrNull?.id;
-      }
-      if (_dismissedFailureFeedbackItemId == item.id) {
-        _dismissedFailureFeedbackItemId = null;
       }
     });
   }
@@ -615,7 +480,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() {
       _lastAddedCount = null;
       _dismissedFeedbackItemId = null;
-      _dismissedFailureFeedbackItemId = null;
       _items.add(
         _ScanItem(
           id: id,
@@ -822,7 +686,22 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _dismissedFeedbackItemId = null;
       }
     });
+    if (match != null) {
+      unawaited(_loadScanCards(match));
+    }
     completedPending?.revealController?.dispose();
+  }
+
+  Future<void> _loadScanCards(_ScanMatch match) async {
+    try {
+      final cards = await ref.read(scanReviewRepositoryProvider).loadCards([
+        for (final candidate in match.candidates) candidate.cardRef,
+      ]);
+      if (!mounted) return;
+      setState(() => _reviewCards = {..._reviewCards, ...cards});
+    } on Exception {
+      // Price metadata is supplemental; review retries the same load explicitly.
+    }
   }
 
   void _replaceItem(_ScanItem next) {
@@ -840,28 +719,46 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!_canReview) {
       return;
     }
+    final items = _matchedItems;
+    final matchedIds = items.map((item) => item.id).toSet();
+    final cachedCards = Map<String, ScanReviewCard>.from(_reviewCards);
+    final cardRefs = [
+      for (final item in items)
+        for (final candidate in item.match!.candidates) candidate.cardRef,
+    ];
+    final missingCardRefs = cardRefs
+        .where((cardRef) => !cachedCards.containsKey(cardRef))
+        .toList();
+    for (final pendingId
+        in _pendingScans.keys
+            .where((id) => !matchedIds.contains(id))
+            .toList()) {
+      _pendingScans.remove(pendingId)?.revealController?.dispose();
+    }
     setState(() {
+      _items.removeWhere((item) => !matchedIds.contains(item.id));
       _reviewing = true;
-      _selectedReviewItemId = itemId ?? _matchedItems.first.id;
+      _selectedReviewItemId = itemId ?? items.first.id;
       _reviewTarget = null;
       _reviewCards = const {};
       _reviewFormError = null;
     });
     unawaited(_closeCamera());
     try {
-      final items = _matchedItems;
       final repository = ref.read(scanReviewRepositoryProvider);
       final results = await Future.wait<Object>([
         repository.loadTarget(
           preferredFolderId: ref.read(selectedPortfolioFolderProvider),
         ),
-        repository.loadCards([
-          for (final item in items)
-            for (final candidate in item.match!.candidates) candidate.cardRef,
-        ]),
+        missingCardRefs.isEmpty
+            ? Future.value(const <String, ScanReviewCard>{})
+            : repository.loadCards(missingCardRefs),
       ]);
       final target = results[0] as ScanReviewTarget;
-      final cards = results[1] as Map<String, ScanReviewCard>;
+      final cards = {
+        ...cachedCards,
+        ...results[1] as Map<String, ScanReviewCard>,
+      };
       if (mounted && _reviewing) {
         setState(() {
           _reviewTarget = target;
@@ -1213,21 +1110,18 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 items: _items,
                 lastAddedCount: _lastAddedCount,
                 canReview: _canReview,
-                completedItem: _completedCameraItem,
-                failedItem: _failedCameraItem,
-                showFailedFeedback: _showFailedCameraFeedback,
                 scanning: _isScanning,
                 recognizing: _isRecognizing,
                 revealing: _isRevealing,
                 showRevealingFeedback: _showRevealingFeedback,
                 revealAnimation: _revealAnimation,
+                cards: _reviewCards,
                 onClosePressed: _requestExitScan,
                 onFlashPressed: _cameraSession == null ? null : _toggleFlash,
                 onSearchPressed: () => context.go('/search'),
                 onPhotoPressed: _startPhotoScan,
                 onLibraryPressed: _startLibraryScan,
                 onDismissScanFeedback: _dismissScanFeedback,
-                onDismissFailedFeedback: _dismissFailedScanFeedback,
                 onReviewPressed: _openReview,
                 onReviewItem: _openReview,
                 onRetryItem: _retryScan,
@@ -1249,21 +1143,18 @@ class _ScanCameraView extends StatelessWidget {
     required this.items,
     required this.lastAddedCount,
     required this.canReview,
-    required this.completedItem,
-    required this.failedItem,
-    required this.showFailedFeedback,
     required this.scanning,
     required this.recognizing,
     required this.revealing,
     required this.showRevealingFeedback,
     required this.revealAnimation,
+    required this.cards,
     required this.onClosePressed,
     required this.onFlashPressed,
     required this.onSearchPressed,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
     required this.onDismissScanFeedback,
-    required this.onDismissFailedFeedback,
     required this.onReviewPressed,
     required this.onReviewItem,
     required this.onRetryItem,
@@ -1277,21 +1168,18 @@ class _ScanCameraView extends StatelessWidget {
   final int? lastAddedCount;
 
   final bool canReview;
-  final _ScanItem? completedItem;
-  final _ScanItem? failedItem;
-  final bool showFailedFeedback;
   final bool scanning;
   final bool recognizing;
   final bool revealing;
   final bool showRevealingFeedback;
   final Animation<double> revealAnimation;
+  final Map<String, ScanReviewCard> cards;
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final VoidCallback onSearchPressed;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
   final VoidCallback onDismissScanFeedback;
-  final VoidCallback onDismissFailedFeedback;
   final VoidCallback onReviewPressed;
   final ValueChanged<int?> onReviewItem;
   final ValueChanged<_ScanItem> onRetryItem;
@@ -1300,16 +1188,9 @@ class _ScanCameraView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final completed = completedItem != null;
-    final failed = failedItem != null;
-    final showingFailedFeedback = failed && showFailedFeedback;
     return Stack(
       children: [
-        if (completed)
-          const Positioned.fill(child: _FigmaCompletedCanvas())
-        else if (showingFailedFeedback)
-          const Positioned.fill(child: _FigmaFailedCanvas())
-        else if (cameraPreview != null)
+        if (cameraPreview != null)
           Positioned.fill(
             child: KeyedSubtree(
               key: const Key('scan-live-camera-preview'),
@@ -1355,7 +1236,7 @@ class _ScanCameraView extends StatelessWidget {
           const Positioned.fill(child: _FigmaRecognizingOverlay())
         else if (revealing)
           const Positioned.fill(child: _FigmaRevealingOverlay())
-        else if (!completed && !showingFailedFeedback) ...[
+        else ...[
           Positioned.fill(
             child: ColoredBox(
               key: const Key('scan-figma-camera-overlay'),
@@ -1376,53 +1257,50 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ],
-        if (!completed && !showingFailedFeedback)
-          const Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 59,
-            child: ColoredBox(color: Color(0xFF10100B)),
-          ),
-        if (!completed && !showingFailedFeedback)
-          Positioned(
-            top: 59,
-            left: 8,
-            right: 8,
-            child: _FigmaRevealEntrance(
-              animation: revealAnimation,
-              active: revealing,
-              opacityStart: 0,
-              opacityEnd: 0.26146,
-              translateStart: 0,
-              translateEnd: 0.39219,
-              initialOffsetY: -40,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ScanTopBar(
-                    onClosePressed: onClosePressed,
-                    onFlashPressed: onFlashPressed,
-                    flashEnabled: flashEnabled,
-                    onSearchPressed: onSearchPressed,
-                  ),
-                  const SizedBox(height: 2),
-                  const _AlignCardPill(),
-                ],
-              ),
+        const Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 59,
+          child: ColoredBox(color: Color(0xFF10100B)),
+        ),
+        Positioned(
+          top: 59,
+          left: 8,
+          right: 8,
+          child: _FigmaRevealEntrance(
+            animation: revealAnimation,
+            active: revealing,
+            opacityStart: 0,
+            opacityEnd: 0.26146,
+            translateStart: 0,
+            translateEnd: 0.39219,
+            initialOffsetY: -40,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ScanTopBar(
+                  onClosePressed: onClosePressed,
+                  onFlashPressed: onFlashPressed,
+                  flashEnabled: flashEnabled,
+                  onSearchPressed: onSearchPressed,
+                ),
+                const SizedBox(height: 2),
+                const _AlignCardPill(),
+              ],
             ),
           ),
-        if (!completed && !showingFailedFeedback)
-          Positioned(
-            top: _viewfinderTop,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: _ViewfinderCorners(
-                focusFrameShadow: recognizing || revealing,
-              ),
+        ),
+        Positioned(
+          top: _viewfinderTop,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: _ViewfinderCorners(
+              focusFrameShadow: recognizing || revealing,
             ),
           ),
+        ),
         if (scanning) ...[
           Positioned(
             left: 55,
@@ -1434,33 +1312,14 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ],
-        if (completed)
-          _FigmaCompletedActions(
-            item: completedItem!,
-            onClosePressed: onClosePressed,
-            onSearchPressed: onSearchPressed,
-            onPhotoPressed: onPhotoPressed,
-            onLibraryPressed: onLibraryPressed,
-            onReviewPressed: onReviewPressed,
-            onModifyPressed: () => onReviewItem(completedItem!.id),
-          ),
-        if (showingFailedFeedback)
-          _FigmaFailedActions(
-            item: failedItem!,
-            onClosePressed: onClosePressed,
-            onSearchPressed: onSearchPressed,
-            onPhotoPressed: onPhotoPressed,
-            onLibraryPressed: onLibraryPressed,
-            onRetryPressed: () => onRetryItem(failedItem!),
-            onDismissPressed: onDismissFailedFeedback,
-          ),
-        if (!completed && !failed && items.isNotEmpty)
+        if (items.isNotEmpty)
           Positioned(
             left: 16,
             right: 16,
             bottom: 134,
             child: _ScanResults(
               items: items,
+              cards: cards,
               lastAddedCount: lastAddedCount,
               showRevealingFeedback: showRevealingFeedback,
               onDismissRevealing: onDismissScanFeedback,
@@ -1470,343 +1329,32 @@ class _ScanCameraView extends StatelessWidget {
               onSearchPressed: onSearchItem,
             ),
           ),
-        if (!completed && !showingFailedFeedback)
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: revealing ? 19 : 22,
-            child: _FigmaRevealEntrance(
-              animation: revealAnimation,
-              active: revealing,
-              opacityStart: 0.52293,
-              opacityEnd: 0.84834,
-              translateStart: 0.52293,
-              translateEnd: 0.91512,
-              initialOffsetY: -25,
-              opacityCurve: const _FigmaSpringCurve(),
-              child: SafeArea(
-                top: false,
-                child: _ScanBottomControls(
-                  canReview: canReview,
-                  centered: revealing,
-                  onPhotoPressed: onPhotoPressed,
-                  onLibraryPressed: onLibraryPressed,
-                  onReviewPressed: onReviewPressed,
-                ),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: revealing ? 19 : 22,
+          child: _FigmaRevealEntrance(
+            animation: revealAnimation,
+            active: revealing,
+            opacityStart: 0.52293,
+            opacityEnd: 0.84834,
+            translateStart: 0.52293,
+            translateEnd: 0.91512,
+            initialOffsetY: -25,
+            opacityCurve: const _FigmaSpringCurve(),
+            child: SafeArea(
+              top: false,
+              child: _ScanBottomControls(
+                canReview: canReview,
+                centered: revealing,
+                onPhotoPressed: onPhotoPressed,
+                onLibraryPressed: onLibraryPressed,
+                onReviewPressed: onReviewPressed,
               ),
             ),
           ),
+        ),
       ],
-    );
-  }
-}
-
-class _FigmaCompletedCanvas extends StatelessWidget {
-  const _FigmaCompletedCanvas();
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/scan/complete_canvas.png',
-      key: const Key('scan-figma-complete-background'),
-      fit: BoxFit.fill,
-      filterQuality: FilterQuality.none,
-    );
-  }
-}
-
-class _FigmaFailedCanvas extends StatelessWidget {
-  const _FigmaFailedCanvas();
-
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/scan/failure_canvas.png',
-      key: const Key('scan-figma-failure-background'),
-      fit: BoxFit.fill,
-      filterQuality: FilterQuality.none,
-    );
-  }
-}
-
-class _FigmaFailedActions extends StatelessWidget {
-  const _FigmaFailedActions({
-    required this.item,
-    required this.onClosePressed,
-    required this.onSearchPressed,
-    required this.onPhotoPressed,
-    required this.onLibraryPressed,
-    required this.onRetryPressed,
-    required this.onDismissPressed,
-  });
-
-  final _ScanItem item;
-  final VoidCallback onClosePressed;
-  final VoidCallback onSearchPressed;
-  final VoidCallback onPhotoPressed;
-  final VoidCallback onLibraryPressed;
-  final VoidCallback onRetryPressed;
-  final VoidCallback onDismissPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final horizontalScale = constraints.maxWidth / 390;
-        final verticalScale = constraints.maxHeight / 844;
-        final itemName = item.match?.name ?? item.pictureLabel;
-        return Stack(
-          children: [
-            Positioned(
-              left: 16 * horizontalScale,
-              top: 617 * verticalScale,
-              width: 175 * horizontalScale,
-              height: 92 * verticalScale,
-              child: Semantics(
-                key: const Key('scan-figma-failure-toast'),
-                container: true,
-                label: '0 of 1 cards scanned. $itemName failed. Tap to retry.',
-                child: const SizedBox.expand(),
-              ),
-            ),
-            Positioned(
-              left: 8 * horizontalScale,
-              top: 59 * verticalScale,
-              width: 48 * horizontalScale,
-              height: 48 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Close Scan',
-                onPressed: onClosePressed,
-              ),
-            ),
-            Positioned(
-              right: 8 * horizontalScale,
-              top: 59 * verticalScale,
-              width: 48 * horizontalScale,
-              height: 48 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Search Cards',
-                onPressed: onSearchPressed,
-              ),
-            ),
-            Positioned(
-              left: 16 * horizontalScale,
-              top: 617 * verticalScale,
-              width: 175 * horizontalScale,
-              height: 92 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Tap to retry',
-                onPressed: onRetryPressed,
-              ),
-            ),
-            Positioned(
-              left: 151 * horizontalScale,
-              top: 617 * verticalScale,
-              width: 40 * horizontalScale,
-              height: 48 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Dismiss failed scan feedback',
-                onPressed: onDismissPressed,
-              ),
-            ),
-            Positioned(
-              left: 16 * horizontalScale,
-              top: 726 * verticalScale,
-              width: 72 * horizontalScale,
-              height: 96 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Choose from Library',
-                onPressed: onLibraryPressed,
-              ),
-            ),
-            Positioned(
-              left: 151 * horizontalScale,
-              top: 734 * verticalScale,
-              width: 88 * horizontalScale,
-              height: 88 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Take Photo',
-                onPressed: onPhotoPressed,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _FigmaCompletedActions extends StatelessWidget {
-  const _FigmaCompletedActions({
-    required this.item,
-    required this.onClosePressed,
-    required this.onSearchPressed,
-    required this.onPhotoPressed,
-    required this.onLibraryPressed,
-    required this.onReviewPressed,
-    required this.onModifyPressed,
-  });
-
-  final _ScanItem item;
-  final VoidCallback onClosePressed;
-  final VoidCallback onSearchPressed;
-  final VoidCallback onPhotoPressed;
-  final VoidCallback onLibraryPressed;
-  final VoidCallback onReviewPressed;
-  final VoidCallback onModifyPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final horizontalScale = constraints.maxWidth / 390;
-        final verticalScale = constraints.maxHeight / 844;
-        final matchName = item.match?.name ?? item.pictureLabel;
-        return Stack(
-          children: [
-            Positioned(
-              left: 19 * horizontalScale,
-              top: 590 * verticalScale,
-              child: Semantics(
-                key: const Key('scan-figma-complete-count'),
-                container: true,
-                label:
-                    'Scanned: 1/1. $matchName. PSA 10. Estimated value '
-                    '\$16,785.28. Total \$16,874.16.',
-                child: const SizedBox.shrink(),
-              ),
-            ),
-            Positioned(
-              left: 8 * horizontalScale,
-              top: 59 * verticalScale,
-              width: 48 * horizontalScale,
-              height: 48 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Close Scan',
-                onPressed: onClosePressed,
-              ),
-            ),
-            Positioned(
-              right: 8 * horizontalScale,
-              top: 59 * verticalScale,
-              width: 48 * horizontalScale,
-              height: 48 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Search Cards',
-                onPressed: onSearchPressed,
-              ),
-            ),
-            Positioned(
-              left: 246 * horizontalScale,
-              top: 627 * verticalScale,
-              width: 76 * horizontalScale,
-              height: 82 * verticalScale,
-              child: _FigmaCompletedAction(
-                focusKey: const Key('scan-figma-complete-result'),
-                tooltip: 'Modify scan match',
-                onPressed: onModifyPressed,
-              ),
-            ),
-            Positioned(
-              left: 16 * horizontalScale,
-              top: 726 * verticalScale,
-              width: 72 * horizontalScale,
-              height: 96 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Choose from Library',
-                onPressed: onLibraryPressed,
-              ),
-            ),
-            Positioned(
-              left: 151 * horizontalScale,
-              top: 734 * verticalScale,
-              width: 88 * horizontalScale,
-              height: 88 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Take Photo',
-                onPressed: onPhotoPressed,
-              ),
-            ),
-            Positioned(
-              right: 10 * horizontalScale,
-              top: 726 * verticalScale,
-              width: 80 * horizontalScale,
-              height: 96 * verticalScale,
-              child: _FigmaCompletedAction(
-                tooltip: 'Review completed scan',
-                onPressed: onReviewPressed,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _FigmaCompletedAction extends StatelessWidget {
-  const _FigmaCompletedAction({
-    this.focusKey,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final Key? focusKey;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Focus(
-      key: focusKey,
-      onKeyEvent: (_, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.enter ||
-                event.logicalKey == LogicalKeyboardKey.space)) {
-          onPressed();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Builder(
-        builder: (context) {
-          final hasFocus = Focus.of(context).hasFocus;
-          return Tooltip(
-            message: tooltip,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Semantics(
-                  button: true,
-                  label: tooltip,
-                  onTap: onPressed,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onPressed,
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-                if (hasFocus)
-                  IgnorePointer(
-                    child: DecoratedBox(
-                      key: const Key('scan-figma-complete-focus-outline'),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: const Color(0xFFF0FE6F),
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(4),
-                        boxShadow: const [
-                          BoxShadow(color: Color(0x66F0FE6F), blurRadius: 8),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
     );
   }
 }
@@ -2033,23 +1581,39 @@ class _ScanBottomControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
+              key: const Key('scan-figma-done-background'),
               width: 48,
               height: 48,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: const Color(
-                  0xFF222222,
-                ).withValues(alpha: canReview ? 0.92 : 0.48),
+                color: canReview
+                    ? const Color(0xFFF0FE6F)
+                    : const Color(0x7A222222),
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0x1A394E2C)),
+                border: canReview
+                    ? null
+                    : Border.all(color: const Color(0x1A394E2C)),
+                boxShadow: canReview
+                    ? const [
+                        BoxShadow(color: Color(0x66F1FE70), blurRadius: 7.5),
+                      ]
+                    : null,
               ),
               child: Opacity(
                 opacity: canReview ? 1 : 0.4,
-                child: SvgPicture.asset(
-                  'assets/scan/done.svg',
-                  key: const Key('scan-figma-done-icon'),
-                  width: 16.3,
-                  height: 12.025,
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    canReview
+                        ? const Color(0xFF394E2C)
+                        : const Color(0xFFC7C8B0),
+                    BlendMode.srcIn,
+                  ),
+                  child: SvgPicture.asset(
+                    'assets/scan/done.svg',
+                    key: const Key('scan-figma-done-icon'),
+                    width: 16.3,
+                    height: 12.025,
+                  ),
                 ),
               ),
             ),
@@ -2645,6 +2209,7 @@ class _ViewfinderPainter extends CustomPainter {
 class _ScanResults extends StatelessWidget {
   const _ScanResults({
     required this.items,
+    required this.cards,
     required this.lastAddedCount,
     required this.showRevealingFeedback,
     required this.onDismissRevealing,
@@ -2655,6 +2220,7 @@ class _ScanResults extends StatelessWidget {
   });
 
   final List<_ScanItem> items;
+  final Map<String, ScanReviewCard> cards;
   final int? lastAddedCount;
   final bool showRevealingFeedback;
   final VoidCallback onDismissRevealing;
@@ -2682,6 +2248,12 @@ class _ScanResults extends StatelessWidget {
           item.status == _ScanItemStatus.matched ||
           item.status == _ScanItemStatus.added,
     );
+    final total = items.fold<double>(0, (sum, item) {
+      final card = cards[item.match?.cardRef];
+      if (card == null) return sum;
+      final draft = _previewDraft(card);
+      return sum + (_selectedReviewPrice(card, draft) ?? 0);
+    });
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2704,10 +2276,10 @@ class _ScanResults extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              if (hasValuedCards)
-                const Text(
-                  'Total: \$16,874.16',
-                  style: TextStyle(
+              if (hasValuedCards && total > 0)
+                Text(
+                  'Total: \$${total.toStringAsFixed(2)}',
+                  style: const TextStyle(
                     color: Color(0xFFFFF6AF),
                     fontFamily: 'Geist Mono',
                     fontSize: 13,
@@ -2732,6 +2304,7 @@ class _ScanResults extends StatelessWidget {
               return _ScanItemCard(
                 key: Key('scan-active-item-${item.id}'),
                 item: item,
+                card: cards[item.match?.cardRef],
                 onReview: () => onReviewItem(item.id),
                 onRetry: () => onRetryItem(item),
                 onDelete: () => onDeleteItem(item),
@@ -2750,6 +2323,7 @@ class _ScanItemCard extends StatelessWidget {
   const _ScanItemCard({
     required super.key,
     required this.item,
+    required this.card,
     required this.onReview,
     required this.onRetry,
     required this.onDelete,
@@ -2758,6 +2332,7 @@ class _ScanItemCard extends StatelessWidget {
   });
 
   final _ScanItem item;
+  final ScanReviewCard? card;
   final VoidCallback onReview;
   final VoidCallback onRetry;
   final VoidCallback onDelete;
@@ -2796,6 +2371,10 @@ class _ScanItemCard extends StatelessWidget {
         : item.status == _ScanItemStatus.noMatch
         ? onSearch
         : null;
+    final previewDraft = card == null ? null : _previewDraft(card!);
+    final price = previewDraft == null
+        ? null
+        : _selectedReviewPrice(card!, previewDraft);
 
     return Tooltip(
       message: matched
@@ -2878,7 +2457,10 @@ class _ScanItemCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              added ? 'ADDED' : 'PSA 10',
+                              added
+                                  ? 'ADDED'
+                                  : previewDraft?.condition.toUpperCase() ??
+                                        'RAW',
                               style: const TextStyle(
                                 color: Color(0xFFF0FE6F),
                                 fontFamily: 'Geist Mono',
@@ -2889,9 +2471,11 @@ class _ScanItemCard extends StatelessWidget {
                           ),
                           if (!added) ...[
                             const SizedBox(width: 8),
-                            const Expanded(
+                            Expanded(
                               child: Text(
-                                '\$16,785.28',
+                                price == null
+                                    ? '--'
+                                    : '\$${price.toStringAsFixed(2)}',
                                 maxLines: 1,
                                 overflow: TextOverflow.clip,
                                 style: TextStyle(
@@ -2926,6 +2510,21 @@ class _ScanItemCard extends StatelessWidget {
       ),
     );
   }
+}
+
+_ScanCollectionDraft _previewDraft(ScanReviewCard card) {
+  return _ScanCollectionDraft(
+    folderId: '',
+    folderName: '',
+    quantityText: '1',
+    grader: 'Raw',
+    condition: cardCollectionConditions.first,
+    grade: '',
+    language: card.language ?? 'English',
+    finish: card.finish ?? 'Normal',
+    purchasePriceText: '',
+    notes: '',
+  );
 }
 
 class _ScanResultThumbnail extends StatelessWidget {

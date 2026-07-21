@@ -63,7 +63,6 @@ abstract interface class ScanResultSource {
   Future<List<Future<ScanResolution>>> library();
   Future<ScanResolution> recognize(ScanImage image);
   Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName});
-  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame);
 }
 
 final scanResultSourceProvider = Provider<ScanResultSource>(
@@ -181,11 +180,6 @@ class ApiScanResultSource implements ScanResultSource {
       return Future.value(const ScanResolution.failed());
     }
     return recognize(ScanImage(bytes: imageBytes, fileName: fileName));
-  }
-
-  @override
-  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame) {
-    return _imageHasher.detectFrame(frame);
   }
 
   Future<ScanResolution> _pickAndRecognize(ScanImageSource source) async {

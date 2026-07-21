@@ -276,7 +276,4 @@ class _FakeScanImageHasher implements ScanImageHasher {
       cardImageBytes: Uint8List.fromList([4, 5, 6]),
     );
   }
-
-  @override
-  Future<ScanFrameDetection?> detectFrame(ScanCameraFrame frame) async => null;
 }
