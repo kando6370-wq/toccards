@@ -16,6 +16,24 @@ const double _kRadiusLg = 16;
 const double _kRadiusXl = 24;
 const Color _kPositiveColor = Color(0xFF4ADE80);
 const Color _kNegativeColor = Color(0xFFFF8989);
+const Color _kCollectionCardStart = Color(0x1F747B26);
+const Color _kCollectionCardEnd = Color(0x0A141506);
+const Color _kCollectionOutline = Color(0x1A90927C);
+const Color _kCollectionSecondaryText = Color(0xFF92927D);
+const Color _kRemovePortfolioColor = Color(0xFFFACC15);
+const List<String> _kEditGraderOptions = [
+  'Raw',
+  'PSA',
+  'BGS',
+  'TAG',
+  'CGC',
+  'AGS',
+];
+const List<String> _kEditConditionOptions = [
+  'Near Mint (NM)',
+  'Lightly Played (LP)',
+  'Moderately Played (MP)',
+];
 
 /// Section heading style (Figma: Fraunces SemiBold 24/32).
 const TextStyle _kSectionTitleStyle = TextStyle(
@@ -517,6 +535,7 @@ class _RemoveWishlistButton extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _BasicInfo extends StatelessWidget {
   const _BasicInfo({required this.state});
 
@@ -591,40 +610,62 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(5),
-          decoration: BoxDecoration(
-            color: KandoColors.elevatedSurface.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: KandoColors.border.withValues(alpha: 0.7),
-            ),
-          ),
-          child: TabBar(
-            controller: _tabController,
-            indicatorSize: TabBarIndicatorSize.tab,
-            dividerColor: Colors.transparent,
-            indicator: BoxDecoration(
-              color: KandoColors.accent.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: KandoColors.accent.withValues(alpha: 0.5),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return SizedBox(
+              width: math.min(constraints.maxWidth, 350),
+              height: 52,
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: KandoColors.surface,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: _kCollectionOutline),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  indicator: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        const Color(0xFF747B26).withValues(alpha: 0.6),
+                        const Color(0xFF747B26).withValues(alpha: 0.2),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        offset: const Offset(0, 1),
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                  labelColor: KandoColors.accent,
+                  unselectedLabelColor: KandoColors.mutedText,
+                  labelStyle: const TextStyle(
+                    fontSize: 15,
+                    height: 17 / 15,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontSize: 15,
+                    height: 17 / 15,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  tabs: const [
+                    Tab(height: 42, text: 'Collection Item'),
+                    Tab(height: 42, text: 'Price'),
+                  ],
+                ),
               ),
-            ),
-            labelColor: KandoColors.accent,
-            unselectedLabelColor: KandoColors.mutedText,
-            labelStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-            unselectedLabelStyle: const TextStyle(fontSize: 14),
-            tabs: const [
-              Tab(text: 'Collection Item'),
-              Tab(text: 'Price'),
-            ],
-          ),
+            );
+          },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         if (_tabController.index == 0)
           _CollectionItems(state: widget.state, controller: widget.controller)
         else
@@ -642,11 +683,15 @@ class _CollectionItems extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final item = state.collectionItemRows.isEmpty
+        ? null
+        : state.collectionItemRows.first;
+
     return Column(
       key: const Key('card-detail-collection-items'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (state.collectionItemDraft == null) ...[
+        if (state.collectionItemDraft == null && item == null) ...[
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -667,74 +712,345 @@ class _CollectionItems extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        for (final item in state.collectionItemRows)
-          if (state.editingCollectionItemId == item.id)
-            _CollectionItemForm(state: state, controller: controller)
-          else
+        if (state.collectionItemDraft != null &&
+            (item == null || state.editingCollectionItemId == item.id))
+          _CollectionItemForm(state: state, controller: controller)
+        else if (item != null) ...[
+          _CollectionItemSummaryCard(
+            item: item,
+            onEdit: () {
+              controller.startEditingCollectionItem(item.id);
+            },
+          ),
+          const SizedBox(height: 12),
+          _RemoveFromPortfolioFooterButton(
+            onPressed: () {
+              _confirmRemoveCollectionItem(context, controller, item.id);
+            },
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _CollectionItemSummaryCard extends StatelessWidget {
+  const _CollectionItemSummaryCard({required this.item, required this.onEdit});
+
+  final CardCollectionItemRow item;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _CollectionStatusParts.fromText(item.statusText);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_kCollectionCardStart, _kCollectionCardEnd],
+        ),
+        borderRadius: BorderRadius.circular(_kRadiusXl),
+        border: Border.all(color: _kCollectionOutline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Text(
+                'OWNERSHIP\nSUMMARY',
+                style: _kCollectionHeadlineStyle,
+              ),
+              SizedBox(
+                height: 44,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: KandoColors.accent,
+                    foregroundColor: KandoColors.primaryOnDefault,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: const StadiumBorder(),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      height: 16 / 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  onPressed: onEdit,
+                  child: const Text('Edit item'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Row(
+            children: [
+              Expanded(
+                child: _CollectionStatTile(
+                  label: 'QUANTITY',
+                  value: _displayQuantity(item.quantityText),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _CollectionStatTile(
+                  label: 'PORTFOLIO',
+                  value: item.portfolioName,
+                  labelWeight: FontWeight.w500,
+                  labelSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _CollectionDetailRow(label: 'GRADER', value: status.grader),
+          const SizedBox(height: 12),
+          _CollectionDetailRow(label: status.detailLabel, value: status.detail),
+          const SizedBox(height: 12),
+          _CollectionDetailRow(label: 'LANGUAGE', value: item.languageText),
+          const SizedBox(height: 12),
+          _CollectionDetailRow(label: 'FINISH', value: item.finishText),
+          const SizedBox(height: 12),
+          _CollectionDetailRow(
+            label: 'PURCHASE PRICE',
+            value: item.purchasePriceText,
+            accentValue: true,
+          ),
+          if (item.notes.isNotEmpty) ...[
+            const SizedBox(height: 32),
+            const Divider(height: 1, thickness: 1, color: _kCollectionOutline),
+            const SizedBox(height: 33),
+            const Text('NOTES', style: _kCollectionHeadlineStyle),
+            const SizedBox(height: 12),
             Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: _kPanel(),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.portfolioName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: KandoColors.text,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _InfoRow(label: 'Quantity', value: item.quantityText),
-                    _InfoRow(label: 'Status', value: item.statusText),
-                    _InfoRow(label: 'Language', value: item.languageText),
-                    _InfoRow(label: 'Finish', value: item.finishText),
-                    _InfoRow(
-                      label: 'Purchase price',
-                      value: item.purchasePriceText,
-                    ),
-                    _InfoRow(label: 'Total', value: item.totalText),
-                    if (item.notes.isNotEmpty)
-                      _InfoRow(label: 'Notes', value: item.notes),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        TextButton.icon(
-                          style: TextButton.styleFrom(
-                            foregroundColor: KandoColors.accent,
-                          ),
-                          onPressed: () {
-                            controller.startEditingCollectionItem(item.id);
-                          },
-                          icon: const Icon(Icons.edit_outlined),
-                          label: const Text('Edit item'),
-                        ),
-                        TextButton.icon(
-                          style: TextButton.styleFrom(
-                            foregroundColor: KandoColors.mutedText,
-                          ),
-                          onPressed: () {
-                            _confirmRemoveCollectionItem(
-                              context,
-                              controller,
-                              item.id,
-                            );
-                          },
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text('Remove from Portfolio'),
-                        ),
-                      ],
-                    ),
-                  ],
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(17, 16, 17, 17),
+              decoration: BoxDecoration(
+                color: KandoColors.elevatedSurface,
+                borderRadius: BorderRadius.circular(_kRadiusLg),
+                border: Border.all(color: _kCollectionOutline),
+              ),
+              child: Text(
+                item.notes,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 20 / 14,
+                  color: KandoColors.mutedText,
                 ),
               ),
             ),
-      ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RemoveFromPortfolioFooterButton extends StatelessWidget {
+  const _RemoveFromPortfolioFooterButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: OutlinedButton.icon(
+        key: const Key('card-detail-remove-from-portfolio'),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: _kRemovePortfolioColor.withValues(alpha: 0.12),
+          foregroundColor: _kRemovePortfolioColor,
+          side: const BorderSide(color: _kRemovePortfolioColor),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            height: 24 / 16,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        onPressed: onPressed,
+        icon: const Icon(Icons.delete_outline, size: 20),
+        label: const Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: 'Remove from '),
+              TextSpan(
+                text: 'Portfolio',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const TextStyle _kCollectionHeadlineStyle = TextStyle(
+  fontFamily: 'Fraunces',
+  fontSize: 14,
+  fontWeight: FontWeight.w600,
+  height: 20 / 14,
+  color: KandoColors.text,
+);
+
+class _CollectionStatusParts {
+  const _CollectionStatusParts({
+    required this.grader,
+    required this.detailLabel,
+    required this.detail,
+  });
+
+  factory _CollectionStatusParts.fromText(String statusText) {
+    final slashParts = statusText.split(' / ');
+    if (slashParts.length == 2) {
+      return _CollectionStatusParts(
+        grader: slashParts.first,
+        detailLabel: 'CONDITION',
+        detail: slashParts.last,
+      );
+    }
+
+    final pieces = statusText.trim().split(RegExp(r'\s+'));
+    if (pieces.length >= 2) {
+      return _CollectionStatusParts(
+        grader: pieces.sublist(0, pieces.length - 1).join(' '),
+        detailLabel: 'GRADE',
+        detail: pieces.last,
+      );
+    }
+
+    return _CollectionStatusParts(
+      grader: statusText,
+      detailLabel: 'CONDITION',
+      detail: '-',
+    );
+  }
+
+  final String grader;
+  final String detailLabel;
+  final String detail;
+}
+
+String _displayQuantity(String quantityText) {
+  return quantityText.replaceFirst(RegExp(r'^Qty:\s*'), '');
+}
+
+class _CollectionStatTile extends StatelessWidget {
+  const _CollectionStatTile({
+    required this.label,
+    required this.value,
+    this.labelWeight = FontWeight.w400,
+    this.labelSize = 11,
+  });
+
+  final String label;
+  final String value;
+  final FontWeight labelWeight;
+  final double labelSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 78,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: KandoColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: KandoColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: labelSize,
+              height: 18 / labelSize,
+              fontWeight: labelWeight,
+              color: KandoColors.mutedText,
+            ),
+          ),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 16,
+              height: 24 / 16,
+              fontWeight: FontWeight.w400,
+              color: KandoColors.text,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionDetailRow extends StatelessWidget {
+  const _CollectionDetailRow({
+    required this.label,
+    required this.value,
+    this.accentValue = false,
+  });
+
+  final String label;
+  final String value;
+  final bool accentValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 17),
+      decoration: BoxDecoration(
+        color: KandoColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: KandoColors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                height: 18 / 11,
+                fontWeight: FontWeight.w400,
+                color: KandoColors.mutedText,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 16,
+                height: 24 / 16,
+                fontWeight: accentValue ? FontWeight.w600 : FontWeight.w400,
+                color: accentValue ? KandoColors.accent : KandoColors.text,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1046,6 +1362,18 @@ class _CollectionItemForm extends StatelessWidget {
     final gradeValue = cardCollectionGradeValues.contains(draft.grade)
         ? draft.grade
         : cardCollectionGradeValues.first;
+    final useEditCard = isEditing && showHeader && showActions && !embedded;
+
+    if (useEditCard) {
+      return _CollectionItemEditCard(
+        state: state,
+        controller: controller,
+        draft: draft,
+        languageValue: languageValue,
+        finishValue: finishValue,
+        gradeValue: gradeValue,
+      );
+    }
 
     final content = Theme(
       data: _formFieldTheme(context),
@@ -1253,12 +1581,466 @@ class _CollectionItemForm extends StatelessWidget {
   }
 }
 
+class _CollectionItemEditCard extends StatelessWidget {
+  const _CollectionItemEditCard({
+    required this.state,
+    required this.controller,
+    required this.draft,
+    required this.languageValue,
+    required this.finishValue,
+    required this.gradeValue,
+  });
+
+  final CardDetailState state;
+  final CardDetailController controller;
+  final CardCollectionItemDraft draft;
+  final String languageValue;
+  final String finishValue;
+  final String gradeValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(21),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_kCollectionCardStart, _kCollectionCardEnd],
+        ),
+        borderRadius: BorderRadius.circular(_kRadiusLg),
+        border: Border.all(color: _kCollectionOutline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'OWNERSHIP\nSUMMARY',
+                  style: _kCollectionHeadlineStyle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              _CollectionEditActionButton(
+                label: 'Cancel',
+                onPressed: controller.cancelCollectionItemEdit,
+              ),
+              const SizedBox(width: 8),
+              _CollectionEditActionButton(
+                buttonKey: const Key('card-detail-item-submit'),
+                label: 'Save changes',
+                accent: true,
+                onPressed: () async {
+                  await controller.saveCollectionItemDraft();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _CollectionEditTextField(
+                  key: const Key('card-detail-item-quantity'),
+                  label: 'QUANTITY',
+                  initialValue: draft.quantityText,
+                  keyboardType: TextInputType.number,
+                  onChanged: (value) {
+                    controller.updateCollectionItemDraft(quantityText: value);
+                  },
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _ChoiceField(
+                  key: const Key('card-detail-item-portfolio'),
+                  label: 'PORTFOLIO',
+                  value: draft.portfolioName,
+                  options: [
+                    for (final folder in state.detail.portfolioFolders)
+                      folder.name,
+                  ],
+                  onSelected: (value) {
+                    controller.updateCollectionItemDraft(portfolioName: value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          _CollectionPillGroup(
+            key: const Key('card-detail-item-grader'),
+            label: 'GRADER',
+            selected: draft.grader,
+            options: _optionsWithSelected(_kEditGraderOptions, draft.grader),
+            columns: 3,
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(grader: value);
+            },
+          ),
+          const SizedBox(height: 32),
+          if (draft.isRaw)
+            _CollectionPillGroup(
+              key: const Key('card-detail-item-condition'),
+              label: 'CONDITION',
+              selected: draft.condition,
+              options: _optionsWithSelected(
+                _kEditConditionOptions,
+                draft.condition,
+              ),
+              columns: 1,
+              onSelected: (value) {
+                controller.updateCollectionItemDraft(condition: value);
+              },
+            )
+          else
+            _ChoiceField(
+              key: const Key('card-detail-item-grade'),
+              label: 'GRADE',
+              value: gradeValue,
+              options: cardCollectionGradeValues,
+              displayBuilder: (grade) => '${draft.grader} $grade',
+              onSelected: (value) {
+                controller.updateCollectionItemDraft(grade: value);
+              },
+            ),
+          const SizedBox(height: 32),
+          _ChoiceField(
+            key: const Key('card-detail-item-language'),
+            label: 'LANGUAGE',
+            value: languageValue,
+            options: cardCollectionLanguages,
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(language: value);
+            },
+          ),
+          const SizedBox(height: 32),
+          _ChoiceField(
+            key: const Key('card-detail-item-finish'),
+            label: 'FINISH',
+            value: finishValue,
+            options: cardCollectionFinishes,
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(finish: value);
+            },
+          ),
+          const SizedBox(height: 32),
+          _CollectionEditTextField(
+            key: const Key('card-detail-item-purchase-price'),
+            label: 'PURCHASE PRICE',
+            initialValue: draft.purchasePriceText,
+            keyboardType: TextInputType.number,
+            accentText: true,
+            onChanged: (value) {
+              controller.updateCollectionItemDraft(purchasePriceText: value);
+            },
+          ),
+          const SizedBox(height: 28),
+          const Divider(height: 1, thickness: 1, color: _kCollectionOutline),
+          const SizedBox(height: 33),
+          const Text('NOTES', style: _kCollectionHeadlineStyle),
+          const SizedBox(height: 12),
+          _CollectionEditTextArea(
+            key: const Key('card-detail-item-notes'),
+            initialValue: draft.notes,
+            onChanged: (value) {
+              controller.updateCollectionItemDraft(notes: value);
+            },
+          ),
+          if (state.collectionItemFormError != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              state.collectionItemFormError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionEditActionButton extends StatelessWidget {
+  const _CollectionEditActionButton({
+    required this.label,
+    required this.onPressed,
+    this.buttonKey,
+    this.accent = false,
+  });
+
+  final Key? buttonKey;
+  final String label;
+  final VoidCallback onPressed;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: TextButton(
+        key: buttonKey,
+        style: TextButton.styleFrom(
+          backgroundColor: accent
+              ? KandoColors.accent
+              : KandoColors.elevatedSurface,
+          foregroundColor: accent
+              ? KandoColors.primaryOnDefault
+              : KandoColors.text,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          shape: const StadiumBorder(
+            side: BorderSide(color: KandoColors.borderSubtle),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 13,
+            height: 16 / 13,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        onPressed: onPressed,
+        child: Text(label),
+      ),
+    );
+  }
+}
+
+class _CollectionEditTextField extends StatelessWidget {
+  const _CollectionEditTextField({
+    required this.label,
+    required this.initialValue,
+    required this.onChanged,
+    this.keyboardType,
+    this.accentText = false,
+    super.key,
+  });
+
+  final String label;
+  final String initialValue;
+  final ValueChanged<String> onChanged;
+  final TextInputType? keyboardType;
+  final bool accentText;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CollectionEditLabeledControl(
+      label: label,
+      child: TextFormField(
+        initialValue: initialValue,
+        keyboardType: keyboardType,
+        cursorColor: KandoColors.accent,
+        style: TextStyle(
+          fontSize: 16,
+          height: 24 / 16,
+          fontWeight: accentText ? FontWeight.w600 : FontWeight.w400,
+          color: accentText ? KandoColors.accent : KandoColors.text,
+        ),
+        decoration: const InputDecoration(
+          isCollapsed: true,
+          border: InputBorder.none,
+        ),
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _CollectionEditTextArea extends StatelessWidget {
+  const _CollectionEditTextArea({
+    required this.initialValue,
+    required this.onChanged,
+    super.key,
+  });
+
+  final String initialValue;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(17, 16, 17, 17),
+      decoration: BoxDecoration(
+        color: KandoColors.ink,
+        borderRadius: BorderRadius.circular(_kRadiusLg),
+        border: Border.all(color: KandoColors.border),
+      ),
+      child: TextFormField(
+        initialValue: initialValue,
+        cursorColor: KandoColors.accent,
+        minLines: 5,
+        maxLines: 8,
+        style: const TextStyle(
+          fontSize: 14,
+          height: 20 / 14,
+          color: KandoColors.text,
+        ),
+        decoration: const InputDecoration(
+          isCollapsed: true,
+          border: InputBorder.none,
+        ),
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _CollectionEditLabeledControl extends StatelessWidget {
+  const _CollectionEditLabeledControl({
+    required this.label,
+    required this.child,
+  });
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: _kCollectionEditLabelStyle),
+        const SizedBox(height: 8),
+        Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 13),
+          decoration: BoxDecoration(
+            color: KandoColors.ink,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: KandoColors.border),
+          ),
+          alignment: Alignment.centerLeft,
+          child: child,
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectionPillGroup extends StatelessWidget {
+  const _CollectionPillGroup({
+    required this.label,
+    required this.selected,
+    required this.options,
+    required this.columns,
+    required this.onSelected,
+    super.key,
+  });
+
+  final String label;
+  final String? selected;
+  final List<String> options;
+  final int columns;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: _kCollectionEditLabelStyle),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final gap = columns == 1 ? 0.0 : 8.0;
+            final width =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
+            return Wrap(
+              spacing: gap,
+              runSpacing: 8,
+              children: [
+                for (final option in options)
+                  SizedBox(
+                    width: width,
+                    height: 44,
+                    child: _CollectionPillButton(
+                      label: option,
+                      selected: option == selected,
+                      alignLeft: columns == 1,
+                      onPressed: () => onSelected(option),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectionPillButton extends StatelessWidget {
+  const _CollectionPillButton({
+    required this.label,
+    required this.selected,
+    required this.alignLeft,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool selected;
+  final bool alignLeft;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? KandoColors.accent.withValues(alpha: 0.1)
+          : KandoColors.ink,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: selected ? KandoColors.accent : KandoColors.border,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Align(
+            alignment: alignLeft ? Alignment.centerLeft : Alignment.center,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 16,
+                height: 24 / 16,
+                color: selected
+                    ? KandoColors.accent
+                    : _kCollectionSecondaryText,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const TextStyle _kCollectionEditLabelStyle = TextStyle(
+  fontSize: 11,
+  height: 18 / 11,
+  color: _kCollectionSecondaryText,
+);
+
+List<String> _optionsWithSelected(List<String> options, String? selected) {
+  if (selected == null || selected.isEmpty || options.contains(selected)) {
+    return options;
+  }
+  return [...options, selected];
+}
+
 class _ChoiceField extends StatelessWidget {
   const _ChoiceField({
     required this.label,
     required this.value,
     required this.options,
     required this.onSelected,
+    this.displayBuilder,
     super.key,
   });
 
@@ -1266,13 +2048,15 @@ class _ChoiceField extends StatelessWidget {
   final String? value;
   final List<String> options;
   final ValueChanged<String> onSelected;
+  final String Function(String value)? displayBuilder;
 
   @override
   Widget build(BuildContext context) {
     final selected = options.contains(value) ? value! : options.first;
+    final displayText = displayBuilder?.call(selected) ?? selected;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(8),
       onTap: () async {
         final next = await _showChoiceSheet(
           context,
@@ -1284,23 +2068,29 @@ class _ChoiceField extends StatelessWidget {
           onSelected(next);
         }
       },
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
-        ),
-        child: RichText(
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          text: TextSpan(
-            text: selected,
-            style: const TextStyle(
-              color: KandoColors.text,
-              fontSize: 16,
-              height: 24 / 16,
+      child: _CollectionEditLabeledControl(
+        label: label,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                displayText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: KandoColors.text,
+                  fontSize: 16,
+                  height: 24 / 16,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 21,
+              color: KandoColors.disabledText,
+            ),
+          ],
         ),
       ),
     );
