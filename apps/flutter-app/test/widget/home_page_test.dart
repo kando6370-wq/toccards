@@ -200,6 +200,7 @@ void main() {
     );
     expect(find.text('Trending Today'), findsOneWidget);
     expect(find.text('Ragavan, Nimble Pilferer'), findsOneWidget);
+    expect(find.text('+12.34%'), findsOneWidget);
   });
 
   testWidgets('Overview uses the Figma filled 16px inverse label', (

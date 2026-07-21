@@ -64,7 +64,7 @@ class TrendingCard {
     required this.title,
     required this.subtitle,
     required this.priceUsd,
-    required this.previousPriceUsd,
+    required this.increaseRate,
     this.imageAssetPath,
     this.imageUrl,
   });
@@ -73,7 +73,7 @@ class TrendingCard {
   final String title;
   final String subtitle;
   final double priceUsd;
-  final double previousPriceUsd;
+  final double increaseRate;
   final String? imageAssetPath;
   final String? imageUrl;
 }

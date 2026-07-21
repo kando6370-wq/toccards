@@ -31,6 +31,16 @@ type TcgplayerSkuRow = {
   price_history: string;
 };
 
+type TrendingRow = CardCatalogRow &
+  Omit<TcgplayerSkuRow, "product_id"> & {
+    increase_rate: number;
+  };
+
+type SkuPricingRow = Pick<
+  TcgplayerSkuRow,
+  "variant_name" | "variant_code" | "language_name" | "language_code" | "price_history"
+>;
+
 type PriceHistoryEntry = {
   date: string;
   price: number;
@@ -164,45 +174,37 @@ LIMIT ? OFFSET ?`,
     async getTrending() {
       const results = await db
         .prepare(
-          `${CARD_SELECT}
-WHERE EXISTS (
-  SELECT 1 FROM tcgplayer_skus
-  WHERE tcgplayer_skus.product_id = CAST(cards_all.product_id AS INTEGER)
+          `WITH ranked_skus AS (
+  SELECT sku_id, product_id, condition_code, condition_name, language_code,
+         language_name, variant_code, variant_name, price_history, increase_rate,
+         ROW_NUMBER() OVER (
+           PARTITION BY product_id
+           ORDER BY increase_rate DESC, sku_id ASC
+         ) AS product_rank
+  FROM tcgplayer_skus
+  WHERE increase_rate IS NOT NULL
 )
-ORDER BY updated_at DESC, product_id ASC
-LIMIT 100`,
+SELECT cards_all.product_id, cards_all.game_id, cards_all.game,
+       cards_all.set_name, cards_all.set_code, cards_all.name,
+       cards_all.rarity, cards_all.product_type_name,
+       ranked_skus.sku_id, ranked_skus.condition_code,
+       ranked_skus.condition_name, ranked_skus.language_code,
+       ranked_skus.language_name, ranked_skus.variant_code,
+       ranked_skus.variant_name, ranked_skus.price_history,
+       ranked_skus.increase_rate
+FROM ranked_skus
+JOIN cards_all
+  ON CAST(cards_all.product_id AS INTEGER) = ranked_skus.product_id
+WHERE ranked_skus.product_rank = 1
+ORDER BY ranked_skus.increase_rate DESC, ranked_skus.sku_id ASC
+LIMIT 10`,
         )
-        .all<CardCatalogRow>();
-      const rows = results.results ?? [];
-      const skusByProductId = await findSkuRowsByProductId(
-        db,
-        rows.map((row) => row.product_id),
-      );
+        .all<TrendingRow>();
 
-      return rows
-        .map((row) => {
-          const skus = skusByProductId.get(row.product_id) ?? [];
-          const sku = preferredSearchSku(skus);
-          return { row, skus, trend: sku ? oneDayTrend(sku) : null };
-        })
-        .sort(
-          (left, right) =>
-            Number(left.trend === null) - Number(right.trend === null) ||
-            (right.trend?.percent ?? 0) - (left.trend?.percent ?? 0) ||
-            left.row.product_id.localeCompare(right.row.product_id),
-        )
-        .slice(0, 10)
-        .map(({ row, skus, trend }) => ({
-          ...cardWithSearchPricing(row, skus),
-          ...(trend === null
-            ? {}
-            : {
-                previous_1d_price_usd: trend.previous,
-                price_change_1d_percent: trend.percent,
-                price_as_of: trend.currentDate,
-                previous_price_as_of: trend.previousDate,
-              }),
-        }));
+      return (results.results ?? []).map((row) => ({
+        ...cardWithSkuPricing(row, row),
+        price_change_1d_percent: row.increase_rate,
+      }));
     },
 
     async getSoldListings(card_ref): Promise<SoldListing[]> {
@@ -278,6 +280,15 @@ function cardWithSearchPricing(
   if (!sku) {
     return card;
   }
+
+  return cardWithSkuPricing(row, sku);
+}
+
+function cardWithSkuPricing(
+  row: CardCatalogRow,
+  sku: SkuPricingRow,
+): CardSearchResult {
+  const card = cardFromRow(row);
 
   const series = filterPointsByDays(parsePriceHistory(sku.price_history), 30);
   const current = series.at(-1)?.price;
@@ -509,33 +520,6 @@ function latestPricePoint(
   points: PriceHistoryEntry[],
 ): PriceHistoryEntry | null {
   return points.sort((left, right) => left.date.localeCompare(right.date)).at(-1) ?? null;
-}
-
-function oneDayTrend(row: TcgplayerSkuRow): {
-  currentDate: string;
-  previousDate: string;
-  previous: number;
-  percent: number;
-} | null {
-  const points = parsePriceHistory(row.price_history).sort((left, right) =>
-    left.date.localeCompare(right.date),
-  );
-  const current = points.at(-1);
-  if (!current) return null;
-
-  const cutoff = new Date(`${current.date}T00:00:00.000Z`);
-  cutoff.setUTCDate(cutoff.getUTCDate() - 1);
-  const previous = points
-    .filter((point) => new Date(`${point.date}T00:00:00.000Z`) <= cutoff)
-    .at(-1);
-  if (!previous || previous.price <= 0) return null;
-
-  return {
-    currentDate: current.date,
-    previousDate: previous.date,
-    previous: previous.price,
-    percent: ((current.price - previous.price) / previous.price) * 100,
-  };
 }
 
 function filterPointsByDays(

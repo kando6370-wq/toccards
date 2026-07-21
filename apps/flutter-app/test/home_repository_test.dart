@@ -39,7 +39,7 @@ void main() {
       );
       expect(dashboard.trending.single.title, 'Trending Card');
       expect(dashboard.trending.single.priceUsd, 60);
-      expect(dashboard.trending.single.previousPriceUsd, 50);
+      expect(dashboard.trending.single.increaseRate, 12.34);
       expect(dashboard.currencyCode, 'USD');
       expect(dashboard.amountHidden, isFalse);
       final month = dashboard
@@ -303,7 +303,7 @@ class _CardDataApi implements CardDataApi {
     imageUrl: 'https://cdn.example.test/$cardRef.png',
     rarity: 'Rare',
     priceUsd: cardRef == 'trending' ? 60 : null,
-    previous1dPriceUsd: cardRef == 'trending' ? 50 : null,
+    priceChange1dPercent: cardRef == 'trending' ? 12.34 : null,
   );
 
   @override

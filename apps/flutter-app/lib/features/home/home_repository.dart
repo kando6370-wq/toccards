@@ -116,14 +116,16 @@ class ApiHomeRepository implements HomeRepository {
 Future<List<TrendingCard>> loadTrendingCards(CardDataApi cardDataApi) async {
   final cards = (await cardDataApi.trendingCards()).take(3);
   return cards
-      .where((card) => card.priceUsd != null && card.previous1dPriceUsd != null)
+      .where(
+        (card) => card.priceUsd != null && card.priceChange1dPercent != null,
+      )
       .map(
         (card) => TrendingCard(
           cardRef: card.cardRef,
           title: card.name,
           subtitle: card.setName,
           priceUsd: card.priceUsd!,
-          previousPriceUsd: card.previous1dPriceUsd!,
+          increaseRate: card.priceChange1dPercent!,
           imageUrl: cardImageUrl(card.cardRef, CardImageVariant.thumbnail),
         ),
       )

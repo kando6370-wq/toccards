@@ -57,7 +57,7 @@ void main() {
       expect(mainHighlight.priceUsd, 780);
       expect(mainHighlight.previousPriceUsd, 721.55);
       expect(dashboard.trending.first.title, 'Ragavan, Nimble Pilferer');
-      expect(dashboard.trending.first.previousPriceUsd, 10320000);
+      expect(dashboard.trending.first.increaseRate, 12.34);
       expect(state.totalAmountText, r'$12,450.80');
       expect(state.changeAmountText, r'$420.00 in the last 30 days');
       expect(state.changePercentText, '+3.49%');
@@ -471,7 +471,7 @@ class _RecoveringTrendingApi implements CardDataApi {
         imageUrl: null,
         rarity: 'Rare',
         priceUsd: 25,
-        previous1dPriceUsd: 20,
+        priceChange1dPercent: 25,
       ),
     ];
   }

@@ -24,6 +24,16 @@ void main() {
     expect(change.percentText, '+20.00%');
   });
 
+  test(
+    'formats a server-provided percent without recalculating it from prices',
+    () {
+      final change = MarketChange.fromPercent(12.34);
+
+      expect(change.percent, 12.34);
+      expect(change.percentText, '+12.34%');
+    },
+  );
+
   test('missing or invalid previous price falls back loudly', () {
     for (final previous in <double?>[null, 0, -1]) {
       final change = MarketChange.fromPrices(current: 120, previous: previous);

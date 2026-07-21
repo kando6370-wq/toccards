@@ -939,14 +939,10 @@ class _TrendingSection extends StatelessWidget {
               title: trends[index].title,
               subtitle: trends[index].subtitle,
               price: state.formatCardPrice(trends[index].priceUsd),
-              percent: _percentText(
-                current: trends[index].priceUsd,
-                previous: trends[index].previousPriceUsd,
-              ),
-              percentColor: _percentColor(
-                current: trends[index].priceUsd,
-                previous: trends[index].previousPriceUsd,
-              ),
+              percent: MarketChange.fromPercent(
+                trends[index].increaseRate,
+              ).percentText,
+              percentColor: _percentValueColor(trends[index].increaseRate),
               imageAssetPath: trends[index].imageAssetPath,
               imageUrl: trends[index].imageUrl,
               onTap: trends[index].cardRef == null
@@ -1711,12 +1707,8 @@ String _percentText({required double current, required double? previous}) {
   ).percentText;
 }
 
-Color _percentColor({required double current, required double? previous}) {
-  final percent = MarketChange.fromPrices(
-    current: current,
-    previous: previous,
-  ).percent;
-  if (percent == null || percent == 0) {
+Color _percentValueColor(double percent) {
+  if (percent == 0) {
     return KandoColors.mutedText;
   }
   return percent > 0 ? KandoColors.accent : _kNegativeColor;

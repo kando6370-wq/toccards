@@ -85,6 +85,13 @@
       "when": 1784516400000,
       "tag": "0011_sets_set_id_primary_key",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1784602800000,
+      "tag": "0012_tcgplayer_skus_increase_rate",
+      "breakpoints": true
     }
   ]
 }

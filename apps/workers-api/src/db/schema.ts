@@ -85,6 +85,7 @@ export const tcgplayerSkus = sqliteTable(
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
     priceHistory: text("price_history").notNull().default("[]"),
+    increaseRate: real("increase_rate"),
     source: text("source"),
     sourceVariantId: text("source_variant_id"),
   },
@@ -100,6 +101,7 @@ export const tcgplayerSkus = sqliteTable(
       t.source,
       t.sourceVariantId,
     ),
+    index("idx_tcgplayer_skus_increase_rate").on(t.increaseRate),
   ],
 );
 

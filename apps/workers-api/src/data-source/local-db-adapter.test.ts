@@ -31,6 +31,7 @@ type SkuRow = {
   variant_code: string | null;
   variant_name: string | null;
   price_history: string;
+  increase_rate: number | null;
 };
 
 class FakeCardDatabase {
@@ -72,6 +73,33 @@ class FakeBoundStatement {
   ) {}
 
   async all<T>(): Promise<{ results: T[] }> {
+    if (this.sql.includes("WITH ranked_skus AS")) {
+      const highestSkuByProduct = new Map<number, SkuRow>();
+      for (const sku of this.skus.filter((row) => row.increase_rate !== null)) {
+        const current = highestSkuByProduct.get(sku.product_id);
+        if (
+          !current ||
+          sku.increase_rate! > current.increase_rate! ||
+          (sku.increase_rate === current.increase_rate && sku.sku_id < current.sku_id)
+        ) {
+          highestSkuByProduct.set(sku.product_id, sku);
+        }
+      }
+      const results = [...highestSkuByProduct.values()]
+        .sort(
+          (left, right) =>
+            right.increase_rate! - left.increase_rate! || left.sku_id - right.sku_id,
+        )
+        .slice(0, 10)
+        .flatMap((sku) => {
+          const card = this.cards.find(
+            (candidate) => Number(candidate.product_id) === sku.product_id,
+          );
+          return card ? [{ ...card, ...sku, product_id: card.product_id }] : [];
+        });
+      return { results: results as T[] };
+    }
+
     if (this.sql.includes("FROM sets s")) {
       const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
       const hasGameFilter = this.sql.includes("lower(s.game) = lower(?)");
@@ -472,18 +500,19 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
-  it("ranks Trending Today by the preferred SKU 1D change because Home must show the same price it ranked", async () => {
+  it("ranks Trending Today by non-null stored SKU increase because Home must show the same SKU price it ranked", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [
           card({ product_id: "100", name: "Small Mover" }),
-          card({ product_id: "200", name: "Large Mover" }),
-          card({ product_id: "300", name: "Falling Card" }),
-          card({ product_id: "400", name: "Missing Baseline" }),
+          card({ product_id: "200", name: "Largest Mover" }),
+          card({ product_id: "300", name: "Missing Increase" }),
+          card({ product_id: "400", name: "Falling Card" }),
         ],
         [
           sku({
             product_id: 100,
+            increase_rate: 5,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-14" },
               { price: 11, date: "2026-07-15" },
@@ -492,6 +521,7 @@ describe("local D1 card data source adapter", () => {
           sku({
             sku_id: 2,
             product_id: 200,
+            increase_rate: 40,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-12" },
               { price: 15, date: "2026-07-15" },
@@ -499,17 +529,30 @@ describe("local D1 card data source adapter", () => {
           }),
           sku({
             sku_id: 3,
-            product_id: 300,
+            product_id: 200,
+            variant_code: "F",
+            variant_name: "Foil",
+            increase_rate: 60,
             price_history: JSON.stringify([
-              { price: 10, date: "2026-07-14" },
-              { price: 8, date: "2026-07-15" },
+              { price: 20, date: "2026-07-14" },
+              { price: 25, date: "2026-07-15" },
             ]),
           }),
           sku({
             sku_id: 4,
-            product_id: 400,
+            product_id: 300,
+            increase_rate: null,
             price_history: JSON.stringify([
               { price: 7, date: "2026-07-15" },
+            ]),
+          }),
+          sku({
+            sku_id: 5,
+            product_id: 400,
+            increase_rate: -20,
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-14" },
+              { price: 8, date: "2026-07-15" },
             ]),
           }),
         ],
@@ -519,30 +562,23 @@ describe("local D1 card data source adapter", () => {
     await expect(adapter.getTrending()).resolves.toMatchObject([
       {
         card_ref: "200",
-        name: "Large Mover",
-        price_usd: 15,
-        previous_30d_price_usd: 10,
-        previous_1d_price_usd: 10,
-        price_change_1d_percent: 50,
-        price_as_of: "2026-07-15",
-        previous_price_as_of: "2026-07-12",
+        name: "Largest Mover",
+        finish: "Foil",
+        price_usd: 25,
+        previous_30d_price_usd: 20,
+        price_change_1d_percent: 60,
       },
       {
         card_ref: "100",
         name: "Small Mover",
         price_usd: 11,
         previous_30d_price_usd: 10,
-        previous_1d_price_usd: 10,
-        price_change_1d_percent: 10,
-      },
-      {
-        card_ref: "300",
-        name: "Falling Card",
-        price_change_1d_percent: -20,
+        price_change_1d_percent: 5,
       },
       {
         card_ref: "400",
-        name: "Missing Baseline",
+        name: "Falling Card",
+        price_change_1d_percent: -20,
       },
     ]);
   });
@@ -574,6 +610,7 @@ function sku(overrides: Partial<SkuRow>): SkuRow {
     variant_code: "N",
     variant_name: "Normal",
     price_history: "[]",
+    increase_rate: null,
     ...overrides,
   };
 }
