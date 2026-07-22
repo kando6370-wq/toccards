@@ -850,7 +850,16 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
             <div className="candidate-list">
               {scan.candidates.map((candidate, index) => (
                 <div className="candidate-card" key={index}>
-                  <span className="candidate-thumb" />
+                  <span className="candidate-thumb">
+                    {typeof candidate.image_url === "string" && candidate.image_url && (
+                      <img
+                        src={candidate.image_url}
+                        alt={String(candidate.name ?? "候选卡牌")}
+                        loading="lazy"
+                        onError={(event) => { event.currentTarget.style.display = "none"; }}
+                      />
+                    )}
+                  </span>
                   <div>
                     <strong>{displayValue(candidate.name)}</strong>
                     <Text>{displayValue(candidate.set_code ?? candidate.set)} {displayValue(candidate.card_number ?? candidate.number)} · {confidenceText(candidate.confidence)}</Text>

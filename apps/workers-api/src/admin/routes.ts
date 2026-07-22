@@ -10,6 +10,7 @@ import { Hono } from "hono";
 import type { Context, Next } from "hono";
 import type { Env } from "../env";
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
+import { cardImageUrl } from "../card-image-url";
 import { createId } from "../id";
 
 type AdminRole = "super_admin" | "operator";
@@ -1353,7 +1354,14 @@ function toScanDetail(row: ScanRecordRow) {
     os_version: row.os_version ?? "Unknown",
     system_result: parseJsonObject(row.system_result),
     user_result: parseJsonObject(row.user_result),
-    candidates: parseJsonObjectArray(row.candidates),
+    candidates: parseJsonObjectArray(row.candidates).map((candidate) => {
+      const cardRef = typeof candidate.card_ref === "string"
+        ? candidate.card_ref.trim()
+        : "";
+      return cardRef
+        ? { ...candidate, image_url: cardImageUrl(cardRef, "thumbnail") }
+        : candidate;
+    }),
   };
 }
 

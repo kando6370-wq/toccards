@@ -804,7 +804,12 @@ describe("admin routes", () => {
         scan_id: scanId,
         system_result: expect.objectContaining({ name: "Bushi Tenderfoot", confidence: 86.2 }),
         user_result: expect.objectContaining({ added_to_inventory: expect.any(Boolean) }),
-        candidates: [expect.objectContaining({ card_ref: "11958" })],
+        candidates: [
+          expect.objectContaining({
+            card_ref: "11958",
+            image_url: expect.stringContaining("/cards/11958.jpg"),
+          }),
+        ],
       }),
     });
 
