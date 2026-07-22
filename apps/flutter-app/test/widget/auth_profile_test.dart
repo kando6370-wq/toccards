@@ -740,6 +740,13 @@ void main() {
       destinationLabel: 'Verification Code',
     );
 
+    final email = find.text('person@example.com');
+    expect(email, findsOneWidget);
+    expect(
+      find.ancestor(of: email, matching: find.byType(EditableText)),
+      findsNothing,
+      reason: 'The verification code is bound to the submitted email.',
+    );
     final toast = find.byKey(const Key('code-sent-toast'));
     expect(toast, findsOneWidget);
     expect(tester.getSize(toast), const Size(260, 122));

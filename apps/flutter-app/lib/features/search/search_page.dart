@@ -83,7 +83,7 @@ class SearchPage extends ConsumerWidget {
                         IconButton(
                           onPressed: () => context.go('/scan'),
                           icon: const Icon(
-                            Icons.qr_code_scanner_outlined,
+                            Icons.photo_camera_outlined,
                             size: 20,
                           ),
                           color: KandoColors.accent,

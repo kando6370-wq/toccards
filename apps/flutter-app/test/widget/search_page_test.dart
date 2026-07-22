@@ -287,7 +287,7 @@ void main() {
       find.byWidgetPredicate((widget) {
         return widget is IconButton &&
             widget.icon is Icon &&
-            (widget.icon as Icon).icon == Icons.qr_code_scanner_outlined;
+            (widget.icon as Icon).icon == Icons.photo_camera_outlined;
       }),
     );
     await tester.pumpAndSettle();
