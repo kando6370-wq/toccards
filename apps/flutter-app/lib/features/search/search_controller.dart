@@ -199,6 +199,7 @@ class SearchController extends Notifier<SearchState> {
   SearchAssetSnapshot? _assetSnapshot;
   Future<SearchAssetSnapshot>? _assetLoad;
   var _assetGeneration = 0;
+  var _hasCompleteSets = true;
   final _pendingCardMutations = <String>{};
 
   Future<void> get loadComplete {
@@ -241,6 +242,8 @@ class SearchController extends Notifier<SearchState> {
 
   void _startLoad({SearchState? preserveState, AuthSession? session}) {
     _searchDebounce?.cancel();
+    _hasCompleteSets =
+        ref.read(searchRepositoryProvider) is! HttpSearchRepository;
     final completer = Completer<void>();
     final generation = ++_loadGeneration;
     _loadCompleter = completer;
@@ -310,6 +313,10 @@ class SearchController extends Notifier<SearchState> {
     }
 
     state = state.copyWith(selectedTab: tab);
+    if (tab == SearchTab.sets && !_hasCompleteSets) {
+      _hasCompleteSets = true;
+      _scheduleSearch(tab: tab, query: state.searchText, allowEmpty: true);
+    }
   }
 
   void updateSearch(String value) {
@@ -343,6 +350,8 @@ class SearchController extends Notifier<SearchState> {
       return;
     }
 
+    _hasCompleteSets =
+        ref.read(searchRepositoryProvider) is! HttpSearchRepository;
     state = state.copyWith(
       selectedGameId: gameId,
       searchByTab: {...state.searchByTab, state.selectedTab: ''},
@@ -634,6 +643,9 @@ class SearchController extends Notifier<SearchState> {
       if (!ref.mounted) return;
       if (generation == _loadGeneration) {
         final failedSearchTabs = {...state.failedSearchTabs}..remove(tab);
+        if (tab == SearchTab.sets) {
+          _hasCompleteSets = true;
+        }
         state = _stateForCatalog(
           catalog,
           preserveState: state,
@@ -643,6 +655,9 @@ class SearchController extends Notifier<SearchState> {
       }
     } catch (_) {
       if (ref.mounted && generation == _loadGeneration) {
+        if (tab == SearchTab.sets) {
+          _hasCompleteSets = false;
+        }
         state = state.copyWith(
           failedSearchTabs: {...state.failedSearchTabs, tab},
         );

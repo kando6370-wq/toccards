@@ -101,7 +101,7 @@ class HttpSearchRepository
       final setQuery = _defaultSetQuery ?? games.first.label;
       final results = await Future.wait([
         searchCardPage('', game: games.first.label, page: 1),
-        _setCatalogApi!.searchCatalogSets('', game: setQuery),
+        _api.searchSets('', game: setQuery),
       ]);
       cards = results[0] as List<SearchCard>;
       final sets = results[1] as List<CardDataSetDto>;

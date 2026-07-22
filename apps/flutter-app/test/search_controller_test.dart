@@ -185,8 +185,9 @@ void main() {
   );
 
   test(
-    'initial Search loads the first game option instead of unrelated trending cards',
+    'initial Search loads one set page because Cards must not wait for the complete set catalog',
     () async {
+      final setCatalogApi = _FakeSetCatalogApi();
       final api = _FakeCardDataApi(
         trendingCardRows: const [],
         searchCardRows: const [
@@ -209,14 +210,48 @@ void main() {
 
       final catalog = await HttpSearchRepository(
         api,
-        setCatalogApi: const _FakeSetCatalogApi(),
+        setCatalogApi: setCatalogApi,
       ).loadCatalog();
 
       expect(api.trendingCalls, 0);
       expect(api.searchCardQueries, ['']);
       expect(api.searchCardGames, ['Flesh and Blood TCG']);
+      expect(api.searchSetQueries, ['']);
+      expect(api.searchSetGames, ['Flesh and Blood TCG']);
+      expect(setCatalogApi.searchCalls, 0);
       expect(catalog.defaultGame.label, 'Flesh and Blood TCG');
       expect(catalog.cards.single.id, '664850');
+    },
+  );
+
+  test(
+    'opening Sets loads the complete catalog because the initial page is intentionally partial',
+    () async {
+      final setCatalogApi = _FakeSetCatalogApi();
+      final repository = HttpSearchRepository(
+        _FakeCardDataApi(
+          trendingCardRows: const [],
+          searchCardRows: const [],
+          sets: const [],
+        ),
+        setCatalogApi: setCatalogApi,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(repository),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      expect(setCatalogApi.searchCalls, 0);
+      controller.selectTab(SearchTab.sets);
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+
+      expect(setCatalogApi.searchCalls, 1);
     },
   );
 
@@ -963,7 +998,7 @@ class _RecordingSearchRepository implements SearchRepository {
 }
 
 class _FakeSetCatalogApi implements SetCatalogApi {
-  const _FakeSetCatalogApi();
+  var searchCalls = 0;
 
   @override
   Future<List<CardDataGameDto>> listGames() async {
@@ -978,6 +1013,7 @@ class _FakeSetCatalogApi implements SetCatalogApi {
     String query, {
     String? game,
   }) async {
+    searchCalls += 1;
     return const [];
   }
 
