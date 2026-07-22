@@ -128,6 +128,38 @@ void main() {
     expect(find.text('Squirtle'), findsOneWidget);
   });
 
+  testWidgets('search field waits for debounce before updating results', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(TextFormField));
+    await tester.enterText(find.byType(TextFormField), 'charizard');
+    await tester.pump(
+      Duration(milliseconds: searchDebounceDuration.inMilliseconds ~/ 2),
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SearchPage)),
+    );
+    expect(container.read(searchControllerProvider).searchText, '');
+    expect(find.text('Squirtle'), findsOneWidget);
+
+    await tester.pump(searchDebounceDuration);
+    await tester.pump();
+
+    expect(container.read(searchControllerProvider).searchText, 'charizard');
+    expect(find.text('Charizard ex'), findsOneWidget);
+    expect(find.text('Squirtle'), findsNothing);
+    expect(find.byType(TextFormField), findsOneWidget);
+  });
+
   testWidgets(
     'Cards query failure keeps Sets available and Refresh retries Cards',
     (tester) async {

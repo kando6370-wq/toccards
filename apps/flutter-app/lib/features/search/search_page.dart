@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -32,7 +34,7 @@ class SearchPage extends ConsumerWidget {
             return false;
           },
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 116),
             children: [
               if (state.isLoading) ...[
                 Text(
@@ -49,52 +51,13 @@ class SearchPage extends ConsumerWidget {
                 const SizedBox(height: 16),
                 KandoFailureBlock(onRefresh: controller.refresh),
               ] else ...[
-                TextFormField(
-                  key: ValueKey(
-                    'search-field-${state.selectedTab}-${state.searchText}',
-                  ),
-                  initialValue: state.searchText,
-                  style: const TextStyle(fontSize: 15, color: KandoColors.text),
-                  decoration: InputDecoration(
-                    hintText: 'Search cards, sets, or characters',
-                    hintStyle: const TextStyle(
-                      fontSize: 15,
-                      color: KandoColors.mutedText,
-                    ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                    filled: true,
-                    fillColor: KandoColors.surface,
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      size: 20,
-                      color: KandoColors.mutedText,
-                    ),
-                    suffixIcon: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (state.hasQuery)
-                          IconButton(
-                            key: const Key('search-clear-button'),
-                            onPressed: controller.clearSearch,
-                            icon: const Icon(Icons.close, size: 20),
-                            color: KandoColors.mutedText,
-                          ),
-                        IconButton(
-                          onPressed: () => context.go('/scan'),
-                          icon: const Icon(
-                            Icons.photo_camera_outlined,
-                            size: 20,
-                          ),
-                          color: KandoColors.accent,
-                        ),
-                      ],
-                    ),
-                    border: _inputBorder(KandoColors.border),
-                    enabledBorder: _inputBorder(KandoColors.border),
-                    focusedBorder: _inputBorder(KandoColors.accent),
-                  ),
-                  onChanged: controller.updateSearch,
+                _DebouncedSearchField(
+                  key: ValueKey('search-field-${state.selectedTab}'),
+                  searchText: state.searchText,
+                  selectedTab: state.selectedTab,
+                  onChanged: controller.submitSearch,
+                  onClear: () => controller.submitSearch(''),
+                  onScan: () => context.go('/scan'),
                 ),
                 const SizedBox(height: 12),
                 _GameSelectorField(
@@ -122,6 +85,128 @@ OutlineInputBorder _inputBorder(Color color) {
     borderRadius: BorderRadius.circular(12),
     borderSide: BorderSide(color: color),
   );
+}
+
+class _DebouncedSearchField extends StatefulWidget {
+  const _DebouncedSearchField({
+    super.key,
+    required this.searchText,
+    required this.selectedTab,
+    required this.onChanged,
+    required this.onClear,
+    required this.onScan,
+  });
+
+  final String searchText;
+  final SearchTab selectedTab;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  final VoidCallback onScan;
+
+  @override
+  State<_DebouncedSearchField> createState() => _DebouncedSearchFieldState();
+}
+
+class _DebouncedSearchFieldState extends State<_DebouncedSearchField> {
+  late final TextEditingController _controller;
+  Timer? _debounce;
+  late String _lastExternalText;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastExternalText = widget.searchText;
+    _controller = TextEditingController(text: widget.searchText);
+  }
+
+  @override
+  void didUpdateWidget(covariant _DebouncedSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final tabChanged = widget.selectedTab != oldWidget.selectedTab;
+    final externalTextChanged = widget.searchText != _lastExternalText;
+    if (!tabChanged && !externalTextChanged) {
+      return;
+    }
+
+    _debounce?.cancel();
+    _lastExternalText = widget.searchText;
+    if (_controller.text != widget.searchText) {
+      _controller.value = TextEditingValue(
+        text: widget.searchText,
+        selection: TextSelection.collapsed(offset: widget.searchText.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _queueSearch(String value) {
+    setState(() {});
+    _debounce?.cancel();
+    _debounce = Timer(searchDebounceDuration, () {
+      _lastExternalText = value;
+      widget.onChanged(value);
+    });
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _lastExternalText = '';
+    if (_controller.text.isNotEmpty) {
+      _controller.clear();
+      setState(() {});
+    }
+    widget.onClear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasInput = _controller.text.trim().isNotEmpty;
+    return TextFormField(
+      key: const Key('search-field'),
+      controller: _controller,
+      style: const TextStyle(fontSize: 15, color: KandoColors.text),
+      decoration: InputDecoration(
+        hintText: 'Search cards, sets, or characters',
+        hintStyle: const TextStyle(fontSize: 15, color: KandoColors.mutedText),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        filled: true,
+        fillColor: KandoColors.surface,
+        prefixIcon: const Icon(
+          Icons.search,
+          size: 20,
+          color: KandoColors.mutedText,
+        ),
+        suffixIcon: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasInput)
+              IconButton(
+                key: const Key('search-clear-button'),
+                onPressed: _clearSearch,
+                icon: const Icon(Icons.close, size: 20),
+                color: KandoColors.mutedText,
+              ),
+            IconButton(
+              onPressed: widget.onScan,
+              icon: const Icon(Icons.photo_camera_outlined, size: 20),
+              color: KandoColors.accent,
+            ),
+          ],
+        ),
+        border: _inputBorder(KandoColors.border),
+        enabledBorder: _inputBorder(KandoColors.border),
+        focusedBorder: _inputBorder(KandoColors.accent),
+      ),
+      onChanged: _queueSearch,
+    );
+  }
 }
 
 class _GameSelectorField extends StatelessWidget {
@@ -300,7 +385,7 @@ class _SearchResults extends ConsumerWidget {
           ],
         ),
         if (state.isLoadingMoreCards) ...[
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           const SizedBox(
             width: 24,
             height: 24,

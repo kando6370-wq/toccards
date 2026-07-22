@@ -5,7 +5,7 @@ import 'package:kando_app/shared/ui/app_shell.dart';
 
 void main() {
   testWidgets(
-    'Figma tab bar keeps the 390x844 Home Search Scan collection Profile order',
+    'Figma tab bar keeps the 390x844 Home Search Scan Collection Profile order',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -64,7 +64,7 @@ void main() {
         ),
       );
       expect(find.text('Scan'), findsNothing);
-      expect(find.text('collection'), findsOneWidget);
+      expect(find.text('Collection'), findsOneWidget);
     },
   );
 

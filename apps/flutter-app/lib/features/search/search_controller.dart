@@ -320,13 +320,21 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void updateSearch(String value) {
+    _updateSearch(value, debounce: true);
+  }
+
+  void submitSearch(String value) {
+    _updateSearch(value, debounce: false);
+  }
+
+  void _updateSearch(String value, {required bool debounce}) {
     if (state.isUnavailable || state.isLoading) {
       return;
     }
 
     final tab = state.selectedTab;
     state = state.copyWith(searchByTab: {...state.searchByTab, tab: value});
-    _scheduleSearch(tab: tab, query: value);
+    _scheduleSearch(tab: tab, query: value, debounce: debounce);
   }
 
   void clearSearch() {
@@ -598,6 +606,7 @@ class SearchController extends Notifier<SearchState> {
     required SearchTab tab,
     required String query,
     bool allowEmpty = false,
+    bool debounce = true,
   }) {
     _searchDebounce?.cancel();
     if (state.failedSearchTabs.contains(tab)) {
@@ -614,6 +623,11 @@ class SearchController extends Notifier<SearchState> {
     final completer = Completer<void>();
     final generation = ++_loadGeneration;
     _loadCompleter = completer;
+    if (!debounce) {
+      unawaited(_loadSearch(tab, trimmed, generation, completer));
+      return;
+    }
+
     _searchDebounce = Timer(searchDebounceDuration, () {
       unawaited(_loadSearch(tab, trimmed, generation, completer));
     });
