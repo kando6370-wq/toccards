@@ -125,7 +125,7 @@ void main() {
   );
 
   testWidgets(
-    'Scan uses the live camera session because preview, flash, and capture must stay in the Figma flow',
+    'Scan shows capture feedback before freezing the live frame because taking a photo must be perceptible',
     (tester) async {
       final camera = _TestScanCameraSession();
       final source = _TestScanResultSource(
@@ -156,6 +156,9 @@ void main() {
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
+      expect(camera.takePhotoCount, 0);
+      expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 500));
       expect(camera.takePhotoCount, 1);
       expect(source.recognizedImages.single.fileName, 'live-camera.jpg');
       expect(
@@ -192,6 +195,8 @@ void main() {
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
 
+      expect(camera.takePhotoCount, 0);
+      await tester.pump(const Duration(milliseconds: 500));
       expect(camera.takePhotoCount, 1);
       expect(source.recognizedImages, hasLength(1));
     },

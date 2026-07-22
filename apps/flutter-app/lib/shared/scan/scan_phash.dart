@@ -7,10 +7,6 @@ const _dctSize = 64;
 const _hashSize = 16;
 const _precisionBits = 22;
 
-final _lanczosCoefficients = _LanczosCoefficients.create(
-  inputSize: _sourceSize,
-  outputSize: _dctSize,
-);
 final _cosines = List.generate(
   _hashSize,
   (frequency) => List.generate(
@@ -30,7 +26,13 @@ String encodeScanPhash(Uint8List channel) {
     );
   }
 
-  final resized = _resizePillowLanczos(channel);
+  final resized = resizeScanChannelPillowLanczos(
+    channel,
+    inputWidth: _sourceSize,
+    inputHeight: _sourceSize,
+    outputWidth: _dctSize,
+    outputHeight: _dctSize,
+  );
   final coefficients = _lowFrequencyDct(resized);
   final sorted = [...coefficients]..sort();
   final median = (sorted[127] + sorted[128]) / 2;
@@ -43,16 +45,32 @@ String encodeScanPhash(Uint8List channel) {
   return base64UrlEncode(bytes).replaceAll('=', '');
 }
 
-Uint8List _resizePillowLanczos(Uint8List source) {
-  final filter = _lanczosCoefficients;
-  final horizontal = Uint8List(_dctSize * _sourceSize);
-  for (var row = 0; row < _sourceSize; row += 1) {
-    final sourceRow = row * _sourceSize;
-    final targetRow = row * _dctSize;
-    for (var column = 0; column < _dctSize; column += 1) {
+Uint8List resizeScanChannelPillowLanczos(
+  Uint8List source, {
+  required int inputWidth,
+  required int inputHeight,
+  required int outputWidth,
+  required int outputHeight,
+}) {
+  final horizontalFilter = _LanczosCoefficients.create(
+    inputSize: inputWidth,
+    outputSize: outputWidth,
+  );
+  final verticalFilter =
+      inputHeight == inputWidth && outputHeight == outputWidth
+      ? horizontalFilter
+      : _LanczosCoefficients.create(
+          inputSize: inputHeight,
+          outputSize: outputHeight,
+        );
+  final horizontal = Uint8List(outputWidth * inputHeight);
+  for (var row = 0; row < inputHeight; row += 1) {
+    final sourceRow = row * inputWidth;
+    final targetRow = row * outputWidth;
+    for (var column = 0; column < outputWidth; column += 1) {
       var sum = 1 << (_precisionBits - 1);
-      final start = filter.starts[column];
-      final weights = filter.weights[column];
+      final start = horizontalFilter.starts[column];
+      final weights = horizontalFilter.weights[column];
       for (var offset = 0; offset < weights.length; offset += 1) {
         sum += source[sourceRow + start + offset] * weights[offset];
       }
@@ -60,21 +78,51 @@ Uint8List _resizePillowLanczos(Uint8List source) {
     }
   }
 
-  final output = Uint8List(_dctSize * _dctSize);
-  for (var row = 0; row < _dctSize; row += 1) {
-    var rowStart = filter.starts[row];
-    final weights = filter.weights[row];
-    for (var column = 0; column < _dctSize; column += 1) {
+  final output = Uint8List(outputWidth * outputHeight);
+  for (var row = 0; row < outputHeight; row += 1) {
+    final rowStart = verticalFilter.starts[row];
+    final weights = verticalFilter.weights[row];
+    for (var column = 0; column < outputWidth; column += 1) {
       var sum = 1 << (_precisionBits - 1);
       for (var offset = 0; offset < weights.length; offset += 1) {
         sum +=
-            horizontal[(rowStart + offset) * _dctSize + column] *
+            horizontal[(rowStart + offset) * outputWidth + column] *
             weights[offset];
       }
-      output[row * _dctSize + column] = _clip8(sum >> _precisionBits);
+      output[row * outputWidth + column] = _clip8(sum >> _precisionBits);
     }
   }
   return output;
+}
+
+Uint8List letterboxScanChannelPillowLanczos(
+  Uint8List source, {
+  required int width,
+  required int height,
+}) {
+  final scale = math.min(_sourceSize / width, _sourceSize / height);
+  final resizedWidth = (width * scale).round();
+  final resizedHeight = (height * scale).round();
+  final resized = resizeScanChannelPillowLanczos(
+    source,
+    inputWidth: width,
+    inputHeight: height,
+    outputWidth: resizedWidth,
+    outputHeight: resizedHeight,
+  );
+  final canvas = Uint8List(_sourceSize * _sourceSize)
+    ..fillRange(0, _sourceSize * _sourceSize, 255);
+  final left = (_sourceSize - resizedWidth) ~/ 2;
+  final top = (_sourceSize - resizedHeight) ~/ 2;
+  for (var row = 0; row < resizedHeight; row += 1) {
+    canvas.setRange(
+      (top + row) * _sourceSize + left,
+      (top + row) * _sourceSize + left + resizedWidth,
+      resized,
+      row * resizedWidth,
+    );
+  }
+  return canvas;
 }
 
 List<double> _lowFrequencyDct(Uint8List pixels) {

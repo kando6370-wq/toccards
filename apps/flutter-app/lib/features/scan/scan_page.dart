@@ -252,6 +252,7 @@ class ScanPage extends ConsumerStatefulWidget {
 class _ScanPageState extends ConsumerState<ScanPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   static const _revealTimelineDuration = Duration(microseconds: 1529856);
+  static const _captureSettleDuration = Duration(milliseconds: 500);
 
   final List<_ScanItem> _items = [];
   final List<Timer> _scanTimers = [];
@@ -416,6 +417,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     ScanResultSource source,
   ) async {
     try {
+      await Future<void>.delayed(_captureSettleDuration);
       final image = await camera.takePhoto();
       return await source.recognize(image);
     } catch (_) {

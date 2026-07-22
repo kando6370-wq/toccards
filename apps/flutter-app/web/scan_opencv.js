@@ -1,7 +1,6 @@
 (function () {
   const CARD_WIDTH = 745;
   const CARD_HEIGHT = 1043;
-  const CANVAS_SIZE = 1024;
 
   let runtime;
 
@@ -162,34 +161,6 @@
     }
   }
 
-  function letterbox(cv, rgb) {
-    const scale = Math.min(CANVAS_SIZE / rgb.cols, CANVAS_SIZE / rgb.rows);
-    const width = Math.round(rgb.cols * scale);
-    const height = Math.round(rgb.rows * scale);
-    const resized = new cv.Mat();
-    const canvas = new cv.Mat(CANVAS_SIZE, CANVAS_SIZE, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
-    try {
-      cv.resize(rgb, resized, new cv.Size(width, height), 0, 0, cv.INTER_LANCZOS4);
-      const region = canvas.roi(new cv.Rect(
-        Math.floor((CANVAS_SIZE - width) / 2),
-        Math.floor((CANVAS_SIZE - height) / 2),
-        width,
-        height,
-      ));
-      try {
-        resized.copyTo(region);
-      } finally {
-        region.delete();
-      }
-      return canvas;
-    } catch (error) {
-      canvas.delete();
-      throw error;
-    } finally {
-      resized.delete();
-    }
-  }
-
   function jpegBase64(cv, card) {
     const canvas = document.createElement("canvas");
     cv.imshow(canvas, card);
@@ -202,29 +173,28 @@
     const source = cv.imread(imageCanvas);
     let card;
     let rgb;
-    let canvas;
     try {
       card = warpCard(cv, source, detectCardCorners(cv, source));
       rgb = new cv.Mat();
       cv.cvtColor(card, rgb, cv.COLOR_RGBA2RGB);
-      canvas = letterbox(cv, rgb);
-      const pixelCount = CANVAS_SIZE * CANVAS_SIZE;
+      const pixelCount = rgb.cols * rgb.rows;
       const red = new Uint8Array(pixelCount);
       const green = new Uint8Array(pixelCount);
       const blue = new Uint8Array(pixelCount);
       for (let index = 0; index < pixelCount; index += 1) {
-        red[index] = canvas.data[index * 3];
-        green[index] = canvas.data[index * 3 + 1];
-        blue[index] = canvas.data[index * 3 + 2];
+        red[index] = rgb.data[index * 3];
+        green[index] = rgb.data[index * 3 + 1];
+        blue[index] = rgb.data[index * 3 + 2];
       }
       return {
         red: encodeBase64(red),
         green: encodeBase64(green),
         blue: encodeBase64(blue),
         card: jpegBase64(cv, card),
+        width: rgb.cols,
+        height: rgb.rows,
       };
     } finally {
-      if (canvas) canvas.delete();
       if (rgb) rgb.delete();
       if (card) card.delete();
       source.delete();

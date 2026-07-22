@@ -138,12 +138,15 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       _EmailPage.registerCode => _CodePage(
         controller: _codeController,
         email: _email ?? '',
+        emailController: _emailController,
+        onEmailChanged: _handleRegisterEmailChanged,
         title: 'Sign up',
         fullScreen: widget.fullScreen,
         loading: _loading,
         errorText: _errorText,
         onContinue: _continueToRegisterPassword,
         resendSeconds: _resendSeconds,
+        resendEnabled: _hasValidEmailInput(_emailController.text),
         onResend: _resendRegisterCode,
       ),
       _EmailPage.registerPassword => _PasswordPairPage(
@@ -244,8 +247,13 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       case _EmailPage.email:
         Navigator.of(context).pop();
       case _EmailPage.login:
-      case _EmailPage.registerCode:
         _setPage(_EmailPage.email);
+      case _EmailPage.registerCode:
+        if (widget.fullScreen) {
+          Navigator.of(context).pop();
+        } else {
+          _setPage(_EmailPage.email);
+        }
       case _EmailPage.registerPassword:
         _setPage(_EmailPage.registerCode);
       case _EmailPage.forgotEmail:
@@ -423,10 +431,43 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
     });
   }
 
-  Future<void> _resendRegisterCode() => _resendCode(
-    () => ref.read(authControllerProvider.notifier).sendRegisterCode(_email!),
-    showCodeSentToast: true,
-  );
+  void _handleRegisterEmailChanged(String value) {
+    if (_page != _EmailPage.registerCode || normalizedEmail(value) == _email) {
+      return;
+    }
+    _resendTimer?.cancel();
+    _codeSentToastTimer?.cancel();
+    _codeController.clear();
+    setState(() {
+      _resendSeconds = 0;
+      _errorText = null;
+      _isCodeSentToastVisible = false;
+    });
+  }
+
+  Future<void> _resendRegisterCode() async {
+    if (_resendSeconds > 0) return;
+    final email = _normalizedEmail();
+    if (!_validateEmail(email)) return;
+
+    await _run(() async {
+      final destination = await ref
+          .read(authControllerProvider.notifier)
+          .beginEmailAuth(email);
+      if (!mounted) return;
+      _clearSensitiveInputs();
+      setState(() {
+        _email = email;
+        _page = destination == EmailAuthDestination.login
+            ? _EmailPage.login
+            : _EmailPage.registerCode;
+      });
+      if (destination == EmailAuthDestination.registerCode) {
+        _startResendCountdown();
+        _revealCodeSentToast();
+      }
+    });
+  }
 
   Future<void> _resendForgotCode() => _resendCode(
     () => ref
@@ -1030,6 +1071,9 @@ class _CodePage extends StatefulWidget {
     required this.onContinue,
     required this.resendSeconds,
     required this.onResend,
+    this.resendEnabled = true,
+    this.emailController,
+    this.onEmailChanged,
     this.isForgotFlow = false,
   });
 
@@ -1042,6 +1086,9 @@ class _CodePage extends StatefulWidget {
   final VoidCallback onContinue;
   final int resendSeconds;
   final VoidCallback onResend;
+  final bool resendEnabled;
+  final TextEditingController? emailController;
+  final ValueChanged<String>? onEmailChanged;
   final bool isForgotFlow;
 
   @override
@@ -1084,7 +1131,9 @@ class _CodePageState extends State<_CodePage> {
                   ? 'Retry in ${widget.resendSeconds} seconds'
                   : 'Resend code',
               loading: widget.loading,
-              enabled: complete || widget.resendSeconds == 0,
+              enabled:
+                  complete ||
+                  (widget.resendSeconds == 0 && widget.resendEnabled),
               onPressed: complete ? widget.onContinue : widget.onResend,
             ),
           ],
@@ -1119,7 +1168,18 @@ class _CodePageState extends State<_CodePage> {
           ),
         ),
         const SizedBox(height: 8),
-        _ReadOnlyEmailField(email: widget.email),
+        if (widget.emailController == null)
+          _ReadOnlyEmailField(email: widget.email)
+        else
+          TextFormField(
+            key: const Key('register-code-email-input'),
+            controller: widget.emailController,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            onChanged: widget.onEmailChanged,
+            style: _fieldTextStyle,
+            decoration: _fieldDecoration(hint: 'name@exclusive.com'),
+          ),
         const SizedBox(height: 32),
         Expanded(child: content),
       ],

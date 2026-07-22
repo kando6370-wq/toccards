@@ -10,8 +10,6 @@ import 'scan_phash.dart';
 
 const _cardWidth = 745;
 const _cardHeight = 1043;
-const _canvasSize = 1024;
-
 ScanImageHasher createScanImageHasher() => _OpenCvScanImageHasher();
 
 class _OpenCvScanImageHasher implements ScanImageHasher {
@@ -44,12 +42,10 @@ ScanImageHashes _hashImage(Uint8List imageBytes) {
 
   cv.Mat? card;
   cv.Mat? rgb;
-  cv.Mat? canvas;
   try {
     final corners = _detectCardCorners(decoded);
     card = _warpCard(decoded, corners);
     rgb = cv.cvtColor(card, cv.COLOR_BGR2RGB);
-    canvas = _letterbox(rgb);
     final parameters = [cv.IMWRITE_JPEG_QUALITY, 85].i32;
     late final Uint8List cardImageBytes;
     try {
@@ -64,17 +60,33 @@ ScanImageHashes _hashImage(Uint8List imageBytes) {
       parameters.dispose();
     }
 
-    final pixelCount = _canvasSize * _canvasSize;
-    final red = Uint8List(pixelCount);
-    final green = Uint8List(pixelCount);
-    final blue = Uint8List(pixelCount);
-    final pixels = canvas.data;
-    for (var index = 0; index < pixelCount; index += 1) {
+    final sourcePixelCount = rgb.rows * rgb.cols;
+    final sourceRed = Uint8List(sourcePixelCount);
+    final sourceGreen = Uint8List(sourcePixelCount);
+    final sourceBlue = Uint8List(sourcePixelCount);
+    final pixels = rgb.data;
+    for (var index = 0; index < sourcePixelCount; index += 1) {
       final offset = index * 3;
-      red[index] = pixels[offset];
-      green[index] = pixels[offset + 1];
-      blue[index] = pixels[offset + 2];
+      sourceRed[index] = pixels[offset];
+      sourceGreen[index] = pixels[offset + 1];
+      sourceBlue[index] = pixels[offset + 2];
     }
+
+    final red = letterboxScanChannelPillowLanczos(
+      sourceRed,
+      width: rgb.cols,
+      height: rgb.rows,
+    );
+    final green = letterboxScanChannelPillowLanczos(
+      sourceGreen,
+      width: rgb.cols,
+      height: rgb.rows,
+    );
+    final blue = letterboxScanChannelPillowLanczos(
+      sourceBlue,
+      width: rgb.cols,
+      height: rgb.rows,
+    );
 
     return ScanImageHashes(
       r: encodeScanPhash(red),
@@ -83,7 +95,6 @@ ScanImageHashes _hashImage(Uint8List imageBytes) {
       cardImageBytes: cardImageBytes,
     );
   } finally {
-    canvas?.dispose();
     rgb?.dispose();
     card?.dispose();
     decoded.dispose();
@@ -240,42 +251,6 @@ cv.Mat _warpCard(cv.Mat image, List<_ImagePoint> corners) {
     transform.dispose();
     target.dispose();
     source.dispose();
-  }
-}
-
-cv.Mat _letterbox(cv.Mat image) {
-  final scale = math.min(_canvasSize / image.cols, _canvasSize / image.rows);
-  final width = (image.cols * scale).round();
-  final height = (image.rows * scale).round();
-  final resized = cv.resize(image, (
-    width,
-    height,
-  ), interpolation: cv.INTER_LANCZOS4);
-  final white = cv.Scalar.all(255);
-  final canvas = cv.Mat.fromScalar(
-    _canvasSize,
-    _canvasSize,
-    cv.MatType.CV_8UC3,
-    white,
-  );
-  final rectangle = cv.Rect(
-    (_canvasSize - width) ~/ 2,
-    (_canvasSize - height) ~/ 2,
-    width,
-    height,
-  );
-  final region = canvas.region(rectangle);
-  try {
-    resized.copyTo(region);
-    return canvas;
-  } catch (_) {
-    canvas.dispose();
-    rethrow;
-  } finally {
-    region.dispose();
-    rectangle.dispose();
-    white.dispose();
-    resized.dispose();
   }
 }
 

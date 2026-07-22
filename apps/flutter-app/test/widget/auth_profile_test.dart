@@ -688,7 +688,10 @@ void main() {
       'person@example.com',
       destinationLabel: 'Verification Code',
     );
-    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.enterText(
+      find.byKey(const Key('verification-code-input')),
+      '123456',
+    );
     await tester.pump();
     await tester.tap(
       find.widgetWithText(FilledButton, 'Get verification code'),
@@ -740,13 +743,10 @@ void main() {
       destinationLabel: 'Verification Code',
     );
 
-    final email = find.text('person@example.com');
-    expect(email, findsOneWidget);
-    expect(
-      find.ancestor(of: email, matching: find.byType(EditableText)),
-      findsNothing,
-      reason: 'The verification code is bound to the submitted email.',
+    final emailField = tester.widget<TextFormField>(
+      find.byKey(const Key('register-code-email-input')),
     );
+    expect(emailField.controller?.text, 'person@example.com');
     final toast = find.byKey(const Key('code-sent-toast'));
     expect(toast, findsOneWidget);
     expect(tester.getSize(toast), const Size(260, 122));
@@ -816,6 +816,102 @@ void main() {
     );
   });
 
+  testWidgets('register code back returns directly to auth options', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+      emailRegistered: false,
+    );
+    await tester.pumpWidget(_testAuthSheetApp(repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open auth'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Email'));
+    await tester.pumpAndSettle();
+    await _continueWithEmail(
+      tester,
+      'new@example.com',
+      destinationLabel: 'Verification Code',
+    );
+
+    await tester.tap(find.byKey(const Key('email-auth-back')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('email-auth-page')), findsNothing);
+    expect(find.text('Continue with Email'), findsOneWidget);
+  });
+
+  testWidgets('changing register email rechecks account before sending', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+      emailRegistered: false,
+      registeredEmails: const {'member@example.com'},
+    );
+    await tester.pumpWidget(_testEmailAuthPageApp(repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open email auth'));
+    await tester.pumpAndSettle();
+    await _continueWithEmail(
+      tester,
+      'new@example.com',
+      destinationLabel: 'Verification Code',
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('register-code-email-input')),
+      'member@example.com',
+    );
+    await tester.pump();
+    expect(find.widgetWithText(FilledButton, 'Resend code'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Resend code'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'SIGN IN'), findsOneWidget);
+    expect(repository.registerCodeEmails, [
+      'new@example.com',
+      'member@example.com',
+    ]);
+  });
+
+  testWidgets('changing to an unregistered email restarts resend countdown', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+      emailRegistered: false,
+    );
+    await tester.pumpWidget(_testEmailAuthPageApp(repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open email auth'));
+    await tester.pumpAndSettle();
+    await _continueWithEmail(
+      tester,
+      'first@example.com',
+      destinationLabel: 'Verification Code',
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('register-code-email-input')),
+      'second@example.com',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Resend code'));
+    await tester.pump();
+
+    expect(find.byKey(const Key('register-code-email-input')), findsOneWidget);
+    expect(
+      find.widgetWithText(FilledButton, 'Retry in 60 seconds'),
+      findsOneWidget,
+    );
+    expect(repository.registerCodeEmails, [
+      'first@example.com',
+      'second@example.com',
+    ]);
+  });
+
   testWidgets('successful register passes current anonymous id', (
     tester,
   ) async {
@@ -833,7 +929,10 @@ void main() {
       'person@example.com',
       destinationLabel: 'Verification Code',
     );
-    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.enterText(
+      find.byKey(const Key('verification-code-input')),
+      '123456',
+    );
     await tester.pump();
     await tester.tap(
       find.widgetWithText(FilledButton, 'Get verification code'),
@@ -883,7 +982,10 @@ void main() {
       'person@example.com',
       destinationLabel: 'Verification Code',
     );
-    await tester.enterText(find.byType(TextFormField), '123456');
+    await tester.enterText(
+      find.byKey(const Key('verification-code-input')),
+      '123456',
+    );
     await tester.pump();
     await tester.tap(
       find.widgetWithText(FilledButton, 'Get verification code'),
@@ -1852,6 +1954,7 @@ class _WidgetAuthRepository implements AuthRepository {
     this.logoutError,
     this.deleteError,
     this.emailRegistered = true,
+    this.registeredEmails = const {},
   }) : _currentSession = initialSession,
        _createdAnonymousIds = [...createdAnonymousIds],
        _initialSessionErrors = [...initialSessionErrors];
@@ -1867,6 +1970,7 @@ class _WidgetAuthRepository implements AuthRepository {
   final Exception? logoutError;
   final Exception? deleteError;
   final bool emailRegistered;
+  final Set<String> registeredEmails;
   var logoutRequests = 0;
   var deleteRequests = 0;
   final List<_LoginRequest> loginRequests = [];
@@ -1950,7 +2054,7 @@ class _WidgetAuthRepository implements AuthRepository {
     if (completer != null) {
       await completer.future;
     }
-    if (emailRegistered) {
+    if (emailRegistered || registeredEmails.contains(email)) {
       throw const AuthApiException(
         'Email is already registered.',
         code: 'CONFLICT',
