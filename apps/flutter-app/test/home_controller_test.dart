@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -385,6 +387,32 @@ void main() {
   });
 
   test(
+    'portfolio content renders before slow Trending because market data is not on the critical path',
+    () async {
+      final repository = _SlowTrendingHomeRepository();
+      final container = _homeContainer(repository);
+      addTearDown(container.dispose);
+
+      expect(container.read(homeControllerProvider).isLoading, isTrue);
+      repository.core.complete(mockHomeDashboard.copyWith(trending: const []));
+      await Future<void>.delayed(Duration.zero);
+
+      var state = container.read(homeControllerProvider);
+      expect(state.isLoading, isFalse);
+      expect(state.totalAmountText, r'$12,450.80');
+      expect(state.trendingStatus, KandoLoadStatus.loading);
+      expect(state.dashboard.trending, isEmpty);
+
+      repository.trending.complete(mockHomeDashboard.trending);
+      await Future<void>.delayed(Duration.zero);
+
+      state = container.read(homeControllerProvider);
+      expect(state.trendingStatus, KandoLoadStatus.content);
+      expect(state.dashboard.trending, mockHomeDashboard.trending);
+    },
+  );
+
+  test(
     'Trending refresh calls only its live feed because local failure must preserve portfolio data',
     () async {
       final repository = _TrendingFailureHomeRepository();
@@ -449,6 +477,22 @@ class _TrendingFailureHomeRepository implements HomeRepository {
       trending: const [],
       trendingUnavailable: true,
     );
+  }
+}
+
+class _SlowTrendingHomeRepository implements ProgressiveHomeRepository {
+  final core = Completer<HomeDashboard>();
+  final trending = Completer<List<TrendingCard>>();
+
+  @override
+  Future<HomeDashboard> loadCoreDashboard() => core.future;
+
+  @override
+  Future<List<TrendingCard>> loadTrending() => trending.future;
+
+  @override
+  Future<HomeDashboard> loadDashboard() {
+    throw StateError('Progressive loading must not call the combined path.');
   }
 }
 

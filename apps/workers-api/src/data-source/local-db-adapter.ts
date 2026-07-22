@@ -172,6 +172,18 @@ LIMIT ? OFFSET ?`,
     },
 
     async getTrending() {
+      const available = await db
+        .prepare(
+          `SELECT 1 AS has_trending
+FROM tcgplayer_skus INDEXED BY idx_tcgplayer_skus_increase_rate
+WHERE increase_rate IS NOT NULL
+LIMIT 1`,
+        )
+        .all<{ has_trending: number }>();
+      if ((available.results ?? []).length === 0) {
+        return [];
+      }
+
       const results = await db
         .prepare(
           `WITH ranked_skus AS (

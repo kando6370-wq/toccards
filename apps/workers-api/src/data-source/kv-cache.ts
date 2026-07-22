@@ -50,12 +50,18 @@ export function createKvCachedDataSourceAdapter(
     },
 
     async getTrending() {
-      return readThroughKv(
+      const key = `${TRENDING_RESPONSE_CACHE_VERSION}:getTrending`;
+      const cached = await readCachedValue<Awaited<ReturnType<typeof source.getTrending>>>(
         kv,
-        `${TRENDING_RESPONSE_CACHE_VERSION}:getTrending`,
-        TRENDING_TTL_SECONDS,
-        () => source.getTrending(),
+        key,
       );
+      if (cached !== null) return cached;
+
+      const fresh = await source.getTrending();
+      if (fresh.length > 0) {
+        await writeCachedValue(kv, key, fresh, TRENDING_TTL_SECONDS);
+      }
+      return fresh;
     },
 
     getSoldListings(card_ref) {

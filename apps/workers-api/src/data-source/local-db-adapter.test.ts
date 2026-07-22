@@ -41,7 +41,10 @@ class FakeCardDatabase {
     private readonly sets: SetRow[] = [],
   ) {}
 
+  readonly preparedSql: string[] = [];
+
   prepare(sql: string): FakeStatement {
+    this.preparedSql.push(sql);
     return new FakeStatement(sql, this.cards, this.skus, this.sets);
   }
 }
@@ -73,6 +76,13 @@ class FakeBoundStatement {
   ) {}
 
   async all<T>(): Promise<{ results: T[] }> {
+    if (this.sql.includes("SELECT 1 AS has_trending")) {
+      const results = this.skus.some((row) => row.increase_rate !== null)
+        ? [{ has_trending: 1 }]
+        : [];
+      return { results: results as T[] };
+    }
+
     if (this.sql.includes("WITH ranked_skus AS")) {
       const highestSkuByProduct = new Map<number, SkuRow>();
       for (const sku of this.skus.filter((row) => row.increase_rate !== null)) {
@@ -581,6 +591,21 @@ describe("local D1 card data source adapter", () => {
         price_change_1d_percent: -20,
       },
     ]);
+  });
+
+  it("returns empty Trending without the ranking scan because an unfinished producer leaves increase_rate null", async () => {
+    const db = new FakeCardDatabase(
+      [card({ product_id: "100" })],
+      [sku({ product_id: 100, increase_rate: null })],
+    );
+    const adapter = createLocalDbDataSourceAdapter(
+      db as unknown as D1Database,
+    );
+
+    await expect(adapter.getTrending()).resolves.toEqual([]);
+    expect(db.preparedSql).toHaveLength(1);
+    expect(db.preparedSql[0]).toContain("idx_tcgplayer_skus_increase_rate");
+    expect(db.preparedSql[0]).not.toContain("WITH ranked_skus AS");
   });
 });
 

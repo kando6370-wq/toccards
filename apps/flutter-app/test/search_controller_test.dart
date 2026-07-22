@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
@@ -239,6 +241,50 @@ void main() {
       expect(state.visibleCards.last.id, 'card-41');
       expect(state.cardPage, 2);
       expect(state.hasMoreCards, isFalse);
+    },
+  );
+
+  test(
+    'catalog renders before slow asset enrichment because ownership is supplemental',
+    () async {
+      const catalogCard = CardDataCardDto(
+        cardRef: 'catalog:fast-card',
+        name: 'Fast Catalog Card',
+        setName: 'Fast Set',
+        setCode: 'FAST',
+        cardNumber: '1',
+        finish: 'Normal',
+        language: 'English',
+        objectType: 'tcg',
+        imageUrl: null,
+        rarity: 'Rare',
+      );
+      final gate = Completer<void>();
+      final repository = HttpSearchRepository(
+        _FakeCardDataApi(trendingCardRows: const [catalogCard], sets: const []),
+        portfolioApi: _FakePortfolioApi(assetLoadGate: gate),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(repository),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(searchControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      var state = container.read(searchControllerProvider);
+      expect(state.isLoading, isFalse);
+      expect(state.visibleCards.single.name, catalogCard.name);
+      expect(state.assetStatus, KandoLoadStatus.loading);
+
+      gate.complete();
+      await container.read(searchControllerProvider.notifier).loadComplete;
+      state = container.read(searchControllerProvider);
+      expect(state.assetStatus, KandoLoadStatus.content);
     },
   );
 
@@ -966,6 +1012,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
     this.conflictOnWishlist = false,
     this.conflictOnCollect = false,
     this.failAssetLoad = false,
+    this.assetLoadGate,
   }) : collectionItems = [...items];
 
   final List<PortfolioItemDto> collectionItems;
@@ -975,6 +1022,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   final bool conflictOnWishlist;
   final bool conflictOnCollect;
   final bool failAssetLoad;
+  final Completer<void>? assetLoadGate;
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
@@ -992,6 +1040,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   Future<List<PortfolioItemDto>> listCollectionItems(
     AuthSession session,
   ) async {
+    await assetLoadGate?.future;
     if (failAssetLoad) throw StateError('asset state unavailable');
     return [...collectionItems];
   }

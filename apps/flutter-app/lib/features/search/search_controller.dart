@@ -43,6 +43,7 @@ class SearchState {
     this.cardPage = 1,
     this.hasMoreCards = false,
     this.isLoadingMoreCards = false,
+    this.assetStatus = KandoLoadStatus.content,
   }) : _catalog = catalog,
        loadStatus = KandoLoadStatus.content;
 
@@ -56,6 +57,7 @@ class SearchState {
       cardPage = 1,
       hasMoreCards = false,
       isLoadingMoreCards = false,
+      assetStatus = KandoLoadStatus.failure,
       loadStatus = KandoLoadStatus.failure;
 
   const SearchState.loading()
@@ -68,6 +70,7 @@ class SearchState {
       cardPage = 1,
       hasMoreCards = false,
       isLoadingMoreCards = false,
+      assetStatus = KandoLoadStatus.loading,
       loadStatus = KandoLoadStatus.loading;
 
   const SearchState._({
@@ -80,6 +83,7 @@ class SearchState {
     required this.cardPage,
     required this.hasMoreCards,
     required this.isLoadingMoreCards,
+    required this.assetStatus,
     required this.loadStatus,
   }) : _catalog = catalog;
 
@@ -92,6 +96,7 @@ class SearchState {
   final int cardPage;
   final bool hasMoreCards;
   final bool isLoadingMoreCards;
+  final KandoLoadStatus assetStatus;
   final KandoLoadStatus loadStatus;
 
   SearchCatalog get catalog {
@@ -150,6 +155,7 @@ class SearchState {
     int? cardPage,
     bool? hasMoreCards,
     bool? isLoadingMoreCards,
+    KandoLoadStatus? assetStatus,
   }) {
     return SearchState._(
       catalog: _catalog,
@@ -161,6 +167,7 @@ class SearchState {
       cardPage: cardPage ?? this.cardPage,
       hasMoreCards: hasMoreCards ?? this.hasMoreCards,
       isLoadingMoreCards: isLoadingMoreCards ?? this.isLoadingMoreCards,
+      assetStatus: assetStatus ?? this.assetStatus,
       loadStatus: loadStatus,
     );
   }
@@ -188,6 +195,9 @@ class SearchController extends Notifier<SearchState> {
   Completer<void>? _loadCompleter;
   Timer? _searchDebounce;
   var _loadGeneration = 0;
+  SearchAssetSnapshot? _assetSnapshot;
+  Future<SearchAssetSnapshot>? _assetLoad;
+  var _assetGeneration = 0;
   final _pendingCardMutations = <String>{};
 
   Future<void> get loadComplete {
@@ -203,6 +213,7 @@ class SearchController extends Notifier<SearchState> {
       if (previous == null || previous == next || state.isLoading) return;
       final repository = ref.read(searchRepositoryProvider);
       if (repository is SearchAssetRepository) {
+        _resetAssets();
         _startLoad(
           preserveState: state,
           session: ref.read(searchSessionProvider),
@@ -222,6 +233,7 @@ class SearchController extends Notifier<SearchState> {
 
   Future<void> refresh() {
     state = const SearchState.loading();
+    _resetAssets();
     _startLoad(session: _assetSession);
     return loadComplete;
   }
@@ -242,8 +254,12 @@ class SearchController extends Notifier<SearchState> {
   ) async {
     try {
       final repository = ref.read(searchRepositoryProvider);
+      final loadsAssets =
+          repository is SearchAssetRepository && session != null;
+      final assetsFuture = loadsAssets
+          ? _loadAssetSnapshot(repository, session)
+          : null;
       var catalog = await repository.loadCatalog();
-      catalog = await _withAssets(repository, catalog, session);
       if (!ref.mounted) return;
       if (catalog.games.isEmpty) {
         throw StateError('Search catalog needs at least one game.');
@@ -253,7 +269,28 @@ class SearchController extends Notifier<SearchState> {
           catalog,
           preserveState: preserveState,
           clearOverrides: repository is SearchAssetRepository,
+          assetStatus: loadsAssets
+              ? KandoLoadStatus.loading
+              : KandoLoadStatus.content,
         );
+      }
+      if (assetsFuture != null) {
+        try {
+          final snapshot = await assetsFuture;
+          catalog = _catalogWithAssets(catalog, snapshot);
+          if (ref.mounted && generation == _loadGeneration) {
+            state = _stateForCatalog(
+              catalog,
+              preserveState: state,
+              clearOverrides: true,
+              assetStatus: KandoLoadStatus.content,
+            );
+          }
+        } catch (_) {
+          if (ref.mounted && generation == _loadGeneration) {
+            state = state.copyWith(assetStatus: KandoLoadStatus.failure);
+          }
+        }
       }
     } catch (_) {
       if (ref.mounted && generation == _loadGeneration) {
@@ -368,6 +405,7 @@ class SearchController extends Notifier<SearchState> {
   Future<SearchCollectAction> toggleCollect(String cardId) async {
     if (state.isUnavailable ||
         state.isLoading ||
+        state.assetStatus != KandoLoadStatus.content ||
         !_pendingCardMutations.add(cardId)) {
       return SearchCollectAction.ignored;
     }
@@ -458,6 +496,7 @@ class SearchController extends Notifier<SearchState> {
   Future<bool> toggleWishlist(String cardId) async {
     if (state.isUnavailable ||
         state.isLoading ||
+        state.assetStatus != KandoLoadStatus.content ||
         !_pendingCardMutations.add(cardId)) {
       return false;
     }
@@ -589,6 +628,7 @@ class SearchController extends Notifier<SearchState> {
     Set<SearchTab> failedSearchTabs = const {},
     int cardPage = 1,
     bool? hasMoreCards,
+    KandoLoadStatus? assetStatus,
   }) {
     final selectedTab = preserveState?.selectedTab ?? SearchTab.cards;
     final selectedGameId = _selectedGameIdFor(catalog, preserveState);
@@ -606,6 +646,8 @@ class SearchController extends Notifier<SearchState> {
       cardPage: cardPage,
       hasMoreCards: hasMoreCards ?? catalog.cards.length == 40,
       isLoadingMoreCards: false,
+      assetStatus:
+          assetStatus ?? preserveState?.assetStatus ?? KandoLoadStatus.content,
     );
   }
 
@@ -648,21 +690,51 @@ class SearchController extends Notifier<SearchState> {
     if (repository is! SearchAssetRepository || session == null) {
       return catalog;
     }
-    late final SearchAssetSnapshot snapshot;
     try {
-      snapshot = await repository.loadAssets(
-        session,
-        selectedFolderId: ref.read(selectedPortfolioFolderProvider),
-      );
+      final snapshot = await _loadAssetSnapshot(repository, session);
+      return _catalogWithAssets(catalog, snapshot);
     } catch (_) {
       return catalog;
     }
-    if (!ref.mounted) return catalog;
-    if (ref.read(selectedPortfolioFolderProvider) == null) {
-      ref
-          .read(selectedPortfolioFolderProvider.notifier)
-          .select(snapshot.folderId);
-    }
+  }
+
+  Future<SearchAssetSnapshot> _loadAssetSnapshot(
+    SearchAssetRepository repository,
+    AuthSession session,
+  ) {
+    final cached = _assetSnapshot;
+    if (cached != null) return Future.value(cached);
+    final loading = _assetLoad;
+    if (loading != null) return loading;
+    final future = repository.loadAssets(
+      session,
+      selectedFolderId: ref.read(selectedPortfolioFolderProvider),
+    );
+    final generation = _assetGeneration;
+    _assetLoad = future.then((snapshot) {
+      if (generation == _assetGeneration) {
+        _assetSnapshot = snapshot;
+      }
+      if (ref.mounted && ref.read(selectedPortfolioFolderProvider) == null) {
+        ref
+            .read(selectedPortfolioFolderProvider.notifier)
+            .select(snapshot.folderId);
+      }
+      return snapshot;
+    });
+    return _assetLoad!;
+  }
+
+  void _resetAssets() {
+    _assetGeneration += 1;
+    _assetSnapshot = null;
+    _assetLoad = null;
+  }
+
+  SearchCatalog _catalogWithAssets(
+    SearchCatalog catalog,
+    SearchAssetSnapshot snapshot,
+  ) {
     return SearchCatalog(
       games: catalog.games,
       cards: [

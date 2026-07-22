@@ -438,15 +438,10 @@ class CollectionController extends Notifier<CollectionState> {
       final dashboardFuture = repository.loadDashboard(session);
       final gameOptionsFuture = _loadGameOptions(repository);
       final dashboard = await dashboardFuture;
-      final catalogGames = await gameOptionsFuture;
-      final gameOptions =
-          catalogGames.isNotEmpty
-                ? catalogGames
-                : {
-                    ...dashboard.portfolioItems.map((item) => item.game),
-                    ...dashboard.wishlistItems.map((item) => item.game),
-                  }.toList()
-            ..sort();
+      final gameOptions = {
+        ...dashboard.portfolioItems.map((item) => item.game),
+        ...dashboard.wishlistItems.map((item) => item.game),
+      }.toList()..sort();
       if (generation == _loadGeneration) {
         final currencyMetadata = AppCurrency.fromCode(dashboard.currencyCode);
         var preferredCurrency = ref.read(selectedCurrencyProvider);
@@ -508,6 +503,10 @@ class CollectionController extends Notifier<CollectionState> {
         if (ref.read(portfolioAmountHiddenProvider) == null) {
           ref.read(portfolioAmountHiddenProvider.notifier).select(amountHidden);
         }
+      }
+      final catalogGames = await gameOptionsFuture;
+      if (generation == _loadGeneration && catalogGames.isNotEmpty) {
+        state = state.copyWith(gameOptions: catalogGames);
       }
     } catch (_) {
       if (generation == _loadGeneration) {

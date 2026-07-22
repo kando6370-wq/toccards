@@ -11,7 +11,12 @@ abstract interface class HomeRepository {
   FutureOr<HomeDashboard> loadDashboard();
 }
 
-class ApiHomeRepository implements HomeRepository {
+abstract interface class ProgressiveHomeRepository implements HomeRepository {
+  Future<HomeDashboard> loadCoreDashboard();
+  Future<List<TrendingCard>> loadTrending();
+}
+
+class ApiHomeRepository implements ProgressiveHomeRepository {
   const ApiHomeRepository({
     required this.session,
     required this.portfolioApi,
@@ -26,6 +31,20 @@ class ApiHomeRepository implements HomeRepository {
 
   @override
   Future<HomeDashboard> loadDashboard() async {
+    final trendingResult = loadTrending().then<(List<TrendingCard>, bool)>(
+      (cards) => (cards, false),
+      onError: (_) => (const <TrendingCard>[], true),
+    );
+    final dashboard = await loadCoreDashboard();
+    final (trending, trendingUnavailable) = await trendingResult;
+    return dashboard.copyWith(
+      trending: trending,
+      trendingUnavailable: trendingUnavailable,
+    );
+  }
+
+  @override
+  Future<HomeDashboard> loadCoreDashboard() async {
     final source = await Future.wait([
       portfolioApi.listFolders(session),
       portfolioApi.getValuationHistory(session),
@@ -34,14 +53,6 @@ class ApiHomeRepository implements HomeRepository {
     final folders = source[0] as List<PortfolioFolderDto>;
     final valuations = source[1] as List<PortfolioFolderValuationDto>;
     final preferences = source[2] as UserPreferenceDto;
-    var trendingUnavailable = false;
-    List<TrendingCard> trending;
-    try {
-      trending = await loadTrendingCards(cardDataApi);
-    } catch (_) {
-      trending = const [];
-      trendingUnavailable = true;
-    }
     final homeFolders = folders
         .map(
           (folder) => HomeFolder(
@@ -105,12 +116,14 @@ class ApiHomeRepository implements HomeRepository {
       portfoliosByFolderId: portfolios,
       mostValuableByFolderId: primaryHighlights,
       mostValuableCardsByFolderId: highlights,
-      trending: trending,
+      trending: const [],
       currencyCode: preferences.currency,
       amountHidden: preferences.amountHidden,
-      trendingUnavailable: trendingUnavailable,
     );
   }
+
+  @override
+  Future<List<TrendingCard>> loadTrending() => loadTrendingCards(cardDataApi);
 }
 
 Future<List<TrendingCard>> loadTrendingCards(CardDataApi cardDataApi) async {

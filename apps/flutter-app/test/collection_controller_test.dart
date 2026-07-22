@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -591,6 +593,30 @@ void main() {
   });
 
   test(
+    'collection renders owned items before slow game filters because filters are supplemental',
+    () async {
+      final repository = _SlowGameCatalogCollectionRepository();
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      container.read(collectionControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      var state = container.read(collectionControllerProvider);
+      expect(state.isLoading, isFalse);
+      expect(state.visibleItems, isNotEmpty);
+      expect(state.availableGames, ['Lorcana', 'One Piece', 'Pokemon']);
+
+      repository.games.complete(['Pokemon', 'Lorcana']);
+      await container.read(collectionControllerProvider.notifier).loadComplete;
+      state = container.read(collectionControllerProvider);
+      expect(state.availableGames, ['Pokemon', 'Lorcana']);
+    },
+  );
+
+  test(
     'game filters use the database catalog order so Collection stays aligned with Search',
     () async {
       final container = _collectionContainer(
@@ -708,6 +734,14 @@ class _GameCatalogCollectionRepository extends MockCollectionRepository
     if (values == null) throw StateError('game catalog unavailable');
     return values;
   }
+}
+
+class _SlowGameCatalogCollectionRepository extends MockCollectionRepository
+    implements CollectionGameCatalogRepository {
+  final games = Completer<List<String>>();
+
+  @override
+  Future<List<String>> loadGameOptions() => games.future;
 }
 
 class _FailingThenSuccessfulCollectionRepository

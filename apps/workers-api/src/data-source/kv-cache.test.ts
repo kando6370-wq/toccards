@@ -158,6 +158,18 @@ describe("KV cached data source adapter", () => {
     ]);
   });
 
+  it("does not cache empty Trending because the external producer may populate increase rates at any time", async () => {
+    const kv = new FakeKvNamespace();
+    const source = new CountingDataSourceAdapter([]);
+    const adapter = createKvCachedDataSourceAdapter(source, kv);
+
+    await adapter.getTrending();
+    await adapter.getTrending();
+
+    expect(source.trendingCalls).toBe(2);
+    expect(kv.puts).toEqual([]);
+  });
+
   it("returns fresh adapter data when KV write fails because cache backfill must not break responses", async () => {
     const kv = new FakeKvNamespace();
     kv.failNextPut = true;

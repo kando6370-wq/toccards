@@ -34,6 +34,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    this.trendingStatus = KandoLoadStatus.content,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.content;
 
@@ -43,6 +44,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    this.trendingStatus = KandoLoadStatus.failure,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.failure;
 
@@ -52,6 +54,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    this.trendingStatus = KandoLoadStatus.loading,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.loading;
 
@@ -62,6 +65,7 @@ class HomeState {
     required this.amountHidden,
     required this.chartRange,
     required this.loadStatus,
+    required this.trendingStatus,
   }) : _dashboard = dashboard;
 
   final HomeDashboard? _dashboard;
@@ -70,6 +74,7 @@ class HomeState {
   final bool amountHidden;
   final HomeChartRange chartRange;
   final KandoLoadStatus loadStatus;
+  final KandoLoadStatus trendingStatus;
 
   HomeDashboard get dashboard {
     final dashboard = _dashboard;
@@ -193,6 +198,7 @@ class HomeState {
     AppCurrency? currency,
     bool? amountHidden,
     HomeChartRange? chartRange,
+    KandoLoadStatus? trendingStatus,
   }) {
     return HomeState._(
       dashboard: dashboard ?? _dashboard,
@@ -201,6 +207,7 @@ class HomeState {
       amountHidden: amountHidden ?? this.amountHidden,
       chartRange: chartRange ?? this.chartRange,
       loadStatus: loadStatus,
+      trendingStatus: trendingStatus ?? this.trendingStatus,
     );
   }
 
@@ -248,6 +255,7 @@ class HomeController extends Notifier<HomeState> {
 
   Future<bool> refreshTrending() async {
     final generation = ++_trendingLoadGeneration;
+    state = state.copyWith(trendingStatus: KandoLoadStatus.loading);
     try {
       final trending = await loadTrendingCards(
         ref.read(cardDataApiClientProvider),
@@ -258,12 +266,14 @@ class HomeController extends Notifier<HomeState> {
           trending: trending,
           trendingUnavailable: false,
         ),
+        trendingStatus: KandoLoadStatus.content,
       );
       return true;
     } catch (_) {
       if (!ref.mounted || generation != _trendingLoadGeneration) return false;
       state = state.copyWith(
         dashboard: state.dashboard.copyWith(trendingUnavailable: true),
+        trendingStatus: KandoLoadStatus.failure,
       );
       return false;
     }
@@ -279,6 +289,13 @@ class HomeController extends Notifier<HomeState> {
     try {
       final HomeRepository source =
           repository ?? ref.read(homeRepositoryProvider);
+      if (source is ProgressiveHomeRepository) {
+        return _loadProgressiveDashboard(
+          source,
+          selectedCurrency,
+          previousState,
+        );
+      }
       final result = source.loadDashboard();
       if (result is HomeDashboard) {
         return _contentState(
@@ -321,6 +338,92 @@ class HomeController extends Notifier<HomeState> {
     }
   }
 
+  HomeState _loadProgressiveDashboard(
+    ProgressiveHomeRepository repository,
+    AppCurrency currency,
+    HomeState? previousState,
+  ) {
+    final generation = ++_loadGeneration;
+    final trendingGeneration = ++_trendingLoadGeneration;
+    final trendingResult = repository
+        .loadTrending()
+        .then<(List<TrendingCard>, bool)>(
+          (cards) => (cards, false),
+          onError: (_) => (const <TrendingCard>[], true),
+        );
+    unawaited(
+      _resolveProgressiveDashboard(
+        repository.loadCoreDashboard(),
+        trendingResult,
+        generation,
+        trendingGeneration,
+        currency,
+        previousState,
+      ),
+    );
+    final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
+    return HomeState.loading(
+      dashboard: dashboard,
+      selectedFolderId:
+          previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
+      currency: currency,
+      amountHidden: previousState?.amountHidden ?? false,
+      chartRange: previousState?.chartRange ?? HomeChartRange.fifteenDays,
+    );
+  }
+
+  Future<void> _resolveProgressiveDashboard(
+    Future<HomeDashboard> coreResult,
+    Future<(List<TrendingCard>, bool)> trendingResult,
+    int generation,
+    int trendingGeneration,
+    AppCurrency currency,
+    HomeState? previousState,
+  ) async {
+    try {
+      var dashboard = await coreResult;
+      if (!ref.mounted || generation != _loadGeneration) return;
+      if (previousState != null) {
+        dashboard = dashboard.copyWith(
+          trending: previousState.dashboard.trending,
+        );
+      }
+      state = _contentState(
+        dashboard,
+        currency,
+        previousState: previousState,
+        trendingStatus: KandoLoadStatus.loading,
+      );
+
+      final (trending, unavailable) = await trendingResult;
+      if (!ref.mounted ||
+          generation != _loadGeneration ||
+          trendingGeneration != _trendingLoadGeneration) {
+        return;
+      }
+      state = state.copyWith(
+        dashboard: state.dashboard.copyWith(
+          trending: unavailable ? state.dashboard.trending : trending,
+          trendingUnavailable: unavailable,
+        ),
+        trendingStatus: unavailable
+            ? KandoLoadStatus.failure
+            : KandoLoadStatus.content,
+      );
+    } catch (_) {
+      if (!ref.mounted || generation != _loadGeneration) return;
+      final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
+      state = HomeState.unavailable(
+        dashboard: dashboard,
+        selectedFolderId:
+            previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
+        currency: currency,
+        amountHidden: previousState?.amountHidden ?? false,
+        chartRange: previousState?.chartRange ?? HomeChartRange.fifteenDays,
+      );
+    }
+  }
+
   Future<void> _resolveDashboard(
     Future<HomeDashboard> result,
     int generation,
@@ -353,6 +456,7 @@ class HomeController extends Notifier<HomeState> {
     HomeDashboard dashboard,
     AppCurrency currency, {
     HomeState? previousState,
+    KandoLoadStatus trendingStatus = KandoLoadStatus.content,
   }) {
     final configuredCurrency = AppCurrency.fromCode(dashboard.currencyCode);
     final sharedCurrency = ref.read(selectedCurrencyProvider);
@@ -407,6 +511,7 @@ class HomeController extends Notifier<HomeState> {
         portfolio,
         preferred: previousState?.chartRange,
       ),
+      trendingStatus: trendingStatus,
     );
   }
 

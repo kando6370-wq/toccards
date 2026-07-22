@@ -84,6 +84,13 @@ class HttpSearchRepository
       final seedCards = await _api.trendingCards();
       games = _gamesFromCards(seedCards);
       cards = seedCards.map(_cardFromDto).toList();
+      final setQuery = _defaultSetQuery ?? games.first.label;
+      final sets = await _api.searchSets('', game: setQuery);
+      return SearchCatalog(
+        games: games,
+        cards: cards,
+        sets: sets.map(_setFromDto).toList(),
+      );
     } else {
       games = gameDtos
           .map(
@@ -91,18 +98,19 @@ class HttpSearchRepository
                 SearchGame(id: _gameIdFromValue(game.name), label: game.name),
           )
           .toList();
-      cards = await searchCardPage('', game: games.first.label, page: 1);
+      final setQuery = _defaultSetQuery ?? games.first.label;
+      final results = await Future.wait([
+        searchCardPage('', game: games.first.label, page: 1),
+        _setCatalogApi!.searchCatalogSets('', game: setQuery),
+      ]);
+      cards = results[0] as List<SearchCard>;
+      final sets = results[1] as List<CardDataSetDto>;
+      return SearchCatalog(
+        games: games,
+        cards: cards,
+        sets: sets.map(_setFromDto).toList(),
+      );
     }
-    final setQuery = _defaultSetQuery ?? games.first.label;
-    final sets = _setCatalogApi == null
-        ? await _api.searchSets('', game: setQuery)
-        : await _setCatalogApi.searchCatalogSets('', game: setQuery);
-
-    return SearchCatalog(
-      games: games,
-      cards: cards,
-      sets: sets.map(_setFromDto).toList(),
-    );
   }
 
   @override

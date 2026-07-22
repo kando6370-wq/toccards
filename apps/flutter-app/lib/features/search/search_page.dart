@@ -292,7 +292,11 @@ class _SearchResults extends ConsumerWidget {
           childAspectRatio: 0.5,
           physics: const NeverScrollableScrollPhysics(),
           children: [
-            for (final card in state.visibleCards) _SearchCardTile(card: card),
+            for (final card in state.visibleCards)
+              _SearchCardTile(
+                card: card,
+                actionsEnabled: state.assetStatus == KandoLoadStatus.content,
+              ),
           ],
         ),
         if (state.isLoadingMoreCards) ...[
@@ -363,9 +367,10 @@ class _SearchEmptyState extends StatelessWidget {
 }
 
 class _SearchCardTile extends ConsumerWidget {
-  const _SearchCardTile({required this.card});
+  const _SearchCardTile({required this.card, required this.actionsEnabled});
 
   final SearchCard card;
+  final bool actionsEnabled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -444,20 +449,22 @@ class _SearchCardTile extends ConsumerWidget {
                                 ? Icons.add_to_photos
                                 : Icons.add_to_photos_outlined,
                             selected: card.isCollected,
-                            onPressed: () async {
-                              final action = await controller.toggleCollect(
-                                card.id,
-                              );
-                              if (action == SearchCollectAction.openDetail) {
-                                if (context.mounted) {
-                                  context.push('/cards/${card.id}');
-                                }
-                              } else if (action ==
-                                      SearchCollectAction.ignored &&
-                                  context.mounted) {
-                                showKandoFailureToast(context);
-                              }
-                            },
+                            onPressed: !actionsEnabled
+                                ? null
+                                : () async {
+                                    final action = await controller
+                                        .toggleCollect(card.id);
+                                    if (action ==
+                                        SearchCollectAction.openDetail) {
+                                      if (context.mounted) {
+                                        context.push('/cards/${card.id}');
+                                      }
+                                    } else if (action ==
+                                            SearchCollectAction.ignored &&
+                                        context.mounted) {
+                                      showKandoFailureToast(context);
+                                    }
+                                  },
                           ),
                           const SizedBox(width: 8),
                           _SearchCardActionButton(
@@ -469,14 +476,15 @@ class _SearchCardTile extends ConsumerWidget {
                                 ? Icons.favorite
                                 : Icons.favorite_border,
                             selected: showFilledHeart,
-                            onPressed: () async {
-                              final succeeded = await controller.toggleWishlist(
-                                card.id,
-                              );
-                              if (!succeeded && context.mounted) {
-                                showKandoFailureToast(context);
-                              }
-                            },
+                            onPressed: !actionsEnabled
+                                ? null
+                                : () async {
+                                    final succeeded = await controller
+                                        .toggleWishlist(card.id);
+                                    if (!succeeded && context.mounted) {
+                                      showKandoFailureToast(context);
+                                    }
+                                  },
                           ),
                         ],
                       ),
@@ -558,7 +566,7 @@ class _SearchCardActionButton extends StatelessWidget {
   final String tooltip;
   final IconData icon;
   final bool selected;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {

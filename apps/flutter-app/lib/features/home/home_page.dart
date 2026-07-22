@@ -924,7 +924,16 @@ class _TrendingSection extends StatelessWidget {
           onViewAll: onViewAll,
         ),
         const SizedBox(height: 16),
-        if (!state.isUnavailable && state.dashboard.trendingUnavailable)
+        if (!state.isUnavailable &&
+            state.trendingStatus == KandoLoadStatus.loading)
+          const SizedBox(
+            key: Key('home-loading-trending'),
+            height: 256,
+            child: KandoLoadingBlock(),
+          )
+        else if (!state.isUnavailable &&
+            (state.trendingStatus == KandoLoadStatus.failure ||
+                state.dashboard.trendingUnavailable))
           _FigmaFailurePanel(
             key: const Key('home-failure-trending'),
             height: 256,
