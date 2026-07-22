@@ -25,6 +25,7 @@ import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -318,6 +319,32 @@ void main() {
       expect(find.text('GBP'), findsOneWidget);
     },
   );
+
+  testWidgets('currency picker failure uses the typed top toast', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _mockHomeApp(
+        _TestPortfolioManagementApi(),
+        const _TestCurrencyRateApi(fails: true),
+      ),
+    );
+    await _waitForHomeAuth(tester);
+
+    await tester.tap(find.text('USD'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('EUR').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.byKey(const Key('kando-floating-toast')), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text(genericFailureToastText), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
+  });
 
   testWidgets('amount visibility toggle masks asset values', (tester) async {
     final preferences = _TestPortfolioManagementApi();
@@ -695,7 +722,10 @@ _localAuthOverrides() {
   ];
 }
 
-Widget _mockHomeApp([PortfolioManagementApi? managementApi]) {
+Widget _mockHomeApp([
+  PortfolioManagementApi? managementApi,
+  CurrencyRateApi currencyRateApi = const _TestCurrencyRateApi(),
+]) {
   final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
   return ProviderScope(
     overrides: [
@@ -705,7 +735,7 @@ Widget _mockHomeApp([PortfolioManagementApi? managementApi]) {
         _HomeCollectionRepository(portfolioManagement),
       ),
       portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
-      currencyRateApiProvider.overrideWithValue(const _TestCurrencyRateApi()),
+      currencyRateApiProvider.overrideWithValue(currencyRateApi),
     ],
     child: const _HomeTestApp(),
   );
@@ -733,10 +763,15 @@ class _HomeCollectionRepository extends MockCollectionRepository {
 }
 
 class _TestCurrencyRateApi implements CurrencyRateApi {
-  const _TestCurrencyRateApi();
+  const _TestCurrencyRateApi({this.fails = false});
+
+  final bool fails;
 
   @override
-  Future<double> loadUsdRate(String targetCurrency) async => 0.91;
+  Future<double> loadUsdRate(String targetCurrency) async {
+    if (fails) throw StateError('rate unavailable');
+    return 0.91;
+  }
 }
 
 class _TestPortfolioManagementApi implements PortfolioManagementApi {

@@ -201,7 +201,7 @@ class HomePage extends ConsumerWidget {
                                     unawaited(
                                       selection.then((success) {
                                         if (!success && pageContext.mounted) {
-                                          showKandoFailureToast(pageContext);
+                                          showKandoTopFailureToast(pageContext);
                                         }
                                       }),
                                     );
