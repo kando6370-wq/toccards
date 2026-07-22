@@ -99,7 +99,7 @@ flutter:
   fonts:
     - family: Fraunces
       fonts:
-        - asset: assets/fonts/Fraunces-Variable.ttf
+        - asset: assets/fonts/Baskerville-BaskervilleSemiBold.ttf
 
   assets:
     - assets/auth/

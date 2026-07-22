@@ -16,9 +16,10 @@ import '../support/local_placeholder_auth_repository.dart';
 
 void main() {
   setUpAll(() async {
-    await (FontLoader(
-      'Fraunces',
-    )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
+    await (FontLoader('Fraunces')..addFont(
+          rootBundle.load('assets/fonts/Baskerville-BaskervilleSemiBold.ttf'),
+        ))
+        .load();
   });
 
   test('app body typography uses the platform default family', () {

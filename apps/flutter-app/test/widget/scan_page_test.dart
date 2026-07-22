@@ -658,9 +658,10 @@ void main() {
   );
 
   testWidgets('Figma review renders at the 390x844 baseline', (tester) async {
-    await (FontLoader(
-      'Fraunces',
-    )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
+    await (FontLoader('Fraunces')..addFont(
+          rootBundle.load('assets/fonts/Baskerville-BaskervilleSemiBold.ttf'),
+        ))
+        .load();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);

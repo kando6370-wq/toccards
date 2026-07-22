@@ -84,9 +84,10 @@ void main() {
   testWidgets('Figma normal Home renders at the approved 390x844 baseline', (
     tester,
   ) async {
-    await (FontLoader(
-      'Fraunces',
-    )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
+    await (FontLoader('Fraunces')..addFont(
+          rootBundle.load('assets/fonts/Baskerville-BaskervilleSemiBold.ttf'),
+        ))
+        .load();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
@@ -122,9 +123,10 @@ void main() {
     tester,
   ) async {
     final repository = _SuccessfulThenFailingHomeRepository();
-    await (FontLoader(
-      'Fraunces',
-    )..addFont(rootBundle.load('assets/fonts/Fraunces-Variable.ttf'))).load();
+    await (FontLoader('Fraunces')..addFont(
+          rootBundle.load('assets/fonts/Baskerville-BaskervilleSemiBold.ttf'),
+        ))
+        .load();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
