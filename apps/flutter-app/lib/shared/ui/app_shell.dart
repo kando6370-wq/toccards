@@ -178,7 +178,7 @@ class _FigmaTabBar extends StatelessWidget {
                           child: _FigmaTabItem(
                             key: const Key('kando-tab-collection'),
                             horizontalInset: _tabHorizontalInset,
-                            label: 'collection',
+                            label: 'Collection',
                             iconAsset: 'assets/navigation/collection_off.svg',
                             selectedIconAsset:
                                 'assets/navigation/collection_on.svg',

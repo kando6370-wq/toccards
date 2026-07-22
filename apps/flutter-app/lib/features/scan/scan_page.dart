@@ -3305,65 +3305,224 @@ class _ReviewDropdownRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0x1A90927C))),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: Color(0xFFC7C8B0)),
-            ),
-          ),
-          SizedBox(
-            width: 180,
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                key: fieldKey,
-                value: value,
-                isExpanded: true,
-                dropdownColor: const Color(0xFF2A2B20),
-                alignment: Alignment.centerRight,
-                icon: const Text(
-                  'v',
-                  style: TextStyle(color: Color(0xFFC7C8B0), fontSize: 12),
+    final selected = options.contains(value) ? value : options.first;
+    final displayText = displayValue?.call(selected) ?? selected;
+
+    return InkWell(
+      key: fieldKey,
+      onTap: enabled
+          ? () async {
+              final next = await _showReviewChoiceSheet(
+                context,
+                title: label,
+                selected: selected,
+                options: options,
+                displayValue: displayValue,
+              );
+              if (next != null) onChanged(next);
+            }
+          : null,
+      child: Container(
+        height: 58,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0x1A90927C))),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: enabled
+                      ? const Color(0xFFC7C8B0)
+                      : const Color(0xFFC7C8B0).withValues(alpha: 0.45),
                 ),
-                style: const TextStyle(color: Color(0xFFEEECD8), fontSize: 14),
-                selectedItemBuilder: (context) => [
-                  for (final option in options)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        displayValue?.call(option) ?? option,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                displayText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                  color: enabled
+                      ? const Color(0xFFEEECD8)
+                      : const Color(0xFFEEECD8).withValues(alpha: 0.45),
+                  fontSize: 14,
+                  height: 20 / 14,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 20,
+              color: enabled
+                  ? const Color(0xFFC7C8B0)
+                  : const Color(0xFFC7C8B0).withValues(alpha: 0.45),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<String?> _showReviewChoiceSheet(
+  BuildContext context, {
+  required String title,
+  required String selected,
+  required List<String> options,
+  String Function(String value)? displayValue,
+}) {
+  return showModalBottomSheet<String>(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) {
+      final screenHeight = MediaQuery.sizeOf(sheetContext).height;
+      final maxHeight = screenHeight * 0.68 > 520 ? 520.0 : screenHeight * 0.68;
+
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: Material(
+              color: const Color(0xFF191A12),
+              clipBehavior: Clip.antiAlias,
+              borderRadius: BorderRadius.circular(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    key: const Key('scan-review-choice-sheet-handle'),
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(999),
                     ),
-                ],
-                items: [
-                  for (final option in options)
-                    DropdownMenuItem(
-                      value: option,
-                      child: Text(
-                        displayValue?.call(option) ?? option,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 12, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFEEECD8),
+                              fontFamily: 'Fraunces',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                              height: 32 / 24,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Close',
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                          color: const Color(0xFF92927D),
+                        ),
+                      ],
                     ),
+                  ),
+                  Flexible(
+                    child: ListView.separated(
+                      key: const Key('scan-review-choice-sheet-list'),
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+                      itemCount: options.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 4),
+                      itemBuilder: (context, index) {
+                        final option = options[index];
+                        return _ReviewChoiceSheetOption(
+                          key: Key('scan-review-choice-option-$option'),
+                          label: displayValue?.call(option) ?? option,
+                          selected: option == selected,
+                          onTap: () => Navigator.of(sheetContext).pop(option),
+                        );
+                      },
+                    ),
+                  ),
                 ],
-                onChanged: enabled
-                    ? (next) {
-                        if (next != null) onChanged(next);
-                      }
-                    : null,
               ),
             ),
           ),
-        ],
+        ),
+      );
+    },
+  );
+}
+
+class _ReviewChoiceSheetOption extends StatelessWidget {
+  const _ReviewChoiceSheetOption({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFFF0FE6F).withValues(alpha: 0.16)
+              : const Color(0xFF171811).withValues(alpha: 0.78),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFFF0FE6F).withValues(alpha: 0.8)
+                : const Color(0xFF464835).withValues(alpha: 0.75),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected
+                      ? const Color(0xFFEEECD8)
+                      : const Color(0xFFC7C8B0),
+                  fontSize: 15,
+                  height: 22 / 15,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(
+              selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+              size: 20,
+              color: selected
+                  ? const Color(0xFFF0FE6F)
+                  : const Color(0xFF464835),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -921,10 +921,20 @@ void main() {
         find.byKey(const Key('scan-review-quantity-1')),
         '2',
       );
+      await tester.pump();
       await tester.tap(find.byKey(const Key('scan-review-grader-1')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('PSA').last);
+      expect(find.text('Grader'), findsWidgets);
+      expect(
+        find.byKey(const Key('scan-review-choice-sheet-handle')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('scan-review-choice-option-PSA')));
       await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('scan-review-choice-sheet-handle')),
+        findsNothing,
+      );
       expect(find.byKey(const Key('scan-review-grade-1')), findsOneWidget);
       expect(find.text(r'$200.00'), findsOneWidget);
 
