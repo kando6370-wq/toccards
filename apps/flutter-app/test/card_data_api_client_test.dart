@@ -78,6 +78,50 @@ void main() {
   );
 
   test(
+    'getPriceSeriesBatch sends one structured request because Card Detail must not fan out HTTP calls',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'POST');
+        expect(request.path, '/cards/catalog%3Apikachu-025/price-series/batch');
+        expect(request.queryParameters, {'response_version': '2'});
+        expect(request.data, {
+          'requests': [
+            {
+              'days': 30,
+              'grader': 'Raw',
+              'grade': null,
+              'condition': 'Near Mint',
+            },
+          ],
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'results': [
+              {
+                'series': [
+                  {'date': '2026-07-10', 'price': 15},
+                ],
+              },
+            ],
+          },
+        });
+      });
+
+      final results = await CardDataApiClient(_dio(adapter))
+          .getPriceSeriesBatch('catalog:pikachu-025', const [
+            CardDataPriceSeriesQuery(
+              days: 30,
+              grader: 'Raw',
+              condition: 'Near Mint',
+            ),
+          ]);
+
+      expect(results.single.single.price, 15);
+    },
+  );
+
+  test(
     'searchSets maps game because Search must keep real sets visible under the selected game',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -172,7 +216,10 @@ void main() {
       ).searchCatalogSets('', game: 'Magic: The Gathering');
 
       expect(sets.single.setCode, 'TMC');
-      expect(sets.single.imageUrl, 'https://image.tcgcard.fun/cards/679068.jpg');
+      expect(
+        sets.single.imageUrl,
+        'https://image.tcgcard.fun/cards/679068.jpg',
+      );
     },
   );
 
@@ -299,6 +346,7 @@ class _RecordingAdapter implements HttpClientAdapter {
       _RecordedRequest(
         method: options.method,
         path: options.path,
+        data: options.data,
         queryParameters: options.queryParameters.map(
           (key, value) => MapEntry(key, value.toString()),
         ),
@@ -314,10 +362,12 @@ class _RecordedRequest {
   const _RecordedRequest({
     required this.method,
     required this.path,
+    required this.data,
     required this.queryParameters,
   });
 
   final String method;
   final String path;
+  final Object? data;
   final Map<String, String> queryParameters;
 }

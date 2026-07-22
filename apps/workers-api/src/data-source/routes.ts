@@ -33,6 +33,13 @@ type CardResponse = CardSearchResult & {
   override_applied: boolean;
 };
 
+type PriceSeriesBatchRequest = {
+  grader: string;
+  grade: number | null;
+  condition: string | null;
+  days: number;
+};
+
 const SELECT_CARD_OVERRIDE_SQL = `
 SELECT card_ref, override_fields, image_url, is_missing_card
 FROM card_override
@@ -232,6 +239,33 @@ export function createDataSourceRoutes(
       success: true,
       data: { card_ref: cardRef, grader, grade, condition, days, series },
     });
+  });
+
+  routes.post("/cards/:card_ref/price-series/batch", async (c) => {
+    c.header("Cache-Control", "no-store");
+    const cardRef = cardRefParam(c.req.param("card_ref"));
+    const body = await c.req.json<unknown>().catch(() => null);
+    const requests = parsePriceSeriesBatch(body);
+    if (!requests) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const adapter = createAdapter(c.env);
+    const results = await Promise.all(
+      requests.map(async (request) => ({
+        ...request,
+        series: await listOrEmpty(() =>
+          adapter.getPriceSeries(
+            cardRef,
+            request.grader,
+            request.grade,
+            request.condition,
+            request.days,
+          ),
+        ),
+      })),
+    );
+
+    return c.json({ success: true, data: { card_ref: cardRef, results } });
   });
 
   routes.get("/cards/:card_ref/sold-listings", async (c) => {
@@ -544,6 +578,42 @@ function positiveIntegerOrDefault(
   }
 
   return max ? Math.min(parsed, max) : parsed;
+}
+
+function parsePriceSeriesBatch(value: unknown): PriceSeriesBatchRequest[] | null {
+  if (!isRecord(value) || !Array.isArray(value.requests)) {
+    return null;
+  }
+  if (value.requests.length === 0 || value.requests.length > 100) {
+    return null;
+  }
+
+  const requests: PriceSeriesBatchRequest[] = [];
+  for (const item of value.requests) {
+    if (!isRecord(item)) return null;
+    const grader = typeof item.grader === "string" ? item.grader.trim() : "";
+    const grade = item.grade === null ? null : item.grade;
+    const condition = item.condition === null ? null : item.condition;
+    const days = item.days;
+    if (
+      !grader ||
+      (grade !== null && (typeof grade !== "number" || !Number.isFinite(grade))) ||
+      (condition !== null && typeof condition !== "string") ||
+      typeof days !== "number" ||
+      !Number.isInteger(days) ||
+      days < 1 ||
+      days > 3650
+    ) {
+      return null;
+    }
+    requests.push({
+      grader,
+      grade,
+      condition: typeof condition === "string" ? condition.trim() || null : null,
+      days,
+    });
+  }
+  return requests;
 }
 
 function nullableNumber(value: string | undefined): number | null {

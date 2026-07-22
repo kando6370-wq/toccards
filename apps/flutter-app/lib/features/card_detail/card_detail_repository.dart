@@ -49,6 +49,8 @@ class CardDetailSeriesData {
 }
 
 abstract interface class CardDetailSectionRepository {
+  Future<CardDetail> loadCoreDetail(String cardId);
+  Future<CardDetail> loadAssetState(AuthSession session, CardDetail detail);
   Future<CardDetail> loadBaseDetail(AuthSession session, String cardId);
   Future<CardDetailMarketData> loadMarketPrices(String cardId);
   Future<CardDetailSeriesData> loadPriceSeries(
@@ -71,16 +73,35 @@ class HttpCardDetailRepository
 
   @override
   Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
-    final detail = await loadBaseDetail(session, cardId);
-    final market = await loadMarketPrices(cardId);
-    final series = await loadPriceSeries(cardId, market);
-    final soldListings = await loadSoldListings(cardId);
+    final results = await Future.wait([
+      loadBaseDetail(session, cardId),
+      loadMarketPrices(
+        cardId,
+      ).then((market) => loadPriceSeries(cardId, market)),
+      loadSoldListings(cardId),
+    ]);
+    final detail = results[0] as CardDetail;
+    final series = results[1] as CardDetailSeriesData;
+    final soldListings = results[2] as List<CardSoldListing>;
     return _mergeSections(detail, series, soldListings);
   }
 
   @override
   Future<CardDetail> loadBaseDetail(AuthSession session, String cardId) async {
-    final detail = _baseDetailFromDto(await _cardDataApi.getCard(cardId));
+    final detail = await loadCoreDetail(cardId);
+    return loadAssetState(session, detail);
+  }
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) async {
+    return _baseDetailFromDto(await _cardDataApi.getCard(cardId));
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(
+    AuthSession session,
+    CardDetail detail,
+  ) async {
     final results = await Future.wait([
       _api.listFolders(session),
       _api.listCollectionItems(session),
@@ -95,23 +116,15 @@ class HttpCardDetailRepository
   @override
   Future<CardDetailMarketData> loadMarketPrices(String cardId) async {
     final prices = await _cardDataApi.getMarketPrices(cardId);
-    final seriesByPrice = Map.fromEntries(
-      await Future.wait(
-        prices.map((price) async {
-          final entries = await Future.wait(
-            [CardPriceRange.sevenDays, CardPriceRange.oneMonth].map(
-              (range) async =>
-                  MapEntry(range, await _loadSeries(cardId, price, range)),
-            ),
-          );
-          return MapEntry(price, Map.fromEntries(entries));
-        }),
-      ),
-    );
     return CardDetailMarketData(
       prices: prices,
       marketPrices: prices
-          .map((price) => _marketPriceFromDto(price, seriesByPrice[price]!))
+          .map(
+            (price) => _marketPriceFromDto(
+              price,
+              const <CardPriceRange, List<CardPricePoint>>{},
+            ),
+          )
           .toList(),
     );
   }
@@ -122,14 +135,6 @@ class HttpCardDetailRepository
     CardDetailMarketData? market,
   ]) async {
     final prices = market?.prices ?? await _cardDataApi.getMarketPrices(cardId);
-    final seriesByPrice = Map.fromEntries(
-      await Future.wait(
-        prices.map(
-          (price) async =>
-              MapEntry(price, await _loadSeriesByRange(cardId, price)),
-        ),
-      ),
-    );
     final rawPrice = _firstWhereOrNull(
       prices,
       (price) => price.grader.toLowerCase() == 'raw',
@@ -138,6 +143,13 @@ class HttpCardDetailRepository
       prices,
       (price) => price.grader.toLowerCase() != 'raw',
     );
+    final rangesByPrice = {
+      for (final price in prices)
+        price: identical(price, rawPrice) || identical(price, gradedPrice)
+            ? CardPriceRange.values
+            : const [CardPriceRange.sevenDays, CardPriceRange.oneMonth],
+    };
+    final seriesByPrice = await _loadSeriesForPrices(cardId, rangesByPrice);
     return CardDetailSeriesData(
       marketPrices: prices
           .map((price) => _marketPriceFromDto(price, seriesByPrice[price]!))
@@ -262,16 +274,81 @@ class HttpCardDetailRepository
 
   Future<Map<CardPriceRange, List<CardPricePoint>>> _loadSeriesByRange(
     String cardRef,
-    CardDataMarketPriceDto price,
-  ) async {
+    CardDataMarketPriceDto price, {
+    required bool includeChartRanges,
+  }) async {
+    final ranges = includeChartRanges
+        ? CardPriceRange.values
+        : const [CardPriceRange.sevenDays, CardPriceRange.oneMonth];
     return Map.fromEntries(
       await Future.wait(
-        CardPriceRange.values.map((range) async {
+        ranges.map((range) async {
           return MapEntry(range, await _loadSeries(cardRef, price, range));
         }),
       ),
     );
   }
+
+  Future<Map<CardDataMarketPriceDto, Map<CardPriceRange, List<CardPricePoint>>>>
+  _loadSeriesForPrices(
+    String cardRef,
+    Map<CardDataMarketPriceDto, List<CardPriceRange>> rangesByPrice,
+  ) async {
+    final api = _cardDataApi;
+    if (api is BatchCardDataApi) {
+      final batchApi = api as BatchCardDataApi;
+      try {
+        final keys = [
+          for (final entry in rangesByPrice.entries)
+            for (final range in entry.value) (entry.key, range),
+        ];
+        final results = await batchApi.getPriceSeriesBatch(cardRef, [
+          for (final (price, range) in keys)
+            CardDataPriceSeriesQuery(
+              days: range.days,
+              grader: price.grader,
+              grade: price.grade,
+              condition: price.condition,
+            ),
+        ]);
+        final mapped = {
+          for (final price in rangesByPrice.keys)
+            price: <CardPriceRange, List<CardPricePoint>>{},
+        };
+        for (var index = 0; index < keys.length; index += 1) {
+          final (price, range) = keys[index];
+          mapped[price]![range] = _pricePointsFromDtos(results[index]);
+        }
+        return mapped;
+      } catch (_) {
+        // Supports clients deployed before the batch Workers route is live.
+      }
+    }
+
+    return Map.fromEntries(
+      await Future.wait(
+        rangesByPrice.entries.map(
+          (entry) async => MapEntry(
+            entry.key,
+            await _loadSeriesByRange(
+              cardRef,
+              entry.key,
+              includeChartRanges:
+                  entry.value.length == CardPriceRange.values.length,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+List<CardPricePoint> _pricePointsFromDtos(List<CardDataPricePointDto> points) {
+  return points
+      .map(
+        (point) => CardPricePoint(dateLabel: point.date, priceUsd: point.price),
+      )
+      .toList();
 }
 
 CardDetail _baseDetailFromDto(CardDataCardDto card) {

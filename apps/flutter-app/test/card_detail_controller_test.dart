@@ -44,6 +44,13 @@ void main() {
         reason:
             'Card Detail must not serialize every market qualifier and chart range into a network waterfall.',
       );
+      expect(
+        cardDataApi.totalSeriesRequests,
+        10,
+        reason:
+            'Market prices must reuse the full chart load instead of requesting 7d and 30d series twice.',
+      );
+      expect(cardDataApi.priceSeriesBatchCalls, 1);
       expect(detail.id, 'catalog:pikachu-025');
       expect(detail.type, CardDetailType.tcg);
       expect(detail.name, 'Pikachu');
@@ -127,6 +134,39 @@ void main() {
   );
 
   test(
+    'core card renders before portfolio state because slow user data must not block detail navigation',
+    () async {
+      final portfolioApi = _BlockingPortfolioApiClient();
+      final repository = HttpCardDetailRepository(
+        api: portfolioApi,
+        cardDataApi: _FakeCardDataApi(),
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+
+      container.read(provider);
+      await portfolioApi.started.future;
+
+      final firstContent = container.read(provider);
+      expect(firstContent.loadStatus, KandoLoadStatus.content);
+      expect(firstContent.detail.name, 'Pikachu');
+      expect(firstContent.assetStateStatus, KandoLoadStatus.loading);
+
+      portfolioApi.release();
+      await container.read(provider.notifier).loadComplete;
+
+      final complete = container.read(provider);
+      expect(complete.assetStateStatus, KandoLoadStatus.content);
+      expect(complete.marketPricesStatus, KandoLoadStatus.content);
+      expect(complete.priceSeriesStatus, KandoLoadStatus.content);
+      expect(complete.soldListingsStatus, KandoLoadStatus.content);
+      expect(complete.detail.marketPrices.first.previous30dPriceUsd, 10);
+    },
+  );
+
+  test(
     'http detail repository overlays backend collection rows onto local card detail because ownership state is backend-owned',
     () async {
       final api = _FakePortfolioApiClient(
@@ -162,6 +202,25 @@ void main() {
       expect(detail.collectionItems.single.portfolioName, 'Main');
       expect(detail.isWishlisted, isFalse);
       expect(detail.wishlistItemId, isNull);
+    },
+  );
+
+  test(
+    'price series falls back to single requests because mobile and Workers releases are not atomic',
+    () async {
+      final cardDataApi = _FakeCardDataApi(failPriceSeriesBatch: true);
+      final detail = await HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      ).loadDetail(_session, 'catalog:pikachu-025');
+
+      expect(cardDataApi.priceSeriesBatchCalls, 1);
+      expect(cardDataApi.totalSeriesRequests, 10);
+      expect(detail.priceSeriesByRange, isNotEmpty);
     },
   );
 
@@ -955,6 +1014,19 @@ class _BlockingOptionalSectionRepository extends _RecordingCardDetailRepository
   final _soldListingsCompleter = Completer<List<CardSoldListing>>();
 
   @override
+  Future<CardDetail> loadCoreDetail(String cardId) {
+    return super.loadDetail(_session, cardId);
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(
+    AuthSession session,
+    CardDetail detail,
+  ) async {
+    return detail;
+  }
+
+  @override
   Future<CardDetail> loadBaseDetail(AuthSession session, String cardId) {
     return super.loadDetail(session, cardId);
   }
@@ -1274,21 +1346,60 @@ class _FakePortfolioApiClient implements PortfolioApi {
   Future<void> deleteWishlist(AuthSession session, String itemId) async {}
 }
 
-class _FakeCardDataApi implements CardDataApi {
+class _BlockingPortfolioApiClient extends _FakePortfolioApiClient {
+  _BlockingPortfolioApiClient()
+    : super(folders: const [], items: const [], wishlist: const []);
+
+  final started = Completer<void>();
+  final _release = Completer<void>();
+
+  void release() => _release.complete();
+
+  Future<void> _wait() async {
+    if (!started.isCompleted) started.complete();
+    await _release.future;
+  }
+
+  @override
+  Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
+    await _wait();
+    return super.listFolders(session);
+  }
+
+  @override
+  Future<List<PortfolioItemDto>> listCollectionItems(
+    AuthSession session,
+  ) async {
+    await _wait();
+    return super.listCollectionItems(session);
+  }
+
+  @override
+  Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) async {
+    await _wait();
+    return super.listWishlistItems(session);
+  }
+}
+
+class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
   _FakeCardDataApi({
     this.card = _pikachuCard,
     this.failMarketPrices = false,
     this.failPriceSeries = false,
+    this.failPriceSeriesBatch = false,
     this.failSoldListings = false,
   });
 
   final CardDataCardDto card;
   final bool failMarketPrices;
   final bool failPriceSeries;
+  final bool failPriceSeriesBatch;
   final bool failSoldListings;
   final List<String> cardRefs = [];
   var activeSeriesRequests = 0;
   var maxConcurrentSeriesRequests = 0;
+  var totalSeriesRequests = 0;
+  var priceSeriesBatchCalls = 0;
 
   @override
   Future<List<CardDataCardDto>> searchCards(
@@ -1346,6 +1457,7 @@ class _FakeCardDataApi implements CardDataApi {
     if (failPriceSeries) {
       throw StateError('price series unavailable');
     }
+    totalSeriesRequests += 1;
     activeSeriesRequests += 1;
     if (activeSeriesRequests > maxConcurrentSeriesRequests) {
       maxConcurrentSeriesRequests = activeSeriesRequests;
@@ -1365,6 +1477,28 @@ class _FakeCardDataApi implements CardDataApi {
       CardDataPricePointDto(date: '2026-06-10', price: previous),
       CardDataPricePointDto(date: '2026-07-10', price: current),
     ];
+  }
+
+  @override
+  Future<List<List<CardDataPricePointDto>>> getPriceSeriesBatch(
+    String cardRef,
+    List<CardDataPriceSeriesQuery> requests,
+  ) {
+    priceSeriesBatchCalls += 1;
+    if (failPriceSeriesBatch) {
+      throw StateError('batch price series unavailable');
+    }
+    return Future.wait(
+      requests.map(
+        (request) => getPriceSeries(
+          cardRef,
+          days: request.days,
+          grader: request.grader,
+          grade: request.grade,
+          condition: request.condition,
+        ),
+      ),
+    );
   }
 
   @override

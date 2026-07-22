@@ -388,7 +388,7 @@ class _SearchCardTile extends ConsumerWidget {
       color: KandoColors.surface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: () => context.go('/cards/${card.id}'),
+        onTap: () => context.push('/cards/${card.id}'),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(
@@ -450,7 +450,7 @@ class _SearchCardTile extends ConsumerWidget {
                               );
                               if (action == SearchCollectAction.openDetail) {
                                 if (context.mounted) {
-                                  context.go('/cards/${card.id}');
+                                  context.push('/cards/${card.id}');
                                 }
                               } else if (action ==
                                       SearchCollectAction.ignored &&

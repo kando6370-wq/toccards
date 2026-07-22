@@ -130,15 +130,30 @@ class CardDetailPage extends ConsumerWidget {
                         onBack: () => _goBack(context),
                       ),
                       const SizedBox(height: 10),
-                      _PrimaryActions(state: state, controller: controller),
+                      if (state.assetStateStatus == KandoLoadStatus.loading)
+                        const SizedBox(
+                          key: Key('card-detail-asset-state-loading'),
+                          height: 72,
+                          child: KandoLoadingBlock(),
+                        )
+                      else if (state.assetStateStatus ==
+                          KandoLoadStatus.failure)
+                        KandoFailureBlock(
+                          key: const Key('card-detail-asset-state-failure'),
+                          onRefresh: controller.refreshAssetState,
+                        )
+                      else
+                        _PrimaryActions(state: state, controller: controller),
                       const SizedBox(height: 28),
                       // _BasicInfo(state: state),
                       // const SizedBox(height: 28),
-                      if (state.detail.isCollected)
+                      if (state.assetStateStatus == KandoLoadStatus.content &&
+                          state.detail.isCollected)
                         _OwnedDetailTabs(state: state, controller: controller)
                       else
                         _PriceOverview(state: state, controller: controller),
-                      if (state.detail.isWishlisted &&
+                      if (state.assetStateStatus == KandoLoadStatus.content &&
+                          state.detail.isWishlisted &&
                           !state.detail.isCollected) ...[
                         const SizedBox(height: 28),
                         _RemoveWishlistButton(controller: controller),

@@ -384,6 +384,54 @@ void main() {
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
   });
 
+  testWidgets(
+    'returning from CardDetail restores the selected Search card position',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final searchScroll = find
+          .descendant(
+            of: find.byType(SearchPage),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final selectedCard = find.byKey(const Key('search-card-mystery-promo'));
+      await tester.scrollUntilVisible(
+        selectedCard,
+        300,
+        scrollable: searchScroll,
+      );
+      final offsetBeforeOpening = tester
+          .state<ScrollableState>(searchScroll)
+          .position
+          .pixels;
+      expect(offsetBeforeOpening, greaterThan(0));
+
+      await tester.tap(selectedCard);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('card-detail-back')));
+      await tester.pumpAndSettle();
+
+      final restoredSearchScroll = find
+          .descendant(
+            of: find.byType(SearchPage),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      expect(
+        tester.state<ScrollableState>(restoredSearchScroll).position.pixels,
+        closeTo(offsetBeforeOpening, 0.01),
+      );
+      expect(selectedCard, findsOneWidget);
+    },
+  );
+
   testWidgets('tapping an owned Search card opens owned CardDetail', (
     tester,
   ) async {

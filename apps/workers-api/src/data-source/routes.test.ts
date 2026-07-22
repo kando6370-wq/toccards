@@ -1036,6 +1036,69 @@ describe("data source routes", () => {
       error: { code: "NOT_FOUND", message: "Not found." },
     });
   });
+
+  it("batches price series in request order because Card Detail must avoid one HTTP round trip per chart dimension", async () => {
+    const routeApp = new Hono<{ Bindings: Env }>();
+    routeApp.route(
+      "/",
+      createDataSourceRoutes({
+        createAdapter: () => createMockDataSourceAdapter(),
+      }),
+    );
+    const path = `/cards/${encodeURIComponent(
+      "mock:tcg:charizard-base-4",
+    )}/price-series/batch`;
+    const response = await routeApp.request(
+      path,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requests: [
+            { grader: "Raw", grade: null, condition: "Near Mint", days: 30 },
+            { grader: "PSA", grade: 10, condition: null, days: 90 },
+          ],
+        }),
+      },
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        card_ref: "mock:tcg:charizard-base-4",
+        results: [
+          expect.objectContaining({
+            grader: "Raw",
+            grade: null,
+            condition: "Near Mint",
+            days: 30,
+            series: expect.any(Array),
+          }),
+          expect.objectContaining({
+            grader: "PSA",
+            grade: 10,
+            condition: null,
+            days: 90,
+            series: expect.any(Array),
+          }),
+        ],
+      },
+    });
+
+    const invalid = await routeApp.request(
+      path,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requests: [] }),
+      },
+      createTestEnv(),
+    );
+    expect(invalid.status).toBe(422);
+  });
 });
 
 function createTestEnv(

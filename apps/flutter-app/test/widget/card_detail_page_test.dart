@@ -745,6 +745,26 @@ class _FailingSectionCardDetailRepository extends MockCardDetailRepository
   }
 
   @override
+  Future<CardDetail> loadCoreDetail(String cardId) {
+    return loadDetail(
+      const AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'test-access',
+        refreshToken: 'test-refresh',
+      ),
+      cardId,
+    );
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(
+    AuthSession session,
+    CardDetail detail,
+  ) async {
+    return detail;
+  }
+
+  @override
   Future<CardDetailMarketData> loadMarketPrices(String cardId) {
     throw StateError('market prices unavailable');
   }

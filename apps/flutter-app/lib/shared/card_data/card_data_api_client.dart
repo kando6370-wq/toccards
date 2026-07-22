@@ -173,6 +173,27 @@ class CardDataPricePointDto {
   }
 }
 
+class CardDataPriceSeriesQuery {
+  const CardDataPriceSeriesQuery({
+    required this.days,
+    required this.grader,
+    this.grade,
+    this.condition,
+  });
+
+  final int days;
+  final String grader;
+  final double? grade;
+  final String? condition;
+
+  Map<String, Object?> toJson() => {
+    'days': days,
+    'grader': grader,
+    'grade': grade,
+    'condition': condition,
+  };
+}
+
 class CardDataSoldListingDto {
   const CardDataSoldListingDto({
     required this.date,
@@ -223,8 +244,19 @@ abstract interface class PaginatedCardDataApi {
   });
 }
 
+abstract interface class BatchCardDataApi {
+  Future<List<List<CardDataPricePointDto>>> getPriceSeriesBatch(
+    String cardRef,
+    List<CardDataPriceSeriesQuery> requests,
+  );
+}
+
 class CardDataApiClient
-    implements CardDataApi, PaginatedCardDataApi, SetCatalogApi {
+    implements
+        CardDataApi,
+        PaginatedCardDataApi,
+        SetCatalogApi,
+        BatchCardDataApi {
   const CardDataApiClient(this._dio);
 
   final Dio _dio;
@@ -369,6 +401,36 @@ class CardDataApiClient
   }
 
   @override
+  Future<List<List<CardDataPricePointDto>>> getPriceSeriesBatch(
+    String cardRef,
+    List<CardDataPriceSeriesQuery> requests,
+  ) async {
+    if (requests.isEmpty) return const [];
+    final data = await _requestData(
+      'POST',
+      '/cards/${Uri.encodeComponent(cardRef)}/price-series/batch',
+      queryParameters: {'response_version': cardDataResponseVersion},
+      body: {'requests': requests.map((request) => request.toJson()).toList()},
+    );
+    final results = data['results'];
+    if (results is! List || results.length != requests.length) {
+      throw const CardDataApiException(
+        'Something went wrong. Please try again.',
+      );
+    }
+    return results.map((result) {
+      final item = _mapItem(result);
+      final series = item['series'];
+      if (series is! List) {
+        throw const CardDataApiException(
+          'Something went wrong. Please try again.',
+        );
+      }
+      return series.map(_mapItem).map(CardDataPricePointDto.fromJson).toList();
+    }).toList();
+  }
+
+  @override
   Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef) async {
     final data = await _requestData(
       'GET',
@@ -382,10 +444,12 @@ class CardDataApiClient
     String method,
     String path, {
     Map<String, Object?>? queryParameters,
+    Object? body,
   }) async {
     final response = await _dio.request<Object?>(
       path,
       queryParameters: queryParameters,
+      data: body,
       options: Options(method: method, validateStatus: (_) => true),
     );
     final envelope = response.data;
