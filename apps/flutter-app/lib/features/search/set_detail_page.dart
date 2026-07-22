@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
+import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/card_image/card_image_url.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -74,7 +75,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
         if (reset) _cards.clear();
         _cards.addAll(items);
         _page = requestedPage;
-        _hasMore = items.length == 40;
+        _hasMore = items.length == kandoPageSize;
         _loading = false;
       });
     } catch (_) {

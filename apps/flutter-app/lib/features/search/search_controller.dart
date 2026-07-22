@@ -8,6 +8,7 @@ import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'search_models.dart';
@@ -393,7 +394,7 @@ class SearchController extends Notifier<SearchState> {
         preserveState: state,
         failedSearchTabs: state.failedSearchTabs,
         cardPage: requestedPage,
-        hasMoreCards: items.length == 40,
+        hasMoreCards: items.length == kandoPageSize,
       );
     } catch (_) {
       if (ref.mounted && generation == _loadGeneration) {
@@ -434,11 +435,22 @@ class SearchController extends Notifier<SearchState> {
         if (session == null || itemId == null) {
           return SearchCollectAction.openDetail;
         }
+        _replaceCard(
+          card.copyWith(
+            quantity: 0,
+            collectionItemCount: 0,
+            collectionItemId: null,
+          ),
+        );
         try {
           await repository.deleteCollectionItem(session, itemId);
         } catch (_) {
+          _replaceCard(card);
           return SearchCollectAction.ignored;
         }
+        _resetAssets();
+        _invalidateAssetConsumers(cardId);
+        return SearchCollectAction.updated;
       }
       _replaceCard(
         card.copyWith(
@@ -458,6 +470,15 @@ class SearchController extends Notifier<SearchState> {
       if (session == null || folderId == null) {
         return SearchCollectAction.ignored;
       }
+      _replaceCard(
+        card.copyWith(
+          quantity: 1,
+          collectionItemCount: 1,
+          collectionItemId: null,
+          isWishlisted: false,
+          wishlistItemId: null,
+        ),
+      );
       try {
         final item = await repository.collect(
           session,
@@ -472,14 +493,17 @@ class SearchController extends Notifier<SearchState> {
           wishlistItemId: null,
         );
         _replaceCard(next);
+        _resetAssets();
         _invalidateAssetConsumers(cardId);
         return SearchCollectAction.updated;
       } catch (_) {
+        _resetAssets();
         final synced = await _reloadAssetsAfterMutation(cardId);
         if (synced?.isCollected ?? false) {
           _invalidateAssetConsumers(cardId);
           return SearchCollectAction.updated;
         }
+        _replaceCard(card);
         return SearchCollectAction.ignored;
       }
     }
@@ -516,25 +540,34 @@ class SearchController extends Notifier<SearchState> {
       if (session == null) return false;
       try {
         if (card.wishlistItemId == null) {
+          _replaceCard(
+            card.copyWith(
+              isWishlisted: true,
+              wishlistItemId: 'pending:${card.id}',
+            ),
+          );
           final item = await repository.addWishlist(session, card.id);
           _replaceCard(
             card.copyWith(isWishlisted: true, wishlistItemId: item.id),
           );
         } else {
-          await repository.deleteWishlist(session, card.wishlistItemId!);
           _replaceCard(
             card.copyWith(isWishlisted: false, wishlistItemId: null),
           );
+          await repository.deleteWishlist(session, card.wishlistItemId!);
         }
+        _resetAssets();
         _invalidateAssetConsumers(cardId);
         return true;
       } catch (_) {
+        _resetAssets();
         final desiredWishlisted = card.wishlistItemId == null;
         final synced = await _reloadAssetsAfterMutation(cardId);
         if (synced?.isWishlisted == desiredWishlisted) {
           _invalidateAssetConsumers(cardId);
           return true;
         }
+        _replaceCard(card);
         return false;
       }
     }
@@ -644,7 +677,7 @@ class SearchController extends Notifier<SearchState> {
           : preserveState?.cardOverrides ?? const {},
       failedSearchTabs: failedSearchTabs,
       cardPage: cardPage,
-      hasMoreCards: hasMoreCards ?? catalog.cards.length == 40,
+      hasMoreCards: hasMoreCards ?? catalog.cards.length == kandoPageSize,
       isLoadingMoreCards: false,
       assetStatus:
           assetStatus ?? preserveState?.assetStatus ?? KandoLoadStatus.content,

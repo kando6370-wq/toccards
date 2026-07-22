@@ -289,6 +289,64 @@ void main() {
   );
 
   test(
+    'collect and wishlist update immediately while backend mutations are pending',
+    () async {
+      final wishlistGate = Completer<void>();
+      final collectionGate = Completer<void>();
+      final portfolioApi = _FakePortfolioApi(
+        wishlistMutationGate: wishlistGate,
+        collectionMutationGate: collectionGate,
+      );
+      final repository = HttpSearchRepository(
+        _FakeCardDataApi(
+          trendingCardRows: const [
+            CardDataCardDto(
+              cardRef: '9359',
+              name: 'Escape Artist',
+              setName: 'Odyssey',
+              setCode: 'ODY',
+              cardNumber: '1',
+              finish: 'Normal',
+              language: 'English',
+              objectType: 'tcg',
+              imageUrl: null,
+              rarity: 'Common',
+            ),
+          ],
+          sets: const [],
+        ),
+        portfolioApi: portfolioApi,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(repository),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      final wishlist = controller.toggleWishlist('9359');
+      expect(
+        container.read(searchControllerProvider).cardById('9359').isWishlisted,
+        isTrue,
+      );
+      wishlistGate.complete();
+      expect(await wishlist, isTrue);
+
+      final collect = controller.toggleCollect('9359');
+      final optimistic = container
+          .read(searchControllerProvider)
+          .cardById('9359');
+      expect(optimistic.quantity, 1);
+      expect(optimistic.isWishlisted, isFalse);
+      collectionGate.complete();
+      expect(await collect, SearchCollectAction.updated);
+    },
+  );
+
+  test(
     'Search loads and mutates backend asset state because Qty Collect and Wishlist must survive page refresh',
     () async {
       final portfolioApi = _FakePortfolioApi(
@@ -1013,6 +1071,8 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
     this.conflictOnCollect = false,
     this.failAssetLoad = false,
     this.assetLoadGate,
+    this.wishlistMutationGate,
+    this.collectionMutationGate,
   }) : collectionItems = [...items];
 
   final List<PortfolioItemDto> collectionItems;
@@ -1023,6 +1083,8 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   final bool conflictOnCollect;
   final bool failAssetLoad;
   final Completer<void>? assetLoadGate;
+  final Completer<void>? wishlistMutationGate;
+  final Completer<void>? collectionMutationGate;
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
@@ -1056,6 +1118,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
     required String cardRef,
     required PortfolioItemDraftDto draft,
   }) async {
+    await collectionMutationGate?.future;
     lastCollectedDraft = draft;
     wishlistItems.removeWhere((item) => item.cardRef == cardRef);
     final item = _portfolioItem(id: 'item-created', quantity: draft.quantity);
@@ -1066,6 +1129,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
 
   @override
   Future<void> deleteCollectionItem(AuthSession session, String itemId) async {
+    await collectionMutationGate?.future;
     deletedCollectionItemIds.add(itemId);
     collectionItems.removeWhere((item) => item.id == itemId);
   }
@@ -1075,6 +1139,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
     AuthSession session,
     String cardRef,
   ) async {
+    await wishlistMutationGate?.future;
     final item = WishlistItemDto(
       id: 'wishlist-1',
       cardRef: cardRef,
@@ -1087,6 +1152,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
 
   @override
   Future<void> deleteWishlist(AuthSession session, String itemId) async {
+    await wishlistMutationGate?.future;
     wishlistItems.removeWhere((item) => item.id == itemId);
   }
 }

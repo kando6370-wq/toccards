@@ -115,11 +115,11 @@ export function createDataSourceRoutes(
     }
 
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
-    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 100);
+    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 40, 100);
     const adapter = createAdapter(c.env);
     const items = await listOrEmpty(() =>
       adapter.searchCards(query, {
-        object_type: objectType,
+        object_type: "tcg",
         game,
         set_code: setCode,
         page,

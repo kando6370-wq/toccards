@@ -56,7 +56,7 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
     async searchCards(query, options = {}) {
       const normalizedQuery = query.trim().toLowerCase();
       const page = positiveIntegerOrDefault(options.page, 1);
-      const pageSize = positiveIntegerOrDefault(options.page_size, 20);
+      const pageSize = positiveIntegerOrDefault(options.page_size, 40);
       const offset = (page - 1) * pageSize;
       const objectTypeClause = objectTypeWhereClause(options.object_type);
       const gameClause = options.game ? "AND lower(game) = lower(?)" : "";

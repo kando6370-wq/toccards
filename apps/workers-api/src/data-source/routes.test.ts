@@ -211,7 +211,10 @@ class FakeD1BoundStatement {
     const filterCount = Number(hasGameFilter) + Number(hasSetFilter);
     const limit = Number(this.values[1 + filterCount]);
     const offset = Number(this.values[2 + filterCount]);
-    const gameCards = this.cards.filter(
+    const catalogCards = this.sql.includes("product_type_name = 'Cards'")
+      ? this.cards.filter((card) => card.product_type_name === "Cards")
+      : this.cards;
+    const gameCards = catalogCards.filter(
       (card) =>
         (game === null || card.game?.toLowerCase() === game) &&
         (setCode === null || card.set_code?.toLowerCase() === setCode),
@@ -358,9 +361,43 @@ describe("data source routes", () => {
         ],
         total: 1,
         page: 1,
-        page_size: 20,
+        page_size: 40,
       },
     });
+  });
+
+  it("returns only Cards products because the app card grid must exclude sealed products", async () => {
+    const response = await app.request(
+      "/api/v1/cards/search?q=charizard",
+      {},
+      createTestEnv([], [
+        {
+          product_id: "card-1",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Base Set",
+          set_code: "BS",
+          name: "Charizard",
+          rarity: "Rare",
+          product_type_name: "Cards",
+          image_url: null,
+        },
+        {
+          product_id: "box-1",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Base Set",
+          set_code: "BS",
+          name: "Charizard Booster Box",
+          rarity: null,
+          product_type_name: "Booster Box",
+          image_url: null,
+        },
+      ]),
+    );
+
+    const body = await response.json<{ data: { items: Array<{ card_ref: string }> } }>();
+    expect(body.data.items.map((item) => item.card_ref)).toEqual(["card-1"]);
   });
 
   it("does not let admin pins override Trending Today because the feed order is defined by real price change", async () => {
@@ -463,7 +500,7 @@ describe("data source routes", () => {
         ],
         total: 1,
         page: 1,
-        page_size: 20,
+        page_size: 40,
       },
     });
   });
@@ -992,7 +1029,7 @@ describe("data source routes", () => {
     expect(search.status).toBe(200);
     expect(await search.json()).toEqual({
       success: true,
-      data: { items: [], total: 0, page: 1, page_size: 20 },
+      data: { items: [], total: 0, page: 1, page_size: 40 },
     });
     expect(sets.status).toBe(200);
     expect(await sets.json()).toEqual({

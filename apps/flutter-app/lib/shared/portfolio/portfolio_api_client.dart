@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
@@ -573,13 +574,8 @@ class PortfolioApiClient
   Future<List<PortfolioItemDto>> listCollectionItems(
     AuthSession session,
   ) async {
-    final data = await _requestData(
-      'GET',
-      '/portfolio/items',
-      session,
-      queryParameters: {'page_size': 100},
-    );
-    return _items(data).map(PortfolioItemDto.fromJson).toList();
+    final items = await _loadAllPages('/portfolio/items', session);
+    return items.map(PortfolioItemDto.fromJson).toList();
   }
 
   @override
@@ -598,13 +594,26 @@ class PortfolioApiClient
 
   @override
   Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) async {
-    final data = await _requestData(
-      'GET',
-      '/wishlist',
-      session,
-      queryParameters: {'page_size': 100},
-    );
-    return _items(data).map(WishlistItemDto.fromJson).toList();
+    final items = await _loadAllPages('/wishlist', session);
+    return items.map(WishlistItemDto.fromJson).toList();
+  }
+
+  Future<List<Map<String, Object?>>> _loadAllPages(
+    String path,
+    AuthSession session,
+  ) async {
+    final result = <Map<String, Object?>>[];
+    for (var page = 1; ; page += 1) {
+      final data = await _requestData(
+        'GET',
+        path,
+        session,
+        queryParameters: {'page': page, 'page_size': kandoPageSize},
+      );
+      final pageItems = _items(data);
+      result.addAll(pageItems);
+      if (pageItems.length < kandoPageSize) return result;
+    }
   }
 
   @override

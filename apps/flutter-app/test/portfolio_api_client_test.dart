@@ -240,7 +240,7 @@ void main() {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'GET');
         expect(request.path, '/portfolio/items');
-        expect(request.queryParameters, {'page_size': '100'});
+        expect(request.queryParameters, {'page': '1', 'page_size': '40'});
         expect(request.authorization, 'Bearer owner-access');
         return _json(200, {
           'success': true,
@@ -279,12 +279,44 @@ void main() {
   );
 
   test(
+    'asset lists request every 40-row page because pagination must not truncate ownership state',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        final page = request.queryParameters['page'];
+        final items = page == '1'
+            ? List.generate(
+                40,
+                (index) => _portfolioItemJson(
+                  id: 'item-$index',
+                  cardRef: 'card-$index',
+                ),
+              )
+            : [_portfolioItemJson(id: 'item-40', cardRef: 'card-40')];
+        return _json(200, {
+          'success': true,
+          'data': {'items': items},
+        });
+      });
+
+      final items = await PortfolioApiClient(
+        _dio(adapter),
+      ).listCollectionItems(_session);
+
+      expect(items, hasLength(41));
+      expect(adapter.requests.map((request) => request.queryParameters), [
+        {'page': '1', 'page_size': '40'},
+        {'page': '2', 'page_size': '40'},
+      ]);
+    },
+  );
+
+  test(
     'listWishlistItems maps backend rows because wishlist deletions need row ids',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'GET');
         expect(request.path, '/wishlist');
-        expect(request.queryParameters, {'page_size': '100'});
+        expect(request.queryParameters, {'page': '1', 'page_size': '40'});
         expect(request.authorization, 'Bearer owner-access');
         return _json(200, {
           'success': true,

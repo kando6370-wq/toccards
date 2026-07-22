@@ -193,7 +193,8 @@ void main() {
         expect(request.queryParameters, {
           'q': '',
           'game': 'Magic: The Gathering',
-          'page_size': '1000',
+          'page': '1',
+          'page_size': '40',
         });
         return _json(200, {
           'success': true,

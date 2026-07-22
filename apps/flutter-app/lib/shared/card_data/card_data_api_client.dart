@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
 const cardDataApiBaseUrl = authApiBaseUrl;
@@ -279,7 +280,7 @@ class CardDataApiClient
         'q': query,
         if (game != null) 'game': game,
         'page': page,
-        'page_size': 40,
+        'page_size': kandoPageSize,
       },
     );
     return _items(data).map(CardDataCardDto.fromJson).toList();
@@ -293,7 +294,7 @@ class CardDataApiClient
       queryParameters: {
         'q': query,
         if (game != null) 'game': game,
-        'page_size': 40,
+        'page_size': kandoPageSize,
       },
     );
     return _items(data).map(CardDataSetDto.fromJson).toList();
@@ -310,16 +311,22 @@ class CardDataApiClient
     String query, {
     String? game,
   }) async {
-    final data = await _requestData(
-      'GET',
-      '/sets/search',
-      queryParameters: {
-        'q': query,
-        if (game != null) 'game': game,
-        'page_size': 1000,
-      },
-    );
-    return _items(data).map(CardDataSetDto.fromJson).toList();
+    final result = <CardDataSetDto>[];
+    for (var page = 1; ; page += 1) {
+      final data = await _requestData(
+        'GET',
+        '/sets/search',
+        queryParameters: {
+          'q': query,
+          if (game != null) 'game': game,
+          'page': page,
+          'page_size': kandoPageSize,
+        },
+      );
+      final items = _items(data).map(CardDataSetDto.fromJson).toList();
+      result.addAll(items);
+      if (items.length < kandoPageSize) return result;
+    }
   }
 
   @override
@@ -335,7 +342,7 @@ class CardDataApiClient
         'game': game,
         'set_code': setCode,
         'page': page,
-        'page_size': 40,
+        'page_size': kandoPageSize,
       },
     );
     return _items(data).map(CardDataCardDto.fromJson).toList();
