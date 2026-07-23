@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -480,6 +482,105 @@ void main() {
     expect(find.text('Cracked slab for binder.'), findsOneWidget);
   });
 
+  testWidgets('owned Collection Item edit dismisses keyboard on outside tap', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+    await tester.ensureVisible(find.text('Edit item'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit item'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('card-detail-item-quantity')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('card-detail-item-quantity')),
+      '3',
+    );
+    await tester.pump();
+
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.tap(find.byKey(const Key('card-detail-item-grader')));
+    await tester.pump();
+
+    expect(tester.testTextInput.isVisible, isFalse);
+  });
+
+  testWidgets('owned Collection Item purchase price uses decimal keyboard', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+    await tester.ensureVisible(find.text('Edit item'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit item'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('card-detail-item-purchase-price')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    final purchasePriceField = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('card-detail-item-purchase-price')),
+        matching: find.byType(EditableText),
+      ),
+    );
+
+    expect(
+      purchasePriceField.keyboardType,
+      const TextInputType.numberWithOptions(decimal: true),
+    );
+  });
+
+  testWidgets('owned Collection Item Save changes shows loading while saving', (
+    tester,
+  ) async {
+    final repository = _DelayedUpdateCardDetailRepository();
+    await tester.pumpWidget(
+      _CardDetailTestApp(cardId: 'charizard-ex', repository: repository),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+    await tester.ensureVisible(find.text('Edit item'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit item'));
+    await tester.pumpAndSettle();
+
+    final submit = find.byKey(const Key('card-detail-item-submit'));
+    await tester.ensureVisible(submit);
+    await tester.pumpAndSettle();
+    await tester.tap(submit);
+    await tester.pump();
+
+    expect(repository.pendingUpdate, isNotNull);
+    expect(
+      find.descendant(
+        of: submit,
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.widget<TextButton>(submit).onPressed, isNull);
+
+    repository.completeUpdate();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Save changes'), findsNothing);
+    expect(find.text('Edit item'), findsOneWidget);
+  });
+
   testWidgets('owned Collection Item shows validation without losing draft', (
     tester,
   ) async {
@@ -718,6 +819,44 @@ class _FailingWishlistCardDetailRepository extends MockCardDetailRepository {
   @override
   Future<String> addWishlist(AuthSession session, String cardRef) {
     throw StateError('Wishlist backend rejected the mutation.');
+  }
+}
+
+class _DelayedUpdateCardDetailRepository extends MockCardDetailRepository {
+  Completer<CardCollectionItem>? pendingUpdate;
+
+  @override
+  Future<CardCollectionItem> updateCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+  }) {
+    final completer = Completer<CardCollectionItem>();
+    pendingUpdate = completer;
+    return completer.future;
+  }
+
+  void completeUpdate() {
+    final completer = pendingUpdate;
+    if (completer == null || completer.isCompleted) {
+      return;
+    }
+    completer.complete(
+      const CardCollectionItem(
+        id: 'owned-charizard',
+        cardRef: 'charizard-ex',
+        folderId: 'main',
+        portfolioName: 'Main',
+        quantity: 1,
+        grader: 'PSA',
+        condition: null,
+        grade: '10',
+        language: 'English',
+        finish: 'Holofoil',
+        purchasePriceUsd: 120,
+        notes: 'Pulled from Obsidian Flames binder.',
+      ),
+    );
   }
 }
 

@@ -226,6 +226,7 @@ class CardDetailState {
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
+    this.isSavingCollectionItemDraft = false,
     this.assetStateStatus = KandoLoadStatus.content,
     this.priceSeriesStatus = KandoLoadStatus.content,
     this.marketPricesStatus = KandoLoadStatus.content,
@@ -242,6 +243,7 @@ class CardDetailState {
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
+    this.isSavingCollectionItemDraft = false,
   }) : _detail = null,
        loadStatus = KandoLoadStatus.failure,
        assetStateStatus = KandoLoadStatus.failure,
@@ -258,6 +260,7 @@ class CardDetailState {
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
+    this.isSavingCollectionItemDraft = false,
   }) : _detail = null,
        loadStatus = KandoLoadStatus.loading,
        assetStateStatus = KandoLoadStatus.loading,
@@ -274,6 +277,7 @@ class CardDetailState {
   final CardCollectionItemDraft? collectionItemDraft;
   final String? editingCollectionItemId;
   final String? collectionItemFormError;
+  final bool isSavingCollectionItemDraft;
   final KandoLoadStatus loadStatus;
   final KandoLoadStatus assetStateStatus;
   final KandoLoadStatus priceSeriesStatus;
@@ -461,6 +465,7 @@ class CardDetailState {
     Object? collectionItemDraft = _cardDetailStateUnset,
     Object? editingCollectionItemId = _cardDetailStateUnset,
     Object? collectionItemFormError = _cardDetailStateUnset,
+    bool? isSavingCollectionItemDraft,
     KandoLoadStatus? assetStateStatus,
     KandoLoadStatus? priceSeriesStatus,
     KandoLoadStatus? marketPricesStatus,
@@ -484,6 +489,8 @@ class CardDetailState {
       collectionItemFormError: collectionItemFormError == _cardDetailStateUnset
           ? this.collectionItemFormError
           : collectionItemFormError as String?,
+      isSavingCollectionItemDraft:
+          isSavingCollectionItemDraft ?? this.isSavingCollectionItemDraft,
       assetStateStatus: assetStateStatus ?? this.assetStateStatus,
       priceSeriesStatus: priceSeriesStatus ?? this.priceSeriesStatus,
       marketPricesStatus: marketPricesStatus ?? this.marketPricesStatus,
@@ -827,7 +834,10 @@ class CardDetailController extends Notifier<CardDetailState> {
 
   Future<bool> saveCollectionItemDraft() async {
     final draft = state.collectionItemDraft;
-    if (state.isUnavailable || state.isLoading || draft == null) {
+    if (state.isUnavailable ||
+        state.isLoading ||
+        state.isSavingCollectionItemDraft ||
+        draft == null) {
       return false;
     }
     final session = _session;
@@ -882,17 +892,33 @@ class CardDetailController extends Notifier<CardDetailState> {
       purchasePriceUsd: purchasePriceUsd,
       notes: draft.notes,
     );
-    final savedItem = editingItemId == null
-        ? await _repository.createCollectionItem(
-            session,
-            detail: detail,
-            item: draftItem,
-          )
-        : await _repository.updateCollectionItem(
-            session,
-            detail: detail,
-            item: draftItem,
-          );
+    state = state.copyWith(
+      isSavingCollectionItemDraft: true,
+      collectionItemFormError: null,
+    );
+
+    CardCollectionItem savedItem;
+    try {
+      savedItem = editingItemId == null
+          ? await _repository.createCollectionItem(
+              session,
+              detail: detail,
+              item: draftItem,
+            )
+          : await _repository.updateCollectionItem(
+              session,
+              detail: detail,
+              item: draftItem,
+            );
+    } catch (_) {
+      if (_canApplyMutation(session, mutationGeneration) &&
+          state.editingCollectionItemId == editingItemId &&
+          state.collectionItemDraft != null &&
+          state.detail.id == detail.id) {
+        state = state.copyWith(isSavingCollectionItemDraft: false);
+      }
+      rethrow;
+    }
 
     if (!_canApplyMutation(session, mutationGeneration) ||
         state.editingCollectionItemId != editingItemId ||
@@ -918,6 +944,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       collectionItemDraft: null,
       editingCollectionItemId: null,
       collectionItemFormError: null,
+      isSavingCollectionItemDraft: false,
     );
     _invalidateAssetConsumers();
     return true;

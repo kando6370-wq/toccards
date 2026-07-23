@@ -1009,6 +1009,31 @@ void main() {
   );
 
   testWidgets(
+    'Review form dismisses the keyboard when tapping outside fields',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('scan-review-quantity-1')),
+        '2',
+      );
+      await tester.pump();
+
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      await tester.tap(find.text('Top matched results:'), warnIfMissed: false);
+      await tester.pump();
+
+      expect(tester.testTextInput.isVisible, isFalse);
+    },
+  );
+
+  testWidgets(
     'Review keeps the match unsaved when confirmation fails because local Added state is not proof of persistence',
     (tester) async {
       await _pumpScanTestApp(

@@ -99,74 +99,89 @@ class CardDetailPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: KandoColors.ink,
       body: SafeArea(
-        child: state.loadStatus == KandoLoadStatus.loading
-            ? const Padding(
-                padding: EdgeInsets.all(20),
-                child: KandoLoadingBlock(),
-              )
-            : state.isUnavailable
-            ? Padding(
-                padding: const EdgeInsets.all(20),
-                child: KandoFailureBlock(onRefresh: controller.refresh),
-              )
-            : LayoutBuilder(
-                builder: (context, constraints) {
-                  final horizontalPadding = math.max(
-                    20.0,
-                    (constraints.maxWidth - 672) / 2,
-                  );
-                  return RefreshIndicator(
-                    key: const Key('card-detail-pull-to-refresh'),
-                    onRefresh: controller.refresh,
-                    child: ListView(
-                      key: const Key('card-detail-scroll'),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(
-                        horizontalPadding,
-                        20,
-                        horizontalPadding,
-                        28,
-                      ),
-                      children: [
-                        _CardHero(
-                          state: state,
-                          controller: controller,
-                          onBack: () => _goBack(context),
+        child: _CardDetailKeyboardDismissOnPointerDown(
+          child: state.loadStatus == KandoLoadStatus.loading
+              ? const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: KandoLoadingBlock(),
+                )
+              : state.isUnavailable
+              ? Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: KandoFailureBlock(onRefresh: controller.refresh),
+                )
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final horizontalPadding = math.max(
+                      20.0,
+                      (constraints.maxWidth - 672) / 2,
+                    );
+                    return RefreshIndicator(
+                      key: const Key('card-detail-pull-to-refresh'),
+                      onRefresh: controller.refresh,
+                      child: ListView(
+                        key: const Key('card-detail-scroll'),
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(
+                          horizontalPadding,
+                          20,
+                          horizontalPadding,
+                          28,
                         ),
-                        const SizedBox(height: 10),
-                        if (state.assetStateStatus == KandoLoadStatus.loading)
-                          const SizedBox(
-                            key: Key('card-detail-asset-state-loading'),
-                            height: 72,
-                            child: KandoLoadingBlock(),
-                          )
-                        else if (state.assetStateStatus ==
-                            KandoLoadStatus.failure)
-                          KandoFailureBlock(
-                            key: const Key('card-detail-asset-state-failure'),
-                            onRefresh: controller.refreshAssetState,
-                          )
-                        else
-                          _PrimaryActions(state: state, controller: controller),
-                        const SizedBox(height: 28),
-                        // _BasicInfo(state: state),
-                        // const SizedBox(height: 28),
-                        if (state.assetStateStatus == KandoLoadStatus.content &&
-                            state.detail.isCollected)
-                          _OwnedDetailTabs(state: state, controller: controller)
-                        else
-                          _PriceOverview(state: state, controller: controller),
-                        if (state.assetStateStatus == KandoLoadStatus.content &&
-                            state.detail.isWishlisted &&
-                            !state.detail.isCollected) ...[
+                        children: [
+                          _CardHero(
+                            state: state,
+                            controller: controller,
+                            onBack: () => _goBack(context),
+                          ),
+                          const SizedBox(height: 10),
+                          if (state.assetStateStatus == KandoLoadStatus.loading)
+                            const SizedBox(
+                              key: Key('card-detail-asset-state-loading'),
+                              height: 72,
+                              child: KandoLoadingBlock(),
+                            )
+                          else if (state.assetStateStatus ==
+                              KandoLoadStatus.failure)
+                            KandoFailureBlock(
+                              key: const Key('card-detail-asset-state-failure'),
+                              onRefresh: controller.refreshAssetState,
+                            )
+                          else
+                            _PrimaryActions(
+                              state: state,
+                              controller: controller,
+                            ),
                           const SizedBox(height: 28),
-                          _RemoveWishlistButton(controller: controller),
+                          // _BasicInfo(state: state),
+                          // const SizedBox(height: 28),
+                          if (state.assetStateStatus ==
+                                  KandoLoadStatus.content &&
+                              state.detail.isCollected)
+                            _OwnedDetailTabs(
+                              state: state,
+                              controller: controller,
+                            )
+                          else
+                            _PriceOverview(
+                              state: state,
+                              controller: controller,
+                            ),
+                          if (state.assetStateStatus ==
+                                  KandoLoadStatus.content &&
+                              state.detail.isWishlisted &&
+                              !state.detail.isCollected) ...[
+                            const SizedBox(height: 28),
+                            _RemoveWishlistButton(controller: controller),
+                          ],
                         ],
-                      ],
-                    ),
-                  );
-                },
-              ),
+                      ),
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -178,6 +193,37 @@ class CardDetailPage extends ConsumerWidget {
     }
 
     context.go('/search');
+  }
+}
+
+class _CardDetailKeyboardDismissOnPointerDown extends StatelessWidget {
+  const _CardDetailKeyboardDismissOnPointerDown({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        final focus = FocusManager.instance.primaryFocus;
+        final focusContext = focus?.context;
+        if (focus == null || focusContext == null) {
+          return;
+        }
+
+        final renderObject = focusContext.findRenderObject();
+        if (renderObject is RenderBox && renderObject.attached) {
+          final localPosition = renderObject.globalToLocal(event.position);
+          if (renderObject.paintBounds.contains(localPosition)) {
+            return;
+          }
+        }
+
+        FocusScope.of(context).unfocus();
+      },
+      child: child,
+    );
   }
 }
 
@@ -695,8 +741,12 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
   }
 }
 
+enum _CollectionItemMode { empty, summary, edit }
+
 class _CollectionItems extends StatelessWidget {
   const _CollectionItems({required this.state, required this.controller});
+
+  static const _modeTransitionDuration = Duration(milliseconds: 320);
 
   final CardDetailState state;
   final CardDetailController controller;
@@ -706,6 +756,9 @@ class _CollectionItems extends StatelessWidget {
     final item = state.collectionItemRows.isEmpty
         ? null
         : state.collectionItemRows.first;
+    final showEdit =
+        state.collectionItemDraft != null &&
+        (item == null || state.editingCollectionItemId == item.id);
 
     return Column(
       key: const Key('card-detail-collection-items'),
@@ -732,24 +785,98 @@ class _CollectionItems extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        if (state.collectionItemDraft != null &&
-            (item == null || state.editingCollectionItemId == item.id))
-          _CollectionItemForm(state: state, controller: controller)
-        else if (item != null) ...[
-          _CollectionItemSummaryCard(
-            item: item,
-            onEdit: () {
-              controller.startEditingCollectionItem(item.id);
-            },
-          ),
-          const SizedBox(height: 12),
-          _RemoveFromPortfolioFooterButton(
-            onPressed: () {
-              _confirmRemoveCollectionItem(context, controller, item.id);
-            },
-          ),
-        ],
+        _CollectionItemModeTransition(
+          duration: _modeTransitionDuration,
+          child: showEdit
+              ? _CollectionItemForm(
+                  key: const ValueKey(_CollectionItemMode.edit),
+                  state: state,
+                  controller: controller,
+                )
+              : item != null
+              ? Column(
+                  key: const ValueKey(_CollectionItemMode.summary),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _CollectionItemSummaryCard(
+                      item: item,
+                      onEdit: () {
+                        controller.startEditingCollectionItem(item.id);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _RemoveFromPortfolioFooterButton(
+                      onPressed: () {
+                        _confirmRemoveCollectionItem(
+                          context,
+                          controller,
+                          item.id,
+                        );
+                      },
+                    ),
+                  ],
+                )
+              : const SizedBox.shrink(key: ValueKey(_CollectionItemMode.empty)),
+        ),
       ],
+    );
+  }
+}
+
+class _CollectionItemModeTransition extends StatelessWidget {
+  const _CollectionItemModeTransition({
+    required this.duration,
+    required this.child,
+  });
+
+  final Duration duration;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final effectiveDuration = disableAnimations ? Duration.zero : duration;
+
+    return AnimatedSwitcher(
+      duration: effectiveDuration,
+      reverseDuration: effectiveDuration,
+      switchInCurve: Curves.easeOutQuart,
+      switchOutCurve: Curves.easeInOutCubic,
+      transitionBuilder: (child, animation) {
+        final mode = switch (child.key) {
+          ValueKey(value: final _CollectionItemMode value) => value,
+          _ => _CollectionItemMode.empty,
+        };
+        final offset = Tween<Offset>(
+          begin: switch (mode) {
+            _CollectionItemMode.edit => const Offset(0.16, 0),
+            _CollectionItemMode.summary => const Offset(-0.16, 0),
+            _CollectionItemMode.empty => Offset.zero,
+          },
+          end: Offset.zero,
+        ).animate(animation);
+
+        return ClipRect(
+          child: FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: offset,
+              child: AnimatedBuilder(
+                animation: animation,
+                child: child,
+                builder: (context, child) {
+                  return Align(
+                    alignment: Alignment.topCenter,
+                    heightFactor: animation.value,
+                    child: child,
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+      child: child,
     );
   }
 }
@@ -1352,6 +1479,7 @@ class _AddCollectionItemPreview extends StatelessWidget {
 
 class _CollectionItemForm extends StatelessWidget {
   const _CollectionItemForm({
+    super.key,
     required this.state,
     required this.controller,
     this.embedded = false,
@@ -1374,6 +1502,7 @@ class _CollectionItemForm extends StatelessWidget {
     if (draft == null) {
       return const SizedBox.shrink();
     }
+    final saving = state.isSavingCollectionItemDraft;
     final languageValue = cardCollectionLanguages.contains(draft.language)
         ? draft.language
         : cardCollectionLanguages.first;
@@ -1444,6 +1573,7 @@ class _CollectionItemForm extends StatelessWidget {
               border: OutlineInputBorder(),
             ),
             keyboardType: TextInputType.number,
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
             onChanged: (value) {
               controller.updateCollectionItemDraft(quantityText: value);
             },
@@ -1522,7 +1652,8 @@ class _CollectionItemForm extends StatelessWidget {
               labelText: 'Purchase price',
               border: OutlineInputBorder(),
             ),
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
             onChanged: (value) {
               controller.updateCollectionItemDraft(purchasePriceText: value);
             },
@@ -1540,6 +1671,7 @@ class _CollectionItemForm extends StatelessWidget {
               border: OutlineInputBorder(),
             ),
             maxLines: 2,
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
             onChanged: (value) {
               controller.updateCollectionItemDraft(notes: value);
             },
@@ -1578,10 +1710,21 @@ class _CollectionItemForm extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  onPressed: () async {
-                    await controller.saveCollectionItemDraft();
-                  },
-                  icon: Icon(isEditing ? Icons.save_outlined : Icons.add),
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          await controller.saveCollectionItemDraft();
+                        },
+                  icon: saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: KandoColors.ink,
+                          ),
+                        )
+                      : Icon(isEditing ? Icons.save_outlined : Icons.add),
                   label: Text(isEditing ? 'Save changes' : 'Add'),
                 ),
               ],
@@ -1646,6 +1789,7 @@ class _CollectionItemEditCard extends StatelessWidget {
               const SizedBox(width: 12),
               _CollectionEditActionButton(
                 label: 'Cancel',
+                disabled: state.isSavingCollectionItemDraft,
                 onPressed: controller.cancelCollectionItemEdit,
               ),
               const SizedBox(width: 8),
@@ -1653,6 +1797,7 @@ class _CollectionItemEditCard extends StatelessWidget {
                 buttonKey: const Key('card-detail-item-submit'),
                 label: 'Save changes',
                 accent: true,
+                loading: state.isSavingCollectionItemDraft,
                 onPressed: () async {
                   await controller.saveCollectionItemDraft();
                 },
@@ -1753,7 +1898,7 @@ class _CollectionItemEditCard extends StatelessWidget {
             key: const Key('card-detail-item-purchase-price'),
             label: 'PURCHASE PRICE',
             initialValue: draft.purchasePriceText,
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             accentText: true,
             onChanged: (value) {
               controller.updateCollectionItemDraft(purchasePriceText: value);
@@ -1790,12 +1935,16 @@ class _CollectionEditActionButton extends StatelessWidget {
     required this.onPressed,
     this.buttonKey,
     this.accent = false,
+    this.loading = false,
+    this.disabled = false,
   });
 
   final Key? buttonKey;
   final String label;
   final VoidCallback onPressed;
   final bool accent;
+  final bool loading;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
@@ -1820,8 +1969,26 @@ class _CollectionEditActionButton extends StatelessWidget {
             fontWeight: FontWeight.w400,
           ),
         ),
-        onPressed: onPressed,
-        child: Text(label),
+        onPressed: loading || disabled ? null : onPressed,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading) ...[
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: accent
+                      ? KandoColors.primaryOnDefault
+                      : KandoColors.text,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Text(label),
+          ],
+        ),
       ),
     );
   }
@@ -1861,6 +2028,7 @@ class _CollectionEditTextField extends StatelessWidget {
           isCollapsed: true,
           border: InputBorder.none,
         ),
+        onTapOutside: (_) => FocusScope.of(context).unfocus(),
         onChanged: onChanged,
       ),
     );
@@ -1901,6 +2069,7 @@ class _CollectionEditTextArea extends StatelessWidget {
           isCollapsed: true,
           border: InputBorder.none,
         ),
+        onTapOutside: (_) => FocusScope.of(context).unfocus(),
         onChanged: onChanged,
       ),
     );

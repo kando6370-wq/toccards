@@ -1113,23 +1113,25 @@ class _ScanPageState extends ConsumerState<ScanPage>
         backgroundColor: const Color(0xFF10100B),
         body: _reviewing
             ? SafeArea(
-                child: _ReviewMatches(
-                  items: _matchedItems,
-                  selectedItemId: _selectedReviewItemId,
-                  target: _reviewTarget,
-                  cards: _reviewCards,
-                  drafts: _reviewDrafts,
-                  formError: _reviewFormError,
-                  saving: _savingReview,
-                  currency: currency,
-                  onExit: _requestExitScan,
-                  onSelectItem: _selectReviewItem,
-                  onSelectCandidate: _selectReviewCandidate,
-                  onUpdateDraft: _updateReviewDraft,
-                  onAddThisCard: _addSelectedItem,
-                  onAddAllCards: _addAllMatchedItems,
-                  onDeleteItem: _deleteReviewItem,
-                  onDeleteAll: _deleteAllReviewItems,
+                child: _KeyboardDismissOnPointerDown(
+                  child: _ReviewMatches(
+                    items: _matchedItems,
+                    selectedItemId: _selectedReviewItemId,
+                    target: _reviewTarget,
+                    cards: _reviewCards,
+                    drafts: _reviewDrafts,
+                    formError: _reviewFormError,
+                    saving: _savingReview,
+                    currency: currency,
+                    onExit: _requestExitScan,
+                    onSelectItem: _selectReviewItem,
+                    onSelectCandidate: _selectReviewCandidate,
+                    onUpdateDraft: _updateReviewDraft,
+                    onAddThisCard: _addSelectedItem,
+                    onAddAllCards: _addAllMatchedItems,
+                    onDeleteItem: _deleteReviewItem,
+                    onDeleteAll: _deleteAllReviewItems,
+                  ),
                 ),
               )
             : _ScanCameraView(
@@ -2706,6 +2708,7 @@ class _ReviewMatches extends StatelessWidget {
         Positioned.fill(
           child: ListView(
             key: const Key('scan-review-list'),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 170),
             children: [
               Row(
@@ -2850,6 +2853,37 @@ class _ReviewMatches extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _KeyboardDismissOnPointerDown extends StatelessWidget {
+  const _KeyboardDismissOnPointerDown({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        final focus = FocusManager.instance.primaryFocus;
+        final focusContext = focus?.context;
+        if (focus == null || focusContext == null) {
+          return;
+        }
+
+        final renderObject = focusContext.findRenderObject();
+        if (renderObject is RenderBox && renderObject.attached) {
+          final localPosition = renderObject.globalToLocal(event.position);
+          if (renderObject.paintBounds.contains(localPosition)) {
+            return;
+          }
+        }
+
+        FocusScope.of(context).unfocus();
+      },
+      child: child,
     );
   }
 }
