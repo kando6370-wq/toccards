@@ -55,6 +55,13 @@ void main() {
     expect(find.text('+8.10%'), findsOneWidget);
     expect(find.text('Qty: 0'), findsWidgets);
     expect(find.byKey(const Key('search-collect-squirtle')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('search-collect-squirtle')),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('search-wishlist-charizard-ex')), findsNothing);
     expect(find.text('Collect'), findsNothing);
 
@@ -91,7 +98,20 @@ void main() {
       final imageContainer = find.byKey(
         const Key('search-card-image-container-9359'),
       );
+      final cardTile = find.byKey(const Key('search-card-9359'));
       final imageClip = find.byKey(const Key('search-card-image-clip-9359'));
+      final actionButton = find.byKey(const Key('search-collect-9359'));
+      final imageDecoration =
+          tester.widget<Container>(imageContainer).decoration as BoxDecoration;
+      expect(imageDecoration.border, isNull);
+      expect(
+        tester.getRect(imageContainer).top,
+        tester.getRect(cardTile).top + 14,
+      );
+      expect(
+        tester.getRect(actionButton).top,
+        tester.getRect(imageContainer).top - 10,
+      );
       expect(
         tester.widget<ClipRRect>(imageClip).borderRadius,
         BorderRadius.circular(6),
@@ -318,7 +338,10 @@ void main() {
 
     await tester.tap(find.byKey(const Key('search-wishlist-squirtle')));
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('assets/search/wishlist_on.svg')),
+      findsOneWidget,
+    );
 
     final collectButton = find.byKey(const Key('search-collect-squirtle'));
     await tester.ensureVisible(collectButton);
@@ -337,11 +360,21 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('search-card-squirtle')),
+        matching: find.byKey(const ValueKey('assets/search/collection_on.svg')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('search-card-squirtle')),
         matching: find.text('Qty: 1'),
       ),
       findsOneWidget,
     );
-    expect(find.byIcon(Icons.favorite), findsNothing);
+    expect(
+      find.byKey(const ValueKey('assets/search/wishlist_on.svg')),
+      findsNothing,
+    );
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
   });
 
@@ -361,7 +394,10 @@ void main() {
 
     expect(find.byType(SearchPage), findsOneWidget);
     expect(find.byKey(const Key('card-detail-hero')), findsNothing);
-    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('assets/search/wishlist_on.svg')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('search-collect-squirtle')));
     await tester.pumpAndSettle();

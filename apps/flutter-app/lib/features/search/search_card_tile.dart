@@ -1,5 +1,8 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
@@ -54,6 +57,7 @@ class SearchCardTile extends ConsumerWidget {
             children: [
               Expanded(
                 child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
                     Positioned.fill(
                       child: Container(
@@ -62,7 +66,6 @@ class SearchCardTile extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: KandoColors.ink,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: KandoColors.border),
                         ),
                         child: card.imageUrl == null
                             ? const Icon(
@@ -105,60 +108,61 @@ class SearchCardTile extends ConsumerWidget {
                       Positioned(
                         top: 0,
                         right: 0,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {},
-                          child: Row(
-                            children: [
-                              _SearchCardActionButton(
-                                key: Key('search-collect-${card.id}'),
-                                tooltip: card.isCollected
-                                    ? 'Collected'
-                                    : 'Collect',
-                                icon: card.isCollected
-                                    ? Icons.add_to_photos
-                                    : Icons.add_to_photos_outlined,
-                                selected: card.isCollected,
-                                onPressed: !actionsEnabled
-                                    ? null
-                                    : () async {
-                                        final action = await controller
-                                            .toggleCollectCard(card);
-                                        if (action ==
-                                            SearchCollectAction.openDetail) {
-                                          if (context.mounted) {
-                                            context.push('/cards/${card.id}');
-                                          }
-                                        } else if (action ==
-                                                SearchCollectAction.ignored &&
-                                            context.mounted) {
-                                          showKandoTopFailureToast(context);
-                                        }
-                                      },
-                              ),
-                              if (!card.isCollected) ...[
-                                const SizedBox(width: 8),
+                        child: Transform.translate(
+                          offset: const Offset(0, -10),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {},
+                            child: Row(
+                              children: [
                                 _SearchCardActionButton(
-                                  key: Key('search-wishlist-${card.id}'),
-                                  tooltip: showFilledHeart
-                                      ? 'Remove from wishlist'
-                                      : 'Add to wishlist',
-                                  icon: showFilledHeart
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  selected: showFilledHeart,
+                                  key: Key('search-collect-${card.id}'),
+                                  tooltip: card.isCollected
+                                      ? 'Collected'
+                                      : 'Collect',
+                                  iconAsset: card.isCollected
+                                      ? 'assets/search/collection_on.svg'
+                                      : 'assets/search/collection_off.svg',
                                   onPressed: !actionsEnabled
                                       ? null
                                       : () async {
-                                          final succeeded = await controller
-                                              .toggleWishlistCard(card);
-                                          if (!succeeded && context.mounted) {
+                                          final action = await controller
+                                              .toggleCollectCard(card);
+                                          if (action ==
+                                              SearchCollectAction.openDetail) {
+                                            if (context.mounted) {
+                                              context.push('/cards/${card.id}');
+                                            }
+                                          } else if (action ==
+                                                  SearchCollectAction.ignored &&
+                                              context.mounted) {
                                             showKandoTopFailureToast(context);
                                           }
                                         },
                                 ),
+                                if (!card.isCollected) ...[
+                                  const SizedBox(width: 8),
+                                  _SearchCardActionButton(
+                                    key: Key('search-wishlist-${card.id}'),
+                                    tooltip: showFilledHeart
+                                        ? 'Remove from wishlist'
+                                        : 'Add to wishlist',
+                                    iconAsset: showFilledHeart
+                                        ? 'assets/search/wishlist_on.svg'
+                                        : 'assets/search/wishlist_off.svg',
+                                    onPressed: !actionsEnabled
+                                        ? null
+                                        : () async {
+                                            final succeeded = await controller
+                                                .toggleWishlistCard(card);
+                                            if (!succeeded && context.mounted) {
+                                              showKandoTopFailureToast(context);
+                                            }
+                                          },
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -230,36 +234,64 @@ class SearchCardTile extends ConsumerWidget {
 class _SearchCardActionButton extends StatelessWidget {
   const _SearchCardActionButton({
     required this.tooltip,
-    required this.icon,
-    required this.selected,
+    required this.iconAsset,
     required this.onPressed,
     super.key,
   });
 
   final String tooltip;
-  final IconData icon;
-  final bool selected;
+  final String iconAsset;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: selected
-            ? KandoColors.accent.withValues(alpha: 0.28)
-            : KandoColors.elevatedSurface.withValues(alpha: 0.82),
-        shape: BoxShape.circle,
-        border: Border.all(color: KandoColors.borderSubtle, width: 0.5),
-      ),
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        iconSize: 16,
-        visualDensity: VisualDensity.compact,
-        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-        padding: EdgeInsets.zero,
-        color: selected ? KandoColors.accent : KandoColors.text,
-        icon: Icon(icon),
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+      padding: EdgeInsets.zero,
+      icon: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 7.65, sigmaY: 7.65),
+          child: SizedBox.square(
+            dimension: 32,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0x33FFFFFF),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0x33565555),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                Center(
+                  child: SvgPicture.asset(
+                    iconAsset,
+                    key: ValueKey(iconAsset),
+                    width: 16,
+                    height: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
