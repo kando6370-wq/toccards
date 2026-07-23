@@ -633,7 +633,7 @@ void main() {
   );
 
   test(
-    'new Collection Item draft follows PRD field defaults and condition list',
+    'new Collection Item values the selected market condition times quantity',
     () async {
       final container = _cardDetailContainer();
       addTearDown(container.dispose);
@@ -654,12 +654,17 @@ void main() {
       expect(draft.portfolioName, 'Main');
       expect(draft.language, 'English');
       expect(draft.finish, 'Holofoil');
-      expect(container.read(provider).collectionItemDraftTotalText, '--');
+      expect(container.read(provider).collectionItemDraftTotalText, r'$32.13');
+
+      container
+          .read(provider.notifier)
+          .updateCollectionItemDraft(quantityText: '3');
+      expect(container.read(provider).collectionItemDraftTotalText, r'$96.39');
     },
   );
 
   test(
-    'Purchase Price uses the selected currency because the form must not persist EUR input as USD',
+    'Purchase Price converts separately because total value remains market-based',
     () async {
       final repository = _RecordingCardDetailRepository();
       final container = _cardDetailContainer(repository: repository);
@@ -673,7 +678,7 @@ void main() {
       controller.startAddingCollectionItem();
       controller.updateCollectionItemDraft(purchasePriceText: '91');
 
-      expect(container.read(provider).collectionItemDraftTotalText, '€91.00');
+      expect(container.read(provider).collectionItemDraftTotalText, '€29.24');
       expect(await controller.saveCollectionItemDraft(), isTrue);
       expect(repository.createdItems.single.purchasePriceUsd, 100);
       expect(

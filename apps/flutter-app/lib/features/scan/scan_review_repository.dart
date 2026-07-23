@@ -130,39 +130,49 @@ class ApiScanReviewRepository implements ScanReviewRepository {
   Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) async {
     final uniqueRefs = cardRefs.toSet();
     final entries = await Future.wait(
-      uniqueRefs.map((cardRef) async {
-        final results = await Future.wait([
-          _cardDataApi.getCard(cardRef),
-          _cardDataApi.getMarketPrices(cardRef),
-        ]);
-        final card = results[0] as CardDataCardDto;
-        final prices = results[1] as List<CardDataMarketPriceDto>;
-        return MapEntry(
-          cardRef,
-          ScanReviewCard(
-            cardRef: card.cardRef,
-            name: card.name,
-            setName: card.setName,
-            cardNumber: card.cardNumber,
-            game: card.game,
-            imageUrl: cardImageUrl(card.cardRef, CardImageVariant.detail),
-            language: card.language,
-            finish: card.finish,
-            prices: prices
-                .map(
-                  (price) => ScanReviewPrice(
-                    grader: price.grader,
-                    grade: price.grade,
-                    condition: price.condition,
-                    price: price.price,
-                  ),
-                )
-                .toList(),
-          ),
-        );
-      }),
+      uniqueRefs.map((cardRef) => _loadCard(cardRef)),
     );
-    return Map.fromEntries(entries);
+    return Map.fromEntries(
+      entries.whereType<MapEntry<String, ScanReviewCard>>(),
+    );
+  }
+
+  Future<MapEntry<String, ScanReviewCard>?> _loadCard(String cardRef) async {
+    final CardDataCardDto card;
+    try {
+      card = await _cardDataApi.getCard(cardRef);
+    } on Exception {
+      return null;
+    }
+    List<CardDataMarketPriceDto> prices;
+    try {
+      prices = await _cardDataApi.getMarketPrices(cardRef);
+    } on Exception {
+      prices = const [];
+    }
+    return MapEntry(
+      cardRef,
+      ScanReviewCard(
+        cardRef: card.cardRef,
+        name: card.name,
+        setName: card.setName,
+        cardNumber: card.cardNumber,
+        game: card.game,
+        imageUrl: cardImageUrl(card.cardRef, CardImageVariant.detail),
+        language: card.language,
+        finish: card.finish,
+        prices: prices
+            .map(
+              (price) => ScanReviewPrice(
+                grader: price.grader,
+                grade: price.grade,
+                condition: price.condition,
+                price: price.price,
+              ),
+            )
+            .toList(),
+      ),
+    );
   }
 
   @override

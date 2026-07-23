@@ -1221,6 +1221,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                         const Text('TOTAL VALUE', style: _kFieldLabelStyle),
                         Text(
                           state.collectionItemDraftTotalText,
+                          key: const Key('card-detail-item-total'),
                           style: const TextStyle(
                             color: KandoColors.accent,
                             fontSize: 16,

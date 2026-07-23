@@ -131,17 +131,6 @@ class CardCollectionItemDraft {
 
   bool get isRaw => grader == 'Raw';
 
-  double? get total {
-    final quantity = int.tryParse(quantityText.trim());
-    final price = double.tryParse(purchasePriceText.trim());
-
-    if (quantity == null || quantity < 1 || price == null || price < 0) {
-      return null;
-    }
-
-    return quantity * price;
-  }
-
   CardCollectionItemDraft copyWith({
     String? quantityText,
     String? portfolioName,
@@ -341,7 +330,25 @@ class CardDetailState {
   }
 
   String get collectionItemDraftTotalText {
-    return _formatter.formatAmount(collectionItemDraft?.total);
+    final draft = collectionItemDraft;
+    if (draft == null) return _formatter.formatUsd(null);
+    final quantity = int.tryParse(draft.quantityText.trim());
+    if (quantity == null || quantity < 1) return _formatter.formatUsd(null);
+    final marketPrice = detail.marketPrices
+        .where((price) {
+          if (price.grader.toLowerCase() != draft.grader.toLowerCase()) {
+            return false;
+          }
+          if (draft.isRaw) {
+            return _normalizedCondition(price.condition) ==
+                _normalizedCondition(draft.condition);
+          }
+          final grade = double.tryParse(draft.grade);
+          return grade != null && price.grade == grade;
+        })
+        .firstOrNull
+        ?.priceUsd;
+    return _formatter.formatUsd(marketPrice, quantity: quantity);
   }
 
   List<CardPricePoint> get selectedPriceSeries {
@@ -1257,6 +1264,13 @@ String _defaultGradeForGrader(String grader) {
   return cardCollectionGraders.contains(grader) && grader != 'Raw'
       ? cardCollectionGradeValues.first
       : _defaultGrade;
+}
+
+String _normalizedCondition(String? value) {
+  return (value ?? '').trim().toLowerCase().replaceFirst(
+    RegExp(r'\s*\([^)]*\)\s*$'),
+    '',
+  );
 }
 
 CardPortfolioFolder? _initialPortfolioFolder(

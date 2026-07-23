@@ -251,6 +251,12 @@ void main() {
       expect(find.text('Language'), findsWidgets);
       expect(find.text('Finish'), findsWidgets);
       expect(find.text('TOTAL VALUE'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('card-detail-item-total')))
+            .data,
+        r'$32.13',
+      );
       expect(find.text('Add this card'), findsOneWidget);
       expect(find.text('Near Mint (NM)'), findsWidgets);
       expect(tester.takeException(), isNull);
