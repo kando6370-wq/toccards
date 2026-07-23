@@ -534,6 +534,35 @@ void main() {
   });
 
   testWidgets(
+    'auth startup shows the empty portfolio state instead of a false data failure',
+    (tester) async {
+      final storage = InMemoryAuthStorage();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authStorageProvider.overrideWithValue(storage),
+            authRepositoryProvider.overrideWithValue(
+              _PendingStartupAuthRepository(storage),
+            ),
+          ],
+          child: const _HomeTestApp(),
+        ),
+      );
+      await tester.pump();
+
+      final context = tester.element(find.byType(HomePage));
+      final state = ProviderScope.containerOf(
+        context,
+      ).read(homeControllerProvider);
+      expect(state.isLoading, isTrue);
+      expect(state.isUnavailable, isFalse);
+      expect(find.text('Add your first card'), findsOneWidget);
+      expect(find.text(noContentAvailableText), findsNothing);
+      expect(find.text('Refresh'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'empty folder keeps the PORTFOLIO label because copy must not change with data state',
     (tester) async {
       await tester.pumpWidget(_mockHomeApp());
@@ -919,6 +948,15 @@ class _TestPortfolioManagementApi implements PortfolioManagementApi {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PendingStartupAuthRepository extends LocalPlaceholderAuthRepository {
+  _PendingStartupAuthRepository(super.storage);
+
+  final _startup = Completer<AuthSession?>();
+
+  @override
+  Future<AuthSession?> currentSessionFromStorage() => _startup.future;
 }
 
 void _refreshHome(WidgetTester tester) {

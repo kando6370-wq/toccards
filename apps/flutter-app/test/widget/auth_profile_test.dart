@@ -993,7 +993,7 @@ void main() {
     expect(find.byKey(const Key('email-auth-page')), findsNothing);
   });
 
-  testWidgets('register code error shows incorrect code and does not sign in', (
+  testWidgets('register code error resends a fresh empty code after cooldown', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -1031,11 +1031,27 @@ void main() {
     final decoration = firstBox.decoration! as BoxDecoration;
     expect(decoration.border, Border.all(color: const Color(0xFFFF8787)));
     expect(
-      find.widgetWithText(FilledButton, 'Get verification code'),
+      find.widgetWithText(FilledButton, 'Retry in 60 seconds'),
       findsOneWidget,
     );
     expect(repository.registerCodeVerifications, [
       const _CodeRequest('person@example.com', '123456'),
+    ]);
+
+    await tester.pump(const Duration(seconds: 60));
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+    );
+    await tester.pump();
+
+    final codeInput = tester.widget<TextFormField>(
+      find.byKey(const Key('verification-code-input')),
+    );
+    expect(codeInput.controller?.text, isEmpty);
+    expect(find.text('Incorrect verification code'), findsNothing);
+    expect(repository.registerCodeEmails, [
+      'person@example.com',
+      'person@example.com',
     ]);
   });
 
@@ -1076,12 +1092,16 @@ void main() {
     expect(repository.resetRequests, [
       const _ResetRequest('person@example.com', 'reset-token', 'newpass123'),
     ]);
-    expect(find.text('Success'), findsOneWidget);
     expect(find.text('Password reset successfully.'), findsOneWidget);
+    expect(find.text('Let’s collect the cards'), findsOneWidget);
+    expect(
+      find.byKey(const Key('password-reset-success-icon')),
+      findsOneWidget,
+    );
     expect(find.byType(SnackBar), findsNothing);
     final successToast = find.byKey(const Key('password-reset-success-toast'));
     expect(successToast, findsOneWidget);
-    expect(tester.getSize(successToast), const Size(260, 122));
+    expect(tester.getSize(successToast), const Size(260, 220));
     expect(find.widgetWithText(FilledButton, 'SIGN IN'), findsOneWidget);
     final loginPasswordField = tester.widget<TextFormField>(
       find.byType(TextFormField),

@@ -12,8 +12,10 @@ import 'package:kando_app/shared/ui/load_state.dart';
 import 'home_models.dart';
 import 'home_repository.dart';
 
-final homeRepositoryProvider = Provider<HomeRepository>((ref) {
-  final session = ref.watch(authControllerProvider).session;
+final homeRepositoryProvider = Provider<HomeRepository?>((ref) {
+  final authState = ref.watch(authControllerProvider);
+  if (authState.isLoading) return null;
+  final session = authState.session;
   if (session == null) return const _MissingHomeSessionRepository();
   return ApiHomeRepository(
     session: session,
@@ -289,9 +291,24 @@ class HomeController extends Notifier<HomeState> {
   }) {
     final AppCurrency selectedCurrency =
         currency ?? ref.read(selectedCurrencyProvider);
+    final HomeRepository? source =
+        repository ?? ref.read(homeRepositoryProvider);
+    if (source == null) {
+      final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
+      return HomeState.loading(
+        dashboard: dashboard,
+        selectedFolderId:
+            previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
+        currency: selectedCurrency,
+        amountHidden: previousState?.amountHidden ?? false,
+        chartRange:
+            previousState?.chartRange ??
+            _bestChartRange(
+              dashboard.portfoliosByFolderId[dashboard.defaultFolder.id]!,
+            ),
+      );
+    }
     try {
-      final HomeRepository source =
-          repository ?? ref.read(homeRepositoryProvider);
       if (source is ProgressiveHomeRepository) {
         return _loadProgressiveDashboard(
           source,

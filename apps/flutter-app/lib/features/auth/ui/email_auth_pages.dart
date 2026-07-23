@@ -450,6 +450,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
     final email = _normalizedEmail();
     if (!_validateEmail(email)) return;
 
+    _codeController.clear();
     await _run(() async {
       final destination = await ref
           .read(authControllerProvider.notifier)
@@ -1144,6 +1145,8 @@ class _CodePageState extends State<_CodePage> {
       valueListenable: widget.controller,
       builder: (context, value, _) {
         final complete = value.text.length == 6;
+        final resendAfterError = complete && widget.errorText != null;
+        final canResend = widget.resendSeconds == 0 && widget.resendEnabled;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1159,16 +1162,16 @@ class _CodePageState extends State<_CodePage> {
             else
               const SizedBox(height: 24),
             _CodeActionButton(
-              label: complete
+              label: complete && !resendAfterError
                   ? 'Get verification code'
                   : widget.resendSeconds > 0
                   ? 'Retry in ${widget.resendSeconds} seconds'
                   : 'Get verification code',
               loading: widget.loading,
-              enabled:
-                  complete ||
-                  (widget.resendSeconds == 0 && widget.resendEnabled),
-              onPressed: complete ? widget.onContinue : widget.onResend,
+              enabled: resendAfterError ? canResend : complete || canResend,
+              onPressed: complete && !resendAfterError
+                  ? widget.onContinue
+                  : widget.onResend,
             ),
           ],
         );
@@ -1927,7 +1930,7 @@ class _PasswordResetSuccessToast extends StatelessWidget {
     return Container(
       key: const Key('password-reset-success-toast'),
       width: 260,
-      height: 122,
+      height: 220,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
@@ -1944,29 +1947,21 @@ class _PasswordResetSuccessToast extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0x0FFFFFFF),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF292B24), Color(0xFF1A1B18)],
+              ),
+              border: Border.all(color: KandoColors.borderSubtle),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Padding(
-              padding: EdgeInsets.all(20),
+              padding: EdgeInsets.all(33),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'Success',
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    softWrap: false,
-                    textScaler: TextScaler.noScaling,
-                    style: TextStyle(
-                      color: Color(0xFFF1FE70),
-                      fontFamily: 'Fraunces',
-                      fontSize: 24,
-                      height: 32 / 24,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  _PasswordResetSuccessIcon(),
                   SizedBox(height: 6),
                   Text(
                     'Password reset successfully.',
@@ -1974,14 +1969,64 @@ class _PasswordResetSuccessToast extends StatelessWidget {
                     maxLines: 2,
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
-                      color: Color(0xFFE3E3D6),
+                      color: KandoColors.accent,
+                      fontFamily: 'Fraunces',
+                      fontSize: 24,
+                      height: 32 / 24,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Let’s collect the cards',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    textScaler: TextScaler.noScaling,
+                    style: TextStyle(
+                      color: KandoColors.text,
                       fontSize: 15,
                       height: 22 / 15,
                       fontWeight: FontWeight.w400,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PasswordResetSuccessIcon extends StatelessWidget {
+  const _PasswordResetSuccessIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        key: const Key('password-reset-success-icon'),
+        width: 56,
+        height: 56,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: Color(0x1FF0FE6F),
+          shape: BoxShape.circle,
+        ),
+        child: const DecoratedBox(
+          decoration: BoxDecoration(
+            color: KandoColors.accent,
+            shape: BoxShape.circle,
+          ),
+          child: SizedBox.square(
+            dimension: 26,
+            child: Icon(
+              Icons.check_rounded,
+              size: 20,
+              color: KandoColors.primaryOnDefault,
             ),
           ),
         ),

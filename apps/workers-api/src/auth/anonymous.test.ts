@@ -4435,6 +4435,21 @@ async function requestRegisterVerify(
   );
 }
 
+async function requestRegisterVerifyCode(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/register/verify-code",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
 async function requestLogin(
   env: TestEnv,
   body: unknown,
@@ -4641,6 +4656,35 @@ describe("POST /api/v1/auth/register/send-code", () => {
     expect(Date.parse(code?.expires_at ?? "") - Date.parse(code?.created_at ?? "")).toBe(
       600000,
     );
+  });
+
+  it("accepts only the newest resent code because an older email must stop proving inbox ownership", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const email = "owner@example.com";
+
+    expect((await requestRegisterSendCode(env, { email })).status).toBe(200);
+    const oldCode = db.verificationCodes[0];
+    if (!oldCode) throw new Error("Expected first register verification code.");
+    oldCode.created_at = new Date(Date.now() - 61_000).toISOString();
+    oldCode.expires_at = new Date(Date.now() + 600_000).toISOString();
+
+    expect((await requestRegisterSendCode(env, { email })).status).toBe(200);
+    const newCode = db.verificationCodes[1];
+    if (!newCode) throw new Error("Expected resent register verification code.");
+    if (newCode.code === oldCode.code) oldCode.code = "000000";
+
+    const oldResponse = await requestRegisterVerifyCode(env, {
+      email,
+      code: oldCode.code,
+    });
+    const newResponse = await requestRegisterVerifyCode(env, {
+      email,
+      code: newCode.code,
+    });
+
+    expect(oldResponse.status).toBe(422);
+    expect(newResponse.status).toBe(200);
   });
 
   it.each([
