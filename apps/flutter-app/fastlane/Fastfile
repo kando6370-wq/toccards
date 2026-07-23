@@ -4,7 +4,7 @@ platform :ios do
   desc "Upload App Store metadata without changing the binary"
   lane :metadata do
     deliver(
-      app_identifier: "com.kando.kandoApp",
+      app_identifier: "com.kando.kandoApp.beta",
       metadata_path: "./fastlane/metadata",
       primary_category: "Reference",
       secondary_category: "Utilities",
