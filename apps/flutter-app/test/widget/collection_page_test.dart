@@ -183,6 +183,29 @@ void main() {
     },
   );
 
+  testWidgets(
+    'folder radio and label share a large target because portfolio switching must not require precise text taps',
+    (tester) async {
+      await _pumpCollection(tester);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-select-sealed')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Select Portfolio'), findsNothing);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CollectionPage)),
+      );
+      expect(
+        container.read(collectionControllerProvider).selectedFolder.id,
+        'sealed',
+      );
+    },
+  );
+
   testWidgets('folder delete confirmation opens as a bottom sheet', (
     tester,
   ) async {

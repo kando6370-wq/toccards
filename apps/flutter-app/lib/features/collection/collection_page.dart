@@ -893,19 +893,12 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                                     ),
                                   ),
                                 ),
-                                Icon(
-                                  selected
-                                      ? Icons.radio_button_checked
-                                      : Icons.radio_button_unchecked,
-                                  size: 22,
-                                  color: selected
-                                      ? KandoColors.accent
-                                      : KandoColors.mutedText,
-                                ),
-                                const SizedBox(width: 12),
                                 Expanded(
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
+                                  child: InkWell(
+                                    key: Key(
+                                      'collection-folder-select-${folder.id}',
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
                                     onTap: () async {
                                       final succeeded = await controller
                                           .selectFolder(folder.id);
@@ -916,19 +909,33 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                                         _showCollectionActionError(context);
                                       }
                                     },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 22,
-                                      ),
-                                      child: Text(
-                                        folder.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          color: KandoColors.text,
+                                    child: Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 40,
+                                          height: 64,
+                                          child: Icon(
+                                            selected
+                                                ? Icons.radio_button_checked
+                                                : Icons.radio_button_unchecked,
+                                            size: 22,
+                                            color: selected
+                                                ? KandoColors.accent
+                                                : KandoColors.mutedText,
+                                          ),
                                         ),
-                                      ),
+                                        Expanded(
+                                          child: Text(
+                                            folder.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              color: KandoColors.text,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),

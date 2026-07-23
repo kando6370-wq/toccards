@@ -40,7 +40,10 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
   searchCalls = 0;
   trendingCalls = 0;
 
-  constructor(private readonly cards: CardSearchResult[]) {}
+  constructor(
+    private readonly cards: CardSearchResult[],
+    private readonly trendingFails = false,
+  ) {}
 
   async searchCards(): Promise<CardSearchResult[]> {
     this.searchCalls += 1;
@@ -65,6 +68,7 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
 
   async getTrending(): Promise<CardSearchResult[]> {
     this.trendingCalls += 1;
+    if (this.trendingFails) throw new Error("Injected Trending failure.");
     return this.cards;
   }
 
@@ -140,7 +144,7 @@ describe("KV cached data source adapter", () => {
     ]);
   });
 
-  it("caches getTrending globally for 15 minutes because all users share Trending Today", async () => {
+  it("queries Trending on every request because View all must show the latest ranking", async () => {
     const kv = new FakeKvNamespace();
     const source = new CountingDataSourceAdapter([card]);
     const adapter = createKvCachedDataSourceAdapter(source, kv);
@@ -148,12 +152,12 @@ describe("KV cached data source adapter", () => {
     await adapter.getTrending();
     await adapter.getTrending();
 
-    expect(source.trendingCalls).toBe(1);
+    expect(source.trendingCalls).toBe(2);
     expect(kv.puts).toEqual([
       {
-        key: "v4:getTrending",
+        key: "v5:getTrending:last-known-good",
         value: JSON.stringify([card]),
-        options: { expirationTtl: 900 },
+        options: { expirationTtl: 86400 },
       },
     ]);
   });
@@ -168,6 +172,33 @@ describe("KV cached data source adapter", () => {
 
     expect(source.trendingCalls).toBe(2);
     expect(kv.puts).toEqual([]);
+  });
+
+  it("migrates the last successful Trending result during empty producer windows because deployment must not cold-start Home to no data", async () => {
+    const kv = new FakeKvNamespace();
+    kv.values.set("v4:getTrending", JSON.stringify([card]));
+    const source = new CountingDataSourceAdapter([]);
+    const adapter = createKvCachedDataSourceAdapter(source, kv);
+
+    await expect(adapter.getTrending()).resolves.toEqual([card]);
+    expect(source.trendingCalls).toBe(1);
+    expect(kv.puts).toEqual([
+      {
+        key: "v5:getTrending:last-known-good",
+        value: JSON.stringify([card]),
+        options: { expirationTtl: 86400 },
+      },
+    ]);
+  });
+
+  it("serves the last successful Trending result during query failures because transient D1 errors are not empty rankings", async () => {
+    const kv = new FakeKvNamespace();
+    kv.values.set("v5:getTrending:last-known-good", JSON.stringify([card]));
+    const source = new CountingDataSourceAdapter([], true);
+    const adapter = createKvCachedDataSourceAdapter(source, kv);
+
+    await expect(adapter.getTrending()).resolves.toEqual([card]);
+    expect(source.trendingCalls).toBe(1);
   });
 
   it("returns fresh adapter data when KV write fails because cache backfill must not break responses", async () => {

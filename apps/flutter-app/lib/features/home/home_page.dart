@@ -81,7 +81,7 @@ class HomePage extends ConsumerWidget {
                   _TrendingSection(
                     state: state,
                     onRefresh: controller.refreshTrending,
-                    onViewAll: () => context.go('/search'),
+                    onViewAll: () => context.push('/trending'),
                   ),
                 ],
               ),

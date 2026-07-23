@@ -824,23 +824,34 @@ class _ScanPageState extends ConsumerState<ScanPage>
           .read(scanReviewRepositoryProvider)
           .addToPortfolio(scanId: item.match!.scanId, item: input);
       if (!mounted) return;
-      setState(() {
-        _lastAddedCount = 1;
-        _reviewing = false;
-        _markItemsAdded({item.id});
-        _selectedReviewItemId = null;
-        _reviewTarget = null;
-        _reviewCards = const {};
-        _reviewDrafts.remove(item.id);
-        _reviewFormError = null;
-      });
-      unawaited(_openCamera());
-      _refreshPortfolioSurfaces();
+      _completeSelectedItemAddition(item);
+    } on ScanApiException catch (error) {
+      if (error.code == 'CONFLICT' &&
+          error.message == 'Scan is already confirmed.') {
+        if (mounted) _completeSelectedItemAddition(item);
+      } else if (mounted) {
+        showKandoFailureToast(context);
+      }
     } on Exception {
       if (mounted) showKandoFailureToast(context);
     } finally {
       if (mounted) setState(() => _savingReview = false);
     }
+  }
+
+  void _completeSelectedItemAddition(_ScanItem item) {
+    setState(() {
+      _lastAddedCount = 1;
+      _reviewing = false;
+      _markItemsAdded({item.id});
+      _selectedReviewItemId = null;
+      _reviewTarget = null;
+      _reviewCards = const {};
+      _reviewDrafts.remove(item.id);
+      _reviewFormError = null;
+    });
+    unawaited(_openCamera());
+    _refreshPortfolioSurfaces();
   }
 
   Future<void> _addAllMatchedItems() async {

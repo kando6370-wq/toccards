@@ -13,14 +13,15 @@ class SearchCardTile extends ConsumerWidget {
     super.key,
     required this.card,
     required this.actionsEnabled,
+    this.showActions = true,
   });
 
   final SearchCard card;
   final bool actionsEnabled;
+  final bool showActions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.read(searchControllerProvider.notifier);
     final currency = ref.watch(selectedCurrencyProvider);
     final showFilledHeart = card.isWishlisted && !card.isCollected;
     final change = card.changeText;
@@ -99,58 +100,67 @@ class SearchCardTile extends ConsumerWidget {
                               ),
                       ),
                     ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: Row(
-                        children: [
-                          _SearchCardActionButton(
-                            key: Key('search-collect-${card.id}'),
-                            tooltip: card.isCollected ? 'Collected' : 'Collect',
-                            icon: card.isCollected
-                                ? Icons.add_to_photos
-                                : Icons.add_to_photos_outlined,
-                            selected: card.isCollected,
-                            onPressed: !actionsEnabled
-                                ? null
-                                : () async {
-                                    final action = await controller
-                                        .toggleCollectCard(card);
-                                    if (action ==
-                                        SearchCollectAction.openDetail) {
-                                      if (context.mounted) {
-                                        context.push('/cards/${card.id}');
+                    if (showActions)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Row(
+                          children: [
+                            _SearchCardActionButton(
+                              key: Key('search-collect-${card.id}'),
+                              tooltip: card.isCollected
+                                  ? 'Collected'
+                                  : 'Collect',
+                              icon: card.isCollected
+                                  ? Icons.add_to_photos
+                                  : Icons.add_to_photos_outlined,
+                              selected: card.isCollected,
+                              onPressed: !actionsEnabled
+                                  ? null
+                                  : () async {
+                                      final action = await ref
+                                          .read(
+                                            searchControllerProvider.notifier,
+                                          )
+                                          .toggleCollectCard(card);
+                                      if (action ==
+                                          SearchCollectAction.openDetail) {
+                                        if (context.mounted) {
+                                          context.push('/cards/${card.id}');
+                                        }
+                                      } else if (action ==
+                                              SearchCollectAction.ignored &&
+                                          context.mounted) {
+                                        showKandoFailureToast(context);
                                       }
-                                    } else if (action ==
-                                            SearchCollectAction.ignored &&
-                                        context.mounted) {
-                                      showKandoFailureToast(context);
-                                    }
-                                  },
-                          ),
-                          const SizedBox(width: 8),
-                          _SearchCardActionButton(
-                            key: Key('search-wishlist-${card.id}'),
-                            tooltip: showFilledHeart
-                                ? 'Remove from wishlist'
-                                : 'Add to wishlist',
-                            icon: showFilledHeart
-                                ? Icons.favorite
-                                : Icons.favorite_border,
-                            selected: showFilledHeart,
-                            onPressed: !actionsEnabled
-                                ? null
-                                : () async {
-                                    final succeeded = await controller
-                                        .toggleWishlistCard(card);
-                                    if (!succeeded && context.mounted) {
-                                      showKandoFailureToast(context);
-                                    }
-                                  },
-                          ),
-                        ],
+                                    },
+                            ),
+                            const SizedBox(width: 8),
+                            _SearchCardActionButton(
+                              key: Key('search-wishlist-${card.id}'),
+                              tooltip: showFilledHeart
+                                  ? 'Remove from wishlist'
+                                  : 'Add to wishlist',
+                              icon: showFilledHeart
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              selected: showFilledHeart,
+                              onPressed: !actionsEnabled
+                                  ? null
+                                  : () async {
+                                      final succeeded = await ref
+                                          .read(
+                                            searchControllerProvider.notifier,
+                                          )
+                                          .toggleWishlistCard(card);
+                                      if (!succeeded && context.mounted) {
+                                        showKandoFailureToast(context);
+                                      }
+                                    },
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

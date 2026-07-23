@@ -981,6 +981,34 @@ void main() {
   );
 
   testWidgets(
+    'Review treats an already confirmed scan as added because confirmation is idempotent',
+    (tester) async {
+      await _pumpScanTestApp(
+        tester,
+        scanReviewRepository: _FakeScanReviewRepository(
+          failure: const ScanApiException(
+            'Scan is already confirmed.',
+            code: 'CONFLICT',
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add this card'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Added to Portfolio'), findsWidgets);
+      expect(
+        find.text('Something went wrong. Please try again.'),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
     'Review keeps the match unsaved when confirmation fails because local Added state is not proof of persistence',
     (tester) async {
       await _pumpScanTestApp(

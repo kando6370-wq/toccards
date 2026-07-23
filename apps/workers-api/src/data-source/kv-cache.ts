@@ -13,9 +13,10 @@ export type DataSourceKvNamespace = {
 };
 
 const SEARCH_CARDS_TTL_SECONDS = 60 * 60;
-const TRENDING_TTL_SECONDS = 15 * 60;
+const TRENDING_LAST_GOOD_TTL_SECONDS = 24 * 60 * 60;
 const CARD_RESPONSE_CACHE_VERSION = "v3";
-const TRENDING_RESPONSE_CACHE_VERSION = "v4";
+const TRENDING_RESPONSE_CACHE_VERSION = "v5";
+const TRENDING_LEGACY_CACHE_KEY = "v4:getTrending";
 const DEFAULT_SEARCH_PAGE = 1;
 const DEFAULT_SEARCH_PAGE_SIZE = 20;
 
@@ -51,17 +52,40 @@ export function createKvCachedDataSourceAdapter(
 
     async getTrending() {
       const key = `${TRENDING_RESPONSE_CACHE_VERSION}:getTrending`;
-      const cached = await readCachedValue<Awaited<ReturnType<typeof source.getTrending>>>(
-        kv,
-        key,
-      );
-      if (cached !== null) return cached;
-
-      const fresh = await source.getTrending();
-      if (fresh.length > 0) {
-        await writeCachedValue(kv, key, fresh, TRENDING_TTL_SECONDS);
+      const lastGoodKey = `${key}:last-known-good`;
+      var lastGood = await readCachedValue<
+        Awaited<ReturnType<typeof source.getTrending>>
+      >(kv, lastGoodKey);
+      if (lastGood === null) {
+        lastGood = await readCachedValue<
+          Awaited<ReturnType<typeof source.getTrending>>
+        >(kv, TRENDING_LEGACY_CACHE_KEY);
+        if (lastGood !== null && lastGood.length > 0) {
+          await writeCachedValue(
+            kv,
+            lastGoodKey,
+            lastGood,
+            TRENDING_LAST_GOOD_TTL_SECONDS,
+          );
+        }
       }
-      return fresh;
+      try {
+        const fresh = await source.getTrending();
+        if (fresh.length === 0) return lastGood ?? fresh;
+
+        if (JSON.stringify(fresh) != JSON.stringify(lastGood)) {
+          await writeCachedValue(
+            kv,
+            lastGoodKey,
+            fresh,
+            TRENDING_LAST_GOOD_TTL_SECONDS,
+          );
+        }
+        return fresh;
+      } catch (error) {
+        if (lastGood !== null) return lastGood;
+        throw error;
+      }
     },
 
     getSoldListings(card_ref) {

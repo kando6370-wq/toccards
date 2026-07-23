@@ -17,12 +17,15 @@ import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/home/home_repository.dart';
+import 'package:kando_app/features/home/trending_today_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -701,7 +704,7 @@ void main() {
   );
 
   testWidgets(
-    'Trending View all opens Search because Search is backed by the live trending feed',
+    'Trending View all opens the live ranking because users need more than the Home preview',
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -709,6 +712,9 @@ void main() {
             ..._searchOverrides(),
             homeRepositoryProvider.overrideWithValue(
               const MockHomeRepository(),
+            ),
+            cardDataApiClientProvider.overrideWithValue(
+              const _TrendingCardDataApi(),
             ),
           ],
           child: const _HomeTestAppWithRoutes(),
@@ -720,8 +726,8 @@ void main() {
       await tester.tap(viewAll);
       await tester.pumpAndSettle();
 
-      expect(find.byType(SearchPage), findsOneWidget);
-      expect(find.text('Squirtle'), findsOneWidget);
+      expect(find.byType(TrendingTodayPage), findsOneWidget);
+      expect(find.text('Live Trending'), findsOneWidget);
     },
   );
 
@@ -944,6 +950,10 @@ class _HomeTestAppWithRoutes extends StatelessWidget {
             builder: (context, state) => const SearchPage(),
           ),
           GoRoute(
+            path: '/trending',
+            builder: (context, state) => const TrendingTodayPage(),
+          ),
+          GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfilePage(),
           ),
@@ -951,6 +961,31 @@ class _HomeTestAppWithRoutes extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TrendingCardDataApi implements CardDataApi {
+  const _TrendingCardDataApi();
+
+  @override
+  Future<List<CardDataCardDto>> trendingCards() async => const [
+    CardDataCardDto(
+      cardRef: 'live-trending',
+      name: 'Live Trending',
+      setName: 'Live Set',
+      setCode: 'LIVE',
+      cardNumber: '1',
+      finish: 'Normal',
+      language: 'English',
+      objectType: 'tcg',
+      imageUrl: null,
+      rarity: 'Rare',
+      priceUsd: 12,
+      priceChange1dPercent: 5,
+    ),
+  ];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _SuccessfulThenFailingHomeRepository implements HomeRepository {

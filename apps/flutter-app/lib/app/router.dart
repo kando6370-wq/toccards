@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/card_detail/card_detail_page.dart';
 import '../features/collection/collection_page.dart';
 import '../features/home/home_page.dart';
+import '../features/home/trending_today_page.dart';
 import '../features/onboarding/onboarding_gate.dart';
 import '../features/profile/account_page.dart';
 import '../features/profile/api_request_log_page.dart';
@@ -26,6 +27,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/home',
         pageBuilder: (context, state) => _mainTabPage(state, const HomePage()),
+      ),
+      GoRoute(
+        path: '/trending',
+        builder: (context, state) => const TrendingTodayPage(),
       ),
       GoRoute(
         path: '/collection',
