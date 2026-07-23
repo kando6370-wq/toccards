@@ -407,7 +407,9 @@ class _PortfolioCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Semantics(
                     button: true,
-                    label: 'Toggle amount visibility',
+                    label: state.amountHidden
+                        ? 'Show portfolio amount'
+                        : 'Hide portfolio amount',
                     child: GestureDetector(
                       key: const Key('home-hide-amount'),
                       onTap: onHidePressed,
@@ -419,10 +421,12 @@ class _PortfolioCard extends StatelessWidget {
                           shape: BoxShape.circle,
                           border: Border.all(color: const Color(0xFF464835)),
                         ),
-                        child: Image.asset(
-                          'assets/home/visibility.png',
-                          width: 14,
-                          height: 14,
+                        child: Icon(
+                          state.amountHidden
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 14,
+                          color: KandoColors.accent,
                         ),
                       ),
                     ),
@@ -890,9 +894,7 @@ class _MostValuableSection extends StatelessWidget {
                   onTap: card.cardRef == null
                       ? null
                       : () => context.push('/cards/${card.cardRef}'),
-                  price: state.amountHidden
-                      ? hiddenMoneyText
-                      : state.formatCardPrice(card.priceUsd),
+                  price: state.formatCardPrice(card.priceUsd),
                 );
               },
             ),

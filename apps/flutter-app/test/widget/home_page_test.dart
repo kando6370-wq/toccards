@@ -362,19 +362,33 @@ void main() {
     expect(find.byKey(const Key('kando-top-toast')), findsNothing);
   });
 
-  testWidgets('amount visibility toggle masks asset values', (tester) async {
-    final preferences = _TestPortfolioManagementApi();
-    await tester.pumpWidget(_mockHomeApp(preferences));
-    await _waitForHomeAuth(tester);
+  testWidgets(
+    'amount visibility uses the current eye state and keeps card prices visible',
+    (tester) async {
+      final preferences = _TestPortfolioManagementApi();
+      await tester.pumpWidget(_mockHomeApp(preferences));
+      await _waitForHomeAuth(tester);
 
-    await tester.tap(find.byKey(const Key('home-hide-amount')));
-    await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_off_outlined), findsNothing);
+      expect(find.text(r'$780.00'), findsOneWidget);
 
-    expect(find.text(hiddenMoneyText), findsWidgets);
-    expect(find.text(r'$12,450.80'), findsNothing);
-    expect(find.textContaining(r'$420.00'), findsNothing);
-    expect(preferences.amountHiddenValues, [true]);
-  });
+      await tester.tap(find.byKey(const Key('home-hide-amount')));
+      await tester.pump();
+
+      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_outlined), findsNothing);
+      expect(find.text(hiddenMoneyText), findsOneWidget);
+      expect(find.text(r'$12,450.80'), findsNothing);
+      expect(find.text(r'$780.00'), findsOneWidget);
+
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+      expect(find.text(r'$780.00'), findsOneWidget);
+      expect(preferences.amountHiddenValues, [true]);
+    },
+  );
 
   testWidgets(
     'Most Valuable change badges stay tied to the displayed card data after a portfolio switch',

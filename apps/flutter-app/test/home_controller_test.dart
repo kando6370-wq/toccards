@@ -277,27 +277,25 @@ void main() {
     },
   );
 
-  test(
-    'hidden amount masks asset money without losing selected folder state',
-    () async {
-      final container = _mockHomeContainer();
-      addTearDown(container.dispose);
-      await container.read(authControllerProvider.notifier).startupComplete;
+  test('hidden amount masks only the portfolio total', () async {
+    final container = _mockHomeContainer();
+    addTearDown(container.dispose);
+    await container.read(authControllerProvider.notifier).startupComplete;
 
-      final controller = container.read(homeControllerProvider.notifier);
-      await controller.selectFolder('sealed');
-      await controller.toggleAmountHidden();
-      final state = container.read(homeControllerProvider);
+    final controller = container.read(homeControllerProvider.notifier);
+    await controller.selectFolder('sealed');
+    await controller.toggleAmountHidden();
+    final state = container.read(homeControllerProvider);
 
-      expect(state.selectedFolder.id, 'sealed');
-      expect(state.totalAmountText, hiddenMoneyText);
-      expect(state.changeAmountText, '$hiddenMoneyText in the last 30 days');
-      expect(state.mostValuablePriceText, hiddenMoneyText);
-    },
-  );
+    expect(state.selectedFolder.id, 'sealed');
+    expect(state.totalAmountText, hiddenMoneyText);
+    expect(state.changeAmountText, r'$310.00 in the last 30 days');
+    expect(state.mostValuablePriceText, r'$620.00');
+    expect(state.formatCardPrice(8640), r'$8,640.00');
+  });
 
   test(
-    'empty folder most valuable price uses placeholder unless amounts are hidden',
+    'empty folder most valuable price stays a card placeholder when totals are hidden',
     () async {
       final container = _mockHomeContainer();
       addTearDown(container.dispose);
@@ -313,7 +311,7 @@ void main() {
       await controller.toggleAmountHidden();
       expect(
         container.read(homeControllerProvider).mostValuablePriceText,
-        hiddenMoneyText,
+        '--',
       );
     },
   );

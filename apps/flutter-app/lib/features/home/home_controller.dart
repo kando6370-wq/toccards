@@ -158,7 +158,8 @@ class HomeState {
     return const [];
   }
 
-  String get totalAmountText => _formatMoney(selectedPortfolio.totalValueUsd);
+  String get totalAmountText =>
+      _formatPortfolioTotal(selectedPortfolio.totalValueUsd);
 
   String get changeAmountText {
     final change = MarketChange.fromPrices(
@@ -167,7 +168,7 @@ class HomeState {
     );
     final amountText = change.amount == null
         ? '--'
-        : _formatMoney(change.amount!);
+        : formatCardPrice(change.amount!);
     return '$amountText in the last 30 days';
   }
 
@@ -179,10 +180,6 @@ class HomeState {
   }
 
   String get mostValuablePriceText {
-    if (amountHidden) {
-      return hiddenMoneyText;
-    }
-
     final card = mostValuable;
     if (card == null) {
       return '--';
@@ -190,7 +187,15 @@ class HomeState {
     return formatCardPrice(card.priceUsd);
   }
 
-  String formatCardPrice(double valueUsd) => _formatMoney(valueUsd);
+  String formatCardPrice(double valueUsd) {
+    return CurrencyFormatter(currency: currency).formatUsd(valueUsd);
+  }
+
+  String _formatPortfolioTotal(double valueUsd) {
+    return CurrencyFormatter(
+      currency: currency,
+    ).formatUsd(valueUsd, hidden: amountHidden);
+  }
 
   HomeState copyWith({
     HomeDashboard? dashboard,
@@ -209,12 +214,6 @@ class HomeState {
       loadStatus: loadStatus,
       trendingStatus: trendingStatus ?? this.trendingStatus,
     );
-  }
-
-  String _formatMoney(double usdAmount) {
-    return CurrencyFormatter(
-      currency: currency,
-    ).formatUsd(usdAmount, hidden: amountHidden);
   }
 }
 

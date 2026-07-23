@@ -558,7 +558,7 @@ void main() {
     },
   );
 
-  test('amount hiding masks money but leaves percentages readable', () async {
+  test('amount hiding masks only the portfolio total', () async {
     final container = _collectionContainer();
     addTearDown(container.dispose);
     await _loadedState(container);
@@ -568,7 +568,7 @@ void main() {
     final state = container.read(collectionControllerProvider);
 
     expect(state.portfolioSummary.totalValueText, hiddenMoneyText);
-    expect(state.visibleItems.first.valueText, hiddenMoneyText);
+    expect(state.visibleItems.first.valueText, r'$780.00');
     expect(state.visibleItems.first.changeText, '+8.10%');
   });
 

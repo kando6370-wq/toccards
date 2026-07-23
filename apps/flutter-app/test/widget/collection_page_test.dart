@@ -261,15 +261,27 @@ void main() {
     expect(find.text('No cards in this portfolio yet.'), findsNothing);
   });
 
-  testWidgets('amount toggle masks collection money', (tester) async {
+  testWidgets('amount toggle masks only the portfolio total', (tester) async {
     await _pumpCollection(tester);
 
+    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.visibility_off_outlined), findsNothing);
+    expect(find.text(r'$780.00'), findsOneWidget);
+
     await tester.tap(find.byKey(const Key('collection-hide-amount')));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.visibility_outlined), findsNothing);
+    expect(find.text(hiddenMoneyText), findsOneWidget);
+    expect(find.text(r'$1,245.00'), findsNothing);
+    expect(find.text(r'$780.00'), findsOneWidget);
+    expect(find.text('+8.10%'), findsOneWidget);
+
     await tester.pumpAndSettle();
 
-    expect(find.text(hiddenMoneyText), findsWidgets);
-    expect(find.text(r'$1,245.00'), findsNothing);
-    expect(find.text('+8.10%'), findsOneWidget);
+    expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+    expect(find.text(r'$780.00'), findsOneWidget);
   });
 
   testWidgets(

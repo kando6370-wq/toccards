@@ -317,9 +317,6 @@ class CollectionState {
   }
 
   String _formatMoney(double? valueUsd, int quantity) {
-    if (amountHidden) {
-      return hiddenMoneyText;
-    }
     if (valueUsd == null || valueUsd <= 0) {
       return '--';
     }

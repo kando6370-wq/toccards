@@ -360,11 +360,12 @@ class _HideAmountButton extends StatelessWidget {
     return IconButton(
       key: const Key('collection-hide-amount'),
       onPressed: onPressed,
+      tooltip: hidden ? 'Show portfolio amount' : 'Hide portfolio amount',
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
       icon: Icon(
-        hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+        hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
         size: 18,
         color: KandoColors.mutedText,
       ),
