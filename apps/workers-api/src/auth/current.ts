@@ -49,7 +49,7 @@ const SELECT_CURRENT_ANONYMOUS_ACCOUNT_SQL = `
 const SELECT_CURRENT_USER_SQL = `
   SELECT id, email, display_name, created_at
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `;
 

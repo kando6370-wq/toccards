@@ -34,6 +34,7 @@ type UserRow = {
   display_name: string | null;
   created_at: string;
   updated_at: string;
+  status?: "active" | "deleted" | "disabled";
   deleted_at: string | null;
 };
 
@@ -234,7 +235,7 @@ class FakeD1Statement {
 
     if (sql.includes("AS install_type")) {
       const formalUsers = this.db.users
-        .filter((row) => row.deleted_at === null)
+        .filter((row) => (row.status ?? "active") === "active")
         .map((row) => ({
           install_type: "user",
           uid: row.id,
@@ -358,10 +359,15 @@ class FakeD1Statement {
       return okResult<T>(undefined, session ? 1 : 0);
     }
 
-    if (sql.startsWith("UPDATE user SET deleted_at")) {
-      const [deletedAt, id] = this.values as [string, string];
-      const user = this.db.users.find((row) => row.id === id && row.deleted_at === null);
-      if (user) user.deleted_at = deletedAt;
+    if (sql.startsWith("UPDATE user SET status = 'disabled'")) {
+      const [updatedAt, id] = this.values as [string, string];
+      const user = this.db.users.find(
+        (row) => row.id === id && (row.status ?? "active") === "active",
+      );
+      if (user) {
+        user.status = "disabled";
+        user.updated_at = updatedAt;
+      }
       return okResult<T>(undefined, user ? 1 : 0);
     }
 
@@ -625,7 +631,8 @@ describe("admin routes", () => {
 
     expect(operatorResponse.status).toBe(403);
     expect(superResponse.status).toBe(200);
-    expect(env.DB.users[0]?.deleted_at).not.toBeNull();
+    expect(env.DB.users[0]?.status).toBe("disabled");
+    expect(env.DB.users[0]?.deleted_at).toBeNull();
   });
 
   it("lets operators advance feedback with UI processing states because the new console has only pending, processed, and ignored", async () => {
@@ -1041,7 +1048,7 @@ function adminUserResults(db: FakeD1, values: unknown[]) {
     email: row.email,
     device_id: null,
     created_at: row.created_at,
-    status: row.deleted_at ? "disabled" : "active",
+    status: (row.status ?? "active") === "active" ? "active" : "disabled",
     identity: db.authIdentities.some((item) => item.user_id === row.id && item.provider === "google")
       ? "google"
       : db.authIdentities.some((item) => item.user_id === row.id && item.provider === "apple") ? "apple" : "email",

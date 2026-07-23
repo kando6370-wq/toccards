@@ -121,8 +121,21 @@ type UserRow = {
   display_name: string | null;
   created_at: string;
   updated_at: string;
+  status?: "active" | "deleted" | "disabled";
   deleted_at: string | null;
 };
+
+function isActiveUser(row: UserRow): boolean {
+  return row.status !== undefined
+    ? row.status === "active"
+    : row.deleted_at === null;
+}
+
+function reservesEmail(row: UserRow): boolean {
+  return row.status !== undefined
+    ? row.status !== "deleted"
+    : row.deleted_at === null;
+}
 
 type AuthIdentityRow = {
   id: string;
@@ -395,7 +408,7 @@ class FakeD1 {
     if (normalizedSql === SELECT_CURRENT_USER_SQL) {
       const [id] = values as [string];
       const user = this.users.find(
-        (row) => row.id === id && row.deleted_at === null,
+        (row) => row.id === id && isActiveUser(row),
       );
 
       return user
@@ -410,7 +423,9 @@ class FakeD1 {
 
     if (normalizedSql === SELECT_USER_BY_EMAIL_SQL) {
       const [email] = values as [string];
-      const user = this.users.find((row) => row.email === email);
+      const user = this.users.find(
+        (row) => row.email === email && reservesEmail(row),
+      );
 
       return user ? ({ id: user.id } as T) : null;
     }
@@ -420,7 +435,7 @@ class FakeD1 {
       const user = this.users.find(
         (row) =>
           row.email === email &&
-          row.deleted_at === null &&
+          isActiveUser(row) &&
           row.password_hash !== null,
       );
 
@@ -438,7 +453,7 @@ class FakeD1 {
       const user = this.users.find(
         (row) =>
           row.email === email &&
-          row.deleted_at === null &&
+          isActiveUser(row) &&
           row.password_hash !== null,
       );
 
@@ -457,7 +472,7 @@ class FakeD1 {
     if (normalizedSql === SELECT_LIVE_USER_BY_ID_SQL) {
       const [id] = values as [string];
       const user = this.users.find(
-        (row) => row.id === id && row.deleted_at === null,
+        (row) => row.id === id && isActiveUser(row),
       );
 
       return user ? ({ id: user.id } as T) : null;
@@ -465,10 +480,12 @@ class FakeD1 {
 
     if (normalizedSql === SELECT_USER_BY_EMAIL_FOR_OAUTH_SQL) {
       const [email] = values as [string];
-      const user = this.users.find((row) => row.email === email);
+      const user = this.users.find(
+        (row) => row.email === email && reservesEmail(row),
+      );
 
       return user
-        ? ({ id: user.id, deleted_at: user.deleted_at } as T)
+        ? ({ id: user.id, status: user.status ?? "active" } as T)
         : null;
     }
 
@@ -620,7 +637,7 @@ class FakeD1 {
     if (normalizedSql === SELECT_REFRESH_USER_OWNER_SQL) {
       const [id] = values as [string];
       const user = this.users.find(
-        (row) => row.id === id && row.deleted_at === null,
+        (row) => row.id === id && isActiveUser(row),
       );
 
       return user ? ({ id: user.id } as T) : null;
@@ -878,7 +895,7 @@ class FakeD1 {
         });
       }
 
-      if (this.users.some((row) => row.email === email)) {
+      if (this.users.some((row) => row.email === email && reservesEmail(row))) {
         throw new Error("UNIQUE constraint failed: user.email");
       }
 
@@ -937,7 +954,7 @@ class FakeD1 {
         });
       }
 
-      if (this.users.some((row) => row.email === email)) {
+      if (this.users.some((row) => row.email === email && reservesEmail(row))) {
         throw new Error("UNIQUE constraint failed: user.email");
       }
 
@@ -1100,7 +1117,7 @@ class FakeD1 {
         });
       }
 
-      if (this.users.some((row) => row.email === email)) {
+      if (this.users.some((row) => row.email === email && reservesEmail(row))) {
         throw new Error("UNIQUE constraint failed: user.email");
       }
 
@@ -1186,7 +1203,7 @@ class FakeD1 {
         });
       }
 
-      if (this.users.some((row) => row.email === email)) {
+      if (this.users.some((row) => row.email === email && reservesEmail(row))) {
         throw new Error("UNIQUE constraint failed: user.email");
       }
 
@@ -1431,7 +1448,7 @@ class FakeD1 {
       const user = this.users.find(
         (row) =>
           row.email === email &&
-          row.deleted_at === null &&
+          isActiveUser(row) &&
           row.password_hash !== null,
       );
 
@@ -2113,10 +2130,11 @@ class FakeD1 {
     if (normalizedSql === UPDATE_USER_DELETED_SQL) {
       const [deletedAt, updatedAt, id] = values as [string, string, string];
       const user = this.users.find(
-        (row) => row.id === id && row.deleted_at === null,
+        (row) => row.id === id && isActiveUser(row),
       );
 
       if (user) {
+        user.status = "deleted";
         user.deleted_at = deletedAt;
         user.updated_at = updatedAt;
       }
@@ -2406,7 +2424,7 @@ const SELECT_CURRENT_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
 const SELECT_CURRENT_USER_SQL = normalizeSql(`
   SELECT id, email, display_name, created_at
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `);
 
@@ -2441,28 +2459,28 @@ const SELECT_REFRESH_ANONYMOUS_OWNER_SQL = normalizeSql(`
 const SELECT_REFRESH_USER_OWNER_SQL = normalizeSql(`
   SELECT id
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `);
 
 const SELECT_USER_BY_EMAIL_SQL = normalizeSql(`
   SELECT id
   FROM user
-  WHERE email = ?
+  WHERE email = ? AND status <> 'deleted'
   LIMIT 1
 `);
 
 const SELECT_LOGIN_USER_BY_EMAIL_SQL = normalizeSql(`
   SELECT id, email, password_hash
   FROM user
-  WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL
+  WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
   LIMIT 1
 `);
 
 const SELECT_LIVE_EMAIL_PASSWORD_USER_SQL = normalizeSql(`
   SELECT id
   FROM user
-  WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL
+  WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
   LIMIT 1
 `);
 
@@ -2477,14 +2495,14 @@ const SELECT_OAUTH_IDENTITY_SQL = normalizeSql(`
 const SELECT_LIVE_USER_BY_ID_SQL = normalizeSql(`
   SELECT id
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `);
 
 const SELECT_USER_BY_EMAIL_FOR_OAUTH_SQL = normalizeSql(`
-  SELECT id, deleted_at
+  SELECT id, status
   FROM user
-  WHERE email = ?
+  WHERE email = ? AND status <> 'deleted'
   LIMIT 1
 `);
 
@@ -2736,7 +2754,7 @@ const UPDATE_RESET_CODE_USED_SQL = normalizeSql(`
 const UPDATE_LIVE_EMAIL_PASSWORD_USER_SQL = normalizeSql(`
   UPDATE user
   SET password_hash = ?, updated_at = ?
-  WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL
+  WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
     AND EXISTS (
       SELECT 1
       FROM verification_code
@@ -3038,8 +3056,8 @@ const UPDATE_NON_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL = normalizeSql(`
 
 const UPDATE_USER_DELETED_SQL = normalizeSql(`
   UPDATE user
-  SET deleted_at = ?, updated_at = ?
-  WHERE id = ? AND deleted_at IS NULL
+  SET status = 'deleted', deleted_at = ?, updated_at = ?
+  WHERE id = ? AND status = 'active'
 `);
 
 const REVOKE_OWNER_SESSIONS_SQL = normalizeSql(`
@@ -3834,7 +3852,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     expect(db.sessions).toHaveLength(0);
   });
 
-  it("google oauth rejects a soft-deleted provider email because user.email uniqueness must not become a server error", async () => {
+  it("google oauth creates a new user for a deleted provider email because inactive accounts do not reserve the address", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
     db.users.push({
@@ -3844,6 +3862,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
       display_name: null,
       created_at: "2026-07-06T00:00:00.000Z",
       updated_at: "2026-07-06T00:00:00.000Z",
+      status: "deleted",
       deleted_at: "2026-07-06T01:00:00.000Z",
     });
 
@@ -3852,17 +3871,17 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     });
     const body = await response.json();
 
-    expect(response.status).toBe(422);
-    expect(body).toEqual({
-      success: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Authorization failed. Please try again.",
-      },
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      success: true,
+      data: { email: "deleted-email@example.com", login_method: "google" },
     });
-    expect(db.users).toHaveLength(1);
-    expect(db.authIdentities).toHaveLength(0);
-    expect(db.sessions).toHaveLength(0);
+    expect(db.users).toHaveLength(2);
+    expect(db.users.find((user) => isActiveUser(user))?.id).not.toBe(
+      "user-google-email-deleted",
+    );
+    expect(db.authIdentities).toHaveLength(1);
+    expect(db.sessions).toHaveLength(1);
   });
 
   it("google oauth rejects malformed mock authorization because failed provider proof must not create accounts", async () => {
@@ -4695,7 +4714,7 @@ describe("POST /api/v1/auth/register/send-code", () => {
     expect(db.verificationCodes).toHaveLength(0);
   });
 
-  it("returns 409 / CONFLICT without a code for a soft-deleted email because user.email is globally unique and later user creation would fail", async () => {
+  it("sends a code for a deleted email because a new account may reuse an inactive email", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
     db.users.push({
@@ -4705,6 +4724,7 @@ describe("POST /api/v1/auth/register/send-code", () => {
       display_name: "Deleted User",
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
+      status: "deleted",
       deleted_at: "2026-07-03T00:00:00.000Z",
     });
 
@@ -4713,12 +4733,10 @@ describe("POST /api/v1/auth/register/send-code", () => {
     });
     const body = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(body).toMatchObject({
-      success: false,
-      error: { code: "CONFLICT" },
-    });
-    expect(db.verificationCodes).toHaveLength(0);
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ success: true });
+    expect(db.verificationCodes).toHaveLength(1);
+    expect(db.verificationCodes[0]?.email).toBe("owner@example.com");
   });
 
   it("returns 500 / INTERNAL_ERROR when the existing-user lookup fails because D1 errors must keep the API error contract", async () => {
@@ -5711,7 +5729,7 @@ describe("POST /api/v1/auth/register/verify", () => {
     expect(code.used_at).toBeNull();
   });
 
-  it("returns 409 for a soft-deleted email during verify because user.email remains globally reserved", async () => {
+  it("creates a new user for a deleted email because account deletion must not reserve the address", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
     const sendResponse = await requestRegisterSendCode(env, {
@@ -5731,6 +5749,7 @@ describe("POST /api/v1/auth/register/verify", () => {
       display_name: "Deleted User",
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
+      status: "deleted",
       deleted_at: "2026-07-03T00:00:00.000Z",
     });
 
@@ -5741,17 +5760,14 @@ describe("POST /api/v1/auth/register/verify", () => {
     });
     const body = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(body).toEqual({
-      success: false,
-      error: {
-        code: "CONFLICT",
-        message: "Email is already registered.",
-      },
-    });
-    expect(db.users).toHaveLength(1);
-    expect(db.sessions).toHaveLength(0);
-    expect(code.used_at).toBeNull();
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ success: true });
+    expect(db.users).toHaveLength(2);
+    expect(db.users.find((user) => isActiveUser(user))?.id).not.toBe(
+      "deleted-user",
+    );
+    expect(db.sessions).toHaveLength(1);
+    expect(code.used_at).not.toBeNull();
   });
 
   it("returns 409 when user insert hits an email unique race because conflict semantics must survive concurrent registration", async () => {

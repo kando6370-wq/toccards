@@ -15,7 +15,7 @@ type UserRow = {
 
 type OAuthEmailUserRow = {
   id: string;
-  deleted_at: string | null;
+  status: "active" | "disabled";
 };
 
 type OAuthIdentityRow = {
@@ -44,14 +44,14 @@ const SELECT_OAUTH_IDENTITY_SQL = `
 const SELECT_LIVE_USER_BY_ID_SQL = `
   SELECT id
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `;
 
 const SELECT_USER_BY_EMAIL_FOR_OAUTH_SQL = `
-  SELECT id, deleted_at
+  SELECT id, status
   FROM user
-  WHERE email = ?
+  WHERE email = ? AND status <> 'deleted'
   LIMIT 1
 `;
 
@@ -201,7 +201,7 @@ async function completeOAuthAccountFlowOnce(
     .first<OAuthEmailUserRow>();
 
   if (existingEmailUser) {
-    if (existingEmailUser.deleted_at !== null) {
+    if (existingEmailUser.status !== "active") {
       throw new Error(OAUTH_AUTHORIZATION_FAILED_MESSAGE);
     }
 

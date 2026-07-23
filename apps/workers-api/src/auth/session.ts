@@ -66,7 +66,7 @@ const SELECT_REFRESH_ANONYMOUS_OWNER_SQL = `
 const SELECT_REFRESH_USER_OWNER_SQL = `
   SELECT id
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `;
 

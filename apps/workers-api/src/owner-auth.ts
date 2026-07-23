@@ -42,7 +42,7 @@ LIMIT 1
 const SELECT_USER_OWNER_SQL = `
 SELECT id
 FROM user
-WHERE id = ? AND deleted_at IS NULL
+WHERE id = ? AND status = 'active'
 LIMIT 1
 `;
 

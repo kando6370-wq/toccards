@@ -103,7 +103,7 @@ const INTERNAL_ERROR_RESPONSE = {
 const SELECT_USER_BY_EMAIL_SQL = `
   SELECT id
   FROM user
-  WHERE email = ?
+  WHERE email = ? AND status <> 'deleted'
   LIMIT 1
 `;
 

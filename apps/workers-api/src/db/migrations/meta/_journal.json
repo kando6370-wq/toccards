@@ -99,6 +99,13 @@
       "when": 1784772000000,
       "tag": "0013_games_search_sort",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1784793600000,
+      "tag": "0014_user_deletion_status",
+      "breakpoints": true
     }
   ]
 }

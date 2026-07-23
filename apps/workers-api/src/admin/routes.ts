@@ -220,7 +220,7 @@ const REVOKE_SESSION_SQL = `
 const ADMIN_USERS_FILTERED_SQL = `
   WITH accounts AS (
     SELECT 'user' AS account_type, u.id, u.email, NULL AS device_id, u.created_at,
-      CASE WHEN u.deleted_at IS NULL THEN 'active' ELSE 'disabled' END AS status,
+      CASE WHEN u.status = 'active' THEN 'active' ELSE 'disabled' END AS status,
       COALESCE((
         SELECT ai.provider FROM auth_identity ai WHERE ai.user_id = u.id
         ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END LIMIT 1
@@ -262,7 +262,7 @@ const SELECT_INSTALLATION_SOURCES_SQL = `
   SELECT 'user' AS install_type, id AS uid, 'iOS' AS platform,
     'Unknown' AS country, 'production' AS environment, created_at
   FROM user
-  WHERE deleted_at IS NULL
+  WHERE status = 'active'
   UNION ALL
   SELECT 'anonymous' AS install_type, id AS uid, 'iOS' AS platform,
     'Unknown' AS country, 'production' AS environment, created_at
@@ -271,7 +271,7 @@ const SELECT_INSTALLATION_SOURCES_SQL = `
 `;
 
 const SELECT_USER_DETAIL_SQL = `
-  SELECT id, email, display_name, created_at, updated_at, deleted_at
+  SELECT id, email, display_name, created_at, updated_at, status, deleted_at
   FROM user
   WHERE id = ?
   LIMIT 1
@@ -285,8 +285,8 @@ const SELECT_ANONYMOUS_DETAIL_SQL = `
 `;
 
 const DISABLE_USER_SQL = `
-  UPDATE user SET deleted_at = ?
-  WHERE id = ? AND deleted_at IS NULL
+  UPDATE user SET status = 'disabled', updated_at = ?
+  WHERE id = ? AND status = 'active'
 `;
 
 const SELECT_FEEDBACKS_SQL = `
