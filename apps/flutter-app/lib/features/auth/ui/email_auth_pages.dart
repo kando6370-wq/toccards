@@ -1129,7 +1129,7 @@ class _CodePageState extends State<_CodePage> {
                   ? 'Get verification code'
                   : widget.resendSeconds > 0
                   ? 'Retry in ${widget.resendSeconds} seconds'
-                  : 'Resend code',
+                  : 'Get verification code',
               loading: widget.loading,
               enabled:
                   complete ||

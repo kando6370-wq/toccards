@@ -125,7 +125,7 @@ void main() {
   );
 
   testWidgets(
-    'Scan shows capture feedback before freezing the live frame because taking a photo must be perceptible',
+    'Scan animates capture feedback before freezing the live frame because taking a photo must be perceptible',
     (tester) async {
       final camera = _TestScanCameraSession();
       final source = _TestScanResultSource(
@@ -158,7 +158,15 @@ void main() {
       await tester.pump();
       expect(camera.takePhotoCount, 0);
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
-      await tester.pump(const Duration(milliseconds: 500));
+      final scanningLine = find.byKey(
+        const Key('scan-figma-scanning-line-canvas'),
+      );
+      expect(tester.getSize(scanningLine), const Size(280, 4));
+      final start = tester.getTopLeft(scanningLine).dy;
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(camera.takePhotoCount, 0);
+      expect(tester.getTopLeft(scanningLine).dy, greaterThan(start));
+      await tester.pump(const Duration(milliseconds: 250));
       expect(camera.takePhotoCount, 1);
       expect(source.recognizedImages.single.fileName, 'live-camera.jpg');
       expect(
@@ -867,7 +875,7 @@ void main() {
       );
       expect(
         tester.getTopLeft(find.byKey(const Key('scan-figma-scanning-line'))).dy,
-        291,
+        163,
       );
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Scanning'), findsNothing);

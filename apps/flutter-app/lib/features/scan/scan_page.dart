@@ -252,11 +252,12 @@ class ScanPage extends ConsumerStatefulWidget {
 class _ScanPageState extends ConsumerState<ScanPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   static const _revealTimelineDuration = Duration(microseconds: 1529856);
-  static const _captureSettleDuration = Duration(milliseconds: 500);
+  static const _captureAnimationDuration = Duration(milliseconds: 500);
 
   final List<_ScanItem> _items = [];
   final List<Timer> _scanTimers = [];
   final Map<int, _PendingScan> _pendingScans = {};
+  late final AnimationController _captureController;
   ScanCameraSession? _cameraSession;
 
   var _nextScanId = 1;
@@ -322,6 +323,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
   @override
   void initState() {
     super.initState();
+    _captureController = AnimationController(
+      vsync: this,
+      duration: _captureAnimationDuration,
+    );
     WidgetsBinding.instance.addObserver(this);
     unawaited(_openCamera());
   }
@@ -340,6 +345,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _captureController.dispose();
     _cameraGeneration += 1;
     final camera = _cameraSession;
     if (camera != null) unawaited(camera.dispose());
@@ -417,7 +423,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     ScanResultSource source,
   ) async {
     try {
-      await Future<void>.delayed(_captureSettleDuration);
+      await _captureController.forward(from: 0).orCancel;
       final image = await camera.takePhoto();
       return await source.recognize(image);
     } catch (_) {
@@ -1125,6 +1131,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 recognizing: _isRecognizing,
                 revealing: _isRevealing,
                 showRevealingFeedback: _showRevealingFeedback,
+                captureAnimation: _captureController,
                 revealAnimation: _revealAnimation,
                 cards: _reviewCards,
                 currency: currency,
@@ -1159,6 +1166,7 @@ class _ScanCameraView extends StatelessWidget {
     required this.recognizing,
     required this.revealing,
     required this.showRevealingFeedback,
+    required this.captureAnimation,
     required this.revealAnimation,
     required this.cards,
     required this.currency,
@@ -1185,6 +1193,7 @@ class _ScanCameraView extends StatelessWidget {
   final bool recognizing;
   final bool revealing;
   final bool showRevealingFeedback;
+  final Animation<double> captureAnimation;
   final Animation<double> revealAnimation;
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
@@ -1318,11 +1327,12 @@ class _ScanCameraView extends StatelessWidget {
         if (scanning) ...[
           Positioned(
             left: 55,
-            top: 291,
-            width: 280,
-            height: 4,
-            child: const _FigmaScanningLine(
+            top: _viewfinderTop,
+            width: _viewfinderWidth,
+            height: _viewfinderHeight,
+            child: _FigmaScanningLine(
               key: Key('scan-figma-scanning-line'),
+              animation: captureAnimation,
             ),
           ),
         ],
@@ -1498,13 +1508,35 @@ class _AlignCardPill extends StatelessWidget {
 }
 
 class _FigmaScanningLine extends StatelessWidget {
-  const _FigmaScanningLine({super.key});
+  const _FigmaScanningLine({required this.animation, super.key});
+
+  final Animation<double> animation;
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      key: const Key('scan-figma-scanning-line-canvas'),
-      painter: const _FigmaScanningLinePainter(),
+    return ClipRect(
+      child: Stack(
+        children: [
+          AnimatedBuilder(
+            animation: animation,
+            child: const SizedBox(
+              width: _viewfinderWidth,
+              height: 4,
+              child: CustomPaint(
+                key: Key('scan-figma-scanning-line-canvas'),
+                painter: _FigmaScanningLinePainter(),
+              ),
+            ),
+            builder: (context, child) {
+              final progress = Curves.easeInOut.transform(animation.value);
+              return Transform.translate(
+                offset: Offset(0, (_viewfinderHeight - 4) * progress),
+                child: child,
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

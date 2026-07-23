@@ -865,8 +865,13 @@ void main() {
       'member@example.com',
     );
     await tester.pump();
-    expect(find.widgetWithText(FilledButton, 'Resend code'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Resend code'));
+    expect(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+    );
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(FilledButton, 'SIGN IN'), findsOneWidget);
@@ -898,7 +903,9 @@ void main() {
       'second@example.com',
     );
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Resend code'));
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Get verification code'),
+    );
     await tester.pump();
 
     expect(find.byKey(const Key('register-code-email-input')), findsOneWidget);
