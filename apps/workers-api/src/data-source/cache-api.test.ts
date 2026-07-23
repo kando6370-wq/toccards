@@ -32,6 +32,7 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
   marketPriceCalls = 0;
   priceSeriesCalls = 0;
   soldListingCalls = 0;
+  trendingOptions: Array<{ page?: number; page_size?: number } | undefined> = [];
 
   async searchCards(): Promise<CardSearchResult[]> {
     return [];
@@ -76,7 +77,8 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
     ];
   }
 
-  async getTrending(): Promise<CardSearchResult[]> {
+  async getTrending(options?: { page?: number; page_size?: number }): Promise<CardSearchResult[]> {
+    this.trendingOptions.push(options);
     return [];
   }
 
@@ -95,6 +97,15 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
 }
 
 describe("Cache API data source adapter", () => {
+  it("forwards Trending pagination because the outer production cache must not reset every request to page one", async () => {
+    const source = new CountingDataSourceAdapter();
+    const adapter = createCacheApiDataSourceAdapter(source, new FakeCache());
+
+    await adapter.getTrending({ page: 2, page_size: 40 });
+
+    expect(source.trendingOptions).toEqual([{ page: 2, page_size: 40 }]);
+  });
+
   it("serves repeated getMarketPrices calls from Cache API because current price requests should not hit providers repeatedly", async () => {
     const cache = new FakeCache();
     const source = new CountingDataSourceAdapter();

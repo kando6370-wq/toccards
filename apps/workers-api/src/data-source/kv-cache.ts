@@ -15,8 +15,11 @@ export type DataSourceKvNamespace = {
 const SEARCH_CARDS_TTL_SECONDS = 60 * 60;
 const TRENDING_LAST_GOOD_TTL_SECONDS = 24 * 60 * 60;
 const CARD_RESPONSE_CACHE_VERSION = "v3";
-const TRENDING_RESPONSE_CACHE_VERSION = "v5";
-const TRENDING_LEGACY_CACHE_KEY = "v4:getTrending";
+const TRENDING_RESPONSE_CACHE_VERSION = "v6";
+const TRENDING_LEGACY_CACHE_KEYS = [
+  "v5:getTrending:last-known-good",
+  "v4:getTrending",
+];
 const DEFAULT_SEARCH_PAGE = 1;
 const DEFAULT_SEARCH_PAGE_SIZE = 20;
 
@@ -50,16 +53,21 @@ export function createKvCachedDataSourceAdapter(
       return source.getMarketPrices(card_ref);
     },
 
-    async getTrending() {
-      const key = `${TRENDING_RESPONSE_CACHE_VERSION}:getTrending`;
+    async getTrending(options) {
+      const page = options?.page ?? 1;
+      const pageSize = options?.page_size ?? 10;
+      const key = `${TRENDING_RESPONSE_CACHE_VERSION}:getTrending:${page}:${pageSize}`;
       const lastGoodKey = `${key}:last-known-good`;
       var lastGood = await readCachedValue<
         Awaited<ReturnType<typeof source.getTrending>>
       >(kv, lastGoodKey);
-      if (lastGood === null) {
-        lastGood = await readCachedValue<
-          Awaited<ReturnType<typeof source.getTrending>>
-        >(kv, TRENDING_LEGACY_CACHE_KEY);
+      if (lastGood === null && page === 1 && pageSize === 10) {
+        for (const legacyKey of TRENDING_LEGACY_CACHE_KEYS) {
+          lastGood = await readCachedValue<
+            Awaited<ReturnType<typeof source.getTrending>>
+          >(kv, legacyKey);
+          if (lastGood !== null) break;
+        }
         if (lastGood !== null && lastGood.length > 0) {
           await writeCachedValue(
             kv,
@@ -70,7 +78,7 @@ export function createKvCachedDataSourceAdapter(
         }
       }
       try {
-        const fresh = await source.getTrending();
+        const fresh = await source.getTrending({ page, page_size: pageSize });
         if (fresh.length === 0) return lastGood ?? fresh;
 
         if (JSON.stringify(fresh) != JSON.stringify(lastGood)) {

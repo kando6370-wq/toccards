@@ -39,6 +39,7 @@ class FakeKvNamespace {
 class CountingDataSourceAdapter implements DataSourceAdapter {
   searchCalls = 0;
   trendingCalls = 0;
+  trendingOptions: Array<{ page?: number; page_size?: number } | undefined> = [];
 
   constructor(
     private readonly cards: CardSearchResult[],
@@ -66,8 +67,9 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
     return [];
   }
 
-  async getTrending(): Promise<CardSearchResult[]> {
+  async getTrending(options?: { page?: number; page_size?: number }): Promise<CardSearchResult[]> {
     this.trendingCalls += 1;
+    this.trendingOptions.push(options);
     if (this.trendingFails) throw new Error("Injected Trending failure.");
     return this.cards;
   }
@@ -155,11 +157,22 @@ describe("KV cached data source adapter", () => {
     expect(source.trendingCalls).toBe(2);
     expect(kv.puts).toEqual([
       {
-        key: "v5:getTrending:last-known-good",
+        key: "v6:getTrending:1:10:last-known-good",
         value: JSON.stringify([card]),
         options: { expirationTtl: 86400 },
       },
     ]);
+  });
+
+  it("isolates Trending fallbacks by page because pagination must not repeat page one", async () => {
+    const kv = new FakeKvNamespace();
+    const source = new CountingDataSourceAdapter([card]);
+    const adapter = createKvCachedDataSourceAdapter(source, kv);
+
+    await adapter.getTrending({ page: 2, page_size: 40 });
+
+    expect(source.trendingOptions).toEqual([{ page: 2, page_size: 40 }]);
+    expect(kv.puts[0]?.key).toBe("v6:getTrending:2:40:last-known-good");
   });
 
   it("does not cache empty Trending because the external producer may populate increase rates at any time", async () => {
@@ -184,7 +197,7 @@ describe("KV cached data source adapter", () => {
     expect(source.trendingCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "v5:getTrending:last-known-good",
+        key: "v6:getTrending:1:10:last-known-good",
         value: JSON.stringify([card]),
         options: { expirationTtl: 86400 },
       },

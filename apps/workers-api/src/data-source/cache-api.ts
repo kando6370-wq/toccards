@@ -39,8 +39,8 @@ export function createCacheApiDataSourceAdapter(
       );
     },
 
-    getTrending() {
-      return source.getTrending();
+    getTrending(options) {
+      return source.getTrending(options);
     },
 
     getSoldListings(card_ref) {

@@ -176,8 +176,10 @@ export function createDataSourceRoutes(
   });
 
   routes.get("/cards/trending", async (c) => {
+    const page = positiveIntegerOrDefault(c.req.query("page"), 1);
+    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 10, 100);
     const adapter = createAdapter(c.env);
-    const items = await adapter.getTrending();
+    const items = await adapter.getTrending({ page, page_size: pageSize });
     const overriddenItems = await Promise.all(
       items.map(async (item) => {
         const override = await findCardOverride(c.env.DB, item.card_ref);

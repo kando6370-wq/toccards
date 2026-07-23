@@ -8,6 +8,29 @@ import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 
 void main() {
   test(
+    'trendingCardPage sends unified pagination because View all must load beyond the Home preview',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/cards/trending');
+        expect(request.queryParameters, {'page': '2', 'page_size': '40'});
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [_cardJson(cardRef: 'trending-page-2')],
+          },
+        });
+      });
+
+      final cards = await CardDataApiClient(
+        _dio(adapter),
+      ).trendingCardPage(page: 2);
+
+      expect(cards.single.cardRef, 'trending-page-2');
+    },
+  );
+
+  test(
     'searchCards maps Workers catalog rows because Search must read the real card catalog',
     () async {
       final adapter = _RecordingAdapter((request) {

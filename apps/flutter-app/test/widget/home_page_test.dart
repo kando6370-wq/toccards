@@ -706,6 +706,7 @@ void main() {
   testWidgets(
     'Trending View all opens the live ranking because users need more than the Home preview',
     (tester) async {
+      final trendingApi = _TrendingCardDataApi();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -713,9 +714,7 @@ void main() {
             homeRepositoryProvider.overrideWithValue(
               const MockHomeRepository(),
             ),
-            cardDataApiClientProvider.overrideWithValue(
-              const _TrendingCardDataApi(),
-            ),
+            cardDataApiClientProvider.overrideWithValue(trendingApi),
           ],
           child: const _HomeTestAppWithRoutes(),
         ),
@@ -728,6 +727,7 @@ void main() {
 
       expect(find.byType(TrendingTodayPage), findsOneWidget);
       expect(find.text('Live Trending'), findsOneWidget);
+      expect(trendingApi.requestedPages, [1]);
     },
   );
 
@@ -963,8 +963,9 @@ class _HomeTestAppWithRoutes extends StatelessWidget {
   }
 }
 
-class _TrendingCardDataApi implements CardDataApi {
-  const _TrendingCardDataApi();
+class _TrendingCardDataApi
+    implements CardDataApi, PaginatedTrendingCardDataApi {
+  final requestedPages = <int>[];
 
   @override
   Future<List<CardDataCardDto>> trendingCards() async => const [
@@ -983,6 +984,12 @@ class _TrendingCardDataApi implements CardDataApi {
       priceChange1dPercent: 5,
     ),
   ];
+
+  @override
+  Future<List<CardDataCardDto>> trendingCardPage({required int page}) async {
+    requestedPages.add(page);
+    return trendingCards();
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

@@ -245,6 +245,10 @@ abstract interface class PaginatedCardDataApi {
   });
 }
 
+abstract interface class PaginatedTrendingCardDataApi {
+  Future<List<CardDataCardDto>> trendingCardPage({required int page});
+}
+
 abstract interface class BatchCardDataApi {
   Future<List<List<CardDataPricePointDto>>> getPriceSeriesBatch(
     String cardRef,
@@ -256,6 +260,7 @@ class CardDataApiClient
     implements
         CardDataApi,
         PaginatedCardDataApi,
+        PaginatedTrendingCardDataApi,
         SetCatalogApi,
         BatchCardDataApi {
   const CardDataApiClient(this._dio);
@@ -351,6 +356,16 @@ class CardDataApiClient
   @override
   Future<List<CardDataCardDto>> trendingCards() async {
     final data = await _requestData('GET', '/cards/trending');
+    return _items(data).map(CardDataCardDto.fromJson).toList();
+  }
+
+  @override
+  Future<List<CardDataCardDto>> trendingCardPage({required int page}) async {
+    final data = await _requestData(
+      'GET',
+      '/cards/trending',
+      queryParameters: {'page': page, 'page_size': kandoPageSize},
+    );
     return _items(data).map(CardDataCardDto.fromJson).toList();
   }
 

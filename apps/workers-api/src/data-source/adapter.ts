@@ -75,6 +75,6 @@ export interface DataSourceAdapter {
     days: number,
   ): Promise<PricePoint[]>;
   getMarketPrices(card_ref: string): Promise<MarketPrice[]>;
-  getTrending(): Promise<CardSearchResult[]>;
+  getTrending(options?: Pick<CardSearchOptions, "page" | "page_size">): Promise<CardSearchResult[]>;
   getSoldListings(card_ref: string): Promise<SoldListing[]>;
 }

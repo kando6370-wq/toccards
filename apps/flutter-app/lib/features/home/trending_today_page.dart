@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/search/search_card_tile.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_repository.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
+import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -17,7 +19,10 @@ class TrendingTodayPage extends ConsumerStatefulWidget {
 class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
   var _cards = const <SearchCard>[];
   var _loading = true;
+  var _loadingMore = false;
   var _failed = false;
+  var _page = 0;
+  var _hasMore = true;
 
   @override
   void initState() {
@@ -29,19 +34,41 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
     setState(() {
       _loading = true;
       _failed = false;
+      _page = 0;
+      _hasMore = true;
     });
+    await _loadPage(1, replace: true);
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading || _loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    await _loadPage(_page + 1, replace: false);
+  }
+
+  Future<void> _loadPage(int page, {required bool replace}) async {
     try {
-      final rows = await ref.read(cardDataApiClientProvider).trendingCards();
+      final api = ref.read(cardDataApiClientProvider);
+      final rows = api is PaginatedTrendingCardDataApi
+          ? await (api as PaginatedTrendingCardDataApi).trendingCardPage(
+              page: page,
+            )
+          : await api.trendingCards();
       if (!mounted) return;
       setState(() {
-        _cards = rows.map(searchCardFromDto).toList();
+        final nextCards = rows.map(searchCardFromDto).toList();
+        _cards = replace ? nextCards : [..._cards, ...nextCards];
+        _page = page;
+        _hasMore = rows.length == kandoPageSize;
         _loading = false;
+        _loadingMore = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _failed = true;
+        _loadingMore = false;
+        _failed = replace;
       });
     }
   }
@@ -78,44 +105,57 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
       );
     }
 
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        const SliverPadding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, 32),
-          sliver: SliverToBoxAdapter(
-            child: Text(
-              'Trending Today',
-              style: TextStyle(
-                fontFamily: 'Fraunces',
-                fontSize: 32,
-                height: 40 / 32,
-                fontWeight: FontWeight.w600,
-                color: KandoColors.text,
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.extentAfter < 400) _loadMore();
+        return false;
+      },
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(20, 8, 20, 32),
+            sliver: SliverToBoxAdapter(
+              child: Text(
+                'Trending Today',
+                style: TextStyle(
+                  fontFamily: 'Fraunces',
+                  fontSize: 32,
+                  height: 40 / 32,
+                  fontWeight: FontWeight.w600,
+                  color: KandoColors.text,
+                ),
               ),
             ),
           ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.5,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => SearchCardTile(
-                card: _cards[index],
-                actionsEnabled: false,
-                showActions: false,
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.5,
               ),
-              childCount: _cards.length,
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => SearchCardTile(
+                  card: _cards[index],
+                  actionsEnabled: false,
+                  showActions: false,
+                ),
+                childCount: _cards.length,
+              ),
             ),
           ),
-        ),
-      ],
+          if (_loadingMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 32),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

@@ -171,7 +171,9 @@ LIMIT ? OFFSET ?`,
       return prices;
     },
 
-    async getTrending() {
+    async getTrending(options) {
+      const page = options?.page ?? 1;
+      const pageSize = options?.page_size ?? 10;
       const available = await db
         .prepare(
           `SELECT 1 AS has_trending
@@ -209,8 +211,9 @@ JOIN cards_all
   ON CAST(cards_all.product_id AS INTEGER) = ranked_skus.product_id
 WHERE ranked_skus.product_rank = 1
 ORDER BY ranked_skus.increase_rate DESC, ranked_skus.sku_id ASC
-LIMIT 10`,
+LIMIT ? OFFSET ?`,
         )
+        .bind(pageSize, (page - 1) * pageSize)
         .all<TrendingRow>();
 
       return (results.results ?? []).map((row) => ({
