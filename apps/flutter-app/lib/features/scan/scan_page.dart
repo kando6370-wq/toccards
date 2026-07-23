@@ -3782,16 +3782,24 @@ class _ReviewFooter extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  IconButton.filledTonal(
+                  IconButton(
+                    key: const Key('scan-review-delete-one'),
                     tooltip: 'Delete card',
                     onPressed: saving ? null : onDeleteItem,
-                    icon: const Text(
-                      'DEL',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size.square(56),
+                      minimumSize: const Size.square(56),
+                      padding: EdgeInsets.zero,
+                      backgroundColor: const Color(0x1AE1B6FF),
+                      disabledBackgroundColor: const Color(0x0DE1B6FF),
+                      foregroundColor: const Color(0xFFFFB4AB),
+                      disabledForegroundColor: const Color(0x66FFB4AB),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(33),
+                        side: const BorderSide(color: Color(0x33FFB4AB)),
                       ),
                     ),
+                    icon: const Icon(Icons.delete_outline, size: 18),
                   ),
                 ],
               ),

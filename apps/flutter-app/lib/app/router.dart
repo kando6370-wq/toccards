@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -22,10 +23,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return const OnboardingGate(home: HomePage());
         },
       ),
-      GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+      GoRoute(
+        path: '/home',
+        pageBuilder: (context, state) => _mainTabPage(state, const HomePage()),
+      ),
       GoRoute(
         path: '/collection',
-        builder: (context, state) => const CollectionPage(),
+        pageBuilder: (context, state) =>
+            _mainTabPage(state, const CollectionPage()),
       ),
       GoRoute(path: '/scan', builder: (context, state) => const ScanPage()),
       GoRoute(
@@ -34,7 +39,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return CardDetailPage(cardId: state.pathParameters['cardId'] ?? '');
         },
       ),
-      GoRoute(path: '/search', builder: (context, state) => const SearchPage()),
+      GoRoute(
+        path: '/search',
+        pageBuilder: (context, state) =>
+            _mainTabPage(state, const SearchPage()),
+      ),
       GoRoute(
         path: '/sets/:setCode',
         builder: (context, state) => SetDetailPage(
@@ -45,7 +54,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/profile',
-        builder: (context, state) => const ProfilePage(),
+        pageBuilder: (context, state) =>
+            _mainTabPage(state, const ProfilePage()),
       ),
       GoRoute(
         path: '/account',
@@ -64,3 +74,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(router.dispose);
   return router;
 });
+
+Page<void> _mainTabPage(GoRouterState state, Widget child) {
+  return NoTransitionPage<void>(key: state.pageKey, child: child);
+}
