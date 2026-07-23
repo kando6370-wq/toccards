@@ -1097,9 +1097,43 @@ class _CodePage extends StatefulWidget {
 
 class _CodePageState extends State<_CodePage> {
   final _focusNode = FocusNode();
+  String? _lastAutoSubmittedCode;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_handleCodeChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CodePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleCodeChanged);
+      widget.controller.addListener(_handleCodeChanged);
+      _lastAutoSubmittedCode = null;
+    }
+    if (oldWidget.loading && !widget.loading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handleCodeChanged();
+      });
+    }
+  }
+
+  void _handleCodeChanged() {
+    final code = widget.controller.text;
+    if (code.length != 6) {
+      _lastAutoSubmittedCode = null;
+      return;
+    }
+    if (widget.loading || code == _lastAutoSubmittedCode) return;
+    _lastAutoSubmittedCode = code;
+    widget.onContinue();
+  }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_handleCodeChanged);
     _focusNode.dispose();
     super.dispose();
   }
@@ -1978,12 +2012,7 @@ class _EmailAuthFullScreen extends StatelessWidget {
         backgroundColor: KandoColors.ink,
         body: SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              usesFigmaTopNavigation ? 2 : 28,
-              20,
-              32,
-            ),
+            padding: EdgeInsets.fromLTRB(20, 28, 20, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -2001,7 +2030,7 @@ class _EmailAuthFullScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(height: usesFigmaTopNavigation ? 42 : 35),
+                SizedBox(height: usesFigmaTopNavigation ? 16 : 35),
                 if (showEmailHeading) ...[
                   const Text(
                     'Continue With Email',

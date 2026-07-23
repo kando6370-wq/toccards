@@ -185,7 +185,7 @@ void main() {
   );
 
   test(
-    'initial Search loads one set page because Cards must not wait for the complete set catalog',
+    'initial Search uses the first API game because database search_sort owns the product default',
     () async {
       final setCatalogApi = _FakeSetCatalogApi();
       final api = _FakeCardDataApi(

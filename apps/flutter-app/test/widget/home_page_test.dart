@@ -503,49 +503,52 @@ void main() {
     }
   });
 
-  testWidgets('empty folder shows Most Valuable empty copy', (tester) async {
-    await tester.pumpWidget(_mockHomeApp());
-    await _waitForHomeAuth(tester);
+  testWidgets(
+    'empty folder keeps the PORTFOLIO label because copy must not change with data state',
+    (tester) async {
+      await tester.pumpWidget(_mockHomeApp());
+      await _waitForHomeAuth(tester);
 
-    await tester.tap(find.text('Main'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Empty'),
-      100,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.tap(find.text('Empty').last);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Empty'),
+        100,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.text('Empty').last);
+      await tester.pumpAndSettle();
 
-    expect(find.text('No cards in this portfolio yet'), findsOneWidget);
-    expect(find.text('PORTDOLIO'), findsOneWidget);
-    expect(find.text('PORTFOLIO'), findsNothing);
-    expect(find.text('Add your first card'), findsOneWidget);
-    expect(
-      find.text(
-        "Start tracking your collection's\nvalue,price trends, and top cards.",
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('home-portfolio-empty-illustration')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('home-card-empty-illustration')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('home-portfolio-empty-primary-refresh')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('home-portfolio-empty-secondary-refresh')),
-      findsOneWidget,
-    );
-    expect(find.text('1D'), findsNothing);
-    expect(find.text('Trending Today'), findsOneWidget);
-  });
+      expect(find.text('No cards in this portfolio yet'), findsOneWidget);
+      expect(find.text('PORTDOLIO'), findsNothing);
+      expect(find.text('PORTFOLIO'), findsOneWidget);
+      expect(find.text('Add your first card'), findsOneWidget);
+      expect(
+        find.text(
+          "Start tracking your collection's\nvalue,price trends, and top cards.",
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('home-portfolio-empty-illustration')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('home-card-empty-illustration')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('home-portfolio-empty-primary-refresh')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('home-portfolio-empty-secondary-refresh')),
+        findsOneWidget,
+      );
+      expect(find.text('1D'), findsNothing);
+      expect(find.text('Trending Today'), findsOneWidget);
+    },
+  );
 
   testWidgets('Profile bottom tab navigates to the existing Profile page', (
     tester,

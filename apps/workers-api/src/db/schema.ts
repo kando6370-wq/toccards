@@ -55,6 +55,7 @@ export const games = sqliteTable("games", {
   imagesEnabled: integer("images_enabled"),
   createdAt: text("created_at"),
   load: integer("load"),
+  searchSort: integer("search_sort").notNull().default(1000),
 });
 
 export const sets = sqliteTable(

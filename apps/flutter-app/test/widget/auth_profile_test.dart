@@ -510,6 +510,39 @@ void main() {
     expect(find.text('Continue with Email'), findsOneWidget);
   });
 
+  testWidgets(
+    'email auth keeps back action at one fixed height across steps because navigation must not jump',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+        emailRegistered: false,
+      );
+
+      await tester.pumpWidget(_testAuthSheetApp(repository));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open auth'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue with Email'));
+      await tester.pumpAndSettle();
+
+      final backButton = find.byKey(const Key('email-auth-back'));
+      final emailPageBackY = tester.getTopLeft(backButton).dy;
+
+      await _continueWithEmail(
+        tester,
+        'new@example.com',
+        destinationLabel: 'Verification Code',
+      );
+
+      expect(tester.getTopLeft(backButton).dy, emailPageBackY);
+    },
+  );
+
   testWidgets('email auth back steps from password entry to email entry', (
     tester,
   ) async {
@@ -692,10 +725,6 @@ void main() {
       find.byKey(const Key('verification-code-input')),
       '123456',
     );
-    await tester.pump();
-    await tester.tap(
-      find.widgetWithText(FilledButton, 'Get verification code'),
-    );
     await tester.pumpAndSettle();
 
     expect(find.text('Set Password'), findsOneWidget);
@@ -768,7 +797,7 @@ void main() {
     );
   });
 
-  testWidgets('register verification requires all six code digits', (
+  testWidgets('register automatically verifies after all six code digits', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -800,20 +829,18 @@ void main() {
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
       isNull,
     );
+    expect(repository.registerCodeVerifications, isEmpty);
 
     await tester.enterText(
       find.byKey(const Key('verification-code-input')),
       '123456',
     );
-    await tester.pump();
-    expect(
-      tester
-          .widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Get verification code'),
-          )
-          .onPressed,
-      isNotNull,
-    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Set Password'), findsOneWidget);
+    expect(repository.registerCodeVerifications, [
+      const _CodeRequest('person@example.com', '123456'),
+    ]);
   });
 
   testWidgets('register code back returns directly to auth options', (
@@ -940,10 +967,6 @@ void main() {
       find.byKey(const Key('verification-code-input')),
       '123456',
     );
-    await tester.pump();
-    await tester.tap(
-      find.widgetWithText(FilledButton, 'Get verification code'),
-    );
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextFormField);
@@ -993,10 +1016,6 @@ void main() {
       find.byKey(const Key('verification-code-input')),
       '123456',
     );
-    await tester.pump();
-    await tester.tap(
-      find.widgetWithText(FilledButton, 'Get verification code'),
-    );
     await tester.pumpAndSettle();
 
     final errorText = tester.widget<Text>(
@@ -1014,6 +1033,9 @@ void main() {
       find.widgetWithText(FilledButton, 'Get verification code'),
       findsOneWidget,
     );
+    expect(repository.registerCodeVerifications, [
+      const _CodeRequest('person@example.com', '123456'),
+    ]);
   });
 
   testWidgets('forgot password reset success returns to login path', (
@@ -1036,10 +1058,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), '654321');
-    await tester.pump();
-    await tester.tap(
-      find.widgetWithText(FilledButton, 'Get verification code'),
-    );
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextFormField);
@@ -1091,10 +1109,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), '654321');
-    await tester.pump();
-    await tester.tap(
-      find.widgetWithText(FilledButton, 'Get verification code'),
-    );
     await tester.pumpAndSettle();
 
     expect(
@@ -1982,6 +1996,7 @@ class _WidgetAuthRepository implements AuthRepository {
   var deleteRequests = 0;
   final List<_LoginRequest> loginRequests = [];
   final List<String> registerCodeEmails = [];
+  final List<_CodeRequest> registerCodeVerifications = [];
   final List<_RegisterRequest> registerRequests = [];
   final List<_GoogleCallbackRequest> googleCallbackRequests = [];
   final List<_AppleCallbackRequest> appleCallbackRequests = [];
@@ -2074,6 +2089,7 @@ class _WidgetAuthRepository implements AuthRepository {
     required String email,
     required String code,
   }) async {
+    registerCodeVerifications.add(_CodeRequest(email, code));
     final error = registerError;
     if (error != null) throw error;
   }

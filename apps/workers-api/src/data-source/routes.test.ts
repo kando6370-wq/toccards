@@ -55,6 +55,7 @@ type GameCatalogRow = {
   game_id: number;
   name: string;
   load: number;
+  search_sort: number;
 };
 
 type TrendingPinRow = {
@@ -164,7 +165,11 @@ class FakeD1BoundStatement {
       return {
         results: this.games
           .filter((game) => game.load === 1 && game.name.trim())
-          .sort((left, right) => left.game_id - right.game_id)
+          .sort(
+            (left, right) =>
+              left.search_sort - right.search_sort ||
+              left.game_id - right.game_id,
+          )
           .map((game) => ({ id: String(game.game_id), name: game.name })) as T[],
       };
     }
@@ -816,16 +821,21 @@ describe("data source routes", () => {
     });
   });
 
-  it("returns only enabled database games because Search filters must follow the catalog configuration", async () => {
+  it("returns enabled games by search_sort because the database owns the Search default", async () => {
     const env = createTestEnv(
       [],
       [],
       [],
       [],
       [
-        { game_id: 3, name: "Pokemon", load: 1 },
-        { game_id: 1, name: "Magic: The Gathering", load: 1 },
-        { game_id: 9, name: "Disabled", load: 0 },
+        { game_id: 3, name: "Pokemon", load: 1, search_sort: 0 },
+        {
+          game_id: 1,
+          name: "Magic: The Gathering",
+          load: 1,
+          search_sort: 1000,
+        },
+        { game_id: 9, name: "Disabled", load: 0, search_sort: -1 },
       ],
     );
 
@@ -836,8 +846,8 @@ describe("data source routes", () => {
       success: true,
       data: {
         items: [
-          { id: "1", name: "Magic: The Gathering" },
           { id: "3", name: "Pokemon" },
+          { id: "1", name: "Magic: The Gathering" },
         ],
       },
     });

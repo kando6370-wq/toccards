@@ -147,7 +147,7 @@ export function createDataSourceRoutes(
       `SELECT CAST(game_id AS TEXT) AS id, name
        FROM games
        WHERE load = 1 AND trim(coalesce(name, '')) <> ''
-       ORDER BY game_id ASC`,
+       ORDER BY search_sort ASC, game_id ASC`,
     ).all<{ id: string; name: string }>();
 
     return c.json({ success: true, data: { items: result.results ?? [] } });

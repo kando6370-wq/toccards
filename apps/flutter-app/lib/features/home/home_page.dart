@@ -373,9 +373,9 @@ class _PortfolioCard extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4),
-          child: Text(
-            showEmptyState ? 'PORTDOLIO' : 'PORTFOLIO',
-            style: const TextStyle(
+          child: const Text(
+            'PORTFOLIO',
+            style: TextStyle(
               color: Color(0xFF92927D),
               fontSize: 16,
               fontWeight: FontWeight.w400,
