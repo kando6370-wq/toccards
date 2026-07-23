@@ -90,7 +90,7 @@ void main() {
       expect(catalog.cards.first.variantLine, 'Holofoil / English');
       expect(
         catalog.cards.first.imageUrl,
-        'https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=50,format=auto/cards/catalog%3Apikachu-025.jpg',
+        'https://image.tcgcard.fun/cards/catalog%3Apikachu-025.jpg',
       );
       expect(catalog.cards.first.priceText(AppCurrency.usd), r'$32.13');
       expect(catalog.cards.first.changeText, '+4.76%');

@@ -463,7 +463,7 @@ describe("data source routes", () => {
       success: true,
       data: expect.objectContaining({
         card_ref: "9359",
-        image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=600,height=800,fit=scale-down,quality=85,format=auto,sharpen=1/cards/9359.jpg",
+        image_url: "https://image.tcgcard.fun/cards/9359.jpg",
       }),
     });
     expect(image.status).toBe(302);
@@ -500,7 +500,7 @@ describe("data source routes", () => {
         items: [
           expect.objectContaining({
             card_ref: "300",
-            image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=75,format=auto/cards/300.jpg",
+            image_url: "https://image.tcgcard.fun/cards/300.jpg",
           }),
         ],
         total: 1,
@@ -787,7 +787,7 @@ describe("data source routes", () => {
             game: "Pokemon",
             card_count: 2,
             image_url:
-              "https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=75,format=auto/cards/pokemon-1.jpg",
+              "https://image.tcgcard.fun/cards/pokemon-1.jpg",
           }),
         ],
         total: 2,
@@ -887,7 +887,7 @@ describe("data source routes", () => {
         name: "Corrected Charizard",
         set_code: "BS",
         rarity: "Promo",
-        image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=600,height=800,fit=scale-down,quality=85,format=auto,sharpen=1/cards/mock%3Atcg%3Acharizard-base-4.jpg",
+        image_url: "https://image.tcgcard.fun/cards/mock%3Atcg%3Acharizard-base-4.jpg",
         override_applied: true,
       }),
     });
@@ -937,7 +937,7 @@ describe("data source routes", () => {
         finish: null,
         language: "English",
         object_type: "tcg",
-        image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=600,height=800,fit=scale-down,quality=85,format=auto,sharpen=1/cards/admin%3Atcg%3Amissing-promo.jpg",
+        image_url: "https://image.tcgcard.fun/cards/admin%3Atcg%3Amissing-promo.jpg",
         rarity: "Promo",
         override_applied: true,
       },
@@ -975,7 +975,7 @@ describe("data source routes", () => {
           expect.objectContaining({
             card_ref: cardRef,
             name: "Trending Charizard",
-            image_url: "https://image.tcgcard.fun/cdn-cgi/image/width=360,height=504,fit=scale-down,quality=75,format=auto/cards/mock%3Atcg%3Acharizard-base-4.jpg",
+            image_url: "https://image.tcgcard.fun/cards/mock%3Atcg%3Acharizard-base-4.jpg",
             pinned: false,
             override_applied: true,
           }),

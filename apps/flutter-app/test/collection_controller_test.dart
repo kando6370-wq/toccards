@@ -131,7 +131,7 @@ void main() {
       expect(dashboard.portfolioItems.first.previous30dPriceUsd, 10);
       expect(
         dashboard.portfolioItems.first.imageUrl,
-        'https://image.tcgcard.fun/cdn-cgi/image/width=160,height=224,fit=scale-down,quality=60,format=auto,dpr=2/cards/catalog%3Apikachu-025.jpg',
+        'https://image.tcgcard.fun/cards/catalog%3Apikachu-025.jpg',
       );
       expect(dashboard.portfolioItems.last.marketValueUsd, isNull);
       expect(dashboard.wishlistItems.single.cardRef, 'catalog:luffy-001');
