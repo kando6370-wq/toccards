@@ -373,6 +373,8 @@ class _FigmaTabItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  static const double _iconSize = 22;
+
   @override
   Widget build(BuildContext context) {
     final color = selected ? KandoColors.accent : KandoColors.mutedText;
@@ -394,8 +396,8 @@ class _FigmaTabItem extends StatelessWidget {
               children: [
                 SvgPicture.asset(
                   selected ? selectedIconAsset : iconAsset,
-                  width: 24,
-                  height: 24,
+                  width: _iconSize,
+                  height: _iconSize,
                 ),
                 const SizedBox(height: 2),
                 SizedBox(

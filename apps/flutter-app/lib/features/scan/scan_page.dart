@@ -3771,14 +3771,17 @@ class _ReviewFooter extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: FilledButton.icon(
-                      key: const Key('scan-review-add-one'),
-                      onPressed: saving ? null : onAddThisCard,
-                      icon: const Text(
-                        '+',
-                        style: TextStyle(fontSize: 20, height: 1),
+                    child: SizedBox(
+                      height: 56,
+                      child: FilledButton.icon(
+                        key: const Key('scan-review-add-one'),
+                        onPressed: saving ? null : onAddThisCard,
+                        icon: const Text(
+                          '+',
+                          style: TextStyle(fontSize: 20, height: 1),
+                        ),
+                        label: Text(saving ? 'Adding...' : 'Add this card'),
                       ),
-                      label: Text(saving ? 'Adding...' : 'Add this card'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -3799,7 +3802,7 @@ class _ReviewFooter extends StatelessWidget {
                         side: const BorderSide(color: Color(0x33FFB4AB)),
                       ),
                     ),
-                    icon: const Icon(Icons.delete_outline, size: 18),
+                    icon: const Icon(Icons.delete_outline, size: 24),
                   ),
                 ],
               ),

@@ -266,16 +266,11 @@ class _Header extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      Color(0xFF303126),
-                      BlendMode.srcIn,
-                    ),
-                    child: Image(
-                      image: AssetImage('assets/home/overview.png'),
-                      width: 14,
-                      height: 14,
-                    ),
+                  SvgPicture.asset(
+                    key: const Key('home-overview-icon'),
+                    'assets/home/overview.svg',
+                    width: 14,
+                    height: 14,
                   ),
                   const SizedBox(width: 4),
                   const Flexible(
@@ -451,7 +446,10 @@ class _PortfolioCard extends StatelessWidget {
             onRefresh: onRefresh,
           )
         else if (showEmptyState)
-          _PortfolioEmptyPanel(onRefresh: onRefresh)
+          _PortfolioEmptyPanel(
+            onScan: () => context.go('/scan'),
+            onSearch: () => context.go('/search'),
+          )
         else
           SizedBox(
             height: 203,
@@ -611,9 +609,10 @@ class _ChartRangePicker extends StatelessWidget {
 }
 
 class _PortfolioEmptyPanel extends StatelessWidget {
-  const _PortfolioEmptyPanel({required this.onRefresh});
+  const _PortfolioEmptyPanel({required this.onScan, required this.onSearch});
 
-  final VoidCallback onRefresh;
+  final VoidCallback onScan;
+  final VoidCallback onSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -673,20 +672,20 @@ class _PortfolioEmptyPanel extends StatelessWidget {
               Column(
                 children: [
                   _FigmaEmptyActionButton(
-                    key: const Key('home-portfolio-empty-primary-refresh'),
+                    key: const Key('home-portfolio-empty-scan'),
                     iconAssetPath: 'assets/home/empty_action_camera.svg',
                     iconSize: const Size(16.0417, 14.5417),
-                    label: refreshText,
+                    label: 'Scan Cards',
                     isPrimary: true,
-                    onPressed: onRefresh,
+                    onPressed: onScan,
                   ),
                   const SizedBox(height: 12),
                   _FigmaEmptyActionButton(
-                    key: const Key('home-portfolio-empty-secondary-refresh'),
+                    key: const Key('home-portfolio-empty-search'),
                     iconAssetPath: 'assets/home/empty_action_search.svg',
                     iconSize: const Size(15.2707, 15.8891),
-                    label: refreshText,
-                    onPressed: onRefresh,
+                    label: 'Search Cards',
+                    onPressed: onSearch,
                   ),
                 ],
               ),

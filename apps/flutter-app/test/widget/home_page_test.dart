@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kando_app/app/theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -201,15 +202,26 @@ void main() {
     expect(find.text('+12.34%'), findsOneWidget);
   });
 
-  testWidgets('Overview uses the Figma filled 16px inverse label', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_mockHomeApp());
+  testWidgets(
+    'Overview uses the Figma SVG icon and filled 16px inverse label',
+    (tester) async {
+      await tester.pumpWidget(_mockHomeApp());
 
-    final overview = tester.widget<Text>(find.text('Overview'));
-    expect(overview.style?.fontSize, 16);
-    expect(overview.style?.color, const Color(0xFF303126));
-  });
+      final overview = tester.widget<Text>(find.text('Overview'));
+      expect(overview.style?.fontSize, 16);
+      expect(overview.style?.color, const Color(0xFF303126));
+
+      final icon = tester.widget<SvgPicture>(
+        find.byKey(const Key('home-overview-icon')),
+      );
+      expect(icon.width, 14);
+      expect(icon.height, 14);
+      expect(
+        (icon.bytesLoader as SvgAssetLoader).assetName,
+        'assets/home/overview.svg',
+      );
+    },
+  );
 
   testWidgets('Figma Home headings and card names use Fraunces', (
     tester,
@@ -539,17 +551,58 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('home-portfolio-empty-primary-refresh')),
+        find.byKey(const Key('home-portfolio-empty-scan')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('home-portfolio-empty-secondary-refresh')),
+        find.byKey(const Key('home-portfolio-empty-search')),
         findsOneWidget,
       );
+      expect(find.text('Scan Cards'), findsOneWidget);
+      expect(find.text('Search Cards'), findsOneWidget);
       expect(find.text('1D'), findsNothing);
       expect(find.text('Trending Today'), findsOneWidget);
     },
   );
+
+  testWidgets('empty portfolio actions open Scan and Search', (tester) async {
+    Future<void> openAction(Key buttonKey, String routeText) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(_mockHomeRouteApp());
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Empty'),
+        100,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.text('Empty').last);
+      await tester.pumpAndSettle();
+
+      final buttonTap = tester
+          .widget<GestureDetector>(
+            find.descendant(
+              of: find.byKey(buttonKey),
+              matching: find.byType(GestureDetector),
+            ),
+          )
+          .onTap!;
+      buttonTap();
+      await tester.pumpAndSettle();
+      expect(find.text(routeText), findsOneWidget);
+    }
+
+    await openAction(
+      const Key('home-portfolio-empty-scan'),
+      'Scan route target',
+    );
+    await openAction(
+      const Key('home-portfolio-empty-search'),
+      'Search route target',
+    );
+  });
 
   testWidgets('Profile bottom tab navigates to the existing Profile page', (
     tester,
@@ -742,6 +795,39 @@ Widget _mockHomeApp([
       currencyRateApiProvider.overrideWithValue(currencyRateApi),
     ],
     child: const _HomeTestApp(),
+  );
+}
+
+Widget _mockHomeRouteApp() {
+  final portfolioManagement = _TestPortfolioManagementApi();
+  return ProviderScope(
+    overrides: [
+      ..._localAuthOverrides(),
+      homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+      collectionRepositoryProvider.overrideWithValue(
+        _HomeCollectionRepository(portfolioManagement),
+      ),
+      portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
+      currencyRateApiProvider.overrideWithValue(const _TestCurrencyRateApi()),
+    ],
+    child: MaterialApp.router(
+      routerConfig: GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(
+            path: '/scan',
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('Scan route target'))),
+          ),
+          GoRoute(
+            path: '/search',
+            builder: (context, state) => const Scaffold(
+              body: Center(child: Text('Search route target')),
+            ),
+          ),
+        ],
+      ),
+    ),
   );
 }
 

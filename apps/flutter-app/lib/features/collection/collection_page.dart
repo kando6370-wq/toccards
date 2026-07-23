@@ -65,6 +65,7 @@ class CollectionPage extends ConsumerWidget {
                   const SizedBox(height: 16),
                 ],
                 _CollectionContent(state: state),
+                const SizedBox(height: 100),
               ],
             ],
           ),
