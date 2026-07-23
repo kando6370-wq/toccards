@@ -493,33 +493,49 @@ class _SearchCardTile extends ConsumerWidget {
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: DecoratedBox(
+                      child: Container(
+                        key: Key('search-card-image-container-${card.id}'),
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: KandoColors.ink,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: KandoColors.border),
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(7),
-                          child: card.imageUrl == null
-                              ? const Icon(
-                                  Icons.style_outlined,
-                                  color: KandoColors.mutedText,
-                                )
-                              : Image.network(
-                                  card.imageUrl!,
-                                  fit: BoxFit.contain,
-                                  webHtmlElementStrategy:
-                                      WebHtmlElementStrategy.prefer,
-                                  semanticLabel: card.name,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Icon(
-                                      Icons.style_outlined,
-                                      color: KandoColors.mutedText,
-                                    );
-                                  },
+                        child: card.imageUrl == null
+                            ? const Icon(
+                                Icons.style_outlined,
+                                color: KandoColors.mutedText,
+                              )
+                            : Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
                                 ),
-                        ),
+                                child: AspectRatio(
+                                  aspectRatio: 672 / 936,
+                                  child: ClipRRect(
+                                    key: Key(
+                                      'search-card-image-clip-${card.id}',
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Image.network(
+                                      card.imageUrl!,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      fit: BoxFit.cover,
+                                      webHtmlElementStrategy:
+                                          WebHtmlElementStrategy.fallback,
+                                      semanticLabel: card.name,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                            return const Icon(
+                                              Icons.style_outlined,
+                                              color: KandoColors.mutedText,
+                                            );
+                                          },
+                                    ),
+                                  ),
+                                ),
+                              ),
                       ),
                     ),
                     Positioned(

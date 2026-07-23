@@ -81,6 +81,24 @@ void main() {
         ),
         findsOneWidget,
       );
+      final imageContainer = find.byKey(
+        const Key('search-card-image-container-9359'),
+      );
+      final imageClip = find.byKey(const Key('search-card-image-clip-9359'));
+      expect(
+        tester.widget<ClipRRect>(imageClip).borderRadius,
+        BorderRadius.circular(6),
+      );
+      expect(
+        tester.getRect(imageClip).top,
+        greaterThan(tester.getRect(imageContainer).top),
+        reason: 'The image must not cover the card frame top edge.',
+      );
+      expect(
+        tester.getRect(imageClip).bottom,
+        lessThan(tester.getRect(imageContainer).bottom),
+        reason: 'The image must not cover the card frame bottom edge.',
+      );
     },
   );
 
