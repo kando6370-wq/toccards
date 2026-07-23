@@ -27,41 +27,47 @@ class CollectionPage extends ConsumerWidget {
       currentTab: KandoMainTab.collection,
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          children: [
-            if (state.loadStatus == KandoLoadStatus.loading)
-              const KandoLoadingBlock()
-            else if (state.isUnavailable)
-              KandoFailureBlock(onRefresh: controller.refresh)
-            else ...[
-              _SegmentedTabs(
-                selected: state.selectedTab,
-                onSelect: controller.selectTab,
-              ),
-              const SizedBox(height: 16),
-              _SearchField(
-                fieldKey: ValueKey(state.selectedTab),
-                onChanged: controller.updateSearch,
-                onFilterPressed: () => _showFilterSheet(context, ref),
-              ),
-              const SizedBox(height: 16),
-              if (state.selectedTab == CollectionTab.portfolio) ...[
-                _PortfolioSummaryCard(
-                  state: state,
-                  onFolderPressed: () => showPortfolioFolderSheet(context, ref),
-                  onHidePressed: () async {
-                    if (!await controller.toggleAmountHidden() &&
-                        context.mounted) {
-                      showKandoFailureToast(context);
-                    }
-                  },
+        child: RefreshIndicator(
+          key: const Key('collection-pull-to-refresh'),
+          onRefresh: controller.refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            children: [
+              if (state.loadStatus == KandoLoadStatus.loading)
+                const KandoLoadingBlock()
+              else if (state.isUnavailable)
+                KandoFailureBlock(onRefresh: controller.refresh)
+              else ...[
+                _SegmentedTabs(
+                  selected: state.selectedTab,
+                  onSelect: controller.selectTab,
                 ),
                 const SizedBox(height: 16),
+                _SearchField(
+                  fieldKey: ValueKey(state.selectedTab),
+                  onChanged: controller.updateSearch,
+                  onFilterPressed: () => _showFilterSheet(context, ref),
+                ),
+                const SizedBox(height: 16),
+                if (state.selectedTab == CollectionTab.portfolio) ...[
+                  _PortfolioSummaryCard(
+                    state: state,
+                    onFolderPressed: () =>
+                        showPortfolioFolderSheet(context, ref),
+                    onHidePressed: () async {
+                      if (!await controller.toggleAmountHidden() &&
+                          context.mounted) {
+                        showKandoFailureToast(context);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                _CollectionContent(state: state),
               ],
-              _CollectionContent(state: state),
             ],
-          ],
+          ),
         ),
       ),
     );

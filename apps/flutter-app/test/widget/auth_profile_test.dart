@@ -1205,6 +1205,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('account-content-list')), findsOneWidget);
+    expect(find.byKey(const Key('account-pull-to-refresh')), findsOneWidget);
     expect(find.text('person@example.com'), findsWidgets);
     expect(find.text('user-1'), findsOneWidget);
     expect(find.text('GOOGLE'), findsOneWidget);
@@ -1237,6 +1238,7 @@ void main() {
         tester.getSize(find.byKey(const Key('profile-content-list'))).width,
         390,
       );
+      expect(find.byKey(const Key('profile-pull-to-refresh')), findsOneWidget);
 
       await tester.tap(find.text('person@example.com').first);
       await tester.pumpAndSettle();

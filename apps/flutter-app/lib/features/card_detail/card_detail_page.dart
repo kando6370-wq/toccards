@@ -115,50 +115,55 @@ class CardDetailPage extends ConsumerWidget {
                     20.0,
                     (constraints.maxWidth - 672) / 2,
                   );
-                  return ListView(
-                    key: const Key('card-detail-scroll'),
-                    padding: EdgeInsets.fromLTRB(
-                      horizontalPadding,
-                      20,
-                      horizontalPadding,
-                      28,
-                    ),
-                    children: [
-                      _CardHero(
-                        state: state,
-                        controller: controller,
-                        onBack: () => _goBack(context),
+                  return RefreshIndicator(
+                    key: const Key('card-detail-pull-to-refresh'),
+                    onRefresh: controller.refresh,
+                    child: ListView(
+                      key: const Key('card-detail-scroll'),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        20,
+                        horizontalPadding,
+                        28,
                       ),
-                      const SizedBox(height: 10),
-                      if (state.assetStateStatus == KandoLoadStatus.loading)
-                        const SizedBox(
-                          key: Key('card-detail-asset-state-loading'),
-                          height: 72,
-                          child: KandoLoadingBlock(),
-                        )
-                      else if (state.assetStateStatus ==
-                          KandoLoadStatus.failure)
-                        KandoFailureBlock(
-                          key: const Key('card-detail-asset-state-failure'),
-                          onRefresh: controller.refreshAssetState,
-                        )
-                      else
-                        _PrimaryActions(state: state, controller: controller),
-                      const SizedBox(height: 28),
-                      // _BasicInfo(state: state),
-                      // const SizedBox(height: 28),
-                      if (state.assetStateStatus == KandoLoadStatus.content &&
-                          state.detail.isCollected)
-                        _OwnedDetailTabs(state: state, controller: controller)
-                      else
-                        _PriceOverview(state: state, controller: controller),
-                      if (state.assetStateStatus == KandoLoadStatus.content &&
-                          state.detail.isWishlisted &&
-                          !state.detail.isCollected) ...[
+                      children: [
+                        _CardHero(
+                          state: state,
+                          controller: controller,
+                          onBack: () => _goBack(context),
+                        ),
+                        const SizedBox(height: 10),
+                        if (state.assetStateStatus == KandoLoadStatus.loading)
+                          const SizedBox(
+                            key: Key('card-detail-asset-state-loading'),
+                            height: 72,
+                            child: KandoLoadingBlock(),
+                          )
+                        else if (state.assetStateStatus ==
+                            KandoLoadStatus.failure)
+                          KandoFailureBlock(
+                            key: const Key('card-detail-asset-state-failure'),
+                            onRefresh: controller.refreshAssetState,
+                          )
+                        else
+                          _PrimaryActions(state: state, controller: controller),
                         const SizedBox(height: 28),
-                        _RemoveWishlistButton(controller: controller),
+                        // _BasicInfo(state: state),
+                        // const SizedBox(height: 28),
+                        if (state.assetStateStatus == KandoLoadStatus.content &&
+                            state.detail.isCollected)
+                          _OwnedDetailTabs(state: state, controller: controller)
+                        else
+                          _PriceOverview(state: state, controller: controller),
+                        if (state.assetStateStatus == KandoLoadStatus.content &&
+                            state.detail.isWishlisted &&
+                            !state.detail.isCollected) ...[
+                          const SizedBox(height: 28),
+                          _RemoveWishlistButton(controller: controller),
+                        ],
                       ],
-                    ],
+                    ),
                   );
                 },
               ),

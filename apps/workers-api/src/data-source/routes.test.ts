@@ -47,7 +47,7 @@ type SetCatalogRow = {
   game: string;
   name: string;
   set_code: string | null;
-  product_id: string | null;
+  set_image_id: string | null;
   total_cards: number | null;
 };
 
@@ -196,7 +196,7 @@ class FakeD1BoundStatement {
           set_name: set.name,
           game: set.game,
           image_url: null,
-          image_card_ref: set.product_id?.trim() || null,
+          image_card_ref: set.set_image_id?.trim() || null,
           card_count: set.total_cards ?? 0,
         }));
       return { results: results as T[] };
@@ -744,14 +744,14 @@ describe("data source routes", () => {
           game: "Pokemon",
           name: "Shared Pokemon Set",
           set_code: "SHARED",
-          product_id: "pokemon-1",
+          set_image_id: "pokemon-1",
           total_cards: 2,
         },
         {
           game: "Magic: The Gathering",
           name: "Shared Magic Set",
           set_code: "SHARED",
-          product_id: "magic-1",
+          set_image_id: "magic-1",
           total_cards: 1,
         },
       ],

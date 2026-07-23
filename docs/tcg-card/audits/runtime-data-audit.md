@@ -33,7 +33,7 @@
 | `GET /cards/search?q=Escape Artist` | 返回 `card_ref=9359` | 真实目录查询 |
 | 卡图 | Trending/Search 均返回 `image.tcgcard.fun` R2 变体 | 无第三方示例图回退 |
 | D1 `cards_all` | 4066 个 product | 真实目录有数据 |
-| D1 `games` / `sets` | 8 个启用游戏；4239 个 Set，50 个有 R2 封面 product_id | Search 筛选和 Set 列表不再由 Trending/cards_all 反推 |
+| D1 `games` / `sets` | 8 个启用游戏；4239 个 Set，50 个有 R2 封面 set_image_id | Search 筛选和 Set 列表不再由 Trending/cards_all 反推 |
 | D1 `tcgplayer_skus` | 10 个 product、61 行 SKU | 覆盖不足但不是 mock |
 | D1 `price_sync_state` | `blocked / covered_products=10 / total_products=4066` | 缺 `JUSTTCG_API_KEY`，未伪造价格 |
 | `/app-config` | Terms/Privacy 有真实 URL，`app_store_url=null` | 显式暴露 iOS 阻断 |

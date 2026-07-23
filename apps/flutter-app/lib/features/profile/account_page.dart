@@ -29,7 +29,11 @@ class AccountPage extends ConsumerWidget {
                 ref.read(authControllerProvider.notifier).retryStartup();
               },
             )
-          : _AccountContent(session: session),
+          : RefreshIndicator(
+              key: const Key('account-pull-to-refresh'),
+              onRefresh: ref.read(authControllerProvider.notifier).retryStartup,
+              child: _AccountContent(session: session),
+            ),
     );
   }
 }
@@ -59,6 +63,7 @@ class _AccountContent extends ConsumerWidget {
 
     return ListView(
       key: const Key('account-content-list'),
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
       children: [
         const SizedBox(height: 12),

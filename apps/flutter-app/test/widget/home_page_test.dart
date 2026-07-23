@@ -170,6 +170,7 @@ void main() {
 
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('PORTFOLIO'), findsOneWidget);
+    expect(find.byKey(const Key('home-pull-to-refresh')), findsOneWidget);
     expect(find.text('PORTDOLIO'), findsNothing);
     expect(find.text('Main'), findsOneWidget);
     expect(find.text(r'$12,450.80'), findsOneWidget);

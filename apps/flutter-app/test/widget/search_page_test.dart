@@ -38,6 +38,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Search'), findsWidgets);
+    expect(find.byKey(const Key('search-pull-to-refresh')), findsOneWidget);
     expect(find.text('Pokemon'), findsOneWidget);
     expect(find.text('Cards'), findsWidgets);
     expect(find.text('Sets'), findsOneWidget);

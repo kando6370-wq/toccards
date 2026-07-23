@@ -43,43 +43,48 @@ class HomePage extends ConsumerWidget {
         ),
         child: SafeArea(
           bottom: false,
-          child: SingleChildScrollView(
-            key: const Key('home-normal-content'),
-            padding: const EdgeInsets.fromLTRB(20, 58, 20, 132),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _Header(
-                  currencyCode: state.currencyCode,
-                  currencySymbol: state.currency.symbol,
-                  onCurrencyPressed: () => _showCurrencySheet(context, ref),
-                ),
-                const SizedBox(height: 24),
-                _PortfolioCard(
-                  state: state,
-                  onFolderPressed: () => _showFolderSheet(context, ref),
-                  onHidePressed: controller.toggleAmountHidden,
-                  onRangeSelected: controller.selectChartRange,
-                  onRefresh: controller.refresh,
-                ),
-                const SizedBox(height: 32),
-                _MostValuableSection(
-                  state: state,
-                  onRefresh: controller.refresh,
-                  onViewAll: () {
-                    ref
-                        .read(collectionInitialSortProvider.notifier)
-                        .select(CollectionSort.valueDesc);
-                    context.go('/collection');
-                  },
-                ),
-                const SizedBox(height: 32),
-                _TrendingSection(
-                  state: state,
-                  onRefresh: controller.refreshTrending,
-                  onViewAll: () => context.go('/search'),
-                ),
-              ],
+          child: RefreshIndicator(
+            key: const Key('home-pull-to-refresh'),
+            onRefresh: controller.refresh,
+            child: SingleChildScrollView(
+              key: const Key('home-normal-content'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 58, 20, 132),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Header(
+                    currencyCode: state.currencyCode,
+                    currencySymbol: state.currency.symbol,
+                    onCurrencyPressed: () => _showCurrencySheet(context, ref),
+                  ),
+                  const SizedBox(height: 24),
+                  _PortfolioCard(
+                    state: state,
+                    onFolderPressed: () => _showFolderSheet(context, ref),
+                    onHidePressed: controller.toggleAmountHidden,
+                    onRangeSelected: controller.selectChartRange,
+                    onRefresh: controller.refresh,
+                  ),
+                  const SizedBox(height: 32),
+                  _MostValuableSection(
+                    state: state,
+                    onRefresh: controller.refresh,
+                    onViewAll: () {
+                      ref
+                          .read(collectionInitialSortProvider.notifier)
+                          .select(CollectionSort.valueDesc);
+                      context.go('/collection');
+                    },
+                  ),
+                  const SizedBox(height: 32),
+                  _TrendingSection(
+                    state: state,
+                    onRefresh: controller.refreshTrending,
+                    onViewAll: () => context.go('/search'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

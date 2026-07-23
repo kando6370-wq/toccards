@@ -55,6 +55,7 @@ void main() {
   ) async {
     await _pumpCollection(tester);
 
+    expect(find.byKey(const Key('collection-pull-to-refresh')), findsOneWidget);
     expect(find.text('collection'), findsOneWidget);
     expect(find.text('Portfolio'), findsWidgets);
     expect(find.text('Wishlist'), findsOneWidget);

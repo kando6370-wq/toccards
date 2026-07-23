@@ -40,16 +40,25 @@ class ProfilePage extends ConsumerWidget {
                   ref.read(authControllerProvider.notifier).retryStartup();
                 },
               )
-            : _ProfileContent(authState: authState),
+            : _ProfileContent(
+                authState: authState,
+                onRefresh: () async {
+                  ref.invalidate(profileVersionProvider);
+                  await ref
+                      .read(authControllerProvider.notifier)
+                      .retryStartup();
+                },
+              ),
       ),
     );
   }
 }
 
 class _ProfileContent extends ConsumerStatefulWidget {
-  const _ProfileContent({required this.authState});
+  const _ProfileContent({required this.authState, required this.onRefresh});
 
   final AuthState authState;
+  final Future<void> Function() onRefresh;
 
   @override
   ConsumerState<_ProfileContent> createState() => _ProfileContentState();
@@ -77,140 +86,148 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 390),
-        child: ListView(
-          key: const Key('profile-content-list'),
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 96),
-          children: [
-            _SectionLabel('Account'),
-            if (isUser)
-              _MenuCard(
-                children: [
-                  _AccountRow(
-                    email: emailText,
-                    userId: userIdText,
-                    onTap: () => context.push('/account'),
-                  ),
-                ],
-              )
-            else
+        child: RefreshIndicator(
+          key: const Key('profile-pull-to-refresh'),
+          onRefresh: widget.onRefresh,
+          child: ListView(
+            key: const Key('profile-content-list'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 96),
+            children: [
+              _SectionLabel('Account'),
+              if (isUser)
+                _MenuCard(
+                  children: [
+                    _AccountRow(
+                      email: emailText,
+                      userId: userIdText,
+                      onTap: () => context.push('/account'),
+                    ),
+                  ],
+                )
+              else
+                _MenuCard(
+                  children: [
+                    _MenuRow(
+                      icon: Icons.person_outline,
+                      label: 'Sign in / Sign up',
+                      onTap: () => showAuthSheet(context),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 24),
+              _SectionLabel('Support'),
               _MenuCard(
                 children: [
                   _MenuRow(
-                    icon: Icons.person_outline,
-                    label: 'Sign in / Sign up',
-                    onTap: () => showAuthSheet(context),
+                    icon: Icons.mail_outline,
+                    label: 'Customer Support',
+                    onTap: () => context.push('/customer-support'),
+                  ),
+                  _MenuRow(
+                    icon: Icons.star_outline,
+                    label: 'Score',
+                    onTap: () => _runProfileAction(
+                      context,
+                      () => ref.read(profileActionsProvider).requestScore(),
+                    ),
+                  ),
+                  _MenuRow(
+                    icon: Icons.share_outlined,
+                    label: 'Share With Friends',
+                    onTap: () => _runProfileAction(
+                      context,
+                      () => ref.read(profileActionsProvider).shareWithFriends(),
+                    ),
                   ),
                 ],
               ),
-            const SizedBox(height: 24),
-            _SectionLabel('Support'),
-            _MenuCard(
-              children: [
-                _MenuRow(
-                  icon: Icons.mail_outline,
-                  label: 'Customer Support',
-                  onTap: () => context.push('/customer-support'),
-                ),
-                _MenuRow(
-                  icon: Icons.star_outline,
-                  label: 'Score',
-                  onTap: () => _runProfileAction(
-                    context,
-                    () => ref.read(profileActionsProvider).requestScore(),
-                  ),
-                ),
-                _MenuRow(
-                  icon: Icons.share_outlined,
-                  label: 'Share With Friends',
-                  onTap: () => _runProfileAction(
-                    context,
-                    () => ref.read(profileActionsProvider).shareWithFriends(),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            _SectionLabel('Others'),
-            _MenuCard(
-              children: [
-                _MenuRow(
-                  icon: Icons.description_outlined,
-                  label: 'Terms Of Use',
-                  onTap: () => _runProfileAction(
-                    context,
-                    () => ref.read(profileActionsProvider).openTerms(),
-                  ),
-                ),
-                _MenuRow(
-                  icon: Icons.shield_outlined,
-                  label: 'Privacy Policy',
-                  onTap: () => _runProfileAction(
-                    context,
-                    () => ref.read(profileActionsProvider).openPrivacy(),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            if (isUser)
-              Center(
-                child: TextButton.icon(
-                  onPressed: () async {
-                    await _logout(context, ref);
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: KandoColors.text,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 12,
+              const SizedBox(height: 24),
+              _SectionLabel('Others'),
+              _MenuCard(
+                children: [
+                  _MenuRow(
+                    icon: Icons.description_outlined,
+                    label: 'Terms Of Use',
+                    onTap: () => _runProfileAction(
+                      context,
+                      () => ref.read(profileActionsProvider).openTerms(),
                     ),
                   ),
-                  icon: const Icon(Icons.logout, size: 18),
-                  label: const Text('Log Out', style: TextStyle(fontSize: 16)),
-                ),
-              )
-            else
-              Center(
-                child: TextButton.icon(
-                  onPressed: () => _confirmAndDelete(context, ref),
-                  style: TextButton.styleFrom(
-                    foregroundColor: _dangerColor,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 12,
+                  _MenuRow(
+                    icon: Icons.shield_outlined,
+                    label: 'Privacy Policy',
+                    onTap: () => _runProfileAction(
+                      context,
+                      () => ref.read(profileActionsProvider).openPrivacy(),
                     ),
                   ),
-                  icon: const Icon(Icons.delete_outline, size: 20),
-                  label: const Text(
-                    'Delete Account',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
+                ],
               ),
-            const SizedBox(height: 16),
-            Center(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _handleVersionTap(context),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
+              const SizedBox(height: 32),
+              if (isUser)
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () async {
+                      await _logout(context, ref);
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: KandoColors.text,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 12,
+                      ),
+                    ),
+                    icon: const Icon(Icons.logout, size: 18),
+                    label: const Text(
+                      'Log Out',
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
-                  child: Text(
-                    versionText,
-                    key: const Key('profile-version-text'),
-                    style: TextStyle(
-                      color: KandoColors.mutedText.withValues(alpha: 0.7),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
+                )
+              else
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () => _confirmAndDelete(context, ref),
+                    style: TextButton.styleFrom(
+                      foregroundColor: _dangerColor,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 12,
+                      ),
+                    ),
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    label: const Text(
+                      'Delete Account',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Center(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _handleVersionTap(context),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    child: Text(
+                      versionText,
+                      key: const Key('profile-version-text'),
+                      style: TextStyle(
+                        color: KandoColors.mutedText.withValues(alpha: 0.7),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

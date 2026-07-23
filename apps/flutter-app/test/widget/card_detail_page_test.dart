@@ -49,6 +49,10 @@ void main() {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'squirtle'));
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const Key('card-detail-pull-to-refresh')),
+      findsOneWidget,
+    );
     expect(find.text('Squirtle'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Basic information'), 300);
     expect(find.text('Pokemon'), findsWidgets);

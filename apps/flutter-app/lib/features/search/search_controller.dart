@@ -429,21 +429,27 @@ class SearchController extends Notifier<SearchState> {
   }
 
   Future<SearchCollectAction> toggleCollect(String cardId) async {
+    if (state.isUnavailable || state.isLoading) {
+      return SearchCollectAction.ignored;
+    }
+    return toggleCollectCard(state.cardById(cardId));
+  }
+
+  Future<SearchCollectAction> toggleCollectCard(SearchCard card) async {
     if (state.isUnavailable ||
         state.isLoading ||
         state.assetStatus != KandoLoadStatus.content ||
-        !_pendingCardMutations.add(cardId)) {
+        !_pendingCardMutations.add(card.id)) {
       return SearchCollectAction.ignored;
     }
     try {
-      return await _toggleCollect(cardId);
+      return await _toggleCollect(resolveCard(card));
     } finally {
-      _pendingCardMutations.remove(cardId);
+      _pendingCardMutations.remove(card.id);
     }
   }
 
-  Future<SearchCollectAction> _toggleCollect(String cardId) async {
-    final card = state.cardById(cardId);
+  Future<SearchCollectAction> _toggleCollect(SearchCard card) async {
     if (card.isCollected) {
       final collectionItemCount = card.collectionItemCount > 0
           ? card.collectionItemCount
@@ -474,7 +480,7 @@ class SearchController extends Notifier<SearchState> {
           return SearchCollectAction.ignored;
         }
         _resetAssets();
-        _invalidateAssetConsumers(cardId);
+        _invalidateAssetConsumers(card.id);
         return SearchCollectAction.updated;
       }
       _replaceCard(
@@ -484,7 +490,7 @@ class SearchController extends Notifier<SearchState> {
           collectionItemId: null,
         ),
       );
-      _invalidateAssetConsumers(cardId);
+      _invalidateAssetConsumers(card.id);
       return SearchCollectAction.updated;
     }
 
@@ -519,13 +525,16 @@ class SearchController extends Notifier<SearchState> {
         );
         _replaceCard(next);
         _resetAssets();
-        _invalidateAssetConsumers(cardId);
+        _invalidateAssetConsumers(card.id);
         return SearchCollectAction.updated;
       } catch (_) {
         _resetAssets();
-        final synced = await _reloadAssetsAfterMutation(cardId);
+        final synced = await _reloadAssetsAfterMutation(
+          card.id,
+          fallback: card,
+        );
         if (synced?.isCollected ?? false) {
-          _invalidateAssetConsumers(cardId);
+          _invalidateAssetConsumers(card.id);
           return SearchCollectAction.updated;
         }
         _replaceCard(card);
@@ -543,21 +552,25 @@ class SearchController extends Notifier<SearchState> {
   }
 
   Future<bool> toggleWishlist(String cardId) async {
+    if (state.isUnavailable || state.isLoading) return false;
+    return toggleWishlistCard(state.cardById(cardId));
+  }
+
+  Future<bool> toggleWishlistCard(SearchCard card) async {
     if (state.isUnavailable ||
         state.isLoading ||
         state.assetStatus != KandoLoadStatus.content ||
-        !_pendingCardMutations.add(cardId)) {
+        !_pendingCardMutations.add(card.id)) {
       return false;
     }
     try {
-      return await _toggleWishlist(cardId);
+      return await _toggleWishlist(resolveCard(card));
     } finally {
-      _pendingCardMutations.remove(cardId);
+      _pendingCardMutations.remove(card.id);
     }
   }
 
-  Future<bool> _toggleWishlist(String cardId) async {
-    final card = state.cardById(cardId);
+  Future<bool> _toggleWishlist(SearchCard card) async {
     final repository = ref.read(searchRepositoryProvider);
     if (repository is SearchAssetRepository) {
       if (card.isCollected) return true;
@@ -582,14 +595,17 @@ class SearchController extends Notifier<SearchState> {
           await repository.deleteWishlist(session, card.wishlistItemId!);
         }
         _resetAssets();
-        _invalidateAssetConsumers(cardId);
+        _invalidateAssetConsumers(card.id);
         return true;
       } catch (_) {
         _resetAssets();
         final desiredWishlisted = card.wishlistItemId == null;
-        final synced = await _reloadAssetsAfterMutation(cardId);
+        final synced = await _reloadAssetsAfterMutation(
+          card.id,
+          fallback: card,
+        );
         if (synced?.isWishlisted == desiredWishlisted) {
-          _invalidateAssetConsumers(cardId);
+          _invalidateAssetConsumers(card.id);
           return true;
         }
         _replaceCard(card);
@@ -608,6 +624,11 @@ class SearchController extends Notifier<SearchState> {
     state = state.copyWith(
       cardOverrides: {...state.cardOverrides, card.id: card},
     );
+  }
+
+  SearchCard resolveCard(SearchCard card) {
+    return state.cardOverrides[card.id] ??
+        _cardWithAssets(card, _assetSnapshot?.statesByCardRef[card.id]);
   }
 
   void _scheduleSearch({
@@ -829,7 +850,10 @@ class SearchController extends Notifier<SearchState> {
     );
   }
 
-  Future<SearchCard?> _reloadAssetsAfterMutation(String cardId) async {
+  Future<SearchCard?> _reloadAssetsAfterMutation(
+    String cardId, {
+    SearchCard? fallback,
+  }) async {
     final repository = ref.read(searchRepositoryProvider);
     final session = _assetSession;
     if (repository is! SearchAssetRepository || session == null) return null;
@@ -844,7 +868,7 @@ class SearchController extends Notifier<SearchState> {
         cardPage: state.cardPage,
         hasMoreCards: state.hasMoreCards,
       );
-      return state.cardById(cardId);
+      return fallback == null ? state.cardById(cardId) : resolveCard(fallback);
     } catch (_) {
       return null;
     }

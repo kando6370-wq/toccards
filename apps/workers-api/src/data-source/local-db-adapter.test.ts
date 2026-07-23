@@ -17,7 +17,7 @@ type SetRow = {
   game: string;
   name: string;
   set_code: string | null;
-  product_id: string | null;
+  set_image_id: string | null;
   total_cards: number | null;
 };
 
@@ -132,7 +132,7 @@ class FakeBoundStatement {
           set_name: set.name,
           game: set.game,
           image_url: null,
-          image_card_ref: set.product_id?.trim() || null,
+          image_card_ref: set.set_image_id?.trim() || null,
           card_count: set.total_cards ?? 0,
         }));
       return { results: results as T[] };
@@ -351,7 +351,7 @@ describe("local D1 card data source adapter", () => {
             game: "Pokemon",
             name: "Base Set",
             set_code: "BS",
-            product_id: "100",
+            set_image_id: "100",
             total_cards: 2,
           },
         ],

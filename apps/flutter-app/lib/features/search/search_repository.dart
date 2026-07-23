@@ -83,7 +83,7 @@ class HttpSearchRepository
     if (gameDtos == null) {
       final seedCards = await _api.trendingCards();
       games = _gamesFromCards(seedCards);
-      cards = seedCards.map(_cardFromDto).toList();
+      cards = seedCards.map(searchCardFromDto).toList();
       final setQuery = _defaultSetQuery ?? games.first.label;
       final sets = await _api.searchSets('', game: setQuery);
       return SearchCatalog(
@@ -133,7 +133,7 @@ class HttpSearchRepository
         : page == 1
         ? await _api.searchCards(query, game: game)
         : const <CardDataCardDto>[];
-    return cards.map(_cardFromDto).toList();
+    return cards.map(searchCardFromDto).toList();
   }
 
   @override
@@ -259,7 +259,7 @@ List<SearchGame> _gamesFromCards(List<CardDataCardDto> cards) {
   return games;
 }
 
-SearchCard _cardFromDto(CardDataCardDto dto) {
+SearchCard searchCardFromDto(CardDataCardDto dto) {
   return SearchCard(
     id: dto.cardRef,
     gameId: _gameIdFromCard(dto),

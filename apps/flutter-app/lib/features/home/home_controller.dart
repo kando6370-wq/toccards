@@ -249,8 +249,12 @@ class HomeController extends Notifier<HomeState> {
     return _loadDashboard(repository: repository);
   }
 
-  void refresh() {
+  Future<void> refresh() async {
     state = _loadDashboard(currency: state.currency, previousState: state);
+    while (ref.mounted &&
+        (state.isLoading || state.trendingStatus == KandoLoadStatus.loading)) {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
   }
 
   Future<bool> refreshTrending() async {
@@ -496,9 +500,7 @@ class HomeController extends Notifier<HomeState> {
         ref.read(portfolioAmountHiddenProvider) == null) {
       Future<void>.microtask(() {
         if (ref.mounted) {
-          ref
-              .read(portfolioAmountHiddenProvider.notifier)
-              .select(amountHidden);
+          ref.read(portfolioAmountHiddenProvider.notifier).select(amountHidden);
         }
       });
     }
@@ -538,9 +540,7 @@ class HomeController extends Notifier<HomeState> {
     );
     try {
       await _updatePreferences(lastSelectedFolderId: folderId);
-      ref
-          .read(selectedPortfolioFolderProvider.notifier)
-          .select(folderId);
+      ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
       return true;
     } catch (_) {
       state = state.copyWith(
@@ -615,9 +615,7 @@ class HomeController extends Notifier<HomeState> {
     state = state.copyWith(amountHidden: !previous);
     try {
       await _updatePreferences(amountHidden: !previous);
-      ref
-          .read(portfolioAmountHiddenProvider.notifier)
-          .select(!previous);
+      ref.read(portfolioAmountHiddenProvider.notifier).select(!previous);
       return true;
     } catch (_) {
       state = state.copyWith(amountHidden: previous);
@@ -632,12 +630,14 @@ class HomeController extends Notifier<HomeState> {
   }) async {
     final session = ref.read(authControllerProvider).session;
     if (session == null) throw StateError('Home session is unavailable.');
-    await ref.read(portfolioManagementApiProvider).updatePreferences(
-      session,
-      currency: currency,
-      amountHidden: amountHidden,
-      lastSelectedFolderId: lastSelectedFolderId,
-    );
+    await ref
+        .read(portfolioManagementApiProvider)
+        .updatePreferences(
+          session,
+          currency: currency,
+          amountHidden: amountHidden,
+          lastSelectedFolderId: lastSelectedFolderId,
+        );
   }
 
   void selectChartRange(HomeChartRange chartRange) {

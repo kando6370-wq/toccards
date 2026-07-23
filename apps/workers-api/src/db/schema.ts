@@ -65,7 +65,7 @@ export const sets = sqliteTable(
     name: text("name").notNull(),
     setCode: text("set_code"),
     setId: text("set_id").primaryKey(),
-    productId: text("product_id"),
+    setImageId: text("set_image_id"),
     totalCards: integer("total_cards").default(0),
   },
   (t) => [unique("uq_sets_game_name").on(t.game, t.name)],
