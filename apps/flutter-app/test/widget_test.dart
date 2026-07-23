@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/app/app.dart';
+import 'package:kando_app/app/app_startup_preloader.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
@@ -56,6 +57,7 @@ Future<void> _finishPageTransition(WidgetTester tester) async {
 ProviderScope _testApp(InMemoryOnboardingStorage storage) {
   return ProviderScope(
     overrides: [
+      appStartupPreloaderProvider.overrideWith((ref) {}),
       authRepositoryProvider.overrideWithValue(
         _WidgetTestAuthRepository(
           AuthSession(

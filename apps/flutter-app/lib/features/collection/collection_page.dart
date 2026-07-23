@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -27,48 +29,59 @@ class CollectionPage extends ConsumerWidget {
       currentTab: KandoMainTab.collection,
       body: SafeArea(
         bottom: false,
-        child: RefreshIndicator(
-          key: const Key('collection-pull-to-refresh'),
-          onRefresh: controller.refresh,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            children: [
-              if (state.loadStatus == KandoLoadStatus.loading)
-                const KandoLoadingBlock()
-              else if (state.isUnavailable)
-                KandoFailureBlock(onRefresh: controller.refresh)
-              else ...[
-                _SegmentedTabs(
-                  selected: state.selectedTab,
-                  onSelect: controller.selectTab,
-                ),
-                const SizedBox(height: 16),
-                _SearchField(
-                  fieldKey: ValueKey(state.selectedTab),
-                  onChanged: controller.updateSearch,
-                  onFilterPressed: () => _showFilterSheet(context, ref),
-                ),
-                const SizedBox(height: 16),
-                if (state.selectedTab == CollectionTab.portfolio) ...[
-                  _PortfolioSummaryCard(
-                    state: state,
-                    onFolderPressed: () =>
-                        showPortfolioFolderSheet(context, ref),
-                    onHidePressed: () async {
-                      if (!await controller.toggleAmountHidden() &&
-                          context.mounted) {
-                        showKandoFailureToast(context);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isPageFailure = state.isUnavailable;
+
+            return RefreshIndicator(
+              key: const Key('collection-pull-to-refresh'),
+              onRefresh: controller.refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: isPageFailure
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                children: [
+                  if (state.loadStatus == KandoLoadStatus.loading)
+                    const KandoLoadingBlock()
+                  else if (isPageFailure)
+                    SizedBox(
+                      height: math.max(0.0, constraints.maxHeight),
+                      child: KandoFailureBlock(onRefresh: controller.refresh),
+                    )
+                  else ...[
+                    _SegmentedTabs(
+                      selected: state.selectedTab,
+                      onSelect: controller.selectTab,
+                    ),
+                    const SizedBox(height: 16),
+                    _SearchField(
+                      fieldKey: ValueKey(state.selectedTab),
+                      onChanged: controller.updateSearch,
+                      onFilterPressed: () => _showFilterSheet(context, ref),
+                    ),
+                    const SizedBox(height: 16),
+                    if (state.selectedTab == CollectionTab.portfolio) ...[
+                      _PortfolioSummaryCard(
+                        state: state,
+                        onFolderPressed: () =>
+                            showPortfolioFolderSheet(context, ref),
+                        onHidePressed: () async {
+                          if (!await controller.toggleAmountHidden() &&
+                              context.mounted) {
+                            showKandoFailureToast(context);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    _CollectionContent(state: state),
+                    const SizedBox(height: 100),
+                  ],
                 ],
-                _CollectionContent(state: state),
-                const SizedBox(height: 100),
-              ],
-            ],
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

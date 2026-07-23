@@ -27,7 +27,26 @@ void main() {
       ),
     );
 
-    await tester.pump(const Duration(milliseconds: 1199));
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('onboarding-loading-progress-fill')),
+          )
+          .width,
+      0,
+    );
+
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('onboarding-loading-progress-fill')),
+          )
+          .width,
+      closeTo(116, 0.1),
+    );
+
+    await tester.pump(const Duration(milliseconds: 599));
     expect(find.byKey(const ValueKey('onboarding-loading')), findsOneWidget);
     expect(find.text('Home ready'), findsNothing);
     expect(

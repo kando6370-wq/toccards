@@ -24,8 +24,31 @@ class OnboardingGate extends ConsumerWidget {
   }
 }
 
-class _StartupPage extends StatelessWidget {
+class _StartupPage extends StatefulWidget {
   const _StartupPage();
+
+  @override
+  State<_StartupPage> createState() => _StartupPageState();
+}
+
+class _StartupPageState extends State<_StartupPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _progressController;
+
+  @override
+  void initState() {
+    super.initState();
+    _progressController = AnimationController(
+      vsync: this,
+      duration: OnboardingController.minimumSplashDuration,
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _progressController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,10 +117,31 @@ class _StartupPage extends StatelessWidget {
                       SizedBox(
                         width: 232 * scale,
                         height: 2 * scale,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: KandoColors.accent,
-                            borderRadius: BorderRadius.circular(9999),
+                        child: AnimatedBuilder(
+                          animation: _progressController,
+                          builder: (context, child) {
+                            return Semantics(
+                              value:
+                                  '${(_progressController.value * 100).round()}%',
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: SizedBox(
+                                  key: const ValueKey(
+                                    'onboarding-loading-progress-fill',
+                                  ),
+                                  width:
+                                      232 * scale * _progressController.value,
+                                  height: 2 * scale,
+                                  child: child,
+                                ),
+                              ),
+                            );
+                          },
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: KandoColors.accent,
+                              borderRadius: BorderRadius.circular(9999),
+                            ),
                           ),
                         ),
                       ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/app/app.dart';
+import 'package:kando_app/app/app_startup_preloader.dart';
 import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
@@ -1545,9 +1546,9 @@ void main() {
       await _openProfileTab(tester);
 
       expect(find.text('No content available'), findsOneWidget);
-      expect(find.text('Refresh'), findsOneWidget);
+      expect(find.text('REFRESH'), findsOneWidget);
 
-      await tester.tap(find.text('Refresh'));
+      await tester.tap(find.text('REFRESH'));
       await tester.pumpAndSettle();
 
       expect(find.text('Sign in / Sign up'), findsOneWidget);
@@ -1780,6 +1781,7 @@ ProviderScope _testApp(
 
   return ProviderScope(
     overrides: [
+      appStartupPreloaderProvider.overrideWith((ref) {}),
       authRepositoryProvider.overrideWithValue(repository),
       if (authController != null)
         authControllerProvider.overrideWith(authController),

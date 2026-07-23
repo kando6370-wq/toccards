@@ -56,7 +56,7 @@ void main() {
     await _pumpCollection(tester);
 
     expect(find.byKey(const Key('collection-pull-to-refresh')), findsOneWidget);
-    expect(find.text('collection'), findsOneWidget);
+    expect(find.text('Collection'), findsOneWidget);
     expect(find.text('Portfolio'), findsWidgets);
     expect(find.text('Wishlist'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
@@ -108,7 +108,7 @@ void main() {
 
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
-    expect(find.text('collection'), findsOneWidget);
+    expect(find.text('Collection'), findsOneWidget);
     expect(repository.calls, 1);
 
     await tester.tap(find.text(refreshText));
