@@ -462,6 +462,7 @@ void main() {
       expect(draft.condition, 'Near Mint (NM)');
       expect(draft.language, 'English');
       expect(draft.finish, 'Normal');
+      expect(portfolioApi.deletedWishlistItemIds, ['wishlist-1']);
       expect(portfolioApi.wishlistItems, isEmpty);
       card = container.read(searchControllerProvider).cardById('9359');
       expect(card.quantity, 1);
@@ -1114,6 +1115,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   final List<PortfolioItemDto> collectionItems;
   final List<WishlistItemDto> wishlistItems = [];
   final List<String> deletedCollectionItemIds = [];
+  final List<String> deletedWishlistItemIds = [];
   PortfolioItemDraftDto? lastCollectedDraft;
   final bool conflictOnWishlist;
   final bool conflictOnCollect;
@@ -1156,7 +1158,6 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   }) async {
     await collectionMutationGate?.future;
     lastCollectedDraft = draft;
-    wishlistItems.removeWhere((item) => item.cardRef == cardRef);
     final item = _portfolioItem(id: 'item-created', quantity: draft.quantity);
     collectionItems.add(item);
     if (conflictOnCollect) throw StateError('already collected');
@@ -1189,6 +1190,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   @override
   Future<void> deleteWishlist(AuthSession session, String itemId) async {
     await wishlistMutationGate?.future;
+    deletedWishlistItemIds.add(itemId);
     wishlistItems.removeWhere((item) => item.id == itemId);
   }
 }

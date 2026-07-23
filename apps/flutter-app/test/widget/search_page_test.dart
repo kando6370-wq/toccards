@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
@@ -17,7 +18,9 @@ import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -52,6 +55,7 @@ void main() {
     expect(find.text('+8.10%'), findsOneWidget);
     expect(find.text('Qty: 0'), findsWidgets);
     expect(find.byKey(const Key('search-collect-squirtle')), findsOneWidget);
+    expect(find.byKey(const Key('search-wishlist-charizard-ex')), findsNothing);
     expect(find.text('Collect'), findsNothing);
 
     ProviderScope.containerOf(tester.element(find.byType(SearchPage)))
@@ -338,6 +342,68 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(Icons.favorite), findsNothing);
+    expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
+  });
+
+  testWidgets('Search card action buttons do not open CardDetail', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+        child: const _SearchTestAppWithRoutes(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-wishlist-squirtle')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchPage), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-hero')), findsNothing);
+    expect(find.byIcon(Icons.favorite), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchPage), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-hero')), findsNothing);
+    expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
+  });
+
+  testWidgets('Search card action failures use the top toast', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._localAuthOverrides(),
+          searchRepositoryProvider.overrideWithValue(
+            const _FailingActionSearchRepository(),
+          ),
+        ],
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-wishlist-squirtle')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.byKey(const Key('kando-floating-toast')), findsNothing);
+    expect(find.text(genericFailureToastText), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.byKey(const Key('kando-floating-toast')), findsNothing);
+    expect(find.text(genericFailureToastText), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
   });
 
   testWidgets('no matching results state is shown', (tester) async {
@@ -719,6 +785,56 @@ class _ImageSearchRepository implements SearchRepository {
   @override
   Future<List<SearchSet>> searchSets(String query, {String? game}) async =>
       const [];
+}
+
+class _FailingActionSearchRepository implements SearchAssetRepository {
+  const _FailingActionSearchRepository();
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    return const MockSearchRepository().loadCatalog();
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
+    return const MockSearchRepository().searchCards(query, game: game);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
+  }
+
+  @override
+  Future<SearchAssetSnapshot> loadAssets(
+    AuthSession session, {
+    String? selectedFolderId,
+  }) async {
+    return const SearchAssetSnapshot(
+      folderId: 'folder-main',
+      statesByCardRef: {},
+    );
+  }
+
+  @override
+  Future<PortfolioItemDto> collect(
+    AuthSession session, {
+    required SearchCard card,
+    required String folderId,
+  }) {
+    throw StateError('mock collect unavailable');
+  }
+
+  @override
+  Future<void> deleteCollectionItem(AuthSession session, String itemId) async {}
+
+  @override
+  Future<WishlistItemDto> addWishlist(AuthSession session, String cardRef) {
+    throw StateError('mock wishlist unavailable');
+  }
+
+  @override
+  Future<void> deleteWishlist(AuthSession session, String itemId) async {}
 }
 
 _searchOverrides() {

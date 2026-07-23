@@ -267,8 +267,11 @@ class SearchController extends Notifier<SearchState> {
       final repository = ref.read(searchRepositoryProvider);
       final loadsAssets =
           repository is SearchAssetRepository && session != null;
-      final assetsFuture = loadsAssets
-          ? _loadAssetSnapshot(repository, session)
+      final Future<SearchAssetSnapshot?>? assetsFuture = loadsAssets
+          ? _loadAssetSnapshot(repository, session).then<SearchAssetSnapshot?>(
+              (snapshot) => snapshot,
+              onError: (Object error, StackTrace stackTrace) => null,
+            )
           : null;
       var catalog = await repository.loadCatalog();
       if (!ref.mounted) return;
@@ -286,8 +289,8 @@ class SearchController extends Notifier<SearchState> {
         );
       }
       if (assetsFuture != null) {
-        try {
-          final snapshot = await assetsFuture;
+        final snapshot = await assetsFuture;
+        if (snapshot != null) {
           catalog = _catalogWithAssets(catalog, snapshot);
           if (ref.mounted && generation == _loadGeneration) {
             state = _stateForCatalog(
@@ -297,7 +300,7 @@ class SearchController extends Notifier<SearchState> {
               assetStatus: KandoLoadStatus.content,
             );
           }
-        } catch (_) {
+        } else {
           if (ref.mounted && generation == _loadGeneration) {
             state = state.copyWith(assetStatus: KandoLoadStatus.failure);
           }
@@ -516,6 +519,9 @@ class SearchController extends Notifier<SearchState> {
           card: card,
           folderId: folderId,
         );
+        if (card.wishlistItemId != null) {
+          await repository.deleteWishlist(session, card.wishlistItemId!);
+        }
         final next = card.copyWith(
           quantity: item.quantity,
           collectionItemCount: 1,
@@ -627,8 +633,11 @@ class SearchController extends Notifier<SearchState> {
   }
 
   SearchCard resolveCard(SearchCard card) {
-    return state.cardOverrides[card.id] ??
-        _cardWithAssets(card, _assetSnapshot?.statesByCardRef[card.id]);
+    final override = state.cardOverrides[card.id];
+    if (override != null) return override;
+
+    final assets = _assetSnapshot?.statesByCardRef[card.id];
+    return assets == null ? card : _cardWithAssets(card, assets);
   }
 
   void _scheduleSearch({
