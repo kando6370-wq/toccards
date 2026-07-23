@@ -177,7 +177,7 @@ export function createDataSourceRoutes(
 
   routes.get("/cards/trending", async (c) => {
     const adapter = createAdapter(c.env);
-    const items = await listOrEmpty(() => adapter.getTrending());
+    const items = await adapter.getTrending();
     const overriddenItems = await Promise.all(
       items.map(async (item) => {
         const override = await findCardOverride(c.env.DB, item.card_ref);

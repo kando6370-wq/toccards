@@ -98,6 +98,19 @@ void main() {
       expect(dashboard.trendingUnavailable, isTrue);
     },
   );
+
+  test(
+    'Trending skips incomplete leaders before taking three because producer updates must not hide valid fallback cards',
+    () async {
+      final trending = await loadTrendingCards(_UpdatingTrendingApi());
+
+      expect(trending.map((card) => card.cardRef), [
+        'valid-1',
+        'valid-2',
+        'valid-3',
+      ]);
+    },
+  );
 }
 
 const _session = AuthSession(
@@ -315,4 +328,39 @@ class _FailingTrendingApi extends _CardDataApi {
   Future<List<CardDataCardDto>> trendingCards() {
     return Future.error(StateError('trending unavailable'));
   }
+}
+
+class _UpdatingTrendingApi extends _CardDataApi {
+  @override
+  Future<List<CardDataCardDto>> trendingCards() async {
+    return [
+      _trendingCard('updating-1', priceUsd: null),
+      _trendingCard('updating-2', increaseRate: null),
+      _trendingCard('updating-3', priceUsd: null),
+      _trendingCard('valid-1'),
+      _trendingCard('valid-2'),
+      _trendingCard('valid-3'),
+    ];
+  }
+}
+
+CardDataCardDto _trendingCard(
+  String cardRef, {
+  double? priceUsd = 10,
+  double? increaseRate = 5,
+}) {
+  return CardDataCardDto(
+    cardRef: cardRef,
+    name: cardRef,
+    setName: 'Set',
+    setCode: 'SET',
+    cardNumber: '1',
+    finish: 'Normal',
+    language: 'English',
+    objectType: 'tcg',
+    imageUrl: null,
+    rarity: 'Rare',
+    priceUsd: priceUsd,
+    priceChange1dPercent: increaseRate,
+  );
 }

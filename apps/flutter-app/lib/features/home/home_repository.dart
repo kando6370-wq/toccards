@@ -127,11 +127,12 @@ class ApiHomeRepository implements ProgressiveHomeRepository {
 }
 
 Future<List<TrendingCard>> loadTrendingCards(CardDataApi cardDataApi) async {
-  final cards = (await cardDataApi.trendingCards()).take(3);
+  final cards = await cardDataApi.trendingCards();
   return cards
       .where(
         (card) => card.priceUsd != null && card.priceChange1dPercent != null,
       )
+      .take(3)
       .map(
         (card) => TrendingCard(
           cardRef: card.cardRef,

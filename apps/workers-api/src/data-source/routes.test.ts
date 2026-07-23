@@ -989,7 +989,7 @@ describe("data source routes", () => {
     });
   });
 
-  it("returns documented fallback payloads when the adapter fails because proxy routes must degrade without 500s", async () => {
+  it("keeps list fallbacks but fails Trending loudly because clients must not mistake an outage for an empty ranking", async () => {
     const routeApp = new Hono<{ Bindings: Env }>();
     routeApp.route(
       "/",
@@ -1067,11 +1067,7 @@ describe("data source routes", () => {
         series: [],
       },
     });
-    expect(trending.status).toBe(200);
-    expect(await trending.json()).toEqual({
-      success: true,
-      data: { items: [] },
-    });
+    expect(trending.status).toBe(500);
     expect(soldListings.status).toBe(200);
     expect(await soldListings.json()).toEqual({
       success: true,
