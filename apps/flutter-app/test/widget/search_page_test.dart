@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -267,6 +269,36 @@ void main() {
     expect(find.text('Lorcana Elsa'), findsOneWidget);
     expect(find.text('Squirtle'), findsNothing);
   });
+
+  testWidgets(
+    'switching game shows loading instead of empty state because results are still in flight',
+    (tester) async {
+      final repository = _BlockingGameSearchRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Pokemon'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('search-game-filter-lorcana')));
+      await tester.tap(find.byKey(const Key('search-game-apply-filter')));
+      await tester.pump();
+
+      expect(find.byKey(const Key('search-results-loading')), findsOneWidget);
+      expect(find.text(noContentAvailableText), findsNothing);
+      expect(find.byKey(const Key('search-empty-refresh')), findsNothing);
+
+      await repository.completeCardSearch();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('search-results-loading')), findsNothing);
+      expect(find.text('Lorcana Elsa'), findsOneWidget);
+    },
+  );
 
   testWidgets('Collect and Wishlist actions update local card state', (
     tester,
@@ -600,6 +632,31 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
   @override
   Future<List<SearchSet>> searchSets(String query, {String? game}) {
     return const MockSearchRepository().searchSets(query);
+  }
+}
+
+class _BlockingGameSearchRepository implements SearchRepository {
+  final _cards = Completer<List<SearchCard>>();
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    return const MockSearchRepository().loadCatalog();
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
+    return _cards.future;
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
+  }
+
+  Future<void> completeCardSearch() async {
+    _cards.complete(
+      await const MockSearchRepository().searchCards('', game: 'Lorcana'),
+    );
   }
 }
 

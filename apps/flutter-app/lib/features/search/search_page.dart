@@ -345,6 +345,14 @@ class _SearchResults extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (state.isSearching) {
+      return const SizedBox(
+        key: Key('search-results-loading'),
+        height: 160,
+        child: KandoLoadingBlock(),
+      );
+    }
+
     if (state.isCurrentSearchUnavailable) {
       return _SearchEmptyState(
         title: noContentAvailableText,

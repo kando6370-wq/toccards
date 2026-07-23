@@ -43,6 +43,7 @@ class SearchState {
     this.failedSearchTabs = const {},
     this.cardPage = 1,
     this.hasMoreCards = false,
+    this.isSearching = false,
     this.isLoadingMoreCards = false,
     this.assetStatus = KandoLoadStatus.content,
   }) : _catalog = catalog,
@@ -57,6 +58,7 @@ class SearchState {
       failedSearchTabs = const {},
       cardPage = 1,
       hasMoreCards = false,
+      isSearching = false,
       isLoadingMoreCards = false,
       assetStatus = KandoLoadStatus.failure,
       loadStatus = KandoLoadStatus.failure;
@@ -70,6 +72,7 @@ class SearchState {
       failedSearchTabs = const {},
       cardPage = 1,
       hasMoreCards = false,
+      isSearching = false,
       isLoadingMoreCards = false,
       assetStatus = KandoLoadStatus.loading,
       loadStatus = KandoLoadStatus.loading;
@@ -83,6 +86,7 @@ class SearchState {
     required this.failedSearchTabs,
     required this.cardPage,
     required this.hasMoreCards,
+    required this.isSearching,
     required this.isLoadingMoreCards,
     required this.assetStatus,
     required this.loadStatus,
@@ -96,6 +100,7 @@ class SearchState {
   final Set<SearchTab> failedSearchTabs;
   final int cardPage;
   final bool hasMoreCards;
+  final bool isSearching;
   final bool isLoadingMoreCards;
   final KandoLoadStatus assetStatus;
   final KandoLoadStatus loadStatus;
@@ -155,6 +160,7 @@ class SearchState {
     Set<SearchTab>? failedSearchTabs,
     int? cardPage,
     bool? hasMoreCards,
+    bool? isSearching,
     bool? isLoadingMoreCards,
     KandoLoadStatus? assetStatus,
   }) {
@@ -167,6 +173,7 @@ class SearchState {
       failedSearchTabs: failedSearchTabs ?? this.failedSearchTabs,
       cardPage: cardPage ?? this.cardPage,
       hasMoreCards: hasMoreCards ?? this.hasMoreCards,
+      isSearching: isSearching ?? this.isSearching,
       isLoadingMoreCards: isLoadingMoreCards ?? this.isLoadingMoreCards,
       assetStatus: assetStatus ?? this.assetStatus,
       loadStatus: loadStatus,
@@ -381,6 +388,7 @@ class SearchController extends Notifier<SearchState> {
         state.isLoading ||
         state.selectedTab != SearchTab.cards ||
         state.isCurrentSearchUnavailable ||
+        state.isSearching ||
         state.isLoadingMoreCards ||
         !state.hasMoreCards) {
       return;
@@ -614,6 +622,7 @@ class SearchController extends Notifier<SearchState> {
         failedSearchTabs: {...state.failedSearchTabs}..remove(tab),
       );
     }
+    state = state.copyWith(isSearching: true);
     final trimmed = query.trim();
     if (trimmed.isEmpty && !allowEmpty) {
       _startLoad(preserveState: state, session: _assetSession);
@@ -674,6 +683,7 @@ class SearchController extends Notifier<SearchState> {
         }
         state = state.copyWith(
           failedSearchTabs: {...state.failedSearchTabs, tab},
+          isSearching: false,
         );
       }
     } finally {
