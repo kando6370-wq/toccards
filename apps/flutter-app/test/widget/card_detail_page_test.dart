@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -12,7 +13,6 @@ import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
-import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -56,13 +56,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Squirtle'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Basic information'), 300);
     expect(find.text('Pokemon'), findsWidgets);
     expect(find.text('Mega Evolution Promos'), findsWidgets);
     expect(find.text('Promo #039'), findsWidgets);
-    expect(find.text('Holofoil'), findsOneWidget);
-    expect(find.text('English'), findsOneWidget);
-    expect(find.text('Add to Portfolio'), findsOneWidget);
+    expect(
+      find.byKey(const Key('card-detail-add-to-portfolio-squirtle')),
+      findsOneWidget,
+    );
+    expect(find.text('Add to Portfolio'), findsNothing);
     expect(find.text('Collect'), findsNothing);
 
     await tester.scrollUntilVisible(
@@ -110,8 +111,12 @@ void main() {
 
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
     expect(find.text('No price data available.'), findsOneWidget);
+    await tester.drag(
+      find.byKey(const Key('card-detail-scroll')),
+      const Offset(0, -400),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Market Prices'), findsOneWidget);
-    expect(find.text('Raw'), findsWidgets);
     expect(find.text('--'), findsWidgets);
     expect(find.text('-/-'), findsWidgets);
     expect(find.text('Shop'), findsOneWidget);
@@ -233,7 +238,7 @@ void main() {
   );
 
   testWidgets(
-    'Add to Portfolio opens the Figma item sheet because creation is a focused workflow',
+    'top portfolio icon opens the Figma item sheet because creation is a focused workflow',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -246,9 +251,25 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.favorite), findsOneWidget);
+      expect(find.byIcon(Icons.favorite), findsNothing);
+      expect(find.byIcon(Icons.favorite_border), findsNothing);
+      final portfolioIcon = tester.widget<SvgPicture>(
+        find.byKey(const Key('card-detail-add-to-portfolio-icon')),
+      );
+      expect(
+        portfolioIcon.bytesLoader,
+        isA<SvgAssetLoader>().having(
+          (loader) => loader.assetName,
+          'assetName',
+          'assets/collection/add_to_portfolio.svg',
+        ),
+      );
+      expect(portfolioIcon.width, 20);
+      expect(portfolioIcon.height, 20);
 
-      await tester.tap(find.text('Add to Portfolio'));
+      await tester.tap(
+        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -265,7 +286,7 @@ void main() {
         tester
             .widget<Text>(find.byKey(const Key('card-detail-item-total')))
             .data,
-        r'$32.13',
+        '--',
       );
       expect(find.text('Add this card'), findsOneWidget);
       expect(find.text('Near Mint (NM)'), findsWidgets);
@@ -317,6 +338,14 @@ void main() {
       expect(savedDetail.quantity, 1);
       expect(savedDetail.isWishlisted, isFalse);
       expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
+      expect(
+        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('card-detail-share-one-piece-luffy')),
+        findsOneWidget,
+      );
       expect(find.text('OWNERSHIP SUMMARY'), findsNothing);
       expect(savedState.collectionItemRows.single.portfolioName, 'Main');
       expect(
@@ -334,11 +363,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Charizard ex'), findsOneWidget);
-    expect(find.text('Collected'), findsOneWidget);
+    expect(find.text('Collected'), findsNothing);
     expect(find.text('Collect'), findsNothing);
     expect(find.byIcon(Icons.favorite), findsNothing);
     expect(find.byIcon(Icons.favorite_border), findsNothing);
-    expect(find.byIcon(Icons.ios_share_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.ios_share_outlined), findsNothing);
+    final shareIcon = tester.widget<SvgPicture>(
+      find.byKey(const Key('card-detail-share-icon')),
+    );
+    expect(
+      shareIcon.bytesLoader,
+      isA<SvgAssetLoader>().having(
+        (loader) => loader.assetName,
+        'assetName',
+        'assets/collection/share.svg',
+      ),
+    );
 
     await tester.scrollUntilVisible(find.text('Collection Item'), 400);
 
@@ -652,7 +692,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Add to Portfolio'), findsOneWidget);
+    expect(find.text('Add to Portfolio'), findsNothing);
+    expect(
+      find.byKey(const Key('card-detail-add-to-portfolio-charizard-ex')),
+      findsOneWidget,
+    );
     expect(find.text('Collection Item'), findsNothing);
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
   });
@@ -673,26 +717,6 @@ void main() {
     expect(actions.setName, 'Obsidian Flames');
     expect(actions.marketPrice, r'$780.00');
   });
-
-  testWidgets(
-    'wishlist failure shows shared Toast because backend rejection must not look successful',
-    (tester) async {
-      await tester.pumpWidget(
-        const _CardDetailTestApp(
-          cardId: 'squirtle',
-          repository: _FailingWishlistCardDetailRepository(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('card-detail-wishlist-squirtle')));
-      await tester.pump();
-
-      expect(find.text(genericFailureToastText), findsOneWidget);
-      expect(find.byIcon(Icons.favorite_border), findsOneWidget);
-      expect(find.byIcon(Icons.favorite), findsNothing);
-    },
-  );
 
   testWidgets('unknown CardDetail shows shared failure copy', (tester) async {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'missing-card'));
@@ -824,15 +848,6 @@ class _RecordingCardDetailActions implements CardDetailActions {
     this.name = name;
     this.setName = setName;
     this.marketPrice = marketPrice;
-  }
-}
-
-class _FailingWishlistCardDetailRepository extends MockCardDetailRepository {
-  const _FailingWishlistCardDetailRepository();
-
-  @override
-  Future<String> addWishlist(AuthSession session, String cardRef) {
-    throw StateError('Wishlist backend rejected the mutation.');
   }
 }
 

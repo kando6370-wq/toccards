@@ -247,6 +247,41 @@ void main() {
     },
   );
 
+  testWidgets('Home chart follows the nearest day while tapping and dragging', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_mockHomeApp());
+
+    final chart = find.byKey(const Key('home-portfolio-chart'));
+    final chartRect = tester.getRect(chart);
+
+    await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));
+    await tester.pump();
+    expect(
+      tester.widget<Semantics>(chart).properties.value,
+      r'Date: Feb 12, 2025, Price: $11,800.00',
+    );
+
+    await tester.tapAt(
+      Offset(chartRect.left + chartRect.width * 4 / 9, chartRect.center.dy),
+    );
+    await tester.pump();
+    expect(
+      tester.widget<Semantics>(chart).properties.value,
+      r'Date: Feb 16, 2025, Price: $12,050.00',
+    );
+
+    await tester.dragFrom(
+      Offset(chartRect.left + 1, chartRect.center.dy),
+      Offset(chartRect.width - 2, 0),
+    );
+    await tester.pump();
+    expect(
+      tester.widget<Semantics>(chart).properties.value,
+      r'Date: Feb 21, 2025, Price: $12,450.80',
+    );
+  });
+
   testWidgets(
     'Overview uses the Figma SVG icon and filled 16px inverse label',
     (tester) async {
@@ -603,6 +638,36 @@ void main() {
         find.byKey(const Key('home-failure-most-valuable-refresh')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('home-failure-error-icon')),
+        findsNWidgets(2),
+      );
+      final failureIcon = tester.widget<SvgPicture>(
+        find.byKey(const Key('home-failure-error-icon')).first,
+      );
+      expect(
+        (failureIcon.bytesLoader as SvgAssetLoader).assetName,
+        'assets/home/failure_state_error.svg',
+      );
+      final refreshIcon = tester.widget<SvgPicture>(
+        find.byKey(const Key('home-failure-refresh-icon')).first,
+      );
+      expect(refreshIcon.width, 16);
+      expect(refreshIcon.height, 16);
+      expect(
+        (refreshIcon.bytesLoader as SvgAssetLoader).assetName,
+        'assets/home/refresh.svg',
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is AssetImage &&
+              (widget.image as AssetImage).assetName ==
+                  'assets/home/refresh_button.png',
+        ),
+        findsNothing,
+      );
       expect(find.text('Home'), findsOneWidget);
       expect(repository.calls, 2);
 
@@ -635,6 +700,13 @@ void main() {
       expect(find.byKey(const Key('home-failure-chart')), findsNothing);
       expect(find.byKey(const Key('home-most-valuable-list')), findsOneWidget);
       expect(find.byKey(const Key('home-failure-trending')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('home-failure-trending')),
+          matching: find.byKey(const Key('home-failure-error-icon')),
+        ),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const Key('home-failure-trending-refresh')),
         findsOneWidget,
@@ -756,6 +828,28 @@ void main() {
       expect(
         find.byKey(const Key('home-card-empty-illustration')),
         findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('home-empty-magnifier-outer')),
+        findsNWidgets(2),
+      );
+      expect(
+        find.byKey(const Key('home-empty-magnifier-inner')),
+        findsNWidgets(2),
+      );
+      final magnifierOuter = tester.widget<SvgPicture>(
+        find.byKey(const Key('home-empty-magnifier-outer')).first,
+      );
+      final magnifierInner = tester.widget<SvgPicture>(
+        find.byKey(const Key('home-empty-magnifier-inner')).first,
+      );
+      expect(
+        (magnifierOuter.bytesLoader as SvgAssetLoader).assetName,
+        'assets/home/empty_state_magnifier_outer.svg',
+      );
+      expect(
+        (magnifierInner.bytesLoader as SvgAssetLoader).assetName,
+        'assets/home/empty_state_magnifier_inner.svg',
       );
       expect(
         find.byKey(const Key('home-portfolio-empty-scan')),

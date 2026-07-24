@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -150,10 +151,7 @@ class CardDetailPage extends ConsumerWidget {
                               onRefresh: controller.refreshAssetState,
                             )
                           else
-                            _PrimaryActions(
-                              state: state,
-                              controller: controller,
-                            ),
+                            _PrimaryActions(state: state),
                           const SizedBox(height: 28),
                           // _BasicInfo(state: state),
                           // const SizedBox(height: 28),
@@ -364,42 +362,31 @@ class _CardHero extends ConsumerWidget {
                               }
                             },
                             style: iconButtonStyle,
-                            icon: const Icon(
-                              Icons.ios_share_outlined,
-                              size: 20,
+                            icon: SvgPicture.asset(
+                              'assets/collection/share.svg',
+                              key: const Key('card-detail-share-icon'),
+                              width: 24,
+                              height: 24,
                             ),
                           )
                         else
                           IconButton(
-                            key: Key('card-detail-wishlist-${detail.id}'),
-                            tooltip: detail.isWishlisted
-                                ? 'Remove from Wishlist'
-                                : 'Add to Wishlist',
-                            onPressed: () async {
-                              if (detail.isWishlisted) {
-                                await _confirmRemoveWishlist(
-                                  context,
-                                  controller,
-                                );
-                                return;
-                              }
-                              try {
-                                await controller.toggleWishlist();
-                              } catch (_) {
-                                if (context.mounted) {
-                                  showKandoFailureToast(context);
-                                }
-                              }
-                            },
+                            key: Key(
+                              'card-detail-add-to-portfolio-${detail.id}',
+                            ),
+                            tooltip: 'Add to Portfolio',
+                            onPressed: () => _openAddCollectionItemSheet(
+                              context,
+                              controller,
+                            ),
                             style: iconButtonStyle,
-                            icon: Icon(
-                              detail.isWishlisted
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              size: 20,
-                              color: detail.isWishlisted
-                                  ? KandoColors.accent
-                                  : null,
+                            icon: SvgPicture.asset(
+                              'assets/collection/add_to_portfolio.svg',
+                              key: const Key(
+                                'card-detail-add-to-portfolio-icon',
+                              ),
+                              width: 20,
+                              height: 20,
                             ),
                           ),
                       ],
@@ -490,10 +477,9 @@ class _HeroChip extends StatelessWidget {
 }
 
 class _PrimaryActions extends ConsumerWidget {
-  const _PrimaryActions({required this.state, required this.controller});
+  const _PrimaryActions({required this.state});
 
   final CardDetailState state;
-  final CardDetailController controller;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -533,33 +519,6 @@ class _PrimaryActions extends ConsumerWidget {
                 Icon(Icons.arrow_forward, size: 20),
               ],
             ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: detail.isCollected
-                  ? KandoColors.mutedText
-                  : KandoColors.accent,
-              side: BorderSide(
-                color: detail.isCollected
-                    ? KandoColors.border
-                    : KandoColors.accent.withValues(alpha: 0.7),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: const StadiumBorder(),
-            ),
-            onPressed: detail.isCollected
-                ? null
-                : () => _openAddCollectionItemSheet(context, controller),
-            icon: Icon(
-              detail.isCollected
-                  ? Icons.check_circle_outline
-                  : Icons.add_circle_outline,
-            ),
-            label: Text(detail.isCollected ? 'Collected' : 'Add to Portfolio'),
           ),
         ),
         // const SizedBox(height: 10),

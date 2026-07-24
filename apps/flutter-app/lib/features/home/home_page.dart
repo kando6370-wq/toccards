@@ -681,12 +681,8 @@ class _PortfolioEmptyPanel extends StatelessWidget {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              Image.asset(
-                'assets/home/empty_state_illustration.png',
-                key: const Key('home-portfolio-empty-illustration'),
-                width: 100,
-                height: 100,
-                filterQuality: FilterQuality.high,
+              const _FigmaEmptyStateIllustration(
+                key: Key('home-portfolio-empty-illustration'),
               ),
               const SizedBox(height: 24),
               const Column(
@@ -844,14 +840,7 @@ class _FigmaFailurePanel extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              width: 100,
-              height: 100,
-              child: Image.asset(
-                'assets/home/empty_state_illustration.png',
-                filterQuality: FilterQuality.high,
-              ),
-            ),
+            const _FigmaFailureStateIllustration(),
             const SizedBox(height: 24),
             const Text(
               noContentAvailableText,
@@ -863,21 +852,127 @@ class _FigmaFailurePanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            Semantics(
-              button: true,
-              label: refreshText,
-              child: GestureDetector(
-                key: refreshKey,
-                onTap: onRefresh,
-                child: Image.asset(
-                  'assets/home/refresh_button.png',
-                  width: 123,
-                  height: 36,
-                  filterQuality: FilterQuality.high,
+            _FigmaRefreshButton(key: refreshKey, onPressed: onRefresh),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FigmaEmptyStateIllustration extends StatelessWidget {
+  const _FigmaEmptyStateIllustration({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 100,
+      height: 100,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 4.96,
+            top: 8.94,
+            child: SvgPicture.asset(
+              'assets/home/empty_state_magnifier_outer.svg',
+              key: const Key('home-empty-magnifier-outer'),
+              width: 89.04,
+              height: 79.08,
+              excludeFromSemantics: true,
+            ),
+          ),
+          Positioned(
+            left: 29,
+            top: 32.37,
+            child: SvgPicture.asset(
+              'assets/home/empty_state_magnifier_inner.svg',
+              key: const Key('home-empty-magnifier-inner'),
+              width: 27.1,
+              height: 29.61,
+              excludeFromSemantics: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FigmaFailureStateIllustration extends StatelessWidget {
+  const _FigmaFailureStateIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 100,
+      height: 100,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 2.11,
+            top: 9.73,
+            child: SvgPicture.asset(
+              'assets/home/failure_state_error.svg',
+              key: const Key('home-failure-error-icon'),
+              width: 91.89,
+              height: 79.83,
+              excludeFromSemantics: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FigmaRefreshButton extends StatelessWidget {
+  const _FigmaRefreshButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: refreshText,
+      excludeSemantics: true,
+      child: SizedBox(
+        width: 122,
+        height: 36,
+        child: Material(
+          color: KandoColors.accent,
+          borderRadius: BorderRadius.circular(99),
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(99),
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/home/refresh.svg',
+                      key: const Key('home-failure-refresh-icon'),
+                      width: 16,
+                      height: 16,
+                      excludeFromSemantics: true,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Refresh',
+                      style: TextStyle(
+                        color: KandoColors.primaryOnDefault,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        height: 20 / 14,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1463,12 +1558,8 @@ class _EmptyCardBlock extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            Image.asset(
-              'assets/home/empty_state_illustration.png',
-              key: const Key('home-card-empty-illustration'),
-              width: 100,
-              height: 100,
-              filterQuality: FilterQuality.high,
+            const _FigmaEmptyStateIllustration(
+              key: Key('home-card-empty-illustration'),
             ),
             const SizedBox(height: 24),
             Text(
@@ -1607,55 +1698,69 @@ class _InteractiveChart extends StatefulWidget {
 }
 
 class _InteractiveChartState extends State<_InteractiveChart> {
-  late int _selectedIndex = _defaultChartIndex(widget.values.length);
+  int? _selectedIndex;
+
+  int get _effectiveSelectedIndex {
+    if (widget.values.isEmpty) return 0;
+    final defaultIndex = _defaultChartIndex(widget.values.length);
+    return (_selectedIndex ?? defaultIndex).clamp(0, widget.values.length - 1);
+  }
+
+  String get _semanticValue {
+    if (widget.values.isEmpty) return 'No chart data';
+    final index = _effectiveSelectedIndex;
+    return 'Date: ${_formatChartDate(widget.dates, index)}, '
+        'Price: ${_chartPrice(widget.formattedValues, index)}';
+  }
 
   @override
   void didUpdateWidget(covariant _InteractiveChart oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.values != widget.values || oldWidget.dates != widget.dates) {
-      _selectedIndex = _defaultChartIndex(widget.values.length);
+      _selectedIndex = null;
     }
   }
 
-  void _selectAt(Offset position, double width) {
-    if (widget.values.isEmpty || width <= 0) return;
-    final index =
-        ((position.dx.clamp(0.0, width) / width) * (widget.values.length - 1))
-            .round();
-    if (index == _selectedIndex) return;
+  void _selectAt(double localX, double width) {
+    if (widget.values.length < 2 || width <= 0) return;
+    final normalizedX = (localX / width).clamp(0.0, 1.0);
+    final index = (normalizedX * (widget.values.length - 1)).round();
+    if (index == _effectiveSelectedIndex) return;
     setState(() => _selectedIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
-    final date = _formatChartDate(widget.dates, _selectedIndex);
-    final price = _chartPrice(widget.formattedValues, _selectedIndex);
-    return Semantics(
-      key: const Key('home-portfolio-chart'),
-      label: 'Portfolio value chart',
-      value: 'Date: $date, Price: $price',
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapUp: (details) =>
-                _selectAt(details.localPosition, constraints.maxWidth),
-            onHorizontalDragStart: (details) =>
-                _selectAt(details.localPosition, constraints.maxWidth),
-            onHorizontalDragUpdate: (details) =>
-                _selectAt(details.localPosition, constraints.maxWidth),
-            child: CustomPaint(
-              painter: _ChartPainter(
-                values: widget.values,
-                dates: widget.dates,
-                formattedValues: widget.formattedValues,
-                selectedIndex: _selectedIndex,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return Semantics(
+          key: const Key('home-portfolio-chart'),
+          label: 'Portfolio value chart',
+          value: _semanticValue,
+          child: MouseRegion(
+            onHover: (event) => _selectAt(event.localPosition.dx, width),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (details) =>
+                  _selectAt(details.localPosition.dx, width),
+              onHorizontalDragStart: (details) =>
+                  _selectAt(details.localPosition.dx, width),
+              onHorizontalDragUpdate: (details) =>
+                  _selectAt(details.localPosition.dx, width),
+              child: CustomPaint(
+                painter: _ChartPainter(
+                  values: widget.values,
+                  dates: widget.dates,
+                  formattedValues: widget.formattedValues,
+                  selectedIndex: _effectiveSelectedIndex,
+                ),
+                child: const SizedBox.expand(),
               ),
-              child: const SizedBox.expand(),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1741,8 +1846,10 @@ class _ChartPainter extends CustomPainter {
 
     canvas.drawPath(path, linePaint);
 
-    final safeSelectedIndex = selectedIndex.clamp(0, points.length - 1).toInt();
-    final selected = points[safeSelectedIndex];
+    final resolvedSelectedIndex = selectedIndex
+        .clamp(0, points.length - 1)
+        .toInt();
+    final selected = points[resolvedSelectedIndex];
     canvas.drawCircle(
       selected,
       6,
@@ -1752,7 +1859,7 @@ class _ChartPainter extends CustomPainter {
 
     final datePainter = TextPainter(
       text: TextSpan(
-        text: 'Date: ${_formatChartDate(dates, safeSelectedIndex)}',
+        text: 'Date: ${_formatChartDate(dates, resolvedSelectedIndex)}',
         style: const TextStyle(
           color: Color(0xFF92927D),
           fontSize: 11,
@@ -1765,7 +1872,7 @@ class _ChartPainter extends CustomPainter {
     )..layout();
     final pricePainter = TextPainter(
       text: TextSpan(
-        text: 'Price: ${_chartPrice(formattedValues, safeSelectedIndex)}',
+        text: 'Price: ${_chartPrice(formattedValues, resolvedSelectedIndex)}',
         style: const TextStyle(
           color: KandoColors.accent,
           fontSize: 11,
