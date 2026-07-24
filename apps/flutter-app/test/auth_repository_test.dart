@@ -145,6 +145,46 @@ void main() {
   );
 
   test(
+    'registration proves guest ownership because only that guest assets may migrate',
+    () async {
+      final storage = InMemoryAuthStorage();
+      await storage.writeSession(
+        const AuthSession(
+          ownerType: OwnerType.anonymous,
+          accessToken: 'anon-access',
+          refreshToken: 'anon-refresh',
+          anonymousId: 'anon-1',
+        ),
+      );
+      final adapter = _FakeAuthAdapter({
+        'POST /auth/register/verify': _ok({
+          'user_id': 'user-1',
+          'email': 'person@example.com',
+          'login_method': 'email',
+          'access_token': 'user-access',
+          'refresh_token': 'user-refresh',
+        }),
+      });
+      final repository = HttpAuthRepository(_dio(adapter), storage);
+
+      await repository.verifyRegister(
+        email: 'person@example.com',
+        code: '123456',
+        password: 'password123',
+        anonymousId: 'anon-1',
+      );
+
+      expect(adapter.requests.single.body, {
+        'email': 'person@example.com',
+        'code': '123456',
+        'password': 'password123',
+        'anonymous_id': 'anon-1',
+      });
+      expect(adapter.requests.single.authorization, 'Bearer anon-access');
+    },
+  );
+
+  test(
     'google callback proves guest ownership because new OAuth users may migrate only their own assets',
     () async {
       final storage = InMemoryAuthStorage();

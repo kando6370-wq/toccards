@@ -175,6 +175,12 @@ class HttpAuthRepository implements AuthRepository {
     required String password,
     String? anonymousId,
   }) async {
+    final storedSession = await _storage.readSession();
+    final anonymousSession =
+        storedSession?.isAnonymous == true &&
+            storedSession?.anonymousId == anonymousId
+        ? storedSession
+        : null;
     final body = <String, Object?>{
       'email': email,
       'code': code,
@@ -188,6 +194,7 @@ class HttpAuthRepository implements AuthRepository {
       'POST',
       '/auth/register/verify',
       body: body,
+      session: anonymousSession,
     );
     return _userSession(data);
   }
