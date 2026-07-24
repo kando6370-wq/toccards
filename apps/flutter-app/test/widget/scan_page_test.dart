@@ -1219,6 +1219,14 @@ void main() {
 
       expect(find.text('Search cards, sets, or characters'), findsOneWidget);
       expect(find.text('Squirtle'), findsOneWidget);
+      expect(find.byTooltip('Back to Scan'), findsOneWidget);
+      expect(find.text('No Match Found', skipOffstage: false), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Back to Scan'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Take Photo'), findsOneWidget);
+      expect(find.text('No Match Found'), findsNothing);
     },
   );
 
@@ -1292,7 +1300,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Charizard ex'), findsWidgets);
     expect(find.text('Failed'), findsNothing);
-    expect(find.text('No Match Found'), findsNothing);
+    expect(
+      find.text('No Match Found'),
+      findsNothing,
+      reason: 'No Match scans have no card metadata to edit during batch save.',
+    );
 
     await tester.enterText(
       find.byKey(const Key('scan-review-quantity-4')),
@@ -1681,7 +1693,9 @@ class _ScanTestAppWithRoutes extends StatelessWidget {
           ),
           GoRoute(
             path: '/search',
-            builder: (context, state) => const SearchPage(),
+            builder: (context, state) => SearchPage(
+              fromScan: state.uri.queryParameters['from'] == 'scan',
+            ),
           ),
           GoRoute(
             path: '/profile',

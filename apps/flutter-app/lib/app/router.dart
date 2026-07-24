@@ -46,8 +46,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/search',
-        pageBuilder: (context, state) =>
-            _mainTabPage(state, const SearchPage()),
+        pageBuilder: (context, state) => _mainTabPage(
+          state,
+          SearchPage(fromScan: state.uri.queryParameters['from'] == 'scan'),
+        ),
       ),
       GoRoute(
         path: '/sets/:setCode',

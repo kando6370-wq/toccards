@@ -489,6 +489,26 @@ class _ScanPageState extends ConsumerState<ScanPage>
     });
   }
 
+  Future<void> _searchManually(_ScanItem item) async {
+    await _closeCamera();
+    if (!mounted) return;
+
+    await context.push<void>('/search?from=scan');
+    if (!mounted) return;
+
+    final cachedItem = _items
+        .where(
+          (candidate) =>
+              candidate.id == item.id &&
+              candidate.status == _ScanItemStatus.noMatch,
+        )
+        .firstOrNull;
+    if (cachedItem != null) {
+      _deleteScan(cachedItem);
+    }
+    unawaited(_openCamera());
+  }
+
   void _addScan(Future<ScanResolution> resultFuture) {
     final id = _nextScanId;
     _nextScanId += 1;
@@ -1158,10 +1178,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 onReviewItem: _openReview,
                 onRetryItem: _retryScan,
                 onDeleteItem: _deleteScan,
-                onSearchItem: (item) {
-                  _deleteScan(item);
-                  context.go('/search');
-                },
+                onSearchItem: _searchManually,
               ),
       ),
     );

@@ -13,7 +13,9 @@ import 'search_controller.dart';
 import 'search_models.dart';
 
 class SearchPage extends ConsumerWidget {
-  const SearchPage({super.key});
+  const SearchPage({this.fromScan = false, super.key});
+
+  final bool fromScan;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,6 +41,20 @@ class SearchPage extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 116),
               children: [
+                if (fromScan) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      key: const Key('search-back-to-scan'),
+                      tooltip: 'Back to Scan',
+                      onPressed: () => context.canPop()
+                          ? context.pop()
+                          : context.go('/scan'),
+                      icon: const Icon(Icons.arrow_back),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 if (state.isLoading) ...[
                   Text(
                     'Search',
