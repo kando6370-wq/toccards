@@ -2338,7 +2338,7 @@ class _ScanResults extends StatelessWidget {
   Widget build(BuildContext context) {
     final visibleItems = items.where((item) {
       return item.status != _ScanItemStatus.revealing || showRevealingFeedback;
-    }).toList();
+    }).toList().reversed.toList();
     if (visibleItems.isEmpty) {
       return const SizedBox.shrink();
     }

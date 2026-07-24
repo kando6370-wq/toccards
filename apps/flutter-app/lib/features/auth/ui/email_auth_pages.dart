@@ -13,7 +13,7 @@ import '../auth_controller.dart';
 const _shortPasswordMessage = 'Password must be at least 8 characters.';
 const _passwordMismatchMessage = 'Passwords do not match.';
 const _incorrectCodeMessage = 'Incorrect verification code';
-const _expiredCodeMessage = 'Code expired. Please request a new code.';
+const _expiredCodeMessage = 'Code expired. Request a new one';
 
 enum _EmailPage {
   email,
@@ -1253,17 +1253,24 @@ class _VerificationCodeInput extends StatelessWidget {
               style: TextStyle(color: Color(0xFF92927D), fontSize: 12),
             ),
             if (hasError) ...[
-              const Spacer(),
-              Flexible(
-                child: Text(
-                  errorText!,
-                  textAlign: TextAlign.end,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.visible,
-                  style: const TextStyle(
-                    color: Color(0xFFFF8787),
-                    fontSize: 12,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      errorText!,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.visible,
+                      style: const TextStyle(
+                        color: Color(0xFFFF8787),
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ),
               ),

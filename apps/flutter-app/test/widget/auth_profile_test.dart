@@ -1134,10 +1134,7 @@ void main() {
     await tester.enterText(find.byType(TextFormField), '654321');
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Code expired. Please request a new code.'),
-      findsOneWidget,
-    );
+    expect(find.text('Code expired. Request a new one'), findsOneWidget);
     expect(find.text('Reset password'), findsNothing);
     expect(find.byType(TextFormField), findsOneWidget);
   });

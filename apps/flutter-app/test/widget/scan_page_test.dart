@@ -1275,7 +1275,7 @@ void main() {
     expect(resultRail.height, 82);
     expect(firstResult.height, 82);
     expect(secondResult.height, 82);
-    expect(secondResult.left, greaterThan(firstResult.left));
+    expect(secondResult.left, lessThan(firstResult.left));
     expect(secondResult.top, firstResult.top);
 
     final doneWithMatched = tester.widget<InkWell>(

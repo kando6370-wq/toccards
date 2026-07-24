@@ -594,7 +594,9 @@ class _RemoveWishlistButton extends StatelessWidget {
           shape: const StadiumBorder(),
         ),
         onPressed: () => _confirmRemoveWishlist(context, controller),
-        icon: const Icon(Icons.bookmark_remove_outlined, size: 20),
+        icon: const _RemoveActionIcon(
+          key: Key('card-detail-remove-wishlist-icon'),
+        ),
         label: const Text('Remove from Wishlist'),
       ),
     );
@@ -746,7 +748,7 @@ enum _CollectionItemMode { empty, summary, edit }
 class _CollectionItems extends StatelessWidget {
   const _CollectionItems({required this.state, required this.controller});
 
-  static const _modeTransitionDuration = Duration(milliseconds: 320);
+  static const _modeTransitionDuration = Duration(milliseconds: 380);
 
   final CardDetailState state;
   final CardDetailController controller;
@@ -840,8 +842,17 @@ class _CollectionItemModeTransition extends StatelessWidget {
     return AnimatedSwitcher(
       duration: effectiveDuration,
       reverseDuration: effectiveDuration,
-      switchInCurve: Curves.easeOutQuart,
+      switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInOutCubic,
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
       transitionBuilder: (child, animation) {
         final mode = switch (child.key) {
           ValueKey(value: final _CollectionItemMode value) => value,
@@ -849,8 +860,8 @@ class _CollectionItemModeTransition extends StatelessWidget {
         };
         final offset = Tween<Offset>(
           begin: switch (mode) {
-            _CollectionItemMode.edit => const Offset(0.16, 0),
-            _CollectionItemMode.summary => const Offset(-0.16, 0),
+            _CollectionItemMode.edit => const Offset(1, 0),
+            _CollectionItemMode.summary => const Offset(-1, 0),
             _CollectionItemMode.empty => Offset.zero,
           },
           end: Offset.zero,
@@ -1023,7 +1034,9 @@ class _RemoveFromPortfolioFooterButton extends StatelessWidget {
           ),
         ),
         onPressed: onPressed,
-        icon: const Icon(Icons.delete_outline, size: 20),
+        icon: const _RemoveActionIcon(
+          key: Key('card-detail-remove-from-portfolio-icon'),
+        ),
         label: const Text.rich(
           TextSpan(
             children: [
@@ -1037,6 +1050,73 @@ class _RemoveFromPortfolioFooterButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _RemoveActionIcon extends StatelessWidget {
+  const _RemoveActionIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final iconTheme = IconTheme.of(context);
+    final dimension = iconTheme.size ?? 20;
+    final color = iconTheme.color ?? _kRemovePortfolioColor;
+
+    return SizedBox.square(
+      dimension: dimension,
+      child: CustomPaint(painter: _RemoveActionIconPainter(color: color)),
+    );
+  }
+}
+
+class _RemoveActionIconPainter extends CustomPainter {
+  const _RemoveActionIconPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scaleX = size.width / 20;
+    final scaleY = size.height / 20;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.04167
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.save();
+    canvas.scale(scaleX, scaleY);
+
+    final documentPath = Path()
+      ..moveTo(15, 9.5833)
+      ..lineTo(15, 5.8333)
+      ..lineTo(11.25, 1.6666)
+      ..lineTo(2.5, 1.6666)
+      ..cubicTo(2.0398, 1.6666, 1.6667, 2.0397, 1.6667, 2.5)
+      ..lineTo(1.6667, 17.5)
+      ..cubicTo(1.6667, 17.9602, 2.0398, 18.3333, 2.5, 18.3333)
+      ..lineTo(7.5, 18.3333);
+    canvas.drawPath(documentPath, paint);
+
+    canvas.drawLine(
+      const Offset(9.1667, 14.5834),
+      const Offset(15, 14.5834),
+      paint,
+    );
+
+    final foldPath = Path()
+      ..moveTo(10.8337, 1.6666)
+      ..lineTo(10.8337, 5.8333)
+      ..lineTo(15.0004, 5.8333);
+    canvas.drawPath(foldPath, paint);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _RemoveActionIconPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 
@@ -3050,7 +3130,7 @@ Future<void> _confirmRemoveWishlist(
                 Navigator.of(dialogContext).pop();
               }
             },
-            icon: const Icon(Icons.bookmark_remove_outlined),
+            icon: const _RemoveActionIcon(),
             label: const Text('Remove'),
           ),
         ],
@@ -3089,7 +3169,7 @@ Future<void> _confirmRemoveCollectionItem(
               }
               Navigator.of(context).pop();
             },
-            icon: const Icon(Icons.delete_outline),
+            icon: const _RemoveActionIcon(),
             label: const Text('Remove'),
           ),
         ],

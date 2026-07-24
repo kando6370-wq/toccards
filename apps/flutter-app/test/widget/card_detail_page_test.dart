@@ -201,9 +201,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.byKey(const Key('card-detail-wishlist-one-piece-luffy')),
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-remove-wishlist')),
+        400,
       );
+      expect(
+        find.byKey(const Key('card-detail-remove-wishlist-icon')),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.bookmark_remove_outlined), findsNothing);
+
+      await tester.tap(find.byKey(const Key('card-detail-remove-wishlist')));
       await tester.pumpAndSettle();
 
       expect(find.text('Remove from Wishlist'), findsWidgets);
@@ -626,6 +634,12 @@ void main() {
       find.byKey(const Key('card-detail-remove-from-portfolio')),
     );
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('card-detail-remove-from-portfolio-icon')),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
+
     await tester.tap(
       find.byKey(const Key('card-detail-remove-from-portfolio')),
     );
