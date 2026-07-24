@@ -802,6 +802,7 @@ class _FilterSectionLabel extends StatelessWidget {
 }
 
 Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
+  final pageContext = context;
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -920,13 +921,13 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                                     ),
                                     borderRadius: BorderRadius.circular(12),
                                     onTap: () async {
-                                      final succeeded = await controller
-                                          .selectFolder(folder.id);
-                                      if (!context.mounted) return;
-                                      if (succeeded) {
-                                        Navigator.of(context).pop();
-                                      } else {
-                                        _showCollectionActionError(context);
+                                      final selection = controller.selectFolder(
+                                        folder.id,
+                                      );
+                                      Navigator.of(context).pop();
+                                      if (!await selection &&
+                                          pageContext.mounted) {
+                                        _showCollectionActionError(pageContext);
                                       }
                                     },
                                     child: Row(

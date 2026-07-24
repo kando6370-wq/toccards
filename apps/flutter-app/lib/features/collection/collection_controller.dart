@@ -558,15 +558,18 @@ class CollectionController extends Notifier<CollectionState> {
 
     final previousFolderId = state.selectedFolderId;
     state = state.copyWith(selectedFolderId: folderId);
+    ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
     try {
       final session = ref.read(authControllerProvider).session!;
       await ref
           .read(collectionRepositoryProvider)
           .updatePreferences(session, lastSelectedFolderId: folderId);
-      ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
       return true;
     } catch (_) {
       state = state.copyWith(selectedFolderId: previousFolderId);
+      ref
+          .read(selectedPortfolioFolderProvider.notifier)
+          .select(previousFolderId);
       return false;
     }
   }

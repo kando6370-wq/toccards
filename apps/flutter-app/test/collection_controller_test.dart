@@ -12,6 +12,7 @@ import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'support/in_memory_auth_storage.dart';
@@ -395,6 +396,29 @@ void main() {
   );
 
   test(
+    'folder selection updates shared UI before preference persistence because network latency must not block switching',
+    () async {
+      final repository = _DelayedPreferenceCollectionRepository();
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedState(container);
+
+      final selection = container
+          .read(collectionControllerProvider.notifier)
+          .selectFolder('sealed');
+
+      expect(
+        container.read(collectionControllerProvider).selectedFolder.id,
+        'sealed',
+      );
+      expect(container.read(selectedPortfolioFolderProvider), 'sealed');
+
+      repository.preferenceWrite.complete();
+      expect(await selection, isTrue);
+    },
+  );
+
+  test(
     'folder management updates backend state and falls back to the default after deleting the selection',
     () async {
       final repository = _RecordingCollectionRepository();
@@ -474,6 +498,7 @@ void main() {
       final state = container.read(collectionControllerProvider);
       expect(state.selectedFolder.id, 'main');
       expect(state.amountHidden, isFalse);
+      expect(container.read(selectedPortfolioFolderProvider), 'main');
     },
   );
 
@@ -719,6 +744,20 @@ class _RecordingCollectionRepository extends MockCollectionRepository {
     if (lastSelectedFolderId != null) {
       selectedFolderIds.add(lastSelectedFolderId);
     }
+  }
+}
+
+class _DelayedPreferenceCollectionRepository extends MockCollectionRepository {
+  final preferenceWrite = Completer<void>();
+
+  @override
+  Future<void> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) {
+    return preferenceWrite.future;
   }
 }
 

@@ -420,6 +420,32 @@ void main() {
   );
 
   testWidgets(
+    'folder picker closes and updates Home before preference persistence because switching must stay responsive',
+    (tester) async {
+      final preferences = _DelayedPortfolioManagementApi();
+      final homeRepository = _CountingHomeRepository();
+      await tester.pumpWidget(
+        _mockHomeApp(preferences, const _TestCurrencyRateApi(), homeRepository),
+      );
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sealed').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Select Portfolio'), findsNothing);
+      expect(find.text('Sealed'), findsOneWidget);
+      expect(find.text(r'$8,640.00'), findsOneWidget);
+      expect(homeRepository.calls, 1);
+
+      preferences.preferenceWrite.complete();
+      await tester.pumpAndSettle();
+      expect(homeRepository.calls, 1);
+    },
+  );
+
+  testWidgets(
     'currency picker converts the Figma portfolio and card price surfaces',
     (tester) async {
       final preferences = _TestPortfolioManagementApi();
@@ -966,12 +992,13 @@ _localAuthOverrides() {
 Widget _mockHomeApp([
   PortfolioManagementApi? managementApi,
   CurrencyRateApi currencyRateApi = const _TestCurrencyRateApi(),
+  HomeRepository homeRepository = const MockHomeRepository(),
 ]) {
   final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
   return ProviderScope(
     overrides: [
       ..._localAuthOverrides(),
-      homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+      homeRepositoryProvider.overrideWithValue(homeRepository),
       collectionRepositoryProvider.overrideWithValue(
         _HomeCollectionRepository(portfolioManagement),
       ),
@@ -1083,6 +1110,37 @@ class _TestPortfolioManagementApi implements PortfolioManagementApi {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _DelayedPortfolioManagementApi extends _TestPortfolioManagementApi {
+  final preferenceWrite = Completer<void>();
+
+  @override
+  Future<UserPreferenceDto> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) async {
+    final result = await super.updatePreferences(
+      session,
+      currency: currency,
+      amountHidden: amountHidden,
+      lastSelectedFolderId: lastSelectedFolderId,
+    );
+    await preferenceWrite.future;
+    return result;
+  }
+}
+
+class _CountingHomeRepository implements HomeRepository {
+  var calls = 0;
+
+  @override
+  HomeDashboard loadDashboard() {
+    calls += 1;
+    return const MockHomeRepository().loadDashboard();
+  }
 }
 
 class _PendingStartupAuthRepository extends LocalPlaceholderAuthRepository {

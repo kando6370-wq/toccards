@@ -98,11 +98,8 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Future<void> _showFolderSheet(BuildContext context, WidgetRef ref) async {
-    await showPortfolioFolderSheet(context, ref);
-    if (context.mounted) {
-      ref.read(homeControllerProvider.notifier).refresh();
-    }
+  Future<void> _showFolderSheet(BuildContext context, WidgetRef ref) {
+    return showPortfolioFolderSheet(context, ref);
   }
 
   Future<void> _showCurrencySheet(BuildContext context, WidgetRef ref) {
