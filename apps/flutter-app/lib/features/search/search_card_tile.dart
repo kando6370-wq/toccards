@@ -17,11 +17,13 @@ class SearchCardTile extends ConsumerWidget {
     required this.card,
     required this.actionsEnabled,
     this.showActions = true,
+    this.showSearchMetadata = false,
   });
 
   final SearchCard card;
   final bool actionsEnabled;
   final bool showActions;
+  final bool showSearchMetadata;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -171,7 +173,7 @@ class SearchCardTile extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                card.name,
+                showSearchMetadata ? _cardName(card) : card.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -183,50 +185,172 @@ class SearchCardTile extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                card.setName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: mutedLine,
-              ),
-              Text(
-                card.metadataLine,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: mutedLine,
-              ),
-              if (card.variantLine.isNotEmpty)
+              if (showSearchMetadata) ...[
+                _MetadataRow(
+                  left: card.setName,
+                  right: card.metadataLine,
+                  style: mutedLine,
+                ),
+                _MetadataRow(
+                  left: card.collectionInfo ?? '',
+                  right: card.variantLine,
+                  style: mutedLine,
+                ),
+                _PriceRow(
+                  quantity: card.quantity,
+                  price: card.priceText(currency),
+                  change: change,
+                  changeColor: changeColor,
+                  mutedStyle: mutedLine,
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    change,
+                    style: TextStyle(
+                      fontSize: 10,
+                      height: 14 / 10,
+                      color: changeColor,
+                    ),
+                  ),
+                ),
+              ] else ...[
                 Text(
-                  card.variantLine,
+                  card.setName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: mutedLine,
                 ),
-              Text('Qty: ${card.quantity}', style: mutedLine),
-              const SizedBox(height: 6),
-              Text(
-                card.priceText(currency),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 24 / 14,
-                  fontWeight: FontWeight.w600,
-                  color: KandoColors.text,
+                Text(
+                  card.metadataLine,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: mutedLine,
                 ),
-              ),
-              Text(
-                change,
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 14 / 10,
-                  color: changeColor,
+                if (card.variantLine.isNotEmpty)
+                  Text(
+                    card.variantLine,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: mutedLine,
+                  ),
+                Text('Qty: ${card.quantity}', style: mutedLine),
+                const SizedBox(height: 6),
+                Text(
+                  card.priceText(currency),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 24 / 14,
+                    fontWeight: FontWeight.w600,
+                    color: KandoColors.text,
+                  ),
                 ),
-              ),
+                Text(
+                  change,
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 14 / 10,
+                    color: changeColor,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+String _cardName(SearchCard card) {
+  final language = card.language?.trim();
+  return language == null || language.isEmpty
+      ? card.name
+      : '${card.name} ($language)';
+}
+
+class _MetadataRow extends StatelessWidget {
+  const _MetadataRow({
+    required this.left,
+    required this.right,
+    required this.style,
+  });
+
+  final String left;
+  final String right;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            left,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: style,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PriceRow extends StatelessWidget {
+  const _PriceRow({
+    required this.quantity,
+    required this.price,
+    required this.change,
+    required this.changeColor,
+    required this.mutedStyle,
+  });
+
+  final int quantity;
+  final String price;
+  final String change;
+  final Color changeColor;
+  final TextStyle mutedStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = change.startsWith('-')
+        ? Icons.trending_down
+        : change.startsWith('+')
+        ? Icons.trending_up
+        : Icons.trending_flat;
+    return Row(
+      children: [
+        Expanded(child: Text('Qty: $quantity', style: mutedStyle)),
+        Icon(icon, size: 13, color: changeColor),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            price,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 24 / 14,
+              fontWeight: FontWeight.w600,
+              color: KandoColors.text,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

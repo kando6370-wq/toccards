@@ -30,6 +30,7 @@ class SearchCard {
     this.collectionItemCount = 0,
     this.collectionItemId,
     this.wishlistItemId,
+    this.collectionInfo,
     this.language,
     this.finish,
     this.imageUrl,
@@ -49,6 +50,7 @@ class SearchCard {
   final int collectionItemCount;
   final String? collectionItemId;
   final String? wishlistItemId;
+  final String? collectionInfo;
   final String? language;
   final String? finish;
   final String? imageUrl;
@@ -56,7 +58,8 @@ class SearchCard {
   bool get isCollected => quantity > 0;
 
   String get searchableText {
-    return '$name $setName $metadataLine $variantLine'.toLowerCase();
+    return '$name $setName $metadataLine $variantLine ${language ?? ''}'
+        .toLowerCase();
   }
 
   String priceText(AppCurrency currency) {
@@ -76,6 +79,7 @@ class SearchCard {
     int? collectionItemCount,
     Object? collectionItemId = _searchCardFieldUnset,
     Object? wishlistItemId = _searchCardFieldUnset,
+    Object? collectionInfo = _searchCardFieldUnset,
   }) {
     return SearchCard(
       id: id,
@@ -96,6 +100,9 @@ class SearchCard {
       wishlistItemId: wishlistItemId == _searchCardFieldUnset
           ? this.wishlistItemId
           : wishlistItemId as String?,
+      collectionInfo: collectionInfo == _searchCardFieldUnset
+          ? this.collectionInfo
+          : collectionInfo as String?,
       language: language,
       finish: finish,
       imageUrl: imageUrl,

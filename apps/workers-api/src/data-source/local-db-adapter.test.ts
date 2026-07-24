@@ -7,6 +7,7 @@ type CardRow = {
   game: string | null;
   set_name: string | null;
   set_code: string | null;
+  number: string | null;
   name: string | null;
   rarity: string | null;
   product_type_name: string | null;
@@ -39,12 +40,16 @@ class FakeCardDatabase {
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
     private readonly sets: SetRow[] = [],
+    private readonly hasNumberColumn = true,
   ) {}
 
   readonly preparedSql: string[] = [];
 
   prepare(sql: string): FakeStatement {
     this.preparedSql.push(sql);
+    if (!this.hasNumberColumn && sql.includes("coalesce(number")) {
+      throw new Error("no such column: number");
+    }
     return new FakeStatement(sql, this.cards, this.skus, this.sets);
   }
 }
@@ -190,9 +195,9 @@ class FakeBoundStatement {
 
       const results = gameCards
         .filter((card) =>
-          [card.name, card.set_name, card.set_code, card.rarity, card.game]
-            .filter(Boolean)
-            .some((value) => value!.toLowerCase().includes(query)),
+          `${card.name ?? ""} ${card.number ?? ""} ${card.set_name ?? ""} ${card.set_code ?? ""} ${card.rarity ?? ""} ${card.game ?? ""}`
+            .toLowerCase()
+            .includes(query),
         )
         .filter((card) => {
           return objectType === null || objectTypeFromProductType(card.product_type_name) === objectType;
@@ -233,7 +238,7 @@ describe("local D1 card data source adapter", () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [
-          card({ product_id: "100", name: "Charizard", product_type_name: "Cards" }),
+          card({ product_id: "100", name: "Charizard", number: "4/102", product_type_name: "Cards" }),
           card({ product_id: "200", name: "Charizard Booster Box", product_type_name: "Booster Box" }),
         ],
         [],
@@ -253,7 +258,7 @@ describe("local D1 card data source adapter", () => {
         game: "Pokemon",
         set_name: "Base Set",
         set_code: "BS",
-        card_number: "",
+        card_number: "4/102",
         finish: null,
         language: null,
         object_type: "tcg",
@@ -294,6 +299,37 @@ describe("local D1 card data source adapter", () => {
     ).resolves.toEqual([
       { date: "2026-07-01", price: 12.5 },
       { date: "2026-07-08", price: 15.75 },
+    ]);
+  });
+
+  it("searches by card name and number together because collectors use the number to identify an exact printing", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [
+          card({ product_id: "100", name: "Vaporeon", number: "022/131" }),
+          card({ product_id: "200", name: "Vaporeon", number: "030/131" }),
+        ],
+        [],
+      ) as unknown as D1Database,
+    );
+
+    const cards = await adapter.searchCards("VAPOREON 022/131");
+
+    expect(cards.map((card) => card.card_ref)).toEqual(["100"]);
+  });
+
+  it("keeps name search working without the optional number column because older local catalogs must remain usable", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Vaporeon" })],
+        [],
+        [],
+        false,
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.searchCards("vaporeon")).resolves.toMatchObject([
+      { card_ref: "100", name: "Vaporeon" },
     ]);
   });
 
@@ -616,6 +652,7 @@ function card(overrides: Partial<CardRow>): CardRow {
     game: "Pokemon",
     set_name: "Base Set",
     set_code: "BS",
+    number: null,
     name: "Charizard",
     rarity: "Rare Holo",
     product_type_name: "Cards",

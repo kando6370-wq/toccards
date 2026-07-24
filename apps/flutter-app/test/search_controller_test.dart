@@ -15,6 +15,41 @@ import 'support/mock_search_repository.dart';
 
 void main() {
   test(
+    'collection display uses condition for Raw and grader plus grade for graded cards because Search must show saved user data',
+    () {
+      expect(
+        collectionItemInfo(_portfolioItem(id: 'raw', quantity: 1)),
+        'Near Mint (NM)',
+      );
+      expect(
+        collectionItemInfo(
+          _portfolioItem(
+            id: 'graded',
+            quantity: 1,
+            grader: 'PSA',
+            condition: null,
+            grade: 10,
+          ),
+        ),
+        'PSA 10',
+      );
+      expect(
+        collectionInfoFor([
+          _portfolioItem(id: 'raw', quantity: 1),
+          _portfolioItem(
+            id: 'graded',
+            quantity: 1,
+            grader: 'PSA',
+            condition: null,
+            grade: 10,
+          ),
+        ]),
+        'Mixed',
+      );
+    },
+  );
+
+  test(
     'http search repository builds catalog from card-data API because Search landing must read Workers catalog data',
     () async {
       final api = _FakeCardDataApi(
@@ -422,6 +457,7 @@ void main() {
       var card = container.read(searchControllerProvider).cardById('9359');
       expect(card.quantity, 2);
       expect(card.collectionItemId, 'item-1');
+      expect(card.collectionInfo, 'Near Mint (NM)');
 
       controller.updateSearch('escape');
       await Future<void>.delayed(searchDebounceDuration * 2);
@@ -439,6 +475,13 @@ void main() {
       );
       expect(await collect, SearchCollectAction.updated);
       expect(portfolioApi.deletedCollectionItemIds, ['item-1']);
+      expect(
+        container
+            .read(searchControllerProvider)
+            .cardById('9359')
+            .collectionInfo,
+        isNull,
+      );
 
       expect(await controller.toggleWishlist('9359'), isTrue);
       card = container.read(searchControllerProvider).cardById('9359');
@@ -466,6 +509,7 @@ void main() {
       expect(portfolioApi.wishlistItems, isEmpty);
       card = container.read(searchControllerProvider).cardById('9359');
       expect(card.quantity, 1);
+      expect(card.collectionInfo, 'Near Mint (NM)');
       expect(card.isWishlisted, isFalse);
     },
   );
@@ -1195,15 +1239,21 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   }
 }
 
-PortfolioItemDto _portfolioItem({required String id, required int quantity}) {
+PortfolioItemDto _portfolioItem({
+  required String id,
+  required int quantity,
+  String grader = 'Raw',
+  String? condition = 'Near Mint (NM)',
+  double? grade,
+}) {
   return PortfolioItemDto(
     id: id,
     folderId: 'folder-main',
     cardRef: '9359',
     objectType: 'tcg',
-    grader: 'Raw',
-    condition: 'Near Mint (NM)',
-    grade: null,
+    grader: grader,
+    condition: condition,
+    grade: grade,
     language: 'English',
     finish: 'Normal',
     quantity: quantity,

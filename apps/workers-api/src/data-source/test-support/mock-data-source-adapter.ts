@@ -85,9 +85,9 @@ export function createMockDataSourceAdapter(): DataSourceAdapter {
           !options.game || card.game?.toLowerCase() === options.game.toLowerCase();
         const matchesQuery =
           normalizedQuery.length === 0 ||
-          [card.name, card.set_name, card.set_code, card.card_number].some(
-            (value) => value.toLowerCase().includes(normalizedQuery),
-          );
+          `${card.name} ${card.card_number} ${card.set_name} ${card.set_code}`
+            .toLowerCase()
+            .includes(normalizedQuery);
 
         return matchesType && matchesGame && matchesQuery;
       });

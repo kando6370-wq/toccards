@@ -49,11 +49,13 @@ class SearchCardAssetState {
     required this.quantity,
     required this.collectionItemIds,
     required this.wishlistItemId,
+    required this.collectionInfo,
   });
 
   final int quantity;
   final List<String> collectionItemIds;
   final String? wishlistItemId;
+  final String? collectionInfo;
 }
 
 class HttpSearchRepository
@@ -187,6 +189,9 @@ class HttpSearchRepository
               for (final item in itemsByCardRef[cardRef] ?? const []) item.id,
             ],
             wishlistItemId: wishlistByCardRef[cardRef],
+            collectionInfo: collectionInfoFor(
+              itemsByCardRef[cardRef] ?? const [],
+            ),
           ),
       },
     );
@@ -352,9 +357,27 @@ String _metadataLine(CardDataCardDto dto) {
 }
 
 String _variantLine(CardDataCardDto dto) {
-  final parts = [
-    if (dto.finish != null) dto.finish!,
-    if (dto.language != null) dto.language!,
-  ];
-  return parts.isEmpty ? 'Standard' : parts.join(' / ');
+  return dto.finish ?? 'Standard';
+}
+
+String? collectionItemInfo(PortfolioItemDto item) {
+  if (item.grader.trim().toLowerCase() == 'raw') {
+    final condition = item.condition?.trim();
+    return condition == null || condition.isEmpty ? null : condition;
+  }
+
+  final grader = item.grader.trim();
+  if (grader.isEmpty) return null;
+  final grade = item.grade;
+  if (grade == null) return grader;
+  final gradeText = grade == grade.truncateToDouble()
+      ? grade.toInt().toString()
+      : grade.toString();
+  return '$grader $gradeText';
+}
+
+String? collectionInfoFor(List<PortfolioItemDto> items) {
+  final values = items.map(collectionItemInfo).whereType<String>().toSet();
+  if (values.isEmpty) return null;
+  return values.length == 1 ? values.single : 'Mixed';
 }

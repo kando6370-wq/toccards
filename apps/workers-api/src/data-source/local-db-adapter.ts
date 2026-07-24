@@ -31,6 +31,11 @@ type TcgplayerSkuRow = {
   price_history: string;
 };
 
+type CardNumberRow = {
+  product_id: string;
+  number: string | null;
+};
+
 type TrendingRow = CardCatalogRow &
   Omit<TcgplayerSkuRow, "product_id"> & {
     increase_rate: number;
@@ -68,11 +73,13 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
         pageSize,
         offset,
       ];
-      const results = await db
-        .prepare(
-          `${CARD_SELECT}
+      const searchCatalog = (includeCardNumber: boolean) =>
+        db
+          .prepare(
+            `${CARD_SELECT}
 WHERE lower(
   coalesce(name, '') || ' ' ||
+  ${includeCardNumber ? "coalesce(number, '') || ' ' ||" : ""}
   coalesce(set_name, '') || ' ' ||
   coalesce(set_code, '') || ' ' ||
   coalesce(rarity, '') || ' ' ||
@@ -83,9 +90,17 @@ ${gameClause}
 ${setClause}
 ORDER BY updated_at DESC, product_id ASC
 LIMIT ? OFFSET ?`,
-        )
-        .bind(...bindings)
-        .all<CardCatalogRow>();
+          )
+          .bind(...bindings)
+          .all<CardCatalogRow>();
+
+      let results: D1Result<CardCatalogRow>;
+      try {
+        results = await searchCatalog(true);
+      } catch (error) {
+        if (!isMissingCardNumberColumn(error)) throw error;
+        results = await searchCatalog(false);
+      }
 
       return cardsWithSearchPricing(db, results.results ?? []);
     },
@@ -279,31 +294,46 @@ async function cardsWithSearchPricing(
     db,
     rows.map((row) => row.product_id),
   );
+  const numbersByProductId = await findCardNumbersByProductId(
+    db,
+    rows.map((row) => row.product_id),
+  );
 
   return rows.map((row) =>
-    cardWithSearchPricing(row, skusByProductId.get(row.product_id) ?? []),
+    cardWithSearchPricing(
+      row,
+      skusByProductId.get(row.product_id) ?? [],
+      numbersByProductId.get(row.product_id) ?? "",
+    ),
   );
+}
+
+function isMissingCardNumberColumn(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  return message.includes("no such column") && message.includes("number");
 }
 
 function cardWithSearchPricing(
   row: CardCatalogRow,
   skus: TcgplayerSkuRow[],
+  cardNumber: string,
 ): CardSearchResult {
-  const card = cardFromRow(row);
+  const card = cardFromRow(row, cardNumber);
   const sku = preferredSearchSku(skus);
 
   if (!sku) {
     return card;
   }
 
-  return cardWithSkuPricing(row, sku);
+  return cardWithSkuPricing(row, sku, cardNumber);
 }
 
 function cardWithSkuPricing(
   row: CardCatalogRow,
   sku: SkuPricingRow,
+  cardNumber = "",
 ): CardSearchResult {
-  const card = cardFromRow(row);
+  const card = cardFromRow(row, cardNumber);
 
   const series = filterPointsByDays(parsePriceHistory(sku.price_history), 30);
   const current = series.at(-1)?.price;
@@ -316,6 +346,33 @@ function cardWithSkuPricing(
     ...(current === undefined ? {} : { price_usd: current }),
     ...(previous === undefined ? {} : { previous_30d_price_usd: previous }),
   };
+}
+
+async function findCardNumbersByProductId(
+  db: D1Database,
+  cardRefs: string[],
+): Promise<Map<string, string>> {
+  const numbersByProductId = new Map<string, string>();
+  if (cardRefs.length === 0) return numbersByProductId;
+
+  const placeholders = cardRefs.map(() => "?").join(", ");
+  try {
+    const results = await db
+      .prepare(
+        `SELECT product_id, number
+         FROM cards_all
+         WHERE product_id IN (${placeholders})`,
+      )
+      .bind(...cardRefs)
+      .all<CardNumberRow>();
+    for (const row of results.results ?? []) {
+      const number = row.number?.trim();
+      if (number) numbersByProductId.set(row.product_id, number);
+    }
+  } catch {
+    // Older local catalogs predate the optional number column.
+  }
+  return numbersByProductId;
 }
 
 async function findSkuRowsByProductId(
@@ -460,14 +517,14 @@ async function findSkuRows(
   return results.results ?? [];
 }
 
-function cardFromRow(row: CardCatalogRow): CardSearchResult {
+function cardFromRow(row: CardCatalogRow, cardNumber = ""): CardSearchResult {
   return {
     card_ref: row.product_id,
     name: row.name ?? row.product_id,
     game: row.game,
     set_name: row.set_name ?? "",
     set_code: row.set_code ?? "",
-    card_number: "",
+    card_number: cardNumber,
     finish: null,
     language: null,
     object_type: objectTypeFromProductType(row.product_type_name),

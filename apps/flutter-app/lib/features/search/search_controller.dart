@@ -474,6 +474,7 @@ class SearchController extends Notifier<SearchState> {
             quantity: 0,
             collectionItemCount: 0,
             collectionItemId: null,
+            collectionInfo: null,
           ),
         );
         try {
@@ -491,6 +492,7 @@ class SearchController extends Notifier<SearchState> {
           quantity: 0,
           collectionItemCount: 0,
           collectionItemId: null,
+          collectionInfo: null,
         ),
       );
       _invalidateAssetConsumers(card.id);
@@ -509,6 +511,9 @@ class SearchController extends Notifier<SearchState> {
           quantity: 1,
           collectionItemCount: 1,
           collectionItemId: null,
+          collectionInfo: card.type == SearchCardType.sealed
+              ? null
+              : 'Near Mint (NM)',
           isWishlisted: false,
           wishlistItemId: null,
         ),
@@ -526,6 +531,7 @@ class SearchController extends Notifier<SearchState> {
           quantity: item.quantity,
           collectionItemCount: 1,
           collectionItemId: item.id,
+          collectionInfo: collectionItemInfo(item),
           isWishlisted: false,
           wishlistItemId: null,
         );
@@ -551,6 +557,9 @@ class SearchController extends Notifier<SearchState> {
     final next = card.copyWith(
       quantity: 1,
       collectionItemCount: 1,
+      collectionInfo: card.type == SearchCardType.sealed
+          ? null
+          : 'Near Mint (NM)',
       isWishlisted: false,
     );
     _replaceCard(next);
@@ -854,6 +863,7 @@ class SearchController extends Notifier<SearchState> {
       quantity: quantity,
       collectionItemCount: itemIds.length,
       collectionItemId: itemIds.length == 1 ? itemIds.single : null,
+      collectionInfo: assets?.collectionInfo,
       isWishlisted: quantity == 0 && assets?.wishlistItemId != null,
       wishlistItemId: quantity == 0 ? assets?.wishlistItemId : null,
     );

@@ -23,6 +23,7 @@ export const cardsAll = sqliteTable(
     setName: text("set_name"),
     setCode: text("set_code"),
     setId: text("set_id"),
+    number: text("number"),
     name: text("name"),
     rarity: text("rarity"),
     description: text("description"),

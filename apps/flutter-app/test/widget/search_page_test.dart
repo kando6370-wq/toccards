@@ -86,13 +86,63 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final listView = tester.widget<ListView>(
-        find.byKey(const Key('search-content-list')),
+      final topPadding = tester.widget<SliverPadding>(
+        find.byKey(const Key('search-content-top-padding')),
       );
 
       expect(
-        listView.padding,
-        const EdgeInsets.fromLTRB(16, KandoLayout.mainTabTopPadding, 16, 116),
+        topPadding.padding,
+        const EdgeInsets.fromLTRB(16, KandoLayout.mainTabTopPadding, 16, 0),
+      );
+    },
+  );
+
+  testWidgets(
+    'Search controls stay pinned while results move because filters must remain available during browsing',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: _searchOverrides(),
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollView = find.byType(CustomScrollView);
+      await tester.drag(scrollView, const Offset(0, -80));
+      await tester.pump();
+
+      final searchTop = tester
+          .getTopLeft(find.byKey(const Key('search-field')))
+          .dy;
+      final gameTop = tester
+          .getTopLeft(find.byKey(const Key('search-game-selector')))
+          .dy;
+      final tabsTop = tester
+          .getTopLeft(find.byKey(const Key('search-tabs')))
+          .dy;
+      final cardTop = tester
+          .getTopLeft(find.byKey(const Key('search-card-squirtle')))
+          .dy;
+
+      await tester.drag(scrollView, const Offset(0, -80));
+      await tester.pump();
+
+      expect(
+        tester.getTopLeft(find.byKey(const Key('search-field'))).dy,
+        searchTop,
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('search-game-selector'))).dy,
+        gameTop,
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('search-tabs'))).dy,
+        tabsTop,
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('search-card-squirtle'))).dy,
+        lessThan(cardTop),
       );
     },
   );
@@ -139,6 +189,12 @@ void main() {
         tester.widget<ClipRRect>(imageClip).borderRadius,
         BorderRadius.circular(6),
       );
+      expect(find.text('Escape Artist (English)'), findsOneWidget);
+      expect(find.text('Odyssey'), findsOneWidget);
+      expect(find.text('Common #123'), findsOneWidget);
+      expect(find.text('Normal'), findsOneWidget);
+      expect(find.text('Qty: 0'), findsOneWidget);
+      expect(find.text('Near Mint (NM)'), findsNothing);
       expect(
         tester.getRect(imageClip).top,
         greaterThan(tester.getRect(imageContainer).top),
@@ -825,10 +881,12 @@ class _ImageSearchRepository implements SearchRepository {
           priceUsd: 0.21,
           previous30dPriceUsd: 0.17,
           setName: 'Odyssey',
-          metadataLine: 'Common',
-          variantLine: 'Normal / English',
+          metadataLine: 'Common #123',
+          variantLine: 'Normal',
           quantity: 0,
           isWishlisted: false,
+          language: 'English',
+          finish: 'Normal',
           imageUrl: 'https://api.tcgcard.fun/api/v1/cards/9359/image',
         ),
       ],
