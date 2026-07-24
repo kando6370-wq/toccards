@@ -57,6 +57,44 @@ describe("collection dashboard enrichment", () => {
       market_condition: "Near Mint",
     });
   });
+
+  it("values legacy Unknown qualifiers as unspecified because the client displayed English Normal while persisting Unknown", async () => {
+    const baseItem = {
+      id: "legacy-item",
+      folder_id: "main",
+      card_ref: "100",
+      object_type: "tcg",
+      grader: "Raw",
+      condition: "Moderately Played (MP)",
+      grade: null,
+      language: "Unknown",
+      finish: "Unknown",
+      quantity: 1,
+      folder_joined_at: "2026-07-01T00:00:00.000Z",
+      created_at: "2026-07-01T00:00:00.000Z",
+    };
+    const result = await enrichCollectionDashboard(
+      new FakeDb(
+        [card("100")],
+        [sku(100, "MP", "Moderately Played", 11.23)],
+      ) as unknown as D1Database,
+      [baseItem, { ...baseItem, id: "explicit-item", language: "Japanese" }],
+      [],
+      new Date("2026-07-10T12:00:00.000Z"),
+    );
+
+    expect(result.portfolio_items[0]).toMatchObject({
+      market_price_usd: 11.23,
+      market_condition: "Moderately Played",
+      market_language: "English",
+      market_finish: "Normal",
+    });
+    expect(result.portfolio_items[1]).toMatchObject({
+      market_price_usd: null,
+      market_language: null,
+      market_finish: null,
+    });
+  });
 });
 
 function card(productId: string) {
@@ -68,19 +106,24 @@ function card(productId: string) {
   };
 }
 
-function sku(productId: number) {
+function sku(
+  productId: number,
+  conditionCode = "NM",
+  conditionName = "Near Mint",
+  currentPrice = 20,
+) {
   return {
     sku_id: 1,
     product_id: productId,
-    condition_code: "NM",
-    condition_name: "Near Mint",
+    condition_code: conditionCode,
+    condition_name: conditionName,
     language_code: "EN",
     language_name: "English",
     variant_code: "N",
     variant_name: "Normal",
     price_history: JSON.stringify([
       { date: "2026-06-01", price: 10 },
-      { date: "2026-07-06", price: 20 },
+      { date: "2026-07-06", price: currentPrice },
     ]),
   };
 }

@@ -526,15 +526,12 @@ class _PortfolioCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 28),
                   Expanded(
-                    child: CustomPaint(
-                      painter: _ChartPainter(
-                        values: chartValues,
-                        dates: state.chartDates,
-                        formattedValues: chartValues
-                            .map(state.formatCardPrice)
-                            .toList(),
-                      ),
-                      child: const SizedBox.expand(),
+                    child: _InteractiveChart(
+                      values: chartValues,
+                      dates: state.chartDates,
+                      formattedValues: chartValues
+                          .map(state.formatCardPrice)
+                          .toList(),
                     ),
                   ),
                 ],
@@ -1597,8 +1594,8 @@ class _CurrencyRow extends StatelessWidget {
   }
 }
 
-class _ChartPainter extends CustomPainter {
-  const _ChartPainter({
+class _InteractiveChart extends StatefulWidget {
+  const _InteractiveChart({
     required this.values,
     required this.dates,
     required this.formattedValues,
@@ -1607,6 +1604,82 @@ class _ChartPainter extends CustomPainter {
   final List<double> values;
   final List<String> dates;
   final List<String> formattedValues;
+
+  @override
+  State<_InteractiveChart> createState() => _InteractiveChartState();
+}
+
+class _InteractiveChartState extends State<_InteractiveChart> {
+  late int _selectedIndex = _defaultChartIndex(widget.values.length);
+
+  @override
+  void didUpdateWidget(covariant _InteractiveChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.values != widget.values || oldWidget.dates != widget.dates) {
+      _selectedIndex = _defaultChartIndex(widget.values.length);
+    }
+  }
+
+  void _selectAt(Offset position, double width) {
+    if (widget.values.isEmpty || width <= 0) return;
+    final index =
+        ((position.dx.clamp(0.0, width) / width) * (widget.values.length - 1))
+            .round();
+    if (index == _selectedIndex) return;
+    setState(() => _selectedIndex = index);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final date = _formatChartDate(widget.dates, _selectedIndex);
+    final price = _chartPrice(widget.formattedValues, _selectedIndex);
+    return Semantics(
+      key: const Key('home-portfolio-chart'),
+      label: 'Portfolio value chart',
+      value: 'Date: $date, Price: $price',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (details) =>
+                _selectAt(details.localPosition, constraints.maxWidth),
+            onHorizontalDragStart: (details) =>
+                _selectAt(details.localPosition, constraints.maxWidth),
+            onHorizontalDragUpdate: (details) =>
+                _selectAt(details.localPosition, constraints.maxWidth),
+            child: CustomPaint(
+              painter: _ChartPainter(
+                values: widget.values,
+                dates: widget.dates,
+                formattedValues: widget.formattedValues,
+                selectedIndex: _selectedIndex,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+int _defaultChartIndex(int valueCount) {
+  if (valueCount == 0) return 0;
+  return math.min((valueCount * .68).floor(), valueCount - 1);
+}
+
+class _ChartPainter extends CustomPainter {
+  const _ChartPainter({
+    required this.values,
+    required this.dates,
+    required this.formattedValues,
+    required this.selectedIndex,
+  });
+
+  final List<double> values;
+  final List<String> dates;
+  final List<String> formattedValues;
+  final int selectedIndex;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1671,8 +1744,8 @@ class _ChartPainter extends CustomPainter {
 
     canvas.drawPath(path, linePaint);
 
-    final selectedIndex = (points.length * .68).floor();
-    final selected = points[selectedIndex];
+    final safeSelectedIndex = selectedIndex.clamp(0, points.length - 1).toInt();
+    final selected = points[safeSelectedIndex];
     canvas.drawCircle(
       selected,
       6,
@@ -1682,7 +1755,7 @@ class _ChartPainter extends CustomPainter {
 
     final datePainter = TextPainter(
       text: TextSpan(
-        text: 'Date: ${_formatChartDate(dates, selectedIndex)}',
+        text: 'Date: ${_formatChartDate(dates, safeSelectedIndex)}',
         style: const TextStyle(
           color: Color(0xFF92927D),
           fontSize: 11,
@@ -1695,7 +1768,7 @@ class _ChartPainter extends CustomPainter {
     )..layout();
     final pricePainter = TextPainter(
       text: TextSpan(
-        text: 'Price: ${_chartPrice(formattedValues, selectedIndex)}',
+        text: 'Price: ${_chartPrice(formattedValues, safeSelectedIndex)}',
         style: const TextStyle(
           color: KandoColors.accent,
           fontSize: 11,
@@ -1740,7 +1813,8 @@ class _ChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _ChartPainter oldDelegate) {
     return oldDelegate.values != values ||
         oldDelegate.dates != dates ||
-        oldDelegate.formattedValues != formattedValues;
+        oldDelegate.formattedValues != formattedValues ||
+        oldDelegate.selectedIndex != selectedIndex;
   }
 }
 

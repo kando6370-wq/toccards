@@ -166,8 +166,8 @@ export function matchingSku(
 ): SkuRow | null {
   if (event.grader.toLowerCase() !== "raw") return null;
   const condition = normalizedQualifier(event.condition);
-  const language = normalizedQualifier(event.language);
-  const finish = normalizedQualifier(event.finish);
+  const language = normalizedOptionalQualifier(event.language);
+  const finish = normalizedOptionalQualifier(event.finish);
   return (
     rows
       .filter((row) => qualifierMatches(condition, row.condition_code, row.condition_name))
@@ -193,6 +193,11 @@ function normalizedQualifier(value: string | null): string {
     .trim()
     .toLowerCase()
     .replace(/\s*\([^)]*\)\s*$/, "");
+}
+
+function normalizedOptionalQualifier(value: string | null): string {
+  const qualifier = normalizedQualifier(value);
+  return qualifier === "unknown" ? "" : qualifier;
 }
 
 function skuRank(row: SkuRow): number {

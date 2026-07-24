@@ -207,6 +207,31 @@ void main() {
   });
 
   testWidgets(
+    'Portfolio chart selects the nearest date anywhere in the plot because users inspect historical values',
+    (tester) async {
+      await tester.pumpWidget(_mockHomeApp());
+
+      final chart = find.byKey(const Key('home-portfolio-chart'));
+      expect(chart, findsOneWidget);
+
+      final chartRect = tester.getRect(chart);
+      await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        contains('Date: Feb 12, 2025'),
+      );
+
+      await tester.tapAt(Offset(chartRect.right - 1, chartRect.center.dy));
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        contains('Date: Feb 21, 2025'),
+      );
+    },
+  );
+
+  testWidgets(
     'Home content uses the standard top spacing below the safe area',
     (tester) async {
       await tester.pumpWidget(_mockHomeApp());

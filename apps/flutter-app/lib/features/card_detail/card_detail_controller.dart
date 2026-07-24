@@ -93,6 +93,18 @@ String _gradeText(double grade) {
       : grade.toString();
 }
 
+String _collectionLanguageOrDefault(String value) {
+  return cardCollectionLanguages.contains(value)
+      ? value
+      : cardCollectionLanguages.first;
+}
+
+String _collectionFinishOrDefault(String value) {
+  return cardCollectionFinishes.contains(value)
+      ? value
+      : cardCollectionFinishes.first;
+}
+
 int _compareListingDates(String left, String right) {
   final leftDate = DateTime.tryParse(left);
   final rightDate = DateTime.tryParse(right);
@@ -740,8 +752,8 @@ class CardDetailController extends Notifier<CardDetailState> {
             notes: '',
           ).copyWith(
             portfolioName: defaultFolder.name,
-            language: state.detail.language,
-            finish: state.detail.finish,
+            language: _collectionLanguageOrDefault(state.detail.language),
+            finish: _collectionFinishOrDefault(state.detail.finish),
           ),
       editingCollectionItemId: null,
       collectionItemFormError: null,
@@ -765,8 +777,10 @@ class CardDetailController extends Notifier<CardDetailState> {
         grader: item.grader,
         condition: item.condition ?? _defaultCondition,
         grade: item.grade ?? _defaultGradeForGrader(item.grader),
-        language: item.language ?? state.detail.language,
-        finish: item.finish ?? state.detail.finish,
+        language: _collectionLanguageOrDefault(
+          item.language ?? state.detail.language,
+        ),
+        finish: _collectionFinishOrDefault(item.finish ?? state.detail.finish),
         purchasePriceText:
             _currencyFormatter
                 .convertUsd(item.purchasePriceUsd)

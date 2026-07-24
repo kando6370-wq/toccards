@@ -664,6 +664,27 @@ void main() {
   );
 
   test(
+    'new Collection Item persists the displayed language and finish defaults because SKU valuation uses those qualifiers',
+    () async {
+      final repository = _UnknownQualifierCardDetailRepository();
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('unknown-qualifiers');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'unknown-qualifiers');
+
+      controller.startAddingCollectionItem();
+      final draft = container.read(provider).collectionItemDraft!;
+      expect(draft.language, 'English');
+      expect(draft.finish, 'Normal');
+
+      expect(await controller.saveCollectionItemDraft(), isTrue);
+      expect(repository.createdItems.single.language, 'English');
+      expect(repository.createdItems.single.finish, 'Normal');
+    },
+  );
+
+  test(
     'Purchase Price converts separately because total value remains market-based',
     () async {
       final repository = _RecordingCardDetailRepository();
@@ -1158,6 +1179,37 @@ class _WishlistWithoutIdCardDetailRepository
   Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
     final detail = await super.loadDetail(session, cardId);
     return detail.copyWith(isWishlisted: true, wishlistItemId: null);
+  }
+}
+
+class _UnknownQualifierCardDetailRepository
+    extends _RecordingCardDetailRepository {
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    return const CardDetail(
+      id: 'unknown-qualifiers',
+      type: CardDetailType.tcg,
+      name: 'Oricorio ex',
+      game: 'Pokemon',
+      setName: 'Mega Evolution Promo',
+      identityLine: 'Promo #024',
+      finish: 'Unknown',
+      language: 'Unknown',
+      quantity: 0,
+      isWishlisted: false,
+      marketPrices: [
+        CardMarketPrice(
+          label: 'Raw Moderately Played',
+          grader: 'Raw',
+          condition: 'Moderately Played',
+          priceUsd: 11.23,
+          previous30dPriceUsd: null,
+        ),
+      ],
+      portfolioFolders: [
+        CardPortfolioFolder(id: 'main', name: 'Main', isDefault: true),
+      ],
+    );
   }
 }
 
