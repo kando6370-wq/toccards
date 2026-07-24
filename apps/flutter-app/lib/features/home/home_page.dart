@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,7 +50,12 @@ class HomePage extends ConsumerWidget {
             child: SingleChildScrollView(
               key: const Key('home-normal-content'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 58, 20, 132),
+              padding: const EdgeInsets.fromLTRB(
+                20,
+                KandoLayout.mainTabTopPadding,
+                20,
+                132,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -292,51 +298,94 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          InkWell(
-            borderRadius: BorderRadius.circular(21),
-            onTap: onCurrencyPressed,
-            child: SizedBox(
-              width: 98,
-              height: 42,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0x1FFFFFFF),
-                  borderRadius: BorderRadius.circular(21),
-                  border: Border.all(color: const Color(0x1FFFFFFF)),
-                ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        currencySymbol,
-                        style: const TextStyle(
-                          color: KandoColors.accent,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 20 / 14,
-                        ),
+          SizedBox(
+            width: 98,
+            height: 42,
+            child: ClipRRect(
+              key: const Key('home-currency-control'),
+              borderRadius: BorderRadius.circular(9999),
+              child: BackdropFilter(
+                key: const Key('home-currency-blur'),
+                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Material(
+                  color: KandoColors.accentGlow10,
+                  child: InkWell(
+                    onTap: onCurrencyPressed,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox.square(
+                                key: const Key('home-currency-icon'),
+                                dimension: 16,
+                                child: DecoratedBox(
+                                  decoration: const BoxDecoration(
+                                    color: Color(0x33F0FE6F),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(2),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        currencySymbol,
+                                        key: const Key('home-currency-symbol'),
+                                        maxLines: 1,
+                                        style: const TextStyle(
+                                          color: KandoColors.accent,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w400,
+                                          height: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              SizedBox(
+                                width: 34,
+                                height: 24,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    currencyCode,
+                                    maxLines: 1,
+                                    style: const TextStyle(
+                                      color: KandoColors.accent,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w400,
+                                      height: 24 / 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 4),
+                          const SizedBox.square(
+                            dimension: 12,
+                            child: OverflowBox(
+                              maxWidth: 30,
+                              maxHeight: 30,
+                              child: Image(
+                                key: Key('home-currency-chevron'),
+                                image: AssetImage(
+                                  'assets/home/currency_chevron.png',
+                                ),
+                                width: 30,
+                                height: 30,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        currencyCode,
-                        style: const TextStyle(
-                          color: KandoColors.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 20 / 14,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Image(
-                        key: Key('home-currency-chevron'),
-                        image: AssetImage('assets/home/currency_chevron.png'),
-                        width: 12,
-                        height: 12,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -1061,8 +1110,8 @@ class _SectionHeader extends StatelessWidget {
                               style: TextStyle(
                                 color: KandoColors.accent,
                                 fontWeight: FontWeight.w400,
-                                fontSize: 13,
-                                height: 16 / 13,
+                                fontSize: 16,
+                                height: 20 / 16,
                               ),
                             ),
                             SizedBox(width: 4),
@@ -1135,6 +1184,7 @@ class _MostValuableTile extends StatelessWidget {
                 height: 155,
                 width: double.infinity,
                 child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
                     Positioned.fill(
                       child: Container(
@@ -1154,23 +1204,30 @@ class _MostValuableTile extends StatelessWidget {
                       ),
                     ),
                     Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xB310100B),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          percent,
-                          style: const TextStyle(
-                            color: KandoColors.text,
-                            fontSize: 9,
-                            height: 12 / 9,
+                      top: 0,
+                      right: -2,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: BackdropFilter(
+                          filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: KandoColors.accentGlow10,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              percent,
+                              style: const TextStyle(
+                                color: KandoColors.text,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w400,
+                                height: 14 / 10,
+                              ),
+                            ),
                           ),
                         ),
                       ),

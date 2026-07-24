@@ -17,6 +17,8 @@ import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
+import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
 
 import '../support/in_memory_onboarding_storage.dart';
@@ -1242,6 +1244,38 @@ void main() {
     await tester.scrollUntilVisible(find.text('Version 1.0.0'), 200);
     expect(find.text('Version 1.0.0'), findsOneWidget);
   });
+
+  testWidgets(
+    'Profile content uses the standard top spacing below the safe area',
+    (tester) async {
+      final repository = _WidgetAuthRepository(initialSession: _userSession());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(repository),
+            installedVersionReaderProvider.overrideWithValue(
+              const _WidgetInstalledVersionReader(),
+            ),
+          ],
+          child: MaterialApp(
+            theme: buildKandoTheme(),
+            home: const ProfilePage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final listView = tester.widget<ListView>(
+        find.byKey(const Key('profile-content-list')),
+      );
+
+      expect(
+        listView.padding,
+        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 96),
+      );
+    },
+  );
 
   testWidgets(
     'Profile detail pages keep the Figma mobile canvas because account actions must not stretch on wide screens',

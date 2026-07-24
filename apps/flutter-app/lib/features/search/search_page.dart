@@ -38,8 +38,14 @@ class SearchPage extends ConsumerWidget {
             key: const Key('search-pull-to-refresh'),
             onRefresh: controller.refresh,
             child: ListView(
+              key: const Key('search-content-list'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 116),
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                KandoLayout.mainTabTopPadding,
+                16,
+                116,
+              ),
               children: [
                 if (fromScan) ...[
                   Align(

@@ -37,10 +37,16 @@ class CollectionPage extends ConsumerWidget {
               key: const Key('collection-pull-to-refresh'),
               onRefresh: controller.refresh,
               child: ListView(
+                key: const Key('collection-content-list'),
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: isPageFailure
                     ? EdgeInsets.zero
-                    : const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                    : const EdgeInsets.fromLTRB(
+                        20,
+                        KandoLayout.mainTabTopPadding,
+                        20,
+                        24,
+                      ),
                 children: [
                   if (state.loadStatus == KandoLoadStatus.loading)
                     const KandoLoadingBlock()

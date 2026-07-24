@@ -28,6 +28,7 @@ import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
@@ -206,6 +207,22 @@ void main() {
   });
 
   testWidgets(
+    'Home content uses the standard top spacing below the safe area',
+    (tester) async {
+      await tester.pumpWidget(_mockHomeApp());
+
+      final scrollView = tester.widget<SingleChildScrollView>(
+        find.byKey(const Key('home-normal-content')),
+      );
+
+      expect(
+        scrollView.padding,
+        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 132),
+      );
+    },
+  );
+
+  testWidgets(
     'Overview uses the Figma SVG icon and filled 16px inverse label',
     (tester) async {
       await tester.pumpWidget(_mockHomeApp());
@@ -225,6 +242,53 @@ void main() {
       );
     },
   );
+
+  testWidgets('Home View all links use 16px text', (tester) async {
+    await tester.pumpWidget(_mockHomeApp());
+
+    for (final text in tester.widgetList<Text>(find.text('View all'))) {
+      expect(text.style?.fontSize, 16);
+      expect(text.style?.height, 20 / 16);
+    }
+  });
+
+  testWidgets('Most Valuable change badge matches the Figma glass style', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_mockHomeApp());
+
+    final firstCard = find.byKey(const Key('home-most-valuable-card-main-0'));
+    final backdrop = find.descendant(
+      of: firstCard,
+      matching: find.byType(BackdropFilter),
+    );
+    final badgeContainer = find.descendant(
+      of: backdrop,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.padding ==
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      ),
+    );
+    final badgeText = tester.widget<Text>(find.text('+3.20%'));
+    final badgePosition = tester.widget<Positioned>(
+      find.ancestor(of: find.text('+3.20%'), matching: find.byType(Positioned)),
+    );
+
+    expect(backdrop, findsOneWidget);
+    expect(badgeContainer, findsOneWidget);
+    expect(badgePosition.top, 0);
+    expect(badgePosition.right, -2);
+    expect(
+      (tester.widget<Container>(badgeContainer).decoration as BoxDecoration)
+          .color,
+      KandoColors.accentGlow10,
+    );
+    expect(badgeText.style?.fontSize, 10);
+    expect(badgeText.style?.fontWeight, FontWeight.w400);
+    expect(badgeText.style?.height, 14 / 10);
+  });
 
   testWidgets('Figma Home headings and card names use Fraunces', (
     tester,
@@ -253,12 +317,54 @@ void main() {
     (tester) async {
       await tester.pumpWidget(_mockHomeApp());
 
-      expect(find.byKey(const Key('home-currency-chevron')), findsOneWidget);
+      final currencyChevron = tester.widget<Image>(
+        find.byKey(const Key('home-currency-chevron')),
+      );
+      expect(currencyChevron.width, 30);
+      expect(currencyChevron.height, 30);
       expect(find.byKey(const Key('home-view-all-arrow')), findsNWidgets(2));
       expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
       expect(find.byIcon(Icons.arrow_forward), findsNothing);
     },
   );
+
+  testWidgets('Home currency control matches the Figma glass style', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_mockHomeApp());
+
+    final control = find.byKey(const Key('home-currency-control'));
+    final blur = find.byKey(const Key('home-currency-blur'));
+    final material = tester.widget<Material>(
+      find.descendant(of: control, matching: find.byType(Material)),
+    );
+    final padding = tester.widget<Padding>(
+      find.descendant(
+        of: control,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Padding &&
+              widget.padding == const EdgeInsets.symmetric(horizontal: 12),
+        ),
+      ),
+    );
+    final currencyText = tester.widget<Text>(find.text('USD'));
+    final currencySymbol = tester.widget<Text>(
+      find.byKey(const Key('home-currency-symbol')),
+    );
+
+    expect(tester.getSize(control), const Size(98, 42));
+    expect(blur, findsOneWidget);
+    expect(material.color, KandoColors.accentGlow10);
+    expect(padding.padding, const EdgeInsets.symmetric(horizontal: 12));
+    expect(currencyText.style?.color, KandoColors.accent);
+    expect(currencyText.style?.fontSize, 16);
+    expect(currencyText.style?.fontWeight, FontWeight.w400);
+    expect(currencyText.style?.height, 24 / 16);
+    expect(currencySymbol.data, AppCurrency.usd.symbol);
+    expect(currencySymbol.style?.color, KandoColors.accent);
+    expect(currencySymbol.style?.fontSize, 10);
+  });
 
   testWidgets(
     'folder picker changes portfolio sections but not Trending Today',
@@ -304,6 +410,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('EUR'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('home-currency-symbol'))).data,
+        AppCurrency.eur.symbol,
+      );
       expect(find.textContaining('11,330.23'), findsOneWidget);
       expect(find.textContaining('9,100,000'), findsWidgets);
       expect(preferences.currencyCodes, ['EUR']);

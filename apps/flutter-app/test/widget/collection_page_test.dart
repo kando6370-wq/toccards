@@ -15,6 +15,7 @@ import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
@@ -67,6 +68,22 @@ void main() {
     expect(find.text(r'$780.00'), findsOneWidget);
     expect(find.text('Qty: 1'), findsWidgets);
   });
+
+  testWidgets(
+    'Collection content uses the standard top spacing below the safe area',
+    (tester) async {
+      await _pumpCollection(tester);
+
+      final listView = tester.widget<ListView>(
+        find.byKey(const Key('collection-content-list')),
+      );
+
+      expect(
+        listView.padding,
+        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 24),
+      );
+    },
+  );
 
   testWidgets('Collection restores the server currency preference', (
     tester,

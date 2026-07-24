@@ -19,6 +19,7 @@ import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
@@ -73,6 +74,28 @@ void main() {
     expect(find.text('€29.24'), findsOneWidget);
     expect(find.text(r'$32.13'), findsNothing);
   });
+
+  testWidgets(
+    'Search content uses the standard top spacing below the safe area',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: _searchOverrides(),
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final listView = tester.widget<ListView>(
+        find.byKey(const Key('search-content-list')),
+      );
+
+      expect(
+        listView.padding,
+        const EdgeInsets.fromLTRB(16, KandoLayout.mainTabTopPadding, 16, 116),
+      );
+    },
+  );
 
   testWidgets(
     'Search renders backend card art because Figma cards are not placeholders',

@@ -92,7 +92,12 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
           child: ListView(
             key: const Key('profile-content-list'),
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 96),
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              KandoLayout.mainTabTopPadding,
+              20,
+              96,
+            ),
             children: [
               _SectionLabel('Account'),
               if (isUser)

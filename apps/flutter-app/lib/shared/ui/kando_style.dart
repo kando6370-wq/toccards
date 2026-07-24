@@ -20,6 +20,10 @@ abstract final class KandoColors {
   static const borderSubtle = Color(0x14FFFFFF);
 }
 
+abstract final class KandoLayout {
+  static const mainTabTopPadding = 8.0;
+}
+
 ColorScheme buildKandoColorScheme() {
   return ColorScheme.fromSeed(
     seedColor: KandoColors.accent,
