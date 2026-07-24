@@ -114,7 +114,7 @@ describe("KV cached data source adapter", () => {
     expect(source.searchCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "v5:searchCards:charizard%20gx:tcg:all:all:1:20",
+        key: "v6:searchCards:charizard%20gx:tcg:all:all:1:20",
         value: JSON.stringify([card]),
         options: { expirationTtl: 3600 },
       },
@@ -141,8 +141,8 @@ describe("KV cached data source adapter", () => {
 
     expect(source.searchCalls).toBe(2);
     expect(kv.puts.map((put) => put.key)).toEqual([
-      "v5:searchCards::all:magic%3A%20the%20gathering:fdn:1:40",
-      "v5:searchCards::all:magic%3A%20the%20gathering:ecl:1:40",
+      "v6:searchCards::all:magic%3A%20the%20gathering:fdn:1:40",
+      "v6:searchCards::all:magic%3A%20the%20gathering:ecl:1:40",
     ]);
   });
 

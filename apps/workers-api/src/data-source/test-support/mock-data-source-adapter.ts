@@ -76,6 +76,7 @@ export function createMockDataSourceAdapter(): DataSourceAdapter {
   return {
     async searchCards(query, options = {}) {
       const normalizedQuery = query.trim().toLowerCase();
+      const searchTerms = normalizedQuery.split(/\s+/).filter(Boolean);
       const page = positiveIntegerOrDefault(options.page, 1);
       const pageSize = positiveIntegerOrDefault(options.page_size, 20);
       const filtered = MOCK_CARDS.filter((card) => {
@@ -84,10 +85,12 @@ export function createMockDataSourceAdapter(): DataSourceAdapter {
         const matchesGame =
           !options.game || card.game?.toLowerCase() === options.game.toLowerCase();
         const matchesQuery =
-          normalizedQuery.length === 0 ||
-          `${card.name} ${card.card_number} ${card.set_name} ${card.set_code}`
-            .toLowerCase()
-            .includes(normalizedQuery);
+          searchTerms.length === 0 ||
+          searchTerms.every((term) =>
+            `${card.name} ${card.card_number} ${card.set_name} ${card.set_code}`
+              .toLowerCase()
+              .includes(term),
+          );
 
         return matchesType && matchesGame && matchesQuery;
       });

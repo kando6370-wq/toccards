@@ -71,6 +71,73 @@
     return ordered;
   }
 
+  function detectCardQuadrilateral(cv, blurred, scale) {
+    const edges = new cv.Mat();
+    const closed = new cv.Mat();
+    const contours = new cv.MatVector();
+    const hierarchy = new cv.Mat();
+    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+    try {
+      cv.Canny(blurred, edges, 40, 120);
+      cv.morphologyEx(edges, closed, cv.MORPH_CLOSE, kernel);
+      cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+      const minimumArea = blurred.rows * blurred.cols * 0.04;
+      const cardRatio = CARD_WIDTH / CARD_HEIGHT;
+      let bestScore = 0;
+      let best = null;
+      for (let index = 0; index < contours.size(); index += 1) {
+        const contour = contours.get(index);
+        const approximation = new cv.Mat();
+        try {
+          const area = Math.abs(cv.contourArea(contour));
+          if (area < minimumArea) continue;
+          const perimeter = cv.arcLength(contour, true);
+          if (perimeter <= 0) continue;
+          cv.approxPolyDP(contour, approximation, perimeter * 0.02, true);
+          if (approximation.rows !== 4 || !cv.isContourConvex(approximation)) continue;
+
+          const points = [];
+          for (let pointIndex = 0; pointIndex < 4; pointIndex += 1) {
+            points.push({
+              x: approximation.data32S[pointIndex * 2],
+              y: approximation.data32S[pointIndex * 2 + 1],
+            });
+          }
+          const touchingEdges = points.filter((point) =>
+            point.x < 3 || point.y < 3 ||
+            point.x > blurred.cols - 4 || point.y > blurred.rows - 4).length;
+          if (touchingEdges >= 2) continue;
+
+          const ordered = orderCorners(points);
+          const width = Math.max(distance(ordered[0], ordered[1]), distance(ordered[3], ordered[2]));
+          const height = Math.max(distance(ordered[0], ordered[3]), distance(ordered[1], ordered[2]));
+          if (width < 1 || height < 1) continue;
+          const aspect = Math.min(width, height) / Math.max(width, height);
+          const aspectScore = Math.max(0, 1 - Math.abs(aspect - cardRatio) / cardRatio);
+          const rectangle = cv.minAreaRect(contour);
+          const rectangleArea = rectangle.size.width * rectangle.size.height;
+          const extent = rectangleArea <= 0 ? 0 : area / rectangleArea;
+          if (aspectScore < 0.45 || extent < 0.6) continue;
+          const score = area * extent * aspectScore;
+          if (score <= bestScore) continue;
+          bestScore = score;
+          best = ordered.map((point) => ({ x: point.x / scale, y: point.y / scale }));
+        } finally {
+          approximation.delete();
+          contour.delete();
+        }
+      }
+      return best;
+    } finally {
+      kernel.delete();
+      hierarchy.delete();
+      contours.delete();
+      closed.delete();
+      edges.delete();
+    }
+  }
+
   function detectCardCorners(cv, image) {
     const scale = Math.min(1, 960 / Math.max(image.cols, image.rows));
     const working = new cv.Mat();
@@ -88,6 +155,8 @@
       ), 0, 0, scale < 1 ? cv.INTER_AREA : cv.INTER_LINEAR);
       cv.cvtColor(working, gray, cv.COLOR_RGBA2GRAY);
       cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+      const quadrilateral = detectCardQuadrilateral(cv, blurred, scale);
+      if (quadrilateral) return quadrilateral;
       cv.threshold(blurred, threshold, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
       cv.morphologyEx(threshold, closed, cv.MORPH_CLOSE, kernel);
       cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);

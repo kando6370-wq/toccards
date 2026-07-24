@@ -195,6 +195,39 @@ void main() {
   );
 
   test(
+    'Cards query matches terms across fields because Search must not discard valid Workers results as a literal phrase mismatch',
+    () async {
+      final repository = _RecordingSearchRepository(
+        cardResults: const [
+          SearchCard(
+            id: 'catalog:charizard',
+            gameId: 'pokemon',
+            type: SearchCardType.tcg,
+            name: 'Charizard ex',
+            priceUsd: null,
+            previous30dPriceUsd: null,
+            setName: 'Mega Evolution',
+            metadataLine: 'Rare #023',
+            variantLine: 'Standard',
+            quantity: 0,
+            isWishlisted: false,
+          ),
+        ],
+      );
+      final container = _searchContainer(repository: repository);
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      controller.submitSearch('  MEGA   ch  ');
+      await controller.loadComplete;
+
+      final state = container.read(searchControllerProvider);
+      expect(state.visibleCards.single.name, 'Charizard ex');
+    },
+  );
+
+  test(
     'changing Game performs a scoped browse and preserves every selector option because Game controls both tabs',
     () async {
       final repository = _RecordingSearchRepository();

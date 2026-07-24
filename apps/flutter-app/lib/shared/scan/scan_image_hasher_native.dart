@@ -116,6 +116,13 @@ List<_ImagePoint> _detectCardCorners(cv.Mat image) {
       : image;
   final gray = cv.cvtColor(working, cv.COLOR_BGR2GRAY);
   final blurred = cv.gaussianBlur(gray, (5, 5), 0);
+  final edgeCorners = _detectCardQuadrilateral(blurred, scale);
+  if (edgeCorners != null) {
+    blurred.dispose();
+    gray.dispose();
+    resized?.dispose();
+    return edgeCorners;
+  }
   final (_, threshold) = cv.threshold(
     blurred,
     0,
@@ -179,6 +186,90 @@ List<_ImagePoint> _detectCardCorners(cv.Mat image) {
     blurred.dispose();
     gray.dispose();
     resized?.dispose();
+  }
+}
+
+List<_ImagePoint>? _detectCardQuadrilateral(cv.Mat blurred, double scale) {
+  final edges = cv.canny(blurred, 40, 120);
+  final kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 5));
+  final closed = cv.morphologyEx(edges, cv.MORPH_CLOSE, kernel);
+  final (contours, hierarchy) = cv.findContours(
+    closed,
+    cv.RETR_LIST,
+    cv.CHAIN_APPROX_SIMPLE,
+  );
+  try {
+    final minimumArea = blurred.rows * blurred.cols * 0.04;
+    const cardRatio = _cardWidth / _cardHeight;
+    var bestScore = 0.0;
+    List<_ImagePoint>? best;
+    for (var index = 0; index < contours.length; index += 1) {
+      final contour = contours[index];
+      final area = cv.contourArea(contour).abs();
+      if (area < minimumArea) continue;
+      final perimeter = cv.arcLength(contour, true);
+      if (perimeter <= 0) continue;
+      final approximation = cv.approxPolyDP(contour, perimeter * 0.02, true);
+      try {
+        if (approximation.length != 4 || !cv.isContourConvex(approximation)) {
+          continue;
+        }
+        final points = [
+          for (
+            var pointIndex = 0;
+            pointIndex < approximation.length;
+            pointIndex += 1
+          )
+            _ImagePoint(
+              approximation[pointIndex].x.toDouble(),
+              approximation[pointIndex].y.toDouble(),
+            ),
+        ];
+        final touchingEdges = points.where((point) {
+          return point.x < 3 ||
+              point.y < 3 ||
+              point.x > blurred.cols - 4 ||
+              point.y > blurred.rows - 4;
+        }).length;
+        if (touchingEdges >= 2) continue;
+
+        final ordered = _orderCorners(points);
+        final width = math.max(
+          _distance(ordered[0], ordered[1]),
+          _distance(ordered[3], ordered[2]),
+        );
+        final height = math.max(
+          _distance(ordered[0], ordered[3]),
+          _distance(ordered[1], ordered[2]),
+        );
+        if (width < 1 || height < 1) continue;
+        final aspect = math.min(width, height) / math.max(width, height);
+        final aspectScore = math.max(
+          0.0,
+          1 - (aspect - cardRatio).abs() / cardRatio,
+        );
+        final rectangle = cv.minAreaRect(contour);
+        final rectangleArea = rectangle.size.width * rectangle.size.height;
+        final extent = rectangleArea <= 0 ? 0.0 : area / rectangleArea;
+        if (aspectScore < 0.45 || extent < 0.6) continue;
+        final score = area * extent * aspectScore;
+        if (score <= bestScore) continue;
+        bestScore = score;
+        best = [
+          for (final point in ordered)
+            _ImagePoint(point.x / scale, point.y / scale),
+        ];
+      } finally {
+        approximation.dispose();
+      }
+    }
+    return best;
+  } finally {
+    hierarchy.dispose();
+    contours.dispose();
+    closed.dispose();
+    kernel.dispose();
+    edges.dispose();
   }
 }
 

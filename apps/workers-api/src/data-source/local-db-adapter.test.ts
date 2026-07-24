@@ -144,17 +144,22 @@ class FakeBoundStatement {
     }
 
     if (this.sql.includes("FROM cards_all") && this.sql.includes("LIKE")) {
-      const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
+      const queryCount = this.sql.split(") LIKE ?").length - 1;
+      const queries = this.values
+        .slice(0, queryCount)
+        .map((value) => String(value).replaceAll("%", "").toLowerCase());
       const hasGameFilter = this.sql.includes("lower(game) = lower(?)");
       const hasSetFilter = this.sql.includes("lower(set_code) = lower(?)");
-      const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
+      const game = hasGameFilter
+        ? String(this.values[queryCount]).toLowerCase()
+        : null;
       const setCode = hasSetFilter
-        ? String(this.values[hasGameFilter ? 2 : 1]).toLowerCase()
+        ? String(this.values[queryCount + Number(hasGameFilter)]).toLowerCase()
         : null;
       const objectType = objectTypeFilterFromSql(this.sql);
       const filterCount = Number(hasGameFilter) + Number(hasSetFilter);
-      const limit = Number(this.values[1 + filterCount]);
-      const offset = Number(this.values[2 + filterCount]);
+      const limit = Number(this.values[queryCount + filterCount]);
+      const offset = Number(this.values[queryCount + filterCount + 1]);
       const gameCards = this.cards.filter(
         (card) =>
           (game === null || card.game?.toLowerCase() === game) &&
@@ -167,7 +172,7 @@ class FakeBoundStatement {
           if (
             !`${card.set_name ?? ""} ${card.set_code ?? ""}`
               .toLowerCase()
-              .includes(query) ||
+              .includes(queries[0] ?? "") ||
             !card.set_name?.trim() ||
             !card.set_code?.trim()
           ) {
@@ -195,9 +200,11 @@ class FakeBoundStatement {
 
       const results = gameCards
         .filter((card) =>
-          `${card.name ?? ""} ${card.number ?? ""} ${card.set_name ?? ""} ${card.set_code ?? ""} ${card.rarity ?? ""} ${card.game ?? ""}`
-            .toLowerCase()
-            .includes(query),
+          queries.every((query) =>
+            `${card.name ?? ""} ${card.number ?? ""} ${card.set_name ?? ""} ${card.set_code ?? ""} ${card.rarity ?? ""} ${card.game ?? ""}`
+              .toLowerCase()
+              .includes(query),
+          ),
         )
         .filter((card) => {
           return objectType === null || objectTypeFromProductType(card.product_type_name) === objectType;
@@ -314,6 +321,26 @@ describe("local D1 card data source adapter", () => {
     );
 
     const cards = await adapter.searchCards("VAPOREON 022/131");
+
+    expect(cards.map((card) => card.card_ref)).toEqual(["100"]);
+  });
+
+  it("matches every search term across card fields because abbreviated queries need not be one literal phrase", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [
+          card({
+            product_id: "100",
+            name: "Charizard ex",
+            set_name: "Mega Evolution",
+          }),
+          card({ product_id: "200", name: "Charizard ex", set_name: "Base Set" }),
+        ],
+        [],
+      ) as unknown as D1Database,
+    );
+
+    const cards = await adapter.searchCards("  MEGA   ch  ");
 
     expect(cards.map((card) => card.card_ref)).toEqual(["100"]);
   });

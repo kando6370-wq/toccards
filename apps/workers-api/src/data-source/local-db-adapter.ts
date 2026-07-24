@@ -60,6 +60,8 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
   return {
     async searchCards(query, options = {}) {
       const normalizedQuery = query.trim().toLowerCase();
+      const searchTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+      const effectiveSearchTerms = searchTerms.length > 0 ? searchTerms : [""];
       const page = positiveIntegerOrDefault(options.page, 1);
       const pageSize = positiveIntegerOrDefault(options.page_size, 40);
       const offset = (page - 1) * pageSize;
@@ -67,7 +69,7 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
       const gameClause = options.game ? "AND lower(game) = lower(?)" : "";
       const setClause = options.set_code ? "AND lower(set_code) = lower(?)" : "";
       const bindings = [
-        `%${normalizedQuery}%`,
+        ...effectiveSearchTerms.map((term) => `%${term}%`),
         ...(options.game ? [options.game] : []),
         ...(options.set_code ? [options.set_code] : []),
         pageSize,
@@ -77,14 +79,18 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
         db
           .prepare(
             `${CARD_SELECT}
-WHERE lower(
+WHERE ${effectiveSearchTerms
+  .map(
+    () => `lower(
   coalesce(name, '') || ' ' ||
   ${includeCardNumber ? "coalesce(number, '') || ' ' ||" : ""}
   coalesce(set_name, '') || ' ' ||
   coalesce(set_code, '') || ' ' ||
   coalesce(rarity, '') || ' ' ||
   coalesce(game, '')
-) LIKE ?
+) LIKE ?`,
+  )
+  .join("\nAND ")}
 ${objectTypeClause}
 ${gameClause}
 ${setClause}

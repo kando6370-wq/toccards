@@ -189,9 +189,12 @@ void main() {
         tester.widget<ClipRRect>(imageClip).borderRadius,
         BorderRadius.circular(6),
       );
-      expect(find.text('Escape Artist (English)'), findsOneWidget);
+      expect(find.text('Escape Artist'), findsOneWidget);
+      expect(find.text('Escape Artist (English)'), findsNothing);
+      expect(find.text('Pikachu (JP)'), findsOneWidget);
+      expect(find.text('Psyduck (CN)'), findsOneWidget);
       expect(find.text('Odyssey'), findsOneWidget);
-      expect(find.text('Common #123'), findsOneWidget);
+      expect(find.text('Common · 123'), findsOneWidget);
       expect(find.text('Normal'), findsOneWidget);
       expect(find.text('Qty: 0'), findsOneWidget);
       expect(find.text('Near Mint (NM)'), findsNothing);
@@ -888,6 +891,34 @@ class _ImageSearchRepository implements SearchRepository {
           language: 'English',
           finish: 'Normal',
           imageUrl: 'https://api.tcgcard.fun/api/v1/cards/9359/image',
+        ),
+        SearchCard(
+          id: 'jp-pikachu',
+          gameId: 'tcg',
+          type: SearchCardType.tcg,
+          name: 'Pikachu',
+          priceUsd: null,
+          previous30dPriceUsd: null,
+          setName: 'Promo',
+          metadataLine: 'Promo · 001',
+          variantLine: 'Normal',
+          quantity: 0,
+          isWishlisted: false,
+          language: 'Japanese',
+        ),
+        SearchCard(
+          id: 'cn-psyduck',
+          gameId: 'tcg',
+          type: SearchCardType.tcg,
+          name: 'Psyduck',
+          priceUsd: null,
+          previous30dPriceUsd: null,
+          setName: 'Promo',
+          metadataLine: 'Promo · 002',
+          variantLine: 'Normal',
+          quantity: 0,
+          isWishlisted: false,
+          language: 'Chinese',
         ),
       ],
       sets: [],

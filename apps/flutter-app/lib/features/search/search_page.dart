@@ -518,7 +518,7 @@ class _SearchResults extends ConsumerWidget {
           shrinkWrap: true,
           mainAxisSpacing: 12,
           crossAxisSpacing: 10,
-          childAspectRatio: 0.5,
+          childAspectRatio: 170 / 378,
           physics: const NeverScrollableScrollPhysics(),
           children: [
             for (final card in state.visibleCards)

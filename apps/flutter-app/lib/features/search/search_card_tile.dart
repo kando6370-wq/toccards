@@ -186,9 +186,16 @@ class SearchCardTile extends ConsumerWidget {
               ),
               const SizedBox(height: 2),
               if (showSearchMetadata) ...[
-                _MetadataRow(
-                  left: card.setName,
-                  right: card.metadataLine,
+                Text(
+                  card.setName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: mutedLine,
+                ),
+                Text(
+                  _searchMetadataLine(card.metadataLine),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: mutedLine,
                 ),
                 _MetadataRow(
@@ -265,10 +272,36 @@ class SearchCardTile extends ConsumerWidget {
 }
 
 String _cardName(SearchCard card) {
-  final language = card.language?.trim();
-  return language == null || language.isEmpty
-      ? card.name
-      : '${card.name} ($language)';
+  final languageCode = _displayLanguageCode(card.language);
+  return languageCode == null ? card.name : '${card.name} ($languageCode)';
+}
+
+String _searchMetadataLine(String value) {
+  final metadata = value.trim();
+  if (metadata.startsWith('#')) return metadata.substring(1);
+  return metadata.replaceFirst(' #', ' · ');
+}
+
+String? _displayLanguageCode(String? value) {
+  final language = value?.trim();
+  if (language == null || language.isEmpty) return null;
+
+  return switch (language.toLowerCase()) {
+    'english' || 'en' || 'eng' => null,
+    'japanese' || 'ja' || 'jp' => 'JP',
+    'chinese' ||
+    'simplified chinese' ||
+    'traditional chinese' ||
+    'zh' ||
+    'cn' => 'CN',
+    'korean' || 'ko' || 'kr' => 'KR',
+    'french' || 'fr' => 'FR',
+    'german' || 'de' => 'DE',
+    'italian' || 'it' => 'IT',
+    'spanish' || 'es' => 'ES',
+    'portuguese' || 'pt' => 'PT',
+    _ => language.length <= 3 ? language.toUpperCase() : language,
+  };
 }
 
 class _MetadataRow extends StatelessWidget {

@@ -185,8 +185,7 @@ class SearchState {
       return false;
     }
 
-    final query = searchText.trim().toLowerCase();
-    return query.isEmpty || card.searchableText.contains(query);
+    return _matchesSearchTerms(card.searchableText, searchText);
   }
 
   bool _matchesSet(SearchSet set) {
@@ -194,9 +193,17 @@ class SearchState {
       return false;
     }
 
-    final query = searchText.trim().toLowerCase();
-    return query.isEmpty || set.searchableText.contains(query);
+    return _matchesSearchTerms(set.searchableText, searchText);
   }
+}
+
+bool _matchesSearchTerms(String searchableText, String query) {
+  final terms = query
+      .trim()
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .where((term) => term.isNotEmpty);
+  return terms.every(searchableText.contains);
 }
 
 class SearchController extends Notifier<SearchState> {
