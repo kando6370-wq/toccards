@@ -3692,6 +3692,13 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
       card_ref: `card-${anonymousBody.data.anonymous_id}`,
       updated_at: "2026-07-06T00:00:00.000Z",
     });
+    db.collectionItemEvents.push({
+      id: `event-${anonymousBody.data.anonymous_id}`,
+      item_id: `collection-${anonymousBody.data.anonymous_id}`,
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: `folder-${anonymousBody.data.anonymous_id}`,
+    });
     db.wishlistItems.push({
       id: `wishlist-${anonymousBody.data.anonymous_id}`,
       owner_type: "anonymous",
@@ -3730,6 +3737,13 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     expect(
       db.collectionItems.find(
         (row) => row.id === `collection-${anonymousBody.data.anonymous_id}`,
+      ),
+    ).toEqual(
+      expect.objectContaining({ owner_type: "user", owner_id: body.data.user_id }),
+    );
+    expect(
+      db.collectionItemEvents.find(
+        (row) => row.id === `event-${anonymousBody.data.anonymous_id}`,
       ),
     ).toEqual(
       expect.objectContaining({ owner_type: "user", owner_id: body.data.user_id }),
@@ -4983,6 +4997,13 @@ describe("POST /api/v1/auth/register/verify", () => {
       card_ref: "card-collection",
       updated_at: "2026-07-02T00:00:00.000Z",
     });
+    db.collectionItemEvents.push({
+      id: "collection-guest-event",
+      item_id: "collection-guest",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      folder_id: anonymousFolder.id,
+    });
     db.wishlistItems.push({
       id: "wishlist-guest",
       owner_type: "anonymous",
@@ -5031,6 +5052,13 @@ describe("POST /api/v1/auth/register/verify", () => {
       }),
     );
     expect(db.collectionItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: userId,
+        folder_id: db.portfolioFolders[0]?.id,
+      }),
+    );
+    expect(db.collectionItemEvents[0]).toEqual(
       expect.objectContaining({
         owner_type: "user",
         owner_id: userId,

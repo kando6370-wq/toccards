@@ -341,6 +341,7 @@ async function createOAuthUser(
         ),
       migrationStatements.portfolioFolders,
       migrationStatements.collectionItems,
+      migrationStatements.collectionItemEvents,
       migrationStatements.wishlistItems,
       migrationStatements.userPreference,
       migrationStatements.scanRecords,
@@ -363,10 +364,10 @@ async function createOAuthUser(
     }
 
     if (
-      results.length !== 9 ||
+      results.length !== 10 ||
       results[1]?.meta.changes !== 1 ||
       results[2]?.meta.changes !== 1 ||
-      results[8]?.meta.changes !== 1
+      results[9]?.meta.changes !== 1
     ) {
       throw new Error("Failed to create migrated OAuth user.");
     }

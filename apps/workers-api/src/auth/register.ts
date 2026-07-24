@@ -403,6 +403,7 @@ export function registerEmailRegistrationRoutes(
           ),
           migrationStatements.portfolioFolders,
           migrationStatements.collectionItems,
+          migrationStatements.collectionItemEvents,
           migrationStatements.wishlistItems,
           migrationStatements.userPreference,
           migrationStatements.scanRecords,
@@ -424,6 +425,7 @@ export function registerEmailRegistrationRoutes(
           userResult,
           portfolioFoldersResult,
           collectionItemsResult,
+          collectionItemEventsResult,
           wishlistItemsResult,
           userPreferenceResult,
           scanRecordsResult,
@@ -432,6 +434,7 @@ export function registerEmailRegistrationRoutes(
         const assetResults = [
           portfolioFoldersResult,
           collectionItemsResult,
+          collectionItemEventsResult,
           wishlistItemsResult,
           userPreferenceResult,
           scanRecordsResult,
@@ -441,7 +444,7 @@ export function registerEmailRegistrationRoutes(
           return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
         }
 
-        if (results.length !== 9 || assetResults.some((result) => !result)) {
+        if (results.length !== 10 || assetResults.some((result) => !result)) {
           return c.json(INTERNAL_ERROR_RESPONSE, 500);
         }
 
