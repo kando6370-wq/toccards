@@ -489,6 +489,10 @@ void main() {
 
       await tester.tap(find.text('USD'));
       await tester.pumpAndSettle();
+      expect(
+        tester.widget<BottomSheet>(find.byType(BottomSheet)).backgroundColor,
+        KandoColors.surface,
+      );
       expect(find.text('GBP'), findsOneWidget);
       expect(find.text('SGD'), findsOneWidget);
 

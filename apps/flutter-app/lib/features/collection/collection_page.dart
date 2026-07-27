@@ -394,10 +394,12 @@ class _CollectionContent extends StatelessWidget {
         title: 'Start your portfolio',
         body: 'Scan or search cards to track value',
         primaryLabel: 'SCAN A CARD',
-        primaryIcon: Icons.photo_camera_outlined,
+        primaryIconAssetPath: 'assets/home/empty_action_camera.svg',
+        primaryIconSize: const Size(16.0417, 14.5417),
         onPrimary: () => context.go('/scan'),
         secondaryLabel: 'SEARCH A CARD',
-        secondaryIcon: Icons.search,
+        secondaryIconAssetPath: 'assets/home/empty_action_search.svg',
+        secondaryIconSize: const Size(15.2707, 15.8891),
         onSecondary: () => context.go('/search'),
       );
     }
@@ -409,7 +411,8 @@ class _CollectionContent extends StatelessWidget {
         title: 'Your wishlist is empty',
         body: 'Add cards you want to collect later',
         primaryLabel: 'SEARCH CARDS',
-        primaryIcon: Icons.search,
+        primaryIconAssetPath: 'assets/home/empty_action_search.svg',
+        primaryIconSize: const Size(15.2707, 15.8891),
         onPrimary: () => context.go('/search'),
       );
     }
@@ -472,10 +475,12 @@ class _CollectionEmptyState extends StatelessWidget {
     required this.title,
     required this.body,
     required this.primaryLabel,
-    required this.primaryIcon,
+    required this.primaryIconAssetPath,
+    required this.primaryIconSize,
     required this.onPrimary,
     this.secondaryLabel,
-    this.secondaryIcon,
+    this.secondaryIconAssetPath,
+    this.secondaryIconSize,
     this.onSecondary,
   });
 
@@ -485,10 +490,12 @@ class _CollectionEmptyState extends StatelessWidget {
   final String title;
   final String body;
   final String primaryLabel;
-  final IconData primaryIcon;
+  final String primaryIconAssetPath;
+  final Size primaryIconSize;
   final VoidCallback onPrimary;
   final String? secondaryLabel;
-  final IconData? secondaryIcon;
+  final String? secondaryIconAssetPath;
+  final Size? secondaryIconSize;
   final VoidCallback? onSecondary;
 
   @override
@@ -527,17 +534,20 @@ class _CollectionEmptyState extends StatelessWidget {
         const SizedBox(height: 28),
         _EmptyStateButton(
           label: primaryLabel,
-          icon: primaryIcon,
+          iconAssetPath: primaryIconAssetPath,
+          iconSize: primaryIconSize,
           onPressed: onPrimary,
           primary: true,
         ),
         if (secondaryLabel != null &&
-            secondaryIcon != null &&
+            secondaryIconAssetPath != null &&
+            secondaryIconSize != null &&
             onSecondary != null) ...[
           const SizedBox(height: 16),
           _EmptyStateButton(
             label: secondaryLabel!,
-            icon: secondaryIcon!,
+            iconAssetPath: secondaryIconAssetPath!,
+            iconSize: secondaryIconSize!,
             onPressed: onSecondary!,
             primary: false,
           ),
@@ -550,13 +560,15 @@ class _CollectionEmptyState extends StatelessWidget {
 class _EmptyStateButton extends StatelessWidget {
   const _EmptyStateButton({
     required this.label,
-    required this.icon,
+    required this.iconAssetPath,
+    required this.iconSize,
     required this.onPressed,
     required this.primary,
   });
 
   final String label;
-  final IconData icon;
+  final String iconAssetPath;
+  final Size iconSize;
   final VoidCallback onPressed;
   final bool primary;
 
@@ -567,7 +579,16 @@ class _EmptyStateButton extends StatelessWidget {
       height: 56,
       child: FilledButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 18),
+        icon: SizedBox.square(
+          dimension: 20,
+          child: Center(
+            child: SvgPicture.asset(
+              iconAssetPath,
+              width: iconSize.width,
+              height: iconSize.height,
+            ),
+          ),
+        ),
         label: Text(label),
         style: FilledButton.styleFrom(
           backgroundColor: primary
@@ -685,7 +706,7 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: KandoColors.elevatedSurface,
+    backgroundColor: KandoColors.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -1334,8 +1355,9 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
           return FractionallySizedBox(
             heightFactor: 0.75,
             child: DecoratedBox(
+              key: const Key('collection-filter-sheet-background'),
               decoration: const BoxDecoration(
-                color: Color(0xFF222222),
+                color: KandoColors.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
               ),
               child: SafeArea(

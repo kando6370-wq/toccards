@@ -836,7 +836,7 @@ class _GameFilterSheetState extends State<_GameFilterSheet> {
         ),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
         decoration: const BoxDecoration(
-          color: Color(0xFF222222),
+          color: KandoColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(

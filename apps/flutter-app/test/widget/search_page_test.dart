@@ -413,6 +413,10 @@ void main() {
     await tester.tap(find.text('Pokemon'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('search-game-filter-sheet')), findsOneWidget);
+    final sheet = tester.widget<Container>(
+      find.byKey(const Key('search-game-filter-sheet')),
+    );
+    expect((sheet.decoration! as BoxDecoration).color, KandoColors.surface);
     expect(find.text('GAME / IP'), findsOneWidget);
     expect(find.text('APPLY FILTERS'), findsOneWidget);
 

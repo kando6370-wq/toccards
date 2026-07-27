@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
@@ -169,6 +170,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Select Portfolio'), findsOneWidget);
+      expect(
+        tester.widget<BottomSheet>(find.byType(BottomSheet)).backgroundColor,
+        KandoColors.surface,
+      );
       expect(find.text('DRAG AND DROP TO CHANGE ORDER'), findsOneWidget);
       expect(find.byKey(const Key('collection-folder-add')), findsOneWidget);
       expect(
@@ -355,6 +360,10 @@ void main() {
 
     await tester.tap(find.byKey(const Key('collection-filter-button')));
     await tester.pumpAndSettle();
+    final sheet = tester.widget<DecoratedBox>(
+      find.byKey(const Key('collection-filter-sheet-background')),
+    );
+    expect((sheet.decoration as BoxDecoration).color, KandoColors.surface);
     expect(find.text('Price: High to Low'), findsOneWidget);
     expect(find.text('Price: Low to High'), findsOneWidget);
     expect(find.text('LANGUAGE'), findsOneWidget);
@@ -487,6 +496,30 @@ void main() {
         find.byKey(const Key('collection-portfolio-empty-illustration')),
         findsOneWidget,
       );
+      final scanIcon = tester.widget<SvgPicture>(
+        find.descendant(
+          of: find.widgetWithText(FilledButton, 'SCAN A CARD'),
+          matching: find.byType(SvgPicture),
+        ),
+      );
+      expect(
+        (scanIcon.bytesLoader as SvgAssetLoader).assetName,
+        'assets/home/empty_action_camera.svg',
+      );
+      expect(scanIcon.width, 16.0417);
+      expect(scanIcon.height, 14.5417);
+      final searchIcon = tester.widget<SvgPicture>(
+        find.descendant(
+          of: find.widgetWithText(FilledButton, 'SEARCH A CARD'),
+          matching: find.byType(SvgPicture),
+        ),
+      );
+      expect(
+        (searchIcon.bytesLoader as SvgAssetLoader).assetName,
+        'assets/home/empty_action_search.svg',
+      );
+      expect(searchIcon.width, 15.2707);
+      expect(searchIcon.height, 15.8891);
 
       await tester.ensureVisible(find.text('SCAN A CARD'));
       await tester.pumpAndSettle();
