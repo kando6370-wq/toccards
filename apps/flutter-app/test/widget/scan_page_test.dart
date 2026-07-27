@@ -12,6 +12,7 @@ import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_camera.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
+import 'package:kando_app/features/scan/scan_permissions.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/features/scan/scan_review_repository.dart';
@@ -93,6 +94,47 @@ const _transparentPngBytes = <int>[
 ];
 
 void main() {
+  testWidgets('Scan requests camera access before opening the camera', (
+    tester,
+  ) async {
+    final permissions = _TestScanPermissionGateway(
+      camera: ScanPermissionResult.denied,
+    );
+    final cameraFactory = _TestScanCameraFactory(_TestScanCameraSession());
+
+    await _pumpScanTestApp(
+      tester,
+      scanCameraFactory: cameraFactory,
+      permissions: permissions,
+    );
+
+    expect(permissions.cameraRequests, 1);
+    expect(cameraFactory.openCount, 0);
+  });
+
+  testWidgets('Gallery access is requested only when import is tapped', (
+    tester,
+  ) async {
+    final permissions = _TestScanPermissionGateway(
+      gallery: ScanPermissionResult.denied,
+    );
+    final source = _TestScanResultSource(
+      photoResult: Future.value(const ScanResolution.failed()),
+    );
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: source,
+      permissions: permissions,
+    );
+
+    expect(permissions.galleryRequests, 0);
+    await tester.tap(find.byTooltip('Choose from Library'));
+    await tester.pump();
+
+    expect(permissions.galleryRequests, 1);
+    expect(source.libraryCallCount, 0);
+  });
+
   test('Figma scan SVG icons use Flutter-compatible fill colors', () async {
     const iconAssets = [
       'assets/scan/close.svg',
@@ -1502,6 +1544,7 @@ Future<void> _pumpScanTestApp(
   ScanResultSource? scanResultSource,
   ScanReviewRepository? scanReviewRepository,
   ScanCameraFactory scanCameraFactory = const _DisabledScanCameraFactory(),
+  ScanPermissionGateway permissions = const _GrantedScanPermissionGateway(),
   bool tickerEnabled = true,
 }) async {
   await tester.pumpWidget(const SizedBox.shrink());
@@ -1518,6 +1561,7 @@ Future<void> _pumpScanTestApp(
           scanResultSource ?? _defaultTestScanResultSource(),
         ),
         scanCameraFactoryProvider.overrideWithValue(scanCameraFactory),
+        scanPermissionGatewayProvider.overrideWithValue(permissions),
       ],
       child: TickerMode(
         enabled: tickerEnabled,
@@ -1657,6 +1701,7 @@ class _TestScanResultSource implements ScanResultSource {
   final Future<ScanResolution> _recognizeResult;
   final Future<ScanResolution> _retryResult;
   var photoCallCount = 0;
+  var libraryCallCount = 0;
   var _nextPhotoResult = 0;
   Uint8List? lastRetryBytes;
   String? lastRetryFileName;
@@ -1667,6 +1712,7 @@ class _TestScanResultSource implements ScanResultSource {
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
   }) async {
+    libraryCallCount += 1;
     for (var index = 0; index < libraryImages.length; index += 1) {
       onSelected?.call(libraryImages[index], _libraryResults[index]);
     }
@@ -1708,9 +1754,55 @@ class _TestScanCameraFactory implements ScanCameraFactory {
   _TestScanCameraFactory(this.session);
 
   _TestScanCameraSession session;
+  var openCount = 0;
 
   @override
-  Future<ScanCameraSession?> open() async => session;
+  Future<ScanCameraSession?> open() async {
+    openCount += 1;
+    return session;
+  }
+}
+
+class _GrantedScanPermissionGateway implements ScanPermissionGateway {
+  const _GrantedScanPermissionGateway();
+
+  @override
+  Future<ScanPermissionResult> requestCamera() async =>
+      ScanPermissionResult.granted;
+
+  @override
+  Future<ScanPermissionResult> requestGallery() async =>
+      ScanPermissionResult.granted;
+
+  @override
+  Future<bool> openSettings() async => true;
+}
+
+class _TestScanPermissionGateway implements ScanPermissionGateway {
+  _TestScanPermissionGateway({
+    this.camera = ScanPermissionResult.granted,
+    this.gallery = ScanPermissionResult.granted,
+  });
+
+  final ScanPermissionResult camera;
+  final ScanPermissionResult gallery;
+  var cameraRequests = 0;
+  var galleryRequests = 0;
+
+  @override
+  Future<ScanPermissionResult> requestCamera() async {
+    cameraRequests += 1;
+    return camera;
+  }
+
+  @override
+  Future<ScanPermissionResult> requestGallery() async {
+    galleryRequests += 1;
+    return gallery;
+  }
+
+  @override
+  Future<bool> openSettings() async => true;
 }
 
 class _PermissionDelayedScanCameraFactory implements ScanCameraFactory {

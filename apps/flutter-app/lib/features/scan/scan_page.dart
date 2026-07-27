@@ -19,6 +19,7 @@ import '../card_detail/card_detail_controller.dart';
 import '../home/home_controller.dart';
 import '../search/search_controller.dart';
 import 'scan_camera.dart';
+import 'scan_permissions.dart';
 import 'scan_review_repository.dart';
 
 enum _ScanItemStatus {
@@ -284,6 +285,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _nextScanToken = 1;
   var _cameraGeneration = 0;
   var _openingCamera = false;
+  var _permissionDialogVisible = false;
   var _appActive = true;
   var _reviewing = false;
   var _photoRecognitionInFlight = false;
@@ -384,6 +386,16 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
     _openingCamera = true;
     final generation = ++_cameraGeneration;
+    final permission = await ref
+        .read(scanPermissionGatewayProvider)
+        .requestCamera();
+    if (permission != ScanPermissionResult.granted) {
+      if (mounted) setState(() => _openingCamera = false);
+      if (permission == ScanPermissionResult.permanentlyDenied) {
+        await _showPermissionSettings('Camera');
+      }
+      return;
+    }
     ScanCameraSession? session;
     try {
       session = await ref.read(scanCameraFactoryProvider).open();
@@ -480,6 +492,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _startLibraryScan() async {
     try {
+      final permission = await ref
+          .read(scanPermissionGatewayProvider)
+          .requestGallery();
+      if (permission != ScanPermissionResult.granted) {
+        if (permission == ScanPermissionResult.permanentlyDenied) {
+          await _showPermissionSettings('Photo library');
+        }
+        return;
+      }
       var selectedCount = 0;
       final scans = await ref
           .read(scanResultSourceProvider)
@@ -505,6 +526,32 @@ class _ScanPageState extends ConsumerState<ScanPage>
       if (mounted) {
         _addScan(Future.value(const ScanResolution.failed()));
       }
+    }
+  }
+
+  Future<void> _showPermissionSettings(String name) async {
+    if (!mounted || _permissionDialogVisible) return;
+    _permissionDialogVisible = true;
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('$name permission required'),
+        content: Text('Enable $name access in Settings to continue.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+    _permissionDialogVisible = false;
+    if (open == true) {
+      await ref.read(scanPermissionGatewayProvider).openSettings();
     }
   }
 
