@@ -67,7 +67,7 @@ describe("resolveAppleIdentity", () => {
       { alg: "RS256", kid: "apple-key-1" },
       {
         iss: "https://appleid.apple.com",
-        aud: "com.cardai.tcg",
+        aud: "com.kando.kandoApp.beta",
         sub: "apple.user-1",
         email: "APPLE.USER@example.com",
         email_verified: "true",
@@ -79,7 +79,7 @@ describe("resolveAppleIdentity", () => {
     await expect(
       resolveAppleIdentity(
         { code: "authorization-code", idToken: token },
-        "com.cardai.tcg",
+        "com.kando.kandoApp.beta",
       ),
     ).resolves.toEqual({
       provider: "apple",
@@ -115,7 +115,7 @@ describe("resolveAppleIdentity", () => {
     await expect(
       resolveAppleIdentity(
         { code: "authorization-code", idToken: token },
-        "com.cardai.tcg",
+        "com.kando.kandoApp.beta",
       ),
     ).resolves.toBeNull();
   });

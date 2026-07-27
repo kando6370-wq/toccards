@@ -1,4 +1,4 @@
-package com.cardai.tcg
+package com.kando.kandoApp.beta
 
 import io.flutter.embedding.android.FlutterActivity
 
