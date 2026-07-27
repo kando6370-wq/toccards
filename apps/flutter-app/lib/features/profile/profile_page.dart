@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
@@ -160,7 +161,7 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                     ),
                   ),
                   _MenuRow(
-                    icon: Icons.shield_outlined,
+                    iconAsset: 'assets/profile/privacy_policy.svg',
                     label: 'Privacy Policy',
                     onTap: () => _runProfileAction(
                       context,
@@ -431,9 +432,11 @@ class _MenuCard extends StatelessWidget {
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.icon, required this.label, this.onTap});
+  const _MenuRow({this.icon, this.iconAsset, required this.label, this.onTap})
+    : assert((icon == null) != (iconAsset == null));
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
   final String label;
   final VoidCallback? onTap;
 
@@ -445,7 +448,7 @@ class _MenuRow extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            _IconBadge(icon: icon),
+            _IconBadge(icon: icon, iconAsset: iconAsset),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
@@ -466,9 +469,11 @@ class _MenuRow extends StatelessWidget {
 }
 
 class _IconBadge extends StatelessWidget {
-  const _IconBadge({required this.icon});
+  const _IconBadge({this.icon, this.iconAsset})
+    : assert((icon == null) != (iconAsset == null));
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
 
   @override
   Widget build(BuildContext context) {
@@ -479,7 +484,16 @@ class _IconBadge extends StatelessWidget {
         shape: BoxShape.circle,
         color: KandoColors.elevatedSurface,
       ),
-      child: Icon(icon, size: 18, color: KandoColors.text),
+      child: iconAsset == null
+          ? Icon(icon, size: 18, color: KandoColors.text)
+          : Center(
+              child: SvgPicture.asset(
+                iconAsset!,
+                key: const Key('profile-privacy-policy-icon'),
+                width: 16,
+                height: 20,
+              ),
+            ),
     );
   }
 }

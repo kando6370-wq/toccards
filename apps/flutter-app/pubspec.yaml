@@ -108,6 +108,7 @@ flutter:
     - assets/home/
     - assets/navigation/
     - assets/onboarding/
+    - assets/profile/
     - assets/scan/
     - assets/search/
 

@@ -23,8 +23,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       title: 'Instantly Scan Cards',
       description:
           'Identify your cards with AI and add\nthem to your collection in seconds.',
-      mediaKind: _OnboardingMediaKind.lottie,
-      mediaAsset: 'assets/onboarding/guide_scan.json',
+      // Previous Lottie media kept for a quick rollback:
+      // mediaKind: _OnboardingMediaKind.lottie,
+      // mediaAsset: 'assets/onboarding/guide_scan.json',
+      mediaKind: _OnboardingMediaKind.video,
+      mediaAsset: 'assets/onboarding/guide_scan.mp4',
       placeholderAsset: 'assets/onboarding/guide_scan_placeholder.png',
       primaryLabel: "LET'S START",
     ),
@@ -32,8 +35,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       title: 'Track Card Values',
       description:
           'Follow market prices, trends, and value\nchanges for the cards you care about.',
-      mediaKind: _OnboardingMediaKind.lottie,
-      mediaAsset: 'assets/onboarding/guide_values.json',
+      // Previous Lottie media kept for a quick rollback:
+      // mediaKind: _OnboardingMediaKind.lottie,
+      // mediaAsset: 'assets/onboarding/guide_values.json',
+      mediaKind: _OnboardingMediaKind.video,
+      mediaAsset: 'assets/onboarding/guide_values.mp4',
       placeholderAsset: 'assets/onboarding/guide_values_placeholder.png',
       primaryLabel: 'NEXT',
     ),

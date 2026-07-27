@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/app/app.dart';
 import 'package:kando_app/app/app_startup_preloader.dart';
@@ -1270,6 +1271,14 @@ void main() {
       expect(
         listView.padding,
         const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 96),
+      );
+      expect(find.byIcon(Icons.shield_outlined), findsNothing);
+      final privacyIcon = tester.widget<SvgPicture>(
+        find.byKey(const Key('profile-privacy-policy-icon')),
+      );
+      expect(
+        (privacyIcon.bytesLoader as SvgAssetLoader).assetName,
+        'assets/profile/privacy_policy.svg',
       );
     },
   );

@@ -264,6 +264,30 @@ void main() {
     expect(find.text('Squirtle'), findsOneWidget);
   });
 
+  testWidgets('tapping outside the search field dismisses its focus', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-field')));
+    await tester.enterText(find.byKey(const Key('search-field')), 'charizard');
+    final searchFocusNode = tester
+        .widget<EditableText>(find.byType(EditableText))
+        .focusNode;
+    expect(searchFocusNode.hasFocus, isTrue);
+
+    await tester.tap(find.byKey(const Key('search-game-selector')));
+    await tester.pumpAndSettle();
+
+    expect(searchFocusNode.hasFocus, isFalse);
+  });
+
   testWidgets('search field waits for debounce before updating results', (
     tester,
   ) async {

@@ -7,7 +7,6 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_gate.dart';
 import 'package:kando_app/features/onboarding/onboarding_page.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
-import 'package:lottie/lottie.dart';
 import 'package:video_player/video_player.dart';
 
 import '../support/in_memory_auth_storage.dart';
@@ -27,7 +26,7 @@ void main() {
   });
 
   testWidgets(
-    'first launch starts on the scan guide with its Lottie animation',
+    'first launch starts on the scan guide with its video',
     (tester) async {
       await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
 
@@ -37,7 +36,7 @@ void main() {
         find.byKey(const ValueKey('onboarding-media-placeholder-0')),
         findsOneWidget,
       );
-      expect(find.byKey(const ValueKey('onboarding-lottie-0')), findsOneWidget);
+      expect(find.byKey(const ValueKey('onboarding-video-0')), findsOneWidget);
       expect(
         _placeholderAsset(tester, 0),
         'assets/onboarding/guide_scan_placeholder.png',
@@ -58,7 +57,7 @@ void main() {
     },
   );
 
-  testWidgets('guide actions advance through both Lotties and the video', (
+  testWidgets('guide actions advance through all three videos', (
     tester,
   ) async {
     await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
@@ -71,7 +70,7 @@ void main() {
       find.byKey(const ValueKey('onboarding-media-placeholder-1')),
       findsOneWidget,
     );
-    expect(find.byKey(const ValueKey('onboarding-lottie-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('onboarding-video-1')), findsOneWidget);
     expect(
       _placeholderAsset(tester, 1),
       'assets/onboarding/guide_values_placeholder.png',
@@ -147,14 +146,14 @@ void main() {
   ) async {
     await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
 
-    expect(_lottieIsAnimating(tester, 0), isTrue);
+    expect(_videoIsEnabled(tester, 0), isTrue);
     final pageView = find.byKey(const ValueKey('onboarding-page-view'));
     final gesture = await tester.startGesture(tester.getCenter(pageView));
     await gesture.moveBy(Offset(-tester.getSize(pageView).width * 0.7, 0));
     await tester.pump();
     await tester.pump();
 
-    expect(_lottieIsAnimating(tester, 0), isFalse);
+    expect(_videoIsEnabled(tester, 0), isFalse);
 
     await gesture.up();
     await tester.pump();
@@ -162,7 +161,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Track Card Values'), findsOneWidget);
-    expect(_lottieIsAnimating(tester, 1), isTrue);
+    expect(_videoIsEnabled(tester, 1), isTrue);
   });
 
   testWidgets('reduced-motion devices keep the video first-frame fallback', (
@@ -277,14 +276,9 @@ String _placeholderAsset(WidgetTester tester, int index) {
   return (image.image as AssetImage).assetName;
 }
 
-bool _lottieIsAnimating(WidgetTester tester, int index) {
-  final lottie = tester.widget<LottieBuilder>(
-    find.descendant(
-      of: find.byKey(ValueKey('onboarding-lottie-$index')),
-      matching: find.byType(LottieBuilder),
-    ),
-  );
-  return lottie.animate ?? true;
+bool _videoIsEnabled(WidgetTester tester, int index) {
+  final video = tester.widget(find.byKey(ValueKey('onboarding-video-$index')));
+  return (video as dynamic).enabled as bool;
 }
 
 Widget _testPage(

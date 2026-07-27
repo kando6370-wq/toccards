@@ -338,6 +338,7 @@ class _DebouncedSearchFieldState extends State<_DebouncedSearchField> {
         enabledBorder: _inputBorder(KandoColors.border),
         focusedBorder: _inputBorder(KandoColors.accent),
       ),
+      onTapOutside: (_) => FocusScope.of(context).unfocus(),
       onChanged: _queueSearch,
     );
   }
