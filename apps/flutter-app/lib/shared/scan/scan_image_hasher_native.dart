@@ -128,7 +128,7 @@ cv.Mat _cropImage(cv.Mat image, ScanImageCrop crop) {
 }
 
 List<_ImagePoint> _detectCardCorners(cv.Mat image) {
-  const maximumDimension = 960;
+  const maximumDimension = 1600;
   final scale = math.min(
     1.0,
     maximumDimension / math.max(image.cols, image.rows),
@@ -141,162 +141,342 @@ List<_ImagePoint> _detectCardCorners(cv.Mat image) {
         ), interpolation: cv.INTER_AREA))
       : image;
   final gray = cv.cvtColor(working, cv.COLOR_BGR2GRAY);
-  final blurred = cv.gaussianBlur(gray, (5, 5), 0);
-  final edgeCorners = _detectCardQuadrilateral(blurred, scale);
-  if (edgeCorners != null) {
-    blurred.dispose();
-    gray.dispose();
-    resized?.dispose();
-    return edgeCorners;
+  final clahe = cv.createCLAHE(clipLimit: 2.0, tileGridSize: (8, 8));
+  final enhanced = clahe.apply(gray);
+  final blurred = cv.gaussianBlur(enhanced, (5, 5), 0);
+  final lab = cv.cvtColor(working, cv.COLOR_BGR2Lab);
+  final channels = cv.split(lab);
+  final masks = <cv.Mat>[
+    cv.adaptiveThreshold(
+      blurred,
+      255,
+      cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+      cv.THRESH_BINARY,
+      31,
+      5,
+    ),
+    cv.canny(blurred, 25, 85),
+    cv.canny(blurred, 55, 165),
+  ];
+  for (var index = 0; index < channels.length; index += 1) {
+    final (_, normal) = cv.threshold(
+      channels[index],
+      0,
+      255,
+      cv.THRESH_BINARY + cv.THRESH_OTSU,
+    );
+    final (_, inverse) = cv.threshold(
+      channels[index],
+      0,
+      255,
+      cv.THRESH_BINARY_INV + cv.THRESH_OTSU,
+    );
+    masks
+      ..add(normal)
+      ..add(inverse);
   }
-  final (_, threshold) = cv.threshold(
-    blurred,
-    0,
-    255,
-    cv.THRESH_BINARY_INV + cv.THRESH_OTSU,
-  );
-  final kernel = cv.getStructuringElement(cv.MORPH_RECT, (15, 15));
-  final closed = cv.morphologyEx(threshold, cv.MORPH_CLOSE, kernel);
-  final (contours, hierarchy) = cv.findContours(
-    closed,
-    cv.RETR_EXTERNAL,
-    cv.CHAIN_APPROX_SIMPLE,
-  );
+  final candidates = <_CardCandidate>[];
   try {
-    final minimumArea = working.rows * working.cols * 0.04;
-    var bestScore = 0.0;
-    List<_ImagePoint>? best;
-    for (var index = 0; index < contours.length; index += 1) {
-      final contour = contours[index];
-      final area = cv.contourArea(contour).abs();
-      if (area < minimumArea) continue;
-      final rectangle = cv.minAreaRect(contour);
-      final rectangleWidth = rectangle.size.width;
-      final rectangleHeight = rectangle.size.height;
-      if (rectangleWidth < 1 || rectangleHeight < 1) continue;
-      final shortSide = math.min(rectangleWidth, rectangleHeight);
-      final longSide = math.max(rectangleWidth, rectangleHeight);
-      final aspect = shortSide / longSide;
-      final extent = area / (rectangleWidth * rectangleHeight);
-      const cardRatio = _cardWidth / _cardHeight;
-      final aspectScore = math.max(
-        0.0,
-        1 - (aspect - cardRatio).abs() / cardRatio,
-      );
-      final score = area * extent * aspectScore;
-      if (score <= bestScore) continue;
-      final box = cv.boxPoints(rectangle);
-      try {
-        final ordered = _orderCorners([
-          for (var pointIndex = 0; pointIndex < box.length; pointIndex += 1)
-            _ImagePoint(box[pointIndex].x / scale, box[pointIndex].y / scale),
-        ]);
-        bestScore = score;
-        best = ordered;
-      } finally {
-        box.dispose();
+    for (final mask in masks) {
+      for (final kernelSize in const [3, 7]) {
+        final kernel = cv.getStructuringElement(cv.MORPH_RECT, (
+          kernelSize,
+          kernelSize,
+        ));
+        final closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel);
+        final (contours, hierarchy) = cv.findContours(
+          closed,
+          cv.RETR_LIST,
+          cv.CHAIN_APPROX_SIMPLE,
+        );
+        try {
+          for (var index = 0; index < contours.length; index += 1) {
+            _addContourCandidates(
+              contours[index],
+              working,
+              lab,
+              gray,
+              candidates,
+            );
+          }
+        } finally {
+          hierarchy.dispose();
+          contours.dispose();
+          closed.dispose();
+          kernel.dispose();
+        }
       }
     }
-    if (best == null) {
+    final sourceAspect =
+        math.min(working.cols, working.rows) /
+        math.max(working.cols, working.rows);
+    if ((math.log(sourceAspect / (_cardWidth / _cardHeight))).abs() <= 0.04) {
+      _addCandidate(
+        [
+          const _ImagePoint(0, 0),
+          _ImagePoint(working.cols - 1.0, 0),
+          _ImagePoint(working.cols - 1.0, working.rows - 1.0),
+          _ImagePoint(0, working.rows - 1.0),
+        ],
+        working,
+        lab,
+        gray,
+        candidates,
+        allowFullImage: true,
+      );
+    }
+    if (candidates.isEmpty) {
       throw const ScanImageProcessingException(
         'Keep one card fully visible inside the frame and try again.',
       );
     }
-    return best;
+    candidates.sort((left, right) => right.score.compareTo(left.score));
+    var best = candidates.first;
+    final imageArea = working.rows * working.cols;
+    if (best.area / imageArea > 0.985) {
+      final inset = candidates.where((candidate) {
+        final ratio = candidate.area / imageArea;
+        return ratio >= 0.80 &&
+            ratio <= 0.985 &&
+            candidate.aspectScore >= 0.78 &&
+            candidate.score >= best.score - 0.08;
+      }).toList()..sort((left, right) => right.score.compareTo(left.score));
+      if (inset.isNotEmpty) best = inset.first;
+    }
+    for (final parent in candidates.skip(1)) {
+      final ratio = parent.area / best.area;
+      if (ratio >= 1.35 &&
+          ratio <= 4.5 &&
+          parent.aspectScore >= 0.78 &&
+          parent.score >= best.score - 0.13 &&
+          best.points
+                  .where((point) => _contains(parent.points, point))
+                  .length >=
+              3) {
+        best = parent;
+        break;
+      }
+    }
+    return [
+      for (final point in best.points)
+        _ImagePoint(point.x / scale, point.y / scale),
+    ];
   } finally {
-    hierarchy.dispose();
-    contours.dispose();
-    closed.dispose();
-    kernel.dispose();
-    threshold.dispose();
+    for (final mask in masks) {
+      mask.dispose();
+    }
+    channels.dispose();
+    lab.dispose();
     blurred.dispose();
+    enhanced.dispose();
+    clahe.dispose();
     gray.dispose();
     resized?.dispose();
   }
 }
 
-List<_ImagePoint>? _detectCardQuadrilateral(cv.Mat blurred, double scale) {
-  final edges = cv.canny(blurred, 40, 120);
-  final kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 5));
-  final closed = cv.morphologyEx(edges, cv.MORPH_CLOSE, kernel);
-  final (contours, hierarchy) = cv.findContours(
-    closed,
-    cv.RETR_LIST,
-    cv.CHAIN_APPROX_SIMPLE,
-  );
-  try {
-    final minimumArea = blurred.rows * blurred.cols * 0.04;
-    const cardRatio = _cardWidth / _cardHeight;
-    var bestScore = 0.0;
-    List<_ImagePoint>? best;
-    for (var index = 0; index < contours.length; index += 1) {
-      final contour = contours[index];
-      final area = cv.contourArea(contour).abs();
-      if (area < minimumArea) continue;
-      final perimeter = cv.arcLength(contour, true);
-      if (perimeter <= 0) continue;
-      final approximation = cv.approxPolyDP(contour, perimeter * 0.02, true);
-      try {
-        if (approximation.length != 4 || !cv.isContourConvex(approximation)) {
-          continue;
-        }
-        final points = [
-          for (
-            var pointIndex = 0;
-            pointIndex < approximation.length;
-            pointIndex += 1
-          )
-            _ImagePoint(
-              approximation[pointIndex].x.toDouble(),
-              approximation[pointIndex].y.toDouble(),
-            ),
-        ];
-        final touchingEdges = points.where((point) {
-          return point.x < 3 ||
-              point.y < 3 ||
-              point.x > blurred.cols - 4 ||
-              point.y > blurred.rows - 4;
-        }).length;
-        if (touchingEdges >= 2) continue;
-
-        final ordered = _orderCorners(points);
-        final width = math.max(
-          _distance(ordered[0], ordered[1]),
-          _distance(ordered[3], ordered[2]),
-        );
-        final height = math.max(
-          _distance(ordered[0], ordered[3]),
-          _distance(ordered[1], ordered[2]),
-        );
-        if (width < 1 || height < 1) continue;
-        final aspect = math.min(width, height) / math.max(width, height);
-        final aspectScore = math.max(
-          0.0,
-          1 - (aspect - cardRatio).abs() / cardRatio,
-        );
-        final rectangle = cv.minAreaRect(contour);
-        final rectangleArea = rectangle.size.width * rectangle.size.height;
-        final extent = rectangleArea <= 0 ? 0.0 : area / rectangleArea;
-        if (aspectScore < 0.45 || extent < 0.6) continue;
-        final score = area * extent * aspectScore;
-        if (score <= bestScore) continue;
-        bestScore = score;
-        best = [
-          for (final point in ordered)
-            _ImagePoint(point.x / scale, point.y / scale),
-        ];
-      } finally {
-        approximation.dispose();
+void _addContourCandidates(
+  cv.VecPoint contour,
+  cv.Mat image,
+  cv.Mat lab,
+  cv.Mat gray,
+  List<_CardCandidate> candidates,
+) {
+  final imageArea = image.rows * image.cols;
+  final area = cv.contourArea(contour).abs();
+  if (area < imageArea * 0.025 || area > imageArea * 0.96) return;
+  final perimeter = cv.arcLength(contour, true);
+  if (perimeter <= 0) return;
+  var added = false;
+  for (final epsilon in const [0.012, 0.02, 0.03, 0.045, 0.065, 0.09]) {
+    final approximation = cv.approxPolyDP(contour, perimeter * epsilon, true);
+    try {
+      if (approximation.length != 4 || !cv.isContourConvex(approximation)) {
+        continue;
       }
+      _addCandidate(
+        [
+          for (var i = 0; i < 4; i++)
+            _ImagePoint(
+              approximation[i].x.toDouble(),
+              approximation[i].y.toDouble(),
+            ),
+        ],
+        image,
+        lab,
+        gray,
+        candidates,
+      );
+      added = true;
+      break;
+    } finally {
+      approximation.dispose();
     }
-    return best;
-  } finally {
-    hierarchy.dispose();
-    contours.dispose();
-    closed.dispose();
-    kernel.dispose();
-    edges.dispose();
   }
+  if (added) return;
+  final rectangle = cv.minAreaRect(contour);
+  final box = cv.boxPoints(rectangle);
+  try {
+    _addCandidate(
+      [for (var i = 0; i < box.length; i++) _ImagePoint(box[i].x, box[i].y)],
+      image,
+      lab,
+      gray,
+      candidates,
+    );
+  } finally {
+    box.dispose();
+  }
+}
+
+void _addCandidate(
+  List<_ImagePoint> raw,
+  cv.Mat image,
+  cv.Mat lab,
+  cv.Mat gray,
+  List<_CardCandidate> candidates, {
+  bool allowFullImage = false,
+}) {
+  final points = _orderCorners(raw);
+  final widths = [
+    _distance(points[0], points[1]),
+    _distance(points[3], points[2]),
+  ];
+  final heights = [
+    _distance(points[0], points[3]),
+    _distance(points[1], points[2]),
+  ];
+  final shortSide = math.min(widths.reduce(math.max), heights.reduce(math.max));
+  final longSide = math.max(widths.reduce(math.max), heights.reduce(math.max));
+  if (shortSide < 24 || longSide / shortSide > 2.4) return;
+  final area = _polygonArea(points);
+  final areaRatio = area / (image.rows * image.cols);
+  if (areaRatio < 0.025 || (!allowFullImage && areaRatio > 0.97)) return;
+  final aspect = shortSide / longSide;
+  final aspectScore = math.exp(
+    -4.0 * (math.log(aspect / (_cardWidth / _cardHeight))).abs(),
+  );
+  final rectangleArea = shortSide * longSide;
+  final rectangularity = math.min(1.0, area / rectangleArea);
+  final boundary = _edgeContrast(points, lab);
+  final content = _contentRichness(points, gray);
+  final border = _borderContrast(points, lab);
+  final areaScore = math.min(1.0, areaRatio / 0.45);
+  final touching = points
+      .where(
+        (p) =>
+            p.x < 3 || p.y < 3 || p.x > image.cols - 4 || p.y > image.rows - 4,
+      )
+      .length;
+  final score =
+      0.31 * boundary +
+      0.23 * aspectScore +
+      0.14 * rectangularity +
+      0.13 * areaScore +
+      0.11 * content +
+      0.08 * border -
+      0.07 * (touching / 4);
+  if (candidates.any(
+    (candidate) => _cornerDistance(candidate.points, points) < 10,
+  )) {
+    return;
+  }
+  candidates.add(_CardCandidate(points, area, aspectScore, score));
+}
+
+double _edgeContrast(List<_ImagePoint> points, cv.Mat lab) =>
+    _sampleBorder(points, lab, 2.0);
+double _borderContrast(List<_ImagePoint> points, cv.Mat lab) =>
+    _sampleBorder(points, lab, 7.0);
+
+double _sampleBorder(List<_ImagePoint> points, cv.Mat lab, double offset) {
+  var total = 0.0;
+  var count = 0;
+  for (var edge = 0; edge < 4; edge++) {
+    final a = points[edge];
+    final b = points[(edge + 1) % 4];
+    final dx = b.x - a.x;
+    final dy = b.y - a.y;
+    final length = math.sqrt(dx * dx + dy * dy);
+    if (length == 0) continue;
+    final nx = -dy / length;
+    final ny = dx / length;
+    for (var step = 1; step < 16; step++) {
+      final x = a.x + dx * step / 16;
+      final y = a.y + dy * step / 16;
+      total += _labDistance(
+        lab,
+        x + nx * offset,
+        y + ny * offset,
+        x - nx * offset,
+        y - ny * offset,
+      );
+      count++;
+    }
+  }
+  return count == 0 ? 0 : math.min(1.0, total / count / 70);
+}
+
+double _labDistance(cv.Mat mat, double ax, double ay, double bx, double by) {
+  int clampX(double x) => x.round().clamp(0, mat.cols - 1);
+  int clampY(double y) => y.round().clamp(0, mat.rows - 1);
+  final ai = (clampY(ay) * mat.cols + clampX(ax)) * 3;
+  final bi = (clampY(by) * mat.cols + clampX(bx)) * 3;
+  var sum = 0.0;
+  for (var channel = 0; channel < 3; channel++) {
+    final difference = mat.data[ai + channel] - mat.data[bi + channel];
+    sum += difference * difference;
+  }
+  return math.sqrt(sum);
+}
+
+double _contentRichness(List<_ImagePoint> points, cv.Mat gray) {
+  var total = 0.0;
+  var count = 0;
+  for (var yStep = 2; yStep < 18; yStep++) {
+    for (var xStep = 2; xStep < 14; xStep++) {
+      final top = _lerp(points[0], points[1], xStep / 16);
+      final bottom = _lerp(points[3], points[2], xStep / 16);
+      final point = _lerp(top, bottom, yStep / 20);
+      final x = point.x.round().clamp(1, gray.cols - 2);
+      final y = point.y.round().clamp(1, gray.rows - 2);
+      final index = y * gray.cols + x;
+      total +=
+          (gray.data[index + 1] - gray.data[index - 1]).abs() +
+          (gray.data[index + gray.cols] - gray.data[index - gray.cols]).abs();
+      count++;
+    }
+  }
+  return count == 0 ? 0 : math.min(1.0, total / count / 80);
+}
+
+_ImagePoint _lerp(_ImagePoint a, _ImagePoint b, double t) =>
+    _ImagePoint(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+double _polygonArea(List<_ImagePoint> points) =>
+    ((points[0].x * points[1].y +
+                points[1].x * points[2].y +
+                points[2].x * points[3].y +
+                points[3].x * points[0].y) -
+            (points[1].x * points[0].y +
+                points[2].x * points[1].y +
+                points[3].x * points[2].y +
+                points[0].x * points[3].y))
+        .abs() /
+    2;
+double _cornerDistance(List<_ImagePoint> a, List<_ImagePoint> b) =>
+    List.generate(4, (i) => _distance(a[i], b[i])).reduce((x, y) => x + y) / 4;
+bool _contains(List<_ImagePoint> polygon, _ImagePoint point) {
+  var sign = 0;
+  for (var i = 0; i < 4; i++) {
+    final a = polygon[i];
+    final b = polygon[(i + 1) % 4];
+    final cross = (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x);
+    if (cross.abs() < 1e-6) continue;
+    final current = cross > 0 ? 1 : -1;
+    if (sign != 0 && current != sign) return false;
+    sign = current;
+  }
+  return true;
 }
 
 List<_ImagePoint> _orderCorners(List<_ImagePoint> points) {
@@ -353,8 +533,8 @@ cv.Mat _warpCard(cv.Mat image, List<_ImagePoint> corners) {
       image,
       transform,
       (width, height),
-      flags: cv.INTER_LINEAR,
-      borderMode: cv.BORDER_CONSTANT,
+      flags: cv.INTER_CUBIC,
+      borderMode: cv.BORDER_REPLICATE,
       borderValue: border,
     );
     if (!landscape) return warped;
@@ -382,4 +562,12 @@ class _ImagePoint {
 
   final double x;
   final double y;
+}
+
+class _CardCandidate {
+  const _CardCandidate(this.points, this.area, this.aspectScore, this.score);
+  final List<_ImagePoint> points;
+  final double area;
+  final double aspectScore;
+  final double score;
 }
