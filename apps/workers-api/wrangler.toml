@@ -14,7 +14,7 @@ GOOGLE_CLIENT_ID = "134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleuse
 APPLE_CLIENT_ID = "com.kando.kandoApp.beta"
 ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
-MAIL_FROM_NAME = "Kando"
+MAIL_FROM_NAME = "Card Ai"
 OCR_SERVICE_BASE_URL = "https://recognize.tcgcard.fun"
 
 [assets]
