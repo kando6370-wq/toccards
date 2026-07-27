@@ -8,7 +8,7 @@ class _UnsupportedScanImageHasher implements ScanImageHasher {
   const _UnsupportedScanImageHasher();
 
   @override
-  Future<ScanImageHashes> hash(Uint8List imageBytes) {
+  Future<ScanImageHashes> hash(Uint8List imageBytes, {ScanImageCrop? crop}) {
     throw const ScanImageProcessingException(
       'Card recognition is not supported on this platform.',
     );

@@ -47,14 +47,41 @@
     return btoa(chunks.join(""));
   }
 
-  async function decodeImage(value) {
+  async function decodeImage(value, crop) {
     const blob = new Blob([decodeBase64(value)]);
     const bitmap = await createImageBitmap(blob);
+    let sourceX = 0;
+    let sourceY = 0;
+    let sourceWidth = bitmap.width;
+    let sourceHeight = bitmap.height;
+    if (crop.left >= 0) {
+      const imageAspectRatio = bitmap.width / bitmap.height;
+      const visibleWidth = imageAspectRatio > crop.viewportAspectRatio
+        ? bitmap.height * crop.viewportAspectRatio
+        : bitmap.width;
+      const visibleHeight = imageAspectRatio > crop.viewportAspectRatio
+        ? bitmap.height
+        : bitmap.width / crop.viewportAspectRatio;
+      sourceX = (bitmap.width - visibleWidth) / 2 + crop.left * visibleWidth;
+      sourceY = (bitmap.height - visibleHeight) / 2 + crop.top * visibleHeight;
+      sourceWidth = crop.width * visibleWidth;
+      sourceHeight = crop.height * visibleHeight;
+    }
     const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = Math.max(1, Math.round(sourceWidth));
+    canvas.height = Math.max(1, Math.round(sourceHeight));
     const context = canvas.getContext("2d", { willReadFrequently: true });
-    context.drawImage(bitmap, 0, 0);
+    context.drawImage(
+      bitmap,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
     bitmap.close();
     return canvas;
   }
@@ -236,9 +263,15 @@
     return canvas.toDataURL("image/jpeg", 0.85).split(",", 2)[1];
   }
 
-  async function processImage(imageBase64) {
+  async function processImage(imageBase64, cropLeft, cropTop, cropWidth, cropHeight, viewportAspectRatio) {
     const { instance: cv } = await getCv();
-    const imageCanvas = await decodeImage(imageBase64);
+    const imageCanvas = await decodeImage(imageBase64, {
+      left: cropLeft,
+      top: cropTop,
+      width: cropWidth,
+      height: cropHeight,
+      viewportAspectRatio,
+    });
     const source = cv.imread(imageCanvas);
     let card;
     let rgb;

@@ -16,11 +16,11 @@ class _OpenCvScanImageHasher implements ScanImageHasher {
   Future<void> _tail = Future.value();
 
   @override
-  Future<ScanImageHashes> hash(Uint8List imageBytes) {
+  Future<ScanImageHashes> hash(Uint8List imageBytes, {ScanImageCrop? crop}) {
     final result = Completer<ScanImageHashes>();
     _tail = _tail.then((_) async {
       try {
-        result.complete(await _runHashIsolate(imageBytes));
+        result.complete(await _runHashIsolate(imageBytes, crop));
       } catch (error, stackTrace) {
         result.completeError(error, stackTrace);
       }
@@ -29,22 +29,29 @@ class _OpenCvScanImageHasher implements ScanImageHasher {
   }
 }
 
-Future<ScanImageHashes> _runHashIsolate(Uint8List imageBytes) {
-  return Isolate.run(() => _hashImage(imageBytes));
+Future<ScanImageHashes> _runHashIsolate(
+  Uint8List imageBytes,
+  ScanImageCrop? crop,
+) {
+  return Isolate.run(() => _hashImage(imageBytes, crop));
 }
 
-ScanImageHashes _hashImage(Uint8List imageBytes) {
+ScanImageHashes _hashImage(Uint8List imageBytes, ScanImageCrop? crop) {
   final decoded = cv.imdecode(imageBytes, cv.IMREAD_COLOR);
   if (decoded.isEmpty) {
     decoded.dispose();
     throw const ScanImageProcessingException('The selected image is invalid.');
   }
 
+  cv.Mat? cropped;
   cv.Mat? card;
   cv.Mat? rgb;
   try {
-    final corners = _detectCardCorners(decoded);
-    card = _warpCard(decoded, corners);
+    final source = crop == null
+        ? decoded
+        : (cropped = _cropImage(decoded, crop));
+    final corners = _detectCardCorners(source);
+    card = _warpCard(source, corners);
     rgb = cv.cvtColor(card, cv.COLOR_BGR2RGB);
     final parameters = [cv.IMWRITE_JPEG_QUALITY, 85].i32;
     late final Uint8List cardImageBytes;
@@ -97,7 +104,26 @@ ScanImageHashes _hashImage(Uint8List imageBytes) {
   } finally {
     rgb?.dispose();
     card?.dispose();
+    cropped?.dispose();
     decoded.dispose();
+  }
+}
+
+cv.Mat _cropImage(cv.Mat image, ScanImageCrop crop) {
+  final resolved = crop.resolve(
+    imageWidth: image.cols,
+    imageHeight: image.rows,
+  );
+  final rectangle = cv.Rect(
+    resolved.x,
+    resolved.y,
+    resolved.width,
+    resolved.height,
+  );
+  try {
+    return image.region(rectangle);
+  } finally {
+    rectangle.dispose();
   }
 }
 

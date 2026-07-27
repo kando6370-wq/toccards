@@ -11,6 +11,7 @@ import 'package:kando_app/features/scan/scan_result_source.dart';
 import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/scan/scan_api_client.dart';
+import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/ui/toast.dart';
 import '../collection/collection_controller.dart';
 import '../card_detail/card_detail_controller.dart';
@@ -32,6 +33,24 @@ enum _ScanItemStatus {
 const _viewfinderTop = 163.0;
 const _viewfinderWidth = 280.0;
 const _viewfinderHeight = 400.0;
+
+ScanImageCrop _cameraRecognitionCrop(Size viewport) {
+  final viewfinderLeft = (viewport.width - _viewfinderWidth) / 2;
+  final left = viewfinderLeft.clamp(0.0, viewport.width);
+  final top = _viewfinderTop.clamp(0.0, viewport.height);
+  final right = (viewfinderLeft + _viewfinderWidth).clamp(0.0, viewport.width);
+  final bottom = (_viewfinderTop + _viewfinderHeight).clamp(
+    0.0,
+    viewport.height,
+  );
+  return ScanImageCrop(
+    left: left / viewport.width,
+    top: top / viewport.height,
+    width: (right - left) / viewport.width,
+    height: (bottom - top) / viewport.height,
+    viewportAspectRatio: viewport.width / viewport.height,
+  );
+}
 
 class _ScanMatch {
   const _ScanMatch({
@@ -422,10 +441,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
     ScanCameraSession camera,
     ScanResultSource source,
   ) async {
+    final recognitionCrop = _cameraRecognitionCrop(MediaQuery.sizeOf(context));
     try {
       await _captureController.forward(from: 0).orCancel;
       final image = await camera.takePhoto();
-      return await source.recognize(image);
+      return await source.recognize(
+        ScanImage(
+          bytes: image.bytes,
+          fileName: image.fileName,
+          recognitionCrop: recognitionCrop,
+        ),
+      );
     } catch (_) {
       return const ScanResolution.failed();
     }
@@ -2336,9 +2362,14 @@ class _ScanResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleItems = items.where((item) {
-      return item.status != _ScanItemStatus.revealing || showRevealingFeedback;
-    }).toList().reversed.toList();
+    final visibleItems = items
+        .where((item) {
+          return item.status != _ScanItemStatus.revealing ||
+              showRevealingFeedback;
+        })
+        .toList()
+        .reversed
+        .toList();
     if (visibleItems.isEmpty) {
       return const SizedBox.shrink();
     }

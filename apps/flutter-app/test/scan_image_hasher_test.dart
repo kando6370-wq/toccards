@@ -8,6 +8,27 @@ import 'package:opencv_dart/opencv_dart.dart' as cv;
 
 void main() {
   test(
+    'camera crop maps the visible preview back to the sensor image because recognition must use the same card area shown inside the viewfinder',
+    () {
+      const crop = ScanImageCrop(
+        left: 55 / 390,
+        top: 163 / 844,
+        width: 280 / 390,
+        height: 400 / 844,
+        viewportAspectRatio: 390 / 844,
+      );
+
+      final resolved = crop.resolve(imageWidth: 3024, imageHeight: 4032);
+
+      expect(resolved.x, greaterThan(0));
+      expect(resolved.y, greaterThan(0));
+      expect(resolved.x + resolved.width, lessThan(3024));
+      expect(resolved.y + resolved.height, lessThan(4032));
+      expect(resolved.width / resolved.height, closeTo(280 / 400, 0.01));
+    },
+  );
+
+  test(
     'native preprocessing matches the Python OpenCV reference because detection, perspective correction, and RGB channel order are part of the production index contract',
     () async {
       final hasher = createScanImageHasher();

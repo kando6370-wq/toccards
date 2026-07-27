@@ -78,10 +78,15 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
 enum ScanImageSource { camera, gallery }
 
 class ScanImage {
-  const ScanImage({required this.bytes, required this.fileName});
+  const ScanImage({
+    required this.bytes,
+    required this.fileName,
+    this.recognitionCrop,
+  });
 
   final Uint8List bytes;
   final String fileName;
+  final ScanImageCrop? recognitionCrop;
 }
 
 abstract interface class ScanImagePicker {
@@ -200,7 +205,10 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       final info = await _appInfo();
-      final hashes = await _imageHasher.hash(image.bytes);
+      final hashes = await _imageHasher.hash(
+        image.bytes,
+        crop: image.recognitionCrop,
+      );
       if (hashes.cardImageBytes == null) {
         throw const ScanImageProcessingException(
           'The corrected card image is unavailable.',

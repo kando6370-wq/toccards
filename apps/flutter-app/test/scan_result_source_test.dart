@@ -32,9 +32,42 @@ void main() {
       expect(result.candidateCardRefs, ['1', '2']);
       expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
       expect(imageHasher.lastBytes, Uint8List.fromList([1, 2, 3]));
+      expect(imageHasher.lastCrop, isNull);
       expect(api.lastHashes?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
       expect(api.lastPlatform, 'iOS');
       expect(picker.sources, [ScanImageSource.camera]);
+    },
+  );
+
+  test(
+    'recognize forwards the camera viewfinder crop because in-app photos must match the visible targeting area',
+    () async {
+      final imageHasher = _FakeScanImageHasher();
+      final source = ApiScanResultSource(
+        api: _FakeScanApi(_matchedRecognition),
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        imageHasher: imageHasher,
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+      const crop = ScanImageCrop(
+        left: 0.1,
+        top: 0.2,
+        width: 0.8,
+        height: 0.6,
+        viewportAspectRatio: 390 / 844,
+      );
+
+      await source.recognize(
+        ScanImage(
+          bytes: Uint8List.fromList([1, 2, 3]),
+          fileName: 'camera.jpg',
+          recognitionCrop: crop,
+        ),
+      );
+
+      expect(imageHasher.lastCrop, same(crop));
     },
   );
 
@@ -265,10 +298,15 @@ class _FakeScanApi implements ScanApi {
 
 class _FakeScanImageHasher implements ScanImageHasher {
   Uint8List? lastBytes;
+  ScanImageCrop? lastCrop;
 
   @override
-  Future<ScanImageHashes> hash(Uint8List imageBytes) async {
+  Future<ScanImageHashes> hash(
+    Uint8List imageBytes, {
+    ScanImageCrop? crop,
+  }) async {
     lastBytes = imageBytes;
+    lastCrop = crop;
     return ScanImageHashes(
       r: _hash,
       g: _hash,

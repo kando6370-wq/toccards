@@ -11,9 +11,19 @@ class _WebScanImageHasher implements ScanImageHasher {
   const _WebScanImageHasher();
 
   @override
-  Future<ScanImageHashes> hash(Uint8List imageBytes) async {
+  Future<ScanImageHashes> hash(
+    Uint8List imageBytes, {
+    ScanImageCrop? crop,
+  }) async {
     try {
-      final result = await _processImage(base64Encode(imageBytes).toJS).toDart;
+      final result = await _processImage(
+        base64Encode(imageBytes).toJS,
+        (crop?.left ?? -1).toJS,
+        (crop?.top ?? -1).toJS,
+        (crop?.width ?? -1).toJS,
+        (crop?.height ?? -1).toJS,
+        (crop?.viewportAspectRatio ?? -1).toJS,
+      ).toDart;
       final width = result.width.toDartInt;
       final height = result.height.toDartInt;
       return ScanImageHashes(
@@ -49,7 +59,14 @@ class _WebScanImageHasher implements ScanImageHasher {
 }
 
 @JS('kandoScan.processImage')
-external JSPromise<_WebScanResult> _processImage(JSString imageBase64);
+external JSPromise<_WebScanResult> _processImage(
+  JSString imageBase64,
+  JSNumber cropLeft,
+  JSNumber cropTop,
+  JSNumber cropWidth,
+  JSNumber cropHeight,
+  JSNumber viewportAspectRatio,
+);
 
 extension type _WebScanResult._(JSObject _) implements JSObject {
   external JSString get red;

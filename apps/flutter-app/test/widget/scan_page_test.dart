@@ -127,6 +127,10 @@ void main() {
   testWidgets(
     'Scan animates capture feedback before freezing the live frame because taking a photo must be perceptible',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
       final camera = _TestScanCameraSession();
       final source = _TestScanResultSource(
         photoResult: Future.value(const ScanResolution.failed()),
@@ -173,11 +177,46 @@ void main() {
         source.recognizedImages.single.bytes,
         Uint8List.fromList([9, 8, 7]),
       );
+      final crop = source.recognizedImages.single.recognitionCrop!;
+      expect(crop.left, closeTo(55 / 390, 0.0001));
+      expect(crop.top, closeTo(163 / 844, 0.0001));
+      expect(crop.width, closeTo(280 / 390, 0.0001));
+      expect(crop.height, closeTo(400 / 844, 0.0001));
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
       expect(camera.disposed, isTrue);
       expect(camera.flashEnabled, isFalse);
+    },
+  );
+
+  testWidgets(
+    'Camera recognition uses exactly the yellow viewfinder because pixels outside the targeting frame must never reach card detection',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 800);
+      addTearDown(tester.view.reset);
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        recognizeResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: _TestScanCameraFactory(_TestScanCameraSession()),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final crop = source.recognizedImages.single.recognitionCrop!;
+      expect(crop.left, closeTo(viewfinder.left / 360, 0.0001));
+      expect(crop.top, closeTo(viewfinder.top / 800, 0.0001));
+      expect(crop.left + crop.width, closeTo(viewfinder.right / 360, 0.0001));
+      expect(crop.top + crop.height, closeTo(viewfinder.bottom / 800, 0.0001));
     },
   );
 
