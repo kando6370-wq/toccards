@@ -50,7 +50,7 @@ ScanImageHashes _hashImage(Uint8List imageBytes, ScanImageCrop? crop) {
     final source = crop == null
         ? decoded
         : (cropped = _cropImage(decoded, crop));
-    final corners = _detectCardCorners(source);
+    final corners = _detectCardCorners(source, allowSourceImage: crop == null);
     card = _warpCard(source, corners);
     rgb = cv.cvtColor(card, cv.COLOR_BGR2RGB);
     final parameters = [cv.IMWRITE_JPEG_QUALITY, 85].i32;
@@ -127,7 +127,10 @@ cv.Mat _cropImage(cv.Mat image, ScanImageCrop crop) {
   }
 }
 
-List<_ImagePoint> _detectCardCorners(cv.Mat image) {
+List<_ImagePoint> _detectCardCorners(
+  cv.Mat image, {
+  required bool allowSourceImage,
+}) {
   const maximumDimension = 1600;
   final scale = math.min(
     1.0,
@@ -146,116 +149,151 @@ List<_ImagePoint> _detectCardCorners(cv.Mat image) {
   final blurred = cv.gaussianBlur(enhanced, (5, 5), 0);
   final lab = cv.cvtColor(working, cv.COLOR_BGR2Lab);
   final channels = cv.split(lab);
-  final masks = <cv.Mat>[
-    cv.adaptiveThreshold(
-      blurred,
-      255,
-      cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-      cv.THRESH_BINARY,
-      31,
-      5,
+  final gradient = _buildGradient(channels);
+  final gradientHigh = _gradientPercentile(gradient, 0.99);
+  final median = _medianU8(blurred);
+  final masks = <cv.Mat>[];
+  for (final thresholds in [
+    (
+      math.max(10, (0.55 * median).floor()),
+      math.min(255, (1.35 * median).floor()),
     ),
-    cv.canny(blurred, 25, 85),
-    cv.canny(blurred, 55, 165),
-  ];
+    (25, 85),
+    (55, 165),
+  ]) {
+    final edge = cv.canny(
+      blurred,
+      thresholds.$1.toDouble(),
+      math.max(thresholds.$2, thresholds.$1 + 1).toDouble(),
+      l2gradient: true,
+    );
+    for (final kernelSize in const [3, 7]) {
+      final kernel = cv.getStructuringElement(cv.MORPH_RECT, (
+        kernelSize,
+        kernelSize,
+      ));
+      masks.add(cv.morphologyEx(edge, cv.MORPH_CLOSE, kernel));
+      kernel.dispose();
+    }
+    edge.dispose();
+  }
   for (var index = 0; index < channels.length; index += 1) {
+    final smooth = cv.gaussianBlur(channels[index], (7, 7), 0);
     final (_, normal) = cv.threshold(
-      channels[index],
+      smooth,
       0,
       255,
       cv.THRESH_BINARY + cv.THRESH_OTSU,
     );
     final (_, inverse) = cv.threshold(
-      channels[index],
+      smooth,
       0,
       255,
       cv.THRESH_BINARY_INV + cv.THRESH_OTSU,
     );
+    final kernel = cv.getStructuringElement(cv.MORPH_RECT, (7, 7));
     masks
-      ..add(normal)
-      ..add(inverse);
+      ..add(cv.morphologyEx(normal, cv.MORPH_CLOSE, kernel, iterations: 2))
+      ..add(cv.morphologyEx(inverse, cv.MORPH_CLOSE, kernel, iterations: 2));
+    kernel.dispose();
+    normal.dispose();
+    inverse.dispose();
+    smooth.dispose();
   }
   final candidates = <_CardCandidate>[];
   try {
     for (final mask in masks) {
-      for (final kernelSize in const [3, 7]) {
-        final kernel = cv.getStructuringElement(cv.MORPH_RECT, (
-          kernelSize,
-          kernelSize,
-        ));
-        final closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel);
-        final (contours, hierarchy) = cv.findContours(
-          closed,
-          cv.RETR_LIST,
-          cv.CHAIN_APPROX_SIMPLE,
-        );
-        try {
-          for (var index = 0; index < contours.length; index += 1) {
-            _addContourCandidates(
-              contours[index],
-              working,
-              lab,
-              gray,
-              candidates,
-            );
-          }
-        } finally {
-          hierarchy.dispose();
-          contours.dispose();
-          closed.dispose();
-          kernel.dispose();
+      final (contours, hierarchy) = cv.findContours(
+        mask,
+        cv.RETR_LIST,
+        cv.CHAIN_APPROX_SIMPLE,
+      );
+      try {
+        for (var index = 0; index < contours.length; index += 1) {
+          _addContourCandidates(
+            contours[index],
+            working,
+            gradient,
+            gradientHigh,
+            candidates,
+          );
         }
+      } finally {
+        hierarchy.dispose();
+        contours.dispose();
       }
     }
+    candidates.sort((left, right) => right.score.compareTo(left.score));
+    final deduplicated = _deduplicateCandidates(candidates);
     final sourceAspect =
         math.min(working.cols, working.rows) /
         math.max(working.cols, working.rows);
-    if ((math.log(sourceAspect / (_cardWidth / _cardHeight))).abs() <= 0.04) {
-      _addCandidate(
-        [
-          const _ImagePoint(0, 0),
-          _ImagePoint(working.cols - 1.0, 0),
-          _ImagePoint(working.cols - 1.0, working.rows - 1.0),
-          _ImagePoint(0, working.rows - 1.0),
-        ],
-        working,
-        lab,
-        gray,
-        candidates,
-        allowFullImage: true,
+    if (allowSourceImage &&
+        (math.log(sourceAspect / (_cardWidth / _cardHeight))).abs() <= 0.04) {
+      final aspectError = (math.log(
+        sourceAspect / (_cardWidth / _cardHeight),
+      )).abs();
+      deduplicated.add(
+        _CardCandidate(
+          [
+            const _ImagePoint(0, 0),
+            _ImagePoint(working.cols - 1.0, 0),
+            _ImagePoint(working.cols - 1.0, working.rows - 1.0),
+            _ImagePoint(0, working.rows - 1.0),
+          ],
+          (working.cols - 1.0) * (working.rows - 1.0),
+          math.exp(-2.7 * aspectError),
+          0.76 + 0.16 * math.exp(-2.7 * aspectError),
+          sourceImage: true,
+        ),
       );
     }
-    if (candidates.isEmpty) {
+    if (deduplicated.isEmpty) {
       throw const ScanImageProcessingException(
         'Keep one card fully visible inside the frame and try again.',
       );
     }
-    candidates.sort((left, right) => right.score.compareTo(left.score));
-    var best = candidates.first;
+    deduplicated.sort((left, right) => right.score.compareTo(left.score));
+    var best = deduplicated.first;
+    var selectedInset = false;
     final imageArea = working.rows * working.cols;
-    if (best.area / imageArea > 0.985) {
-      final inset = candidates.where((candidate) {
+    if (best.sourceImage) {
+      final inset = deduplicated.where((candidate) {
         final ratio = candidate.area / imageArea;
         return ratio >= 0.80 &&
             ratio <= 0.985 &&
-            candidate.aspectScore >= 0.78 &&
-            candidate.score >= best.score - 0.08;
+            candidate.aspectScore >= 0.90 &&
+            candidate.score >= best.score - 0.12;
       }).toList()..sort((left, right) => right.score.compareTo(left.score));
-      if (inset.isNotEmpty) best = inset.first;
-    }
-    for (final parent in candidates.skip(1)) {
-      final ratio = parent.area / best.area;
-      if (ratio >= 1.35 &&
-          ratio <= 4.5 &&
-          parent.aspectScore >= 0.78 &&
-          parent.score >= best.score - 0.13 &&
-          best.points
-                  .where((point) => _contains(parent.points, point))
-                  .length >=
-              3) {
-        best = parent;
-        break;
+      if (inset.isNotEmpty) {
+        best = inset.first;
+        selectedInset = true;
       }
+    }
+    final parents = <_CardCandidate>[];
+    if (!selectedInset && best.aspectScore >= 0.78) {
+      for (final parent in deduplicated.skip(1)) {
+        final ratio = parent.area / best.area;
+        if (ratio >= 1.35 &&
+            ratio <= 4.5 &&
+            parent.aspectScore >= 0.78 &&
+            parent.score >= best.score - 0.13 &&
+            best.points
+                    .where((point) => _contains(parent.points, point))
+                    .length >=
+                3) {
+          parents.add(parent);
+        }
+      }
+    }
+    if (parents.isNotEmpty) {
+      parents.sort((left, right) => right.area.compareTo(left.area));
+      best = parents.first;
+    }
+    if (best.score < 0.48) {
+      throw const ScanImageProcessingException(
+        'Keep one card fully visible inside the frame and try again.',
+      );
     }
     return [
       for (final point in best.points)
@@ -266,6 +304,7 @@ List<_ImagePoint> _detectCardCorners(cv.Mat image) {
       mask.dispose();
     }
     channels.dispose();
+    gradient.dispose();
     lab.dispose();
     blurred.dispose();
     enhanced.dispose();
@@ -278,8 +317,8 @@ List<_ImagePoint> _detectCardCorners(cv.Mat image) {
 void _addContourCandidates(
   cv.VecPoint contour,
   cv.Mat image,
-  cv.Mat lab,
-  cv.Mat gray,
+  cv.Mat gradient,
+  double gradientHigh,
   List<_CardCandidate> candidates,
 ) {
   final imageArea = image.rows * image.cols;
@@ -294,7 +333,7 @@ void _addContourCandidates(
       if (approximation.length != 4 || !cv.isContourConvex(approximation)) {
         continue;
       }
-      _addCandidate(
+      final valid = _addCandidate(
         [
           for (var i = 0; i < 4; i++)
             _ImagePoint(
@@ -303,25 +342,30 @@ void _addContourCandidates(
             ),
         ],
         image,
-        lab,
-        gray,
+        gradient,
+        gradientHigh,
         candidates,
       );
-      added = true;
-      break;
+      if (valid) {
+        added = true;
+        break;
+      }
     } finally {
       approximation.dispose();
     }
   }
-  if (added) return;
   final rectangle = cv.minAreaRect(contour);
+  final rectangleArea = rectangle.size.width * rectangle.size.height;
+  if (rectangleArea <= 0 || area / rectangleArea < (added ? 0.52 : 0.68)) {
+    return;
+  }
   final box = cv.boxPoints(rectangle);
   try {
     _addCandidate(
       [for (var i = 0; i < box.length; i++) _ImagePoint(box[i].x, box[i].y)],
       image,
-      lab,
-      gray,
+      gradient,
+      gradientHigh,
       candidates,
     );
   } finally {
@@ -329,39 +373,44 @@ void _addContourCandidates(
   }
 }
 
-void _addCandidate(
+bool _addCandidate(
   List<_ImagePoint> raw,
   cv.Mat image,
-  cv.Mat lab,
-  cv.Mat gray,
-  List<_CardCandidate> candidates, {
-  bool allowFullImage = false,
-}) {
+  cv.Mat gradient,
+  double gradientHigh,
+  List<_CardCandidate> candidates,
+) {
   final points = _orderCorners(raw);
-  final widths = [
-    _distance(points[0], points[1]),
-    _distance(points[3], points[2]),
+  final sides = [
+    for (var i = 0; i < 4; i++) _distance(points[i], points[(i + 1) % 4]),
   ];
-  final heights = [
-    _distance(points[0], points[3]),
-    _distance(points[1], points[2]),
-  ];
-  final shortSide = math.min(widths.reduce(math.max), heights.reduce(math.max));
-  final longSide = math.max(widths.reduce(math.max), heights.reduce(math.max));
-  if (shortSide < 24 || longSide / shortSide > 2.4) return;
+  final shortest = sides.reduce(math.min);
+  final longest = sides.reduce(math.max);
+  if (shortest < 24 || shortest / math.max(longest, 1) < 0.24) return false;
   final area = _polygonArea(points);
   final areaRatio = area / (image.rows * image.cols);
-  if (areaRatio < 0.025 || (!allowFullImage && areaRatio > 0.97)) return;
-  final aspect = shortSide / longSide;
+  if (areaRatio < 0.025 || areaRatio > 0.97) return false;
+  final width = (sides[0] + sides[2]) / 2;
+  final height = (sides[1] + sides[3]) / 2;
+  final aspect = math.min(width, height) / math.max(width, height);
+  if (aspect < 0.32 || aspect > 0.95) return false;
   final aspectScore = math.exp(
-    -4.0 * (math.log(aspect / (_cardWidth / _cardHeight))).abs(),
+    -2.7 * (math.log(aspect / (_cardWidth / _cardHeight))).abs(),
   );
-  final rectangleArea = shortSide * longSide;
+  final vector = cv.VecPoint2f.generate(
+    4,
+    (i) => cv.Point2f(points[i].x, points[i].y),
+  );
+  final rectangle = cv.minAreaRect2f(vector);
+  final rectangleArea = math.max(
+    rectangle.size.width * rectangle.size.height,
+    1,
+  );
+  vector.dispose();
   final rectangularity = math.min(1.0, area / rectangleArea);
-  final boundary = _edgeContrast(points, lab);
-  final content = _contentRichness(points, gray);
-  final border = _borderContrast(points, lab);
-  final areaScore = math.min(1.0, areaRatio / 0.45);
+  final boundary = _boundaryStrength(points, gradient, gradientHigh);
+  final (content, border) = _appearanceScores(image, points);
+  final areaScore = math.min(1.0, math.sqrt(areaRatio / 0.24));
   final touching = points
       .where(
         (p) =>
@@ -376,82 +425,211 @@ void _addCandidate(
       0.11 * content +
       0.08 * border -
       0.07 * (touching / 4);
-  if (candidates.any(
-    (candidate) => _cornerDistance(candidate.points, points) < 10,
-  )) {
-    return;
-  }
   candidates.add(_CardCandidate(points, area, aspectScore, score));
+  return true;
 }
 
-double _edgeContrast(List<_ImagePoint> points, cv.Mat lab) =>
-    _sampleBorder(points, lab, 2.0);
-double _borderContrast(List<_ImagePoint> points, cv.Mat lab) =>
-    _sampleBorder(points, lab, 7.0);
-
-double _sampleBorder(List<_ImagePoint> points, cv.Mat lab, double offset) {
-  var total = 0.0;
+int _medianU8(cv.Mat mat) {
+  final histogram = List<int>.filled(256, 0);
+  for (final value in mat.data) {
+    histogram[value]++;
+  }
+  final target = mat.total ~/ 2;
   var count = 0;
+  for (var value = 0; value < histogram.length; value++) {
+    count += histogram[value];
+    if (count > target) return value;
+  }
+  return 0;
+}
+
+cv.Mat _buildGradient(cv.VecMat channels) {
+  cv.Mat? combined;
+  for (var index = 0; index < channels.length; index++) {
+    final gx = cv.sobel(
+      channels[index],
+      cv.MatType.CV_32FC1.value,
+      1,
+      0,
+      ksize: 3,
+    );
+    final gy = cv.sobel(
+      channels[index],
+      cv.MatType.CV_32FC1.value,
+      0,
+      1,
+      ksize: 3,
+    );
+    final magnitude = cv.magnitude(gx, gy);
+    gx.dispose();
+    gy.dispose();
+    if (combined == null) {
+      combined = magnitude;
+    } else {
+      final maximum = cv.max(combined, magnitude);
+      combined.dispose();
+      magnitude.dispose();
+      combined = maximum;
+    }
+  }
+  return combined!;
+}
+
+double _gradientPercentile(cv.Mat gradient, double percentile) {
+  final bytes = gradient.data;
+  final values = bytes.buffer.asFloat32List(
+    bytes.offsetInBytes,
+    gradient.total,
+  );
+  final sampled = <double>[for (var i = 0; i < values.length; i += 4) values[i]]
+    ..sort();
+  return math.max(
+    1.0,
+    sampled[(sampled.length * percentile).floor().clamp(0, sampled.length - 1)],
+  );
+}
+
+double _boundaryStrength(
+  List<_ImagePoint> points,
+  cv.Mat gradient,
+  double high,
+) {
+  final bytes = gradient.data;
+  final values = bytes.buffer.asFloat32List(
+    bytes.offsetInBytes,
+    gradient.total,
+  );
+  final edgeScores = <double>[];
   for (var edge = 0; edge < 4; edge++) {
-    final a = points[edge];
-    final b = points[(edge + 1) % 4];
-    final dx = b.x - a.x;
-    final dy = b.y - a.y;
-    final length = math.sqrt(dx * dx + dy * dy);
-    if (length == 0) continue;
-    final nx = -dy / length;
-    final ny = dx / length;
-    for (var step = 1; step < 16; step++) {
-      final x = a.x + dx * step / 16;
-      final y = a.y + dy * step / 16;
-      total += _labDistance(
-        lab,
-        x + nx * offset,
-        y + ny * offset,
-        x - nx * offset,
-        y - ny * offset,
-      );
-      count++;
+    final start = points[edge];
+    final end = points[(edge + 1) % 4];
+    final length = math.max(16, _distance(start, end).floor());
+    final strengths = <double>[];
+    for (var step = 0; step < length; step++) {
+      final t = length == 1 ? 0.0 : step / (length - 1);
+      final x = (start.x + (end.x - start.x) * t).round();
+      final y = (start.y + (end.y - start.y) * t).round();
+      var strongest = 0.0;
+      for (var offset = -2; offset <= 2; offset++) {
+        final xi = (x + offset).clamp(0, gradient.cols - 1);
+        final yi = (y + offset).clamp(0, gradient.rows - 1);
+        strongest = math.max(strongest, values[yi * gradient.cols + xi] / high);
+      }
+      strengths.add(math.min(1.0, strongest));
+    }
+    strengths.sort();
+    final upper = strengths.sublist(strengths.length ~/ 2);
+    edgeScores.add(upper.reduce((a, b) => a + b) / upper.length);
+  }
+  return edgeScores.reduce((a, b) => a + b) / edgeScores.length;
+}
+
+(double, double) _appearanceScores(cv.Mat image, List<_ImagePoint> points) {
+  final preview = _warpCardToSize(image, points, 224, 312);
+  final gray = cv.cvtColor(preview, cv.COLOR_BGR2GRAY);
+  final edges = cv.canny(gray, 45, 140);
+  var edgeCount = 0;
+  var pixelCount = 0;
+  for (var y = 20; y < edges.rows - 20; y++) {
+    for (var x = 15; x < edges.cols - 15; x++) {
+      if (edges.data[y * edges.cols + x] > 0) edgeCount++;
+      pixelCount++;
     }
   }
-  return count == 0 ? 0 : math.min(1.0, total / count / 70);
-}
-
-double _labDistance(cv.Mat mat, double ax, double ay, double bx, double by) {
-  int clampX(double x) => x.round().clamp(0, mat.cols - 1);
-  int clampY(double y) => y.round().clamp(0, mat.rows - 1);
-  final ai = (clampY(ay) * mat.cols + clampX(ax)) * 3;
-  final bi = (clampY(by) * mat.cols + clampX(bx)) * 3;
-  var sum = 0.0;
-  for (var channel = 0; channel < 3; channel++) {
-    final difference = mat.data[ai + channel] - mat.data[bi + channel];
-    sum += difference * difference;
-  }
-  return math.sqrt(sum);
-}
-
-double _contentRichness(List<_ImagePoint> points, cv.Mat gray) {
-  var total = 0.0;
-  var count = 0;
-  for (var yStep = 2; yStep < 18; yStep++) {
-    for (var xStep = 2; xStep < 14; xStep++) {
-      final top = _lerp(points[0], points[1], xStep / 16);
-      final bottom = _lerp(points[3], points[2], xStep / 16);
-      final point = _lerp(top, bottom, yStep / 20);
-      final x = point.x.round().clamp(1, gray.cols - 2);
-      final y = point.y.round().clamp(1, gray.rows - 2);
-      final index = y * gray.cols + x;
-      total +=
-          (gray.data[index + 1] - gray.data[index - 1]).abs() +
-          (gray.data[index + gray.cols] - gray.data[index - gray.cols]).abs();
-      count++;
+  final content = math.min(1.0, (edgeCount / math.max(pixelCount, 1)) / 0.16);
+  final lab = cv.cvtColor(preview, cv.COLOR_BGR2Lab);
+  final outer = [for (var i = 0; i < 3; i++) List<int>.filled(256, 0)];
+  final inner = [for (var i = 0; i < 3; i++) List<int>.filled(256, 0)];
+  var outerCount = 0;
+  var innerCount = 0;
+  void addRows(List<List<int>> histogram, int start, int end) {
+    for (var y = start; y < end; y++) {
+      for (var x = 0; x < lab.cols; x++) {
+        final offset = (y * lab.cols + x) * 3;
+        for (var c = 0; c < 3; c++) {
+          histogram[c][lab.data[offset + c]]++;
+        }
+      }
     }
   }
-  return count == 0 ? 0 : math.min(1.0, total / count / 80);
+
+  void addColumns(List<List<int>> histogram, int start, int end) {
+    for (var y = 0; y < lab.rows; y++) {
+      for (var x = start; x < end; x++) {
+        final offset = (y * lab.cols + x) * 3;
+        for (var c = 0; c < 3; c++) {
+          histogram[c][lab.data[offset + c]]++;
+        }
+      }
+    }
+  }
+
+  addRows(outer, 0, 8);
+  addRows(outer, lab.rows - 8, lab.rows);
+  addColumns(outer, 0, 8);
+  addColumns(outer, lab.cols - 8, lab.cols);
+  outerCount = 16 * lab.cols + 16 * lab.rows;
+  addRows(inner, 12, 20);
+  addRows(inner, lab.rows - 20, lab.rows - 12);
+  addColumns(inner, 12, 20);
+  addColumns(inner, lab.cols - 20, lab.cols - 12);
+  innerCount = 16 * lab.cols + 16 * lab.rows;
+  int median(List<int> histogram, int count) {
+    var seen = 0;
+    for (var value = 0; value < 256; value++) {
+      seen += histogram[value];
+      if (seen > count ~/ 2) {
+        return value;
+      }
+    }
+    return 0;
+  }
+
+  var squared = 0.0;
+  for (var c = 0; c < 3; c++) {
+    final difference =
+        median(outer[c], outerCount) - median(inner[c], innerCount);
+    squared += difference * difference;
+  }
+  final border = math.min(1.0, math.sqrt(squared) / 38.0);
+  lab.dispose();
+  edges.dispose();
+  gray.dispose();
+  preview.dispose();
+  return (content, border);
 }
 
-_ImagePoint _lerp(_ImagePoint a, _ImagePoint b, double t) =>
-    _ImagePoint(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+List<_CardCandidate> _deduplicateCandidates(List<_CardCandidate> candidates) {
+  final kept = <_CardCandidate>[];
+  for (final candidate in candidates) {
+    if (kept.any(
+      (item) => _quadSimilarity(candidate.points, item.points) > 0.82,
+    )) {
+      continue;
+    }
+    kept.add(candidate);
+    if (kept.length >= 30) {
+      break;
+    }
+  }
+  return kept;
+}
+
+double _quadSimilarity(List<_ImagePoint> a, List<_ImagePoint> b) {
+  double minX(List<_ImagePoint> p) => p.map((v) => v.x).reduce(math.min);
+  double maxX(List<_ImagePoint> p) => p.map((v) => v.x).reduce(math.max);
+  double minY(List<_ImagePoint> p) => p.map((v) => v.y).reduce(math.min);
+  double maxY(List<_ImagePoint> p) => p.map((v) => v.y).reduce(math.max);
+  final ax1 = minX(a), ax2 = maxX(a), ay1 = minY(a), ay2 = maxY(a);
+  final bx1 = minX(b), bx2 = maxX(b), by1 = minY(b), by2 = maxY(b);
+  final intersection =
+      math.max(0.0, math.min(ax2, bx2) - math.max(ax1, bx1)) *
+      math.max(0.0, math.min(ay2, by2) - math.max(ay1, by1));
+  final union =
+      (ax2 - ax1) * (ay2 - ay1) + (bx2 - bx1) * (by2 - by1) - intersection;
+  return intersection / math.max(union, 1.0);
+}
+
 double _polygonArea(List<_ImagePoint> points) =>
     ((points[0].x * points[1].y +
                 points[1].x * points[2].y +
@@ -463,8 +641,6 @@ double _polygonArea(List<_ImagePoint> points) =>
                 points[0].x * points[3].y))
         .abs() /
     2;
-double _cornerDistance(List<_ImagePoint> a, List<_ImagePoint> b) =>
-    List.generate(4, (i) => _distance(a[i], b[i])).reduce((x, y) => x + y) / 4;
 bool _contains(List<_ImagePoint> polygon, _ImagePoint point) {
   var sign = 0;
   for (var i = 0; i < 4; i++) {
@@ -480,42 +656,47 @@ bool _contains(List<_ImagePoint> polygon, _ImagePoint point) {
 }
 
 List<_ImagePoint> _orderCorners(List<_ImagePoint> points) {
-  final topLeft = points.reduce(
-    (left, right) => left.x + left.y < right.x + right.y ? left : right,
-  );
-  final bottomRight = points.reduce(
-    (left, right) => left.x + left.y > right.x + right.y ? left : right,
-  );
-  final topRight = points.reduce(
-    (left, right) => left.x - left.y > right.x - right.y ? left : right,
-  );
-  final bottomLeft = points.reduce(
-    (left, right) => left.x - left.y < right.x - right.y ? left : right,
-  );
-  final ordered = [topLeft, topRight, bottomRight, bottomLeft];
-  if (ordered.toSet().length != 4) {
-    throw const ScanImageProcessingException(
-      'The card corners could not be detected.',
+  final centerX = points.map((point) => point.x).reduce((a, b) => a + b) / 4;
+  final centerY = points.map((point) => point.y).reduce((a, b) => a + b) / 4;
+  final ordered = [...points]
+    ..sort(
+      (a, b) => math
+          .atan2(a.y - centerY, a.x - centerX)
+          .compareTo(math.atan2(b.y - centerY, b.x - centerX)),
     );
+  final start = List.generate(4, (index) => index).reduce(
+    (a, b) => ordered[a].x + ordered[a].y < ordered[b].x + ordered[b].y ? a : b,
+  );
+  final rotated = [for (var i = 0; i < 4; i++) ordered[(start + i) % 4]];
+  final firstX = rotated[1].x - rotated[0].x;
+  final firstY = rotated[1].y - rotated[0].y;
+  final secondX = rotated[2].x - rotated[1].x;
+  final secondY = rotated[2].y - rotated[1].y;
+  if (firstX * secondY - firstY * secondX < 0) {
+    return [rotated[0], rotated[3], rotated[2], rotated[1]];
   }
-  return ordered;
+  return rotated;
 }
 
-cv.Mat _warpCard(cv.Mat image, List<_ImagePoint> corners) {
-  final sourceWidth = math.max(
-    _distance(corners[0], corners[1]),
-    _distance(corners[3], corners[2]),
-  );
-  final sourceHeight = math.max(
-    _distance(corners[0], corners[3]),
-    _distance(corners[1], corners[2]),
-  );
-  final landscape = sourceWidth > sourceHeight;
-  final width = landscape ? _cardHeight : _cardWidth;
-  final height = landscape ? _cardWidth : _cardHeight;
+cv.Mat _warpCard(cv.Mat image, List<_ImagePoint> corners) =>
+    _warpCardToSize(image, corners, _cardWidth, _cardHeight);
+
+cv.Mat _warpCardToSize(
+  cv.Mat image,
+  List<_ImagePoint> corners,
+  int width,
+  int height,
+) {
+  var ordered = _orderCorners(corners);
+  final sides = [
+    for (var i = 0; i < 4; i++) _distance(ordered[i], ordered[(i + 1) % 4]),
+  ];
+  if (sides[0] + sides[2] > sides[1] + sides[3]) {
+    ordered = [ordered[1], ordered[2], ordered[3], ordered[0]];
+  }
   final source = cv.VecPoint2f.generate(
     4,
-    (index) => cv.Point2f(corners[index].x, corners[index].y),
+    (index) => cv.Point2f(ordered[index].x, ordered[index].y),
   );
   final target = cv.VecPoint2f.generate(
     4,
@@ -529,7 +710,7 @@ cv.Mat _warpCard(cv.Mat image, List<_ImagePoint> corners) {
   final transform = cv.getPerspectiveTransform2f(source, target);
   final border = cv.Scalar.all(255);
   try {
-    final warped = cv.warpPerspective(
+    return cv.warpPerspective(
       image,
       transform,
       (width, height),
@@ -537,12 +718,6 @@ cv.Mat _warpCard(cv.Mat image, List<_ImagePoint> corners) {
       borderMode: cv.BORDER_REPLICATE,
       borderValue: border,
     );
-    if (!landscape) return warped;
-    try {
-      return cv.rotate(warped, cv.ROTATE_90_COUNTERCLOCKWISE);
-    } finally {
-      warped.dispose();
-    }
   } finally {
     border.dispose();
     transform.dispose();
@@ -565,9 +740,16 @@ class _ImagePoint {
 }
 
 class _CardCandidate {
-  const _CardCandidate(this.points, this.area, this.aspectScore, this.score);
+  const _CardCandidate(
+    this.points,
+    this.area,
+    this.aspectScore,
+    this.score, {
+    this.sourceImage = false,
+  });
   final List<_ImagePoint> points;
   final double area;
   final double aspectScore;
   final double score;
+  final bool sourceImage;
 }

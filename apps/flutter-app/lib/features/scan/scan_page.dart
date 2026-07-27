@@ -287,6 +287,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _appActive = true;
   var _reviewing = false;
   var _photoRecognitionInFlight = false;
+  var _capturingPhoto = false;
   int? _selectedReviewItemId;
   int? _lastAddedCount;
   ScanReviewTarget? _reviewTarget;
@@ -295,10 +296,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
   String? _reviewFormError;
   var _savingReview = false;
   int? _dismissedFeedbackItemId;
-
-  bool get _isScanning {
-    return _items.any((item) => item.status == _ScanItemStatus.scanning);
-  }
 
   bool get _isRecognizing {
     return _items.any((item) => item.status == _ScanItemStatus.recognizing);
@@ -358,6 +355,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       unawaited(_openCamera());
       return;
     }
+    if (state == AppLifecycleState.inactive) return;
     _appActive = false;
     unawaited(_closeCamera());
   }
@@ -433,19 +431,27 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
     if (_photoRecognitionInFlight) return;
     _photoRecognitionInFlight = true;
-    final result = _captureAndRecognize(camera, source);
-    _addScan(result);
+    late final int itemId;
+    final result = _captureAndRecognize(
+      camera,
+      source,
+      onCaptured: (image) => _attachScanImage(itemId, image),
+    );
+    itemId = _addScan(result);
     unawaited(_finishPhotoRecognition(result));
   }
 
   Future<ScanResolution> _captureAndRecognize(
     ScanCameraSession camera,
-    ScanResultSource source,
-  ) async {
+    ScanResultSource source, {
+    required ValueChanged<ScanImage> onCaptured,
+  }) async {
     final recognitionCrop = _cameraRecognitionCrop(MediaQuery.sizeOf(context));
     try {
+      setState(() => _capturingPhoto = true);
       await _captureController.forward(from: 0).orCancel;
       final image = await camera.takePhoto();
+      onCaptured(image);
       return await source.recognize(
         ScanImage(
           bytes: image.bytes,
@@ -455,6 +461,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
       );
     } catch (_) {
       return const ScanResolution.failed();
+    } finally {
+      if (mounted) setState(() => _capturingPhoto = false);
     }
   }
 
@@ -472,10 +480,26 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _startLibraryScan() async {
     try {
-      final scans = await ref.read(scanResultSourceProvider).library();
+      var selectedCount = 0;
+      final scans = await ref
+          .read(scanResultSourceProvider)
+          .library(
+            onSelected: (image, resolution) {
+              selectedCount += 1;
+              if (mounted) {
+                _addScan(
+                  resolution,
+                  imageBytes: image.bytes,
+                  imageFileName: image.fileName,
+                );
+              }
+            },
+          );
       if (!mounted) return;
-      for (final scan in scans) {
-        _addScan(scan);
+      if (selectedCount == 0) {
+        for (final scan in scans) {
+          _addScan(scan);
+        }
       }
     } catch (_) {
       if (mounted) {
@@ -536,7 +560,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
     unawaited(_openCamera());
   }
 
-  void _addScan(Future<ScanResolution> resultFuture) {
+  int _addScan(
+    Future<ScanResolution> resultFuture, {
+    Uint8List? imageBytes,
+    String? imageFileName,
+  }) {
     final id = _nextScanId;
     _nextScanId += 1;
     setState(() {
@@ -547,10 +575,23 @@ class _ScanPageState extends ConsumerState<ScanPage>
           id: id,
           pictureLabel: 'Scan $id',
           status: _ScanItemStatus.scanning,
+          imageBytes: imageBytes,
+          imageFileName: imageFileName,
         ),
       );
     });
     _startScanTimeline(id, resultFuture);
+    return id;
+  }
+
+  void _attachScanImage(int itemId, ScanImage image) {
+    final item = _items
+        .where((candidate) => candidate.id == itemId)
+        .firstOrNull;
+    if (item == null) return;
+    _replaceItem(
+      item.copyWith(imageBytes: image.bytes, imageFileName: image.fileName),
+    );
   }
 
   void _startScanTimeline(int itemId, Future<ScanResolution> resultFuture) {
@@ -1183,11 +1224,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
               )
             : _ScanCameraView(
                 cameraPreview: _cameraSession?.buildPreview(),
+                cameraOpening: _openingCamera,
                 flashEnabled: _cameraSession?.flashEnabled ?? false,
                 items: _items,
                 lastAddedCount: _lastAddedCount,
                 canReview: _canReview,
-                scanning: _isScanning,
+                capturingPhoto: _capturingPhoto,
                 recognizing: _isRecognizing,
                 revealing: _isRevealing,
                 showRevealingFeedback: _showRevealingFeedback,
@@ -1215,11 +1257,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
 class _ScanCameraView extends StatelessWidget {
   const _ScanCameraView({
     required this.cameraPreview,
+    required this.cameraOpening,
     required this.flashEnabled,
     required this.items,
     required this.lastAddedCount,
     required this.canReview,
-    required this.scanning,
+    required this.capturingPhoto,
     required this.recognizing,
     required this.revealing,
     required this.showRevealingFeedback,
@@ -1241,12 +1284,13 @@ class _ScanCameraView extends StatelessWidget {
   });
 
   final Widget? cameraPreview;
+  final bool cameraOpening;
   final bool flashEnabled;
   final List<_ScanItem> items;
   final int? lastAddedCount;
 
   final bool canReview;
-  final bool scanning;
+  final bool capturingPhoto;
   final bool recognizing;
   final bool revealing;
   final bool showRevealingFeedback;
@@ -1275,6 +1319,13 @@ class _ScanCameraView extends StatelessWidget {
             child: KeyedSubtree(
               key: const Key('scan-live-camera-preview'),
               child: cameraPreview!,
+            ),
+          )
+        else if (cameraOpening)
+          const Positioned.fill(
+            child: ColoredBox(
+              key: Key('scan-camera-opening-background'),
+              color: Color(0xFF10100B),
             ),
           )
         else if (revealing)
@@ -1381,7 +1432,7 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ),
-        if (scanning) ...[
+        if (capturingPhoto) ...[
           Positioned(
             left: 55,
             top: _viewfinderTop,
@@ -1397,7 +1448,7 @@ class _ScanCameraView extends StatelessWidget {
           Positioned(
             left: 16,
             right: 16,
-            bottom: 134,
+            bottom: 126 + MediaQuery.paddingOf(context).bottom,
             child: _ScanResults(
               items: items,
               cards: cards,
@@ -2126,10 +2177,12 @@ class _FigmaSpringCurve extends Curve {
 class _ScanRevealingToast extends StatelessWidget {
   const _ScanRevealingToast({
     required super.key,
+    required this.item,
     required this.closeTooltip,
     required this.onClosePressed,
   });
 
+  final _ScanItem item;
   final String closeTooltip;
   final VoidCallback onClosePressed;
 
@@ -2169,33 +2222,12 @@ class _ScanRevealingToast extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
+                      _ScanResultThumbnail(
+                        item: item,
                         width: 48,
                         height: 48,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1C14),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Container(
-                          width: 30,
-                          height: 40,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.white),
-                            borderRadius: BorderRadius.circular(2),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0x1F747B26), Color(0x0A141506)],
-                            ),
-                          ),
-                          child: SvgPicture.asset(
-                            'assets/scan/reveal_question.svg',
-                            width: 10,
-                            height: 16,
-                          ),
-                        ),
+                        imageWidth: 30,
+                        imageHeight: 40,
                       ),
                       const SizedBox(width: 16),
                       SizedBox(
@@ -2230,13 +2262,16 @@ class _ScanRevealingToast extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            Positioned(
+                            const Positioned(
                               left: 0,
                               bottom: 0,
-                              child: SvgPicture.asset(
-                                'assets/scan/reveal_spinner.svg',
-                                width: 16,
-                                height: 16,
+                              child: SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  key: Key('scan-recognition-progress'),
+                                  strokeWidth: 2,
+                                  color: Color(0xFFF0FE6F),
+                                ),
                               ),
                             ),
                           ],
@@ -2484,6 +2519,7 @@ class _ScanItemCard extends StatelessWidget {
         item.status == _ScanItemStatus.revealing) {
       return _ScanRevealingToast(
         key: null,
+        item: item,
         closeTooltip: item.status == _ScanItemStatus.revealing
             ? 'Dismiss scan feedback'
             : 'Cancel scan',
@@ -2672,9 +2708,19 @@ _ScanCollectionDraft _previewDraft(ScanReviewCard card) {
 }
 
 class _ScanResultThumbnail extends StatelessWidget {
-  const _ScanResultThumbnail({required this.item});
+  const _ScanResultThumbnail({
+    required this.item,
+    this.width = 42,
+    this.height = 58,
+    this.imageWidth,
+    this.imageHeight,
+  });
 
   final _ScanItem item;
+  final double width;
+  final double height;
+  final double? imageWidth;
+  final double? imageHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -2682,8 +2728,8 @@ class _ScanResultThumbnail extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
       child: Container(
-        width: 42,
-        height: 58,
+        width: width,
+        height: height,
         color: const Color(0xFF10100B),
         alignment: Alignment.center,
         child: bytes == null
@@ -2694,8 +2740,8 @@ class _ScanResultThumbnail extends StatelessWidget {
               )
             : Image.memory(
                 bytes,
-                width: 42,
-                height: 58,
+                width: imageWidth ?? width,
+                height: imageHeight ?? height,
                 fit: BoxFit.cover,
                 gaplessPlayback: true,
               ),

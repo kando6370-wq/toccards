@@ -38,9 +38,9 @@ void main() {
       ]);
 
       for (final hash in hashes) {
-        expect(hash.r, 'qxY0w2meSz0-aLTUPGngw2lrnNdhlsOgwZbLPMOWkzw');
-        expect(hash.g, '7wNmh20pZwZtLZh4Mlpnh2ZsYwXGTczYzaWZy82TmMM');
-        expect(hash.b, 'u0dMsDltLPE5LbNPOTizD2ZaTPA5jZMymYGzMpPHszI');
+        expect(hash.r, '-0KssPngU1KG5xdNhhjzT9YdE8WGWLdOhh1atYYdPeA');
+        expect(hash.g, '6xJl_MnwZfjLUp4HPa2eBRkvmXSzpZtksaFDQpYXLGw');
+        expect(hash.b, 'ulJNH5h4TR-YeE0LmHqz8MYp8_DGafLSxnjw0oWFTzI');
         final crop = cv.imdecode(hash.cardImageBytes!, cv.IMREAD_COLOR);
         try {
           expect((crop.cols, crop.rows), (745, 1043));
@@ -52,6 +52,45 @@ void main() {
     timeout: const Timeout(Duration(minutes: 1)),
     skip: Platform.environment['DARTCV_LIB_PATH'] == null
         ? 'Requires the platform dartcv library.'
+        : false,
+  );
+
+  final sampleDirectory = Platform.environment['SCAN_TEST_IMAGE_DIR'];
+  test(
+    'real card samples remain detectable because production camera and gallery images must reach the fixed-size hashing contract',
+    () async {
+      final files = Directory(sampleDirectory!)
+          .listSync()
+          .whereType<File>()
+          .where(
+            (file) => RegExp(
+              r'\.(jpe?g|png)$',
+              caseSensitive: false,
+            ).hasMatch(file.path),
+          )
+          .toList();
+      expect(files, isNotEmpty);
+      final hasher = createScanImageHasher();
+      for (final file in files) {
+        late final ScanImageHashes hash;
+        try {
+          hash = await hasher.hash(await file.readAsBytes());
+        } catch (error) {
+          fail('${file.path}: $error');
+        }
+        final crop = cv.imdecode(hash.cardImageBytes!, cv.IMREAD_COLOR);
+        try {
+          expect((crop.cols, crop.rows), (745, 1043), reason: file.path);
+        } finally {
+          crop.dispose();
+        }
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+    skip:
+        sampleDirectory == null ||
+            Platform.environment['DARTCV_LIB_PATH'] == null
+        ? 'Requires SCAN_TEST_IMAGE_DIR and the platform dartcv library.'
         : false,
   );
 }

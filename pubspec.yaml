@@ -10,6 +10,24 @@ workspace:
 dev_dependencies:
   melos: ^8.0.0
 
+hooks:
+  user_defines:
+    dartcv4:
+      windows:
+        generator: Visual Studio 18 2026
+      exclude_modules:
+        - calib3d
+        - contrib
+        - dnn
+        - features2d
+        - flann
+        - highgui
+        - objdetect
+        - photo
+        - stitching
+        - video
+        - videoio
+
 # Melos 任务编排（参见 monorepo.md）。melos 8 + pub workspace 下配置随根 pubspec.yaml，
 # 不再使用独立 melos.yaml；包来源于上方 workspace 声明。
 melos:

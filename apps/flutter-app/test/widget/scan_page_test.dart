@@ -175,7 +175,16 @@ void main() {
       expect(source.recognizedImages.single.fileName, 'live-camera.jpg');
       expect(
         source.recognizedImages.single.bytes,
-        Uint8List.fromList([9, 8, 7]),
+        Uint8List.fromList(_transparentPngBytes),
+      );
+      final pendingItem = find.byKey(const Key('scan-active-item-1'));
+      expect(
+        find.descendant(of: pendingItem, matching: find.byType(Image)),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-recognition-progress')),
+        findsOneWidget,
       );
       final crop = source.recognizedImages.single.recognitionCrop!;
       expect(crop.left, closeTo(55 / 390, 0.0001));
@@ -258,7 +267,7 @@ void main() {
       await tester.pump();
       expect(first.flashEnabled, isTrue);
 
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump();
       expect(first.disposed, isTrue);
       expect(first.flashEnabled, isFalse);
@@ -277,7 +286,7 @@ void main() {
   );
 
   testWidgets(
-    'Scan retries the in-app camera after first permission approval because lifecycle changes must not fall back to the system camera',
+    'Scan keeps the opening camera across transient inactivity because permission and gallery sheets must not reveal a fallback image',
     (tester) async {
       final first = _TestScanCameraSession();
       final second = _TestScanCameraSession();
@@ -289,6 +298,15 @@ void main() {
         tester,
         scanResultSource: source,
         scanCameraFactory: factory,
+      );
+
+      expect(
+        find.byKey(const Key('scan-camera-opening-background')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-figma-camera-background')),
+        findsNothing,
       );
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
@@ -304,8 +322,8 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(first.disposed, isTrue);
-      expect(factory.openCount, 2);
+      expect(first.disposed, isFalse);
+      expect(factory.openCount, 1);
       expect(find.byKey(const Key('scan-live-camera-preview')), findsOneWidget);
       expect(find.byKey(const Key('test-live-camera-preview')), findsOneWidget);
       expect(second.disposed, isFalse);
@@ -1239,6 +1257,42 @@ void main() {
   );
 
   testWidgets(
+    'Gallery shows the selected thumbnail immediately without shutter feedback because recognition must not hide the uploaded image',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        libraryResults: [pending.future],
+        libraryImages: [
+          ScanImage(
+            bytes: Uint8List.fromList(_transparentPngBytes),
+            fileName: 'gallery-card.png',
+          ),
+        ],
+      );
+      await _pumpScanTestApp(tester, scanResultSource: source);
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+
+      final item = find.byKey(const Key('scan-active-item-1'));
+      expect(
+        find.descendant(of: item, matching: find.byType(Image)),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-recognition-progress')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
+      expect(
+        tester.getRect(find.byKey(const Key('scan-figma-result-rail'))).bottom,
+        lessThanOrEqualTo(tester.getRect(find.byTooltip('Take Photo')).top),
+      );
+    },
+  );
+
+  testWidgets(
     'No Match scan offers Search Manually because unmatched cards cannot enter review',
     (tester) async {
       await _pumpScanTestApp(tester);
@@ -1586,6 +1640,7 @@ class _TestScanResultSource implements ScanResultSource {
     List<Future<ScanResolution>> subsequentPhotoResults = const [],
     Future<ScanResolution>? libraryResult,
     List<Future<ScanResolution>>? libraryResults,
+    this.libraryImages = const [],
     Future<ScanResolution>? recognizeResult,
     Future<ScanResolution>? retryResult,
   }) : _photoResults = [photoResult, ...subsequentPhotoResults],
@@ -1598,6 +1653,7 @@ class _TestScanResultSource implements ScanResultSource {
 
   final List<Future<ScanResolution>> _photoResults;
   final List<Future<ScanResolution>> _libraryResults;
+  final List<ScanImage> libraryImages;
   final Future<ScanResolution> _recognizeResult;
   final Future<ScanResolution> _retryResult;
   var photoCallCount = 0;
@@ -1607,7 +1663,15 @@ class _TestScanResultSource implements ScanResultSource {
   final recognizedImages = <ScanImage>[];
 
   @override
-  Future<List<Future<ScanResolution>>> library() async => _libraryResults;
+  Future<List<Future<ScanResolution>>> library({
+    void Function(ScanImage image, Future<ScanResolution> resolution)?
+    onSelected,
+  }) async {
+    for (var index = 0; index < libraryImages.length; index += 1) {
+      onSelected?.call(libraryImages[index], _libraryResults[index]);
+    }
+    return _libraryResults;
+  }
 
   @override
   Future<ScanResolution> photo() {
@@ -1683,7 +1747,7 @@ class _TestScanCameraSession implements ScanCameraSession {
   Future<ScanImage> takePhoto() async {
     takePhotoCount += 1;
     return ScanImage(
-      bytes: Uint8List.fromList([9, 8, 7]),
+      bytes: Uint8List.fromList(_transparentPngBytes),
       fileName: 'live-camera.jpg',
     );
   }
