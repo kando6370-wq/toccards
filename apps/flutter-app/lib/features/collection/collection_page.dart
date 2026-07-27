@@ -1416,7 +1416,7 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
                       CollectionSort.valueAsc,
                     ])
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.only(bottom: 10),
                         child: _FilterSortOption(
                           label: _sortLabel(option),
                           selected: sort == option,

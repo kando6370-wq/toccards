@@ -40,6 +40,23 @@ void main() {
     expect(find.text('Filter'), findsOneWidget);
     expect(find.text('Price: High to Low'), findsOneWidget);
     expect(find.text('Price: Low to High'), findsOneWidget);
+    final highToLowOption = tester.getRect(
+      find
+          .ancestor(
+            of: find.text('Price: High to Low'),
+            matching: find.byType(GestureDetector),
+          )
+          .first,
+    );
+    final lowToHighOption = tester.getRect(
+      find
+          .ancestor(
+            of: find.text('Price: Low to High'),
+            matching: find.byType(GestureDetector),
+          )
+          .first,
+    );
+    expect(lowToHighOption.top - highToLowOption.bottom, 10);
     expect(find.text('English'), findsOneWidget);
     expect(find.text('Pokemon'), findsOneWidget);
     expect(find.byKey(const Key('collection-filter-apply')), findsOneWidget);
