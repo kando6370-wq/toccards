@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 
+import '../../shared/card_image/kando_card_image.dart';
 import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/scan/scan_api_client.dart';
@@ -3013,13 +3014,10 @@ class _ReviewNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = imageUrl;
-    if (url == null) return const _ReviewImageUnavailable();
-    return Image.network(
-      url,
+    return KandoCardImage(
+      imageUrl: imageUrl,
       fit: fit,
       webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-      errorBuilder: (_, _, _) => const _ReviewImageUnavailable(),
     );
   }
 }

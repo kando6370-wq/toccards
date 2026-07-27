@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
@@ -1410,12 +1411,13 @@ class _TrendingRow extends StatelessWidget {
         child: Row(
           children: [
             if (showPlaceholder)
-              Image.asset(
-                'assets/home/trend_placeholder.png',
-                key: placeholderKey,
+              SizedBox(
                 width: 42,
                 height: 58,
-                filterQuality: FilterQuality.high,
+                child: KandoCardImage(
+                  imageUrl: null,
+                  placeholderKey: placeholderKey,
+                ),
               )
             else
               ClipRRect(
@@ -1512,14 +1514,12 @@ class _HomeCardImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = imageUrl;
     if (url != null) {
-      return Image.network(
-        url,
+      return KandoCardImage(
+        imageUrl: url,
         height: height,
         fit: BoxFit.contain,
         webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
         filterQuality: FilterQuality.high,
-        errorBuilder: (context, error, stackTrace) =>
-            const ColoredBox(color: KandoColors.surface),
       );
     }
     final asset = imageAssetPath;
@@ -1529,9 +1529,10 @@ class _HomeCardImage extends StatelessWidget {
         height: height,
         fit: BoxFit.cover,
         filterQuality: FilterQuality.high,
+        errorBuilder: (_, _, _) => const KandoCardImage(imageUrl: null),
       );
     }
-    return const ColoredBox(color: KandoColors.surface);
+    return const KandoCardImage(imageUrl: null);
   }
 }
 

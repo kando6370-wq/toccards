@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -225,22 +226,6 @@ class _CardDetailKeyboardDismissOnPointerDown extends StatelessWidget {
   }
 }
 
-class _CardImagePlaceholder extends StatelessWidget {
-  const _CardImagePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Icon(
-        Icons.style_outlined,
-        key: Key('card-detail-image-placeholder'),
-        size: 72,
-        color: KandoColors.mutedText,
-      ),
-    );
-  }
-}
-
 class _CardHero extends ConsumerWidget {
   const _CardHero({
     required this.state,
@@ -302,18 +287,13 @@ class _CardHero extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(54, 56, 54, 54),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(_kRadiusLg),
-                      child: detail.imageUrl == null
-                          ? const _CardImagePlaceholder()
-                          : Image.network(
-                              detail.imageUrl!,
-                              key: const Key('card-detail-image'),
-                              fit: BoxFit.contain,
-                              webHtmlElementStrategy:
-                                  WebHtmlElementStrategy.prefer,
-                              filterQuality: FilterQuality.high,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const _CardImagePlaceholder(),
-                            ),
+                      child: KandoCardImage(
+                        key: const Key('card-detail-image'),
+                        imageUrl: detail.imageUrl,
+                        placeholderKey: const Key(
+                          'card-detail-image-placeholder',
+                        ),
+                      ),
                     ),
                   ),
                   const Positioned.fill(
@@ -1447,15 +1427,7 @@ class _AddCollectionItemPreview extends StatelessWidget {
             child: SizedBox(
               width: 80,
               height: 112,
-              child: detail.imageUrl == null
-                  ? const _CardImagePlaceholder()
-                  : Image.network(
-                      detail.imageUrl!,
-                      fit: BoxFit.contain,
-                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const _CardImagePlaceholder(),
-                    ),
+              child: KandoCardImage(imageUrl: detail.imageUrl),
             ),
           ),
           const SizedBox(width: 16),
@@ -2899,21 +2871,7 @@ class _ShopTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: imageUrl == null
-                    ? const Icon(
-                        Icons.storefront_outlined,
-                        color: KandoColors.mutedText,
-                      )
-                    : Image.network(
-                        imageUrl!,
-                        fit: BoxFit.contain,
-                        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(
-                              Icons.storefront_outlined,
-                              color: KandoColors.mutedText,
-                            ),
-                      ),
+                child: KandoCardImage(imageUrl: imageUrl),
               ),
               const SizedBox(width: 14),
               Expanded(

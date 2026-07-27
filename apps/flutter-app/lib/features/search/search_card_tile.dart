@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -84,41 +85,23 @@ class SearchCardTile extends ConsumerWidget {
                             color: KandoColors.ink,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: card.imageUrl == null
-                              ? const Icon(
-                                  Icons.style_outlined,
-                                  color: KandoColors.mutedText,
-                                )
-                              : Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 6,
-                                  ),
-                                  child: AspectRatio(
-                                    aspectRatio: 672 / 936,
-                                    child: ClipRRect(
-                                      key: Key(
-                                        'search-card-image-clip-${card.id}',
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: Image.network(
-                                        card.imageUrl!,
-                                        width: double.infinity,
-                                        height: double.infinity,
-                                        fit: BoxFit.cover,
-                                        webHtmlElementStrategy:
-                                            WebHtmlElementStrategy.fallback,
-                                        semanticLabel: card.name,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                              return const Icon(
-                                                Icons.style_outlined,
-                                                color: KandoColors.mutedText,
-                                              );
-                                            },
-                                      ),
-                                    ),
-                                  ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: AspectRatio(
+                              aspectRatio: 672 / 936,
+                              child: ClipRRect(
+                                key: Key('search-card-image-clip-${card.id}'),
+                                borderRadius: BorderRadius.circular(6),
+                                child: KandoCardImage(
+                                  imageUrl: card.imageUrl,
+                                  fit: BoxFit.cover,
+                                  webHtmlElementStrategy:
+                                      WebHtmlElementStrategy.fallback,
+                                  semanticLabel: card.name,
                                 ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       if (showActions)
