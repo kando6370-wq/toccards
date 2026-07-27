@@ -1424,6 +1424,52 @@ void main() {
     final messageLabel = tester.widget<Text>(find.text('Your Message'));
     expect(emailLabel.style?.fontSize, 14);
     expect(messageLabel.style?.fontSize, emailLabel.style?.fontSize);
+
+    for (final fieldKey in const [
+      ValueKey('feedback-email-field'),
+      ValueKey('feedback-message-field'),
+    ]) {
+      final field = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(fieldKey),
+          matching: find.byType(TextField),
+        ),
+      );
+      final border = field.decoration?.enabledBorder as OutlineInputBorder;
+      expect(border.borderSide.color, KandoColors.border);
+      expect(border.borderSide.width, 1);
+      expect(border.borderRadius, BorderRadius.circular(8));
+      expect(field.decoration?.contentPadding, const EdgeInsets.all(16));
+    }
+
+    expect(find.byIcon(Icons.send_outlined), findsNothing);
+    final submitIcon = tester.widget<SvgPicture>(
+      find.byKey(const Key('feedback-submit-icon')),
+    );
+    expect(submitIcon.width, 24);
+    expect(submitIcon.height, 24);
+    expect(
+      (submitIcon.bytesLoader as SvgAssetLoader).assetName,
+      'assets/profile/send_feedback.svg',
+    );
+
+    for (final fieldKey in const [
+      ValueKey('feedback-email-field'),
+      ValueKey('feedback-message-field'),
+    ]) {
+      final fieldFinder = find.byKey(fieldKey);
+      final editableText = tester.widget<EditableText>(
+        find.descendant(of: fieldFinder, matching: find.byType(EditableText)),
+      );
+
+      await tester.tap(fieldFinder);
+      await tester.pump();
+      expect(editableText.focusNode.hasFocus, isTrue);
+
+      await tester.tap(find.text('Send Feedback'));
+      await tester.pump();
+      expect(editableText.focusNode.hasFocus, isFalse);
+    }
   });
 
   testWidgets(

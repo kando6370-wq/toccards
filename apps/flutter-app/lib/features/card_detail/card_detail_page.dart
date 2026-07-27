@@ -252,10 +252,11 @@ class _CardHero extends ConsumerWidget {
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 350),
-        child: AspectRatio(
+        constraints: const BoxConstraints(maxWidth: double.infinity),
+        child: SizedBox(
           key: const Key('card-detail-hero'),
-          aspectRatio: 350 / 454,
+          width: double.infinity,
+          height: 454,
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: const RadialGradient(
@@ -620,7 +621,8 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
         LayoutBuilder(
           builder: (context, constraints) {
             return SizedBox(
-              width: math.min(constraints.maxWidth, 350),
+              key: const Key('card-detail-owned-tabs'),
+              width: constraints.maxWidth,
               height: 52,
               child: Container(
                 padding: const EdgeInsets.all(5),
@@ -633,6 +635,10 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
                   controller: _tabController,
                   indicatorSize: TabBarIndicatorSize.tab,
                   dividerColor: Colors.transparent,
+                  overlayColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
+                  ),
+                  splashFactory: NoSplash.splashFactory,
                   indicator: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,

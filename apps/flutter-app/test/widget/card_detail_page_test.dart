@@ -45,6 +45,32 @@ void main() {
     },
   );
 
+  testWidgets('wide CardDetail aligns hero, primary action, and owned tabs', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+    await tester.pumpAndSettle();
+
+    final heroWidth = tester
+        .getSize(find.byKey(const Key('card-detail-hero')))
+        .width;
+    final actionWidth = tester
+        .getSize(find.byKey(const Key('card-detail-view-sold-listings')))
+        .width;
+    final tabsWidth = tester
+        .getSize(find.byKey(const Key('card-detail-owned-tabs')))
+        .width;
+
+    expect(heroWidth, 390);
+    expect(actionWidth, heroWidth);
+    expect(tabsWidth, heroWidth);
+  });
+
   testWidgets('uncollected CardDetail renders identity and price overview', (
     tester,
   ) async {
@@ -433,6 +459,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(find.text('Price'), 400);
+    final tabs = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabs.splashFactory, NoSplash.splashFactory);
+    expect(
+      tabs.overlayColor?.resolve({WidgetState.pressed}),
+      Colors.transparent,
+    );
     await tester.tap(find.text('Price'));
     await tester.pumpAndSettle();
 

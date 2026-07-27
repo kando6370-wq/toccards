@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/validation/email.dart';
@@ -121,11 +122,13 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
           TextFormField(
             key: const ValueKey('feedback-email-field'),
             controller: _emailController,
-            decoration: InputDecoration(
+            decoration: _feedbackInputDecoration(
               hintText: 'collector@vault.io',
               errorText: _emailError,
             ),
             keyboardType: TextInputType.emailAddress,
+            style: _feedbackInputTextStyle,
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
           ),
           const SizedBox(height: 24),
           const _FieldLabel('Your Message'),
@@ -135,14 +138,16 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
             child: TextFormField(
               key: const ValueKey('feedback-message-field'),
               controller: _messageController,
-              decoration: InputDecoration(
+              decoration: _feedbackInputDecoration(
                 hintText: "Tell us what's on your mind...",
                 errorText: _messageError,
               ),
+              style: _feedbackInputTextStyle,
               textAlignVertical: TextAlignVertical.top,
               expands: true,
               minLines: null,
               maxLines: null,
+              onTapOutside: (_) => FocusScope.of(context).unfocus(),
             ),
           ),
           const SizedBox(height: 32),
@@ -170,7 +175,12 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.send_outlined, size: 20),
+                  SvgPicture.asset(
+                    'assets/profile/send_feedback.svg',
+                    key: const Key('feedback-submit-icon'),
+                    width: 24,
+                    height: 24,
+                  ),
                 ],
               ),
             ),
@@ -287,6 +297,38 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
     }
     return values.toList(growable: false);
   }
+}
+
+const _feedbackInputTextStyle = TextStyle(
+  color: KandoColors.text,
+  fontSize: 15,
+  height: 22 / 15,
+);
+
+InputDecoration _feedbackInputDecoration({
+  required String hintText,
+  String? errorText,
+}) {
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(8),
+    borderSide: const BorderSide(color: KandoColors.border),
+  );
+
+  return InputDecoration(
+    hintText: hintText,
+    hintStyle: const TextStyle(
+      color: KandoColors.disabledText,
+      fontSize: 15,
+      height: 22 / 15,
+    ),
+    errorText: errorText,
+    contentPadding: const EdgeInsets.all(16),
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: const BorderSide(color: KandoColors.borderFocus),
+    ),
+  );
 }
 
 class _FieldLabel extends StatelessWidget {
