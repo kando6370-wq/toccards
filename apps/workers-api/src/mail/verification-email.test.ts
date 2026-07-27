@@ -21,7 +21,7 @@ describe("sendVerificationEmail", () => {
       env,
       expect.objectContaining({
         to: "collector@example.com",
-        subject: "Kando - This Is Your Verification Code 081964",
+        subject: "Card Ai - This Is Your Verification Code 081964",
         html: expect.stringContaining("Use this code to create your account."),
       }),
     );
@@ -29,6 +29,8 @@ describe("sendVerificationEmail", () => {
     expect(message?.html).toContain(">081964</td>");
     expect(message?.html).toContain("10 minutes");
     expect(message?.html).toContain("background-color:#10100b");
+    expect(message?.html).toContain("Card Ai");
+    expect(message?.html).not.toContain("Kando");
     expect(message?.html).not.toContain("Picks AI");
   });
 

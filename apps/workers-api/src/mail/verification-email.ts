@@ -11,7 +11,7 @@ export function sendVerificationEmail(
     purpose === "register" ? "create your account" : "reset your password";
   return sendZeptoMail(env, {
     to: email,
-    subject: `Kando - This Is Your Verification Code ${code}`,
+    subject: `Card Ai - This Is Your Verification Code ${code}`,
     html: verificationEmailHtml(code, action),
   });
 }
@@ -24,7 +24,7 @@ function verificationEmailHtml(code: string, action: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="supported-color-schemes" content="dark">
-  <title>Kando verification code</title>
+  <title>Card Ai verification code</title>
 </head>
 <body style="margin:0;padding:0;background-color:#10100b;color:#eeecd8;font-family:Arial,Helvetica,sans-serif;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Use ${code} to ${action}. This code expires in 10 minutes.</div>
@@ -34,7 +34,7 @@ function verificationEmailHtml(code: string, action: string): string {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#1a1c14;border:1px solid #464835;border-radius:12px;">
           <tr>
             <td align="center" style="padding:30px 32px 16px;">
-              <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:36px;font-weight:700;color:#eeecd8;">Kando</div>
+              <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:36px;font-weight:700;color:#eeecd8;">Card Ai</div>
               <div style="padding-top:6px;font-size:14px;line-height:20px;color:#c7c8b0;">Your TCG collection companion</div>
             </td>
           </tr>
@@ -51,7 +51,7 @@ function verificationEmailHtml(code: string, action: string): string {
               <div style="height:1px;margin:22px 0 18px;background-color:#464835;"></div>
               <p style="margin:0 0 6px;font-size:12px;line-height:18px;color:#c7c8b0;">&bull; This verification code works only for your current request.</p>
               <p style="margin:0 0 6px;font-size:12px;line-height:18px;color:#c7c8b0;">&bull; Do not share this code with anyone.</p>
-              <p style="margin:0;font-size:12px;line-height:18px;color:#c7c8b0;">&bull; You received this email because your address was used in Kando.</p>
+              <p style="margin:0;font-size:12px;line-height:18px;color:#c7c8b0;">&bull; You received this email because your address was used in Card Ai.</p>
             </td>
           </tr>
         </table>
