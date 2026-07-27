@@ -18,38 +18,50 @@ class SearchCardTile extends ConsumerWidget {
     required this.actionsEnabled,
     this.showActions = true,
     this.showSearchMetadata = false,
+    this.showQuantity = true,
   });
 
   final SearchCard card;
   final bool actionsEnabled;
   final bool showActions;
   final bool showSearchMetadata;
+  final bool showQuantity;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.read(searchControllerProvider.notifier);
     final currency = ref.watch(selectedCurrencyProvider);
     final showFilledHeart = card.isWishlisted;
     final change = card.changeText;
     final changeColor = change.startsWith('-')
         ? Theme.of(context).colorScheme.error
-        : (change.startsWith('+') ? KandoColors.accent : KandoColors.mutedText);
+        : (change.startsWith('+') ? KandoColors.gain : KandoColors.mutedText);
 
-    const mutedLine = TextStyle(
-      fontSize: 11,
-      height: 18 / 11,
-      color: KandoColors.mutedText,
+    final metadataFontSize = showSearchMetadata ? 10.0 : 11.0;
+    final mutedLine = TextStyle(
+      fontSize: metadataFontSize,
+      height: 18 / metadataFontSize,
+      color: showSearchMetadata
+          ? const Color(0xFF92927D)
+          : KandoColors.mutedText,
     );
 
     return Material(
       key: Key('search-card-${card.id}'),
-      color: KandoColors.surface,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => context.push('/cards/${card.id}'),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(
+            color: showSearchMetadata ? null : KandoColors.surface,
+            gradient: showSearchMetadata
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xCC1C1E15), Color(0xE612140D)],
+                  )
+                : null,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: KandoColors.border),
           ),
@@ -57,118 +69,137 @@ class SearchCardTile extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned.fill(
-                      child: Container(
-                        key: Key('search-card-image-container-${card.id}'),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: KandoColors.ink,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: card.imageUrl == null
-                            ? const Icon(
-                                Icons.style_outlined,
-                                color: KandoColors.mutedText,
-                              )
-                            : Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 6,
-                                ),
-                                child: AspectRatio(
-                                  aspectRatio: 672 / 936,
-                                  child: ClipRRect(
-                                    key: Key(
-                                      'search-card-image-clip-${card.id}',
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Image.network(
-                                      card.imageUrl!,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      fit: BoxFit.cover,
-                                      webHtmlElementStrategy:
-                                          WebHtmlElementStrategy.fallback,
-                                      semanticLabel: card.name,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                            return const Icon(
-                                              Icons.style_outlined,
-                                              color: KandoColors.mutedText,
-                                            );
-                                          },
+              Flexible(
+                fit: showSearchMetadata ? FlexFit.loose : FlexFit.tight,
+                child: SizedBox(
+                  height: showSearchMetadata ? 186 : double.infinity,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
+                        child: Container(
+                          key: Key('search-card-image-container-${card.id}'),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: KandoColors.ink,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: card.imageUrl == null
+                              ? const Icon(
+                                  Icons.style_outlined,
+                                  color: KandoColors.mutedText,
+                                )
+                              : Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 6,
+                                  ),
+                                  child: AspectRatio(
+                                    aspectRatio: 672 / 936,
+                                    child: ClipRRect(
+                                      key: Key(
+                                        'search-card-image-clip-${card.id}',
+                                      ),
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.network(
+                                        card.imageUrl!,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        fit: BoxFit.cover,
+                                        webHtmlElementStrategy:
+                                            WebHtmlElementStrategy.fallback,
+                                        semanticLabel: card.name,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return const Icon(
+                                                Icons.style_outlined,
+                                                color: KandoColors.mutedText,
+                                              );
+                                            },
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
+                        ),
                       ),
-                    ),
-                    if (showActions)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: Transform.translate(
-                          offset: const Offset(0, -10),
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {},
-                            child: Row(
-                              children: [
-                                _SearchCardActionButton(
-                                  key: Key('search-collect-${card.id}'),
-                                  tooltip: card.isCollected
-                                      ? 'Collected'
-                                      : 'Collect',
-                                  iconAsset: card.isCollected
-                                      ? 'assets/search/collection_on.svg'
-                                      : 'assets/search/collection_off.svg',
-                                  onPressed: !actionsEnabled
-                                      ? null
-                                      : () async {
-                                          final action = await controller
-                                              .toggleCollectCard(card);
-                                          if (action ==
-                                              SearchCollectAction.openDetail) {
-                                            if (context.mounted) {
-                                              context.push('/cards/${card.id}');
-                                            }
-                                          } else if (action ==
-                                                  SearchCollectAction.ignored &&
-                                              context.mounted) {
-                                            showKandoTopFailureToast(context);
-                                          }
-                                        },
-                                ),
-                                if (!card.isCollected) ...[
-                                  const SizedBox(width: 8),
+                      if (showActions)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Transform.translate(
+                            offset: Offset(0, showSearchMetadata ? 0 : -10),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {},
+                              child: Row(
+                                children: [
                                   _SearchCardActionButton(
-                                    key: Key('search-wishlist-${card.id}'),
-                                    tooltip: showFilledHeart
-                                        ? 'Remove from wishlist'
-                                        : 'Add to wishlist',
-                                    iconAsset: showFilledHeart
-                                        ? 'assets/search/wishlist_on.svg'
-                                        : 'assets/search/wishlist_off.svg',
+                                    key: Key('search-collect-${card.id}'),
+                                    tooltip: card.isCollected
+                                        ? 'Collected'
+                                        : 'Collect',
+                                    iconAsset: card.isCollected
+                                        ? 'assets/search/collection_on.svg'
+                                        : 'assets/search/collection_off.svg',
                                     onPressed: !actionsEnabled
                                         ? null
                                         : () async {
-                                            final succeeded = await controller
-                                                .toggleWishlistCard(card);
-                                            if (!succeeded && context.mounted) {
+                                            final action = await ref
+                                                .read(
+                                                  searchControllerProvider
+                                                      .notifier,
+                                                )
+                                                .toggleCollectCard(card);
+                                            if (action ==
+                                                SearchCollectAction
+                                                    .openDetail) {
+                                              if (context.mounted) {
+                                                context.push(
+                                                  '/cards/${card.id}',
+                                                );
+                                              }
+                                            } else if (action ==
+                                                    SearchCollectAction
+                                                        .ignored &&
+                                                context.mounted) {
                                               showKandoTopFailureToast(context);
                                             }
                                           },
                                   ),
+                                  if (!card.isCollected) ...[
+                                    const SizedBox(width: 8),
+                                    _SearchCardActionButton(
+                                      key: Key('search-wishlist-${card.id}'),
+                                      tooltip: showFilledHeart
+                                          ? 'Remove from wishlist'
+                                          : 'Add to wishlist',
+                                      iconAsset: showFilledHeart
+                                          ? 'assets/search/wishlist_on.svg'
+                                          : 'assets/search/wishlist_off.svg',
+                                      onPressed: !actionsEnabled
+                                          ? null
+                                          : () async {
+                                              final succeeded = await ref
+                                                  .read(
+                                                    searchControllerProvider
+                                                        .notifier,
+                                                  )
+                                                  .toggleWishlistCard(card);
+                                              if (!succeeded &&
+                                                  context.mounted) {
+                                                showKandoTopFailureToast(
+                                                  context,
+                                                );
+                                              }
+                                            },
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -187,7 +218,7 @@ class SearchCardTile extends ConsumerWidget {
               const SizedBox(height: 2),
               if (showSearchMetadata) ...[
                 Text(
-                  card.setName,
+                  _gameAndSetLine(card),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: mutedLine,
@@ -198,28 +229,20 @@ class SearchCardTile extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                   style: mutedLine,
                 ),
-                _MetadataRow(
-                  left: card.collectionInfo ?? '',
-                  right: card.variantLine,
+                Text(
+                  _searchVariantLine(card),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: mutedLine,
                 ),
+                const SizedBox(height: 42),
                 _PriceRow(
                   quantity: card.quantity,
                   price: card.priceText(currency),
                   change: change,
                   changeColor: changeColor,
                   mutedStyle: mutedLine,
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    change,
-                    style: TextStyle(
-                      fontSize: 10,
-                      height: 14 / 10,
-                      color: changeColor,
-                    ),
-                  ),
+                  showQuantity: showQuantity,
                 ),
               ] else ...[
                 Text(
@@ -276,6 +299,26 @@ String _cardName(SearchCard card) {
   return languageCode == null ? card.name : '${card.name} ($languageCode)';
 }
 
+String _gameAndSetLine(SearchCard card) {
+  final game = switch (card.gameId.toLowerCase()) {
+    'mtg' => 'MTG',
+    'pokemon' => 'Pokemon',
+    'lorcana' => 'Lorcana',
+    'one-piece' || 'one_piece' || 'onepiece' => 'One Piece',
+    _ => card.gameId,
+  };
+  return '$game · ${card.setName}';
+}
+
+String _searchVariantLine(SearchCard card) {
+  final parts = [
+    if (card.collectionInfo?.trim().isNotEmpty ?? false)
+      card.collectionInfo!.trim(),
+    if (card.variantLine.trim().isNotEmpty) card.variantLine.trim(),
+  ];
+  return parts.join(' · ');
+}
+
 String _searchMetadataLine(String value) {
   final metadata = value.trim();
   if (metadata.startsWith('#')) return metadata.substring(1);
@@ -304,44 +347,6 @@ String? _displayLanguageCode(String? value) {
   };
 }
 
-class _MetadataRow extends StatelessWidget {
-  const _MetadataRow({
-    required this.left,
-    required this.right,
-    required this.style,
-  });
-
-  final String left;
-  final String right;
-  final TextStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            left,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: style,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            right,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.right,
-            style: style,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _PriceRow extends StatelessWidget {
   const _PriceRow({
     required this.quantity,
@@ -349,6 +354,7 @@ class _PriceRow extends StatelessWidget {
     required this.change,
     required this.changeColor,
     required this.mutedStyle,
+    required this.showQuantity,
   });
 
   final int quantity;
@@ -356,31 +362,42 @@ class _PriceRow extends StatelessWidget {
   final String change;
   final Color changeColor;
   final TextStyle mutedStyle;
+  final bool showQuantity;
 
   @override
   Widget build(BuildContext context) {
-    final icon = change.startsWith('-')
-        ? Icons.trending_down
-        : change.startsWith('+')
-        ? Icons.trending_up
-        : Icons.trending_flat;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Expanded(child: Text('Qty: $quantity', style: mutedStyle)),
-        Icon(icon, size: 13, color: changeColor),
-        const SizedBox(width: 3),
+        if (showQuantity)
+          Expanded(child: Text('Qty: $quantity', style: mutedStyle))
+        else
+          const Spacer(),
         Flexible(
-          child: Text(
-            price,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 24 / 14,
-              fontWeight: FontWeight.w600,
-              color: KandoColors.text,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                price,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 20 / 12,
+                  fontWeight: FontWeight.w500,
+                  color: KandoColors.money,
+                ),
+              ),
+              Text(
+                change,
+                style: TextStyle(
+                  fontSize: 10,
+                  height: 14 / 10,
+                  color: changeColor,
+                ),
+              ),
+            ],
           ),
         ),
       ],

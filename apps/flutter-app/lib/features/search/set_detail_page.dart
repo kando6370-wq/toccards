@@ -130,42 +130,52 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
       );
     }
 
-    return GridView.builder(
-      key: const Key('set-detail-card-grid'),
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.5,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 350),
+          child: GridView.builder(
+            key: const Key('set-detail-card-grid'),
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              mainAxisExtent: 378,
+            ),
+            itemCount: _cards.length + (_loading || _failed ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == _cards.length) {
+                return Center(
+                  child: _loading
+                      ? const CircularProgressIndicator()
+                      : IconButton(
+                          key: const Key('set-detail-retry-page'),
+                          tooltip: 'Retry loading cards',
+                          onPressed: () => _load(reset: false),
+                          icon: const Icon(Icons.refresh),
+                        ),
+                );
+              }
+              final card = ref
+                  .read(searchControllerProvider.notifier)
+                  .resolveCard(_cards[index]);
+              return SearchCardTile(
+                card: card,
+                actionsEnabled:
+                    !searchState.isLoading &&
+                    !searchState.isUnavailable &&
+                    searchState.assetStatus == KandoLoadStatus.content,
+                showSearchMetadata: true,
+              );
+            },
+          ),
+        ),
       ),
-      itemCount: _cards.length + (_loading || _failed ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == _cards.length) {
-          return Center(
-            child: _loading
-                ? const CircularProgressIndicator()
-                : IconButton(
-                    key: const Key('set-detail-retry-page'),
-                    tooltip: 'Retry loading cards',
-                    onPressed: () => _load(reset: false),
-                    icon: const Icon(Icons.refresh),
-                  ),
-          );
-        }
-        final card = ref
-            .read(searchControllerProvider.notifier)
-            .resolveCard(_cards[index]);
-        return SearchCardTile(
-          card: card,
-          actionsEnabled:
-              !searchState.isLoading &&
-              !searchState.isUnavailable &&
-              searchState.assetStatus == KandoLoadStatus.content,
-        );
-      },
     );
   }
 

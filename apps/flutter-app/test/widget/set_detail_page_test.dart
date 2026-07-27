@@ -40,10 +40,10 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: card, matching: find.text('Base Set')),
+        find.descendant(of: card, matching: find.text('Pokemon · Base Set')),
         findsOneWidget,
       );
-      expect(find.text('Rare #025/102'), findsOneWidget);
+      expect(find.text('Rare · 025/102'), findsOneWidget);
       expect(find.text('Holo / English'), findsOneWidget);
       expect(find.text('Qty: 0'), findsOneWidget);
       expect(find.text(r'$12.50'), findsOneWidget);
@@ -53,6 +53,15 @@ void main() {
       expect(
         tester.widget<Text>(find.text('Pikachu')).style?.fontFamily,
         'Fraunces',
+      );
+      expect(tester.getSize(card), const Size(170, 378));
+      expect(
+        tester
+            .getSize(
+              find.byKey(const Key('search-card-image-container-featured')),
+            )
+            .height,
+        186,
       );
 
       await tester.tap(find.byKey(const Key('search-collect-featured')));

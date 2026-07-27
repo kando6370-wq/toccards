@@ -1025,6 +1025,20 @@ void main() {
 
       expect(find.byType(TrendingTodayPage), findsOneWidget);
       expect(find.text('Live Trending'), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const Key('search-card-live-trending'))),
+        const Size(170, 378),
+      );
+      expect(
+        tester
+            .getSize(
+              find.byKey(
+                const Key('search-card-image-container-live-trending'),
+              ),
+            )
+            .height,
+        186,
+      );
       expect(trendingApi.requestedPages, [1]);
     },
   );

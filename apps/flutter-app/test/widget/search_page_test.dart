@@ -181,9 +181,11 @@ void main() {
         tester.getRect(imageContainer).top,
         tester.getRect(cardTile).top + 14,
       );
+      expect(tester.getSize(cardTile), const Size(170, 378));
+      expect(tester.getSize(imageContainer).height, 186);
       expect(
         tester.getRect(actionButton).top,
-        tester.getRect(imageContainer).top - 10,
+        tester.getRect(imageContainer).top,
       );
       expect(
         tester.widget<ClipRRect>(imageClip).borderRadius,
@@ -193,11 +195,12 @@ void main() {
       expect(find.text('Escape Artist (English)'), findsNothing);
       expect(find.text('Pikachu (JP)'), findsOneWidget);
       expect(find.text('Psyduck (CN)'), findsOneWidget);
-      expect(find.text('Odyssey'), findsOneWidget);
+      expect(find.text('Pokemon · Odyssey'), findsOneWidget);
       expect(find.text('Common · 123'), findsOneWidget);
       expect(find.text('Normal'), findsOneWidget);
       expect(find.text('Qty: 0'), findsOneWidget);
       expect(find.text('Near Mint (NM)'), findsNothing);
+      expect(find.byIcon(Icons.trending_up), findsNothing);
       expect(
         tester.getRect(imageClip).top,
         greaterThan(tester.getRect(imageContainer).top),
@@ -348,6 +351,23 @@ void main() {
       tester.widget<Text>(find.text('Mega Evolution Promos')).style?.fontFamily,
       'Fraunces',
     );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('search-set-mega-evolution-promos')))
+          .width,
+      350,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const Key('search-set-image-mega-evolution-promos')),
+      ),
+      const Size(50, 50),
+    );
+    final setSubtitle = tester.widget<Text>(
+      find.text('Pokemon promotional cards'),
+    );
+    expect(setSubtitle.style?.fontSize, 10);
+    expect(setSubtitle.style?.color, const Color(0xFF92927D));
     await tester.enterText(find.byType(TextFormField), 'flames');
     await tester.pumpAndSettle();
     expect(find.text('Obsidian Flames'), findsOneWidget);

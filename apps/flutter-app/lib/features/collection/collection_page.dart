@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/features/search/search_card_tile.dart';
+import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -11,11 +13,6 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import 'collection_controller.dart';
 import 'collection_models.dart';
-
-// Semantic gain/loss colors from the Figma spec. No design token maps to
-// financial up/down, so these are defined locally rather than approximated.
-const _gainColor = Color(0xFF4ADE80);
-const _lossColor = Color(0xFFF87171);
 
 class CollectionPage extends ConsumerWidget {
   const CollectionPage({super.key});
@@ -599,183 +596,65 @@ class _CollectionGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 10.0;
-        final tileWidth = (constraints.maxWidth - spacing) / 2;
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            for (final item in items)
-              SizedBox(
-                width: tileWidth,
-                child: _CollectionCardTile(
-                  item: item,
-                  showQuantity: showQuantity,
-                ),
-              ),
-          ],
+        final gridWidth = math.min(constraints.maxWidth, 350.0);
+        final tileWidth = (gridWidth - spacing) / 2;
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: gridWidth,
+            child: Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                for (final item in items)
+                  SizedBox(
+                    width: tileWidth,
+                    height: 378,
+                    child: SearchCardTile(
+                      card: _asSearchCard(item, showQuantity: showQuantity),
+                      actionsEnabled: false,
+                      showActions: false,
+                      showSearchMetadata: true,
+                      showQuantity: showQuantity,
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
   }
 }
 
-class _CollectionCardTile extends StatelessWidget {
-  const _CollectionCardTile({required this.item, required this.showQuantity});
-
-  final CollectionViewItem item;
-  final bool showQuantity;
-
-  @override
-  Widget build(BuildContext context) {
-    final trimmed = item.changeText.trimLeft();
-    final changeColor = trimmed.startsWith('-')
-        ? _lossColor
-        : trimmed.startsWith('+')
-        ? _gainColor
-        : KandoColors.mutedText;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => context.push('/cards/${Uri.encodeComponent(item.cardRef)}'),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xCC1C1E15), Color(0xE612140D)],
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: KandoColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio: 672 / 936,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: KandoColors.ink,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: KandoColors.border),
-                ),
-                clipBehavior: Clip.antiAlias,
-                alignment: Alignment.center,
-                child: item.imageUrl == null
-                    ? const Icon(
-                        Icons.image_outlined,
-                        color: KandoColors.mutedText,
-                        size: 28,
-                      )
-                    : Image.network(
-                        item.imageUrl!,
-                        fit: BoxFit.contain,
-                        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                        width: double.infinity,
-                        height: double.infinity,
-                        filterQuality: FilterQuality.high,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(
-                              Icons.image_outlined,
-                              color: KandoColors.mutedText,
-                              size: 28,
-                            ),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              item.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: 'Fraunces',
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: KandoColors.text,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              item.setName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                color: KandoColors.mutedText,
-              ),
-            ),
-            Text(
-              item.number,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                color: KandoColors.mutedText,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: item.statusText,
-                    style: const TextStyle(color: KandoColors.accent),
-                  ),
-                  const TextSpan(
-                    text: '  ·  ',
-                    style: TextStyle(color: KandoColors.mutedText),
-                  ),
-                  TextSpan(
-                    text: item.finish,
-                    style: const TextStyle(color: KandoColors.mutedText),
-                  ),
-                ],
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11),
-            ),
-            if (showQuantity) ...[
-              const SizedBox(height: 2),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.inventory_2_outlined,
-                    size: 12,
-                    color: KandoColors.mutedText,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Qty: ${item.quantity}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: KandoColors.mutedText,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 8),
-            Text(
-              item.valueText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: KandoColors.money,
-              ),
-            ),
-            Text(
-              item.changeText,
-              style: TextStyle(fontSize: 11, color: changeColor),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+SearchCard _asSearchCard(
+  CollectionViewItem item, {
+  required bool showQuantity,
+}) {
+  final source = item.source;
+  final quantityMultiplier = showQuantity ? source.quantity : 1;
+  return SearchCard(
+    id: source.cardRef,
+    gameId: source.game,
+    type: SearchCardType.tcg,
+    name: source.name,
+    priceUsd: source.marketValueUsd == null
+        ? null
+        : source.marketValueUsd! * quantityMultiplier,
+    previous30dPriceUsd: source.previous30dPriceUsd == null
+        ? null
+        : source.previous30dPriceUsd! * quantityMultiplier,
+    setName: source.setName,
+    metadataLine: source.number,
+    variantLine: source.finish,
+    quantity: source.quantity,
+    isWishlisted: !showQuantity,
+    collectionItemCount: showQuantity ? source.quantity : 0,
+    collectionInfo: source.statusText,
+    language: source.language,
+    finish: source.finish,
+    imageUrl: source.imageUrl,
+  );
 }
 
 class _FilterSectionLabel extends StatelessWidget {

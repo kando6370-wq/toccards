@@ -67,6 +67,17 @@ void main() {
     expect(find.text('Charizard ex'), findsOneWidget);
     expect(find.text(r'$780.00'), findsOneWidget);
     expect(find.text('Qty: 1'), findsWidgets);
+    final portfolioCard = find.byKey(const Key('search-card-charizard-ex'));
+    expect(tester.getSize(portfolioCard), const Size(170, 378));
+    expect(
+      tester
+          .getSize(
+            find.byKey(const Key('search-card-image-container-charizard-ex')),
+          )
+          .height,
+      186,
+    );
+    expect(find.text('Pokemon · Obsidian Flames'), findsOneWidget);
   });
 
   testWidgets(
@@ -259,6 +270,18 @@ void main() {
     expect(find.text('Lorcana Elsa'), findsOneWidget);
     expect(find.text('One Piece Manga Luffy'), findsOneWidget);
     expect(find.textContaining('Qty:'), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const Key('search-card-lorcana-elsa'))),
+      const Size(170, 378),
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const Key('search-card-image-container-lorcana-elsa')),
+          )
+          .height,
+      186,
+    );
   });
 
   testWidgets('search no-match state is distinct from empty state', (

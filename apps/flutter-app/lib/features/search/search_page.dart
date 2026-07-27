@@ -500,40 +500,53 @@ class _SearchResults extends ConsumerWidget {
     }
 
     if (state.selectedTab == SearchTab.sets) {
-      return Column(
-        children: [
-          for (final set in state.visibleSets) _SearchSetRow(set: set),
-        ],
+      return Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 350),
+          child: Column(
+            children: [
+              for (final set in state.visibleSets) _SearchSetRow(set: set),
+            ],
+          ),
+        ),
       );
     }
 
-    return Column(
-      children: [
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 10,
-          childAspectRatio: 170 / 378,
-          physics: const NeverScrollableScrollPhysics(),
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 350),
+        child: Column(
           children: [
-            for (final card in state.visibleCards)
-              SearchCardTile(
-                card: card,
-                actionsEnabled: state.assetStatus == KandoLoadStatus.content,
-                showSearchMetadata: true,
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              mainAxisExtent: 378,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                for (final card in state.visibleCards)
+                  SearchCardTile(
+                    card: card,
+                    actionsEnabled:
+                        state.assetStatus == KandoLoadStatus.content,
+                    showSearchMetadata: true,
+                  ),
+              ],
+            ),
+            if (state.isLoadingMoreCards) ...[
+              const SizedBox(height: 12),
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
+            ],
           ],
         ),
-        if (state.isLoadingMoreCards) ...[
-          const SizedBox(height: 12),
-          const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
@@ -679,6 +692,7 @@ class _SearchSetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      key: Key('search-set-${set.id}'),
       onTap: () => context.push(
         '/sets/${Uri.encodeComponent(set.id)}'
         '?game=${Uri.encodeQueryComponent(set.game)}'
@@ -686,22 +700,27 @@ class _SearchSetRow extends StatelessWidget {
       ),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        height: 92,
+        margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: KandoColors.surface,
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xCC1C1E15), Color(0xE612140D)],
+          ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: KandoColors.border),
         ),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(13),
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              key: Key('search-set-image-${set.id}'),
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
-                color: KandoColors.ink,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: KandoColors.border),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
               ),
               clipBehavior: Clip.antiAlias,
               child: set.imageUrl == null
@@ -719,7 +738,7 @@ class _SearchSetRow extends StatelessWidget {
                       ),
                     ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -731,18 +750,19 @@ class _SearchSetRow extends StatelessWidget {
                     style: const TextStyle(
                       fontFamily: 'Fraunces',
                       fontSize: 14,
+                      height: 20 / 14,
                       fontWeight: FontWeight.w600,
                       color: KandoColors.text,
                     ),
                   ),
-                  const SizedBox(height: 2),
                   Text(
                     set.subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 11,
-                      color: KandoColors.mutedText,
+                      fontSize: 10,
+                      height: 18 / 10,
+                      color: Color(0xFF92927D),
                     ),
                   ),
                   Text(
@@ -750,14 +770,15 @@ class _SearchSetRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 11,
-                      color: KandoColors.mutedText,
+                      fontSize: 10,
+                      height: 18 / 10,
+                      color: Color(0xFF92927D),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: KandoColors.mutedText),
+            const Icon(Icons.chevron_right, size: 21, color: Color(0xFF92927D)),
           ],
         ),
       ),
