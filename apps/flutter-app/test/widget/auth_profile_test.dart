@@ -16,6 +16,7 @@ import 'package:kando_app/features/auth/ui/auth_sheet.dart';
 import 'package:kando_app/features/auth/ui/email_auth_pages.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
+import 'package:kando_app/features/profile/customer_support_page.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
@@ -1397,6 +1398,33 @@ void main() {
       );
     },
   );
+
+  testWidgets('customer support field labels use consistent typography', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 2000);
+    addTearDown(tester.view.reset);
+    final authRepository = _WidgetAuthRepository(
+      initialSession: _userSession(),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authRepositoryProvider.overrideWithValue(authRepository)],
+        child: MaterialApp(
+          theme: buildKandoTheme(),
+          home: const CustomerSupportPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final emailLabel = tester.widget<Text>(find.text('Email Address'));
+    final messageLabel = tester.widget<Text>(find.text('Your Message'));
+    expect(emailLabel.style?.fontSize, 14);
+    expect(messageLabel.style?.fontSize, emailLabel.style?.fontSize);
+  });
 
   testWidgets(
     'customer support submits signed-in feedback and returns to Profile',

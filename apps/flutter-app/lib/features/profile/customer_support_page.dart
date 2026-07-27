@@ -128,7 +128,7 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
             keyboardType: TextInputType.emailAddress,
           ),
           const SizedBox(height: 24),
-          const _FieldLabel('Your Message', fontSize: 11),
+          const _FieldLabel('Your Message'),
           const SizedBox(height: 8),
           SizedBox(
             height: 178,
@@ -290,10 +290,9 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
 }
 
 class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text, {this.fontSize = 14});
+  const _FieldLabel(this.text);
 
   final String text;
-  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +300,7 @@ class _FieldLabel extends StatelessWidget {
       text,
       style: TextStyle(
         color: KandoColors.mutedText,
-        fontSize: fontSize,
+        fontSize: 14,
         letterSpacing: 0.2,
       ),
     );
