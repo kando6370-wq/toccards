@@ -490,17 +490,13 @@ class _SearchResults extends ConsumerWidget {
     }
 
     if (state.isCurrentSearchUnavailable) {
-      return _SearchEmptyState(
-        title: noContentAvailableText,
+      return _SearchFailureState(
         onRefresh: ref.read(searchControllerProvider.notifier).retrySearch,
       );
     }
 
     if (state.isNoMatch) {
-      return _SearchEmptyState(
-        title: noContentAvailableText,
-        onRefresh: ref.read(searchControllerProvider.notifier).retrySearch,
-      );
+      return const _SearchNoResultsState();
     }
 
     if (state.selectedTab == SearchTab.sets) {
@@ -542,26 +538,105 @@ class _SearchResults extends ConsumerWidget {
   }
 }
 
-class _SearchEmptyState extends StatelessWidget {
-  const _SearchEmptyState({required this.title, required this.onRefresh});
+class _SearchNoResultsState extends StatelessWidget {
+  const _SearchNoResultsState();
 
-  final String title;
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      key: Key('search-no-results'),
+      padding: EdgeInsets.only(top: 16),
+      child: Column(
+        children: [
+          _SearchNoResultsIllustration(),
+          SizedBox(height: 16),
+          Text(
+            'No results found',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              height: 26 / 20,
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w600,
+              color: KandoColors.text,
+            ),
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Try a different keyword',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              height: 20 / 14,
+              color: Color(0xFF92927D),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchNoResultsIllustration extends StatelessWidget {
+  const _SearchNoResultsIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 100,
+      height: 100,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 4.96,
+            top: 8.94,
+            child: SvgPicture.asset(
+              'assets/home/empty_state_magnifier_outer.svg',
+              key: const Key('search-no-results-magnifier-outer'),
+              width: 89.04,
+              height: 79.08,
+              excludeFromSemantics: true,
+            ),
+          ),
+          Positioned(
+            left: 29,
+            top: 32.37,
+            child: SvgPicture.asset(
+              'assets/home/empty_state_magnifier_inner.svg',
+              key: const Key('search-no-results-magnifier-inner'),
+              width: 27.1,
+              height: 29.61,
+              excludeFromSemantics: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchFailureState extends StatelessWidget {
+  const _SearchFailureState({required this.onRefresh});
+
   final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
+      key: const Key('search-failure'),
       padding: const EdgeInsets.only(top: 16),
       child: Column(
         children: [
           SvgPicture.asset(
             'assets/search/no_content_available.svg',
+            key: const Key('search-failure-illustration'),
             width: 100,
             height: 100,
+            excludeFromSemantics: true,
           ),
           const SizedBox(height: 16),
           Text(
-            title,
+            noContentAvailableText,
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 20,

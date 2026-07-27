@@ -224,8 +224,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('search-failure')), findsOneWidget);
+    expect(
+      find.byKey(const Key('search-failure-illustration')),
+      findsOneWidget,
+    );
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
+    expect(find.byKey(const Key('search-no-results')), findsNothing);
     expect(find.text('Search'), findsWidgets);
     expect(repository.calls, 1);
 
@@ -398,6 +404,8 @@ void main() {
       expect(find.byKey(const Key('search-results-loading')), findsOneWidget);
       expect(find.text(noContentAvailableText), findsNothing);
       expect(find.byKey(const Key('search-empty-refresh')), findsNothing);
+      expect(find.byKey(const Key('search-no-results')), findsNothing);
+      expect(find.byKey(const Key('search-failure')), findsNothing);
 
       await repository.completeCardSearch();
       await tester.pumpAndSettle();
@@ -536,9 +544,19 @@ void main() {
     await tester.enterText(find.byType(TextFormField), 'missing');
     await tester.pumpAndSettle();
 
-    expect(find.text(noContentAvailableText), findsOneWidget);
-    expect(find.byKey(const Key('search-empty-refresh')), findsOneWidget);
-    expect(find.text('No matching results found.'), findsNothing);
+    expect(find.byKey(const Key('search-no-results')), findsOneWidget);
+    expect(find.text('No results found'), findsOneWidget);
+    expect(find.text('Try a different keyword'), findsOneWidget);
+    expect(
+      find.byKey(const Key('search-no-results-magnifier-outer')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('search-no-results-magnifier-inner')),
+      findsOneWidget,
+    );
+    expect(find.text(noContentAvailableText), findsNothing);
+    expect(find.byKey(const Key('search-empty-refresh')), findsNothing);
   });
 
   testWidgets('scanner action opens Scan workflow', (tester) async {
