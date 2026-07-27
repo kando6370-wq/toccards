@@ -45,14 +45,18 @@ class ApiHomeRepository implements ProgressiveHomeRepository {
 
   @override
   Future<HomeDashboard> loadCoreDashboard() async {
-    final source = await Future.wait([
-      portfolioApi.listFolders(session),
-      portfolioApi.getValuationHistory(session),
-      managementApi.getPreferences(session),
-    ]);
-    final folders = source[0] as List<PortfolioFolderDto>;
-    final valuations = source[1] as List<PortfolioFolderValuationDto>;
-    final preferences = source[2] as UserPreferenceDto;
+    final foldersFuture = portfolioApi.listFolders(session);
+    final valuationsFuture = portfolioApi.getValuationHistory(session);
+    final preferencesFuture = managementApi
+        .getPreferences(session)
+        .timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => _defaultPreferences,
+        )
+        .catchError((Object _) => _defaultPreferences);
+    final folders = await foldersFuture;
+    final valuations = await valuationsFuture;
+    final preferences = await preferencesFuture;
     final homeFolders = folders
         .map(
           (folder) => HomeFolder(
@@ -179,3 +183,9 @@ const _rangeDays = {
   HomeChartRange.oneMonth: 30,
   HomeChartRange.threeMonths: 90,
 };
+
+const _defaultPreferences = UserPreferenceDto(
+  currency: 'USD',
+  amountHidden: false,
+  lastSelectedFolderId: null,
+);

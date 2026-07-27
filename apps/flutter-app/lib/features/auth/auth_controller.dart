@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -256,9 +257,24 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> _loadInitialSession(int generation) async {
     final storedSession = await _repository.currentSessionFromStorage();
-    final validSession = storedSession == null
-        ? null
-        : await _repository.validateStoredSession(storedSession);
+    if (storedSession != null && _hasUsableAccessToken(storedSession)) {
+      if (generation == _generation) {
+        state = AuthState.ready(session: storedSession);
+      }
+      return;
+    }
+
+    AuthSession? validSession;
+    try {
+      validSession = storedSession == null
+          ? null
+          : await _repository.validateStoredSession(storedSession);
+    } on AuthNetworkException {
+      if (generation == _generation && storedSession != null) {
+        state = AuthState.ready(session: storedSession);
+      }
+      return;
+    }
 
     if (generation != _generation) {
       return;
@@ -307,5 +323,27 @@ class AuthController extends Notifier<AuthState> {
     final run = _mutationTail.then((_) => mutation());
     _mutationTail = run.catchError((Object _) {});
     return run;
+  }
+}
+
+bool _hasUsableAccessToken(AuthSession session, {DateTime? now}) {
+  final parts = session.accessToken.split('.');
+  if (parts.length != 3) return false;
+  try {
+    final payload = jsonDecode(
+      utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+    );
+    if (payload is! Map || payload['exp'] is! num) return false;
+    final expiresAt = DateTime.fromMillisecondsSinceEpoch(
+      (payload['exp'] as num).toInt() * 1000,
+      isUtc: true,
+    );
+    return expiresAt.isAfter(
+      (now ?? DateTime.now()).toUtc().add(const Duration(seconds: 30)),
+    );
+  } on FormatException {
+    return false;
+  } on RangeError {
+    return false;
   }
 }

@@ -329,7 +329,7 @@ class HttpAuthRepository implements AuthRepository {
       if (error.code == 'UNAUTHORIZED') return null;
       rethrow;
     } on DioException {
-      return null;
+      throw const AuthNetworkException();
     }
   }
 
@@ -353,7 +353,7 @@ class HttpAuthRepository implements AuthRepository {
     } on AuthApiException {
       return null;
     } on DioException {
-      return null;
+      throw const AuthNetworkException();
     }
   }
 

@@ -4,8 +4,11 @@ import '../features/home/home_controller.dart';
 import '../features/search/search_controller.dart';
 
 final appStartupPreloaderProvider = Provider<void>((ref) {
-  // Keep both controllers active so they react when auth restoration completes.
-  // Their listeners own the cache; neither page is built offstage.
-  ref.listen(homeControllerProvider, (_, _) {});
-  ref.listen(searchControllerProvider, (_, _) {});
+  // Home owns the startup critical path. Search warms only after Home settles
+  // so cold start does not burst both modules' requests at once.
+  ref.listen(homeControllerProvider, (_, next) {
+    if (!next.isLoading) {
+      ref.read(searchControllerProvider);
+    }
+  }, fireImmediately: true);
 });

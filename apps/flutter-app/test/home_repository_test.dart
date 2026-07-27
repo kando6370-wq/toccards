@@ -100,6 +100,22 @@ void main() {
   );
 
   test(
+    'preferences failure keeps Home usable because currency settings are not core portfolio data',
+    () async {
+      final dashboard = await ApiHomeRepository(
+        session: _session,
+        portfolioApi: _PortfolioApi(),
+        managementApi: _FailingManagementApi(),
+        cardDataApi: _CardDataApi(),
+      ).loadCoreDashboard();
+
+      expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 760);
+      expect(dashboard.currencyCode, 'USD');
+      expect(dashboard.amountHidden, isFalse);
+    },
+  );
+
+  test(
     'Trending skips incomplete leaders before taking three because producer updates must not hide valid fallback cards',
     () async {
       final trending = await loadTrendingCards(_UpdatingTrendingApi());
@@ -271,6 +287,13 @@ class _ManagementApi implements PortfolioManagementApi {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FailingManagementApi extends _ManagementApi {
+  @override
+  Future<UserPreferenceDto> getPreferences(AuthSession session) {
+    return Future.error(StateError('preferences unavailable'));
+  }
 }
 
 class _CardDataApi implements CardDataApi {

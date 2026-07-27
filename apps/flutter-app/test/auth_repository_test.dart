@@ -111,6 +111,27 @@ void main() {
   );
 
   test(
+    'stored session validation reports network failure because offline startup must not discard identity',
+    () async {
+      const stored = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'stored-access',
+        refreshToken: 'stored-refresh',
+        userId: 'user-1',
+      );
+      final repository = HttpAuthRepository(
+        _dio(_FakeAuthAdapter({'GET /auth/me': _NetworkFailure()})),
+        InMemoryAuthStorage(),
+      );
+
+      await expectLater(
+        repository.validateStoredSession(stored),
+        throwsA(isA<AuthNetworkException>()),
+      );
+    },
+  );
+
+  test(
     'logs in through the backend because user sessions must be server-issued',
     () async {
       final adapter = _FakeAuthAdapter({

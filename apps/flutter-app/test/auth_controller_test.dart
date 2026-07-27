@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +36,47 @@ void main() {
       expect(repository.validatedSessions, [same(storedUser)]);
       expect(repository.createdDeviceIds, isEmpty);
       expect(repository.persistedSessions, isEmpty);
+    },
+  );
+
+  test(
+    'unexpired stored JWT skips remote validation because cold start must not wait for a redundant request',
+    () async {
+      final storedUser = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: _jwtExpiringAt(
+          DateTime.now().add(const Duration(minutes: 5)),
+        ),
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      final repository = _FakeAuthRepository(storedSession: storedUser);
+
+      final state = await _startAuth(repository, deviceId);
+
+      expect(state.session, same(storedUser));
+      expect(repository.validatedSessions, isEmpty);
+    },
+  );
+
+  test(
+    'validation network failure preserves the stored identity because offline startup must remain recoverable',
+    () async {
+      final storedUser = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'expired-or-opaque-access',
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      final repository = _FakeAuthRepository(
+        storedSession: storedUser,
+        validationError: const AuthNetworkException(),
+      );
+
+      final state = await _startAuth(repository, deviceId);
+
+      expect(state.session, same(storedUser));
+      expect(repository.createdDeviceIds, isEmpty);
     },
   );
 
@@ -810,6 +852,13 @@ AuthSession _userSession({required String userId, required String email}) {
   );
 }
 
+String _jwtExpiringAt(DateTime expiresAt) {
+  String encode(Object value) =>
+      base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+  return '${encode({'alg': 'HS256', 'typ': 'JWT'})}.'
+      '${encode({'exp': expiresAt.toUtc().millisecondsSinceEpoch ~/ 1000})}.signature';
+}
+
 class _FakeOAuthAuthorizer implements OAuthAuthorizer {
   _FakeOAuthAuthorizer({this.result, this.resultFuture, this.error});
 
@@ -838,6 +887,7 @@ class _FakeAuthRepository implements AuthRepository {
     this.storedSession,
     this.validatedSession,
     this.validationCompleter,
+    this.validationError,
     this.previousAnonymousSession,
     AuthSession? createdAnonymousSession,
     List<AuthSession>? createdAnonymousSessions,
@@ -865,6 +915,7 @@ class _FakeAuthRepository implements AuthRepository {
   final AuthSession? storedSession;
   final AuthSession? validatedSession;
   final Completer<AuthSession?>? validationCompleter;
+  final Exception? validationError;
   final AuthSession? previousAnonymousSession;
   final List<Future<AuthSession>> _createAnonymousResults;
   final List<Future<void>> _persistResults;
@@ -895,6 +946,8 @@ class _FakeAuthRepository implements AuthRepository {
   @override
   Future<AuthSession?> validateStoredSession(AuthSession session) async {
     validatedSessions.add(session);
+    final validationError = this.validationError;
+    if (validationError != null) throw validationError;
     if (validationCompleter != null) {
       return validationCompleter!.future;
     }
