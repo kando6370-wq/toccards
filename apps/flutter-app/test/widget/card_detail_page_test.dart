@@ -562,6 +562,35 @@ void main() {
     expect(find.text('Cracked slab for binder.'), findsOneWidget);
   });
 
+  testWidgets(
+    'Collection Item edit closes with CardDetail because reopening the card must start in read-only mode',
+    (tester) async {
+      await tester.pumpWidget(const _CardDetailReentryApp());
+      await tester.tap(find.byKey(const Key('open-card-detail')));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+      await tester.ensureVisible(find.text('Edit item'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit item'));
+      await tester.pumpAndSettle();
+      expect(find.text('Save changes'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('open-card-detail')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('open-card-detail')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+      await tester.ensureVisible(find.text('Edit item'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit item'), findsOneWidget);
+      expect(find.text('Save changes'), findsNothing);
+    },
+  );
+
   testWidgets('owned Collection Item edit dismisses keyboard on outside tap', (
     tester,
   ) async {
@@ -830,6 +859,35 @@ class _CardDetailRouteApp extends StatelessWidget {
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CardDetailReentryApp extends StatelessWidget {
+  const _CardDetailReentryApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return ProviderScope(
+      overrides: _cardDetailOverrides,
+      child: MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                key: const Key('open-card-detail'),
+                onPressed: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        const CardDetailPage(cardId: 'charizard-ex'),
+                  ),
+                ),
+                child: const Text('Open card'),
+              ),
+            ),
+          ),
         ),
       ),
     );

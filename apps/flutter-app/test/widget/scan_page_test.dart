@@ -373,6 +373,52 @@ void main() {
   );
 
   testWidgets(
+    'Gallery return keeps a stable camera placeholder because importing an image must not look like shutter feedback',
+    (tester) async {
+      final first = _TestScanCameraSession();
+      final second = _TestScanCameraSession();
+      final factory = _TestScanCameraFactory(first);
+      final galleryGate = Completer<void>();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        libraryGate: galleryGate.future,
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: factory,
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+
+      expect(first.disposed, isTrue);
+      expect(
+        find.byKey(const Key('scan-camera-opening-background')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-figma-camera-background')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
+
+      factory.session = second;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(factory.openCount, 1);
+
+      galleryGate.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(factory.openCount, 2);
+      expect(find.byKey(const Key('scan-live-camera-preview')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'Recognition mask matches the visible viewfinder on narrow screens because detected cards must stay inside the targeting frame',
     (tester) async {
       tester.view.devicePixelRatio = 1;
@@ -791,6 +837,79 @@ void main() {
       ),
     );
   });
+
+  testWidgets(
+    'Review collapses back to the same scan session because editing a match must not exit or discard prior scans',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 44);
+      addTearDown(tester.view.resetPadding);
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-one',
+            cardRef: 'card-mega',
+            matchName: 'Mega Lucario ex',
+            candidates: ['Mega Lucario ex'],
+          ),
+        ),
+        subsequentPhotoResults: [
+          Future.value(
+            const ScanResolution.matched(
+              scanId: 'scan-two',
+              cardRef: 'card-mega',
+              matchName: 'Mega Lucario ex',
+              candidates: ['Mega Lucario ex'],
+            ),
+          ),
+        ],
+      );
+      await _pumpScanTestApp(tester, scanResultSource: source);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+
+      final collapseArea = tester.getRect(
+        find.byKey(const Key('scan-review-collapse-area')),
+      );
+      final safeTop = MediaQuery.paddingOf(
+        tester.element(find.byType(ScanPage)),
+      ).top;
+      expect(collapseArea.height, safeTop + 24);
+
+      await tester.tap(find.byKey(const Key('scan-review-collapse-area')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Review your matches'), findsNothing);
+      expect(find.text('Exit scan result?'), findsNothing);
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.byTooltip('Take Photo'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Review close only collapses editing because Exit scan result belongs to the scan-page close action',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Back to Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Exit scan result?'), findsNothing);
+
+      await tester.tap(find.byTooltip('Close Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Exit scan result?'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'A failed single scan uses the same result rail as real-time scanning',
@@ -1685,6 +1804,7 @@ class _TestScanResultSource implements ScanResultSource {
     Future<ScanResolution>? libraryResult,
     List<Future<ScanResolution>>? libraryResults,
     this.libraryImages = const [],
+    this.libraryGate,
     Future<ScanResolution>? recognizeResult,
     Future<ScanResolution>? retryResult,
   }) : _photoResults = [photoResult, ...subsequentPhotoResults],
@@ -1698,6 +1818,7 @@ class _TestScanResultSource implements ScanResultSource {
   final List<Future<ScanResolution>> _photoResults;
   final List<Future<ScanResolution>> _libraryResults;
   final List<ScanImage> libraryImages;
+  final Future<void>? libraryGate;
   final Future<ScanResolution> _recognizeResult;
   final Future<ScanResolution> _retryResult;
   var photoCallCount = 0;
@@ -1713,6 +1834,7 @@ class _TestScanResultSource implements ScanResultSource {
     onSelected,
   }) async {
     libraryCallCount += 1;
+    await libraryGate;
     for (var index = 0; index < libraryImages.length; index += 1) {
       onSelected?.call(libraryImages[index], _libraryResults[index]);
     }

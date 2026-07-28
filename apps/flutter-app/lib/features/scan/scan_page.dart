@@ -290,6 +290,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _reviewing = false;
   var _photoRecognitionInFlight = false;
   var _capturingPhoto = false;
+  var _librarySelectionInFlight = false;
   int? _selectedReviewItemId;
   int? _lastAddedCount;
   ScanReviewTarget? _reviewTarget;
@@ -381,7 +382,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   Future<void> _openCamera() async {
-    if (_openingCamera || _cameraSession != null || !_appActive || _reviewing) {
+    if (_openingCamera ||
+        _cameraSession != null ||
+        !_appActive ||
+        _reviewing ||
+        _librarySelectionInFlight) {
       return;
     }
     _openingCamera = true;
@@ -405,11 +410,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!mounted ||
         generation != _cameraGeneration ||
         !_appActive ||
-        _reviewing) {
+        _reviewing ||
+        _librarySelectionInFlight) {
       await session?.dispose();
       if (!mounted) return;
       _openingCamera = false;
-      if (_appActive && !_reviewing && _cameraSession == null) {
+      if (_appActive &&
+          !_reviewing &&
+          !_librarySelectionInFlight &&
+          _cameraSession == null) {
         unawaited(_openCamera());
       }
       return;
@@ -491,6 +500,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   Future<void> _startLibraryScan() async {
+    if (_librarySelectionInFlight) return;
+    setState(() => _librarySelectionInFlight = true);
     try {
       final permission = await ref
           .read(scanPermissionGatewayProvider)
@@ -525,6 +536,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } catch (_) {
       if (mounted) {
         _addScan(Future.value(const ScanResolution.failed()));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _librarySelectionInFlight = false);
+        unawaited(_openCamera());
       }
     }
   }
@@ -870,7 +886,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     final items = _matchedItems;
-    final matchedIds = items.map((item) => item.id).toSet();
     final cachedCards = Map<String, ScanReviewCard>.from(_reviewCards);
     final cardRefs = [
       for (final item in items)
@@ -879,14 +894,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final missingCardRefs = cardRefs
         .where((cardRef) => !cachedCards.containsKey(cardRef))
         .toList();
-    for (final pendingId
-        in _pendingScans.keys
-            .where((id) => !matchedIds.contains(id))
-            .toList()) {
-      _pendingScans.remove(pendingId)?.revealController?.dispose();
-    }
     setState(() {
-      _items.removeWhere((item) => !matchedIds.contains(item.id));
       _reviewing = true;
       _selectedReviewItemId = itemId ?? items.first.id;
       _reviewTarget = null;
@@ -926,6 +934,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } on Exception {
       _failReviewLoad();
     }
+  }
+
+  void _closeReview() {
+    if (_savingReview || !_reviewing) return;
+    setState(() {
+      _reviewing = false;
+      _reviewFormError = null;
+    });
+    unawaited(_openCamera());
   }
 
   void _failReviewLoad() {
@@ -1242,36 +1259,60 @@ class _ScanPageState extends ConsumerState<ScanPage>
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _requestExitScan();
+        if (!didPop) {
+          if (_reviewing) {
+            _closeReview();
+          } else {
+            _requestExitScan();
+          }
+        }
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF10100B),
         body: _reviewing
-            ? SafeArea(
-                child: _KeyboardDismissOnPointerDown(
-                  child: _ReviewMatches(
-                    items: _matchedItems,
-                    selectedItemId: _selectedReviewItemId,
-                    target: _reviewTarget,
-                    cards: _reviewCards,
-                    drafts: _reviewDrafts,
-                    formError: _reviewFormError,
-                    saving: _savingReview,
-                    currency: currency,
-                    onExit: _requestExitScan,
-                    onSelectItem: _selectReviewItem,
-                    onSelectCandidate: _selectReviewCandidate,
-                    onUpdateDraft: _updateReviewDraft,
-                    onAddThisCard: _addSelectedItem,
-                    onAddAllCards: _addAllMatchedItems,
-                    onDeleteItem: _deleteReviewItem,
-                    onDeleteAll: _deleteAllReviewItems,
+            ? Stack(
+                children: [
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: _KeyboardDismissOnPointerDown(
+                        child: _ReviewMatches(
+                          items: _matchedItems,
+                          selectedItemId: _selectedReviewItemId,
+                          target: _reviewTarget,
+                          cards: _reviewCards,
+                          drafts: _reviewDrafts,
+                          formError: _reviewFormError,
+                          saving: _savingReview,
+                          currency: currency,
+                          onCollapse: _closeReview,
+                          onSelectItem: _selectReviewItem,
+                          onSelectCandidate: _selectReviewCandidate,
+                          onUpdateDraft: _updateReviewDraft,
+                          onAddThisCard: _addSelectedItem,
+                          onAddAllCards: _addAllMatchedItems,
+                          onDeleteItem: _deleteReviewItem,
+                          onDeleteAll: _deleteAllReviewItems,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    height: MediaQuery.paddingOf(context).top + 24,
+                    child: GestureDetector(
+                      key: const Key('scan-review-collapse-area'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _closeReview,
+                    ),
+                  ),
+                ],
               )
             : _ScanCameraView(
                 cameraPreview: _cameraSession?.buildPreview(),
-                cameraOpening: _openingCamera,
+                cameraOpening: _openingCamera || _librarySelectionInFlight,
                 flashEnabled: _cameraSession?.flashEnabled ?? false,
                 items: _items,
                 lastAddedCount: _lastAddedCount,
@@ -2807,7 +2848,7 @@ class _ReviewMatches extends StatelessWidget {
     required this.formError,
     required this.saving,
     required this.currency,
-    required this.onExit,
+    required this.onCollapse,
     required this.onSelectItem,
     required this.onSelectCandidate,
     required this.onUpdateDraft,
@@ -2825,7 +2866,7 @@ class _ReviewMatches extends StatelessWidget {
   final String? formError;
   final bool saving;
   final AppCurrency currency;
-  final VoidCallback onExit;
+  final VoidCallback onCollapse;
   final ValueChanged<_ScanItem> onSelectItem;
   final void Function(_ScanItem, _ScanCandidate) onSelectCandidate;
   final void Function(int, _ScanCollectionDraft) onUpdateDraft;
@@ -2892,8 +2933,8 @@ class _ReviewMatches extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Close Scan',
-                    onPressed: saving ? null : onExit,
+                    tooltip: 'Back to Scan',
+                    onPressed: saving ? null : onCollapse,
                     icon: SvgPicture.asset(
                       'assets/scan/close.svg',
                       width: 14,

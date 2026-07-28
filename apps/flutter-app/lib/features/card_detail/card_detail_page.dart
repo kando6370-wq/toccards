@@ -98,7 +98,7 @@ class CardDetailPage extends ConsumerWidget {
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
 
-    return Scaffold(
+    final page = Scaffold(
       backgroundColor: KandoColors.ink,
       body: SafeArea(
         child: _CardDetailKeyboardDismissOnPointerDown(
@@ -136,7 +136,7 @@ class CardDetailPage extends ConsumerWidget {
                           _CardHero(
                             state: state,
                             controller: controller,
-                            onBack: () => _goBack(context),
+                            onBack: () => _goBack(context, controller),
                           ),
                           const SizedBox(height: 10),
                           if (state.assetStateStatus == KandoLoadStatus.loading)
@@ -183,14 +183,24 @@ class CardDetailPage extends ConsumerWidget {
         ),
       ),
     );
+
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          controller.cancelCollectionItemEdit();
+        }
+      },
+      child: page,
+    );
   }
 
-  void _goBack(BuildContext context) {
+  void _goBack(BuildContext context, CardDetailController controller) {
     if (context.canPop()) {
       context.pop();
       return;
     }
 
+    controller.cancelCollectionItemEdit();
     context.go('/search');
   }
 }
