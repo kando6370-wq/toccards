@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -134,6 +136,47 @@ void main() {
     expect(permissions.galleryRequests, 1);
     expect(source.libraryCallCount, 0);
   });
+
+  testWidgets(
+    'Android uses its platform dialog when the OS can no longer show a permission request',
+    (tester) async {
+      final permissions = _TestScanPermissionGateway(
+        camera: ScanPermissionResult.permanentlyDenied,
+      );
+
+      await _pumpScanTestApp(tester, permissions: permissions);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      await tester.tap(find.text('Open Settings'));
+      await tester.pumpAndSettle();
+      expect(permissions.settingsRequests, 1);
+    },
+  );
+
+  testWidgets(
+    'iOS uses its platform dialog when the OS can no longer show a permission request',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        final permissions = _TestScanPermissionGateway(
+          camera: ScanPermissionResult.permanentlyDenied,
+        );
+
+        await _pumpScanTestApp(tester, permissions: permissions);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+        expect(find.byType(AlertDialog), findsNothing);
+        await tester.tap(find.text('Open Settings'));
+        await tester.pumpAndSettle();
+        expect(permissions.settingsRequests, 1);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
 
   test('Figma scan SVG icons use Flutter-compatible fill colors', () async {
     const iconAssets = [
@@ -1910,6 +1953,7 @@ class _TestScanPermissionGateway implements ScanPermissionGateway {
   final ScanPermissionResult gallery;
   var cameraRequests = 0;
   var galleryRequests = 0;
+  var settingsRequests = 0;
 
   @override
   Future<ScanPermissionResult> requestCamera() async {
@@ -1924,7 +1968,10 @@ class _TestScanPermissionGateway implements ScanPermissionGateway {
   }
 
   @override
-  Future<bool> openSettings() async => true;
+  Future<bool> openSettings() async {
+    settingsRequests += 1;
+    return true;
+  }
 }
 
 class _PermissionDelayedScanCameraFactory implements ScanCameraFactory {
