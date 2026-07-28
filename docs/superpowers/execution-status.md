@@ -3,10 +3,10 @@
 ## 当前任务
 - 状态：本轮完成（局部验证通过）
 - 计划编号：无（非 dev-plan 里程碑任务）
-- 最近开始：2026-07-17 17:12:27
-- 最近完成：2026-07-17 17:41:34
-- 最近验证：局部通过（`flutter test apps/flutter-app/test/toast_test.dart` 通过）
-- 最近任务摘要：为顶部 Overlay Toast 增加两行省略和向上滑动关闭
+- 最近开始：2026-07-28 10:12:52
+- 最近完成：2026-07-28 10:18:27
+- 最近验证：局部通过（`flutter analyze` 通过；启动预加载、开屏等待与 App 启动测试 7/7 通过）
+- 最近任务摘要：在开屏阶段并行预加载底部导航页面数据
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
 ## dev-plan 子任务状态
@@ -124,6 +124,10 @@
 - 已完成：归一 execution-status 隐藏状态块
 
 ## 执行日志
+- 2026-07-28 10:18:27 | 完成（局部验证通过） | 开屏最短时长延长至 2 秒，并在认证后并行预加载 Home、Collection、Search，最长等待 8 秒；静态分析与启动相关测试通过；扩展 controller 测试仅有 1 个既有 Search 展示文案断言失败
+- 2026-07-28 10:12:52 | 开始 | 在开屏阶段并行预加载 Home、Collection、Search 数据，并延长最短开屏时间
+- 2026-07-28 09:52:59 | 完成（局部验证通过） | 修复认证状态切换后 Home 首次请求未被消费的问题；`flutter analyze` 与 Home 启动预加载/controller 测试通过；Home widget 全文件另有 2 个既有 golden 像素差及 1 个既有金额断言失败，可独立复现且本次未改 UI
+- 2026-07-28 09:47:16 | 开始 | 修复 Home 首次进入时不自动展示数据的问题
 - 2026-07-17 17:41:34 | 完成（局部验证通过） | 为顶部 Overlay Toast 增加两行省略和向上滑动关闭；`flutter test apps/flutter-app/test/toast_test.dart` 通过
 - 2026-07-17 17:39:00 | 完成（局部验证通过） | 新增顶部 Overlay Toast 公共组件，支持 failure/network/success/warning/info 类型；`flutter test apps/flutter-app/test/toast_test.dart` 通过
 - 2026-07-17 17:27:09 | 完成（局部验证通过） | 将 Delete Account 确认弹窗替换为共享 Figma danger modal；toast/modal 定向测试通过；iPhone 17 模拟器已启动 `com.kando.kandoApp`

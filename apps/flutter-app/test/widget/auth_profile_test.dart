@@ -1915,7 +1915,7 @@ ProviderScope _testApp(
 
   return ProviderScope(
     overrides: [
-      appStartupPreloaderProvider.overrideWith((ref) {}),
+      appStartupPreloaderProvider.overrideWith((ref) async {}),
       authRepositoryProvider.overrideWithValue(repository),
       if (authController != null)
         authControllerProvider.overrideWith(authController),

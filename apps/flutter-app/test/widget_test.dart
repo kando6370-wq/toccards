@@ -28,7 +28,8 @@ void main() {
     await tester.tap(find.byTooltip('NEXT'));
     await _finishPageTransition(tester);
     await tester.tap(find.byTooltip('Skip and start now'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('PORTFOLIO'), findsOneWidget);
@@ -44,7 +45,7 @@ void main() {
 }
 
 Future<void> _finishStartup(WidgetTester tester) async {
-  await tester.pump(const Duration(milliseconds: 1200));
+  await tester.pump(const Duration(seconds: 2));
   await tester.pump();
 }
 
@@ -57,7 +58,7 @@ Future<void> _finishPageTransition(WidgetTester tester) async {
 ProviderScope _testApp(InMemoryOnboardingStorage storage) {
   return ProviderScope(
     overrides: [
-      appStartupPreloaderProvider.overrideWith((ref) {}),
+      appStartupPreloaderProvider.overrideWith((ref) async {}),
       authRepositoryProvider.overrideWithValue(
         _WidgetTestAuthRepository(
           AuthSession(
