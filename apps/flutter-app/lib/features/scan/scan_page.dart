@@ -36,19 +36,13 @@ enum _ScanItemStatus {
 const _viewfinderTop = 163.0;
 const _viewfinderWidth = 280.0;
 const _viewfinderHeight = 400.0;
-const _cameraCropMargin = 0.15;
 
 ScanImageCrop _cameraRecognitionCrop(Size viewport) {
   final viewfinderLeft = (viewport.width - _viewfinderWidth) / 2;
-  final horizontalMargin = _viewfinderWidth * _cameraCropMargin;
-  final verticalMargin = _viewfinderHeight * _cameraCropMargin;
-  final left = (viewfinderLeft - horizontalMargin).clamp(0.0, viewport.width);
-  final top = (_viewfinderTop - verticalMargin).clamp(0.0, viewport.height);
-  final right = (viewfinderLeft + _viewfinderWidth + horizontalMargin).clamp(
-    0.0,
-    viewport.width,
-  );
-  final bottom = (_viewfinderTop + _viewfinderHeight + verticalMargin).clamp(
+  final left = viewfinderLeft.clamp(0.0, viewport.width);
+  final top = _viewfinderTop.clamp(0.0, viewport.height);
+  final right = (viewfinderLeft + _viewfinderWidth).clamp(0.0, viewport.width);
+  final bottom = (_viewfinderTop + _viewfinderHeight).clamp(
     0.0,
     viewport.height,
   );

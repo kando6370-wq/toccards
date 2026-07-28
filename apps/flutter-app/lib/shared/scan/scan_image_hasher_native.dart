@@ -53,7 +53,7 @@ ScanImageHashes _hashImage(Uint8List imageBytes, ScanImageCrop? crop) {
     final detection = _detectCardCorners(
       source,
       allowSourceImage: crop == null,
-      allowNestedCardSurface: crop == null,
+      allowContainerRecovery: crop == null,
     );
     card = _warpCard(source, detection.corners);
     rgb = cv.cvtColor(card, cv.COLOR_BGR2RGB);
@@ -136,7 +136,7 @@ cv.Mat _cropImage(cv.Mat image, ScanImageCrop crop) {
 _detectCardCorners(
   cv.Mat image, {
   required bool allowSourceImage,
-  required bool allowNestedCardSurface,
+  required bool allowContainerRecovery,
 }) {
   const maximumDimension = 1600;
   final scale = math.min(
@@ -282,7 +282,7 @@ _detectCardCorners(
       final enclosing = _preferEnclosingCard(best, deduplicated, imageArea);
       if (enclosing != null) best = enclosing;
     }
-    if (allowNestedCardSurface &&
+    if (allowContainerRecovery &&
         !selectedInset &&
         best.area / imageArea >= 0.55) {
       final outer = best;
@@ -340,23 +340,27 @@ _detectCardCorners(
       working.rows,
     );
     if (expandedSurface != null) best = expandedSurface;
-    final panelRecovery = _recoverFromLandscapePanel(
-      best,
-      deduplicated,
-      working,
-      gradient,
-      gradientHigh,
-      imageArea,
-    );
+    final panelRecovery = allowContainerRecovery
+        ? _recoverFromLandscapePanel(
+            best,
+            deduplicated,
+            working,
+            gradient,
+            gradientHigh,
+            imageArea,
+          )
+        : null;
     if (panelRecovery != null) best = panelRecovery;
-    final recovered = _recoverSlabCard(
-      best,
-      deduplicated,
-      working,
-      gradient,
-      gradientHigh,
-      imageArea,
-    );
+    final recovered = allowContainerRecovery
+        ? _recoverSlabCard(
+            best,
+            deduplicated,
+            working,
+            gradient,
+            gradientHigh,
+            imageArea,
+          )
+        : null;
     if (recovered != null) best = recovered;
     final inset = _insetForeshortenedCard(best, working, imageArea);
     if (inset != null) best = inset;

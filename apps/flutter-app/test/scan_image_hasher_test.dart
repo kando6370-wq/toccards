@@ -75,6 +75,8 @@ void main() {
       );
 
       expect(hash.diagnostics, isNot(contains('nested_card_surface')));
+      expect(hash.diagnostics, isNot(contains('landscape_panel_recovery')));
+      expect(hash.diagnostics, isNot(contains('slab_card_recovery')));
     },
     timeout: const Timeout(Duration(minutes: 1)),
     skip: Platform.environment['DARTCV_LIB_PATH'] == null

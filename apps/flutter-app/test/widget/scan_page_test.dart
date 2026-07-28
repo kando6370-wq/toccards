@@ -291,10 +291,10 @@ void main() {
         findsOneWidget,
       );
       final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(13 / 390, 0.0001));
-      expect(crop.top, closeTo(103 / 844, 0.0001));
-      expect(crop.width, closeTo(364 / 390, 0.0001));
-      expect(crop.height, closeTo(520 / 844, 0.0001));
+      expect(crop.left, closeTo(55 / 390, 0.0001));
+      expect(crop.top, closeTo(163 / 844, 0.0001));
+      expect(crop.width, closeTo(280 / 390, 0.0001));
+      expect(crop.height, closeTo(400 / 844, 0.0001));
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -304,7 +304,7 @@ void main() {
   );
 
   testWidgets(
-    'Camera recognition keeps a guard band around the yellow viewfinder because preview and JPEG fields of view must not clip card edges',
+    'Camera recognition uses the yellow viewfinder because the captured image must match what the user framed',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(360, 800);
@@ -327,14 +327,10 @@ void main() {
         find.byKey(const Key('scan-figma-viewfinder')),
       );
       final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, lessThan(viewfinder.left / 360));
-      expect(crop.top, lessThan(viewfinder.top / 800));
-      expect(crop.left + crop.width, greaterThan(viewfinder.right / 360));
-      expect(crop.top + crop.height, greaterThan(viewfinder.bottom / 800));
-      expect(crop.left, greaterThanOrEqualTo(0));
-      expect(crop.top, greaterThanOrEqualTo(0));
-      expect(crop.left + crop.width, lessThanOrEqualTo(1));
-      expect(crop.top + crop.height, lessThanOrEqualTo(1));
+      expect(crop.left, closeTo(viewfinder.left / 360, 0.0001));
+      expect(crop.top, closeTo(viewfinder.top / 800, 0.0001));
+      expect(crop.left + crop.width, closeTo(viewfinder.right / 360, 0.0001));
+      expect(crop.top + crop.height, closeTo(viewfinder.bottom / 800, 0.0001));
     },
   );
 
