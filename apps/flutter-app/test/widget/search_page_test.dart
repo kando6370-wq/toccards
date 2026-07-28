@@ -54,6 +54,33 @@ void main() {
     expect(find.text(r'$32.13'), findsOneWidget);
     expect(find.text('+4.76%'), findsOneWidget);
     expect(find.text('+8.10%'), findsOneWidget);
+    expect(
+      tester.getRect(find.byKey(const Key('search-results-grid'))).left,
+      tester.getRect(find.byKey(const Key('search-field'))).left,
+    );
+    expect(
+      tester.getRect(find.byKey(const Key('search-results-grid'))).right,
+      tester.getRect(find.byKey(const Key('search-field'))).right,
+    );
+    final squirtlePriceRow = find.byKey(
+      const Key('search-price-row-squirtle'),
+    );
+    final squirtlePrice = find.descendant(
+      of: squirtlePriceRow,
+      matching: find.text(r'$32.13'),
+    );
+    final squirtleChange = find.descendant(
+      of: squirtlePriceRow,
+      matching: find.text('+4.76%'),
+    );
+    expect(
+      tester.getRect(squirtlePrice).right,
+      closeTo(tester.getRect(squirtlePriceRow).right, 0.01),
+    );
+    expect(
+      tester.getRect(squirtleChange).right,
+      closeTo(tester.getRect(squirtlePriceRow).right, 0.01),
+    );
     expect(find.text('Qty: 0'), findsWidgets);
     expect(find.byKey(const Key('search-collect-squirtle')), findsOneWidget);
     expect(
@@ -150,6 +177,10 @@ void main() {
   testWidgets(
     'Search renders backend card art because Figma cards are not placeholders',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -181,7 +212,7 @@ void main() {
         tester.getRect(imageContainer).top,
         tester.getRect(cardTile).top + 14,
       );
-      expect(tester.getSize(cardTile), const Size(170, 378));
+      expect(tester.getSize(cardTile), const Size(174, 378));
       expect(tester.getSize(imageContainer).height, 186);
       expect(
         tester.getRect(actionButton).top,
@@ -357,6 +388,10 @@ void main() {
   );
 
   testWidgets('Sets tab keeps its own search state', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: _searchOverrides(),
@@ -379,7 +414,7 @@ void main() {
       tester
           .getSize(find.byKey(const Key('search-set-mega-evolution-promos')))
           .width,
-      350,
+      358,
     );
     expect(
       tester.getSize(

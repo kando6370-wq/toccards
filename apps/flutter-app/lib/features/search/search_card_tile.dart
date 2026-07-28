@@ -220,6 +220,7 @@ class SearchCardTile extends ConsumerWidget {
                 ),
                 const SizedBox(height: 42),
                 _PriceRow(
+                  key: Key('search-price-row-${card.id}'),
                   quantity: card.quantity,
                   price: card.priceText(currency),
                   change: change,
@@ -332,6 +333,7 @@ String? _displayLanguageCode(String? value) {
 
 class _PriceRow extends StatelessWidget {
   const _PriceRow({
+    super.key,
     required this.quantity,
     required this.price,
     required this.change,
@@ -356,7 +358,7 @@ class _PriceRow extends StatelessWidget {
           Expanded(child: Text('Qty: $quantity', style: mutedStyle))
         else
           const Spacer(),
-        Flexible(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [

@@ -501,53 +501,41 @@ class _SearchResults extends ConsumerWidget {
     }
 
     if (state.selectedTab == SearchTab.sets) {
-      return Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 350),
-          child: Column(
-            children: [
-              for (final set in state.visibleSets) _SearchSetRow(set: set),
-            ],
-          ),
-        ),
+      return Column(
+        children: [
+          for (final set in state.visibleSets) _SearchSetRow(set: set),
+        ],
       );
     }
 
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 350),
-        child: Column(
+    return Column(
+      children: [
+        GridView.count(
+          key: const Key('search-results-grid'),
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          mainAxisExtent: 378,
+          physics: const NeverScrollableScrollPhysics(),
           children: [
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              mainAxisExtent: 378,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                for (final card in state.visibleCards)
-                  SearchCardTile(
-                    card: card,
-                    actionsEnabled:
-                        state.assetStatus == KandoLoadStatus.content,
-                    showSearchMetadata: true,
-                  ),
-              ],
-            ),
-            if (state.isLoadingMoreCards) ...[
-              const SizedBox(height: 12),
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
+            for (final card in state.visibleCards)
+              SearchCardTile(
+                card: card,
+                actionsEnabled: state.assetStatus == KandoLoadStatus.content,
+                showSearchMetadata: true,
               ),
-            ],
           ],
         ),
-      ),
+        if (state.isLoadingMoreCards) ...[
+          const SizedBox(height: 12),
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ],
+      ],
     );
   }
 }
