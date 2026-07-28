@@ -815,88 +815,91 @@ class _GameFilterSheetState extends State<_GameFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        key: const Key('search-game-filter-sheet'),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.72,
-        ),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-        decoration: const BoxDecoration(
-          color: KandoColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Align(
-              alignment: Alignment.center,
-              child: Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF77734A),
-                  borderRadius: BorderRadius.circular(999),
+    return Container(
+      key: const Key('search-game-filter-sheet'),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+      ),
+      decoration: const BoxDecoration(
+        color: KandoColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Align(
+                alignment: Alignment.center,
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF77734A),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'Filter',
-              style: TextStyle(
-                fontFamily: 'Fraunces',
-                fontSize: 28,
-                height: 32 / 28,
-                fontWeight: FontWeight.w600,
-                color: KandoColors.text,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'GAME / IP',
-              style: TextStyle(
-                fontFamily: 'Fraunces',
-                fontSize: 18,
-                height: 24 / 18,
-                fontWeight: FontWeight.w600,
-                color: KandoColors.text,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final game in widget.games)
-                      _GameFilterChip(
-                        game: game,
-                        selected: game.id == _selectedGameId,
-                        onTap: () => setState(() => _selectedGameId = game.id),
-                      ),
-                  ],
+              const SizedBox(height: 18),
+              const Text(
+                'Filter',
+                style: TextStyle(
+                  fontFamily: 'Fraunces',
+                  fontSize: 28,
+                  height: 32 / 28,
+                  fontWeight: FontWeight.w600,
+                  color: KandoColors.text,
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton(
-                key: const Key('search-game-apply-filter'),
-                onPressed: () => widget.onApply(_selectedGameId),
-                style: FilledButton.styleFrom(
-                  backgroundColor: KandoColors.accent,
-                  foregroundColor: KandoColors.ink,
-                  shape: const StadiumBorder(),
+              const SizedBox(height: 20),
+              const Text(
+                'GAME / IP',
+                style: TextStyle(
+                  fontFamily: 'Fraunces',
+                  fontSize: 18,
+                  height: 24 / 18,
+                  fontWeight: FontWeight.w600,
+                  color: KandoColors.text,
                 ),
-                child: const Text('APPLY FILTERS'),
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final game in widget.games)
+                        _GameFilterChip(
+                          game: game,
+                          selected: game.id == _selectedGameId,
+                          onTap: () =>
+                              setState(() => _selectedGameId = game.id),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  key: const Key('search-game-apply-filter'),
+                  onPressed: () => widget.onApply(_selectedGameId),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: KandoColors.accent,
+                    foregroundColor: KandoColors.ink,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: const Text('APPLY FILTERS'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -437,6 +437,11 @@ void main() {
   });
 
   testWidgets('Game selector refreshes cards', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.padding = const FakeViewPadding(bottom: 34);
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: _searchOverrides(),
@@ -452,6 +457,18 @@ void main() {
       find.byKey(const Key('search-game-filter-sheet')),
     );
     expect((sheet.decoration! as BoxDecoration).color, KandoColors.surface);
+    expect(
+      tester
+          .getRect(find.byKey(const Key('search-game-filter-sheet')))
+          .bottom,
+      844,
+    );
+    expect(
+      tester
+          .getRect(find.byKey(const Key('search-game-apply-filter')))
+          .bottom,
+      lessThanOrEqualTo(844 - 34),
+    );
     expect(find.text('GAME / IP'), findsOneWidget);
     expect(find.text('APPLY FILTERS'), findsOneWidget);
 
