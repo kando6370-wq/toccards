@@ -335,7 +335,12 @@ class _FolderButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.swap_horiz, size: 14, color: KandoColors.accent),
+            SvgPicture.asset(
+              'assets/home/folder_switch.svg',
+              key: const Key('collection-folder-switch-icon'),
+              width: 10.5,
+              height: 8.24644,
+            ),
             const SizedBox(width: 4),
             Text(
               name,

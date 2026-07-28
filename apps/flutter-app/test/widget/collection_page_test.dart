@@ -79,6 +79,10 @@ void main() {
     expect(find.text('Portfolio'), findsWidgets);
     expect(find.text('Wishlist'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
+    expect(
+      find.byKey(const Key('collection-folder-switch-icon')),
+      findsOneWidget,
+    );
     expect(find.text(r'$1,245.00'), findsOneWidget);
     expect(find.text('4 cards'), findsOneWidget);
     expect(find.text('2 graded'), findsOneWidget);

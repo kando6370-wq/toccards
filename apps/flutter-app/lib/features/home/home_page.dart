@@ -598,7 +598,17 @@ class _FolderPill extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset('assets/home/switch.png', width: 12, height: 12),
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: Center(
+                  child: SvgPicture.asset(
+                    'assets/home/folder_switch.svg',
+                    width: 10.5,
+                    height: 8.24644,
+                  ),
+                ),
+              ),
               const SizedBox(width: 4),
               Flexible(
                 child: FittedBox(
@@ -1225,10 +1235,10 @@ class _SectionHeader extends StatelessWidget {
                             height: 16 / 13,
                           ),
                         )
-                      : const Row(
+                      : Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
+                            const Text(
                               'View all',
                               style: TextStyle(
                                 color: KandoColors.accent,
@@ -1237,12 +1247,10 @@ class _SectionHeader extends StatelessWidget {
                                 height: 20 / 16,
                               ),
                             ),
-                            SizedBox(width: 4),
-                            Image(
-                              key: Key('home-view-all-arrow'),
-                              image: AssetImage(
-                                'assets/home/view_all_arrow.png',
-                              ),
+                            const SizedBox(width: 4),
+                            SvgPicture.asset(
+                              'assets/home/view_all_arrow.svg',
+                              key: const Key('home-view-all-arrow'),
                               width: 14,
                               height: 10,
                             ),

@@ -178,6 +178,16 @@ void main() {
     expect(find.byKey(const Key('home-pull-to-refresh')), findsOneWidget);
     expect(find.text('PORTDOLIO'), findsNothing);
     expect(find.text('Main'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader is SvgAssetLoader &&
+            (widget.bytesLoader as SvgAssetLoader).assetName ==
+                'assets/home/folder_switch.svg',
+      ),
+      findsOneWidget,
+    );
     expect(find.text(r'$12,450.80'), findsOneWidget);
     expect(find.text('1D'), findsOneWidget);
     expect(find.text('7D'), findsOneWidget);
@@ -309,6 +319,19 @@ void main() {
     for (final text in tester.widgetList<Text>(find.text('View all'))) {
       expect(text.style?.fontSize, 16);
       expect(text.style?.height, 20 / 16);
+    }
+
+    final arrows = tester.widgetList<SvgPicture>(
+      find.byKey(const Key('home-view-all-arrow')),
+    );
+    expect(arrows, hasLength(2));
+    for (final arrow in arrows) {
+      expect(arrow.width, 14);
+      expect(arrow.height, 10);
+      expect(
+        (arrow.bytesLoader as SvgAssetLoader).assetName,
+        'assets/home/view_all_arrow.svg',
+      );
     }
   });
 
