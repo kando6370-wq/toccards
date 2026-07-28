@@ -85,15 +85,10 @@ void main() {
     expect(find.text('Charizard ex'), findsOneWidget);
     expect(find.text(r'$780.00'), findsOneWidget);
     expect(find.text('Qty: 1'), findsWidgets);
-    final portfolioCard = find.byKey(const Key('search-card-charizard-ex'));
-    expect(tester.getSize(portfolioCard), const Size(170, 378));
-    expect(
-      tester
-          .getSize(
-            find.byKey(const Key('search-card-image-container-charizard-ex')),
-          )
-          .height,
-      186,
+    _expectCollectionCardRowMatchesSearchField(
+      tester,
+      leftCardId: 'charizard-ex',
+      rightCardId: 'umbreon-vmax',
     );
     expect(find.text('Pokemon · Obsidian Flames'), findsOneWidget);
   });
@@ -290,19 +285,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Lorcana Elsa'), findsOneWidget);
-    expect(find.text('One Piece Manga Luffy'), findsOneWidget);
+    expect(find.textContaining('One Piece Manga Luffy'), findsOneWidget);
     expect(find.textContaining('Qty:'), findsNothing);
-    expect(
-      tester.getSize(find.byKey(const Key('search-card-lorcana-elsa'))),
-      const Size(170, 378),
-    );
-    expect(
-      tester
-          .getSize(
-            find.byKey(const Key('search-card-image-container-lorcana-elsa')),
-          )
-          .height,
-      186,
+    _expectCollectionCardRowMatchesSearchField(
+      tester,
+      leftCardId: 'lorcana-elsa',
+      rightCardId: 'one-piece-luffy',
     );
   });
 
@@ -401,7 +389,7 @@ void main() {
     await tester.tap(find.byKey(const Key('collection-filter-apply')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Pikachu Promo'), findsOneWidget);
+    expect(find.textContaining('Pikachu Promo'), findsOneWidget);
     expect(find.text('Charizard ex'), findsNothing);
   });
 
@@ -649,6 +637,24 @@ Future<void> _pumpCollection(WidgetTester tester) async {
     ),
   );
   await tester.pumpAndSettle();
+}
+
+void _expectCollectionCardRowMatchesSearchField(
+  WidgetTester tester, {
+  required String leftCardId,
+  required String rightCardId,
+}) {
+  final searchFieldRect = tester.getRect(find.byType(TextField).first);
+  final leftCardRect = tester.getRect(
+    find.byKey(Key('search-card-$leftCardId')),
+  );
+  final rightCardRect = tester.getRect(
+    find.byKey(Key('search-card-$rightCardId')),
+  );
+
+  expect(leftCardRect.left, closeTo(searchFieldRect.left, 0.01));
+  expect(rightCardRect.right, closeTo(searchFieldRect.right, 0.01));
+  expect(rightCardRect.left - leftCardRect.right, closeTo(10, 0.01));
 }
 
 _searchOverrides() {

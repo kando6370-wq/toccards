@@ -617,7 +617,7 @@ class _CollectionGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 10.0;
-        final gridWidth = math.min(constraints.maxWidth, 350.0);
+        final gridWidth = constraints.maxWidth;
         final tileWidth = (gridWidth - spacing) / 2;
         return Align(
           alignment: Alignment.topCenter,
