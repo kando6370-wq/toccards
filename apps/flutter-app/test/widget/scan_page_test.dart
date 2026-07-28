@@ -112,6 +112,11 @@ void main() {
 
     expect(permissions.cameraRequests, 1);
     expect(cameraFactory.openCount, 0);
+    expect(
+      find.byKey(const Key('scan-camera-permission-denied-background')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('scan-figma-camera-background')), findsNothing);
   });
 
   testWidgets('Gallery access is requested only when import is tapped', (
@@ -149,6 +154,14 @@ void main() {
 
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(find.byType(CupertinoAlertDialog), findsNothing);
+      final permissionTheme = tester.widget<Theme>(
+        find.byKey(const Key('scan-permission-material-theme')),
+      );
+      expect(permissionTheme.data.brightness, Brightness.light);
+      expect(
+        permissionTheme.data.colorScheme.primary,
+        isNot(buildKandoTheme().colorScheme.primary),
+      );
       await tester.tap(find.text('Open Settings'));
       await tester.pumpAndSettle();
       expect(permissions.settingsRequests, 1);
@@ -169,6 +182,11 @@ void main() {
 
         expect(find.byType(CupertinoAlertDialog), findsOneWidget);
         expect(find.byType(AlertDialog), findsNothing);
+        final permissionTheme = tester.widget<CupertinoTheme>(
+          find.byKey(const Key('scan-permission-cupertino-theme')),
+        );
+        expect(permissionTheme.data.brightness, Brightness.light);
+        expect(permissionTheme.data.primaryColor, CupertinoColors.systemBlue);
         await tester.tap(find.text('Open Settings'));
         await tester.pumpAndSettle();
         expect(permissions.settingsRequests, 1);
@@ -256,6 +274,7 @@ void main() {
       expect(camera.takePhotoCount, 0);
       expect(tester.getTopLeft(scanningLine).dy, greaterThan(start));
       await tester.pump(const Duration(milliseconds: 250));
+      await tester.pump(const Duration(milliseconds: 1));
       expect(camera.takePhotoCount, 1);
       expect(source.recognizedImages.single.fileName, 'live-camera.jpg');
       expect(
@@ -272,10 +291,10 @@ void main() {
         findsOneWidget,
       );
       final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(55 / 390, 0.0001));
-      expect(crop.top, closeTo(163 / 844, 0.0001));
-      expect(crop.width, closeTo(280 / 390, 0.0001));
-      expect(crop.height, closeTo(400 / 844, 0.0001));
+      expect(crop.left, closeTo(13 / 390, 0.0001));
+      expect(crop.top, closeTo(103 / 844, 0.0001));
+      expect(crop.width, closeTo(364 / 390, 0.0001));
+      expect(crop.height, closeTo(520 / 844, 0.0001));
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -285,7 +304,7 @@ void main() {
   );
 
   testWidgets(
-    'Camera recognition uses exactly the yellow viewfinder because pixels outside the targeting frame must never reach card detection',
+    'Camera recognition keeps a guard band around the yellow viewfinder because preview and JPEG fields of view must not clip card edges',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(360, 800);
@@ -301,16 +320,21 @@ void main() {
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 501));
 
       final viewfinder = tester.getRect(
         find.byKey(const Key('scan-figma-viewfinder')),
       );
       final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(viewfinder.left / 360, 0.0001));
-      expect(crop.top, closeTo(viewfinder.top / 800, 0.0001));
-      expect(crop.left + crop.width, closeTo(viewfinder.right / 360, 0.0001));
-      expect(crop.top + crop.height, closeTo(viewfinder.bottom / 800, 0.0001));
+      expect(crop.left, lessThan(viewfinder.left / 360));
+      expect(crop.top, lessThan(viewfinder.top / 800));
+      expect(crop.left + crop.width, greaterThan(viewfinder.right / 360));
+      expect(crop.top + crop.height, greaterThan(viewfinder.bottom / 800));
+      expect(crop.left, greaterThanOrEqualTo(0));
+      expect(crop.top, greaterThanOrEqualTo(0));
+      expect(crop.left + crop.width, lessThanOrEqualTo(1));
+      expect(crop.top + crop.height, lessThanOrEqualTo(1));
     },
   );
 

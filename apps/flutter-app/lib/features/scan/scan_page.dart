@@ -36,13 +36,19 @@ enum _ScanItemStatus {
 const _viewfinderTop = 163.0;
 const _viewfinderWidth = 280.0;
 const _viewfinderHeight = 400.0;
+const _cameraCropMargin = 0.15;
 
 ScanImageCrop _cameraRecognitionCrop(Size viewport) {
   final viewfinderLeft = (viewport.width - _viewfinderWidth) / 2;
-  final left = viewfinderLeft.clamp(0.0, viewport.width);
-  final top = _viewfinderTop.clamp(0.0, viewport.height);
-  final right = (viewfinderLeft + _viewfinderWidth).clamp(0.0, viewport.width);
-  final bottom = (_viewfinderTop + _viewfinderHeight).clamp(
+  final horizontalMargin = _viewfinderWidth * _cameraCropMargin;
+  final verticalMargin = _viewfinderHeight * _cameraCropMargin;
+  final left = (viewfinderLeft - horizontalMargin).clamp(0.0, viewport.width);
+  final top = (_viewfinderTop - verticalMargin).clamp(0.0, viewport.height);
+  final right = (viewfinderLeft + _viewfinderWidth + horizontalMargin).clamp(
+    0.0,
+    viewport.width,
+  );
+  final bottom = (_viewfinderTop + _viewfinderHeight + verticalMargin).clamp(
     0.0,
     viewport.height,
   );
@@ -286,6 +292,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _nextScanToken = 1;
   var _cameraGeneration = 0;
   var _openingCamera = false;
+  var _cameraPermissionDenied = false;
   var _permissionDialogVisible = false;
   var _appActive = true;
   var _reviewing = false;
@@ -396,7 +403,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
         .read(scanPermissionGatewayProvider)
         .requestCamera();
     if (permission != ScanPermissionResult.granted) {
-      if (mounted) setState(() => _openingCamera = false);
+      if (mounted) {
+        setState(() {
+          _openingCamera = false;
+          _cameraPermissionDenied = true;
+        });
+      }
       if (permission == ScanPermissionResult.permanentlyDenied) {
         await _showPermissionSettings('Camera');
       }
@@ -427,6 +439,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() {
       _cameraSession = session;
       _openingCamera = false;
+      _cameraPermissionDenied = false;
     });
   }
 
@@ -553,37 +566,54 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final open = useCupertino
         ? await showCupertinoDialog<bool>(
             context: context,
-            builder: (context) => CupertinoAlertDialog(
-              title: Text('$name permission required'),
-              content: Text('Enable $name access in Settings to continue.'),
-              actions: [
-                CupertinoDialogAction(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
-                ),
-                CupertinoDialogAction(
-                  isDefaultAction: true,
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Open Settings'),
-                ),
-              ],
+            builder: (context) => CupertinoTheme(
+              key: const Key('scan-permission-cupertino-theme'),
+              data: const CupertinoThemeData(
+                brightness: Brightness.light,
+                primaryColor: CupertinoColors.systemBlue,
+              ),
+              child: CupertinoAlertDialog(
+                title: Text('$name permission required'),
+                content: Text('Enable $name access in Settings to continue.'),
+                actions: [
+                  CupertinoDialogAction(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                  CupertinoDialogAction(
+                    isDefaultAction: true,
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Open Settings'),
+                  ),
+                ],
+              ),
             ),
           )
         : await showDialog<bool>(
             context: context,
-            builder: (context) => AlertDialog(
-              title: Text('$name permission required'),
-              content: Text('Enable $name access in Settings to continue.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
+            builder: (context) => Theme(
+              key: const Key('scan-permission-material-theme'),
+              data: ThemeData(
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: Colors.blue,
+                  brightness: Brightness.light,
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Open Settings'),
-                ),
-              ],
+                useMaterial3: true,
+              ),
+              child: AlertDialog(
+                title: Text('$name permission required'),
+                content: Text('Enable $name access in Settings to continue.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Open Settings'),
+                  ),
+                ],
+              ),
             ),
           );
     _permissionDialogVisible = false;
@@ -1334,6 +1364,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             : _ScanCameraView(
                 cameraPreview: _cameraSession?.buildPreview(),
                 cameraOpening: _openingCamera || _librarySelectionInFlight,
+                cameraPermissionDenied: _cameraPermissionDenied,
                 flashEnabled: _cameraSession?.flashEnabled ?? false,
                 items: _items,
                 lastAddedCount: _lastAddedCount,
@@ -1367,6 +1398,7 @@ class _ScanCameraView extends StatelessWidget {
   const _ScanCameraView({
     required this.cameraPreview,
     required this.cameraOpening,
+    required this.cameraPermissionDenied,
     required this.flashEnabled,
     required this.items,
     required this.lastAddedCount,
@@ -1394,6 +1426,7 @@ class _ScanCameraView extends StatelessWidget {
 
   final Widget? cameraPreview;
   final bool cameraOpening;
+  final bool cameraPermissionDenied;
   final bool flashEnabled;
   final List<_ScanItem> items;
   final int? lastAddedCount;
@@ -1434,6 +1467,13 @@ class _ScanCameraView extends StatelessWidget {
           const Positioned.fill(
             child: ColoredBox(
               key: Key('scan-camera-opening-background'),
+              color: Color(0xFF10100B),
+            ),
+          )
+        else if (cameraPermissionDenied)
+          const Positioned.fill(
+            child: ColoredBox(
+              key: Key('scan-camera-permission-denied-background'),
               color: Color(0xFF10100B),
             ),
           )

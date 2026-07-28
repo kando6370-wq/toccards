@@ -53,6 +53,7 @@ ScanImageHashes _hashImage(Uint8List imageBytes, ScanImageCrop? crop) {
     final detection = _detectCardCorners(
       source,
       allowSourceImage: crop == null,
+      allowNestedCardSurface: crop == null,
     );
     card = _warpCard(source, detection.corners);
     rgb = cv.cvtColor(card, cv.COLOR_BGR2RGB);
@@ -132,7 +133,11 @@ cv.Mat _cropImage(cv.Mat image, ScanImageCrop crop) {
 }
 
 ({List<_ImagePoint> corners, Map<String, double> diagnostics})
-_detectCardCorners(cv.Mat image, {required bool allowSourceImage}) {
+_detectCardCorners(
+  cv.Mat image, {
+  required bool allowSourceImage,
+  required bool allowNestedCardSurface,
+}) {
   const maximumDimension = 1600;
   final scale = math.min(
     1.0,
@@ -277,7 +282,9 @@ _detectCardCorners(cv.Mat image, {required bool allowSourceImage}) {
       final enclosing = _preferEnclosingCard(best, deduplicated, imageArea);
       if (enclosing != null) best = enclosing;
     }
-    if (!selectedInset && best.area / imageArea >= 0.55) {
+    if (allowNestedCardSurface &&
+        !selectedInset &&
+        best.area / imageArea >= 0.55) {
       final outer = best;
       final nested = deduplicated.where((candidate) {
         if (identical(candidate, outer)) return false;

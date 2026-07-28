@@ -61,6 +61,28 @@ void main() {
   );
 
   test(
+    'camera-guided crops keep the outer card because the viewfinder already identifies the card and internal artwork must not replace it',
+    () async {
+      final hash = await createScanImageHasher().hash(
+        _syntheticCardPpm(),
+        crop: const ScanImageCrop(
+          left: 0,
+          top: 0,
+          width: 1,
+          height: 1,
+          viewportAspectRatio: 2 / 3,
+        ),
+      );
+
+      expect(hash.diagnostics, isNot(contains('nested_card_surface')));
+    },
+    timeout: const Timeout(Duration(minutes: 1)),
+    skip: Platform.environment['DARTCV_LIB_PATH'] == null
+        ? 'Requires the platform dartcv library.'
+        : false,
+  );
+
+  test(
     'slab detection keeps the enclosed card because grading-case edges must not replace the card boundary',
     () async {
       final hash = await createScanImageHasher().hash(_syntheticSlabPng());
