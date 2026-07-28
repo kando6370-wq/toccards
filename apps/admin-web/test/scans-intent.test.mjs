@@ -28,3 +28,11 @@ test("scan visual rules are page-scoped because other admin modules must not cha
   assert.match(css, /\.scans-page \.scan-thumb/);
   assert.match(css, /\.scan-detail-drawer \.detail-section/);
 });
+
+test("scan search reloads when filters are unchanged because every query click must call the paginated API", () => {
+  assert.match(
+    app,
+    /function applyScanFilters\(\) \{[\s\S]*?setPage\(1\);[\s\S]*?setFilters\(draft\);[\s\S]*?reload\(\);[\s\S]*?\}/,
+  );
+  assert.match(app, /onClick=\{applyScanFilters\}>查询<\/Button>/);
+});

@@ -569,6 +569,12 @@ function ScansPage({ session }: { session: AdminSession }) {
     setSelected(detail);
   }
 
+  function applyScanFilters() {
+    setPage(1);
+    setFilters(draft);
+    reload();
+  }
+
   const columns: ColumnsType<ScanListItem> = [
     { title: "SCAN ID", dataIndex: "scan_id", ellipsis: true },
     { title: "卡牌图片", dataIndex: "image_url", render: (value: string) => <AuthenticatedScanImage path={value} session={session} className="scan-thumb" /> },
@@ -606,7 +612,7 @@ function ScansPage({ session }: { session: AdminSession }) {
           <Select placeholder="全部" allowClear value={draft.modified_result || undefined} options={[{ value: "true", label: "是" }, { value: "false", label: "否" }]} onChange={(value) => setDraft((current) => ({ ...current, modified_result: value ?? "" }))} />
         </ScanFilterField>
         <div className="scans-filter-actions">
-          <Button className="cyan-button" onClick={() => { setPage(1); setFilters(draft); }}>查询</Button>
+          <Button className="cyan-button" onClick={applyScanFilters}>查询</Button>
           <Button onClick={() => { setDraft({}); setFilters({}); setPage(1); }}>重置</Button>
         </div>
       </section>
