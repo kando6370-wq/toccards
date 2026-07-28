@@ -44,20 +44,39 @@ export const cardsAll = sqliteTable(
   (t) => [
     index("idx_cards_all_game_id").on(t.gameId),
     index("idx_cards_all_game_product").on(t.gameId, t.productId),
+    index("idx_cards_all_updated_product").on(
+      sql`${t.updatedAt} DESC`,
+      sql`${t.productId} ASC`,
+    ),
+    index("idx_cards_all_game_updated_product").on(
+      sql`lower(${t.game})`,
+      sql`${t.updatedAt} DESC`,
+      sql`${t.productId} ASC`,
+    ),
+    index("idx_cards_all_game_set_updated_product").on(
+      sql`lower(${t.game})`,
+      sql`lower(${t.setCode})`,
+      sql`${t.updatedAt} DESC`,
+      sql`${t.productId} ASC`,
+    ),
   ],
 );
 
-export const games = sqliteTable("games", {
-  id: integer("id"),
-  gameId: real("game_id"),
-  name: text("name"),
-  totalCards: integer("total_cards"),
-  imageSource: text("image_source"),
-  imagesEnabled: integer("images_enabled"),
-  createdAt: text("created_at"),
-  load: integer("load"),
-  searchSort: integer("search_sort").notNull().default(1000),
-});
+export const games = sqliteTable(
+  "games",
+  {
+    id: integer("id"),
+    gameId: real("game_id"),
+    name: text("name"),
+    totalCards: integer("total_cards"),
+    imageSource: text("image_source"),
+    imagesEnabled: integer("images_enabled"),
+    createdAt: text("created_at"),
+    load: integer("load"),
+    searchSort: integer("search_sort").notNull().default(1000),
+  },
+  (t) => [index("idx_games_load_sort").on(t.load, t.searchSort, t.gameId)],
+);
 
 export const sets = sqliteTable(
   "sets",
@@ -69,7 +88,10 @@ export const sets = sqliteTable(
     setImageId: text("set_image_id"),
     totalCards: integer("total_cards").default(0),
   },
-  (t) => [unique("uq_sets_game_name").on(t.game, t.name)],
+  (t) => [
+    unique("uq_sets_game_name").on(t.game, t.name),
+    index("idx_sets_game_name_search").on(sql`lower(${t.game})`, t.name),
+  ],
 );
 
 export const tcgplayerSkus = sqliteTable(
@@ -132,12 +154,22 @@ export const user = sqliteTable(
   ],
 );
 
-export const anonymousAccount = sqliteTable("anonymous_account", {
-  id: text("id").primaryKey(),
-  deviceId: text("device_id").notNull(),
-  createdAt: text("created_at").notNull(),
-  upgradedUserId: text("upgraded_user_id"), // 升级后回填 user.id；NULL = 仍为游客
-});
+export const anonymousAccount = sqliteTable(
+  "anonymous_account",
+  {
+    id: text("id").primaryKey(),
+    deviceId: text("device_id").notNull(),
+    createdAt: text("created_at").notNull(),
+    upgradedUserId: text("upgraded_user_id"), // 升级后回填 user.id；NULL = 仍为游客
+  },
+  (t) => [
+    index("idx_anonymous_account_device_live").on(
+      t.deviceId,
+      t.upgradedUserId,
+      t.createdAt,
+    ),
+  ],
+);
 
 export const authIdentity = sqliteTable(
   "auth_identity",
@@ -150,7 +182,10 @@ export const authIdentity = sqliteTable(
     providerUid: text("provider_uid").notNull(),
     createdAt: text("created_at").notNull(),
   },
-  (t) => [unique("uq_auth_identity_provider").on(t.provider, t.providerUid)],
+  (t) => [
+    unique("uq_auth_identity_provider").on(t.provider, t.providerUid),
+    index("idx_auth_identity_user").on(t.userId),
+  ],
 );
 
 export const session = sqliteTable(
@@ -185,7 +220,9 @@ export const verificationCode = sqliteTable(
     usedAt: text("used_at"), // NULL = 未使用
     createdAt: text("created_at").notNull(),
   },
-  (t) => [index("idx_verification_code_email").on(t.email, t.purpose)],
+  (t) => [
+    index("idx_verification_code_email").on(t.email, t.purpose, t.createdAt),
+  ],
 );
 
 // ── 资产层 ────────────────────────────────────────────────────
@@ -204,7 +241,7 @@ export const portfolioFolder = sqliteTable(
   },
   (t) => [
     unique("uq_portfolio_folder_name").on(t.ownerType, t.ownerId, t.name),
-    index("idx_portfolio_folder_owner").on(t.ownerType, t.ownerId),
+    index("idx_portfolio_folder_owner").on(t.ownerType, t.ownerId, t.sortOrder),
     check("ck_portfolio_folder_is_default", sql`${t.isDefault} IN (0, 1)`),
   ],
 );
@@ -234,7 +271,7 @@ export const collectionItem = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (t) => [
-    index("idx_collection_item_owner").on(t.ownerType, t.ownerId),
+    index("idx_collection_item_owner").on(t.ownerType, t.ownerId, t.cardRef),
     index("idx_collection_item_folder").on(t.folderId),
     index("idx_collection_item_card").on(t.cardRef),
     check("ck_collection_item_quantity", sql`${t.quantity} >= 1`),
@@ -313,7 +350,7 @@ export const scanRecord = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [
-    index("idx_scan_record_owner").on(t.ownerType, t.ownerId),
+    index("idx_scan_record_owner").on(t.ownerType, t.ownerId, t.createdAt),
     index("idx_scan_record_created_at").on(t.createdAt),
     check("ck_scan_record_modified_result", sql`${t.modifiedResult} IN (0, 1)`),
   ],
