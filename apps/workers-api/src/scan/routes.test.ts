@@ -80,6 +80,7 @@ type CardCatalogRow = {
   rarity: string | null;
   product_type_name: string | null;
   image_url: string | null;
+  number?: string | null;
 };
 
 const PHASH = "vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw";
@@ -167,6 +168,31 @@ class FakeD1Statement {
       ) ?? null) as T | null;
     }
     return null;
+  }
+
+  async all<T = unknown>(): Promise<D1Result<T>> {
+    const sql = normalizeSql(this.sql);
+    if (sql.includes("SELECT product_id, number") && sql.includes("FROM cards_all")) {
+      const productIds = new Set(this.values.map(String));
+      return okResult<T>(
+        this.db.cards
+          .filter((row) => productIds.has(row.product_id))
+          .map((row) => ({ product_id: row.product_id, number: row.number ?? null })) as T[],
+      );
+    }
+    if (sql.includes("FROM cards_all") && sql.includes("LIKE ?")) {
+      const termCount = (sql.match(/LIKE \?/g) ?? []).length;
+      const terms = this.values
+        .slice(0, termCount)
+        .map((value) => String(value).replaceAll("%", "").toLowerCase());
+      const rows = this.db.cards.filter((row) => {
+        const searchable = `${row.name ?? ""} ${row.number ?? ""} ${row.set_name ?? ""} ${row.set_code ?? ""} ${row.rarity ?? ""} ${row.game ?? ""}`
+          .toLowerCase();
+        return terms.every((term) => searchable.includes(term));
+      });
+      return okResult<T>(rows as T[]);
+    }
+    return okResult<T>();
   }
 
   async run<T = unknown>(): Promise<D1Result<T>> {
@@ -431,6 +457,132 @@ describe("scan routes", () => {
         }),
       }),
     ]);
+  });
+
+  it("promotes an exact printed number because pHash alone cannot distinguish cards with identical artwork", async () => {
+    const env = createRecognitionEnv();
+    env.DB.cards.push(
+      {
+        product_id: "610499",
+        game_id: 3,
+        game: "Pokemon",
+        set_name: "Prismatic Evolutions",
+        set_code: "PRE",
+        name: "Leafeon ex",
+        rarity: "Special Illustration Rare",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "144/131",
+      },
+      {
+        product_id: "602664",
+        game_id: 3,
+        game: "Pokemon",
+        set_name: "Terastal Festival ex",
+        set_code: "SV8a",
+        name: "Leafeon ex",
+        rarity: "Special Art Rare",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "200/187",
+      },
+    );
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      expect(JSON.parse(String(init.body))).toEqual({ r: PHASH, g: PHASH, b: PHASH });
+      return Response.json({
+        candidates: [
+          { product_id: 610499, confidence: 84.1 },
+          { product_id: 602664, confidence: 83.854 },
+        ],
+      });
+    });
+
+    const response = await recognize(env, token, {
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+      card_number: "200 / 187",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual(expect.objectContaining({
+      data: expect.objectContaining({
+        results: [expect.objectContaining({
+          candidates: [
+            expect.objectContaining({
+              rank: 1,
+              card_ref: "602664",
+              card_number: "200/187",
+              retrieval: "rgb-phash-16-v1+card-number-ocr",
+            }),
+            expect.objectContaining({ rank: 2, card_ref: "610499" }),
+          ],
+        })],
+      }),
+    }));
+    expect(env.DB.scanRecords[0]?.system_result).toContain('"number":"200/187"');
+  });
+
+  it("recovers an exact catalog printing because the correct version may fall outside the pHash candidate limit", async () => {
+    const env = createRecognitionEnv();
+    env.DB.cards.push(
+      {
+        product_id: "610499",
+        game_id: 3,
+        game: "Pokemon",
+        set_name: "Prismatic Evolutions",
+        set_code: "PRE",
+        name: "Leafeon ex",
+        rarity: "Special Illustration Rare",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "144/131",
+      },
+      {
+        product_id: "602664",
+        game_id: 3,
+        game: "Pokemon",
+        set_name: "Terastal Festival ex",
+        set_code: "SV8a",
+        name: "Leafeon ex",
+        rarity: "Special Art Rare",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "200/187",
+      },
+    );
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", async () =>
+      Response.json({
+        candidates: [{ product_id: 610499, confidence: 84.1 }],
+      })
+    );
+
+    const response = await recognize(env, token, {
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+      card_number: "200/187",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual(expect.objectContaining({
+      data: expect.objectContaining({
+        results: [expect.objectContaining({
+          candidates: [
+            expect.objectContaining({
+              card_ref: "602664",
+              card_number: "200/187",
+              retrieval: "rgb-phash-16-v1+card-number-ocr",
+            }),
+            expect.objectContaining({ card_ref: "610499" }),
+          ],
+        })],
+      }),
+    }));
   });
 
   it("stores no_match when recognition ids are absent from D1 because an upstream id is not a reviewable card", async () => {

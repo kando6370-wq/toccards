@@ -6,12 +6,14 @@ class ScanImageHashes {
     required this.g,
     required this.b,
     this.cardImageBytes,
+    this.diagnostics = const {},
   });
 
   final String r;
   final String g;
   final String b;
   final Uint8List? cardImageBytes;
+  final Map<String, double> diagnostics;
 }
 
 class ScanImageProcessingException implements Exception {

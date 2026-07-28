@@ -50,8 +50,11 @@ ScanImageHashes _hashImage(Uint8List imageBytes, ScanImageCrop? crop) {
     final source = crop == null
         ? decoded
         : (cropped = _cropImage(decoded, crop));
-    final corners = _detectCardCorners(source, allowSourceImage: crop == null);
-    card = _warpCard(source, corners);
+    final detection = _detectCardCorners(
+      source,
+      allowSourceImage: crop == null,
+    );
+    card = _warpCard(source, detection.corners);
     rgb = cv.cvtColor(card, cv.COLOR_BGR2RGB);
     final parameters = [cv.IMWRITE_JPEG_QUALITY, 85].i32;
     late final Uint8List cardImageBytes;
@@ -100,6 +103,7 @@ ScanImageHashes _hashImage(Uint8List imageBytes, ScanImageCrop? crop) {
       g: encodeScanPhash(green),
       b: encodeScanPhash(blue),
       cardImageBytes: cardImageBytes,
+      diagnostics: detection.diagnostics,
     );
   } finally {
     rgb?.dispose();
@@ -127,10 +131,8 @@ cv.Mat _cropImage(cv.Mat image, ScanImageCrop crop) {
   }
 }
 
-List<_ImagePoint> _detectCardCorners(
-  cv.Mat image, {
-  required bool allowSourceImage,
-}) {
+({List<_ImagePoint> corners, Map<String, double> diagnostics})
+_detectCardCorners(cv.Mat image, {required bool allowSourceImage}) {
   const maximumDimension = 1600;
   final scale = math.min(
     1.0,
@@ -245,6 +247,7 @@ List<_ImagePoint> _detectCardCorners(
           math.exp(-2.7 * aspectError),
           0.76 + 0.16 * math.exp(-2.7 * aspectError),
           sourceImage: true,
+          diagnostics: const {'source_image': 1.0},
         ),
       );
     }
@@ -266,39 +269,102 @@ List<_ImagePoint> _detectCardCorners(
             candidate.score >= best.score - 0.12;
       }).toList()..sort((left, right) => right.score.compareTo(left.score));
       if (inset.isNotEmpty) {
-        best = inset.first;
+        best = inset.first.withDiagnostic('inset_from_source');
         selectedInset = true;
       }
     }
-    final parents = <_CardCandidate>[];
-    if (!selectedInset && best.aspectScore >= 0.78) {
-      for (final parent in deduplicated.skip(1)) {
-        final ratio = parent.area / best.area;
-        if (ratio >= 1.35 &&
-            ratio <= 4.5 &&
-            parent.aspectScore >= 0.78 &&
-            parent.score >= best.score - 0.13 &&
-            best.points
-                    .where((point) => _contains(parent.points, point))
-                    .length >=
-                3) {
-          parents.add(parent);
-        }
+    if (!selectedInset) {
+      final enclosing = _preferEnclosingCard(best, deduplicated, imageArea);
+      if (enclosing != null) best = enclosing;
+    }
+    if (!selectedInset && best.area / imageArea >= 0.55) {
+      final outer = best;
+      final nested = deduplicated.where((candidate) {
+        if (identical(candidate, outer)) return false;
+        final areaRatio = candidate.area / imageArea;
+        final relativeArea = candidate.area / math.max(outer.area, 1.0);
+        final containedCorners = candidate.points
+            .where((point) => _contains(outer.points, point))
+            .length;
+        return areaRatio >= 0.12 &&
+            areaRatio <= 0.70 &&
+            relativeArea >= 0.20 &&
+            relativeArea <= 0.85 &&
+            candidate.aspectScore >= 0.70 &&
+            candidate.score >= outer.score - 0.17 &&
+            containedCorners >= 3;
+      }).toList();
+      if (nested.isNotEmpty) {
+        nested.sort(
+          (left, right) => (right.score + 0.20 * right.area / imageArea)
+              .compareTo(left.score + 0.20 * left.area / imageArea),
+        );
+        best = nested.first.withDiagnostic('nested_card_surface');
       }
     }
-    if (parents.isNotEmpty) {
-      parents.sort((left, right) => right.area.compareTo(left.area));
-      best = parents.first;
+    if (best.aspectScore < 0.70) {
+      final alternatives = deduplicated.where((candidate) {
+        final areaRatio = candidate.area / imageArea;
+        return areaRatio >= 0.10 &&
+            areaRatio <= 0.70 &&
+            candidate.aspectScore >= 0.95 &&
+            candidate.score >= best.score - 0.06;
+      }).toList()..sort((left, right) => right.score.compareTo(left.score));
+      if (alternatives.isNotEmpty) {
+        final recoveredShape = alternatives.first;
+        final corners = _scaleQuad(recoveredShape.points, 0.94);
+        best = recoveredShape.copyWith(
+          points: corners,
+          area: _polygonArea(corners),
+          diagnostics: {
+            ...recoveredShape.diagnostics,
+            'pre_inset_area_ratio': recoveredShape.area / imageArea,
+            'area_ratio': _polygonArea(corners) / imageArea,
+            'shape_recovery': 1.0,
+          },
+        );
+      }
     }
+    final expandedSurface = _expandTruncatedCardSurface(
+      best,
+      deduplicated,
+      imageArea,
+      working.cols,
+      working.rows,
+    );
+    if (expandedSurface != null) best = expandedSurface;
+    final panelRecovery = _recoverFromLandscapePanel(
+      best,
+      deduplicated,
+      working,
+      gradient,
+      gradientHigh,
+      imageArea,
+    );
+    if (panelRecovery != null) best = panelRecovery;
+    final recovered = _recoverSlabCard(
+      best,
+      deduplicated,
+      working,
+      gradient,
+      gradientHigh,
+      imageArea,
+    );
+    if (recovered != null) best = recovered;
+    final inset = _insetForeshortenedCard(best, working, imageArea);
+    if (inset != null) best = inset;
     if (best.score < 0.48) {
       throw const ScanImageProcessingException(
         'Keep one card fully visible inside the frame and try again.',
       );
     }
-    return [
-      for (final point in best.points)
-        _ImagePoint(point.x / scale, point.y / scale),
-    ];
+    return (
+      corners: [
+        for (final point in best.points)
+          _ImagePoint(point.x / scale, point.y / scale),
+      ],
+      diagnostics: best.diagnostics,
+    );
   } finally {
     for (final mask in masks) {
       mask.dispose();
@@ -425,8 +491,406 @@ bool _addCandidate(
       0.11 * content +
       0.08 * border -
       0.07 * (touching / 4);
-  candidates.add(_CardCandidate(points, area, aspectScore, score));
+  candidates.add(
+    _CardCandidate(
+      points,
+      area,
+      aspectScore,
+      score,
+      diagnostics: {
+        'area_ratio': areaRatio,
+        'aspect': aspect,
+        'aspect_score': aspectScore,
+        'rectangularity': rectangularity,
+        'boundary_score': boundary,
+        'content_score': content,
+        'border_score': border,
+      },
+    ),
+  );
   return true;
+}
+
+_CardCandidate? _recoverFromLandscapePanel(
+  _CardCandidate best,
+  List<_CardCandidate> candidates,
+  cv.Mat image,
+  cv.Mat gradient,
+  double gradientHigh,
+  int imageArea,
+) {
+  if (best.area / imageArea > 0.35) return null;
+  final panel = _orderCorners(best.points);
+  final panelSides = [
+    for (var i = 0; i < 4; i++) _distance(panel[i], panel[(i + 1) % 4]),
+  ];
+  final panelWidth = (panelSides[0] + panelSides[2]) / 2;
+  final panelHeight = (panelSides[1] + panelSides[3]) / 2;
+  if (panelWidth <= panelHeight * 1.12) return null;
+
+  final panelCenterY =
+      panel.map((point) => point.y).reduce((a, b) => a + b) / 4;
+  final frames = candidates.where((candidate) {
+    if (identical(candidate, best) || candidate.area / imageArea < 0.55) {
+      return false;
+    }
+    final frame = _orderCorners(candidate.points);
+    final sides = [
+      for (var i = 0; i < 4; i++) _distance(frame[i], frame[(i + 1) % 4]),
+    ];
+    final width = (sides[0] + sides[2]) / 2;
+    final height = (sides[1] + sides[3]) / 2;
+    if (height <= width * 1.12 || candidate.aspectScore < 0.75) {
+      return false;
+    }
+    final containedCorners = panel
+        .where((point) => _contains(frame, point))
+        .length;
+    final frameTop = frame.map((point) => point.y).reduce(math.min);
+    final frameBottom = frame.map((point) => point.y).reduce(math.max);
+    final relativeCenter =
+        (panelCenterY - frameTop) / math.max(frameBottom - frameTop, 1.0);
+    return containedCorners >= 3 && relativeCenter <= 0.45;
+  }).toList()..sort((left, right) => right.area.compareTo(left.area));
+  if (frames.isEmpty) return null;
+
+  final targetHeight = panelWidth / (_cardWidth / _cardHeight);
+  final extension = targetHeight / math.max(panelHeight, 1.0);
+  if (extension < 1.45 || extension > 2.60) return null;
+  final recoveredCorners =
+      [
+            panel[0],
+            panel[1],
+            _ImagePoint(
+              panel[1].x + (panel[2].x - panel[1].x) * extension,
+              panel[1].y + (panel[2].y - panel[1].y) * extension,
+            ),
+            _ImagePoint(
+              panel[0].x + (panel[3].x - panel[0].x) * extension,
+              panel[0].y + (panel[3].y - panel[0].y) * extension,
+            ),
+          ]
+          .map(
+            (point) => _ImagePoint(
+              point.x.clamp(0, image.cols - 1),
+              point.y.clamp(0, image.rows - 1),
+            ),
+          )
+          .toList();
+  final frame = _orderCorners(frames.first.points);
+  if (recoveredCorners.where((point) => _contains(frame, point)).length < 3) {
+    return null;
+  }
+
+  final recovered = <_CardCandidate>[];
+  _addCandidate(recoveredCorners, image, gradient, gradientHigh, recovered);
+  if (recovered.isEmpty || recovered.first.aspectScore < 0.90) return null;
+  return recovered.first.copyWith(
+    diagnostics: {
+      ...recovered.first.diagnostics,
+      'landscape_panel_recovery': 1.0,
+      'pre_recovery_area_ratio': best.area / imageArea,
+    },
+  );
+}
+
+_CardCandidate? _recoverSlabCard(
+  _CardCandidate best,
+  List<_CardCandidate> candidates,
+  cv.Mat image,
+  cv.Mat gradient,
+  double gradientHigh,
+  int imageArea,
+) {
+  if (best.area / imageArea < 0.75) return null;
+  final frames = candidates.where((candidate) {
+    if (candidate.sourceImage || candidate.area / imageArea < 0.75) {
+      return false;
+    }
+    final aspect = _observedAspect(candidate.points);
+    return aspect >= 0.50 && aspect <= 0.75;
+  }).toList()..sort((left, right) => right.area.compareTo(left.area));
+  if (frames.isEmpty) return null;
+  if (best.area / imageArea < 0.75 && best.aspectScore >= 0.80) return null;
+
+  final frame = _orderCorners(frames.first.points);
+  final frameAspect = _observedAspect(frame);
+  const top = 0.285;
+  const bottom = 0.92;
+  final horizontalSpan = math.min(
+    0.88,
+    (_cardWidth / _cardHeight) / math.max(frameAspect, 1e-6) * (bottom - top),
+  );
+  final left = 0.5 - horizontalSpan / 2;
+  final right = 0.5 + horizontalSpan / 2;
+  _ImagePoint interpolate(double horizontal, double vertical) {
+    final top = _ImagePoint(
+      (1 - horizontal) * frame[0].x + horizontal * frame[1].x,
+      (1 - horizontal) * frame[0].y + horizontal * frame[1].y,
+    );
+    final bottom = _ImagePoint(
+      (1 - horizontal) * frame[3].x + horizontal * frame[2].x,
+      (1 - horizontal) * frame[3].y + horizontal * frame[2].y,
+    );
+    return _ImagePoint(
+      (1 - vertical) * top.x + vertical * bottom.x,
+      (1 - vertical) * top.y + vertical * bottom.y,
+    );
+  }
+
+  final recovered = <_CardCandidate>[];
+  _addCandidate(
+    [
+      interpolate(left, top),
+      interpolate(right, top),
+      interpolate(right, bottom),
+      interpolate(left, bottom),
+    ],
+    image,
+    gradient,
+    gradientHigh,
+    recovered,
+  );
+  if (recovered.isEmpty || recovered.first.aspectScore < 0.80) return null;
+  return recovered.first.copyWith(
+    diagnostics: {
+      ...recovered.first.diagnostics,
+      'slab_card_recovery': 1.0,
+      'slab_frame_area_ratio': frames.first.area / imageArea,
+      'pre_recovery_area_ratio': best.area / imageArea,
+    },
+  );
+}
+
+_CardCandidate? _expandTruncatedCardSurface(
+  _CardCandidate best,
+  List<_CardCandidate> candidates,
+  int imageArea,
+  int imageWidth,
+  int imageHeight,
+) {
+  final areaRatio = best.area / imageArea;
+  final holders = candidates.where((candidate) {
+    if (candidate.sourceImage) return false;
+    final relativeArea = candidate.area / math.max(best.area, 1e-6);
+    final holderAspect = candidate.diagnostics['aspect'] ?? 0.0;
+    if (relativeArea < 1.15 ||
+        relativeArea > 5.0 ||
+        holderAspect < 0.45 ||
+        holderAspect > 0.80) {
+      return false;
+    }
+    return best.points
+            .where((point) => _contains(candidate.points, point))
+            .length >=
+        3;
+  }).toList()..sort((left, right) => left.area.compareTo(right.area));
+
+  final nested = best.diagnostics['nested_card_surface'] == 1.0;
+  final borderScore = best.diagnostics['border_score'] ?? 0.0;
+  final boundaryScore = best.diagnostics['boundary_score'] ?? 0.0;
+  final edgeReliability = boundaryScore / math.max(borderScore, 1e-6);
+  final nestedLowContrast = nested && borderScore < 0.50 && holders.isNotEmpty;
+  final weakHolderBoundary =
+      !nested &&
+      holders.isNotEmpty &&
+      borderScore >= 0.80 &&
+      edgeReliability < 0.70;
+  if (!nestedLowContrast && !weakHolderBoundary) return null;
+
+  final targetAspect = _cardWidth / _cardHeight;
+  final observed = _observedAspect(best.points);
+  var verticalExpansion = 0.0;
+  var uniformExpansion = 0.0;
+  if (observed > targetAspect * 1.02) {
+    verticalExpansion = (observed / targetAspect - 1.0).clamp(0.0, 0.16);
+    if (nestedLowContrast) uniformExpansion = 0.02;
+  } else if (nestedLowContrast) {
+    final holderGap =
+        math.sqrt(holders.first.area / math.max(best.area, 1e-6)) - 1.0;
+    uniformExpansion = (holderGap * 0.50).clamp(0.02, 0.08);
+  } else {
+    uniformExpansion = 0.03;
+  }
+  var expanded = _orderCorners(best.points);
+  if (uniformExpansion > 0.0) {
+    expanded = _scaleQuad(expanded, 1.0 + uniformExpansion);
+  }
+  if (verticalExpansion > 0.0) {
+    final topLeft = expanded[0];
+    final topRight = expanded[1];
+    final bottomRight = expanded[2];
+    final bottomLeft = expanded[3];
+    expanded = [
+      _ImagePoint(
+        topLeft.x - (bottomLeft.x - topLeft.x) * verticalExpansion / 2,
+        topLeft.y - (bottomLeft.y - topLeft.y) * verticalExpansion / 2,
+      ),
+      _ImagePoint(
+        topRight.x - (bottomRight.x - topRight.x) * verticalExpansion / 2,
+        topRight.y - (bottomRight.y - topRight.y) * verticalExpansion / 2,
+      ),
+      _ImagePoint(
+        bottomRight.x + (bottomRight.x - topRight.x) * verticalExpansion / 2,
+        bottomRight.y + (bottomRight.y - topRight.y) * verticalExpansion / 2,
+      ),
+      _ImagePoint(
+        bottomLeft.x + (bottomLeft.x - topLeft.x) * verticalExpansion / 2,
+        bottomLeft.y + (bottomLeft.y - topLeft.y) * verticalExpansion / 2,
+      ),
+    ];
+  }
+  final points = [
+    for (final point in expanded)
+      _ImagePoint(
+        point.x.clamp(0.0, imageWidth - 1.0),
+        point.y.clamp(0.0, imageHeight - 1.0),
+      ),
+  ];
+  return best.copyWith(
+    points: points,
+    area: _polygonArea(points),
+    diagnostics: {
+      ...best.diagnostics,
+      'pre_surface_expansion_area_ratio': areaRatio,
+      'area_ratio': _polygonArea(points) / imageArea,
+      'card_surface_expansion': 1.0,
+      'surface_uniform_expansion_ratio': uniformExpansion,
+      'surface_vertical_expansion_ratio': verticalExpansion,
+    },
+  );
+}
+
+_CardCandidate? _insetForeshortenedCard(
+  _CardCandidate best,
+  cv.Mat image,
+  int imageArea,
+) {
+  final areaRatio = best.area / imageArea;
+  if (best.aspectScore >= 0.70 ||
+      (best.diagnostics['border_score'] ?? 0.0) < 0.80 ||
+      (best.diagnostics['boundary_score'] ?? 0.0) < 0.70) {
+    return null;
+  }
+  final corners = _orderCorners(_scaleQuad(best.points, 0.98));
+  final preview = _warpCardToSize(image, corners, 224, 312);
+  final gray = cv.cvtColor(preview, cv.COLOR_BGR2GRAY);
+  final edges = cv.canny(gray, 45, 140);
+  final band = math.max(4, (edges.cols * 0.05).round());
+  double density(int start, int end) {
+    var count = 0;
+    for (var y = 0; y < edges.rows; y++) {
+      for (var x = start; x < end; x++) {
+        if (edges.data[y * edges.cols + x] > 0) count++;
+      }
+    }
+    return count / math.max(1, edges.rows * (end - start));
+  }
+
+  final leftDensity = density(0, band);
+  final rightDensity = density(edges.cols - band, edges.cols);
+  String? insetSide;
+  var edgeInset = 0.0;
+  final stronger = math.max(leftDensity, rightDensity);
+  final weaker = math.max(1e-6, math.min(leftDensity, rightDensity));
+  if (stronger >= 0.20 && stronger >= 1.60 * weaker) {
+    final insetRight = rightDensity > leftDensity;
+    final referenceDensity = insetRight ? leftDensity : rightDensity;
+    final targetDensity = math.max(0.25, referenceDensity * 1.15);
+    for (var step = 1; step <= 12; step++) {
+      final fraction = step / 100.0;
+      final offset = (fraction * edges.cols).round();
+      final start = insetRight ? edges.cols - offset - band : offset;
+      final end = start + band;
+      if (start < 0 || end > edges.cols) break;
+      if (density(start, end) <= targetDensity) {
+        edgeInset = fraction;
+        break;
+      }
+    }
+    if (edgeInset == 0.0) edgeInset = 0.12;
+    _ImagePoint moveToward(_ImagePoint point, _ImagePoint target) =>
+        _ImagePoint(
+          point.x + (target.x - point.x) * edgeInset,
+          point.y + (target.y - point.y) * edgeInset,
+        );
+    if (rightDensity > leftDensity) {
+      corners[1] = moveToward(corners[1], corners[0]);
+      corners[2] = moveToward(corners[2], corners[3]);
+      insetSide = 'right_edge_inset';
+    } else {
+      corners[0] = moveToward(corners[0], corners[1]);
+      corners[3] = moveToward(corners[3], corners[2]);
+      insetSide = 'left_edge_inset';
+    }
+  }
+  edges.dispose();
+  gray.dispose();
+  preview.dispose();
+  return best.copyWith(
+    points: corners,
+    area: _polygonArea(corners),
+    diagnostics: {
+      ...best.diagnostics,
+      'pre_inset_area_ratio': areaRatio,
+      'area_ratio': _polygonArea(corners) / imageArea,
+      'foreshortened_card_inset': 1.0,
+      if (insetSide != null) insetSide: 1.0,
+      if (insetSide != null) 'edge_inset_ratio': edgeInset,
+    },
+  );
+}
+
+List<_ImagePoint> _scaleQuad(List<_ImagePoint> points, double factor) {
+  final ordered = _orderCorners(points);
+  final centerX = ordered.map((point) => point.x).reduce((a, b) => a + b) / 4;
+  final centerY = ordered.map((point) => point.y).reduce((a, b) => a + b) / 4;
+  return [
+    for (final point in ordered)
+      _ImagePoint(
+        centerX + (point.x - centerX) * factor,
+        centerY + (point.y - centerY) * factor,
+      ),
+  ];
+}
+
+_CardCandidate? _preferEnclosingCard(
+  _CardCandidate best,
+  List<_CardCandidate> candidates,
+  int imageArea,
+) {
+  final areaRatio = best.area / imageArea;
+  if (areaRatio < 0.10 || areaRatio > 0.45 || best.aspectScore < 0.78) {
+    return null;
+  }
+  final parents = candidates.where((candidate) {
+    if (identical(candidate, best)) return false;
+    final parentAreaRatio = candidate.area / imageArea;
+    final scale = parentAreaRatio / math.max(areaRatio, 1e-6);
+    final containedCorners = best.points
+        .where((point) => _contains(candidate.points, point))
+        .length;
+    return scale >= 1.35 &&
+        scale <= 4.50 &&
+        parentAreaRatio >= 0.30 &&
+        parentAreaRatio <= 0.75 &&
+        candidate.aspectScore >= 0.78 &&
+        candidate.score >= best.score - 0.13 &&
+        containedCorners >= 3;
+  }).toList()..sort((left, right) => right.area.compareTo(left.area));
+  return parents.isEmpty
+      ? null
+      : parents.first.withDiagnostic('enclosing_card_recovery');
+}
+
+double _observedAspect(List<_ImagePoint> points) {
+  final ordered = _orderCorners(points);
+  final sides = [
+    for (var i = 0; i < 4; i++) _distance(ordered[i], ordered[(i + 1) % 4]),
+  ];
+  final width = (sides[0] + sides[2]) / 2;
+  final height = (sides[1] + sides[3]) / 2;
+  return math.min(width, height) / math.max(width, height);
 }
 
 int _medianU8(cv.Mat mat) {
@@ -641,6 +1105,7 @@ double _polygonArea(List<_ImagePoint> points) =>
                 points[0].x * points[3].y))
         .abs() /
     2;
+
 bool _contains(List<_ImagePoint> polygon, _ImagePoint point) {
   var sign = 0;
   for (var i = 0; i < 4; i++) {
@@ -746,10 +1211,28 @@ class _CardCandidate {
     this.aspectScore,
     this.score, {
     this.sourceImage = false,
+    this.diagnostics = const {},
   });
   final List<_ImagePoint> points;
   final double area;
   final double aspectScore;
   final double score;
   final bool sourceImage;
+  final Map<String, double> diagnostics;
+
+  _CardCandidate copyWith({
+    List<_ImagePoint>? points,
+    double? area,
+    Map<String, double>? diagnostics,
+  }) => _CardCandidate(
+    points ?? this.points,
+    area ?? this.area,
+    aspectScore,
+    score,
+    sourceImage: sourceImage,
+    diagnostics: diagnostics ?? this.diagnostics,
+  );
+
+  _CardCandidate withDiagnostic(String name) =>
+      copyWith(diagnostics: {...diagnostics, name: 1.0});
 }

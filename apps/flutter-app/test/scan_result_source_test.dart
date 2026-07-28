@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
+import 'package:kando_app/shared/scan/scan_card_number_reader.dart';
 import 'package:kando_app/shared/scan/scan_image_hasher.dart';
 
 void main() {
@@ -13,11 +14,13 @@ void main() {
       final api = _FakeScanApi(_matchedRecognition);
       final picker = _FakeScanImagePicker();
       final imageHasher = _FakeScanImageHasher();
+      final cardNumberReader = _FakeCardNumberReader('018/066');
       final source = ApiScanResultSource(
         api: api,
         session: () => _session,
         imagePicker: picker,
         imageHasher: imageHasher,
+        cardNumberReader: cardNumberReader,
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -35,6 +38,8 @@ void main() {
       expect(imageHasher.lastCrop, isNull);
       expect(api.lastHashes?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
       expect(api.lastPlatform, 'iOS');
+      expect(api.lastCardNumber, '018/066');
+      expect(cardNumberReader.lastBytes, Uint8List.fromList([4, 5, 6]));
       expect(picker.sources, [ScanImageSource.camera]);
     },
   );
@@ -266,6 +271,7 @@ class _FakeScanApi implements ScanApi {
   final Object? failure;
   ScanImageHashes? lastHashes;
   String? lastPlatform;
+  String? lastCardNumber;
   var callCount = 0;
 
   @override
@@ -284,14 +290,29 @@ class _FakeScanApi implements ScanApi {
     required String fileName,
     required String platform,
     required String appVersion,
+    String? cardNumber,
     String? deviceModel,
     String? osVersion,
   }) async {
     callCount += 1;
     lastHashes = hashes;
     lastPlatform = platform;
+    lastCardNumber = cardNumber;
     final failure = this.failure;
     if (failure != null) throw failure;
+    return result;
+  }
+}
+
+class _FakeCardNumberReader implements ScanCardNumberReader {
+  _FakeCardNumberReader(this.result);
+
+  final String? result;
+  Uint8List? lastBytes;
+
+  @override
+  Future<String?> read(Uint8List cardImageBytes) async {
+    lastBytes = cardImageBytes;
     return result;
   }
 }

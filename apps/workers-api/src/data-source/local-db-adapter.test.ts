@@ -275,6 +275,20 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
+  it("loads a card number by id because scan disambiguation compares exact printings", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Leafeon ex", number: "200/187" })],
+        [],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getCard("100")).resolves.toMatchObject({
+      card_ref: "100",
+      card_number: "200/187",
+    });
+  });
+
   it("parses tcgplayer_skus price_history with JSON because price strings must become numeric market data", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(

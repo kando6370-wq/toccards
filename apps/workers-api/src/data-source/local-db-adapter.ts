@@ -150,7 +150,9 @@ LIMIT ? OFFSET ?`,
         .bind(card_ref)
         .first<CardCatalogRow>();
 
-      return row ? cardFromRow(row) : null;
+      if (!row) return null;
+      const numbers = await findCardNumbersByProductId(db, [row.product_id]);
+      return cardFromRow(row, numbers.get(row.product_id) ?? "");
     },
 
     async getPriceSeries(card_ref, grader, _grade, condition, days) {

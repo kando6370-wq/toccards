@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart' as picker;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../shared/scan/scan_api_client.dart';
+import '../../shared/scan/scan_card_number_reader.dart';
 import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
@@ -74,6 +75,7 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     session: () => ref.read(authControllerProvider).session,
     imagePicker: ImagePickerScanImagePicker(),
     imageHasher: createScanImageHasher(),
+    cardNumberReader: createScanCardNumberReader(),
     appInfo: _readScanAppInfo,
   ),
 );
@@ -157,17 +159,20 @@ class ApiScanResultSource implements ScanResultSource {
     required ScanImagePicker imagePicker,
     required ScanImageHasher imageHasher,
     required Future<ScanAppInfo> Function() appInfo,
+    ScanCardNumberReader? cardNumberReader,
   }) : _api = api,
        _session = session,
        _imagePicker = imagePicker,
        _imageHasher = imageHasher,
-       _appInfo = appInfo;
+       _appInfo = appInfo,
+       _cardNumberReader = cardNumberReader ?? const _NoopCardNumberReader();
 
   final ScanApi _api;
   final AuthSession? Function() _session;
   final ScanImagePicker _imagePicker;
   final ScanImageHasher _imageHasher;
   final Future<ScanAppInfo> Function() _appInfo;
+  final ScanCardNumberReader _cardNumberReader;
   @override
   Future<ScanResolution> photo() => _pickAndRecognize(ScanImageSource.camera);
 
@@ -227,12 +232,14 @@ class ApiScanResultSource implements ScanResultSource {
           'The corrected card image is unavailable.',
         );
       }
+      final cardNumber = await _cardNumberReader.read(hashes.cardImageBytes!);
       recognition = await _api.recognizeImage(
         session,
         hashes: hashes,
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,
+        cardNumber: cardNumber,
       );
     } catch (_) {
       return ScanResolution.failed(
@@ -262,6 +269,13 @@ class ApiScanResultSource implements ScanResultSource {
       imageFileName: image.fileName,
     );
   }
+}
+
+class _NoopCardNumberReader implements ScanCardNumberReader {
+  const _NoopCardNumberReader();
+
+  @override
+  Future<String?> read(Uint8List cardImageBytes) async => null;
 }
 
 Future<ScanAppInfo> _readScanAppInfo() async {

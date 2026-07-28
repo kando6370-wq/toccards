@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { collectionItemDraftFromBody } from "../collection-item";
-import type { CardSearchResult } from "../data-source/adapter";
+import type { CardSearchResult, DataSourceAdapter } from "../data-source/adapter";
 import { createLocalDbDataSourceAdapter } from "../data-source/local-db-adapter";
 import type { Env } from "../env";
 import { createId } from "../id";
@@ -144,6 +144,7 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
 `;
 
 const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
 export function createScanRoutes() {
   const routes = new Hono<ScanBindings>();
@@ -164,8 +165,9 @@ export function createScanRoutes() {
     const g = readPhash(body.get("g"));
     const b = readPhash(body.get("b"));
     const gameId = readOptionalGameId(body.get("game_id"));
+    const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
-    if (!r || !g || !b || gameId === null || !image) {
+    if (!r || !g || !b || gameId === null || cardNumber === null || !image) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
@@ -230,6 +232,11 @@ export function createScanRoutes() {
               ? toCatalogCandidate(card, candidate, index)
               : toUnresolvedCandidate(candidate, index);
           }),
+        );
+        auditCandidates = await disambiguateByCardNumber(
+          auditCandidates,
+          cardNumber,
+          adapter,
         );
         candidates = auditCandidates.filter((candidate) => candidate.catalog_matched);
       } catch (error) {
@@ -538,6 +545,84 @@ function readOptionalGameId(value: string | File | null): number | undefined | n
   if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= 4_294_967_295 ? parsed : null;
+}
+
+function readOptionalCardNumber(
+  value: string | File | null,
+): string | undefined | null {
+  if (value === null || value === "") return undefined;
+  if (typeof value !== "string") return null;
+  const normalized = value.toUpperCase().replace(/\s+/g, "");
+  return CARD_NUMBER_PATTERN.test(normalized) ? normalized : null;
+}
+
+function prioritizeByCardNumber(
+  candidates: ScanCandidate[],
+  cardNumber: string | undefined,
+): ScanCandidate[] {
+  if (!cardNumber) return candidates;
+  const matching = candidates.filter(
+    (candidate) => normalizeCardNumber(candidate.card_number) === cardNumber,
+  );
+  if (matching.length === 0) return candidates;
+  const matchingRefs = new Set(matching.map((candidate) => candidate.card_ref));
+  return [
+    ...matching,
+    ...candidates.filter((candidate) => !matchingRefs.has(candidate.card_ref)),
+  ].map((candidate, index) => ({
+    ...candidate,
+    rank: index + 1,
+    retrieval: matchingRefs.has(candidate.card_ref)
+      ? `${candidate.retrieval}+card-number-ocr`
+      : candidate.retrieval,
+  }));
+}
+
+async function disambiguateByCardNumber(
+  candidates: ScanCandidate[],
+  cardNumber: string | undefined,
+  adapter: Pick<DataSourceAdapter, "searchCards">,
+): Promise<ScanCandidate[]> {
+  const prioritized = prioritizeByCardNumber(candidates, cardNumber);
+  if (
+    !cardNumber ||
+    prioritized.some(
+      (candidate) => normalizeCardNumber(candidate.card_number) === cardNumber,
+    )
+  ) {
+    return prioritized;
+  }
+
+  const searchedNames = new Set<string>();
+  for (const source of candidates.slice(0, 5)) {
+    const name = source.name?.trim();
+    if (!name || searchedNames.has(name.toLowerCase())) continue;
+    searchedNames.add(name.toLowerCase());
+    try {
+      const matches = await adapter.searchCards(`${name} ${cardNumber}`, {
+        ...(source.game ? { game: source.game } : {}),
+        page_size: 10,
+      });
+      const card = matches.find(
+        (candidate) => normalizeCardNumber(candidate.card_number) === cardNumber,
+      );
+      const productId = Number(card?.card_ref);
+      if (!card || !Number.isInteger(productId) || productId < 1) continue;
+      const recovered = toCatalogCandidate(
+        card,
+        { productId, confidence: source.confidence ?? 0 },
+        candidates.length,
+      );
+      return prioritizeByCardNumber([...candidates, recovered], cardNumber);
+    } catch (error) {
+      console.error("Failed to disambiguate scan by card number.", error);
+    }
+  }
+  return candidates;
+}
+
+function normalizeCardNumber(value: string | null): string | null {
+  return value?.toUpperCase().replace(/\s+/g, "") ?? null;
 }
 
 function readRecognitionCandidates(value: unknown): RecognitionCandidate[] | null {

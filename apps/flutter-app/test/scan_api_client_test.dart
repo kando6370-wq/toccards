@@ -24,6 +24,7 @@ void main() {
           'filename': 'scan.jpg',
           'platform': 'iOS',
           'app_version': '1.0.0',
+          'card_number': '018/066',
         });
         expect(form.files, hasLength(1));
         expect(form.files.single.key, 'image');
@@ -72,6 +73,7 @@ void main() {
         fileName: 'scan.jpg',
         platform: 'iOS',
         appVersion: '1.0.0',
+        cardNumber: '018/066',
       );
 
       expect(result.scanId, 'scan-1');
@@ -86,26 +88,28 @@ void main() {
   test(
     'recognition rejects confidence outside 0 to 100 because pHash similarity is neither a probability nor a client-calibrated value',
     () async {
-      final adapter = _RecordingAdapter((_) => _json(200, {
-        'success': true,
-        'data': {
-          'scan_id': 'scan-1',
-          'recognition_status': 'success',
-          'results': [
-            {
-              'index': 1,
-              'matched': true,
-              'candidates': [
-                {
-                  'card_ref': '10738',
-                  'name': 'Bushi Tenderfoot',
-                  'confidence': 101,
-                },
-              ],
-            },
-          ],
-        },
-      }));
+      final adapter = _RecordingAdapter(
+        (_) => _json(200, {
+          'success': true,
+          'data': {
+            'scan_id': 'scan-1',
+            'recognition_status': 'success',
+            'results': [
+              {
+                'index': 1,
+                'matched': true,
+                'candidates': [
+                  {
+                    'card_ref': '10738',
+                    'name': 'Bushi Tenderfoot',
+                    'confidence': 101,
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      );
 
       await expectLater(
         ScanApiClient(_dio(adapter)).recognizeImage(

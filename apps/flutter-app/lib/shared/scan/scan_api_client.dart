@@ -168,6 +168,7 @@ abstract interface class ScanApi {
     required String fileName,
     required String platform,
     required String appVersion,
+    String? cardNumber,
     String? deviceModel,
     String? osVersion,
   });
@@ -190,6 +191,7 @@ class ScanApiClient implements ScanApi {
     required String fileName,
     required String platform,
     required String appVersion,
+    String? cardNumber,
     String? deviceModel,
     String? osVersion,
   }) async {
@@ -204,6 +206,7 @@ class ScanApiClient implements ScanApi {
       'filename': fileName,
       'platform': platform,
       'app_version': appVersion,
+      if (cardNumber != null) 'card_number': cardNumber,
       if (deviceModel != null) 'device_model': deviceModel,
       if (osVersion != null) 'os_version': osVersion,
       'image': MultipartFile.fromBytes(
