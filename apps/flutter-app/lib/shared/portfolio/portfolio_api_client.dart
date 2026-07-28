@@ -16,10 +16,11 @@ Dio createPortfolioDio({String baseUrl = portfolioApiBaseUrl}) {
 }
 
 class PortfolioApiException implements Exception {
-  const PortfolioApiException(this.message, {this.code});
+  const PortfolioApiException(this.message, {this.code, this.statusCode});
 
   final String message;
   final String? code;
+  final int? statusCode;
 
   @override
   String toString() => message;
@@ -718,10 +719,10 @@ class PortfolioApiClient
       return <String, Object?>{};
     }
 
-    throw _apiException(envelope);
+    throw _apiException(envelope, statusCode: response.statusCode);
   }
 
-  PortfolioApiException _apiException(Object? envelope) {
+  PortfolioApiException _apiException(Object? envelope, {int? statusCode}) {
     if (envelope is Map) {
       final error = envelope['error'];
       if (error is Map) {
@@ -729,11 +730,13 @@ class PortfolioApiClient
           _nullableString(error['message']) ??
               'Something went wrong. Please try again.',
           code: _nullableString(error['code']),
+          statusCode: statusCode,
         );
       }
     }
-    return const PortfolioApiException(
+    return PortfolioApiException(
       'Something went wrong. Please try again.',
+      statusCode: statusCode,
     );
   }
 }

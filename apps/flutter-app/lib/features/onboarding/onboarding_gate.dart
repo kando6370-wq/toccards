@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/app_startup_preloader.dart';
 import '../../shared/ui/kando_style.dart';
 import 'onboarding_controller.dart';
 import 'onboarding_page.dart';
@@ -24,24 +26,54 @@ class OnboardingGate extends ConsumerWidget {
   }
 }
 
-class _StartupPage extends StatefulWidget {
+class _StartupPage extends ConsumerStatefulWidget {
   const _StartupPage();
 
   @override
-  State<_StartupPage> createState() => _StartupPageState();
+  ConsumerState<_StartupPage> createState() => _StartupPageState();
 }
 
-class _StartupPageState extends State<_StartupPage>
+class _StartupPageState extends ConsumerState<_StartupPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _progressController;
 
   @override
   void initState() {
     super.initState();
-    _progressController = AnimationController(
-      vsync: this,
-      duration: OnboardingController.minimumSplashDuration,
-    )..forward();
+    _progressController = AnimationController(vsync: this, value: 0);
+    unawaited(_runPendingProgress());
+  }
+
+  Future<void> _runPendingProgress() async {
+    try {
+      await _progressController.animateTo(
+        .8,
+        duration: OnboardingController.minimumSplashDuration,
+        curve: Curves.easeOutCubic,
+      );
+      if (!mounted || ref.read(startupProgressFinishingProvider)) return;
+      await _progressController.animateTo(
+        .99,
+        duration:
+            appStartupPreloadTimeout -
+            OnboardingController.minimumSplashDuration,
+        curve: Curves.easeOut,
+      );
+    } on TickerCanceled {
+      // A completion animation superseded the pending animation.
+    }
+  }
+
+  Future<void> _finishProgress() async {
+    try {
+      await _progressController.animateTo(
+        1,
+        duration: OnboardingController.progressCompletionDuration,
+        curve: Curves.easeOut,
+      );
+    } on TickerCanceled {
+      // The splash was disposed while the route changed.
+    }
   }
 
   @override
@@ -52,6 +84,9 @@ class _StartupPageState extends State<_StartupPage>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(startupProgressFinishingProvider, (previous, next) {
+      if (next && previous != true) unawaited(_finishProgress());
+    });
     return Material(
       key: const ValueKey('onboarding-loading'),
       color: KandoColors.ink,
@@ -116,31 +151,40 @@ class _StartupPageState extends State<_StartupPage>
                     children: [
                       SizedBox(
                         width: 232 * scale,
-                        height: 2 * scale,
-                        child: AnimatedBuilder(
-                          animation: _progressController,
-                          builder: (context, child) {
-                            return Semantics(
-                              value:
-                                  '${(_progressController.value * 100).round()}%',
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: SizedBox(
-                                  key: const ValueKey(
-                                    'onboarding-loading-progress-fill',
+                        height: 3 * scale,
+                        child: DecoratedBox(
+                          key: const ValueKey(
+                            'onboarding-loading-progress-track',
+                          ),
+                          decoration: BoxDecoration(
+                            color: KandoColors.border,
+                            borderRadius: BorderRadius.circular(9999),
+                          ),
+                          child: AnimatedBuilder(
+                            animation: _progressController,
+                            builder: (context, child) {
+                              return Semantics(
+                                value:
+                                    '${(_progressController.value * 100).round()}%',
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: SizedBox(
+                                    key: const ValueKey(
+                                      'onboarding-loading-progress-fill',
+                                    ),
+                                    width:
+                                        232 * scale * _progressController.value,
+                                    height: 3 * scale,
+                                    child: child,
                                   ),
-                                  width:
-                                      232 * scale * _progressController.value,
-                                  height: 2 * scale,
-                                  child: child,
                                 ),
+                              );
+                            },
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: KandoColors.accent,
+                                borderRadius: BorderRadius.circular(9999),
                               ),
-                            );
-                          },
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: KandoColors.accent,
-                              borderRadius: BorderRadius.circular(9999),
                             ),
                           ),
                         ),

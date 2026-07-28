@@ -24,11 +24,44 @@ import 'home_models.dart';
 // so this maps the Figma negative-change red to the nearest available value.
 const Color _kNegativeColor = Color(0xFFE5484D);
 
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage>
+    with WidgetsBindingObserver {
+  AppLifecycleState? _lastLifecycleState;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastLifecycleState = WidgetsBinding.instance.lifecycleState;
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final returningFromBackground =
+        state == AppLifecycleState.resumed &&
+        _lastLifecycleState != null &&
+        _lastLifecycleState != AppLifecycleState.resumed;
+    _lastLifecycleState = state;
+    if (returningFromBackground) {
+      unawaited(ref.read(homeControllerProvider.notifier).refreshSilently());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(homeControllerProvider);
     final controller = ref.read(homeControllerProvider.notifier);
 

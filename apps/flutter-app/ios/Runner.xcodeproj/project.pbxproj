@@ -205,6 +205,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				6334070DF1FCDD8E16C4FF69 /* [CP] Embed Pods Frameworks */,
+				EF8162C934305EC67632F0D0 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -331,19 +332,15 @@
 			files = (
 			);
 			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${BUILT_PRODUCTS_DIR}/sign_in_with_apple/sign_in_with_apple.framework",
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
-			);
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/sign_in_with_apple.framework",
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nif [ -z ${FRAMEWORKS_FOLDER_PATH+x} ]; then\n  exit 0\nfi\nSOURCE=\"${BUILT_PRODUCTS_DIR}/sign_in_with_apple/sign_in_with_apple.framework\"\nDESTINATION=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nmkdir -p \"${DESTINATION}\"\nif [ -d \"${SOURCE}\" ]; then\n  rsync --delete -avL --filter \"- CVS/\" --filter \"- .svn/\" --filter \"- .git/\" --filter \"- .hg/\" --filter \"- Headers\" --filter \"- PrivateHeaders\" --filter \"- Modules\" \"${SOURCE}\" \"${DESTINATION}\"\n  FRAMEWORK=\"${DESTINATION}/sign_in_with_apple.framework\"\n  BINARY=\"${FRAMEWORK}/sign_in_with_apple\"\n  if [ -r \"${BINARY}\" ] && lipo -info \"${BINARY}\" | grep -q x86_64 && [[ \"${ARCHS}\" != *\"x86_64\"* ]]; then\n    lipo -remove x86_64 -output \"${BINARY}\" \"${BINARY}\"\n  fi\n  if [ -d \"${FRAMEWORK}\" ] && [ \"${CODE_SIGNING_ALLOWED:-NO}\" != \"NO\" ] && [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ]; then\n    codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --preserve-metadata=identifier,entitlements,flags \"${FRAMEWORK}\"\n  fi\nelse\n  echo \"warning: sign_in_with_apple.framework was not found at ${SOURCE}\"\nfi\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		65E7ADBFB9D651B8565AE6B0 /* [CP] Check Pods Manifest.lock */ = {
@@ -382,6 +379,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+		};
+		EF8162C934305EC67632F0D0 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 

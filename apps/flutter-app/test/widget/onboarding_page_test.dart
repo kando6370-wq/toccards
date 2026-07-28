@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kando_app/app/app_startup_preloader.dart';
 import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_gate.dart';
 import 'package:kando_app/features/onboarding/onboarding_page.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
@@ -25,41 +27,36 @@ void main() {
     expect(buildKandoTheme().textTheme.bodyMedium?.fontFamily, 'Roboto');
   });
 
-  testWidgets(
-    'first launch starts on the scan guide with its video',
-    (tester) async {
-      await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
-
-      expect(find.byKey(const ValueKey('onboarding-guides')), findsOneWidget);
-      expect(find.byKey(const ValueKey('onboarding-guide-0')), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('onboarding-media-placeholder-0')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const ValueKey('onboarding-video-0')), findsOneWidget);
-      expect(
-        _placeholderAsset(tester, 0),
-        'assets/onboarding/guide_scan_placeholder.png',
-      );
-      expect(find.text('Instantly Scan Cards'), findsOneWidget);
-      expect(find.byTooltip("LET'S START"), findsOneWidget);
-      expect(find.byTooltip('Skip and start now'), findsNothing);
-      expect(
-        tester.getSize(
-          find.byKey(const ValueKey('onboarding-page-indicator-0')),
-        ),
-        const Size(16, 6),
-      );
-      expect(
-        find.byKey(const ValueKey('onboarding-page-indicator-3')),
-        findsNothing,
-      );
-    },
-  );
-
-  testWidgets('guide actions advance through all three videos', (
+  testWidgets('first launch starts on the scan guide with its video', (
     tester,
   ) async {
+    await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+
+    expect(find.byKey(const ValueKey('onboarding-guides')), findsOneWidget);
+    expect(find.byKey(const ValueKey('onboarding-guide-0')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('onboarding-media-placeholder-0')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('onboarding-video-0')), findsOneWidget);
+    expect(
+      _placeholderAsset(tester, 0),
+      'assets/onboarding/guide_scan_placeholder.png',
+    );
+    expect(find.text('Instantly Scan Cards'), findsOneWidget);
+    expect(find.byTooltip("LET'S START"), findsOneWidget);
+    expect(find.byTooltip('Skip and start now'), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('onboarding-page-indicator-0'))),
+      const Size(16, 6),
+    );
+    expect(
+      find.byKey(const ValueKey('onboarding-page-indicator-3')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('guide actions advance through all three videos', (tester) async {
     await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
 
     await tester.tap(find.byTooltip("LET'S START"));
@@ -141,28 +138,32 @@ void main() {
     expect(tester.getTopLeft(media), const Offset(0, 47));
   });
 
-  testWidgets('page swipes pause media until the destination page settles', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+  testWidgets(
+    'page swipes keep loaded media stable until the destination settles',
+    (tester) async {
+      await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
 
-    expect(_videoIsEnabled(tester, 0), isTrue);
-    final pageView = find.byKey(const ValueKey('onboarding-page-view'));
-    final gesture = await tester.startGesture(tester.getCenter(pageView));
-    await gesture.moveBy(Offset(-tester.getSize(pageView).width * 0.7, 0));
-    await tester.pump();
-    await tester.pump();
+      expect(_videoIsEnabled(tester, 0), isTrue);
+      final pageView = find.byKey(const ValueKey('onboarding-page-view'));
+      final gesture = await tester.startGesture(tester.getCenter(pageView));
+      await gesture.moveBy(Offset(-tester.getSize(pageView).width * 0.7, 0));
+      await tester.pump();
+      await tester.pump();
 
-    expect(_videoIsEnabled(tester, 0), isFalse);
+      expect(_videoIsEnabled(tester, 0), isTrue);
+      expect(_videoIsActive(tester, 0), isFalse);
+      expect(_videoIsEnabled(tester, 1), isTrue);
 
-    await gesture.up();
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump();
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
 
-    expect(find.text('Track Card Values'), findsOneWidget);
-    expect(_videoIsEnabled(tester, 1), isTrue);
-  });
+      expect(find.text('Track Card Values'), findsOneWidget);
+      expect(_videoIsEnabled(tester, 1), isTrue);
+      expect(_videoIsActive(tester, 1), isTrue);
+    },
+  );
 
   testWidgets('reduced-motion devices keep the video first-frame fallback', (
     tester,
@@ -262,7 +263,10 @@ Future<void> _finishPageTransition(WidgetTester tester) async {
 }
 
 Future<void> _finishStartup(WidgetTester tester) async {
-  await tester.pump(const Duration(milliseconds: 1200));
+  await tester.pump(OnboardingController.minimumSplashDuration);
+  await tester.pump();
+  await tester.pump(OnboardingController.progressCompletionDuration);
+  await tester.pump(OnboardingController.completedProgressHoldDuration);
   await tester.pump();
 }
 
@@ -279,6 +283,11 @@ String _placeholderAsset(WidgetTester tester, int index) {
 bool _videoIsEnabled(WidgetTester tester, int index) {
   final video = tester.widget(find.byKey(ValueKey('onboarding-video-$index')));
   return (video as dynamic).enabled as bool;
+}
+
+bool _videoIsActive(WidgetTester tester, int index) {
+  final video = tester.widget(find.byKey(ValueKey('onboarding-video-$index')));
+  return (video as dynamic).isActive as bool;
 }
 
 Widget _testPage(
@@ -308,6 +317,7 @@ Widget _testPage(
 Widget _testGate(InMemoryOnboardingStorage storage) {
   return ProviderScope(
     overrides: [
+      appStartupPreloaderProvider.overrideWith((ref) async {}),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(storage),
       ),

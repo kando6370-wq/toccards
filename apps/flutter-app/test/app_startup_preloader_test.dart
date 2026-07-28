@@ -39,37 +39,36 @@ void main() {
     expect(container.read(searchControllerProvider).isLoading, isFalse);
   });
 
-  test(
-    'startup preloader loads Home, Collection, and Search in parallel',
-    () async {
-      final home = _PendingHomeRepository();
-      final search = _CountingSearchRepository();
-      final container = ProviderContainer(
-        overrides: [
-          authControllerProvider.overrideWith(_ReadyAuthController.new),
-          homeRepositoryProvider.overrideWithValue(home),
-          collectionRepositoryProvider.overrideWithValue(
-            const MockCollectionRepository(),
-          ),
-          searchRepositoryProvider.overrideWithValue(search),
-        ],
-      );
-      addTearDown(container.dispose);
+  test('startup preloader prioritizes Home before secondary tabs', () async {
+    final home = _PendingHomeRepository();
+    final search = _CountingSearchRepository();
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_ReadyAuthController.new),
+        homeRepositoryProvider.overrideWithValue(home),
+        collectionRepositoryProvider.overrideWithValue(
+          const MockCollectionRepository(),
+        ),
+        searchRepositoryProvider.overrideWithValue(search),
+      ],
+    );
+    addTearDown(container.dispose);
 
-      final preload = container.read(appStartupPreloaderProvider.future);
-      for (var attempt = 0; attempt < 10 && search.loadCount == 0; attempt++) {
-        await Future<void>.delayed(Duration.zero);
-      }
-      expect(search.loadCount, 1);
-      expect(container.read(homeControllerProvider).isLoading, isTrue);
-      expect(container.read(collectionControllerProvider).isLoading, isFalse);
-      expect(container.read(searchControllerProvider).isLoading, isFalse);
+    final preload = container.read(appStartupPreloaderProvider.future);
+    await Future<void>.delayed(Duration.zero);
+    expect(search.loadCount, 0);
+    expect(container.read(homeControllerProvider).isLoading, isTrue);
 
-      home.result.complete(mockHomeDashboard);
-      await preload;
-      expect(container.read(homeControllerProvider).isLoading, isFalse);
-    },
-  );
+    home.result.complete(mockHomeDashboard);
+    await preload;
+    for (var attempt = 0; attempt < 10 && search.loadCount == 0; attempt++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(container.read(homeControllerProvider).isLoading, isFalse);
+    expect(search.loadCount, 1);
+    expect(container.read(collectionControllerProvider).isLoading, isFalse);
+    expect(container.read(searchControllerProvider).isLoading, isFalse);
+  });
 
   test(
     'startup preloader loads Home after authentication settles without a manual refresh',
@@ -116,6 +115,42 @@ void main() {
         await Future<void>.delayed(Duration.zero);
       }
       expect(home.loadCount, 2);
+    },
+  );
+
+  testWidgets(
+    'startup timeout enters without cancelling Home and then warms secondary tabs',
+    (tester) async {
+      final home = _PendingHomeRepository();
+      final search = _CountingSearchRepository();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          homeRepositoryProvider.overrideWithValue(home),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
+          searchRepositoryProvider.overrideWithValue(search),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final preload = container.read(appStartupPreloaderProvider.future);
+      await tester.pump(
+        appStartupPreloadTimeout - const Duration(milliseconds: 1),
+      );
+      expect(search.loadCount, 0);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      await preload;
+      await tester.pump();
+
+      expect(container.read(homeControllerProvider).isLoading, isTrue);
+      expect(search.loadCount, 1);
+
+      home.result.complete(mockHomeDashboard);
+      await tester.pump();
+      expect(container.read(homeControllerProvider).isLoading, isFalse);
     },
   );
 }

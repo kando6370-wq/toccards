@@ -15,6 +15,8 @@ import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/ui/auth_sheet.dart';
 import 'package:kando_app/features/auth/ui/email_auth_pages.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
+import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/profile/customer_support_page.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
@@ -24,6 +26,7 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
 
 import '../support/in_memory_onboarding_storage.dart';
+import '../support/mock_home_repository.dart';
 
 void main() {
   testWidgets('email auth validates input before enabling submit', (
@@ -1916,6 +1919,10 @@ ProviderScope _testApp(
   return ProviderScope(
     overrides: [
       appStartupPreloaderProvider.overrideWith((ref) async {}),
+      onboardingControllerProvider.overrideWith(
+        _CompletedOnboardingController.new,
+      ),
+      homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
       authRepositoryProvider.overrideWithValue(repository),
       if (authController != null)
         authControllerProvider.overrideWith(authController),
@@ -1935,6 +1942,11 @@ ProviderScope _testApp(
     ],
     child: const KandoApp(),
   );
+}
+
+class _CompletedOnboardingController extends OnboardingController {
+  @override
+  Future<bool> build() async => true;
 }
 
 ProviderScope _testAuthSheetApp(

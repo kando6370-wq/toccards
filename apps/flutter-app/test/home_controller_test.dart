@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -392,6 +393,7 @@ void main() {
       addTearDown(container.dispose);
 
       expect(container.read(homeControllerProvider).isLoading, isTrue);
+      expect(repository.trendingCalls, 0);
       repository.core.complete(mockHomeDashboard.copyWith(trending: const []));
       await Future<void>.delayed(Duration.zero);
 
@@ -400,6 +402,7 @@ void main() {
       expect(state.totalAmountText, r'$12,450.80');
       expect(state.trendingStatus, KandoLoadStatus.loading);
       expect(state.dashboard.trending, isEmpty);
+      expect(repository.trendingCalls, 1);
 
       repository.trending.complete(mockHomeDashboard.trending);
       await Future<void>.delayed(Duration.zero);
@@ -407,6 +410,35 @@ void main() {
       state = container.read(homeControllerProvider);
       expect(state.trendingStatus, KandoLoadStatus.content);
       expect(state.dashboard.trending, mockHomeDashboard.trending);
+    },
+  );
+
+  test(
+    'temporary core network failure retries automatically and restores content',
+    () async {
+      final repository = _TransientCoreFailureHomeRepository();
+      final container = ProviderContainer(
+        overrides: [
+          homeRepositoryProvider.overrideWithValue(repository),
+          homeAutomaticRetryDelaysProvider.overrideWithValue(const [
+            Duration.zero,
+          ]),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(homeControllerProvider).isLoading, isTrue);
+      final result = await container
+          .read(homeControllerProvider.notifier)
+          .coreLoadComplete;
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(homeControllerProvider);
+      expect(result, HomeCoreLoadResult.content);
+      expect(repository.coreCalls, 2);
+      expect(repository.trendingCalls, 1);
+      expect(state.isUnavailable, isFalse);
+      expect(state.totalAmountText, r'$12,450.80');
     },
   );
 
@@ -481,12 +513,44 @@ class _TrendingFailureHomeRepository implements HomeRepository {
 class _SlowTrendingHomeRepository implements ProgressiveHomeRepository {
   final core = Completer<HomeDashboard>();
   final trending = Completer<List<TrendingCard>>();
+  var trendingCalls = 0;
 
   @override
   Future<HomeDashboard> loadCoreDashboard() => core.future;
 
   @override
-  Future<List<TrendingCard>> loadTrending() => trending.future;
+  Future<List<TrendingCard>> loadTrending() {
+    trendingCalls += 1;
+    return trending.future;
+  }
+
+  @override
+  Future<HomeDashboard> loadDashboard() {
+    throw StateError('Progressive loading must not call the combined path.');
+  }
+}
+
+class _TransientCoreFailureHomeRepository implements ProgressiveHomeRepository {
+  var coreCalls = 0;
+  var trendingCalls = 0;
+
+  @override
+  Future<HomeDashboard> loadCoreDashboard() async {
+    coreCalls += 1;
+    if (coreCalls == 1) {
+      throw DioException(
+        requestOptions: RequestOptions(path: '/portfolio/folders'),
+        type: DioExceptionType.connectionError,
+      );
+    }
+    return mockHomeDashboard.copyWith(trending: const []);
+  }
+
+  @override
+  Future<List<TrendingCard>> loadTrending() async {
+    trendingCalls += 1;
+    return mockHomeDashboard.trending;
+  }
 
   @override
   Future<HomeDashboard> loadDashboard() {

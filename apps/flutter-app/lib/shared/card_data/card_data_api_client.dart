@@ -16,10 +16,11 @@ Dio createCardDataDio({String baseUrl = cardDataApiBaseUrl}) {
 }
 
 class CardDataApiException implements Exception {
-  const CardDataApiException(this.message, {this.code});
+  const CardDataApiException(this.message, {this.code, this.statusCode});
 
   final String message;
   final String? code;
+  final int? statusCode;
 
   @override
   String toString() => message;
@@ -483,10 +484,10 @@ class CardDataApiClient
       return <String, Object?>{};
     }
 
-    throw _apiException(envelope);
+    throw _apiException(envelope, statusCode: response.statusCode);
   }
 
-  CardDataApiException _apiException(Object? envelope) {
+  CardDataApiException _apiException(Object? envelope, {int? statusCode}) {
     if (envelope is Map) {
       final error = envelope['error'];
       if (error is Map) {
@@ -494,11 +495,13 @@ class CardDataApiClient
           _nullableString(error['message']) ??
               'Something went wrong. Please try again.',
           code: _nullableString(error['code']),
+          statusCode: statusCode,
         );
       }
     }
-    return const CardDataApiException(
+    return CardDataApiException(
       'Something went wrong. Please try again.',
+      statusCode: statusCode,
     );
   }
 }

@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'home_models.dart';
@@ -28,6 +32,12 @@ final homeRepositoryProvider = Provider<HomeRepository?>((ref) {
 final homeControllerProvider = NotifierProvider<HomeController, HomeState>(
   HomeController.new,
 );
+
+enum HomeCoreLoadResult { content, failure }
+
+final homeAutomaticRetryDelaysProvider = Provider<List<Duration>>((ref) {
+  return const [Duration(seconds: 1), Duration(seconds: 3)];
+});
 
 class HomeState {
   const HomeState({
@@ -220,10 +230,24 @@ class HomeState {
 }
 
 class HomeController extends Notifier<HomeState> {
+  Completer<HomeCoreLoadResult>? _coreLoadCompleter;
   var _loadGeneration = 0;
   var _trendingLoadGeneration = 0;
   var _isSelectingCurrency = false;
   String? _restoringCurrencyCode;
+
+  Future<HomeCoreLoadResult> get coreLoadComplete {
+    final completer = _coreLoadCompleter;
+    if (completer != null) return completer.future;
+    return Future<HomeCoreLoadResult>.value(
+      state.isUnavailable
+          ? HomeCoreLoadResult.failure
+          : HomeCoreLoadResult.content,
+    );
+  }
+
+  bool get _isCoreLoadInFlight =>
+      _coreLoadCompleter != null && !_coreLoadCompleter!.isCompleted;
 
   @override
   HomeState build() {
@@ -252,10 +276,24 @@ class HomeController extends Notifier<HomeState> {
 
   Future<void> refresh() async {
     state = _loadDashboard(currency: state.currency, previousState: state);
-    while (ref.mounted &&
-        (state.isLoading || state.trendingStatus == KandoLoadStatus.loading)) {
+    await coreLoadComplete;
+    while (ref.mounted && state.trendingStatus == KandoLoadStatus.loading) {
       await Future<void>.delayed(const Duration(milliseconds: 16));
     }
+  }
+
+  Future<void> refreshSilently() async {
+    if (_isCoreLoadInFlight) {
+      await coreLoadComplete;
+      return;
+    }
+    final previousState = state;
+    final nextState = _loadDashboard(
+      currency: state.currency,
+      previousState: previousState,
+    );
+    if (!nextState.isLoading) state = nextState;
+    await coreLoadComplete;
   }
 
   Future<bool> refreshTrending() async {
@@ -289,6 +327,7 @@ class HomeController extends Notifier<HomeState> {
     AppCurrency? currency,
     HomeState? previousState,
   }) {
+    _beginCoreLoad();
     final AppCurrency selectedCurrency =
         currency ?? ref.read(selectedCurrencyProvider);
     final HomeRepository? source =
@@ -318,11 +357,13 @@ class HomeController extends Notifier<HomeState> {
       }
       final result = source.loadDashboard();
       if (result is HomeDashboard) {
-        return _contentState(
+        final content = _contentState(
           result,
           selectedCurrency,
           previousState: previousState,
         );
+        _completeCoreLoad(HomeCoreLoadResult.content);
+        return content;
       }
       final generation = ++_loadGeneration;
       unawaited(
@@ -341,7 +382,9 @@ class HomeController extends Notifier<HomeState> {
               dashboard.portfoliosByFolderId[dashboard.defaultFolder.id]!,
             ),
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _logLoadFailure('core', error, stackTrace, willRetry: false);
+      _completeCoreLoad(HomeCoreLoadResult.failure);
       final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
       return HomeState.unavailable(
         dashboard: dashboard,
@@ -365,16 +408,9 @@ class HomeController extends Notifier<HomeState> {
   ) {
     final generation = ++_loadGeneration;
     final trendingGeneration = ++_trendingLoadGeneration;
-    final trendingResult = repository
-        .loadTrending()
-        .then<(List<TrendingCard>, bool)>(
-          (cards) => (cards, false),
-          onError: (_) => (const <TrendingCard>[], true),
-        );
     unawaited(
       _resolveProgressiveDashboard(
-        repository.loadCoreDashboard(),
-        trendingResult,
+        repository,
         generation,
         trendingGeneration,
         currency,
@@ -393,55 +429,133 @@ class HomeController extends Notifier<HomeState> {
   }
 
   Future<void> _resolveProgressiveDashboard(
-    Future<HomeDashboard> coreResult,
-    Future<(List<TrendingCard>, bool)> trendingResult,
+    ProgressiveHomeRepository repository,
     int generation,
     int trendingGeneration,
     AppCurrency currency,
     HomeState? previousState,
   ) async {
-    try {
-      var dashboard = await coreResult;
-      if (!ref.mounted || generation != _loadGeneration) return;
-      if (previousState != null) {
-        dashboard = dashboard.copyWith(
-          trending: previousState.dashboard.trending,
+    final retryDelays = ref.read(homeAutomaticRetryDelaysProvider);
+    for (var attempt = 0; ; attempt += 1) {
+      try {
+        var dashboard = await repository.loadCoreDashboard();
+        if (!ref.mounted || generation != _loadGeneration) return;
+        if (previousState != null) {
+          dashboard = dashboard.copyWith(
+            trending: previousState.dashboard.trending,
+          );
+        }
+        state = _contentState(
+          dashboard,
+          currency,
+          previousState: previousState,
+          trendingStatus: KandoLoadStatus.loading,
         );
-      }
-      state = _contentState(
-        dashboard,
-        currency,
-        previousState: previousState,
-        trendingStatus: KandoLoadStatus.loading,
-      );
-
-      final (trending, unavailable) = await trendingResult;
-      if (!ref.mounted ||
-          generation != _loadGeneration ||
-          trendingGeneration != _trendingLoadGeneration) {
+        _completeCoreLoad(HomeCoreLoadResult.content);
+        await _resolveTrending(repository, generation, trendingGeneration);
         return;
+      } catch (error, stackTrace) {
+        if (!ref.mounted || generation != _loadGeneration) return;
+        final willRetry =
+            _isTransientHomeError(error) && attempt < retryDelays.length;
+        final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
+        state = HomeState.unavailable(
+          dashboard: dashboard,
+          selectedFolderId:
+              previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
+          currency: currency,
+          amountHidden: previousState?.amountHidden ?? false,
+          chartRange: previousState?.chartRange ?? HomeChartRange.fifteenDays,
+        );
+        _logLoadFailure(
+          'core',
+          error,
+          stackTrace,
+          willRetry: willRetry,
+          attempt: attempt + 1,
+        );
+        if (!willRetry) {
+          _completeCoreLoad(HomeCoreLoadResult.failure);
+          return;
+        }
+        await Future<void>.delayed(retryDelays[attempt]);
       }
-      state = state.copyWith(
-        dashboard: state.dashboard.copyWith(
-          trending: unavailable ? state.dashboard.trending : trending,
-          trendingUnavailable: unavailable,
-        ),
-        trendingStatus: unavailable
-            ? KandoLoadStatus.failure
-            : KandoLoadStatus.content,
-      );
-    } catch (_) {
-      if (!ref.mounted || generation != _loadGeneration) return;
-      final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
-      state = HomeState.unavailable(
-        dashboard: dashboard,
-        selectedFolderId:
-            previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
-        currency: currency,
-        amountHidden: previousState?.amountHidden ?? false,
-        chartRange: previousState?.chartRange ?? HomeChartRange.fifteenDays,
-      );
     }
+  }
+
+  Future<void> _resolveTrending(
+    ProgressiveHomeRepository repository,
+    int generation,
+    int trendingGeneration,
+  ) async {
+    final retryDelays = ref.read(homeAutomaticRetryDelaysProvider);
+    for (var attempt = 0; ; attempt += 1) {
+      try {
+        final trending = await repository.loadTrending();
+        if (!ref.mounted ||
+            generation != _loadGeneration ||
+            trendingGeneration != _trendingLoadGeneration) {
+          return;
+        }
+        state = state.copyWith(
+          dashboard: state.dashboard.copyWith(
+            trending: trending,
+            trendingUnavailable: false,
+          ),
+          trendingStatus: KandoLoadStatus.content,
+        );
+        return;
+      } catch (error, stackTrace) {
+        if (!ref.mounted ||
+            generation != _loadGeneration ||
+            trendingGeneration != _trendingLoadGeneration) {
+          return;
+        }
+        final willRetry =
+            _isTransientHomeError(error) && attempt < retryDelays.length;
+        state = state.copyWith(
+          dashboard: state.dashboard.copyWith(trendingUnavailable: true),
+          trendingStatus: KandoLoadStatus.failure,
+        );
+        _logLoadFailure(
+          'trending',
+          error,
+          stackTrace,
+          willRetry: willRetry,
+          attempt: attempt + 1,
+        );
+        if (!willRetry) return;
+        await Future<void>.delayed(retryDelays[attempt]);
+      }
+    }
+  }
+
+  void _beginCoreLoad() {
+    final previous = _coreLoadCompleter;
+    if (previous != null && !previous.isCompleted) {
+      previous.complete(HomeCoreLoadResult.failure);
+    }
+    _coreLoadCompleter = Completer<HomeCoreLoadResult>();
+  }
+
+  void _completeCoreLoad(HomeCoreLoadResult result) {
+    final completer = _coreLoadCompleter;
+    if (completer != null && !completer.isCompleted) completer.complete(result);
+  }
+
+  void _logLoadFailure(
+    String section,
+    Object error,
+    StackTrace stackTrace, {
+    required bool willRetry,
+    int attempt = 1,
+  }) {
+    developer.log(
+      '$section load failed on attempt $attempt; retry=$willRetry',
+      name: 'kando.home',
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   Future<void> _resolveDashboard(
@@ -454,8 +568,10 @@ class HomeController extends Notifier<HomeState> {
       final dashboard = await result;
       if (!ref.mounted || generation != _loadGeneration) return;
       state = _contentState(dashboard, currency, previousState: previousState);
-    } catch (_) {
+      _completeCoreLoad(HomeCoreLoadResult.content);
+    } catch (error, stackTrace) {
       if (!ref.mounted || generation != _loadGeneration) return;
+      _logLoadFailure('core', error, stackTrace, willRetry: false);
       final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
       state = HomeState.unavailable(
         dashboard: dashboard,
@@ -469,6 +585,7 @@ class HomeController extends Notifier<HomeState> {
               dashboard.portfoliosByFolderId[dashboard.defaultFolder.id]!,
             ),
       );
+      _completeCoreLoad(HomeCoreLoadResult.failure);
     }
   }
 
@@ -689,6 +806,37 @@ class HomeController extends Notifier<HomeState> {
 
     return preferred ?? HomeChartRange.fifteenDays;
   }
+}
+
+bool _isTransientHomeError(Object error) {
+  if (error is TimeoutException) return true;
+  if (error is PortfolioApiException) {
+    return _isTransientStatusCode(error.statusCode);
+  }
+  if (error is CardDataApiException) {
+    return _isTransientStatusCode(error.statusCode);
+  }
+  if (error is! DioException) return false;
+
+  final statusCode = error.response?.statusCode;
+  if (_isTransientStatusCode(statusCode)) return true;
+  return switch (error.type) {
+    DioExceptionType.connectionTimeout ||
+    DioExceptionType.sendTimeout ||
+    DioExceptionType.receiveTimeout ||
+    DioExceptionType.transformTimeout ||
+    DioExceptionType.connectionError => true,
+    DioExceptionType.unknown => error.response == null,
+    DioExceptionType.badResponse ||
+    DioExceptionType.cancel ||
+    DioExceptionType.badCertificate => false,
+  };
+}
+
+bool _isTransientStatusCode(int? statusCode) {
+  return statusCode == 408 ||
+      statusCode == 429 ||
+      (statusCode != null && statusCode >= 500);
 }
 
 class _MissingHomeSessionRepository implements HomeRepository {

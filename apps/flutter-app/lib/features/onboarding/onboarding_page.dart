@@ -54,12 +54,39 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   ];
 
   final _pageController = PageController();
+  late final List<_OnboardingVideoController?> _videoControllers;
   var _currentIndex = 0;
   var _isPageTransitioning = false;
+  bool? _reduceMotion;
+
+  @override
+  void initState() {
+    super.initState();
+    _videoControllers = [
+      for (final slide in _slides)
+        if (slide.mediaKind == _OnboardingMediaKind.video)
+          _OnboardingVideoController(slide.mediaAsset)
+        else
+          null,
+    ];
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (_reduceMotion == reduceMotion) return;
+    _reduceMotion = reduceMotion;
+    if (!reduceMotion) _preloadVideosFrom(_currentIndex);
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
+    for (final controller in _videoControllers) {
+      controller?.dispose();
+    }
     super.dispose();
   }
 
@@ -78,7 +105,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             key: const ValueKey('onboarding-page-view'),
             controller: _pageController,
             itemCount: _slides.length,
-            onPageChanged: (index) => setState(() => _currentIndex = index),
+            onPageChanged: _handlePageChanged,
             itemBuilder: (context, index) {
               final isLast = index == _slides.length - 1;
               return _OnboardingSlideView(
@@ -86,6 +113,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 index: index,
                 slide: _slides[index],
                 isActive: index == _currentIndex && !_isPageTransitioning,
+                videoController: _videoControllers[index],
                 currentIndex: _currentIndex,
                 pageCount: _slides.length,
                 onPrimaryPressed: isLast ? _authenticate : _next,
@@ -106,6 +134,23 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       _setPageTransitioning(false);
     }
     return false;
+  }
+
+  void _handlePageChanged(int index) {
+    setState(() => _currentIndex = index);
+    if (_reduceMotion != true) _preloadVideosFrom(index);
+  }
+
+  void _preloadVideosFrom(int index) {
+    final lastIndex = (index + 1).clamp(0, _videoControllers.length - 1);
+    for (
+      var preloadIndex = index;
+      preloadIndex <= lastIndex;
+      preloadIndex += 1
+    ) {
+      final controller = _videoControllers[preloadIndex];
+      if (controller != null) unawaited(controller.initialize());
+    }
   }
 
   void _setPageTransitioning(bool value) {
@@ -158,6 +203,7 @@ class _OnboardingSlideView extends StatelessWidget {
     required this.index,
     required this.slide,
     required this.isActive,
+    required this.videoController,
     required this.currentIndex,
     required this.pageCount,
     required this.onPrimaryPressed,
@@ -168,6 +214,7 @@ class _OnboardingSlideView extends StatelessWidget {
   final int index;
   final _OnboardingSlide slide;
   final bool isActive;
+  final _OnboardingVideoController? videoController;
   final int currentIndex;
   final int pageCount;
   final VoidCallback onPrimaryPressed;
@@ -194,6 +241,7 @@ class _OnboardingSlideView extends StatelessWidget {
               mediaAsset: slide.mediaAsset,
               placeholderAsset: slide.placeholderAsset,
               isActive: isActive,
+              videoController: videoController,
             ),
             Align(
               alignment: Alignment.bottomCenter,
@@ -286,6 +334,7 @@ class _OnboardingMedia extends StatelessWidget {
     required this.mediaAsset,
     required this.placeholderAsset,
     required this.isActive,
+    required this.videoController,
     super.key,
   });
 
@@ -294,6 +343,7 @@ class _OnboardingMedia extends StatelessWidget {
   final String mediaAsset;
   final String placeholderAsset;
   final bool isActive;
+  final _OnboardingVideoController? videoController;
 
   @override
   Widget build(BuildContext context) {
@@ -328,9 +378,9 @@ class _OnboardingMedia extends StatelessWidget {
                 else
                   _LoopingOnboardingVideo(
                     key: ValueKey('onboarding-video-$index'),
-                    asset: mediaAsset,
+                    videoController: videoController!,
                     isActive: isActive,
-                    enabled: isActive && !reduceMotion,
+                    enabled: !reduceMotion,
                   ),
               ],
             ),
@@ -387,15 +437,84 @@ class _OnboardingLottie extends StatelessWidget {
   }
 }
 
+class _OnboardingVideoController extends ChangeNotifier {
+  _OnboardingVideoController(this.asset);
+
+  static const _initializationTimeout = Duration(seconds: 4);
+
+  final String asset;
+  VideoPlayerController? _controller;
+  var _ready = false;
+  var _failed = false;
+  var _initializing = false;
+  var _disposed = false;
+
+  VideoPlayerController? get controller => _ready ? _controller : null;
+
+  Future<void> initialize() async {
+    if (_initializing || _ready || _failed || _disposed) return;
+    _initializing = true;
+    final controller = VideoPlayerController.asset(asset);
+    _controller = controller;
+
+    try {
+      await controller.initialize().timeout(_initializationTimeout);
+      if (_disposed || controller != _controller) {
+        return;
+      }
+      await controller.setLooping(true);
+      await controller.setVolume(0);
+      controller.addListener(_handleControllerValue);
+      _initializing = false;
+      _ready = true;
+      notifyListeners();
+    } catch (_) {
+      if (controller != _controller) return;
+      _controller = null;
+      _initializing = false;
+      _failed = true;
+      await controller.dispose();
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  void _handleControllerValue() {
+    if (_ready && (_controller?.value.hasError ?? false)) {
+      _fallbackToFirstFrame();
+    }
+  }
+
+  void _fallbackToFirstFrame() {
+    if (_failed || _disposed) return;
+    _failed = true;
+    _ready = false;
+    final controller = _controller;
+    _controller = null;
+    controller?.removeListener(_handleControllerValue);
+    if (controller != null) unawaited(controller.dispose());
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    final controller = _controller;
+    _controller = null;
+    controller?.removeListener(_handleControllerValue);
+    if (controller != null) unawaited(controller.dispose());
+    super.dispose();
+  }
+}
+
 class _LoopingOnboardingVideo extends StatefulWidget {
   const _LoopingOnboardingVideo({
-    required this.asset,
+    required this.videoController,
     required this.isActive,
     required this.enabled,
     super.key,
   });
 
-  final String asset;
+  final _OnboardingVideoController videoController;
   final bool isActive;
   final bool enabled;
 
@@ -406,14 +525,7 @@ class _LoopingOnboardingVideo extends StatefulWidget {
 
 class _LoopingOnboardingVideoState extends State<_LoopingOnboardingVideo>
     with WidgetsBindingObserver {
-  static const _initializationTimeout = Duration(seconds: 4);
-
-  VideoPlayerController? _controller;
   AppLifecycleState? _lifecycleState;
-  var _generation = 0;
-  var _ready = false;
-  var _failed = false;
-  var _initializing = false;
 
   bool get _shouldPlay =>
       widget.enabled &&
@@ -424,28 +536,21 @@ class _LoopingOnboardingVideoState extends State<_LoopingOnboardingVideo>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.videoController.addListener(_handleVideoControllerChanged);
     _lifecycleState = WidgetsBinding.instance.lifecycleState;
-    if (widget.enabled) unawaited(_initialize());
+    unawaited(_syncPlayback());
   }
 
   @override
   void didUpdateWidget(covariant _LoopingOnboardingVideo oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.asset != oldWidget.asset) {
-      _reset();
-      if (widget.enabled) unawaited(_initialize());
-      return;
+    if (widget.videoController != oldWidget.videoController) {
+      oldWidget.videoController.removeListener(_handleVideoControllerChanged);
+      widget.videoController.addListener(_handleVideoControllerChanged);
     }
-    if (!widget.enabled && oldWidget.enabled) {
-      _reset();
-      return;
-    }
-    if (widget.enabled && !oldWidget.enabled) {
-      _failed = false;
-      unawaited(_initialize());
-      return;
-    }
-    if (_ready && widget.isActive != oldWidget.isActive) {
+    if (widget.videoController != oldWidget.videoController ||
+        widget.enabled != oldWidget.enabled ||
+        widget.isActive != oldWidget.isActive) {
       unawaited(_syncPlayback());
     }
   }
@@ -453,49 +558,18 @@ class _LoopingOnboardingVideoState extends State<_LoopingOnboardingVideo>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycleState = state;
-    if (_ready) unawaited(_syncPlayback());
+    unawaited(_syncPlayback());
   }
 
-  Future<void> _initialize() async {
-    if (_initializing || _ready || _failed || !widget.enabled) return;
-    _initializing = true;
-    final generation = ++_generation;
-    final controller = VideoPlayerController.asset(widget.asset);
-    _controller = controller;
-
-    try {
-      await controller.initialize().timeout(_initializationTimeout);
-      if (!mounted || generation != _generation || !widget.enabled) return;
-      await controller.setLooping(true);
-      await controller.setVolume(0);
-      if (_shouldPlay) {
-        await controller.play();
-      }
-      if (!mounted || generation != _generation) return;
-      controller.addListener(_handleControllerValue);
-      setState(() {
-        _initializing = false;
-        _ready = true;
-      });
-    } catch (_) {
-      if (generation != _generation) return;
-      _controller = null;
-      _initializing = false;
-      _failed = true;
-      await controller.dispose();
-      if (mounted) setState(() {});
-    }
-  }
-
-  void _handleControllerValue() {
-    if (_ready && (_controller?.value.hasError ?? false)) {
-      _fallbackToFirstFrame();
-    }
+  void _handleVideoControllerChanged() {
+    if (!mounted) return;
+    setState(() {});
+    unawaited(_syncPlayback());
   }
 
   Future<void> _syncPlayback() async {
-    final controller = _controller;
-    if (!_ready || controller == null) return;
+    final controller = widget.videoController.controller;
+    if (controller == null) return;
     try {
       if (_shouldPlay) {
         await controller.play();
@@ -503,44 +577,21 @@ class _LoopingOnboardingVideoState extends State<_LoopingOnboardingVideo>
         await controller.pause();
       }
     } catch (_) {
-      _fallbackToFirstFrame();
+      widget.videoController._fallbackToFirstFrame();
     }
-  }
-
-  void _fallbackToFirstFrame() {
-    if (_failed) return;
-    _failed = true;
-    _ready = false;
-    _disposeController();
-    if (mounted) setState(() {});
-  }
-
-  void _reset() {
-    _failed = false;
-    _ready = false;
-    _initializing = false;
-    _disposeController();
-  }
-
-  void _disposeController() {
-    _generation += 1;
-    final controller = _controller;
-    _controller = null;
-    controller?.removeListener(_handleControllerValue);
-    if (controller != null) unawaited(controller.dispose());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _disposeController();
+    widget.videoController.removeListener(_handleVideoControllerChanged);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    if (!_ready || controller == null) return const SizedBox.shrink();
+    final controller = widget.videoController.controller;
+    if (!widget.enabled || controller == null) return const SizedBox.shrink();
     final size = controller.value.size;
 
     return IgnorePointer(

@@ -6,8 +6,22 @@ import 'onboarding_repository.dart';
 final onboardingControllerProvider =
     AsyncNotifierProvider<OnboardingController, bool>(OnboardingController.new);
 
+final startupProgressFinishingProvider =
+    NotifierProvider<StartupProgressFinishingController, bool>(
+      StartupProgressFinishingController.new,
+    );
+
+class StartupProgressFinishingController extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void finish() => state = true;
+}
+
 class OnboardingController extends AsyncNotifier<bool> {
-  static const minimumSplashDuration = Duration(seconds: 2);
+  static const minimumSplashDuration = Duration(seconds: 3);
+  static const progressCompletionDuration = Duration(milliseconds: 180);
+  static const completedProgressHoldDuration = Duration(milliseconds: 120);
 
   @override
   Future<bool> build() async {
@@ -16,7 +30,12 @@ class OnboardingController extends AsyncNotifier<bool> {
       Future<void>.delayed(minimumSplashDuration),
       ref.watch(appStartupPreloaderProvider.future),
     ]);
-    return await completed;
+    final completedValue = await completed;
+    ref.read(startupProgressFinishingProvider.notifier).finish();
+    await Future<void>.delayed(
+      progressCompletionDuration + completedProgressHoldDuration,
+    );
+    return completedValue;
   }
 
   Future<bool> complete() async {

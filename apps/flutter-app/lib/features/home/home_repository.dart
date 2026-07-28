@@ -54,9 +54,11 @@ class ApiHomeRepository implements ProgressiveHomeRepository {
           onTimeout: () => _defaultPreferences,
         )
         .catchError((Object _) => _defaultPreferences);
-    final folders = await foldersFuture;
-    final valuations = await valuationsFuture;
-    final preferences = await preferencesFuture;
+    final (folders, valuations, preferences) = await (
+      foldersFuture,
+      valuationsFuture,
+      preferencesFuture,
+    ).wait;
     final homeFolders = folders
         .map(
           (folder) => HomeFolder(

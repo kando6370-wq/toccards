@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/app/app_startup_preloader.dart';
+import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_gate.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 
 void main() {
-  testWidgets('cold-start branding remains visible for at least 2 seconds', (
+  testWidgets('cold-start branding remains visible for at least 3 seconds', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -39,16 +40,13 @@ void main() {
     );
 
     await tester.pump(const Duration(milliseconds: 1000));
-    expect(
-      tester
-          .getSize(
-            find.byKey(const ValueKey('onboarding-loading-progress-fill')),
-          )
-          .width,
-      closeTo(116, 0.1),
-    );
+    final partialWidth = tester
+        .getSize(find.byKey(const ValueKey('onboarding-loading-progress-fill')))
+        .width;
+    expect(partialWidth, greaterThan(0));
+    expect(partialWidth, lessThan(232));
 
-    await tester.pump(const Duration(milliseconds: 999));
+    await tester.pump(const Duration(milliseconds: 1999));
     expect(find.byKey(const ValueKey('onboarding-loading')), findsOneWidget);
     expect(find.text('Home ready'), findsNothing);
     expect(
@@ -57,10 +55,28 @@ void main() {
     );
     expect(
       tester.getRect(find.byKey(const ValueKey('onboarding-loading-progress'))),
-      const Rect.fromLTWH(55, 707, 280, 34),
+      const Rect.fromLTWH(55, 706, 280, 35),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('onboarding-loading-progress-track')),
+      ),
+      const Size(232, 3),
     );
 
     await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('onboarding-loading')), findsOneWidget);
+    await tester.pump(OnboardingController.progressCompletionDuration);
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('onboarding-loading-progress-fill')),
+          )
+          .width,
+      closeTo(232, .1),
+    );
+    await tester.pump(OnboardingController.completedProgressHoldDuration);
     await tester.pump();
 
     expect(find.byKey(const ValueKey('onboarding-loading')), findsNothing);
@@ -90,7 +106,10 @@ void main() {
       expect(find.text('Home ready'), findsNothing);
 
       repository.readResult.complete(true);
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      await tester.pump(OnboardingController.progressCompletionDuration);
+      await tester.pump(OnboardingController.completedProgressHoldDuration);
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('onboarding-loading')), findsNothing);
@@ -99,7 +118,7 @@ void main() {
   );
 
   testWidgets(
-    'startup branding waits for main-tab preloading after 2 seconds',
+    'startup branding waits for preloading after 3 seconds and stays below 100 percent',
     (tester) async {
       final preload = Completer<void>();
 
@@ -117,13 +136,41 @@ void main() {
         ),
       );
 
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(seconds: 5));
       await tester.pump();
       expect(find.byKey(const ValueKey('onboarding-loading')), findsOneWidget);
       expect(find.text('Home ready'), findsNothing);
+      final trackWidth = tester
+          .getSize(
+            find.byKey(const ValueKey('onboarding-loading-progress-track')),
+          )
+          .width;
+      expect(
+        tester
+            .getSize(
+              find.byKey(const ValueKey('onboarding-loading-progress-fill')),
+            )
+            .width,
+        closeTo(trackWidth * .99, .1),
+      );
 
       preload.complete();
       await tester.pump();
+      expect(find.byKey(const ValueKey('onboarding-loading')), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(OnboardingController.progressCompletionDuration);
+      expect(
+        tester
+            .getSize(
+              find.byKey(const ValueKey('onboarding-loading-progress-fill')),
+            )
+            .width,
+        closeTo(trackWidth, .1),
+      );
+      await tester.pump(OnboardingController.completedProgressHoldDuration);
       await tester.pump();
       expect(find.byKey(const ValueKey('onboarding-loading')), findsNothing);
       expect(find.text('Home ready'), findsOneWidget);

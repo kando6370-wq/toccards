@@ -6,6 +6,7 @@ import 'package:kando_app/app/app_startup_preloader.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 
 import 'support/in_memory_onboarding_storage.dart';
@@ -45,7 +46,10 @@ void main() {
 }
 
 Future<void> _finishStartup(WidgetTester tester) async {
-  await tester.pump(const Duration(seconds: 2));
+  await tester.pump(OnboardingController.minimumSplashDuration);
+  await tester.pump();
+  await tester.pump(OnboardingController.progressCompletionDuration);
+  await tester.pump(OnboardingController.completedProgressHoldDuration);
   await tester.pump();
 }
 
