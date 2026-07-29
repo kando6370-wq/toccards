@@ -298,6 +298,7 @@ class FakeD1 {
     owner_id: string;
     image_url: string | null;
   }> = [];
+  installationWrites: unknown[][] = [];
   consumeNextRegisterCodeBeforeUpdate = false;
   failNextBatch = false;
   failNextFirst = false;
@@ -2333,6 +2334,11 @@ class FakeD1 {
         revoked_at: null,
       });
       return okResult<T>();
+    }
+
+    if (normalizedSql.startsWith("INSERT INTO app_installation")) {
+      this.installationWrites.push(values);
+      return okResult<T>(1);
     }
 
     throw new Error(`Unsupported run() SQL: ${normalizedSql}`);
@@ -6589,6 +6595,29 @@ describe("POST /api/v1/auth/forgot-password", () => {
 });
 
 describe("POST /api/v1/auth/anonymous", () => {
+  it("records platform and Cloudflare country because installation analytics must use request facts", async () => {
+    const env = createTestEnv();
+    const request = new Request("http://localhost/api/v1/auth/anonymous", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: "device-country", platform: "ios" }),
+    });
+    Object.defineProperty(request, "cf", { value: { country: "us" } });
+
+    const response = await app.fetch(request, env);
+
+    expect(response.status).toBe(200);
+    expect(fakeD1(env).installationWrites).toEqual([
+      [
+        "device-country",
+        "iOS",
+        "US",
+        expect.any(String),
+        expect.any(String),
+      ],
+    ]);
+  });
+
   it("returns 422 / VALIDATION_ERROR when device_id is blank because anonymous assets cannot be isolated", async () => {
     const env = createTestEnv();
     const response = await requestAnonymous(env, "   ");

@@ -49,6 +49,16 @@ const INSERT_ANONYMOUS_ACCOUNT_SQL = `
   VALUES (?, ?, ?, NULL)
 `;
 
+const UPSERT_APP_INSTALLATION_SQL = `
+  INSERT INTO app_installation
+    (installation_id, platform, country_code, first_seen_at, last_seen_at)
+  VALUES (?, ?, ?, ?, ?)
+  ON CONFLICT(installation_id) DO UPDATE SET
+    platform = CASE WHEN excluded.platform = 'Unknown' THEN app_installation.platform ELSE excluded.platform END,
+    country_code = COALESCE(excluded.country_code, app_installation.country_code),
+    last_seen_at = excluded.last_seen_at
+`;
+
 const INSERT_PORTFOLIO_FOLDER_SQL = `
   INSERT INTO portfolio_folder
     (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
@@ -90,6 +100,10 @@ authRoutes.post("/anonymous", async (c) => {
     body && typeof body === "object"
       ? (body as { device_id?: unknown }).device_id
       : undefined;
+  const rawPlatform =
+    body && typeof body === "object"
+      ? (body as { platform?: unknown }).platform
+      : undefined;
 
   if (typeof rawDeviceId !== "string") {
     return c.json(VALIDATION_ERROR_RESPONSE, 422);
@@ -113,11 +127,16 @@ authRoutes.post("/anonymous", async (c) => {
   try {
     const now = new Date();
     const createdAt = now.toISOString();
+    const platform = normalizePlatform(rawPlatform);
+    const countryCode = normalizeCountryCode(c.req.raw.cf?.country);
     const anonymousId = await findOrCreateAnonymousAccount(
       c.env.DB,
       deviceId,
       createdAt,
     );
+    await c.env.DB.prepare(UPSERT_APP_INSTALLATION_SQL)
+      .bind(deviceId, platform, countryCode, createdAt, createdAt)
+      .run();
     const sessionId = createId();
     const refreshToken = createRefreshToken();
     const hashedRefreshToken = await hashRefreshToken(refreshToken);
@@ -151,6 +170,25 @@ authRoutes.post("/anonymous", async (c) => {
     return c.json(INTERNAL_ERROR_RESPONSE, 500);
   }
 });
+
+function normalizePlatform(value: unknown): string {
+  if (typeof value !== "string") return "Unknown";
+  const platforms: Record<string, string> = {
+    ios: "iOS",
+    android: "Android",
+    web: "Web",
+    macos: "macOS",
+    windows: "Windows",
+    linux: "Linux",
+  };
+  return platforms[value.trim().toLowerCase()] ?? "Unknown";
+}
+
+function normalizeCountryCode(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const code = value.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) && code !== "XX" ? code : null;
+}
 
 async function findOrCreateAnonymousAccount(
   db: D1Database,

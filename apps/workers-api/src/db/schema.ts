@@ -171,6 +171,14 @@ export const anonymousAccount = sqliteTable(
   ],
 );
 
+export const appInstallation = sqliteTable("app_installation", {
+  installationId: text("installation_id").primaryKey(),
+  platform: text("platform").notNull(),
+  countryCode: text("country_code"),
+  firstSeenAt: text("first_seen_at").notNull(),
+  lastSeenAt: text("last_seen_at").notNull(),
+});
+
 export const authIdentity = sqliteTable(
   "auth_identity",
   {

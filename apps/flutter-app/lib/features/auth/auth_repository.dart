@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../shared/api/api_environment.dart';
 import 'auth_models.dart';
@@ -102,7 +103,7 @@ class HttpAuthRepository implements AuthRepository {
     final data = await _requestData(
       'POST',
       '/auth/anonymous',
-      body: {'device_id': deviceId},
+      body: {'device_id': deviceId, 'platform': _installationPlatform()},
     );
     return _anonymousSession(data);
   }
@@ -472,4 +473,16 @@ class HttpAuthRepository implements AuthRepository {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
+}
+
+String _installationPlatform() {
+  if (kIsWeb) return 'Web';
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.iOS => 'iOS',
+    TargetPlatform.android => 'Android',
+    TargetPlatform.macOS => 'macOS',
+    TargetPlatform.windows => 'Windows',
+    TargetPlatform.linux => 'Linux',
+    TargetPlatform.fuchsia => 'Unknown',
+  };
 }

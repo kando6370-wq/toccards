@@ -10,4 +10,5 @@ export interface Env {
   MAIL_FROM_ADDRESS?: string;
   MAIL_FROM_NAME?: string;
   OCR_SERVICE_BASE_URL?: string;
+  APP_ENVIRONMENT?: "production" | "development";
 }
