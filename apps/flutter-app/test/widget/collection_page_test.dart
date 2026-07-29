@@ -475,6 +475,10 @@ void main() {
   testWidgets(
     'Portfolio empty state actions open Scan and Search because empty collections must have recovery paths',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -505,6 +509,15 @@ void main() {
         find.byKey(const Key('collection-portfolio-empty-illustration')),
         findsOneWidget,
       );
+      final portfolioIllustration = tester.widget<Image>(
+        find.byKey(const Key('collection-portfolio-empty-illustration')),
+      );
+      expect(
+        (portfolioIllustration.image as AssetImage).assetName,
+        'assets/collection/portfolio_empty_figma.png',
+      );
+      expect(portfolioIllustration.width, 83);
+      expect(portfolioIllustration.height, 90);
       final scanIcon = tester.widget<SvgPicture>(
         find.descendant(
           of: find.widgetWithText(FilledButton, 'SCAN A CARD'),
@@ -529,6 +542,14 @@ void main() {
       );
       expect(searchIcon.width, 15.2707);
       expect(searchIcon.height, 15.8891);
+      expect(
+        tester
+            .getBottomLeft(find.widgetWithText(FilledButton, 'SEARCH A CARD'))
+            .dy,
+        lessThanOrEqualTo(
+          tester.getTopLeft(find.byKey(const Key('kando-tab-bar'))).dy,
+        ),
+      );
 
       await tester.ensureVisible(find.text('SCAN A CARD'));
       await tester.pumpAndSettle();
@@ -602,6 +623,15 @@ void main() {
       find.byKey(const Key('collection-wishlist-empty-illustration')),
       findsOneWidget,
     );
+    final wishlistIllustration = tester.widget<Image>(
+      find.byKey(const Key('collection-wishlist-empty-illustration')),
+    );
+    expect(
+      (wishlistIllustration.image as AssetImage).assetName,
+      'assets/collection/wishlist_empty_figma.png',
+    );
+    expect(wishlistIllustration.width, 170);
+    expect(wishlistIllustration.height, 100);
     expect(find.byKey(const Key('collection-portfolio-summary')), findsNothing);
   });
 

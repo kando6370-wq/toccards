@@ -304,6 +304,13 @@ void main() {
       );
       expect(find.text('Collection item'), findsOneWidget);
       expect(find.text('Adding to Main'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('card-detail-add-item-portfolio')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNWidgets(2));
+      expect(find.text('Portfolio'), findsOneWidget);
+      await tester.tap(find.text('Sealed').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Adding to Sealed'), findsOneWidget);
       expect(find.byKey(const Key('card-detail-item-portfolio')), findsNothing);
       expect(find.text('Language'), findsWidgets);
       expect(find.text('Finish'), findsWidgets);
@@ -373,7 +380,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('OWNERSHIP SUMMARY'), findsNothing);
-      expect(savedState.collectionItemRows.single.portfolioName, 'Main');
+      expect(savedState.collectionItemRows.single.portfolioName, 'Sealed');
       expect(
         savedState.collectionItemRows.single.statusText,
         'Raw / Near Mint (NM)',

@@ -1453,6 +1453,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   @override
   Widget build(BuildContext context) {
     final currency = ref.watch(selectedCurrencyProvider);
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -1481,6 +1482,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                           drafts: _reviewDrafts,
                           formError: _reviewFormError,
                           saving: _savingReview,
+                          keyboardVisible: keyboardVisible,
                           currency: currency,
                           onCollapse: _closeReview,
                           onSelectItem: _selectReviewItem,
@@ -1614,6 +1616,7 @@ class _ScanCameraView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top + 10;
     return Stack(
       children: [
         if (cameraPreview != null)
@@ -1697,15 +1700,19 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ],
-        const Positioned(
+        Positioned(
           top: 0,
           left: 0,
           right: 0,
-          height: 59,
-          child: ColoredBox(color: Color(0xFF10100B)),
+          height: topInset,
+          child: const ColoredBox(
+            key: Key('scan-figma-top-safe-band'),
+            color: Color(0xFF10100B),
+          ),
         ),
         Positioned(
-          top: 59,
+          key: const Key('scan-figma-top-controls'),
+          top: topInset,
           left: 8,
           right: 8,
           child: _FigmaRevealEntrance(
@@ -3068,6 +3075,7 @@ class _ReviewMatches extends StatelessWidget {
     required this.drafts,
     required this.formError,
     required this.saving,
+    required this.keyboardVisible,
     required this.currency,
     required this.onCollapse,
     required this.onSelectItem,
@@ -3086,6 +3094,7 @@ class _ReviewMatches extends StatelessWidget {
   final Map<int, _ScanCollectionDraft> drafts;
   final String? formError;
   final bool saving;
+  final bool keyboardVisible;
   final AppCurrency currency;
   final VoidCallback onCollapse;
   final ValueChanged<_ScanItem> onSelectItem;
@@ -3244,7 +3253,7 @@ class _ReviewMatches extends StatelessWidget {
             ],
           ),
         ),
-        if (ready)
+        if (ready && !keyboardVisible)
           Align(
             alignment: Alignment.bottomCenter,
             child: _ReviewFooter(
@@ -3625,22 +3634,7 @@ class _ReviewCollectionItem extends StatelessWidget {
                 value: draft.grader,
                 options: cardCollectionGraders,
                 enabled: enabled,
-                onChanged: (value) async {
-                  final nextDraft = draft.copyWith(grader: value);
-                  onChanged(nextDraft);
-                  if (value == 'Raw') return;
-
-                  final grade = await _showReviewChoiceSheet(
-                    context,
-                    title: 'Grade',
-                    selected: cardCollectionGradeValues.first,
-                    options: cardCollectionGradeValues,
-                    displayValue: (grade) => '$value $grade',
-                  );
-                  if (grade != null) {
-                    onChanged(nextDraft.copyWith(grade: grade));
-                  }
-                },
+                onChanged: (value) => _updateGrader(context, value),
               ),
               if (draft.isRaw)
                 _ReviewDropdownRow(
@@ -3698,15 +3692,48 @@ class _ReviewCollectionItem extends StatelessWidget {
                     onChanged(draft.copyWith(purchasePriceText: value)),
               ),
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextFormField(
-                  key: Key('scan-review-notes-$itemId'),
-                  initialValue: draft.notes,
-                  enabled: enabled,
-                  maxLines: 4,
-                  maxLength: 500,
-                  onChanged: (value) => onChanged(draft.copyWith(notes: value)),
-                  decoration: _reviewInputDecoration('NOTES'),
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'NOTES',
+                      key: Key('scan-review-notes-label-$itemId'),
+                      style: const TextStyle(color: Color(0xFFC7C8B0)),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      key: Key('scan-review-notes-$itemId'),
+                      initialValue: draft.notes,
+                      enabled: enabled,
+                      minLines: 5,
+                      maxLines: 5,
+                      maxLength: 500,
+                      scrollPadding: const EdgeInsets.only(bottom: 190),
+                      onChanged: (value) =>
+                          onChanged(draft.copyWith(notes: value)),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFF2A2B20),
+                        counterText: '',
+                        contentPadding: const EdgeInsets.all(20),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(22),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(22),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(22),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFF0FE6F),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -3721,6 +3748,30 @@ class _ReviewCollectionItem extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+
+  Future<void> _updateGrader(BuildContext context, String grader) async {
+    if (grader == draft.grader) return;
+
+    final nextDraft = draft.copyWith(grader: grader);
+    onChanged(nextDraft);
+
+    final next = await _showReviewChoiceSheet(
+      context,
+      title: nextDraft.isRaw ? 'Condition' : 'Grade',
+      selected: nextDraft.isRaw ? nextDraft.condition : nextDraft.grade,
+      options: nextDraft.isRaw
+          ? cardCollectionConditions
+          : cardCollectionGradeValues,
+      displayValue: nextDraft.isRaw ? null : (value) => '$grader $value',
+    );
+    if (next == null) return;
+
+    onChanged(
+      nextDraft.isRaw
+          ? nextDraft.copyWith(condition: next)
+          : nextDraft.copyWith(grade: next),
     );
   }
 }
@@ -3810,12 +3861,18 @@ class _ReviewDropdownRow extends StatelessWidget {
       key: fieldKey,
       onTap: enabled
           ? () async {
+              FocusManager.instance.primaryFocus?.unfocus(
+                disposition: UnfocusDisposition.scope,
+              );
               final next = await _showReviewChoiceSheet(
                 context,
                 title: label,
                 selected: selected,
                 options: options,
                 displayValue: displayValue,
+              );
+              FocusManager.instance.primaryFocus?.unfocus(
+                disposition: UnfocusDisposition.scope,
               );
               if (next != null) onChanged(next);
             }
@@ -3880,6 +3937,7 @@ Future<String?> _showReviewChoiceSheet(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
+    requestFocus: false,
     backgroundColor: Colors.transparent,
     builder: (sheetContext) {
       final screenHeight = MediaQuery.sizeOf(sheetContext).height;
@@ -4170,19 +4228,6 @@ Future<ScanReviewFolder?> _showScanFolderSheet(
         ),
       );
     },
-  );
-}
-
-InputDecoration _reviewInputDecoration(String label) {
-  return InputDecoration(
-    labelText: label,
-    alignLabelWithHint: true,
-    filled: true,
-    fillColor: const Color(0xFF2A2B20),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide.none,
-    ),
   );
 }
 

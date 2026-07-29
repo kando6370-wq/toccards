@@ -1114,6 +1114,8 @@ void main() {
   testWidgets(
     'Figma scan pre-scan uses exported icons without Material glyph fallback',
     (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 37);
+      addTearDown(tester.view.resetPadding);
       await _pumpScanTestApp(tester);
 
       expect(find.byKey(const Key('scan-figma-close-icon')), findsOneWidget);
@@ -1122,6 +1124,18 @@ void main() {
       expect(find.byKey(const Key('scan-figma-align-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-gallery-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-done-icon')), findsOneWidget);
+
+      final topBand = tester.getRect(
+        find.byKey(const Key('scan-figma-top-safe-band')),
+      );
+      final topControls = tester.getRect(
+        find.byKey(const Key('scan-figma-top-controls')),
+      );
+      final safeTop = MediaQuery.paddingOf(
+        tester.element(find.byType(ScanPage)),
+      ).top;
+      expect(topBand.height, safeTop + 10);
+      expect(topControls.top, topBand.bottom);
     },
   );
 
@@ -1250,6 +1264,13 @@ void main() {
       await tester.tap(find.byKey(const Key('scan-review-grader-1')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('scan-review-choice-option-PSA')));
+      await tester.pumpAndSettle();
+      expect(find.text('Grade'), findsWidgets);
+      expect(
+        find.byKey(const Key('scan-review-choice-sheet-handle')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('scan-review-choice-option-10')));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const Key('scan-review-choice-sheet-handle')),
@@ -1395,6 +1416,144 @@ void main() {
       await tester.pump();
 
       expect(tester.testTextInput.isVisible, isFalse);
+    },
+  );
+
+  testWidgets('Review dropdown selection does not restore focus to Quantity', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(tester);
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tap(find.byTooltip('Review completed scan'));
+    await tester.pumpAndSettle();
+
+    final quantityFinder = find.byKey(const Key('scan-review-quantity-1'));
+    final quantityTextField = find.descendant(
+      of: quantityFinder,
+      matching: find.byType(TextField),
+    );
+    expect(tester.widget<TextField>(quantityTextField).autofocus, isFalse);
+
+    await tester.enterText(quantityFinder, '2');
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    final graderFinder = find.byKey(const Key('scan-review-grader-1'));
+    await tester.ensureVisible(graderFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(graderFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('scan-review-choice-option-PSA')));
+    await tester.pumpAndSettle();
+
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(
+      find.byKey(const Key('scan-review-choice-sheet-handle')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('scan-review-choice-option-10')));
+    await tester.pumpAndSettle();
+
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(find.byKey(const Key('scan-review-grade-1')), findsOneWidget);
+  });
+
+  testWidgets('Review grader selection immediately opens Grade or Condition', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(tester);
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tap(find.byTooltip('Review completed scan'));
+    await tester.pumpAndSettle();
+
+    final graderFinder = find.byKey(const Key('scan-review-grader-1'));
+    await tester.ensureVisible(graderFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(graderFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('scan-review-choice-option-PSA')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Grade'), findsWidgets);
+    await tester.tap(find.byKey(const Key('scan-review-choice-option-9')));
+    await tester.pumpAndSettle();
+    expect(find.text('PSA 9'), findsOneWidget);
+
+    await tester.tap(graderFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('scan-review-choice-option-Raw')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Condition'), findsWidgets);
+    await tester.tap(
+      find.byKey(const Key('scan-review-choice-option-Lightly Played (LP)')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lightly Played (LP)'), findsOneWidget);
+    expect(
+      find.byKey(const Key('scan-review-choice-sheet-handle')),
+      findsNothing,
+    );
+  });
+
+  testWidgets(
+    'Review Notes matches the reference and stays above the keyboard',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+
+      await _pumpScanTestApp(tester);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+
+      final notesFinder = find.byKey(const Key('scan-review-notes-1'));
+      final notesLabelFinder = find.byKey(
+        const Key('scan-review-notes-label-1'),
+      );
+      await tester.ensureVisible(notesFinder);
+      await tester.pumpAndSettle();
+
+      final notesTextFieldFinder = find.descendant(
+        of: notesFinder,
+        matching: find.byType(TextField),
+      );
+      final notesTextField = tester.widget<TextField>(notesTextFieldFinder);
+      final quantityTextField = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const Key('scan-review-quantity-1')),
+          matching: find.byType(TextField),
+        ),
+      );
+      final notesLabel = tester.widget<Text>(notesLabelFinder);
+      final quantityLabel = tester.widget<Text>(find.text('Quantity'));
+      expect(notesLabel.style, quantityLabel.style);
+      expect(notesTextField.style, quantityTextField.style);
+      expect(notesTextField.decoration?.labelText, isNull);
+      expect(notesTextField.decoration?.fillColor, const Color(0xFF2A2B20));
+      expect(notesTextField.decoration?.counterText, '');
+      expect(
+        tester.getBottomLeft(notesLabelFinder).dy,
+        lessThan(tester.getTopLeft(notesFinder).dy),
+      );
+
+      await tester.tap(notesFinder);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 330);
+      await tester.pumpAndSettle();
+
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(find.byKey(const Key('scan-review-add-one')), findsNothing);
+      expect(tester.getBottomRight(notesFinder).dy, lessThanOrEqualTo(514));
     },
   );
 

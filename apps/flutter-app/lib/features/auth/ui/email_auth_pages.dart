@@ -948,7 +948,11 @@ class _PasswordPage extends StatelessWidget {
         const SizedBox(height: 24),
         _LabeledField(
           label: 'Password',
-          child: _PasswordField(controller: controller),
+          child: _PasswordField(
+            controller: controller,
+            textInputAction: TextInputAction.go,
+            onSubmitted: loading ? null : onSubmit,
+          ),
         ),
         const SizedBox(height: 8),
         _LinkButton(
@@ -1040,7 +1044,11 @@ class _FigmaPasswordContent extends StatelessWidget {
         const SizedBox(height: 32),
         _LabeledField(
           label: 'Password',
-          child: _PasswordField(controller: controller),
+          child: _PasswordField(
+            controller: controller,
+            textInputAction: TextInputAction.go,
+            onSubmitted: loading ? null : onSubmit,
+          ),
         ),
         const SizedBox(height: 8),
         _LinkButton(
@@ -1805,8 +1813,8 @@ class _PasswordFieldState extends State<_PasswordField> {
             onTap: () => setState(() => _obscure = !_obscure),
             child: Icon(
               _obscure
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined,
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
               size: 20,
               color: const Color(0xFF92927D),
             ),

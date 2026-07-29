@@ -23,6 +23,7 @@ final profileVersionProvider = FutureProvider<String>((ref) {
 
 // Destructive action red from the Figma spec (no matching design token exists).
 const _dangerColor = Color(0xFFFF8989);
+const _menuOverlayColor = Color(0x14F0FE6F);
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -443,7 +444,10 @@ class _MenuCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Column(children: rows),
+        child: Material(
+          type: MaterialType.transparency,
+          child: Column(children: rows),
+        ),
       ),
     );
   }
@@ -462,6 +466,7 @@ class _MenuRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      overlayColor: const WidgetStatePropertyAll(_menuOverlayColor),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(

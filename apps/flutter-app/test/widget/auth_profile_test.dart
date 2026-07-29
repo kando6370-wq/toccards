@@ -143,8 +143,13 @@ void main() {
     await tester.pumpAndSettle();
     await _continueWithEmail(tester, ' PERSON@example.com ');
 
-    await tester.enterText(find.byType(TextFormField), 'password123');
-    await tester.tap(find.widgetWithText(FilledButton, 'SIGN IN'));
+    final passwordField = find.byType(TextFormField);
+    await tester.enterText(passwordField, 'password123');
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).textInputAction,
+      TextInputAction.go,
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.go);
     await tester.pumpAndSettle();
 
     expect(repository.loginRequests, [
@@ -742,10 +747,35 @@ void main() {
       find.widgetWithText(FilledButton, 'Create Account'),
     );
     expect(emptyCreateButton.onPressed, isNull);
+    expect(find.byIcon(Icons.visibility_off_outlined), findsNWidgets(2));
+    expect(find.byIcon(Icons.visibility_outlined), findsNothing);
 
     final fields = find.byType(TextFormField);
+    final editableFields = find.byType(EditableText);
     expect(find.text('Your password'), findsOneWidget);
     expect(find.text('Confirm your password'), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(editableFields.at(0)).obscureText,
+      isTrue,
+    );
+    expect(
+      tester.widget<EditableText>(editableFields.at(1)).obscureText,
+      isTrue,
+    );
+
+    await tester.tap(find.byIcon(Icons.visibility_off_outlined).first);
+    await tester.pump();
+
+    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(editableFields.at(0)).obscureText,
+      isFalse,
+    );
+    expect(
+      tester.widget<EditableText>(editableFields.at(1)).obscureText,
+      isTrue,
+    );
 
     await tester.enterText(fields.at(0), 'short');
     await tester.enterText(fields.at(1), 'password456');
@@ -1283,6 +1313,35 @@ void main() {
       expect(
         (privacyIcon.bytesLoader as SvgAssetLoader).assetName,
         'assets/profile/privacy_policy.svg',
+      );
+
+      for (final label in const [
+        'Customer Support',
+        'Score',
+        'Share With Friends',
+        'Terms Of Use',
+        'Privacy Policy',
+      ]) {
+        final row = tester.widget<InkWell>(
+          find.ancestor(of: find.text(label), matching: find.byType(InkWell)),
+        );
+        expect(
+          row.overlayColor?.resolve({WidgetState.pressed}),
+          const Color(0x14F0FE6F),
+        );
+      }
+
+      final menuMaterials = tester.widgetList<Material>(
+        find.ancestor(
+          of: find.text('Customer Support'),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(
+        menuMaterials.any(
+          (material) => material.type == MaterialType.transparency,
+        ),
+        isTrue,
       );
     },
   );

@@ -429,9 +429,10 @@ class _CollectionContent extends StatelessWidget {
     }
     if (state.isEmpty && state.selectedTab == CollectionTab.portfolio) {
       return _CollectionEmptyState(
-        illustration: 'assets/collection/portfolio_empty.png',
+        illustration: 'assets/collection/portfolio_empty_figma.png',
         illustrationKey: const Key('collection-portfolio-empty-illustration'),
-        illustrationHeight: 345,
+        illustrationWidth: 83,
+        illustrationHeight: 90,
         title: 'Start your portfolio',
         body: 'Scan or search cards to track value',
         primaryLabel: 'SCAN A CARD',
@@ -446,9 +447,10 @@ class _CollectionContent extends StatelessWidget {
     }
     if (state.isEmpty) {
       return _CollectionEmptyState(
-        illustration: 'assets/collection/wishlist_empty.png',
+        illustration: 'assets/collection/wishlist_empty_figma.png',
         illustrationKey: const Key('collection-wishlist-empty-illustration'),
-        illustrationHeight: 204,
+        illustrationWidth: 170,
+        illustrationHeight: 100,
         title: 'Your wishlist is empty',
         body: 'Add cards you want to collect later',
         primaryLabel: 'SEARCH CARDS',
@@ -512,6 +514,7 @@ class _CollectionEmptyState extends StatelessWidget {
   const _CollectionEmptyState({
     required this.illustration,
     required this.illustrationKey,
+    this.illustrationWidth,
     required this.illustrationHeight,
     required this.title,
     required this.body,
@@ -527,6 +530,7 @@ class _CollectionEmptyState extends StatelessWidget {
 
   final String illustration;
   final Key illustrationKey;
+  final double? illustrationWidth;
   final double illustrationHeight;
   final String title;
   final String body;
@@ -546,9 +550,9 @@ class _CollectionEmptyState extends StatelessWidget {
         Image.asset(
           illustration,
           key: illustrationKey,
-          width: double.infinity,
+          width: illustrationWidth ?? double.infinity,
           height: illustrationHeight,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
         ),
         const SizedBox(height: 32),
         Text(

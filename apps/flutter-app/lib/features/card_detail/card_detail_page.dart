@@ -1402,14 +1402,54 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                     ),
                     const SizedBox(width: 12),
                     Flexible(
-                      child: Text(
-                        'Adding to ${draft.portfolioName}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          height: 24 / 16,
-                          color: KandoColors.accent,
+                      child: InkWell(
+                        key: const Key('card-detail-add-item-portfolio'),
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () async {
+                          final options = [
+                            for (final folder in state.detail.portfolioFolders)
+                              folder.name,
+                          ];
+                          final next = await _showChoiceSheet(
+                            context,
+                            title: 'Portfolio',
+                            selected: draft.portfolioName,
+                            options: options,
+                          );
+                          if (next != null) {
+                            controller.updateCollectionItemDraft(
+                              portfolioName: next,
+                            );
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Adding to ${draft.portfolioName}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    height: 24 / 16,
+                                    color: KandoColors.accent,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 20,
+                                color: KandoColors.accent,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

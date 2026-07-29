@@ -7,6 +7,7 @@ import '../analytics/analytics_events.dart';
 import '../analytics/app_analytics.dart';
 
 const apiRequestLogRetention = Duration(hours: 1);
+const apiTimingReportThreshold = Duration(seconds: 3);
 
 final apiRequestLogProvider =
     NotifierProvider<ApiRequestLogController, List<ApiRequestLogEntry>>(
@@ -53,13 +54,15 @@ class ApiRequestLogController extends Notifier<List<ApiRequestLogEntry>> {
     ];
     final analytics = ref.read(analyticsProvider);
     final apiName = '${entry.method} ${entry.url.path}';
-    analytics.track(
-      AnalyticsEvent.apiTiming,
-      properties: {
-        AnalyticsProperty.apiName: apiName,
-        AnalyticsProperty.timing: entry.durationMs / 1000,
-      },
-    );
+    if (entry.durationMs >= apiTimingReportThreshold.inMilliseconds) {
+      analytics.track(
+        AnalyticsEvent.apiTiming,
+        properties: {
+          AnalyticsProperty.apiName: apiName,
+          AnalyticsProperty.timing: entry.durationMs / 1000,
+        },
+      );
+    }
     if (entry.hasError) {
       analytics.track(
         AnalyticsEvent.apiError,
