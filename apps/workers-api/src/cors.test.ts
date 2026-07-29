@@ -17,6 +17,21 @@ describe("API CORS", () => {
     expect(response.headers.get("access-control-allow-headers")).toContain("Authorization");
   });
 
+  it("allows the dev admin branch to use the isolated dev API", async () => {
+    const origin = "https://dev.toccards2.pages.dev";
+    const response = await app.request("/api/v1/health", {
+      method: "OPTIONS",
+      headers: {
+        Origin: origin,
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "authorization,content-type",
+      },
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe(origin);
+  });
+
   it.each([
     "http://localhost:3000",
     "http://127.0.0.1:3000",

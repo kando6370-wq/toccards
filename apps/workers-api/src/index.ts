@@ -15,6 +15,7 @@ export type { Env } from "./env";
 const app = new Hono<{ Bindings: Env }>();
 const allowedOrigins = new Set([
   "https://admin.tcgcard.fun",
+  "https://dev.toccards2.pages.dev",
   "http://localhost:3000",
   "http://127.0.0.1:3000",
   "http://192.168.35.3:3000",

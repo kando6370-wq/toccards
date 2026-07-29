@@ -10,6 +10,7 @@
     "build": "turbo build",
     "type-check": "turbo type-check",
     "lint": "node scripts/check-dep-direction.mjs",
+    "app:chrome:dev": "cd apps/flutter-app && flutter run -d chrome --web-port=3000 --dart-define=KANDO_API_BASE_URL=https://api-dev.tcgcard.fun/api/v1",
     "app:chrome:prod": "cd apps/flutter-app && flutter run -d chrome --web-port=3000 --dart-define=KANDO_API_BASE_URL=https://api.tcgcard.fun/api/v1"
   },
   "devDependencies": {
