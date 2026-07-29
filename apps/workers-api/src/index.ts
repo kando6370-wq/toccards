@@ -11,7 +11,11 @@ import { createScanRoutes } from "./scan/routes";
 export type { Env } from "./env";
 
 const app = new Hono<{ Bindings: Env }>();
-const allowedOrigins = new Set(["https://admin.tcgcard.fun", "http://localhost:3000"]);
+const allowedOrigins = new Set([
+  "https://admin.tcgcard.fun",
+  "https://dev.toccards2.pages.dev",
+  "http://localhost:3000",
+]);
 app.use(
   "/api/*",
   cors({

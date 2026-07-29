@@ -1,20 +1,66 @@
 # Cloudflare Workers 配置 —— tcg-card 后端 API
 # 真实 database_id / KV id 在创建对应资源后填入（TBD，见 dev-plan §12 / README §TBD总清单）。
-name = "toccards"
+name = "toccards-api"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
+
+[observability.logs]
+enabled = true
+invocation_logs = true
 
 [assets]
 directory = "../admin-web/dist"
 not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]
 
-[[d1_databases]]
+[env.prod]
+name = "toccards-api-prod"
+routes = [{ pattern = "api.tcgcard.fun", custom_domain = true }]
+
+[env.prod.vars]
+GOOGLE_CLIENT_ID = "134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com"
+APPLE_CLIENT_ID = "com.kando.kandoApp.beta"
+ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
+MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
+MAIL_FROM_NAME = "Card Ai"
+OCR_SERVICE_BASE_URL = "https://recognize.tcgcard.fun"
+
+[[env.prod.d1_databases]]
 binding = "DB"
-database_name = "cards_basic_information"
-database_id = "6096d92e-571b-4668-9e83-543f64300de4" # Cloudflare D1: cards_basic_information
+database_name = "cards_basic_information_all"
+database_id = "6a22aeca-e7e9-4064-a301-f18c4a0acb41" # Cloudflare D1: cards_basic_information_all
 migrations_dir = "src/db/migrations"
 
-[[kv_namespaces]]
+[[env.prod.kv_namespaces]]
 binding = "CACHE_KV"
 id = "c90e2c87b2c042ea93c58d38095973c7" # Cloudflare KV: CACHE_KV
+
+[[env.prod.r2_buckets]]
+binding = "SCAN_IMAGES"
+bucket_name = "toccards-scan-images"
+
+[env.dev]
+name = "toccards-api-dev"
+routes = [{ pattern = "api-dev.tcgcard.fun", custom_domain = true }]
+
+[env.dev.vars]
+GOOGLE_CLIENT_ID = "134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com"
+APPLE_CLIENT_ID = "com.kando.kandoApp.beta"
+ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
+MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
+MAIL_FROM_NAME = "Card Ai Dev"
+OCR_SERVICE_BASE_URL = "https://recognize.tcgcard.fun"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "cards_basic_information_all_dev"
+database_id = "28bd145b-ee8a-4984-87de-7f8ab5f46c19"
+migrations_dir = "src/db/migrations"
+
+[[env.dev.kv_namespaces]]
+binding = "CACHE_KV"
+id = "a8b4378fabc7473db6ffe04d2ed6ab38"
+
+[[env.dev.r2_buckets]]
+binding = "SCAN_IMAGES"
+bucket_name = "toccards-scan-images-dev"
