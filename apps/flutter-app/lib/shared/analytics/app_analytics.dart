@@ -7,6 +7,7 @@ import 'package:mixpanel_flutter/mixpanel_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../api/api_environment.dart';
+import '../firebase/app_firebase.dart';
 import 'analytics_events.dart';
 import 'mixpanel_bootstrap.dart';
 
@@ -17,16 +18,23 @@ final analyticsProvider = Provider<AppAnalytics>((ref) {
 class AppAnalytics {
   AppAnalytics._({
     required Mixpanel? mixpanel,
+    required AppFirebase? firebase,
     required String appVersion,
     required bool isDebugData,
     void Function(String event, Map<String, Object?> properties)? eventObserver,
   }) : _mixpanel = mixpanel,
+       _firebase = firebase,
        _appVersion = appVersion,
        _isDebugData = isDebugData,
        _eventObserver = eventObserver;
 
   factory AppAnalytics.disabled() {
-    return AppAnalytics._(mixpanel: null, appVersion: '', isDebugData: true);
+    return AppAnalytics._(
+      mixpanel: null,
+      firebase: null,
+      appVersion: '',
+      isDebugData: true,
+    );
   }
 
   @visibleForTesting
@@ -35,32 +43,45 @@ class AppAnalytics {
   ) {
     return AppAnalytics._(
       mixpanel: null,
+      firebase: null,
       appVersion: '',
       isDebugData: true,
       eventObserver: onEvent,
     );
   }
 
-  static Future<AppAnalytics> initialize() async {
+  static Future<AppAnalytics> initialize({AppFirebase? firebase}) async {
+    var appVersion = '';
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      final projectToken = await loadMixpanelProjectToken();
-      if (projectToken == null) return AppAnalytics.disabled();
-      final mixpanel = await Mixpanel.init(
-        projectToken,
-        trackAutomaticEvents: false,
-      );
-      return AppAnalytics._(
-        mixpanel: mixpanel,
-        appVersion: packageInfo.version,
-        isDebugData: AppConfig.isDebugData,
-      );
+      appVersion = packageInfo.version;
     } on Object {
-      return AppAnalytics.disabled();
+      // Version metadata is supplementary and must not disable analytics.
     }
+
+    Mixpanel? mixpanel;
+    try {
+      final projectToken = await loadMixpanelProjectToken();
+      if (projectToken != null) {
+        mixpanel = await Mixpanel.init(
+          projectToken,
+          trackAutomaticEvents: false,
+        );
+      }
+    } on Object {
+      // Firebase Analytics can continue when Mixpanel is unavailable.
+    }
+
+    return AppAnalytics._(
+      mixpanel: mixpanel,
+      firebase: firebase,
+      appVersion: appVersion,
+      isDebugData: AppConfig.isDebugData,
+    );
   }
 
   final Mixpanel? _mixpanel;
+  final AppFirebase? _firebase;
   final String _appVersion;
   final bool _isDebugData;
   final void Function(String event, Map<String, Object?> properties)?
@@ -80,8 +101,9 @@ class AppAnalytics {
     String? debounceKey,
   }) {
     final mixpanel = _mixpanel;
+    final firebase = _firebase;
     final eventObserver = _eventObserver;
-    if (mixpanel == null && eventObserver == null) return;
+    if (mixpanel == null && firebase == null && eventObserver == null) return;
     if (_isDebouncedClick(event, properties, debounceKey)) return;
 
     final payload = <String, dynamic>{
@@ -93,13 +115,21 @@ class AppAnalytics {
       ...properties,
     };
     eventObserver?.call(event, Map.unmodifiable(payload));
-    if (mixpanel == null) return;
-    try {
-      unawaited(
-        mixpanel.track(event, properties: payload).catchError((Object _) {}),
-      );
-    } on Object {
-      // Analytics must never interrupt the user action being measured.
+    if (mixpanel != null) {
+      try {
+        unawaited(
+          mixpanel.track(event, properties: payload).catchError((Object _) {}),
+        );
+      } on Object {
+        // Analytics must never interrupt the user action being measured.
+      }
+    }
+    if (firebase != null) {
+      try {
+        unawaited(firebase.logEvent(event, payload).catchError((Object _) {}));
+      } on Object {
+        // Analytics must never interrupt the user action being measured.
+      }
     }
   }
 
@@ -147,12 +177,36 @@ class AppAnalytics {
         // Identity synchronization is retried on the next auth state update.
       }
     }
+    final firebase = _firebase;
+    if (firebase != null) {
+      try {
+        unawaited(
+          firebase
+              .setIdentity(
+                isUser && normalizedUid.isNotEmpty ? normalizedUid : null,
+              )
+              .catchError((Object _) {}),
+        );
+      } on Object {
+        // Identity synchronization is retried on the next auth state update.
+      }
+    }
     _uid = normalizedUid;
     _identifiedAsUser = isUser;
   }
 
   void updateSubscriptionPlan(String? sku) {
     _subPlan = sku?.trim() ?? '';
+    final firebase = _firebase;
+    if (firebase != null) {
+      try {
+        unawaited(
+          firebase.setSubscriptionPlan(_subPlan).catchError((Object _) {}),
+        );
+      } on Object {
+        // Subscription metadata is supplementary analytics context.
+      }
+    }
   }
 
   static String _defaultOperatingSystem() {
