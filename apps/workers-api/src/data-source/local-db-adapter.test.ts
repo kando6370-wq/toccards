@@ -10,7 +10,6 @@ type CardRow = {
   name: string | null;
   rarity: string | null;
   product_type_name: string | null;
-  image_url: string | null;
 };
 
 type SkuRow = {
@@ -57,6 +56,10 @@ class FakeBoundStatement {
   ) {}
 
   async all<T>(): Promise<{ results: T[] }> {
+    if (this.sql.includes("image_url")) {
+      throw new Error("no such column: image_url");
+    }
+
     if (this.sql.includes("FROM cards_all") && this.sql.includes("LIKE")) {
       const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
       const objectType = objectTypeFilterFromSql(this.sql);
@@ -87,6 +90,10 @@ class FakeBoundStatement {
   }
 
   async first<T>(): Promise<T | null> {
+    if (this.sql.includes("image_url")) {
+      throw new Error("no such column: image_url");
+    }
+
     if (this.sql.includes("FROM cards_all")) {
       const cardRef = String(this.values[0]);
       return (this.cards.find((card) => card.product_id === cardRef) ?? null) as T | null;
@@ -124,7 +131,7 @@ describe("local D1 card data source adapter", () => {
         finish: null,
         language: null,
         object_type: "tcg",
-        image_url: "https://img.example/100.jpg",
+        image_url: null,
         rarity: "Rare Holo",
       },
     ]);
@@ -169,7 +176,6 @@ function card(overrides: Partial<CardRow>): CardRow {
     name: "Charizard",
     rarity: "Rare Holo",
     product_type_name: "Cards",
-    image_url: "https://img.example/100.jpg",
     ...overrides,
   };
 }
