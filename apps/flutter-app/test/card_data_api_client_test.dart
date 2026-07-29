@@ -65,6 +65,8 @@ void main() {
       expect(cards.single.priceChange1dPercent, 2.816);
       expect(cards.single.priceAsOf, '2026-07-15');
       expect(cards.single.previousPriceAsOf, '2026-07-14');
+      expect(cards.single.availableLanguages, ['English', 'Japanese']);
+      expect(cards.single.availableFinishes, ['Holofoil', 'Normal']);
     },
   );
 
@@ -333,6 +335,8 @@ Map<String, Object?> _cardJson({
     'card_number': cardNumber,
     'finish': 'Holofoil',
     'language': 'English',
+    'available_languages': ['English', 'Japanese'],
+    'available_finishes': ['Holofoil', 'Normal'],
     'object_type': 'tcg',
     'image_url': 'https://img.example/pikachu.jpg',
     'rarity': 'Common',

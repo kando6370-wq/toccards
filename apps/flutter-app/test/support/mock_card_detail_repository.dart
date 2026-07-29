@@ -166,6 +166,8 @@ CardDetail _mockDetail(String cardId) {
       identityLine: 'Special Illustration Rare #223/197',
       finish: 'Holofoil',
       language: 'English',
+      availableFinishes: ['Holofoil'],
+      availableLanguages: ['English'],
       quantity: 1,
       isWishlisted: false,
       marketPrices: [

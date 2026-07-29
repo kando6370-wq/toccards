@@ -63,6 +63,8 @@ void main() {
       expect(detail.identityLine, 'Common #025');
       expect(detail.finish, 'Holofoil');
       expect(detail.language, 'English');
+      expect(detail.collectionLanguageOptions, ['English', 'Japanese']);
+      expect(detail.collectionFinishOptions, ['Holofoil', 'Normal']);
       expect(detail.marketPrices.map((price) => price.label), [
         'Raw Near Mint',
         'PSA 10',
@@ -664,7 +666,7 @@ void main() {
   );
 
   test(
-    'new Collection Item persists the displayed language and finish defaults because SKU valuation uses those qualifiers',
+    'new Collection Item keeps unknown qualifiers when no SKU options exist because the app must not invent variants',
     () async {
       final repository = _UnknownQualifierCardDetailRepository();
       final container = _cardDetailContainer(repository: repository);
@@ -675,12 +677,12 @@ void main() {
 
       controller.startAddingCollectionItem();
       final draft = container.read(provider).collectionItemDraft!;
-      expect(draft.language, 'English');
-      expect(draft.finish, 'Normal');
+      expect(draft.language, 'Unknown');
+      expect(draft.finish, 'Unknown');
 
       expect(await controller.saveCollectionItemDraft(), isTrue);
-      expect(repository.createdItems.single.language, 'English');
-      expect(repository.createdItems.single.finish, 'Normal');
+      expect(repository.createdItems.single.language, 'Unknown');
+      expect(repository.createdItems.single.finish, 'Unknown');
     },
   );
 
@@ -1627,6 +1629,8 @@ const _pikachuCard = CardDataCardDto(
   cardNumber: '025',
   finish: 'Holofoil',
   language: 'English',
+  availableLanguages: ['English', 'Japanese'],
+  availableFinishes: ['Holofoil', 'Normal'],
   objectType: 'tcg',
   game: 'Pokemon',
   imageUrl: 'https://img.example/pikachu.jpg',

@@ -8,6 +8,14 @@ import '../app_upgrade/app_upgrade_repository.dart';
 
 const profileActionFailureText =
     'Unable to open this page. Please try again later.';
+const profileTermsUrl = 'https://tcgcard.fun/terms';
+const profilePrivacyUrl = 'https://tcgcard.fun/privacy';
+
+typedef ProfileUrlLauncher = Future<bool> Function(Uri uri);
+
+Future<bool> _launchProfileUrl(Uri uri) {
+  return launchUrl(uri, mode: LaunchMode.externalApplication);
+}
 
 final profileActionsProvider = Provider<ProfileActions>((ref) {
   return PluginProfileActions(ref.watch(appUpgradeRepositoryProvider));
@@ -21,9 +29,13 @@ abstract interface class ProfileActions {
 }
 
 class PluginProfileActions implements ProfileActions {
-  const PluginProfileActions(this._configRepository);
+  const PluginProfileActions(
+    this._configRepository, {
+    ProfileUrlLauncher launchExternal = _launchProfileUrl,
+  }) : _launchExternalUrl = launchExternal;
 
   final AppUpgradeRepository _configRepository;
+  final ProfileUrlLauncher _launchExternalUrl;
 
   @override
   Future<void> requestScore() async {
@@ -53,29 +65,48 @@ class PluginProfileActions implements ProfileActions {
 
   @override
   Future<void> openTerms() async {
-    await _launchExternal(await _configuredUri((config) => config.termsUrl));
+    await _launchExternal(
+      await _configuredUri(
+        (config) => config.termsUrl,
+        fallback: profileTermsUrl,
+      ),
+    );
   }
 
   @override
   Future<void> openPrivacy() async {
-    await _launchExternal(await _configuredUri((config) => config.privacyUrl));
+    await _launchExternal(
+      await _configuredUri(
+        (config) => config.privacyUrl,
+        fallback: profilePrivacyUrl,
+      ),
+    );
   }
 
   Future<Uri> _configuredUri(
-    String? Function(AppUpgradeConfig config) select,
-  ) async {
+    String? Function(AppUpgradeConfig config) select, {
+    String? fallback,
+  }) async {
     final value = select(await _configRepository.loadConfig());
-    final uri = value == null ? null : Uri.tryParse(value);
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty) {
+    final uri = _webUri(value) ?? _webUri(fallback);
+    if (uri == null) {
       throw StateError('Profile link is not configured.');
     }
     return uri;
   }
 
+  Uri? _webUri(String? value) {
+    final uri = value == null ? null : Uri.tryParse(value);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) {
+      return null;
+    }
+    return uri;
+  }
+
   Future<void> _launchExternal(Uri uri) async {
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final opened = await _launchExternalUrl(uri);
     if (!opened) {
       throw Exception('Unable to open $uri');
     }

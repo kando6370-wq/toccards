@@ -1626,12 +1626,20 @@ class _CollectionItemForm extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final saving = state.isSavingCollectionItemDraft;
-    final languageValue = cardCollectionLanguages.contains(draft.language)
+    final languageOptions = _optionsWithSelected(
+      state.detail.collectionLanguageOptions,
+      draft.language,
+    );
+    final finishOptions = _optionsWithSelected(
+      state.detail.collectionFinishOptions,
+      draft.finish,
+    );
+    final languageValue = languageOptions.contains(draft.language)
         ? draft.language
-        : cardCollectionLanguages.first;
-    final finishValue = cardCollectionFinishes.contains(draft.finish)
+        : languageOptions.first;
+    final finishValue = finishOptions.contains(draft.finish)
         ? draft.finish
-        : cardCollectionFinishes.first;
+        : finishOptions.first;
     final gradeValue = cardCollectionGradeValues.contains(draft.grade)
         ? draft.grade
         : cardCollectionGradeValues.first;
@@ -1644,6 +1652,8 @@ class _CollectionItemForm extends StatelessWidget {
         draft: draft,
         languageValue: languageValue,
         finishValue: finishValue,
+        languageOptions: languageOptions,
+        finishOptions: finishOptions,
         gradeValue: gradeValue,
       );
     }
@@ -1752,7 +1762,7 @@ class _CollectionItemForm extends StatelessWidget {
             key: const Key('card-detail-item-language'),
             label: 'Language',
             value: languageValue,
-            options: cardCollectionLanguages,
+            options: languageOptions,
             onSelected: (value) {
               controller.updateCollectionItemDraft(language: value);
             },
@@ -1762,7 +1772,7 @@ class _CollectionItemForm extends StatelessWidget {
             key: const Key('card-detail-item-finish'),
             label: 'Finish',
             value: finishValue,
-            options: cardCollectionFinishes,
+            options: finishOptions,
             onSelected: (value) {
               controller.updateCollectionItemDraft(finish: value);
             },
@@ -1878,6 +1888,8 @@ class _CollectionItemEditCard extends StatelessWidget {
     required this.draft,
     required this.languageValue,
     required this.finishValue,
+    required this.languageOptions,
+    required this.finishOptions,
     required this.gradeValue,
   });
 
@@ -1886,6 +1898,8 @@ class _CollectionItemEditCard extends StatelessWidget {
   final CardCollectionItemDraft draft;
   final String languageValue;
   final String finishValue;
+  final List<String> languageOptions;
+  final List<String> finishOptions;
   final String gradeValue;
 
   @override
@@ -2007,7 +2021,7 @@ class _CollectionItemEditCard extends StatelessWidget {
             key: const Key('card-detail-item-language'),
             label: 'LANGUAGE',
             value: languageValue,
-            options: cardCollectionLanguages,
+            options: languageOptions,
             onSelected: (value) {
               controller.updateCollectionItemDraft(language: value);
             },
@@ -2017,7 +2031,7 @@ class _CollectionItemEditCard extends StatelessWidget {
             key: const Key('card-detail-item-finish'),
             label: 'FINISH',
             value: finishValue,
-            options: cardCollectionFinishes,
+            options: finishOptions,
             onSelected: (value) {
               controller.updateCollectionItemDraft(finish: value);
             },

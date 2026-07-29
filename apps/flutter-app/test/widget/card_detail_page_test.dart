@@ -563,6 +563,41 @@ void main() {
   });
 
   testWidgets(
+    'Collection Item qualifier choices exclude values absent from this card',
+    (tester) async {
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+      await tester.ensureVisible(find.text('Edit item'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit item'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-item-language')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('card-detail-item-language')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('English'), findsWidgets);
+      expect(find.text('Japanese'), findsNothing);
+
+      await tester.tap(find.text('English').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-item-finish')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('card-detail-item-finish')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Holofoil'), findsWidgets);
+      expect(find.text('Normal'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'Collection Item edit closes with CardDetail because reopening the card must start in read-only mode',
     (tester) async {
       await tester.pumpWidget(const _CardDetailReentryApp());

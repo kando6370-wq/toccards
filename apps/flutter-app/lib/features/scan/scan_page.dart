@@ -277,6 +277,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   static const _revealTimelineDuration = Duration(microseconds: 1529856);
   static const _captureAnimationDuration = Duration(milliseconds: 500);
+  static const _galleryCameraWarmupDuration = Duration(milliseconds: 500);
 
   final List<_ScanItem> _items = [];
   final List<Timer> _scanTimers = [];
@@ -389,7 +390,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     super.dispose();
   }
 
-  Future<void> _openCamera() async {
+  Future<void> _openCamera({Duration previewDelay = Duration.zero}) async {
     if (_openingCamera ||
         _cameraSession != null ||
         !_appActive ||
@@ -417,6 +418,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
     ScanCameraSession? session;
     try {
       session = await ref.read(scanCameraFactoryProvider).open();
+      if (session != null && previewDelay > Duration.zero) {
+        await Future<void>.delayed(previewDelay);
+      }
     } catch (_) {
       session = null;
     }
@@ -529,6 +533,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         }
         return;
       }
+      await _closeCamera();
       var selectedCount = 0;
       final scans = await ref
           .read(scanResultSourceProvider)
@@ -557,7 +562,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } finally {
       if (mounted) {
         setState(() => _librarySelectionInFlight = false);
-        unawaited(_openCamera());
+        unawaited(_openCamera(previewDelay: _galleryCameraWarmupDuration));
       }
     }
   }

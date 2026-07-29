@@ -1,0 +1,15 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "toccards-website",
+  "compatibility_date": "2026-07-07",
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    {
+      "pattern": "tcgcard.fun/*",
+      "zone_name": "tcgcard.fun"
+    }
+  ]
+}

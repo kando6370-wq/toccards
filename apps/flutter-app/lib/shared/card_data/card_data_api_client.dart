@@ -35,6 +35,8 @@ class CardDataCardDto {
     required this.cardNumber,
     required this.finish,
     required this.language,
+    this.availableFinishes = const [],
+    this.availableLanguages = const [],
     required this.objectType,
     this.game,
     required this.imageUrl,
@@ -54,6 +56,8 @@ class CardDataCardDto {
   final String cardNumber;
   final String? finish;
   final String? language;
+  final List<String> availableFinishes;
+  final List<String> availableLanguages;
   final String objectType;
   final String? game;
   final String? imageUrl;
@@ -74,6 +78,8 @@ class CardDataCardDto {
       cardNumber: _stringOrEmpty(json['card_number']),
       finish: _nullableString(json['finish']),
       language: _nullableString(json['language']),
+      availableFinishes: _stringList(json['available_finishes']),
+      availableLanguages: _stringList(json['available_languages']),
       objectType: _requiredString(json['object_type']),
       game: _nullableString(json['game']),
       imageUrl: _nullableString(json['image_url']),
@@ -539,6 +545,14 @@ String? _nullableString(Object? value) {
   if (value is! String) return null;
   final trimmed = value.trim();
   return trimmed.isEmpty ? null : trimmed;
+}
+
+List<String> _stringList(Object? value) {
+  if (value == null) return const [];
+  if (value is! List) {
+    throw const CardDataApiException('Something went wrong. Please try again.');
+  }
+  return value.map(_nullableString).whereType<String>().toList();
 }
 
 int _requiredInt(Object? value) {

@@ -93,16 +93,8 @@ String _gradeText(double grade) {
       : grade.toString();
 }
 
-String _collectionLanguageOrDefault(String value) {
-  return cardCollectionLanguages.contains(value)
-      ? value
-      : cardCollectionLanguages.first;
-}
-
-String _collectionFinishOrDefault(String value) {
-  return cardCollectionFinishes.contains(value)
-      ? value
-      : cardCollectionFinishes.first;
+String _collectionOptionOrDefault(String value, List<String> options) {
+  return options.contains(value) ? value : options.first;
 }
 
 int _compareListingDates(String left, String right) {
@@ -752,8 +744,14 @@ class CardDetailController extends Notifier<CardDetailState> {
             notes: '',
           ).copyWith(
             portfolioName: defaultFolder.name,
-            language: _collectionLanguageOrDefault(state.detail.language),
-            finish: _collectionFinishOrDefault(state.detail.finish),
+            language: _collectionOptionOrDefault(
+              state.detail.language,
+              state.detail.collectionLanguageOptions,
+            ),
+            finish: _collectionOptionOrDefault(
+              state.detail.finish,
+              state.detail.collectionFinishOptions,
+            ),
           ),
       editingCollectionItemId: null,
       collectionItemFormError: null,
@@ -777,10 +775,20 @@ class CardDetailController extends Notifier<CardDetailState> {
         grader: item.grader,
         condition: item.condition ?? _defaultCondition,
         grade: item.grade ?? _defaultGradeForGrader(item.grader),
-        language: _collectionLanguageOrDefault(
+        language: _collectionOptionOrDefault(
           item.language ?? state.detail.language,
+          _optionsWithCurrent(
+            state.detail.collectionLanguageOptions,
+            item.language,
+          ),
         ),
-        finish: _collectionFinishOrDefault(item.finish ?? state.detail.finish),
+        finish: _collectionOptionOrDefault(
+          item.finish ?? state.detail.finish,
+          _optionsWithCurrent(
+            state.detail.collectionFinishOptions,
+            item.finish,
+          ),
+        ),
         purchasePriceText:
             _currencyFormatter
                 .convertUsd(item.purchasePriceUsd)
@@ -791,6 +799,13 @@ class CardDetailController extends Notifier<CardDetailState> {
       editingCollectionItemId: item.id,
       collectionItemFormError: null,
     );
+  }
+
+  List<String> _optionsWithCurrent(List<String> options, String? current) {
+    if (current == null || current.isEmpty || options.contains(current)) {
+      return options;
+    }
+    return [...options, current];
   }
 
   void updateCollectionItemDraft({

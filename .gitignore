@@ -22,6 +22,7 @@ apps/workers-api/.dev.vars
 
 # Vite
 apps/admin-web/dist/
+.wrangler/
 
 # Dart / Flutter（根工作区）
 .dart_tool/

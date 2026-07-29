@@ -26,6 +26,8 @@ export type CardSearchResult = {
   card_number: string;
   finish: string | null;
   language: string | null;
+  available_finishes?: string[];
+  available_languages?: string[];
   object_type: CardObjectType;
   image_url: string | null;
   rarity: string | null;

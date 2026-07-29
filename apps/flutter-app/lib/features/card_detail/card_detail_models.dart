@@ -171,6 +171,8 @@ class CardDetail {
     required this.identityLine,
     required this.finish,
     required this.language,
+    this.availableFinishes = const [],
+    this.availableLanguages = const [],
     required this.quantity,
     required this.isWishlisted,
     this.wishlistItemId,
@@ -191,6 +193,8 @@ class CardDetail {
   final String identityLine;
   final String finish;
   final String language;
+  final List<String> availableFinishes;
+  final List<String> availableLanguages;
   final int quantity;
   final bool isWishlisted;
   final String? wishlistItemId;
@@ -202,6 +206,12 @@ class CardDetail {
   final List<CardSoldListing> soldListings;
 
   bool get isCollected => quantity > 0 || collectionItems.isNotEmpty;
+
+  List<String> get collectionFinishOptions =>
+      availableFinishes.isEmpty ? [finish] : availableFinishes;
+
+  List<String> get collectionLanguageOptions =>
+      availableLanguages.isEmpty ? [language] : availableLanguages;
 
   CardDetail copyWith({
     int? quantity,
@@ -224,6 +234,8 @@ class CardDetail {
       identityLine: identityLine,
       finish: finish,
       language: language,
+      availableFinishes: availableFinishes,
+      availableLanguages: availableLanguages,
       quantity: quantity ?? this.quantity,
       isWishlisted: isWishlisted ?? this.isWishlisted,
       wishlistItemId: wishlistItemId == _cardCollectionItemUnset

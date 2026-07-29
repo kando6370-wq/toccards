@@ -152,7 +152,23 @@ LIMIT ? OFFSET ?`,
 
       if (!row) return null;
       const numbers = await findCardNumbersByProductId(db, [row.product_id]);
-      return cardFromRow(row, numbers.get(row.product_id) ?? "");
+      const skuRows = await findSkuRows(db, card_ref);
+      const card = cardWithSearchPricing(
+        row,
+        skuRows,
+        numbers.get(row.product_id) ?? "",
+      );
+      return {
+        ...card,
+        available_languages: uniqueSkuValues(
+          skuRows,
+          (sku) => sku.language_name ?? sku.language_code,
+        ),
+        available_finishes: uniqueSkuValues(
+          skuRows,
+          (sku) => sku.variant_name ?? sku.variant_code,
+        ),
+      };
     },
 
     async getPriceSeries(card_ref, grader, _grade, condition, days) {
@@ -422,6 +438,15 @@ function preferredSearchSku(rows: TcgplayerSkuRow[]): TcgplayerSkuRow | null {
       .filter((row) => parsePriceHistory(row.price_history).length > 0)
       .sort(compareSkuPreference)[0] ?? null
   );
+}
+
+function uniqueSkuValues(
+  rows: TcgplayerSkuRow[],
+  valueOf: (row: TcgplayerSkuRow) => string | null,
+): string[] {
+  return [...new Set(rows.map(valueOf).map((value) => value?.trim()).filter(
+    (value): value is string => Boolean(value),
+  ))].sort((left, right) => left.localeCompare(right));
 }
 
 function preferredMarketSkus(rows: TcgplayerSkuRow[]): TcgplayerSkuRow[] {

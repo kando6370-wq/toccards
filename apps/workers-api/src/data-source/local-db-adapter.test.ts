@@ -289,6 +289,31 @@ describe("local D1 card data source adapter", () => {
     });
   });
 
+  it("returns only the card's distinct SKU qualifiers because collection editing must not offer nonexistent variants", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Leafeon ex" })],
+        [
+          sku({ sku_id: 1, language_name: "Japanese", variant_name: "Normal" }),
+          sku({ sku_id: 2, language_name: "English", variant_name: "Holofoil" }),
+          sku({ sku_id: 3, language_name: "English", variant_name: "Holofoil" }),
+          sku({
+            sku_id: 4,
+            language_name: null,
+            language_code: "FR",
+            variant_name: null,
+            variant_code: "Foil",
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getCard("100")).resolves.toMatchObject({
+      available_languages: ["English", "FR", "Japanese"],
+      available_finishes: ["Foil", "Holofoil", "Normal"],
+    });
+  });
+
   it("parses tcgplayer_skus price_history with JSON because price strings must become numeric market data", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(

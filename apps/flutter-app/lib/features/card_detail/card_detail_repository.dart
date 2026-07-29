@@ -364,6 +364,8 @@ CardDetail _baseDetailFromDto(CardDataCardDto card) {
     identityLine: _identityLine(card),
     finish: card.finish ?? 'Unknown',
     language: card.language ?? 'Unknown',
+    availableFinishes: card.availableFinishes,
+    availableLanguages: card.availableLanguages,
     quantity: 0,
     isWishlisted: false,
     marketPrices: [
@@ -391,6 +393,8 @@ CardDetail _mergeSections(
     identityLine: detail.identityLine,
     finish: detail.finish,
     language: detail.language,
+    availableFinishes: detail.availableFinishes,
+    availableLanguages: detail.availableLanguages,
     quantity: detail.quantity,
     isWishlisted: detail.isWishlisted,
     wishlistItemId: detail.wishlistItemId,

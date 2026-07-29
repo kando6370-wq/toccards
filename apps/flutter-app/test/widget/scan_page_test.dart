@@ -438,7 +438,7 @@ void main() {
   );
 
   testWidgets(
-    'Gallery return keeps a stable camera placeholder because importing an image must not look like shutter feedback',
+    'Gallery return warms a new camera behind a stable placeholder because importing must not flash the resumed preview',
     (tester) async {
       final first = _TestScanCameraSession();
       final second = _TestScanCameraSession();
@@ -456,8 +456,6 @@ void main() {
 
       await tester.tap(find.byTooltip('Choose from Library'));
       await tester.pump();
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-      await tester.pump();
 
       expect(first.disposed, isTrue);
       expect(
@@ -471,14 +469,16 @@ void main() {
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
 
       factory.session = second;
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      await tester.pump();
-      expect(factory.openCount, 1);
-
       galleryGate.complete();
       await tester.pump();
       await tester.pump();
       expect(factory.openCount, 2);
+      expect(find.byKey(const Key('scan-live-camera-preview')), findsNothing);
+      expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 499));
+      expect(find.byKey(const Key('scan-live-camera-preview')), findsNothing);
+      await tester.pump(const Duration(milliseconds: 1));
       expect(find.byKey(const Key('scan-live-camera-preview')), findsOneWidget);
     },
   );
