@@ -8,6 +8,8 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 import 'package:kando_app/shared/validation/email.dart';
 
+import '../../../shared/analytics/analytics_events.dart';
+import '../../../shared/analytics/app_analytics.dart';
 import '../auth_controller.dart';
 
 const _shortPasswordMessage = 'Password must be at least 8 characters.';
@@ -80,6 +82,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
   @override
   void initState() {
     super.initState();
+    ref.read(analyticsProvider).track(AnalyticsEvent.signinView);
     _emailController.addListener(_syncEmailValidationState);
   }
 
@@ -209,6 +212,19 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         _isCodeSentToastVisible = false;
       }
     });
+    _trackPageView(page);
+  }
+
+  void _trackPageView(_EmailPage page) {
+    final event = switch (page) {
+      _EmailPage.email || _EmailPage.login => AnalyticsEvent.signinView,
+      _EmailPage.registerCode => AnalyticsEvent.signupView,
+      _EmailPage.registerPassword => AnalyticsEvent.setpasswordView,
+      _EmailPage.forgotEmail ||
+      _EmailPage.forgotCode ||
+      _EmailPage.forgotPassword => AnalyticsEvent.resetpasswordView,
+    };
+    ref.read(analyticsProvider).track(event);
   }
 
   bool _isCodePage(_EmailPage page) {
@@ -283,7 +299,9 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
             ? _EmailPage.login
             : _EmailPage.registerCode;
       });
+      _trackPageView(_page);
       if (destination == EmailAuthDestination.registerCode) {
+        ref.read(analyticsProvider).track(AnalyticsEvent.getCodeClick);
         _startResendCountdown();
         _revealCodeSentToast();
       }
@@ -308,6 +326,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
   }
 
   Future<void> _sendRegisterCode() async {
+    ref.read(analyticsProvider).track(AnalyticsEvent.getCodeClick);
     await _run(() async {
       await ref.read(authControllerProvider.notifier).sendRegisterCode(_email!);
       if (!mounted) {
@@ -315,6 +334,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       }
       _clearSensitiveInputs();
       setState(() => _page = _EmailPage.registerCode);
+      _trackPageView(_EmailPage.registerCode);
       _startResendCountdown();
       _revealCodeSentToast();
     });
@@ -337,6 +357,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         _page = _EmailPage.registerPassword;
         _isCodeSentToastVisible = false;
       });
+      _trackPageView(_EmailPage.registerPassword);
       _clearSensitiveInputs();
     });
   }
@@ -368,6 +389,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       return;
     }
 
+    ref.read(analyticsProvider).track(AnalyticsEvent.getCodeClick);
     await _run(() async {
       await ref
           .read(authControllerProvider.notifier)
@@ -380,6 +402,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         _email = email;
         _page = _EmailPage.forgotCode;
       });
+      _trackPageView(_EmailPage.forgotCode);
       _startResendCountdown();
       _revealCodeSentToast();
     });
@@ -406,6 +429,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         _page = _EmailPage.forgotPassword;
         _isCodeSentToastVisible = false;
       });
+      _trackPageView(_EmailPage.forgotPassword);
     });
   }
 
@@ -427,6 +451,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       }
       _clearSensitiveInputs();
       setState(() => _page = _EmailPage.login);
+      _trackPageView(_EmailPage.login);
       _showPasswordResetSuccess();
     });
   }
@@ -450,6 +475,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
     final email = _normalizedEmail();
     if (!_validateEmail(email)) return;
 
+    ref.read(analyticsProvider).track(AnalyticsEvent.getCodeClick);
     _codeController.clear();
     await _run(() async {
       final destination = await ref
@@ -463,6 +489,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
             ? _EmailPage.login
             : _EmailPage.registerCode;
       });
+      _trackPageView(_page);
       if (destination == EmailAuthDestination.registerCode) {
         _startResendCountdown();
         _revealCodeSentToast();
@@ -470,12 +497,15 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
     });
   }
 
-  Future<void> _resendForgotCode() => _resendCode(
-    () => ref
-        .read(authControllerProvider.notifier)
-        .sendForgotPasswordCode(_email!),
-    showCodeSentToast: true,
-  );
+  Future<void> _resendForgotCode() {
+    ref.read(analyticsProvider).track(AnalyticsEvent.getCodeClick);
+    return _resendCode(
+      () => ref
+          .read(authControllerProvider.notifier)
+          .sendForgotPasswordCode(_email!),
+      showCodeSentToast: true,
+    );
+  }
 
   Future<void> _resendCode(
     Future<void> Function() send, {

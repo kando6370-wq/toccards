@@ -14,6 +14,8 @@ import '../features/profile/profile_page.dart';
 import '../features/scan/scan_page.dart';
 import '../features/search/search_page.dart';
 import '../features/search/set_detail_page.dart';
+import '../shared/analytics/analytics_events.dart';
+import '../shared/analytics/app_analytics.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -21,12 +23,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         builder: (context, state) {
-          return const OnboardingGate(home: HomePage());
+          return const OnboardingGate(
+            home: AnalyticsPageView(
+              event: AnalyticsEvent.homeView,
+              child: HomePage(),
+            ),
+          );
         },
       ),
       GoRoute(
         path: '/home',
-        pageBuilder: (context, state) => _mainTabPage(state, const HomePage()),
+        pageBuilder: (context, state) => _mainTabPage(
+          state,
+          const AnalyticsPageView(
+            event: AnalyticsEvent.homeView,
+            child: HomePage(),
+          ),
+        ),
       ),
       GoRoute(
         path: '/trending',
@@ -37,11 +50,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) =>
             _mainTabPage(state, const CollectionPage()),
       ),
-      GoRoute(path: '/scan', builder: (context, state) => const ScanPage()),
+      GoRoute(
+        path: '/scan',
+        builder: (context, state) => const AnalyticsPageView(
+          event: AnalyticsEvent.scanView,
+          child: ScanPage(),
+        ),
+      ),
       GoRoute(
         path: '/cards/:cardId',
         builder: (context, state) {
-          return CardDetailPage(cardId: state.pathParameters['cardId'] ?? '');
+          final collectionType =
+              state.uri.queryParameters['collection'] ??
+              AnalyticsValue.collectionNormal;
+          return CardDetailPage(
+            cardId: state.pathParameters['cardId'] ?? '',
+            collectionType: collectionType,
+            entrySource:
+                state.uri.queryParameters['entry'] ??
+                AnalyticsValue.sourceSearch,
+          );
         },
       ),
       GoRoute(
@@ -61,8 +89,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/profile',
-        pageBuilder: (context, state) =>
-            _mainTabPage(state, const ProfilePage()),
+        pageBuilder: (context, state) => _mainTabPage(
+          state,
+          const AnalyticsPageView(
+            event: AnalyticsEvent.profileView,
+            child: ProfilePage(),
+          ),
+        ),
       ),
       GoRoute(
         path: '/account',
@@ -70,7 +103,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/customer-support',
-        builder: (context, state) => const CustomerSupportPage(),
+        builder: (context, state) => const AnalyticsPageView(
+          event: AnalyticsEvent.supportView,
+          child: CustomerSupportPage(),
+        ),
       ),
       GoRoute(
         path: '/profile/api-requests',

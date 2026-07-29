@@ -9,6 +9,9 @@ import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
+
 class TrendingTodayPage extends ConsumerStatefulWidget {
   const TrendingTodayPage({super.key});
 
@@ -38,6 +41,11 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
       _hasMore = true;
     });
     await _loadPage(1, replace: true);
+  }
+
+  Future<void> _refresh() {
+    ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+    return _load();
   }
 
   Future<void> _loadMore() async {
@@ -82,7 +90,7 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
         top: false,
         child: RefreshIndicator(
           key: const Key('trending-today-refresh'),
-          onRefresh: _load,
+          onRefresh: _refresh,
           child: _body(),
         ),
       ),
@@ -94,7 +102,7 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
       return const _FullPageState(child: KandoLoadingBlock());
     }
     if (_failed && _cards.isEmpty) {
-      return _FullPageState(child: KandoFailureBlock(onRefresh: _load));
+      return _FullPageState(child: KandoFailureBlock(onRefresh: _refresh));
     }
     if (_cards.isEmpty) {
       return const _FullPageState(
@@ -151,6 +159,7 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
                       actionsEnabled: false,
                       showActions: false,
                       showSearchMetadata: true,
+                      entrySource: AnalyticsValue.sourceTrendingToday,
                     ),
                   ),
                 ),

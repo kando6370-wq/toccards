@@ -20,6 +20,8 @@ import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/features/scan/scan_review_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/shared/analytics/analytics_events.dart';
+import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
 
 import '../support/mock_home_repository.dart';
@@ -1068,12 +1070,14 @@ void main() {
     tester,
   ) async {
     final result = Completer<ScanResolution>();
+    final analytics = _AnalyticsRecorder();
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
     await _pumpScanTestApp(
       tester,
       scanResultSource: _TestScanResultSource(photoResult: result.future),
+      analytics: analytics.client,
     );
 
     await tester.tap(find.byTooltip('Take Photo'));
@@ -1095,6 +1099,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1530));
 
     expect(find.text('Matched'), findsNothing);
+    await tester.tap(find.byTooltip('Close Scan'));
+    await tester.pumpAndSettle();
+
+    expect(analytics.count(AnalyticsEvent.cancelClick), 1);
+    expect(analytics.count(AnalyticsEvent.deleteClick), 0);
+    expect(analytics.count(AnalyticsEvent.scanResults), 1);
+    expect(
+      analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+      containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanFailed),
+    );
   });
 
   testWidgets(
@@ -1519,7 +1533,8 @@ void main() {
   testWidgets(
     'No Match scan offers Search Manually because unmatched cards cannot enter review',
     (tester) async {
-      await _pumpScanTestApp(tester);
+      final analytics = _AnalyticsRecorder();
+      await _pumpScanTestApp(tester, analytics: analytics.client);
 
       await tester.tap(find.byTooltip('Choose from Library'));
       await _completeFigmaScan(tester);
@@ -1544,8 +1559,34 @@ void main() {
 
       expect(find.byTooltip('Take Photo'), findsOneWidget);
       expect(find.text('No Match Found'), findsNothing);
+      expect(analytics.count(AnalyticsEvent.deleteClick), 0);
     },
   );
+
+  testWidgets('Add click reports analytics even when review validation fails', (
+    tester,
+  ) async {
+    final analytics = _AnalyticsRecorder();
+    await _pumpScanTestApp(tester, analytics: analytics.client);
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tap(find.byTooltip('Review completed scan'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('scan-review-quantity-1')),
+      '0',
+    );
+    await tester.tap(find.text('Add this card'));
+    await tester.pump();
+
+    expect(analytics.count(AnalyticsEvent.collectionItemAddClick), 1);
+    expect(analytics.count(AnalyticsEvent.scanResults), 1);
+    expect(
+      find.text('Quantity must be a whole number of 1 or more.'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('Scan keeps capture controls available across multiple results', (
     tester,
@@ -1727,6 +1768,7 @@ Future<void> _pumpScanTestApp(
   ScanReviewRepository? scanReviewRepository,
   ScanCameraFactory scanCameraFactory = const _DisabledScanCameraFactory(),
   ScanPermissionGateway permissions = const _GrantedScanPermissionGateway(),
+  AppAnalytics? analytics,
   bool tickerEnabled = true,
 }) async {
   await tester.pumpWidget(const SizedBox.shrink());
@@ -1744,6 +1786,7 @@ Future<void> _pumpScanTestApp(
         ),
         scanCameraFactoryProvider.overrideWithValue(scanCameraFactory),
         scanPermissionGatewayProvider.overrideWithValue(permissions),
+        if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
       child: TickerMode(
         enabled: tickerEnabled,
@@ -1752,6 +1795,28 @@ Future<void> _pumpScanTestApp(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _AnalyticsRecorder {
+  _AnalyticsRecorder() {
+    client = AppAnalytics.recording((event, properties) {
+      events.add((event: event, properties: properties));
+    });
+  }
+
+  late final AppAnalytics client;
+  final events = <({String event, Map<String, Object?> properties})>[];
+
+  int count(String event) {
+    return events.where((record) => record.event == event).length;
+  }
+
+  List<Map<String, Object?>> propertiesFor(String event) {
+    return [
+      for (final record in events)
+        if (record.event == event) record.properties,
+    ];
+  }
 }
 
 class _FakeScanReviewRepository implements ScanReviewRepository {

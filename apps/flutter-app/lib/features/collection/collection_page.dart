@@ -11,16 +11,26 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import 'collection_controller.dart';
 import 'collection_models.dart';
 
-class CollectionPage extends ConsumerWidget {
+class CollectionPage extends ConsumerStatefulWidget {
   const CollectionPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CollectionPage> createState() => _CollectionPageState();
+}
+
+class _CollectionPageState extends ConsumerState<CollectionPage> {
+  CollectionTab? _lastTrackedTab;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(collectionControllerProvider);
     final controller = ref.read(collectionControllerProvider.notifier);
+    _trackSelectedTab(state);
 
     return KandoTabScaffold(
       currentTab: KandoMainTab.collection,
@@ -32,7 +42,7 @@ class CollectionPage extends ConsumerWidget {
 
             return RefreshIndicator(
               key: const Key('collection-pull-to-refresh'),
-              onRefresh: controller.refresh,
+              onRefresh: () => _refresh(controller),
               child: ListView(
                 key: const Key('collection-content-list'),
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -50,7 +60,9 @@ class CollectionPage extends ConsumerWidget {
                   else if (isPageFailure)
                     SizedBox(
                       height: math.max(0.0, constraints.maxHeight),
-                      child: KandoFailureBlock(onRefresh: controller.refresh),
+                      child: KandoFailureBlock(
+                        onRefresh: () => _refresh(controller),
+                      ),
                     )
                   else ...[
                     _SegmentedTabs(
@@ -67,8 +79,12 @@ class CollectionPage extends ConsumerWidget {
                     if (state.selectedTab == CollectionTab.portfolio) ...[
                       _PortfolioSummaryCard(
                         state: state,
-                        onFolderPressed: () =>
-                            showPortfolioFolderSheet(context, ref),
+                        onFolderPressed: () {
+                          ref
+                              .read(analyticsProvider)
+                              .track(AnalyticsEvent.folderClick);
+                          showPortfolioFolderSheet(context, ref);
+                        },
                         onHidePressed: () async {
                           if (!await controller.toggleAmountHidden() &&
                               context.mounted) {
@@ -88,6 +104,26 @@ class CollectionPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _trackSelectedTab(CollectionState state) {
+    if (state.loadStatus != KandoLoadStatus.content ||
+        _lastTrackedTab == state.selectedTab) {
+      return;
+    }
+    _lastTrackedTab = state.selectedTab;
+    final event = state.selectedTab == CollectionTab.portfolio
+        ? AnalyticsEvent.portfolioView
+        : AnalyticsEvent.wishlistView;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _lastTrackedTab != state.selectedTab) return;
+      ref.read(analyticsProvider).track(event);
+    });
+  }
+
+  Future<void> _refresh(CollectionController controller) {
+    ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+    return controller.refresh();
   }
 }
 
@@ -642,6 +678,7 @@ class _CollectionGrid extends StatelessWidget {
                       showActions: false,
                       showSearchMetadata: true,
                       showQuantity: showQuantity,
+                      entrySource: AnalyticsValue.sourceEdit,
                     ),
                   ),
               ],
@@ -1261,6 +1298,7 @@ Future<bool> _confirmDeleteFolder(
   BuildContext context,
   CollectionFolder folder,
 ) async {
+  _trackCollectionEvent(context, AnalyticsEvent.deleteClick);
   return await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
@@ -1294,7 +1332,13 @@ Future<bool> _confirmDeleteFolder(
                       backgroundColor: KandoColors.elevatedSurface,
                       foregroundColor: KandoColors.text,
                       label: 'CANCEL',
-                      onPressed: () => Navigator.of(context).pop(false),
+                      onPressed: () {
+                        _trackCollectionEvent(
+                          context,
+                          AnalyticsEvent.cancelClick,
+                        );
+                        Navigator.of(context).pop(false);
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1304,7 +1348,13 @@ Future<bool> _confirmDeleteFolder(
                       backgroundColor: KandoColors.error,
                       foregroundColor: KandoColors.primaryOnDefault,
                       label: 'DELETE',
-                      onPressed: () => Navigator.of(context).pop(true),
+                      onPressed: () {
+                        _trackCollectionEvent(
+                          context,
+                          AnalyticsEvent.deleteConfirmClick,
+                        );
+                        Navigator.of(context).pop(true);
+                      },
                     ),
                   ),
                 ],
@@ -1314,6 +1364,13 @@ Future<bool> _confirmDeleteFolder(
         ),
       ) ??
       false;
+}
+
+void _trackCollectionEvent(BuildContext context, String event) {
+  ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(analyticsProvider).track(event);
 }
 
 void _showCollectionActionError(BuildContext context) {

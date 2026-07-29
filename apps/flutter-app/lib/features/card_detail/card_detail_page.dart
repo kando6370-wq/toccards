@@ -9,6 +9,8 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import 'card_detail_actions.dart';
 import 'card_detail_controller.dart';
 import 'card_detail_models.dart';
@@ -87,16 +89,37 @@ ThemeData _formFieldTheme(BuildContext context) {
   );
 }
 
-class CardDetailPage extends ConsumerWidget {
-  const CardDetailPage({required this.cardId, super.key});
+class CardDetailPage extends ConsumerStatefulWidget {
+  const CardDetailPage({
+    required this.cardId,
+    this.collectionType = AnalyticsValue.collectionNormal,
+    this.entrySource = AnalyticsValue.sourceSearch,
+    super.key,
+  });
 
   final String cardId;
+  final String collectionType;
+  final String entrySource;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final provider = cardDetailControllerProvider(cardId);
+  ConsumerState<CardDetailPage> createState() => _CardDetailPageState();
+}
+
+class _CardDetailPageState extends ConsumerState<CardDetailPage> {
+  bool _trackedView = false;
+
+  @override
+  void didUpdateWidget(covariant CardDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cardId != widget.cardId) _trackedView = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = cardDetailControllerProvider(widget.cardId);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    _trackViewWhenLoaded(state);
 
     final page = Scaffold(
       backgroundColor: KandoColors.ink,
@@ -110,7 +133,14 @@ class CardDetailPage extends ConsumerWidget {
               : state.isUnavailable
               ? Padding(
                   padding: const EdgeInsets.all(20),
-                  child: KandoFailureBlock(onRefresh: controller.refresh),
+                  child: KandoFailureBlock(
+                    onRefresh: () {
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.refreshClick);
+                      controller.refresh();
+                    },
+                  ),
                 )
               : LayoutBuilder(
                   builder: (context, constraints) {
@@ -120,7 +150,12 @@ class CardDetailPage extends ConsumerWidget {
                     );
                     return RefreshIndicator(
                       key: const Key('card-detail-pull-to-refresh'),
-                      onRefresh: controller.refresh,
+                      onRefresh: () {
+                        ref
+                            .read(analyticsProvider)
+                            .track(AnalyticsEvent.refreshClick);
+                        return controller.refresh();
+                      },
                       child: ListView(
                         key: const Key('card-detail-scroll'),
                         keyboardDismissBehavior:
@@ -136,6 +171,7 @@ class CardDetailPage extends ConsumerWidget {
                           _CardHero(
                             state: state,
                             controller: controller,
+                            entrySource: widget.entrySource,
                             onBack: () => _goBack(context, controller),
                           ),
                           const SizedBox(height: 10),
@@ -162,6 +198,7 @@ class CardDetailPage extends ConsumerWidget {
                             _OwnedDetailTabs(
                               state: state,
                               controller: controller,
+                              entrySource: widget.entrySource,
                             )
                           else
                             _PriceOverview(
@@ -192,6 +229,21 @@ class CardDetailPage extends ConsumerWidget {
       },
       child: page,
     );
+  }
+
+  void _trackViewWhenLoaded(CardDetailState state) {
+    if (_trackedView || state.loadStatus != KandoLoadStatus.content) return;
+    _trackedView = true;
+    final properties = <String, Object?>{
+      AnalyticsProperty.collectionType: widget.collectionType,
+      AnalyticsProperty.ipType: analyticsIpType(state.detail.game),
+    };
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_trackedView) return;
+      ref
+          .read(analyticsProvider)
+          .track(AnalyticsEvent.cardDetailsView, properties: properties);
+    });
   }
 
   void _goBack(BuildContext context, CardDetailController controller) {
@@ -240,11 +292,13 @@ class _CardHero extends ConsumerWidget {
   const _CardHero({
     required this.state,
     required this.controller,
+    required this.entrySource,
     required this.onBack,
   });
 
   final CardDetailState state;
   final CardDetailController controller;
+  final String entrySource;
   final VoidCallback onBack;
 
   @override
@@ -338,6 +392,9 @@ class _CardHero extends ConsumerWidget {
                             key: Key('card-detail-share-${detail.id}'),
                             tooltip: 'Share',
                             onPressed: () async {
+                              ref
+                                  .read(analyticsProvider)
+                                  .track(AnalyticsEvent.shareCardClick);
                               try {
                                 await ref
                                     .read(cardDetailActionsProvider)
@@ -369,6 +426,7 @@ class _CardHero extends ConsumerWidget {
                             onPressed: () => _openAddCollectionItemSheet(
                               context,
                               controller,
+                              entrySource,
                             ),
                             style: iconButtonStyle,
                             icon: SvgPicture.asset(
@@ -589,10 +647,15 @@ class _BasicInfo extends StatelessWidget {
 }
 
 class _OwnedDetailTabs extends StatefulWidget {
-  const _OwnedDetailTabs({required this.state, required this.controller});
+  const _OwnedDetailTabs({
+    required this.state,
+    required this.controller,
+    required this.entrySource,
+  });
 
   final CardDetailState state;
   final CardDetailController controller;
+  final String entrySource;
 
   @override
   State<_OwnedDetailTabs> createState() => _OwnedDetailTabsState();
@@ -690,7 +753,11 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
         ),
         const SizedBox(height: 12),
         if (_tabController.index == 0)
-          _CollectionItems(state: widget.state, controller: widget.controller)
+          _CollectionItems(
+            state: widget.state,
+            controller: widget.controller,
+            entrySource: widget.entrySource,
+          )
         else
           _PriceOverview(state: widget.state, controller: widget.controller),
       ],
@@ -701,12 +768,17 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
 enum _CollectionItemMode { empty, summary, edit }
 
 class _CollectionItems extends StatelessWidget {
-  const _CollectionItems({required this.state, required this.controller});
+  const _CollectionItems({
+    required this.state,
+    required this.controller,
+    required this.entrySource,
+  });
 
   static const _modeTransitionDuration = Duration(milliseconds: 380);
 
   final CardDetailState state;
   final CardDetailController controller;
+  final String entrySource;
 
   @override
   Widget build(BuildContext context) {
@@ -735,7 +807,8 @@ class _CollectionItems extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              onPressed: () => _openAddCollectionItemSheet(context, controller),
+              onPressed: () =>
+                  _openAddCollectionItemSheet(context, controller, entrySource),
               icon: const Icon(Icons.add_circle_outline),
               label: const Text('Add item'),
             ),
@@ -1240,6 +1313,7 @@ class _CollectionDetailRow extends StatelessWidget {
 Future<void> _openAddCollectionItemSheet(
   BuildContext context,
   CardDetailController controller,
+  String entrySource,
 ) async {
   controller.startAddingCollectionItem();
   final provider = cardDetailControllerProvider(controller.cardId);
@@ -1254,7 +1328,10 @@ Future<void> _openAddCollectionItemSheet(
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.72),
-    builder: (_) => _AddCollectionItemSheet(cardId: controller.cardId),
+    builder: (_) => _AddCollectionItemSheet(
+      cardId: controller.cardId,
+      entrySource: entrySource,
+    ),
   );
 
   final current = container.read(provider);
@@ -1265,9 +1342,13 @@ Future<void> _openAddCollectionItemSheet(
 }
 
 class _AddCollectionItemSheet extends ConsumerWidget {
-  const _AddCollectionItemSheet({required this.cardId});
+  const _AddCollectionItemSheet({
+    required this.cardId,
+    required this.entrySource,
+  });
 
   final String cardId;
+  final String entrySource;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1406,6 +1487,21 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                           textStyle: const TextStyle(fontSize: 16),
                         ),
                         onPressed: () async {
+                          ref
+                              .read(analyticsProvider)
+                              .track(
+                                AnalyticsEvent.collectionItemAddClick,
+                                properties: {
+                                  AnalyticsProperty.ipType: analyticsIpType(
+                                    state.detail.game,
+                                  ),
+                                  AnalyticsProperty.gradeType:
+                                      draft.grader.toLowerCase() == 'raw'
+                                      ? AnalyticsValue.gradeNormal
+                                      : AnalyticsValue.gradeGraded,
+                                  AnalyticsProperty.entrySource: entrySource,
+                                },
+                              );
                           final saved = await controller
                               .saveCollectionItemDraft();
                           if (saved && context.mounted) {
@@ -1718,7 +1814,10 @@ class _CollectionItemForm extends StatelessWidget {
                   style: TextButton.styleFrom(
                     foregroundColor: KandoColors.mutedText,
                   ),
-                  onPressed: controller.cancelCollectionItemEdit,
+                  onPressed: () {
+                    _trackFromContext(context, AnalyticsEvent.cancelClick);
+                    controller.cancelCollectionItemEdit();
+                  },
                   child: const Text('Cancel'),
                 ),
                 const Spacer(),
@@ -1817,7 +1916,10 @@ class _CollectionItemEditCard extends StatelessWidget {
               _CollectionEditActionButton(
                 label: 'Cancel',
                 disabled: state.isSavingCollectionItemDraft,
-                onPressed: controller.cancelCollectionItemEdit,
+                onPressed: () {
+                  _trackFromContext(context, AnalyticsEvent.cancelClick);
+                  controller.cancelCollectionItemEdit();
+                },
               ),
               const SizedBox(width: 8),
               _CollectionEditActionButton(
@@ -3032,6 +3134,7 @@ Future<void> _confirmRemoveWishlist(
   BuildContext context,
   CardDetailController controller,
 ) {
+  _trackFromContext(context, AnalyticsEvent.deleteClick);
   return showDialog<void>(
     context: context,
     builder: (dialogContext) {
@@ -3041,7 +3144,10 @@ Future<void> _confirmRemoveWishlist(
         actions: [
           TextButton(
             style: TextButton.styleFrom(foregroundColor: KandoColors.mutedText),
-            onPressed: () => Navigator.of(dialogContext).pop(),
+            onPressed: () {
+              _trackFromContext(dialogContext, AnalyticsEvent.cancelClick);
+              Navigator.of(dialogContext).pop();
+            },
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
@@ -3051,6 +3157,10 @@ Future<void> _confirmRemoveWishlist(
               shape: const StadiumBorder(),
             ),
             onPressed: () async {
+              _trackFromContext(
+                dialogContext,
+                AnalyticsEvent.deleteConfirmClick,
+              );
               try {
                 await controller.toggleWishlist();
               } catch (_) {
@@ -3077,6 +3187,7 @@ Future<void> _confirmRemoveCollectionItem(
   CardDetailController controller,
   String itemId,
 ) {
+  _trackFromContext(context, AnalyticsEvent.deleteClick);
   return showDialog<void>(
     context: context,
     builder: (context) {
@@ -3086,7 +3197,10 @@ Future<void> _confirmRemoveCollectionItem(
         actions: [
           TextButton(
             style: TextButton.styleFrom(foregroundColor: KandoColors.mutedText),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              _trackFromContext(context, AnalyticsEvent.cancelClick);
+              Navigator.of(context).pop();
+            },
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
@@ -3096,6 +3210,7 @@ Future<void> _confirmRemoveCollectionItem(
               shape: const StadiumBorder(),
             ),
             onPressed: () async {
+              _trackFromContext(context, AnalyticsEvent.deleteConfirmClick);
               await controller.removeCollectionItem(itemId);
               if (!context.mounted) {
                 return;
@@ -3109,6 +3224,13 @@ Future<void> _confirmRemoveCollectionItem(
       );
     },
   );
+}
+
+void _trackFromContext(BuildContext context, String event) {
+  ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(analyticsProvider).track(event);
 }
 
 class _InfoRow extends StatelessWidget {

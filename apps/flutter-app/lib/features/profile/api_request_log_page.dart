@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import '../../shared/api/api_request_log.dart';
 import '../../shared/ui/kando_style.dart';
 import 'profile_detail_scaffold.dart';
@@ -46,6 +48,9 @@ class ApiRequestLogPage extends ConsumerWidget {
                     key: const Key('api-request-log-refresh'),
                     tooltip: 'Refresh',
                     onPressed: () {
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.refreshClick);
                       ref.read(apiRequestLogProvider.notifier).prune();
                     },
                     style: IconButton.styleFrom(

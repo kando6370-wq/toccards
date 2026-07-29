@@ -5,6 +5,8 @@ import 'package:kando_app/shared/ui/kando_modal.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
 import '../auth/auth_repository.dart';
@@ -31,7 +33,10 @@ class AccountPage extends ConsumerWidget {
             )
           : RefreshIndicator(
               key: const Key('account-pull-to-refresh'),
-              onRefresh: ref.read(authControllerProvider.notifier).retryStartup,
+              onRefresh: () {
+                ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+                return ref.read(authControllerProvider.notifier).retryStartup();
+              },
               child: _AccountContent(session: session),
             ),
     );

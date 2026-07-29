@@ -14,6 +14,8 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import '../collection/collection_page.dart';
 import '../collection/collection_controller.dart';
 import '../collection/collection_models.dart';
@@ -80,7 +82,7 @@ class _HomePageState extends ConsumerState<HomePage>
           bottom: false,
           child: RefreshIndicator(
             key: const Key('home-pull-to-refresh'),
-            onRefresh: controller.refresh,
+            onRefresh: () => _trackRefresh(controller.refresh),
             child: SingleChildScrollView(
               key: const Key('home-normal-content'),
               physics: const AlwaysScrollableScrollPhysics(),
@@ -96,21 +98,34 @@ class _HomePageState extends ConsumerState<HomePage>
                   _Header(
                     currencyCode: state.currencyCode,
                     currencySymbol: state.currency.symbol,
-                    onCurrencyPressed: () => _showCurrencySheet(context, ref),
+                    onCurrencyPressed: () {
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.currencyClick);
+                      _showCurrencySheet(context, ref);
+                    },
                   ),
                   const SizedBox(height: 24),
                   _PortfolioCard(
                     state: state,
-                    onFolderPressed: () => _showFolderSheet(context, ref),
+                    onFolderPressed: () {
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.folderClick);
+                      _showFolderSheet(context, ref);
+                    },
                     onHidePressed: controller.toggleAmountHidden,
                     onRangeSelected: controller.selectChartRange,
-                    onRefresh: controller.refresh,
+                    onRefresh: () => _trackRefresh(controller.refresh),
                   ),
                   const SizedBox(height: 32),
                   _MostValuableSection(
                     state: state,
                     onRefresh: controller.refresh,
                     onViewAll: () {
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.mostvaluableClick);
                       ref
                           .read(collectionInitialSortProvider.notifier)
                           .select(CollectionSort.valueDesc);
@@ -120,8 +135,13 @@ class _HomePageState extends ConsumerState<HomePage>
                   const SizedBox(height: 32),
                   _TrendingSection(
                     state: state,
-                    onRefresh: controller.refreshTrending,
-                    onViewAll: () => context.push('/trending'),
+                    onRefresh: () => _trackRefresh(controller.refreshTrending),
+                    onViewAll: () {
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.trendingClick);
+                      context.push('/trending');
+                    },
                   ),
                 ],
               ),
@@ -134,6 +154,11 @@ class _HomePageState extends ConsumerState<HomePage>
 
   Future<void> _showFolderSheet(BuildContext context, WidgetRef ref) {
     return showPortfolioFolderSheet(context, ref);
+  }
+
+  Future<void> _trackRefresh(Future<void> Function() refresh) {
+    ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+    return refresh();
   }
 
   Future<void> _showCurrencySheet(BuildContext context, WidgetRef ref) {
@@ -1075,7 +1100,9 @@ class _MostValuableSection extends StatelessWidget {
                   card: card,
                   onTap: card.cardRef == null
                       ? null
-                      : () => context.push('/cards/${card.cardRef}'),
+                      : () => context.push(
+                          '/cards/${card.cardRef}?collection=portfolio&entry=edit',
+                        ),
                   price: state.formatCardPrice(card.priceUsd),
                 );
               },
@@ -1144,7 +1171,9 @@ class _TrendingSection extends StatelessWidget {
               imageUrl: trends[index].imageUrl,
               onTap: trends[index].cardRef == null
                   ? null
-                  : () => context.push('/cards/${trends[index].cardRef}'),
+                  : () => context.push(
+                      '/cards/${trends[index].cardRef}?collection=normal&entry=trending%20today',
+                    ),
               showPlaceholder: state.isUnavailable,
               placeholderKey: state.isUnavailable
                   ? Key('home-failure-trend-placeholder-$index')

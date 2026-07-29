@@ -11,6 +11,8 @@ import '../auth/auth_models.dart';
 import '../auth/auth_repository.dart';
 import '../auth/ui/auth_sheet.dart';
 import '../app_upgrade/app_upgrade_repository.dart';
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import '../../shared/ui/toast.dart';
 import 'account_page.dart';
 import 'profile_actions.dart';
@@ -38,12 +40,18 @@ class ProfilePage extends ConsumerWidget {
             : authState.hasError
             ? KandoFailureBlock(
                 onRefresh: () {
+                  ref
+                      .read(analyticsProvider)
+                      .track(AnalyticsEvent.refreshClick);
                   ref.read(authControllerProvider.notifier).retryStartup();
                 },
               )
             : _ProfileContent(
                 authState: authState,
                 onRefresh: () async {
+                  ref
+                      .read(analyticsProvider)
+                      .track(AnalyticsEvent.refreshClick);
                   ref.invalidate(profileVersionProvider);
                   await ref
                       .read(authControllerProvider.notifier)
@@ -141,10 +149,16 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                   _MenuRow(
                     icon: Icons.share_outlined,
                     label: 'Share With Friends',
-                    onTap: () => _runProfileAction(
-                      context,
-                      () => ref.read(profileActionsProvider).shareWithFriends(),
-                    ),
+                    onTap: () {
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.shareAppClick);
+                      _runProfileAction(
+                        context,
+                        () =>
+                            ref.read(profileActionsProvider).shareWithFriends(),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -349,6 +363,10 @@ class _ApiLogPasscodeDialogState extends State<_ApiLogPasscodeDialog> {
       actions: [
         TextButton(
           onPressed: () {
+            ProviderScope.containerOf(
+              context,
+              listen: false,
+            ).read(analyticsProvider).track(AnalyticsEvent.cancelClick);
             Navigator.of(context).pop();
           },
           child: const Text('Cancel'),

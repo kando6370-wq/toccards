@@ -5,6 +5,8 @@ import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import 'search_card_tile.dart';
 import 'search_controller.dart';
 import 'search_models.dart';
@@ -39,6 +41,15 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
   @override
   void initState() {
     super.initState();
+    ref
+        .read(analyticsProvider)
+        .track(
+          AnalyticsEvent.searchView,
+          properties: {
+            AnalyticsProperty.ipType: analyticsIpType(widget.game),
+            AnalyticsProperty.tabType: AnalyticsValue.tabSetCard,
+          },
+        );
     _scrollController.addListener(_loadNextPageNearBottom);
     _load(reset: true);
   }
@@ -101,7 +112,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
           builder: (context, constraints) {
             return RefreshIndicator(
               key: const Key('set-detail-pull-to-refresh'),
-              onRefresh: () => _load(reset: true),
+              onRefresh: _refresh,
               child: _body(constraints.maxHeight, searchState),
             );
           },
@@ -117,7 +128,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
     if (_failed && _cards.isEmpty) {
       return _fullHeightScrollable(
         viewportHeight,
-        KandoFailureBlock(onRefresh: () => _load(reset: true)),
+        KandoFailureBlock(onRefresh: _refresh),
       );
     }
     if (_cards.isEmpty) {
@@ -156,7 +167,12 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
                       : IconButton(
                           key: const Key('set-detail-retry-page'),
                           tooltip: 'Retry loading cards',
-                          onPressed: () => _load(reset: false),
+                          onPressed: () {
+                            ref
+                                .read(analyticsProvider)
+                                .track(AnalyticsEvent.refreshClick);
+                            _load(reset: false);
+                          },
                           icon: const Icon(Icons.refresh),
                         ),
                 );
@@ -177,6 +193,11 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _refresh() {
+    ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+    return _load(reset: true);
   }
 
   Widget _fullHeightScrollable(double height, Widget child) {

@@ -8,6 +8,8 @@ import 'package:video_player/video_player.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/ui/auth_sheet.dart';
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import 'onboarding_controller.dart';
 
 class OnboardingPage extends ConsumerStatefulWidget {
@@ -56,12 +58,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   final _pageController = PageController();
   late final List<_OnboardingVideoController?> _videoControllers;
   var _currentIndex = 0;
+  var _lastTrackedGuideIndex = 0;
   var _isPageTransitioning = false;
   bool? _reduceMotion;
 
   @override
   void initState() {
     super.initState();
+    ref.read(analyticsProvider).track(AnalyticsEvent.guide1View);
     _videoControllers = [
       for (final slide in _slides)
         if (slide.mediaKind == _OnboardingMediaKind.video)
@@ -138,6 +142,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
   void _handlePageChanged(int index) {
     setState(() => _currentIndex = index);
+    if (_lastTrackedGuideIndex == index) return;
+    _lastTrackedGuideIndex = index;
+    final event = switch (index) {
+      0 => AnalyticsEvent.guide1View,
+      1 => AnalyticsEvent.guide2View,
+      _ => AnalyticsEvent.guide3View,
+    };
+    ref.read(analyticsProvider).track(event);
     if (_reduceMotion != true) _preloadVideosFrom(index);
   }
 
@@ -174,6 +186,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   void _complete() {
+    ref.read(analyticsProvider).track(AnalyticsEvent.signSkipClick);
     ref.read(onboardingControllerProvider.notifier).complete();
   }
 }

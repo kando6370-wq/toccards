@@ -10,6 +10,8 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 
 import '../../shared/card_image/kando_card_image.dart';
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/scan/scan_api_client.dart';
@@ -279,6 +281,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
   final List<_ScanItem> _items = [];
   final List<Timer> _scanTimers = [];
   final Map<int, _PendingScan> _pendingScans = {};
+  final Map<int, Stopwatch> _scanStopwatches = {};
+  final Map<int, Duration> _scanDurations = {};
+  final Map<int, String> _scanResultValues = {};
+  final Set<int> _reportedScanResultIds = {};
   late final AnimationController _captureController;
   ScanCameraSession? _cameraSession;
 
@@ -455,10 +461,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final camera = _cameraSession;
     if (camera == null) {
       if (_openingCamera) return;
+      ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
       _addScan(Future.sync(source.photo));
       return;
     }
     if (_photoRecognitionInFlight) return;
+    ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
     _photoRecognitionInFlight = true;
     late final int itemId;
     final result = _captureAndRecognize(
@@ -509,6 +517,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _startLibraryScan() async {
     if (_librarySelectionInFlight) return;
+    ref.read(analyticsProvider).track(AnalyticsEvent.imageClick);
     setState(() => _librarySelectionInFlight = true);
     try {
       final permission = await ref
@@ -571,7 +580,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 content: Text('Enable $name access in Settings to continue.'),
                 actions: [
                   CupertinoDialogAction(
-                    onPressed: () => Navigator.pop(context, false),
+                    onPressed: () {
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.cancelClick);
+                      Navigator.pop(context, false);
+                    },
                     child: const Text('Cancel'),
                   ),
                   CupertinoDialogAction(
@@ -599,7 +613,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 content: Text('Enable $name access in Settings to continue.'),
                 actions: [
                   TextButton(
-                    onPressed: () => Navigator.pop(context, false),
+                    onPressed: () {
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.cancelClick);
+                      Navigator.pop(context, false);
+                    },
                     child: const Text('Cancel'),
                   ),
                   TextButton(
@@ -617,6 +636,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _retryScan(_ScanItem item) {
+    _scanStopwatches[item.id] = Stopwatch()..start();
     _replaceItem(item.copyWith(status: _ScanItemStatus.scanning));
     _startScanTimeline(
       item.id,
@@ -638,7 +658,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() => _dismissedFeedbackItemId = revealingItem.id);
   }
 
-  void _deleteScan(_ScanItem item) {
+  void _removeScan(_ScanItem item) {
     _pendingScans.remove(item.id)?.revealController?.dispose();
     setState(() {
       _items.removeWhere((candidate) => candidate.id == item.id);
@@ -646,6 +666,22 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _selectedReviewItemId = _matchedItems.firstOrNull?.id;
       }
     });
+  }
+
+  void _removeScanFromUser(_ScanItem item) {
+    if (item.status == _ScanItemStatus.scanning ||
+        item.status == _ScanItemStatus.recognizing) {
+      ref.read(analyticsProvider).track(AnalyticsEvent.cancelClick);
+      final stopwatch = _scanStopwatches.remove(item.id);
+      stopwatch?.stop();
+      _scanDurations[item.id] =
+          (_scanDurations[item.id] ?? Duration.zero) +
+          (stopwatch?.elapsed ?? Duration.zero);
+      _scanResultValues[item.id] = AnalyticsValue.scanFailed;
+    } else {
+      ref.read(analyticsProvider).track(AnalyticsEvent.deleteClick);
+    }
+    _removeScan(item);
   }
 
   Future<void> _searchManually(_ScanItem item) async {
@@ -663,7 +699,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         )
         .firstOrNull;
     if (cachedItem != null) {
-      _deleteScan(cachedItem);
+      _removeScan(cachedItem);
     }
     unawaited(_openCamera());
   }
@@ -675,6 +711,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }) {
     final id = _nextScanId;
     _nextScanId += 1;
+    _scanStopwatches[id] = Stopwatch()..start();
     setState(() {
       _lastAddedCount = null;
       _dismissedFeedbackItemId = null;
@@ -799,9 +836,23 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } catch (_) {
       resolution = const ScanResolution.failed();
     }
-
     final pending = _pendingScans[itemId];
-    if (!mounted || pending == null || pending.token != token) {
+    if (pending == null || pending.token != token) {
+      return;
+    }
+    final stopwatch = _scanStopwatches.remove(itemId);
+    stopwatch?.stop();
+    _scanDurations[itemId] =
+        (_scanDurations[itemId] ?? Duration.zero) +
+        (stopwatch?.elapsed ?? Duration.zero);
+    _scanResultValues[itemId] = switch (resolution.kind) {
+      ScanResolutionKind.matched => AnalyticsValue.scanSuccess,
+      ScanResolutionKind.noMatch => AnalyticsValue.scanNotFound,
+      ScanResolutionKind.failed ||
+      ScanResolutionKind.cancelled => AnalyticsValue.scanFailed,
+    };
+
+    if (!mounted) {
       return;
     }
     if (resolution.kind == ScanResolutionKind.cancelled) {
@@ -975,6 +1026,22 @@ class _ScanPageState extends ConsumerState<ScanPage>
               }),
             );
         });
+        final selected = items
+            .where((item) => item.id == _selectedReviewItemId)
+            .firstOrNull;
+        final selectedCard = selected == null
+            ? null
+            : cards[selected.match!.cardRef];
+        ref
+            .read(analyticsProvider)
+            .track(
+              AnalyticsEvent.reviewMatchesView,
+              properties: {
+                AnalyticsProperty.collectionType:
+                    AnalyticsValue.collectionPortfolio,
+                AnalyticsProperty.ipType: analyticsIpType(selectedCard?.game),
+              },
+            );
       }
     } on Exception {
       _failReviewLoad();
@@ -1012,6 +1079,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (item == null || _reviewTarget == null || _savingReview) {
       return;
     }
+    _trackCollectionItemAdd(item);
+    _reportScanResult(item.id);
+
     final input = _reviewInputFor(item);
     if (input == null) return;
 
@@ -1055,6 +1125,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final matchedItems = _matchedItems;
     if (matchedItems.isEmpty || _reviewTarget == null || _savingReview) {
       return;
+    }
+
+    for (final item in matchedItems) {
+      _trackCollectionItemAdd(item);
+      _reportScanResult(item.id);
     }
 
     final inputs = <int, ScanCollectionItemInput>{};
@@ -1109,7 +1184,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   void _selectReviewCandidate(_ScanItem item, _ScanCandidate candidate) {
     final card = _reviewCards[candidate.cardRef];
-    if (card == null) return;
+    if (card == null || candidate.cardRef == item.match?.cardRef) return;
+    ref.read(analyticsProvider).track(AnalyticsEvent.topMatchesClick);
     setState(() {
       for (var index = 0; index < _items.length; index += 1) {
         if (_items[index].id == item.id) {
@@ -1192,11 +1268,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   Future<void> _deleteReviewItem(_ScanItem item) async {
+    ref.read(analyticsProvider).track(AnalyticsEvent.deleteClick);
     if (!await _confirmReviewDelete(all: false)) return;
     _removeReviewItems({item.id});
   }
 
   Future<void> _deleteAllReviewItems() async {
+    ref.read(analyticsProvider).track(AnalyticsEvent.deleteClick);
     if (!await _confirmReviewDelete(all: true)) return;
     _removeReviewItems(_matchedItems.map((item) => item.id).toSet());
   }
@@ -1214,11 +1292,19 @@ class _ScanPageState extends ConsumerState<ScanPage>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () {
+              ref.read(analyticsProvider).track(AnalyticsEvent.cancelClick);
+              Navigator.of(context).pop(false);
+            },
             child: const Text('CANCEL'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () {
+              ref
+                  .read(analyticsProvider)
+                  .track(AnalyticsEvent.deleteConfirmClick);
+              Navigator.of(context).pop(true);
+            },
             child: const Text('DELETE'),
           ),
         ],
@@ -1264,7 +1350,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     if (!_hasUnsavedScanResults) {
-      if (mounted) context.go('/home');
+      if (mounted) {
+        _reportAllScanResults();
+        context.go('/home');
+      }
       return;
     }
 
@@ -1280,7 +1369,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               FilledButton(
-                onPressed: () => Navigator.of(context).pop(false),
+                onPressed: () {
+                  ref.read(analyticsProvider).track(AnalyticsEvent.cancelClick);
+                  Navigator.of(context).pop(false);
+                },
                 child: const Text('NO, STAY HERE'),
               ),
               const SizedBox(height: 8),
@@ -1294,8 +1386,64 @@ class _ScanPageState extends ConsumerState<ScanPage>
       ),
     );
     if (mounted && shouldExit == true) {
+      _reportAllScanResults();
       context.go('/home');
     }
+  }
+
+  void _handleClosePressed() {
+    ref.read(analyticsProvider).track(AnalyticsEvent.scanCloseClick);
+    _requestExitScan();
+  }
+
+  void _trackCollectionItemAdd(_ScanItem item) {
+    final draft = _reviewDrafts[item.id];
+    final card = _reviewCards[item.match?.cardRef];
+    ref
+        .read(analyticsProvider)
+        .track(
+          AnalyticsEvent.collectionItemAddClick,
+          properties: {
+            AnalyticsProperty.ipType: analyticsIpType(card?.game),
+            AnalyticsProperty.gradeType: draft?.isRaw == false
+                ? AnalyticsValue.gradeGraded
+                : AnalyticsValue.gradeNormal,
+            AnalyticsProperty.entrySource: AnalyticsValue.sourceScan,
+          },
+          debounceKey: 'scan-${item.id}',
+        );
+  }
+
+  void _reportAllScanResults() {
+    final itemIds = <int>{
+      ..._scanDurations.keys,
+      ..._scanStopwatches.keys,
+      ..._scanResultValues.keys,
+    };
+    for (final itemId in itemIds) {
+      _reportScanResult(itemId);
+    }
+  }
+
+  void _reportScanResult(int itemId) {
+    if (!_reportedScanResultIds.add(itemId)) return;
+    final duration =
+        _scanDurations[itemId] ??
+        _scanStopwatches[itemId]?.elapsed ??
+        Duration.zero;
+    final wholeSeconds = duration.inMilliseconds <= 0
+        ? 0
+        : (duration.inMilliseconds / 1000).ceil();
+    ref
+        .read(analyticsProvider)
+        .track(
+          AnalyticsEvent.scanResults,
+          properties: {
+            AnalyticsProperty.timing: '${wholeSeconds}s',
+            AnalyticsProperty.scanResults:
+                _scanResultValues[itemId] ?? AnalyticsValue.scanFailed,
+          },
+        );
   }
 
   @override
@@ -1371,7 +1519,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 revealAnimation: _revealAnimation,
                 cards: _reviewCards,
                 currency: currency,
-                onClosePressed: _requestExitScan,
+                onClosePressed: _handleClosePressed,
                 onFlashPressed: _cameraSession == null ? null : _toggleFlash,
                 onSearchPressed: () => context.go('/search'),
                 onPhotoPressed: _startPhotoScan,
@@ -1380,7 +1528,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 onReviewPressed: _openReview,
                 onReviewItem: _openReview,
                 onRetryItem: _retryScan,
-                onDeleteItem: _deleteScan,
+                onDeleteItem: _removeScanFromUser,
                 onSearchItem: _searchManually,
               ),
       ),
@@ -3343,6 +3491,9 @@ class _ReviewCollectionItem extends StatelessWidget {
                 key: Key('scan-review-folder-$itemId'),
                 onPressed: enabled
                     ? () async {
+                        ProviderScope.containerOf(context, listen: false)
+                            .read(analyticsProvider)
+                            .track(AnalyticsEvent.folderClick);
                         final folder = await _showScanFolderSheet(
                           context,
                           folders: target.folders,

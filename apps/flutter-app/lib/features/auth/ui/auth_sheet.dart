@@ -9,6 +9,8 @@ import 'package:kando_app/shared/ui/kando_modal.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
+import '../../../shared/analytics/analytics_events.dart';
+import '../../../shared/analytics/app_analytics.dart';
 import '../auth_controller.dart';
 import 'email_auth_pages.dart';
 import '../../home/home_controller.dart';
@@ -465,6 +467,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   @override
   void initState() {
     super.initState();
+    ref.read(analyticsProvider).track(AnalyticsEvent.signMethodsView);
     _termsRecognizer = TapGestureRecognizer()
       ..onTap = () =>
           _openLegalLink(ref.read(profileActionsProvider).openTerms);
@@ -533,15 +536,23 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   }
 
   Future<void> _continueWithGoogle() {
-    return _run(() {
-      return ref.read(authControllerProvider.notifier).continueWithGoogle();
-    }, isOAuth: true);
+    return _run(
+      () {
+        return ref.read(authControllerProvider.notifier).continueWithGoogle();
+      },
+      isOAuth: true,
+      successEvent: AnalyticsEvent.googleSuccess,
+    );
   }
 
   Future<void> _continueWithApple() {
-    return _run(() {
-      return ref.read(authControllerProvider.notifier).continueWithApple();
-    }, isOAuth: true);
+    return _run(
+      () {
+        return ref.read(authControllerProvider.notifier).continueWithApple();
+      },
+      isOAuth: true,
+      successEvent: AnalyticsEvent.appleSuccess,
+    );
   }
 
   _OptionButton _googleOption() {
@@ -638,6 +649,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   Future<void> _run(
     Future<void> Function() action, {
     required bool isOAuth,
+    String? successEvent,
   }) async {
     if (_loading) {
       return;
@@ -656,6 +668,9 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
       }
       final session = ref.read(authControllerProvider).session;
       if (session?.isUser ?? false) {
+        if (successEvent != null) {
+          ref.read(analyticsProvider).track(successEvent);
+        }
         final router = GoRouter.of(context);
         ref.read(homeControllerProvider);
         Navigator.of(context).pop();

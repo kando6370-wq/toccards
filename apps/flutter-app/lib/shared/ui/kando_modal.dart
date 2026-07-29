@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../analytics/analytics_events.dart';
+import '../analytics/app_analytics.dart';
 import 'kando_style.dart';
 
 /// Result returned by the app update modal.
@@ -25,6 +28,7 @@ Future<bool> showKandoDangerConfirmModal(
   String cancelLabel = 'Cancel',
   bool barrierDismissible = false,
 }) async {
+  _track(context, AnalyticsEvent.deleteClick);
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: barrierDismissible,
@@ -36,8 +40,14 @@ Future<bool> showKandoDangerConfirmModal(
         confirmLabel: confirmLabel,
         cancelLabel: cancelLabel,
         confirmType: KandoModalButtonType.delete,
-        onCancel: () => Navigator.of(context).pop(false),
-        onConfirm: () => Navigator.of(context).pop(true),
+        onCancel: () {
+          _track(context, AnalyticsEvent.cancelClick);
+          Navigator.of(context).pop(false);
+        },
+        onConfirm: () {
+          _track(context, AnalyticsEvent.deleteConfirmClick);
+          Navigator.of(context).pop(true);
+        },
       );
     },
   );
@@ -61,6 +71,7 @@ Future<bool> showKandoRemoveConfirmModal(
   String confirmLabel = 'Remove',
   String cancelLabel = 'Cancel',
 }) async {
+  _track(context, AnalyticsEvent.deleteClick);
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: false,
@@ -73,12 +84,29 @@ Future<bool> showKandoRemoveConfirmModal(
         cancelLabel: cancelLabel,
         confirmType: KandoModalButtonType.primary,
         compact: true,
-        onCancel: () => Navigator.of(context).pop(false),
-        onConfirm: () => Navigator.of(context).pop(true),
+        onCancel: () {
+          _track(context, AnalyticsEvent.cancelClick);
+          Navigator.of(context).pop(false);
+        },
+        onConfirm: () {
+          _track(context, AnalyticsEvent.deleteConfirmClick);
+          Navigator.of(context).pop(true);
+        },
       );
     },
   );
   return result == true;
+}
+
+void _track(BuildContext context, String event) {
+  try {
+    ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(analyticsProvider).track(event);
+  } on StateError {
+    // Analytics is optional for standalone modal hosts and widget tests.
+  }
 }
 
 /// Shows the app update modal.

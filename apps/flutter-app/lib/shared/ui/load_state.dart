@@ -2,6 +2,10 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../analytics/analytics_events.dart';
+import '../analytics/app_analytics.dart';
 
 import 'kando_style.dart';
 
@@ -19,7 +23,7 @@ class KandoLoadingBlock extends StatelessWidget {
   }
 }
 
-class KandoFailureBlock extends StatelessWidget {
+class KandoFailureBlock extends ConsumerWidget {
   const KandoFailureBlock({required this.onRefresh, super.key});
 
   static const _cardWidth = 260.0;
@@ -28,7 +32,7 @@ class KandoFailureBlock extends StatelessWidget {
   final VoidCallback onRefresh;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -41,7 +45,19 @@ class KandoFailureBlock extends StatelessWidget {
 
           return SizedBox(
             width: width,
-            child: _FailureCard(onRefresh: onRefresh, compact: compact),
+            child: _FailureCard(
+              onRefresh: () {
+                try {
+                  ref
+                      .read(analyticsProvider)
+                      .track(AnalyticsEvent.refreshClick);
+                } on StateError {
+                  // Standalone widget hosts may intentionally omit ProviderScope.
+                }
+                onRefresh();
+              },
+              compact: compact,
+            ),
           );
         },
       ),

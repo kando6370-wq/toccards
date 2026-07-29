@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_startup_preloader.dart';
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import '../../shared/ui/kando_style.dart';
 import 'onboarding_controller.dart';
 import 'onboarding_page.dart';
@@ -40,6 +42,7 @@ class _StartupPageState extends ConsumerState<_StartupPage>
   @override
   void initState() {
     super.initState();
+    ref.read(analyticsProvider).track(AnalyticsEvent.splashView);
     _progressController = AnimationController(vsync: this, value: 0);
     unawaited(_runPendingProgress());
   }

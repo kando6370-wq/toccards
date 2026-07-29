@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../analytics/analytics_events.dart';
+import '../analytics/app_analytics.dart';
+
 const apiRequestLogRetention = Duration(hours: 1);
 
 final apiRequestLogProvider =
@@ -20,6 +23,7 @@ class ApiRequestLogEntry {
     this.statusCode,
     this.errorSummary,
     this.errorDetails,
+    this.apiParams = '',
   });
 
   final DateTime startedAt;
@@ -30,6 +34,7 @@ class ApiRequestLogEntry {
   final int? statusCode;
   final String? errorSummary;
   final String? errorDetails;
+  final String apiParams;
 
   bool get hasError =>
       !succeeded || errorSummary != null || errorDetails != null;
@@ -46,6 +51,26 @@ class ApiRequestLogController extends Notifier<List<ApiRequestLogEntry>> {
         if (!item.startedAt.isBefore(cutoff)) item,
       if (!entry.startedAt.isBefore(cutoff)) entry,
     ];
+    final analytics = ref.read(analyticsProvider);
+    final apiName = '${entry.method} ${entry.url.path}';
+    analytics.track(
+      AnalyticsEvent.apiTiming,
+      properties: {
+        AnalyticsProperty.apiName: apiName,
+        AnalyticsProperty.timing: entry.durationMs / 1000,
+      },
+    );
+    if (entry.hasError) {
+      analytics.track(
+        AnalyticsEvent.apiError,
+        properties: {
+          AnalyticsProperty.apiName: apiName,
+          AnalyticsProperty.apiMessage:
+              entry.errorDetails ?? entry.errorSummary ?? '',
+          AnalyticsProperty.apiParams: entry.apiParams,
+        },
+      );
+    }
   }
 
   void prune() {
@@ -135,6 +160,7 @@ class ApiRequestTimingInterceptor extends Interceptor {
         statusCode: statusCode,
         errorSummary: errorSummary,
         errorDetails: errorDetails,
+        apiParams: _requestParams(options),
       ),
     );
   }
@@ -164,6 +190,48 @@ class ApiRequestTimingInterceptor extends Interceptor {
     ];
     return _truncate(parts.join('\n'));
   }
+}
+
+String _requestParams(RequestOptions options) {
+  final payload = <String, Object?>{
+    if (options.queryParameters.isNotEmpty)
+      'query': _redact(options.queryParameters),
+    if (options.data != null) 'body': _redact(options.data),
+  };
+  if (payload.isEmpty) return '';
+  try {
+    return _truncate(jsonEncode(payload));
+  } on Object {
+    return _truncate(payload.toString());
+  }
+}
+
+Object? _redact(Object? value, {String? key}) {
+  final normalizedKey = key?.toLowerCase() ?? '';
+  if (normalizedKey.contains('password') ||
+      normalizedKey.contains('token') ||
+      normalizedKey.contains('authorization') ||
+      normalizedKey == 'code') {
+    return '[REDACTED]';
+  }
+  if (value is FormData) {
+    return {
+      for (final field in value.fields)
+        field.key: _redact(field.value, key: field.key),
+      if (value.files.isNotEmpty)
+        'files': value.files.map((entry) => entry.key).toList(),
+    };
+  }
+  if (value is Map) {
+    return {
+      for (final entry in value.entries)
+        entry.key.toString(): _redact(entry.value, key: entry.key.toString()),
+    };
+  }
+  if (value is Iterable) {
+    return value.map((item) => _redact(item, key: key)).toList();
+  }
+  return value;
 }
 
 String _responseDetails(Object? data) {

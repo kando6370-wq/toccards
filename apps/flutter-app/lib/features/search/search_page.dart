@@ -8,19 +8,29 @@ import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
 import 'search_card_tile.dart';
 import 'search_controller.dart';
 import 'search_models.dart';
 
-class SearchPage extends ConsumerWidget {
+class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({this.fromScan = false, super.key});
 
   final bool fromScan;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends ConsumerState<SearchPage> {
+  String? _lastViewSignature;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(searchControllerProvider);
     final controller = ref.read(searchControllerProvider.notifier);
+    _trackSearchView(state);
 
     return KandoTabScaffold(
       currentTab: KandoMainTab.search,
@@ -36,7 +46,10 @@ class SearchPage extends ConsumerWidget {
           },
           child: RefreshIndicator(
             key: const Key('search-pull-to-refresh'),
-            onRefresh: controller.refresh,
+            onRefresh: () {
+              ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+              return controller.refresh();
+            },
             child: state.isLoading || state.isUnavailable
                 ? ListView(
                     key: const Key('search-content-list'),
@@ -48,7 +61,7 @@ class SearchPage extends ConsumerWidget {
                       116,
                     ),
                     children: [
-                      if (fromScan) ...[
+                      if (widget.fromScan) ...[
                         _BackToScanButton(context: context),
                         const SizedBox(height: 8),
                       ],
@@ -82,7 +95,7 @@ class SearchPage extends ConsumerWidget {
                           0,
                         ),
                         sliver: SliverToBoxAdapter(
-                          child: fromScan
+                          child: widget.fromScan
                               ? Column(
                                   children: [
                                     _BackToScanButton(context: context),
@@ -117,6 +130,25 @@ class SearchPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _trackSearchView(SearchState state) {
+    if (state.isLoading || state.isUnavailable) return;
+    final signature = '${state.selectedGame.id}:${state.selectedTab.name}';
+    if (_lastViewSignature == signature) return;
+    _lastViewSignature = signature;
+    final properties = <String, Object?>{
+      AnalyticsProperty.ipType: analyticsIpType(state.selectedGame.label),
+      AnalyticsProperty.tabType: state.selectedTab == SearchTab.cards
+          ? AnalyticsValue.tabCard
+          : AnalyticsValue.tabSet,
+    };
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _lastViewSignature != signature) return;
+      ref
+          .read(analyticsProvider)
+          .track(AnalyticsEvent.searchView, properties: properties);
+    });
   }
 }
 
@@ -492,7 +524,10 @@ class _SearchResults extends ConsumerWidget {
 
     if (state.isCurrentSearchUnavailable) {
       return _SearchFailureState(
-        onRefresh: ref.read(searchControllerProvider.notifier).retrySearch,
+        onRefresh: () {
+          ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+          ref.read(searchControllerProvider.notifier).retrySearch();
+        },
       );
     }
 

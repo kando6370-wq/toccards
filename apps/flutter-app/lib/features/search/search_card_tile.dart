@@ -9,6 +9,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
+import '../../shared/analytics/analytics_events.dart';
 import 'search_controller.dart';
 import 'search_models.dart';
 
@@ -20,6 +21,7 @@ class SearchCardTile extends ConsumerWidget {
     this.showActions = true,
     this.showSearchMetadata = false,
     this.showQuantity = true,
+    this.entrySource = AnalyticsValue.sourceSearch,
   });
 
   final SearchCard card;
@@ -27,6 +29,7 @@ class SearchCardTile extends ConsumerWidget {
   final bool showActions;
   final bool showSearchMetadata;
   final bool showQuantity;
+  final String entrySource;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,7 +54,7 @@ class SearchCardTile extends ConsumerWidget {
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: () => context.push('/cards/${card.id}'),
+        onTap: () => context.push(_cardDetailsLocation(card, entrySource)),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(
@@ -137,7 +140,10 @@ class SearchCardTile extends ConsumerWidget {
                                                     .openDetail) {
                                               if (context.mounted) {
                                                 context.push(
-                                                  '/cards/${card.id}',
+                                                  _cardDetailsLocation(
+                                                    card,
+                                                    entrySource,
+                                                  ),
                                                 );
                                               }
                                             } else if (action ==
@@ -276,6 +282,22 @@ class SearchCardTile extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _cardDetailsLocation(SearchCard card, String entrySource) {
+  final collectionType = card.isCollected
+      ? AnalyticsValue.collectionPortfolio
+      : card.isWishlisted
+      ? AnalyticsValue.collectionWishlist
+      : AnalyticsValue.collectionNormal;
+  return Uri(
+    path: '/cards/${card.id}',
+    queryParameters: {
+      'collection': collectionType,
+      'ip': analyticsIpType(card.gameId),
+      'entry': entrySource,
+    },
+  ).toString();
 }
 
 String _cardName(SearchCard card) {
