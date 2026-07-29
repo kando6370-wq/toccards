@@ -1146,7 +1146,7 @@ function countryName(countryCode: string): string {
   return new Intl.DisplayNames(["zh-CN"], { type: "region" }).of(countryCode) ?? countryCode;
 }
 const platformOptions = ["iOS", "Google"].map((value) => ({ value, label: value }));
-const environmentOptions = [{ value: "production", label: "Production" }, { value: "staging", label: "Staging" }];
+const environmentOptions = [{ value: "production", label: "Production" }, { value: "development", label: "Development" }];
 const userPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
 const identityOptions = [
   { value: "google", label: "Google" }, { value: "anonymous", label: "游客" },
