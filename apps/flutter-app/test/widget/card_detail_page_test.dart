@@ -408,6 +408,18 @@ void main() {
       expect(find.text('Grade'), findsWidgets);
       expect(find.text('BGS 10'), findsOneWidget);
       expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+      expect(
+        tester
+            .getBottomRight(find.byKey(const Key('card-detail-choice-sheet')))
+            .dy,
+        844,
+      );
+      expect(
+        tester
+            .widget<Material>(find.byKey(const Key('card-detail-choice-sheet')))
+            .borderRadius,
+        const BorderRadius.vertical(top: Radius.circular(24)),
+      );
 
       await tester.tap(find.text('9.5'));
       await tester.pumpAndSettle();

@@ -2451,18 +2451,23 @@ Future<String?> _showChoiceSheet(
     backgroundColor: Colors.transparent,
     builder: (sheetContext) {
       final screenHeight = MediaQuery.sizeOf(sheetContext).height;
+      final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
       final maxHeight = math.min(screenHeight * 0.68, 520.0);
 
       return SafeArea(
         top: false,
+        bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: maxHeight),
             child: Material(
+              key: const Key('card-detail-choice-sheet'),
               color: const Color(0xFF191A12),
               clipBehavior: Clip.antiAlias,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -2505,7 +2510,7 @@ Future<String?> _showChoiceSheet(
                   Flexible(
                     child: ListView.separated(
                       shrinkWrap: true,
-                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+                      padding: EdgeInsets.fromLTRB(10, 0, 10, 12 + bottomInset),
                       itemCount: options.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 4),
                       itemBuilder: (context, index) {
