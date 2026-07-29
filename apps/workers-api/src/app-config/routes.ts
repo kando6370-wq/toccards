@@ -49,6 +49,7 @@ export function createAppConfigRoutes(): Hono<{ Bindings: Env }> {
         app_store_url: stringOrNull(configs.get("app_store_url")),
         terms_url: stringOrNull(configs.get("terms_url")),
         privacy_url: stringOrNull(configs.get("privacy_url")),
+        mixpanel_project_token: stringOrNull(c.env.MIXPANEL_PROJECT_TOKEN),
       },
     });
   });

@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../api/api_environment.dart';
 import 'analytics_events.dart';
+import 'mixpanel_bootstrap.dart';
 
 final analyticsProvider = Provider<AppAnalytics>((ref) {
   return AppAnalytics.disabled();
@@ -43,8 +44,10 @@ class AppAnalytics {
   static Future<AppAnalytics> initialize() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
+      final projectToken = await loadMixpanelProjectToken();
+      if (projectToken == null) return AppAnalytics.disabled();
       final mixpanel = await Mixpanel.init(
-        AppConfig.mixpanelProjectToken,
+        projectToken,
         trackAutomaticEvents: false,
       );
       return AppAnalytics._(

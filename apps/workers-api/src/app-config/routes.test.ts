@@ -70,6 +70,7 @@ describe("public app config routes", () => {
         app_store_url: "https://apps.apple.com/app/kando",
         terms_url: "https://www.tcgcard.fun/terms",
         privacy_url: "https://www.tcgcard.fun/privacy",
+        mixpanel_project_token: "public-project-token",
       },
     });
   });
@@ -90,8 +91,21 @@ describe("public app config routes", () => {
         app_store_url: "https://apps.apple.com/app/kando",
         terms_url: null,
         privacy_url: null,
+        mixpanel_project_token: "public-project-token",
       },
     });
+  });
+
+  it("exposes only the Mixpanel project token because API secrets must remain server-side", async () => {
+    const env = createTestEnv([]);
+
+    const response = await app.request("/api/v1/app-config", {}, env);
+    const body = await response.json();
+
+    expect(body).toMatchObject({
+      data: { mixpanel_project_token: "public-project-token" },
+    });
+    expect(JSON.stringify(body)).not.toContain("server-api-secret");
   });
 
   it("selects the enabled platform rule because Admin must control forced updates per store", async () => {
@@ -153,6 +167,8 @@ function createTestEnv(appConfigs: AppConfigRow[]): Env {
     DB: new FakeD1(appConfigs) as unknown as D1Database,
     CACHE_KV: {} as KVNamespace,
     JWT_SECRET: "test-secret",
+    MIXPANEL_PROJECT_TOKEN: "public-project-token",
+    MIXPANEL_API_SECRET: "server-api-secret",
   };
 }
 
