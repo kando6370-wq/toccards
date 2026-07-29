@@ -3612,7 +3612,22 @@ class _ReviewCollectionItem extends StatelessWidget {
                 value: draft.grader,
                 options: cardCollectionGraders,
                 enabled: enabled,
-                onChanged: (value) => onChanged(draft.copyWith(grader: value)),
+                onChanged: (value) async {
+                  final nextDraft = draft.copyWith(grader: value);
+                  onChanged(nextDraft);
+                  if (value == 'Raw') return;
+
+                  final grade = await _showReviewChoiceSheet(
+                    context,
+                    title: 'Grade',
+                    selected: cardCollectionGradeValues.first,
+                    options: cardCollectionGradeValues,
+                    displayValue: (grade) => '$value $grade',
+                  );
+                  if (grade != null) {
+                    onChanged(nextDraft.copyWith(grade: grade));
+                  }
+                },
               ),
               if (draft.isRaw)
                 _ReviewDropdownRow(

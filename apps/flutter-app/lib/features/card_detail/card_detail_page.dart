@@ -1717,8 +1717,19 @@ class _CollectionItemForm extends StatelessWidget {
             label: 'Grader',
             value: draft.grader,
             options: cardCollectionGraders,
-            onSelected: (value) {
+            onSelected: (value) async {
               controller.updateCollectionItemDraft(grader: value);
+              if (value == 'Raw') return;
+
+              final grade = await _showChoiceSheet(
+                context,
+                title: 'Grade',
+                selected: cardCollectionGradeValues.first,
+                options: cardCollectionGradeValues,
+              );
+              if (grade != null) {
+                controller.updateCollectionItemDraft(grade: grade);
+              }
             },
           ),
           const SizedBox(height: 12),
@@ -1733,28 +1744,14 @@ class _CollectionItemForm extends StatelessWidget {
               },
             )
           else
-            DropdownButtonFormField<String>(
+            _ChoiceField(
               key: const Key('card-detail-item-grade'),
-              initialValue: gradeValue,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Grade',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                for (final grade in cardCollectionGradeValues)
-                  DropdownMenuItem(
-                    value: grade,
-                    child: Text(
-                      '${draft.grader} $grade',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  controller.updateCollectionItemDraft(grade: value);
-                }
+              label: 'Grade',
+              value: gradeValue,
+              options: cardCollectionGradeValues,
+              displayBuilder: (grade) => '${draft.grader} $grade',
+              onSelected: (value) {
+                controller.updateCollectionItemDraft(grade: value);
               },
             ),
           const SizedBox(height: 12),
@@ -1986,8 +1983,19 @@ class _CollectionItemEditCard extends StatelessWidget {
             selected: draft.grader,
             options: _optionsWithSelected(_kEditGraderOptions, draft.grader),
             columns: 3,
-            onSelected: (value) {
+            onSelected: (value) async {
               controller.updateCollectionItemDraft(grader: value);
+              if (value == 'Raw') return;
+
+              final grade = await _showChoiceSheet(
+                context,
+                title: 'GRADE',
+                selected: cardCollectionGradeValues.first,
+                options: cardCollectionGradeValues,
+              );
+              if (grade != null) {
+                controller.updateCollectionItemDraft(grade: grade);
+              }
             },
           ),
           const SizedBox(height: 32),

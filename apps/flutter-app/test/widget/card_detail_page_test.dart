@@ -382,6 +382,55 @@ void main() {
     },
   );
 
+  testWidgets(
+    'add item links graded graders to the styled grade sheet because grade is a dependent choice',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        const _CardDetailTestApp(cardId: 'one-piece-luffy'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('card-detail-item-grader')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('BGS').last);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsNWidgets(2));
+      expect(find.text('Grade'), findsWidgets);
+      expect(find.text('BGS 10'), findsOneWidget);
+      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+
+      await tester.tap(find.text('9.5'));
+      await tester.pumpAndSettle();
+      expect(find.text('BGS 9.5'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('card-detail-item-grade')));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('card-detail-item-grader')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Raw').last);
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-item-condition')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('owned CardDetail defaults to Collection Item content', (
     tester,
   ) async {
@@ -561,6 +610,51 @@ void main() {
     expect(find.text('Near Mint (NM)'), findsOneWidget);
     expect(find.text('Cracked slab for binder.'), findsOneWidget);
   });
+
+  testWidgets(
+    'choosing a graded grader opens grade choices so its dependent grade can be completed immediately',
+    (tester) async {
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+      await tester.ensureVisible(find.text('Edit item'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit item'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-item-grader')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('BGS').last);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text('GRADE'), findsNWidgets(2));
+      expect(find.text('BGS 10'), findsOneWidget);
+
+      await tester.tap(find.text('9.5'));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      expect(
+        container
+            .read(cardDetailControllerProvider('charizard-ex'))
+            .collectionItemDraft
+            ?.grade,
+        '9.5',
+      );
+
+      await tester.tap(find.text('Raw').last);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text('CONDITION'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Collection Item qualifier choices exclude values absent from this card',

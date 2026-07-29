@@ -1145,7 +1145,11 @@ void main() {
     'Scan creates reviewable matches because scans are not saved automatically',
     (tester) async {
       final reviewRepository = _FakeScanReviewRepository();
-      await _pumpScanTestApp(tester, scanReviewRepository: reviewRepository);
+      await _pumpScanTestApp(
+        tester,
+        scanReviewRepository: reviewRepository,
+        scanCameraFactory: _TestScanCameraFactory(_TestScanCameraSession()),
+      );
 
       expect(find.text('ALIGN CARD HERE'), findsOneWidget);
       expect(find.text('GALLERY'), findsOneWidget);
@@ -1237,7 +1241,23 @@ void main() {
         find.byKey(const Key('scan-review-choice-sheet-handle')),
         findsOneWidget,
       );
+      await tester.tap(find.byKey(const Key('scan-review-choice-option-Raw')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('scan-review-choice-sheet-handle')),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(const Key('scan-review-grader-1')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('scan-review-choice-option-PSA')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('scan-review-choice-sheet-handle')),
+        findsOneWidget,
+      );
+      expect(find.text('Grade'), findsWidgets);
+      expect(find.text('PSA 10'), findsWidgets);
+      await tester.tap(find.byKey(const Key('scan-review-choice-option-10')));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const Key('scan-review-choice-sheet-handle')),
