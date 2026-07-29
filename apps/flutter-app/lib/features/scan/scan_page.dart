@@ -296,6 +296,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _cameraPermissionDenied = false;
   var _permissionDialogVisible = false;
   var _appActive = true;
+  var _openingReview = false;
   var _reviewing = false;
   var _photoRecognitionInFlight = false;
   var _capturingPhoto = false;
@@ -394,6 +395,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (_openingCamera ||
         _cameraSession != null ||
         !_appActive ||
+        _openingReview ||
         _reviewing ||
         _librarySelectionInFlight) {
       return;
@@ -983,7 +985,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   Future<void> _openReview([int? itemId]) async {
-    if (!_canReview) {
+    if (_openingReview || _reviewing || !_canReview) {
       return;
     }
     final items = _matchedItems;
@@ -995,14 +997,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final missingCardRefs = cardRefs
         .where((cardRef) => !cachedCards.containsKey(cardRef))
         .toList();
-    setState(() {
-      _reviewing = true;
-      _selectedReviewItemId = itemId ?? items.first.id;
-      _reviewTarget = null;
-      _reviewCards = const {};
-      _reviewFormError = null;
-    });
-    unawaited(_closeCamera());
+    setState(() => _openingReview = true);
     try {
       final repository = ref.read(scanReviewRepositoryProvider);
       final results = await Future.wait<Object>([
@@ -1018,10 +1013,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
         ...cachedCards,
         ...results[1] as Map<String, ScanReviewCard>,
       };
-      if (mounted && _reviewing) {
+      if (mounted && _openingReview) {
         setState(() {
+          _openingReview = false;
+          _reviewing = true;
+          _selectedReviewItemId = itemId ?? items.first.id;
           _reviewTarget = target;
           _reviewCards = cards;
+          _reviewFormError = null;
           _reviewDrafts
             ..clear()
             ..addEntries(
@@ -1031,6 +1030,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
               }),
             );
         });
+        unawaited(_closeCamera());
         final selected = items
             .where((item) => item.id == _selectedReviewItemId)
             .firstOrNull;
@@ -1065,14 +1065,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
   void _failReviewLoad() {
     if (!mounted) return;
     setState(() {
+      _openingReview = false;
       _reviewing = false;
       _selectedReviewItemId = null;
       _reviewTarget = null;
-      _reviewCards = const {};
       _reviewDrafts.clear();
       _reviewFormError = null;
     });
-    unawaited(_openCamera());
     showKandoFailureToast(context);
   }
 
@@ -1351,7 +1350,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   Future<void> _requestExitScan() async {
-    if (_savingReview) {
+    if (_openingReview || _savingReview) {
       return;
     }
     if (!_hasUnsavedScanResults) {
@@ -1508,33 +1507,47 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   ),
                 ],
               )
-            : _ScanCameraView(
-                cameraPreview: _cameraSession?.buildPreview(),
-                cameraOpening: _openingCamera || _librarySelectionInFlight,
-                cameraPermissionDenied: _cameraPermissionDenied,
-                flashEnabled: _cameraSession?.flashEnabled ?? false,
-                items: _items,
-                lastAddedCount: _lastAddedCount,
-                canReview: _canReview,
-                capturingPhoto: _capturingPhoto,
-                recognizing: _isRecognizing,
-                revealing: _isRevealing,
-                showRevealingFeedback: _showRevealingFeedback,
-                captureAnimation: _captureController,
-                revealAnimation: _revealAnimation,
-                cards: _reviewCards,
-                currency: currency,
-                onClosePressed: _handleClosePressed,
-                onFlashPressed: _cameraSession == null ? null : _toggleFlash,
-                onSearchPressed: () => context.go('/search'),
-                onPhotoPressed: _startPhotoScan,
-                onLibraryPressed: _startLibraryScan,
-                onDismissScanFeedback: _dismissScanFeedback,
-                onReviewPressed: _openReview,
-                onReviewItem: _openReview,
-                onRetryItem: _retryScan,
-                onDeleteItem: _removeScanFromUser,
-                onSearchItem: _searchManually,
+            : Stack(
+                children: [
+                  _ScanCameraView(
+                    cameraPreview: _cameraSession?.buildPreview(),
+                    cameraOpening: _openingCamera || _librarySelectionInFlight,
+                    cameraPermissionDenied: _cameraPermissionDenied,
+                    flashEnabled: _cameraSession?.flashEnabled ?? false,
+                    items: _items,
+                    lastAddedCount: _lastAddedCount,
+                    canReview: _canReview,
+                    capturingPhoto: _capturingPhoto,
+                    recognizing: _isRecognizing,
+                    revealing: _isRevealing,
+                    showRevealingFeedback: _showRevealingFeedback,
+                    captureAnimation: _captureController,
+                    revealAnimation: _revealAnimation,
+                    cards: _reviewCards,
+                    currency: currency,
+                    onClosePressed: _handleClosePressed,
+                    onFlashPressed: _cameraSession == null
+                        ? null
+                        : _toggleFlash,
+                    onSearchPressed: () => context.go('/search'),
+                    onPhotoPressed: _startPhotoScan,
+                    onLibraryPressed: _startLibraryScan,
+                    onDismissScanFeedback: _dismissScanFeedback,
+                    onReviewPressed: _openReview,
+                    onReviewItem: _openReview,
+                    onRetryItem: _retryScan,
+                    onDeleteItem: _removeScanFromUser,
+                    onSearchItem: _searchManually,
+                  ),
+                  if (_openingReview)
+                    const Positioned.fill(
+                      child: ColoredBox(
+                        key: Key('scan-review-loading'),
+                        color: Color(0x66000000),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                ],
               ),
       ),
     );
@@ -3113,7 +3126,6 @@ class _ReviewMatches extends StatelessWidget {
                         separatorBuilder: (_, _) => const SizedBox(width: 8),
                         itemBuilder: (context, index) {
                           final item = items[index];
-                          final preview = cards[item.match!.cardRef];
                           return InkWell(
                             key: Key('scan-review-item-${item.id}'),
                             onTap: saving ? null : () => onSelectItem(item),
@@ -3130,9 +3142,10 @@ class _ReviewMatches extends StatelessWidget {
                                       : Colors.transparent,
                                 ),
                               ),
-                              child: _ReviewNetworkImage(
-                                imageUrl: preview?.imageUrl,
-                                fit: BoxFit.contain,
+                              child: _ScanResultThumbnail(
+                                item: item,
+                                width: 40,
+                                height: 58,
                               ),
                             ),
                           );

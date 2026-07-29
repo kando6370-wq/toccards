@@ -1296,6 +1296,56 @@ void main() {
   );
 
   testWidgets(
+    'Review waits for editable data and keeps the captured image in its thumbnail',
+    (tester) async {
+      final target = Completer<ScanReviewTarget>();
+      final repository = _DelayedScanReviewRepository(target.future);
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          ScanResolution.matched(
+            scanId: 'scan-local-image',
+            cardRef: 'card-mega',
+            matchName: 'Mega Lucario ex',
+            candidates: const ['Mega Lucario ex'],
+            imageBytes: Uint8List.fromList(_transparentPngBytes),
+          ),
+        ),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanReviewRepository: repository,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pump();
+
+      expect(find.byKey(const Key('scan-review-loading')), findsOneWidget);
+      expect(find.text('Review your matches'), findsNothing);
+      tester
+          .widget<InkWell>(find.byKey(const Key('scan-done-action')))
+          .onTap!();
+      await tester.pump();
+      expect(repository.loadTargetCount, 1);
+
+      target.complete(_FakeScanReviewRepository.target);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('scan-review-loading')), findsNothing);
+      expect(find.text('Review your matches'), findsOneWidget);
+      final thumbnailImage = tester.widget<Image>(
+        find.descendant(
+          of: find.byKey(const Key('scan-review-item-1')),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(thumbnailImage.image, isA<MemoryImage>());
+    },
+  );
+
+  testWidgets(
     'Review treats an already confirmed scan as added because confirmation is idempotent',
     (tester) async {
       await _pumpScanTestApp(
@@ -1847,16 +1897,18 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
   final List<String> confirmedScanIds = [];
   final List<ScanCollectionItemInput> confirmedItems = [];
 
+  static const target = ScanReviewTarget(
+    folderId: 'main',
+    folderName: 'Main',
+    folders: [
+      ScanReviewFolder(id: 'main', name: 'Main'),
+      ScanReviewFolder(id: 'trade', name: 'Trade'),
+    ],
+  );
+
   @override
   Future<ScanReviewTarget> loadTarget({String? preferredFolderId}) async {
-    return const ScanReviewTarget(
-      folderId: 'main',
-      folderName: 'Main',
-      folders: [
-        ScanReviewFolder(id: 'main', name: 'Main'),
-        ScanReviewFolder(id: 'trade', name: 'Trade'),
-      ],
-    );
+    return target;
   }
 
   @override
@@ -1912,6 +1964,19 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
       cardRef: item.cardRef,
       folderId: item.folderId,
     );
+  }
+}
+
+class _DelayedScanReviewRepository extends _FakeScanReviewRepository {
+  _DelayedScanReviewRepository(this.targetFuture);
+
+  final Future<ScanReviewTarget> targetFuture;
+  var loadTargetCount = 0;
+
+  @override
+  Future<ScanReviewTarget> loadTarget({String? preferredFolderId}) {
+    loadTargetCount += 1;
+    return targetFuture;
   }
 }
 
