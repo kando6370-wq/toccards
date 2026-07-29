@@ -85,7 +85,20 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: KandoColors.ink,
-      appBar: AppBar(backgroundColor: KandoColors.ink),
+      appBar: AppBar(
+        backgroundColor: KandoColors.ink,
+        titleSpacing: 0,
+        title: const Text(
+          'Trending Today',
+          style: TextStyle(
+            fontFamily: 'Fraunces',
+            fontSize: 24,
+            height: 32 / 24,
+            fontWeight: FontWeight.w600,
+            color: KandoColors.text,
+          ),
+        ),
+      ),
       body: SafeArea(
         top: false,
         child: RefreshIndicator(
@@ -121,23 +134,8 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          const SliverPadding(
-            padding: EdgeInsets.fromLTRB(20, 8, 20, 32),
-            sliver: SliverToBoxAdapter(
-              child: Text(
-                'Trending Today',
-                style: TextStyle(
-                  fontFamily: 'Fraunces',
-                  fontSize: 32,
-                  height: 40 / 32,
-                  fontWeight: FontWeight.w600,
-                  color: KandoColors.text,
-                ),
-              ),
-            ),
-          ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             sliver: SliverToBoxAdapter(
               child: Align(
                 alignment: Alignment.topCenter,

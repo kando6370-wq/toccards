@@ -1051,6 +1051,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(TrendingTodayPage), findsOneWidget);
+      final title = find.text('Trending Today');
+      final backButton = find.byType(BackButton);
+      expect(title, findsOneWidget);
+      expect(backButton, findsOneWidget);
+      expect(
+        tester.getCenter(title).dy,
+        closeTo(tester.getCenter(backButton).dy, 1),
+      );
       expect(find.text('Live Trending'), findsOneWidget);
       expect(
         tester.getSize(find.byKey(const Key('search-card-live-trending'))),
