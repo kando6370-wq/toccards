@@ -36,11 +36,10 @@ type AdminUserRow = {
 };
 
 type InstallationSourceRow = {
-  install_type: "user" | "anonymous";
+  install_type: "anonymous";
   uid: string;
   platform: string;
   country: string;
-  environment: string;
   created_at: string;
 };
 
@@ -231,15 +230,10 @@ const SELECT_ADMIN_USERS_SQL = `
 `;
 
 const SELECT_INSTALLATION_SOURCES_SQL = `
-  SELECT 'user' AS install_type, id AS uid, 'iOS' AS platform,
-    'Unknown' AS country, 'production' AS environment, created_at
-  FROM user
-  WHERE deleted_at IS NULL
-  UNION ALL
-  SELECT 'anonymous' AS install_type, id AS uid, 'iOS' AS platform,
-    'Unknown' AS country, 'production' AS environment, created_at
-  FROM anonymous_account
-  ORDER BY created_at ASC
+  SELECT 'anonymous' AS install_type, installation_id AS uid, platform,
+    COALESCE(country_code, 'Unknown') AS country, first_seen_at AS created_at
+  FROM app_installation
+  ORDER BY first_seen_at ASC
 `;
 
 const SELECT_USER_DETAIL_SQL = `
@@ -557,7 +551,9 @@ adminRoutes.get("/analytics/installations", async (c) => {
   const { results = [] } = await c.env.DB.prepare(SELECT_INSTALLATION_SOURCES_SQL)
     .all<InstallationSourceRow>();
   const installs = results
-    .map(toInstallationRecord)
+    .map((row) =>
+      toInstallationRecord(row, c.env.APP_ENVIRONMENT ?? "production"),
+    )
     .filter((item) => isWithinDateRange(item.date, dateFrom, dateTo))
     .filter((item) => !platform || item.platform.toLowerCase() === platform)
     .filter((item) => !country || item.country.toLowerCase() === country)
@@ -1128,13 +1124,16 @@ function readRequiredString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function toInstallationRecord(row: InstallationSourceRow) {
+function toInstallationRecord(
+  row: InstallationSourceRow,
+  environment: NonNullable<Env["APP_ENVIRONMENT"]>,
+) {
   return {
     uid: row.uid,
     install_type: row.install_type,
     platform: row.platform || "Unknown",
     country: row.country || "Unknown",
-    environment: row.environment || "production",
+    environment,
     date: row.created_at.slice(0, 10),
     created_at: row.created_at,
   };

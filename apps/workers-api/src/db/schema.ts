@@ -123,6 +123,14 @@ export const anonymousAccount = sqliteTable("anonymous_account", {
   upgradedUserId: text("upgraded_user_id"), // 升级后回填 user.id；NULL = 仍为游客
 });
 
+export const appInstallation = sqliteTable("app_installation", {
+  installationId: text("installation_id").primaryKey(),
+  platform: text("platform").notNull(),
+  countryCode: text("country_code"),
+  firstSeenAt: text("first_seen_at").notNull(),
+  lastSeenAt: text("last_seen_at").notNull(),
+});
+
 export const authIdentity = sqliteTable(
   "auth_identity",
   {

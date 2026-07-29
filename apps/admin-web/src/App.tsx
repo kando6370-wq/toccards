@@ -376,9 +376,12 @@ function InstallationsPage({ session }: { session: AdminSession }) {
   const { data, loading, reload, error } = useAdminData<InstallationAnalytics>("/analytics/installations?page_size=100", session);
   const rows = data?.rows ?? [];
   const trend = data?.trend ?? [];
+  const countryOptions = [...new Set(rows.map((row) => row.country))].map(
+    (value) => ({ value, label: countryName(value) }),
+  );
   const columns: ColumnsType<InstallationRow> = [
     { title: "日期", dataIndex: "date" },
-    { title: "国家", dataIndex: "country" },
+    { title: "国家", dataIndex: "country", render: countryName },
     { title: "平台", dataIndex: "platform" },
     { title: "环境", dataIndex: "environment" },
     { title: "安装量", dataIndex: "installs" },
@@ -1012,7 +1015,10 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "请求失败，请稍后重试";
 }
 
-const countryOptions = ["United States", "Canada", "United Kingdom", "Japan", "Australia"].map((value) => ({ value, label: value }));
+function countryName(countryCode: string): string {
+  if (!/^[A-Z]{2}$/.test(countryCode)) return "Unknown";
+  return new Intl.DisplayNames(["zh-CN"], { type: "region" }).of(countryCode) ?? countryCode;
+}
 const platformOptions = ["iOS", "Google"].map((value) => ({ value, label: value }));
 const environmentOptions = [{ value: "production", label: "Production" }, { value: "staging", label: "Staging" }];
 const identityOptions = ["Google", "游客", "Apple", "邮箱"].map((value) => ({ value, label: value }));

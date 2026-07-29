@@ -44,6 +44,13 @@ type AnonymousAccountRow = {
   upgraded_user_id: string | null;
 };
 
+type InstallationRow = {
+  installation_id: string;
+  platform: string;
+  country_code: string | null;
+  first_seen_at: string;
+};
+
 type FeedbackTicketRow = {
   id: string;
   email: string;
@@ -117,6 +124,7 @@ class FakeD1 {
   sessions: SessionRow[] = [];
   users: UserRow[] = [];
   anonymousAccounts: AnonymousAccountRow[] = [];
+  installations: InstallationRow[] = [];
   feedbackTickets: FeedbackTicketRow[] = [];
   appConfigs: AppConfigRow[] = [];
   trendingPins: TrendingPinRow[] = [];
@@ -206,25 +214,14 @@ class FakeD1Statement {
     const sql = normalizeSql(this.sql);
 
     if (sql.includes("AS install_type")) {
-      const formalUsers = this.db.users
-        .filter((row) => row.deleted_at === null)
-        .map((row) => ({
-          install_type: "user",
-          uid: row.id,
-          platform: "iOS",
-          country: "Unknown",
-          environment: "production",
-          created_at: row.created_at,
-        }));
-      const anonymousUsers = this.db.anonymousAccounts.map((row) => ({
+      const installations = this.db.installations.map((row) => ({
         install_type: "anonymous",
-        uid: row.id,
-        platform: "iOS",
-        country: "Unknown",
-        environment: "production",
-        created_at: row.created_at,
+        uid: row.installation_id,
+        platform: row.platform,
+        country: row.country_code ?? "Unknown",
+        created_at: row.first_seen_at,
       }));
-      return okResult<T>([...formalUsers, ...anonymousUsers] as T[]);
+      return okResult<T>(installations as T[]);
     }
 
     if (sql.includes("FROM admin_user")) {
@@ -645,7 +642,7 @@ describe("admin routes", () => {
     );
   });
 
-  it("returns installation analytics derived from accounts because the admin trend chart needs an install source", async () => {
+  it("counts unique installations instead of accounts because account upgrades must not inflate installs", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "admin-install", "install@example.com", "correct-password", "operator");
     env.DB.users.push(userRow("user-install-1", "one@example.com", "2026-07-07T08:00:00.000Z"));
@@ -654,6 +651,12 @@ describe("admin routes", () => {
       device_id: "ios-device-install",
       created_at: "2026-07-08T08:00:00.000Z",
       upgraded_user_id: null,
+    });
+    env.DB.installations.push({
+      installation_id: "ios-device-install",
+      platform: "iOS",
+      country_code: "US",
+      first_seen_at: "2026-07-08T08:00:00.000Z",
     });
     const login = await loginAdmin(env, "install@example.com", "correct-password");
 
@@ -670,14 +673,19 @@ describe("admin routes", () => {
     expect(body).toEqual({
       success: true,
       data: expect.objectContaining({
-        summary: expect.objectContaining({ total_installations: 2 }),
+        summary: expect.objectContaining({ total_installations: 1 }),
         trend: [
-          expect.objectContaining({ date: "2026-07-07", total: 1 }),
+          expect.objectContaining({ date: "2026-07-07", total: 0 }),
           expect.objectContaining({ date: "2026-07-08", total: 1 }),
         ],
         rows: expect.arrayContaining([
-          expect.objectContaining({ date: "2026-07-07", platform: "iOS", installs: 1 }),
-          expect.objectContaining({ date: "2026-07-08", platform: "iOS", installs: 1 }),
+          expect.objectContaining({
+            date: "2026-07-08",
+            country: "US",
+            environment: "development",
+            platform: "iOS",
+            installs: 1,
+          }),
         ]),
       }),
     });
@@ -933,6 +941,7 @@ function createTestEnv(): TestEnvWithFakeDb {
     DB: new FakeD1(),
     CACHE_KV: {} as KVNamespace,
     JWT_SECRET: "test-secret",
+    APP_ENVIRONMENT: "development",
   };
 }
 

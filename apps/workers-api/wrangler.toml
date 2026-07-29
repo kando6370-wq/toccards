@@ -24,6 +24,7 @@ ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Card Ai"
 OCR_SERVICE_BASE_URL = "https://recognize.tcgcard.fun"
+APP_ENVIRONMENT = "production"
 
 [[env.prod.d1_databases]]
 binding = "DB"
@@ -50,6 +51,7 @@ ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Card Ai Dev"
 OCR_SERVICE_BASE_URL = "https://recognize.tcgcard.fun"
+APP_ENVIRONMENT = "development"
 
 [[env.dev.d1_databases]]
 binding = "DB"

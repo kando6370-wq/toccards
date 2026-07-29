@@ -3,4 +3,5 @@ export interface Env {
   CACHE_KV: KVNamespace;
   JWT_SECRET: string;
   OCR_SERVICE_BASE_URL?: string;
+  APP_ENVIRONMENT?: "production" | "development";
 }

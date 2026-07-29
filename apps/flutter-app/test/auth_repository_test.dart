@@ -31,7 +31,10 @@ void main() {
       expect(session.anonymousId, 'anon-1');
       expect(session.accessToken, 'anon-access');
       expect(session.refreshToken, 'anon-refresh');
-      expect(adapter.requests.single.body, {'device_id': 'device-1'});
+      expect(adapter.requests.single.body, {
+        'device_id': 'device-1',
+        'platform': 'Android',
+      });
     },
   );
 
