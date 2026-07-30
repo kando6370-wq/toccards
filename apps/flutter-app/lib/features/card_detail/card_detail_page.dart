@@ -2656,6 +2656,9 @@ class _PriceOverview extends ConsumerWidget {
         .map((point) => point.priceUsd)
         .whereType<double>()
         .toList();
+    final chartPointDetails = pricePoints
+        .where((point) => point.priceUsd != null)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2713,8 +2716,9 @@ class _PriceOverview extends ConsumerWidget {
                           style: const TextStyle(color: KandoColors.mutedText),
                         ),
                       )
-                    : CustomPaint(
-                        painter: _PriceChartPainter(values: chartValues),
+                    : _InteractivePriceChart(
+                        values: chartValues,
+                        pointDetails: chartPointDetails,
                       ),
               ),
               if (pricePoints.isNotEmpty) ...[
@@ -3135,10 +3139,93 @@ class _ShopTile extends StatelessWidget {
   }
 }
 
-class _PriceChartPainter extends CustomPainter {
-  const _PriceChartPainter({required this.values});
+class _InteractivePriceChart extends StatefulWidget {
+  const _InteractivePriceChart({
+    required this.values,
+    required this.pointDetails,
+  });
 
   final List<double> values;
+  final List<CardPricePoint> pointDetails;
+
+  @override
+  State<_InteractivePriceChart> createState() => _InteractivePriceChartState();
+}
+
+class _InteractivePriceChartState extends State<_InteractivePriceChart> {
+  int? _selectedIndex;
+
+  String get _semanticValue {
+    if (widget.values.isEmpty) return 'No chart data';
+    final selectedIndex = _selectedIndex;
+    if (selectedIndex == null) return 'No chart point selected';
+    final index = selectedIndex.clamp(0, widget.pointDetails.length - 1);
+    final point = widget.pointDetails[index];
+    return 'Date: ${point.dateLabel}, Price: ${_formatDetailChartPrice(point)}';
+  }
+
+  @override
+  void didUpdateWidget(covariant _InteractivePriceChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.values != widget.values ||
+        oldWidget.pointDetails != widget.pointDetails) {
+      _selectedIndex = null;
+    }
+  }
+
+  void _selectAt(double localX, double width) {
+    if (widget.values.length < 2 || width <= 0) return;
+    final normalizedX = (localX / width).clamp(0.0, 1.0);
+    final index = (normalizedX * (widget.values.length - 1)).round();
+    if (index == _selectedIndex) return;
+    setState(() => _selectedIndex = index);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return Semantics(
+          key: const Key('card-detail-price-chart-interactive'),
+          label: 'Card price chart',
+          value: _semanticValue,
+          child: MouseRegion(
+            onHover: (event) => _selectAt(event.localPosition.dx, width),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (details) =>
+                  _selectAt(details.localPosition.dx, width),
+              onHorizontalDragStart: (details) =>
+                  _selectAt(details.localPosition.dx, width),
+              onHorizontalDragUpdate: (details) =>
+                  _selectAt(details.localPosition.dx, width),
+              child: CustomPaint(
+                painter: _PriceChartPainter(
+                  values: widget.values,
+                  pointDetails: widget.pointDetails,
+                  selectedIndex: _selectedIndex,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PriceChartPainter extends CustomPainter {
+  const _PriceChartPainter({
+    required this.values,
+    required this.pointDetails,
+    required this.selectedIndex,
+  });
+
+  final List<double> values;
+  final List<CardPricePoint> pointDetails;
+  final int? selectedIndex;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -3157,7 +3244,7 @@ class _PriceChartPainter extends CustomPainter {
     final range = maxValue - minValue;
     const topInset = 16.0;
     const bottomInset = 12.0;
-    final points = <Offset>[];
+    final chartOffsets = <Offset>[];
 
     for (var index = 0; index < values.length; index++) {
       final x = size.width * index / (values.length - 1);
@@ -3166,12 +3253,12 @@ class _PriceChartPainter extends CustomPainter {
           size.height -
           bottomInset -
           normalized * (size.height - topInset - bottomInset);
-      points.add(Offset(x, y));
+      chartOffsets.add(Offset(x, y));
     }
 
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var index = 1; index < points.length; index++) {
-      path.lineTo(points[index].dx, points[index].dy);
+    final path = Path()..moveTo(chartOffsets.first.dx, chartOffsets.first.dy);
+    for (var index = 1; index < chartOffsets.length; index++) {
+      path.lineTo(chartOffsets[index].dx, chartOffsets[index].dy);
     }
 
     final area = Path.from(path)
@@ -3197,13 +3284,138 @@ class _PriceChartPainter extends CustomPainter {
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke,
     );
-    canvas.drawCircle(points.last, 3, Paint()..color = KandoColors.accent);
+
+    final selectedIndex = this.selectedIndex;
+    if (selectedIndex == null) {
+      canvas.drawCircle(
+        chartOffsets.last,
+        3,
+        Paint()..color = KandoColors.accent,
+      );
+      return;
+    }
+    final resolvedSelectedIndex = selectedIndex
+        .clamp(0, chartOffsets.length - 1)
+        .toInt();
+    final selected = pointDetails[resolvedSelectedIndex];
+    final selectedOffset = chartOffsets[resolvedSelectedIndex];
+    final xAxisY = size.height - bottomInset;
+    _drawPriceChartDashedLine(
+      canvas,
+      Offset(selectedOffset.dx, 0),
+      Offset(selectedOffset.dx, xAxisY),
+      Paint()
+        ..color = KandoColors.accent.withValues(alpha: 0.7)
+        ..strokeWidth = 1,
+    );
+    canvas.drawCircle(
+      selectedOffset,
+      6,
+      Paint()..color = KandoColors.accent.withValues(alpha: 0.2),
+    );
+    canvas.drawCircle(selectedOffset, 3, Paint()..color = KandoColors.accent);
+
+    final datePainter = TextPainter(
+      text: TextSpan(
+        text: 'Date: ${selected.dateLabel}',
+        style: const TextStyle(
+          color: Color(0xFF92927D),
+          fontSize: 11,
+          fontWeight: FontWeight.w400,
+          height: 16 / 11,
+        ),
+      ),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final pricePainter = TextPainter(
+      text: TextSpan(
+        text: 'Price: ${_formatDetailChartPrice(selected)}',
+        style: const TextStyle(
+          color: KandoColors.accent,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          height: 16 / 11,
+        ),
+      ),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final tooltipSize = Size(
+      math.max(datePainter.width, pricePainter.width) + 16,
+      52,
+    );
+    final preferredLeft =
+        selectedOffset.dx + tooltipSize.width + 12 <= size.width
+        ? selectedOffset.dx + 12
+        : selectedOffset.dx - tooltipSize.width - 12;
+    final tooltipLeft = preferredLeft
+        .clamp(0.0, size.width - tooltipSize.width)
+        .toDouble();
+    final preferredTop = selectedOffset.dy - tooltipSize.height - 8 >= 0
+        ? selectedOffset.dy - tooltipSize.height - 8
+        : selectedOffset.dy + 8;
+    final tooltipTop = preferredTop
+        .clamp(0.0, size.height - tooltipSize.height)
+        .toDouble();
+    final tooltipRect = Rect.fromLTWH(
+      tooltipLeft,
+      tooltipTop,
+      tooltipSize.width,
+      tooltipSize.height,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(tooltipRect, const Radius.circular(6)),
+      Paint()..color = const Color(0xE61A1C14),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(tooltipRect, const Radius.circular(6)),
+      Paint()
+        ..color = const Color(0x99F0FE6F)
+        ..style = PaintingStyle.stroke,
+    );
+    datePainter.paint(canvas, tooltipRect.topLeft + const Offset(8, 8));
+    pricePainter.paint(canvas, tooltipRect.topLeft + const Offset(8, 28));
   }
 
   @override
   bool shouldRepaint(covariant _PriceChartPainter oldDelegate) {
-    return oldDelegate.values != values;
+    return oldDelegate.values != values ||
+        oldDelegate.pointDetails != pointDetails ||
+        oldDelegate.selectedIndex != selectedIndex;
   }
+}
+
+void _drawPriceChartDashedLine(
+  Canvas canvas,
+  Offset start,
+  Offset end,
+  Paint paint, {
+  double dash = 4,
+  double gap = 4,
+}) {
+  final distance = (end - start).distance;
+  if (distance <= 0) return;
+  final direction = (end - start) / distance;
+  var traveled = 0.0;
+  while (traveled < distance) {
+    final segmentStart = start + direction * traveled;
+    final segmentEnd = start + direction * math.min(traveled + dash, distance);
+    canvas.drawLine(segmentStart, segmentEnd, paint);
+    traveled += dash + gap;
+  }
+}
+
+String _formatDetailChartPrice(CardPricePoint point) {
+  final value = point.priceUsd;
+  if (value == null) return '--';
+  final fixed = value.toStringAsFixed(2);
+  final parts = fixed.split('.');
+  final whole = parts.first.replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (_) => ',',
+  );
+  return '\$$whole.${parts.last}';
 }
 
 Future<void> _confirmRemoveWishlist(

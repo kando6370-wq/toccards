@@ -152,6 +152,49 @@ void main() {
   });
 
   testWidgets(
+    'Price chart reveals point details only after chart interaction',
+    (tester) async {
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'squirtle'));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-price-chart')),
+        400,
+      );
+
+      final chart = find.byKey(
+        const Key('card-detail-price-chart-interactive'),
+      );
+      await tester.ensureVisible(chart);
+      await tester.pumpAndSettle();
+
+      expect(chart, findsOneWidget);
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+
+      final chartRect = tester.getRect(chart);
+      await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        r'Date: 30 days ago, Price: $30.67',
+      );
+
+      await tester.dragFrom(
+        Offset(chartRect.left + 1, chartRect.center.dy),
+        Offset(chartRect.width - 2, 0),
+      );
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        r'Date: Today, Price: $32.13',
+      );
+    },
+  );
+
+  testWidgets(
     'optional endpoint failures stay inside Price Market and Shop because base card navigation must remain usable',
     (tester) async {
       await tester.pumpWidget(

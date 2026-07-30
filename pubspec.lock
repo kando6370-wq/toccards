@@ -329,6 +329,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.1+4"
+  device_info_plus:
+    dependency: transitive
+    description:
+      name: device_info_plus
+      sha256: b4fed1b2835da9d670d7bed7db79ae2a94b0f5ad6312268158a9b5479abbacdd
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.4.0"
+  device_info_plus_platform_interface:
+    dependency: transitive
+    description:
+      name: device_info_plus_platform_interface
+      sha256: e1ea89119e34903dca74b883d0dd78eb762814f97fb6c76f35e9ff74d261a18f
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.0.3"
   dio:
     dependency: transitive
     description:
@@ -478,6 +494,22 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_debug_overlay:
+    dependency: transitive
+    description:
+      name: flutter_debug_overlay
+      sha256: db13030e274c318132420d1b346d50179f08b9fc8912e7f1c0898ba2e1dbadfa
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.11"
+  flutter_json:
+    dependency: transitive
+    description:
+      name: flutter_json
+      sha256: "091e1083d9b49d7f8f22f0d9f2453d79fa662c86c67f94e7bc4e183bb4d1eabb"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   flutter_lints:
     dependency: transitive
     description:
@@ -920,6 +952,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.0"
+  multi_long_press_gesture_recognizer:
+    dependency: transitive
+    description:
+      name: multi_long_press_gesture_recognizer
+      sha256: "6b885e150c2134caf8bf0b7d1a8539f0f3a473c33f7f3ca2997dbd01197a4222"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.2"
   mustache_template:
     dependency: transitive
     description:
@@ -1349,6 +1389,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.2"
+  split_view:
+    dependency: transitive
+    description:
+      name: split_view
+      sha256: "724968694ca8becaa58d5c6392caf3ca9d83548514aaa6d7c59bc41f1c1aa042"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.2"
   stack_trace:
     dependency: transitive
     description:
@@ -1637,6 +1685,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.15.0"
+  win32_registry:
+    dependency: transitive
+    description:
+      name: win32_registry
+      sha256: "6f1b564492d0147b330dd794fee8f512cec4977957f310f9951b5f9d83618dae"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   xdg_directories:
     dependency: transitive
     description:

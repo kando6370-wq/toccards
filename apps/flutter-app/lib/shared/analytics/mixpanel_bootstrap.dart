@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../api/api_environment.dart';
+import '../debug/app_debug_overlay.dart';
 
 Future<String?> loadMixpanelProjectToken({Dio? dio}) async {
   final client =
@@ -12,6 +13,7 @@ Future<String?> loadMixpanelProjectToken({Dio? dio}) async {
           receiveTimeout: const Duration(seconds: 3),
         ),
       );
+  addAppDebugHttpLogging(client);
   try {
     final response = await client.get<Object?>('/app-config');
     return mixpanelProjectTokenFromResponse(response.data);

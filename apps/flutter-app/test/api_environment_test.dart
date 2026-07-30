@@ -11,6 +11,7 @@ void main() {
           ? 'https://api.tcgcard.fun/api/v1'
           : 'https://api-dev.tcgcard.fun/api/v1',
     );
+    expect(AppConfig.isTestEnvironment, !production);
     expect(AppConfig.isDebugData, !production);
   });
 

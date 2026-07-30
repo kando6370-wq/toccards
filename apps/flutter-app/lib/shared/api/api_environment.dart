@@ -14,7 +14,8 @@ abstract final class AppConfig {
       ? 'https://api.tcgcard.fun/api/v1'
       : 'https://api-dev.tcgcard.fun/api/v1';
 
-  static const isDebugData = environment == AppEnvironment.test;
+  static const isTestEnvironment = environment == AppEnvironment.test;
+  static const isDebugData = isTestEnvironment;
 
   static void validate() {
     if (environmentName != 'test' && environmentName != 'production') {

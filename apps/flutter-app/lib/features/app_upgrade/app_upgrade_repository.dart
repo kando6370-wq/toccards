@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/api/api_environment.dart';
 import '../../shared/api/api_request_log.dart';
+import '../../shared/debug/app_debug_overlay.dart';
 import 'app_upgrade_models.dart';
 
 const appUpgradeApiBaseUrl = kandoApiBaseUrl;
@@ -21,6 +22,7 @@ final appUpgradeDioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(
     ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
   );
+  addAppDebugHttpLogging(dio);
   ref.onDispose(dio.close);
   return dio;
 });
