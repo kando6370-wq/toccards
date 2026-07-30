@@ -293,7 +293,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _nextScanToken = 1;
   var _cameraGeneration = 0;
   var _openingCamera = false;
-  var _cameraPermissionDenied = false;
   var _permissionDialogVisible = false;
   var _appActive = true;
   var _openingReview = false;
@@ -412,7 +411,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
       if (mounted) {
         setState(() {
           _openingCamera = false;
-          _cameraPermissionDenied = true;
         });
       }
       if (permission == ScanPermissionResult.permanentlyDenied) {
@@ -448,7 +446,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() {
       _cameraSession = session;
       _openingCamera = false;
-      _cameraPermissionDenied = false;
     });
   }
 
@@ -1564,8 +1561,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 children: [
                   _ScanCameraView(
                     cameraPreview: _cameraSession?.buildPreview(),
-                    cameraOpening: _openingCamera || _librarySelectionInFlight,
-                    cameraPermissionDenied: _cameraPermissionDenied,
                     flashEnabled: _cameraSession?.flashEnabled ?? false,
                     items: _items,
                     lastAddedCount: _lastAddedCount,
@@ -1610,8 +1605,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
 class _ScanCameraView extends StatelessWidget {
   const _ScanCameraView({
     required this.cameraPreview,
-    required this.cameraOpening,
-    required this.cameraPermissionDenied,
     required this.flashEnabled,
     required this.items,
     required this.lastAddedCount,
@@ -1638,8 +1631,6 @@ class _ScanCameraView extends StatelessWidget {
   });
 
   final Widget? cameraPreview;
-  final bool cameraOpening;
-  final bool cameraPermissionDenied;
   final bool flashEnabled;
   final List<_ScanItem> items;
   final int? lastAddedCount;
@@ -1675,55 +1666,6 @@ class _ScanCameraView extends StatelessWidget {
             child: KeyedSubtree(
               key: const Key('scan-live-camera-preview'),
               child: cameraPreview!,
-            ),
-          )
-        else if (cameraOpening)
-          const Positioned.fill(
-            child: ColoredBox(
-              key: Key('scan-camera-opening-background'),
-              color: Color(0xFF10100B),
-            ),
-          )
-        else if (cameraPermissionDenied)
-          const Positioned.fill(
-            child: ColoredBox(
-              key: Key('scan-camera-permission-denied-background'),
-              color: Color(0xFF10100B),
-            ),
-          )
-        else if (revealing)
-          Positioned(
-            left: -205,
-            top: -27,
-            width: 595,
-            height: 1348,
-            child: Image.asset(
-              'assets/scan/camera_before.png',
-              key: const Key('scan-figma-revealing-background'),
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.high,
-            ),
-          )
-        else
-          Positioned.fill(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return Align(
-                  alignment: Alignment.topCenter,
-                  child: SizedBox(
-                    width: constraints.maxWidth,
-                    height: constraints.maxHeight < 884
-                        ? 884
-                        : constraints.maxHeight,
-                    child: Image.asset(
-                      'assets/scan/camera_before.png',
-                      key: const Key('scan-figma-camera-background'),
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.high,
-                    ),
-                  ),
-                );
-              },
             ),
           ),
         if (recognizing)
@@ -4391,21 +4333,14 @@ class _ReviewFooter extends StatelessWidget {
                     child: OutlinedButton(
                       key: const Key('scan-review-add-all'),
                       onPressed: saving ? null : onAddAllCards,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (addingAll) ...[
-                            const SizedBox(
+                      child: addingAll
+                          ? const SizedBox(
                               key: Key('scan-review-add-all-loading'),
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          const Text('ADD ALL CARDS'),
-                        ],
-                      ),
+                            )
+                          : const Text('ADD ALL CARDS'),
                     ),
                   ),
                   const SizedBox(width: 10),

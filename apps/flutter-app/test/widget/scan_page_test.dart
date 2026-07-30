@@ -115,10 +115,7 @@ void main() {
 
     expect(permissions.cameraRequests, 1);
     expect(cameraFactory.openCount, 0);
-    expect(
-      find.byKey(const Key('scan-camera-permission-denied-background')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('scan-live-camera-preview')), findsNothing);
     expect(find.byKey(const Key('scan-figma-camera-background')), findsNothing);
   });
 
@@ -215,20 +212,22 @@ void main() {
     }
   });
 
-  testWidgets(
-    'Figma scan pre-scan keeps the photographic camera viewport full bleed',
-    (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      addTearDown(tester.view.reset);
+  testWidgets('Scan without a live preview renders no fallback background', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
 
-      await _pumpScanTestApp(tester);
+    await _pumpScanTestApp(tester);
 
-      final background = find.byKey(const Key('scan-figma-camera-background'));
-      expect(background, findsOneWidget);
-      expect(tester.widget<Image>(background).fit, BoxFit.cover);
-    },
-  );
+    expect(find.byKey(const Key('scan-camera-idle-background')), findsNothing);
+    expect(
+      find.byKey(const Key('scan-camera-revealing-background')),
+      findsNothing,
+    );
+    expect(find.byType(Image), findsNothing);
+  });
 
   testWidgets(
     'Scan animates capture feedback before freezing the live frame because taking a photo must be perceptible',
@@ -416,7 +415,7 @@ void main() {
 
       expect(
         find.byKey(const Key('scan-camera-opening-background')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const Key('scan-figma-camera-background')),
@@ -467,7 +466,7 @@ void main() {
       expect(first.disposed, isTrue);
       expect(
         find.byKey(const Key('scan-camera-opening-background')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const Key('scan-figma-camera-background')),
@@ -521,8 +520,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildKandoTheme(),
-        home: const ProviderScope(
-          child: RepaintBoundary(
+        home: ProviderScope(
+          overrides: _scanGoldenOverrides(),
+          child: const RepaintBoundary(
             key: Key('scan-figma-golden'),
             child: ScanPage(),
           ),
@@ -552,8 +552,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildKandoTheme(),
-        home: const ProviderScope(
-          child: RepaintBoundary(
+        home: ProviderScope(
+          overrides: _scanGoldenOverrides(),
+          child: const RepaintBoundary(
             key: Key('scan-scanning-figma-golden'),
             child: ScanPage(),
           ),
@@ -616,8 +617,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildKandoTheme(),
-        home: const ProviderScope(
-          child: RepaintBoundary(
+        home: ProviderScope(
+          overrides: _scanGoldenOverrides(),
+          child: const RepaintBoundary(
             key: Key('scan-recognizing-figma-golden'),
             child: ScanPage(),
           ),
@@ -671,8 +673,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildKandoTheme(),
-        home: const ProviderScope(
-          child: RepaintBoundary(
+        home: ProviderScope(
+          overrides: _scanGoldenOverrides(),
+          child: const RepaintBoundary(
             key: Key('scan-revealing-figma-golden'),
             child: ScanPage(),
           ),
@@ -2268,6 +2271,19 @@ Future<void> _pumpScanTestApp(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+_scanGoldenOverrides() {
+  return [
+    scanPermissionGatewayProvider.overrideWithValue(
+      const _GrantedScanPermissionGateway(),
+    ),
+    scanCameraFactoryProvider.overrideWithValue(
+      const _DisabledScanCameraFactory(),
+    ),
+    scanResultSourceProvider.overrideWithValue(_defaultTestScanResultSource()),
+    scanReviewRepositoryProvider.overrideWithValue(_FakeScanReviewRepository()),
+  ];
 }
 
 class _AnalyticsRecorder {
