@@ -180,14 +180,19 @@ export function createDataSourceRoutes(
     const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 10, 100);
     const adapter = createAdapter(c.env);
     const items = await adapter.getTrending({ page, page_size: pageSize });
-    const overriddenItems = await Promise.all(
-      items.map(async (item) => {
-        const override = await findCardOverride(c.env.DB, item.card_ref);
-        const card = applyCardOverride(item, override, item.card_ref);
-
-        return { ...(card ?? { ...item, override_applied: false }), pinned: false };
-      }),
+    const overrides = await findCardOverrides(
+      c.env.DB,
+      items.map((item) => item.card_ref),
     );
+    const overriddenItems = items.map((item) => {
+      const card = applyCardOverride(
+        item,
+        overrides.get(item.card_ref) ?? null,
+        item.card_ref,
+      );
+
+      return { ...(card ?? { ...item, override_applied: false }), pinned: false };
+    });
 
     return c.json({
       success: true,
@@ -378,6 +383,34 @@ async function findCardOverride(
   } catch {
     return null;
   }
+}
+
+async function findCardOverrides(
+  db: D1Database,
+  cardRefs: string[],
+): Promise<Map<string, CardOverrideRow>> {
+  const overrides = new Map<string, CardOverrideRow>();
+  if (cardRefs.length === 0) return overrides;
+
+  try {
+    const placeholders = cardRefs.map(() => "?").join(", ");
+    const results = await db
+      .prepare(
+        `SELECT card_ref, override_fields, image_url, is_missing_card
+FROM card_override
+WHERE card_ref IN (${placeholders})`,
+      )
+      .bind(...cardRefs)
+      .all<CardOverrideRow>();
+
+    for (const override of results.results ?? []) {
+      overrides.set(override.card_ref, override);
+    }
+  } catch {
+    // Overrides are optional corrections; catalog data remains usable without them.
+  }
+
+  return overrides;
 }
 
 async function getCardOrNull(

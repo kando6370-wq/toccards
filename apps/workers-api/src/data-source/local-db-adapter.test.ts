@@ -24,7 +24,7 @@ type SetRow = {
 
 type SkuRow = {
   sku_id: number;
-  product_id: number;
+  product_id: string | number;
   condition_code: string | null;
   condition_name: string | null;
   language_code: string | null;
@@ -88,16 +88,17 @@ class FakeBoundStatement {
       return { results: results as T[] };
     }
 
-    if (this.sql.includes("WITH ranked_skus AS")) {
-      const highestSkuByProduct = new Map<number, SkuRow>();
+    if (this.sql.includes("FROM tcgplayer_skus AS sku")) {
+      const highestSkuByProduct = new Map<string, SkuRow>();
       for (const sku of this.skus.filter((row) => row.increase_rate !== null)) {
-        const current = highestSkuByProduct.get(sku.product_id);
+        const productId = String(sku.product_id);
+        const current = highestSkuByProduct.get(productId);
         if (
           !current ||
           sku.increase_rate! > current.increase_rate! ||
           (sku.increase_rate === current.increase_rate && sku.sku_id < current.sku_id)
         ) {
-          highestSkuByProduct.set(sku.product_id, sku);
+          highestSkuByProduct.set(productId, sku);
         }
       }
       const results = [...highestSkuByProduct.values()]
@@ -108,7 +109,7 @@ class FakeBoundStatement {
         .slice(0, 10)
         .flatMap((sku) => {
           const card = this.cards.find(
-            (candidate) => Number(candidate.product_id) === sku.product_id,
+            (candidate) => candidate.product_id === String(sku.product_id),
           );
           return card ? [{ ...card, ...sku, product_id: card.product_id }] : [];
         });
@@ -219,11 +220,11 @@ class FakeBoundStatement {
     }
 
     if (this.sql.includes("FROM tcgplayer_skus")) {
-      const productIds = new Set(this.values.map(Number));
+      const productIds = new Set(this.values.map(String));
       return {
         results: this.skus.filter((sku) =>
-          productIds.has(sku.product_id),
-        ) as T[],
+          productIds.has(String(sku.product_id)),
+        ).map((sku) => ({ ...sku, product_id: String(sku.product_id) })) as T[],
       };
     }
 
@@ -613,8 +614,7 @@ describe("local D1 card data source adapter", () => {
   });
 
   it("ranks Trending Today by non-null stored SKU increase because Home must show the same SKU price it ranked", async () => {
-    const adapter = createLocalDbDataSourceAdapter(
-      new FakeCardDatabase(
+    const db = new FakeCardDatabase(
         [
           card({ product_id: "100", name: "Small Mover" }),
           card({ product_id: "200", name: "Largest Mover" }),
@@ -668,7 +668,9 @@ describe("local D1 card data source adapter", () => {
             ]),
           }),
         ],
-      ) as unknown as D1Database,
+    );
+    const adapter = createLocalDbDataSourceAdapter(
+      db as unknown as D1Database,
     );
 
     await expect(adapter.getTrending()).resolves.toMatchObject([
@@ -693,6 +695,14 @@ describe("local D1 card data source adapter", () => {
         price_change_1d_percent: -20,
       },
     ]);
+    const trendingSql = db.preparedSql.find((sql) =>
+      sql.includes("FROM tcgplayer_skus AS sku"),
+    );
+    expect(trendingSql).toContain("NOT EXISTS");
+    expect(trendingSql).toContain(
+      "cards_all.product_id = sku.product_id",
+    );
+    expect(trendingSql).not.toContain("CAST(");
   });
 
   it("returns empty Trending without the ranking scan because an unfinished producer leaves increase_rate null", async () => {

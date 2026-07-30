@@ -21,7 +21,7 @@ type CardCatalogRow = {
 
 type TcgplayerSkuRow = {
   sku_id: number;
-  product_id: number;
+  product_id: string;
   condition_code: string | null;
   condition_name: string | null;
   language_code: string | null;
@@ -227,29 +227,27 @@ LIMIT 1`,
 
       const results = await db
         .prepare(
-          `WITH ranked_skus AS (
-  SELECT sku_id, product_id, condition_code, condition_name, language_code,
-         language_name, variant_code, variant_name, price_history, increase_rate,
-         ROW_NUMBER() OVER (
-           PARTITION BY product_id
-           ORDER BY increase_rate DESC, sku_id ASC
-         ) AS product_rank
-  FROM tcgplayer_skus
-  WHERE increase_rate IS NOT NULL
-)
-SELECT cards_all.product_id, cards_all.game_id, cards_all.game,
+          `SELECT cards_all.product_id, cards_all.game_id, cards_all.game,
        cards_all.set_name, cards_all.set_code, cards_all.name,
        cards_all.rarity, cards_all.product_type_name,
-       ranked_skus.sku_id, ranked_skus.condition_code,
-       ranked_skus.condition_name, ranked_skus.language_code,
-       ranked_skus.language_name, ranked_skus.variant_code,
-       ranked_skus.variant_name, ranked_skus.price_history,
-       ranked_skus.increase_rate
-FROM ranked_skus
+       sku.sku_id, sku.condition_code, sku.condition_name,
+       sku.language_code, sku.language_name, sku.variant_code,
+       sku.variant_name, sku.price_history, sku.increase_rate
+FROM tcgplayer_skus AS sku
 JOIN cards_all
-  ON CAST(cards_all.product_id AS INTEGER) = ranked_skus.product_id
-WHERE ranked_skus.product_rank = 1
-ORDER BY ranked_skus.increase_rate DESC, ranked_skus.sku_id ASC
+  ON cards_all.product_id = sku.product_id
+WHERE sku.increase_rate IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM tcgplayer_skus AS better
+    WHERE better.product_id = sku.product_id
+      AND better.increase_rate IS NOT NULL
+      AND (
+        better.increase_rate > sku.increase_rate
+        OR (better.increase_rate = sku.increase_rate AND better.sku_id < sku.sku_id)
+      )
+  )
+ORDER BY sku.increase_rate DESC, sku.sku_id ASC
 LIMIT ? OFFSET ?`,
         )
         .bind(pageSize, (page - 1) * pageSize)
@@ -403,9 +401,7 @@ async function findSkuRowsByProductId(
   db: D1Database,
   cardRefs: string[],
 ): Promise<Map<string, TcgplayerSkuRow[]>> {
-  const productIds = cardRefs
-    .filter((cardRef) => /^\d+$/.test(cardRef))
-    .map(Number);
+  const productIds = cardRefs.filter((cardRef) => /^\d+$/.test(cardRef));
   const skusByProductId = new Map<string, TcgplayerSkuRow[]>();
   if (productIds.length === 0) return skusByProductId;
 
@@ -421,7 +417,7 @@ async function findSkuRowsByProductId(
     .bind(...productIds)
     .all<TcgplayerSkuRow>();
   for (const sku of results.results ?? []) {
-    const productId = String(sku.product_id);
+    const productId = sku.product_id;
     const productSkus = skusByProductId.get(productId);
     if (productSkus) {
       productSkus.push(sku);
@@ -544,7 +540,7 @@ async function findSkuRows(
        WHERE product_id = ?
        ORDER BY language_code, variant_code, condition_code`,
     )
-    .bind(Number(cardRef))
+    .bind(cardRef)
     .all<TcgplayerSkuRow>();
 
   return results.results ?? [];

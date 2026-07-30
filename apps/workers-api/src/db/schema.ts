@@ -98,7 +98,7 @@ export const tcgplayerSkus = sqliteTable(
   "tcgplayer_skus",
   {
     skuId: integer("sku_id").primaryKey(),
-    productId: integer("product_id").notNull(),
+    productId: text("product_id").notNull(),
     skuKey: text("sku_key").notNull(),
     conditionCode: text("condition_code"),
     conditionName: text("condition_name"),
@@ -110,8 +110,6 @@ export const tcgplayerSkus = sqliteTable(
     updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
     priceHistory: text("price_history").notNull().default("[]"),
     increaseRate: real("increase_rate"),
-    source: text("source"),
-    sourceVariantId: text("source_variant_id"),
   },
   (t) => [
     index("idx_tcgplayer_skus_product_id").on(t.productId),
@@ -120,10 +118,6 @@ export const tcgplayerSkus = sqliteTable(
       t.languageCode,
       t.variantCode,
       t.conditionCode,
-    ),
-    uniqueIndex("uq_tcgplayer_skus_source_variant").on(
-      t.source,
-      t.sourceVariantId,
     ),
     index("idx_tcgplayer_skus_increase_rate").on(t.increaseRate),
   ],

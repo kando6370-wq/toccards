@@ -153,6 +153,13 @@ class FakeD1BoundStatement {
   }
 
   async all<T>(): Promise<{ results: T[] }> {
+    if (this.sql.includes("FROM card_override")) {
+      const cardRefs = new Set(this.values.map(String));
+      return {
+        results: this.cardOverrides.filter((row) => cardRefs.has(row.card_ref)) as T[],
+      };
+    }
+
     if (this.sql.includes("FROM trending_pin")) {
       return {
         results: this.trendingPins
