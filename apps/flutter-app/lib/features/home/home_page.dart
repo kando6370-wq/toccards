@@ -1771,15 +1771,11 @@ class _InteractiveChart extends StatefulWidget {
 class _InteractiveChartState extends State<_InteractiveChart> {
   int? _selectedIndex;
 
-  int get _effectiveSelectedIndex {
-    if (widget.values.isEmpty) return 0;
-    final defaultIndex = _defaultChartIndex(widget.values.length);
-    return (_selectedIndex ?? defaultIndex).clamp(0, widget.values.length - 1);
-  }
-
   String get _semanticValue {
     if (widget.values.isEmpty) return 'No chart data';
-    final index = _effectiveSelectedIndex;
+    final selectedIndex = _selectedIndex;
+    if (selectedIndex == null) return 'No chart point selected';
+    final index = selectedIndex.clamp(0, widget.values.length - 1);
     return 'Date: ${_formatChartDate(widget.dates, index)}, '
         'Price: ${_chartPrice(widget.formattedValues, index)}';
   }
@@ -1796,7 +1792,7 @@ class _InteractiveChartState extends State<_InteractiveChart> {
     if (widget.values.length < 2 || width <= 0) return;
     final normalizedX = (localX / width).clamp(0.0, 1.0);
     final index = (normalizedX * (widget.values.length - 1)).round();
-    if (index == _effectiveSelectedIndex) return;
+    if (index == _selectedIndex) return;
     setState(() => _selectedIndex = index);
   }
 
@@ -1824,7 +1820,7 @@ class _InteractiveChartState extends State<_InteractiveChart> {
                   values: widget.values,
                   dates: widget.dates,
                   formattedValues: widget.formattedValues,
-                  selectedIndex: _effectiveSelectedIndex,
+                  selectedIndex: _selectedIndex,
                 ),
                 child: const SizedBox.expand(),
               ),
@@ -1834,11 +1830,6 @@ class _InteractiveChartState extends State<_InteractiveChart> {
       },
     );
   }
-}
-
-int _defaultChartIndex(int valueCount) {
-  if (valueCount == 0) return 0;
-  return math.min((valueCount * .68).floor(), valueCount - 1);
 }
 
 class _ChartPainter extends CustomPainter {
@@ -1852,7 +1843,7 @@ class _ChartPainter extends CustomPainter {
   final List<double> values;
   final List<String> dates;
   final List<String> formattedValues;
-  final int selectedIndex;
+  final int? selectedIndex;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1917,10 +1908,21 @@ class _ChartPainter extends CustomPainter {
 
     canvas.drawPath(path, linePaint);
 
+    final selectedIndex = this.selectedIndex;
+    if (selectedIndex == null) return;
     final resolvedSelectedIndex = selectedIndex
         .clamp(0, points.length - 1)
         .toInt();
     final selected = points[resolvedSelectedIndex];
+    final xAxisY = size.height - bottomInset;
+    _drawDashedLine(
+      canvas,
+      Offset(selected.dx, 0),
+      Offset(selected.dx, xAxisY),
+      Paint()
+        ..color = KandoColors.accent.withValues(alpha: 0.7)
+        ..strokeWidth = 1,
+    );
     canvas.drawCircle(
       selected,
       6,
@@ -1958,10 +1960,16 @@ class _ChartPainter extends CustomPainter {
       math.max(datePainter.width, pricePainter.width) + 16,
       52,
     );
-    final tooltipLeft = (selected.dx - 40)
+    final preferredLeft = selected.dx + tooltipSize.width + 12 <= size.width
+        ? selected.dx + 12
+        : selected.dx - tooltipSize.width - 12;
+    final tooltipLeft = preferredLeft
         .clamp(0.0, size.width - tooltipSize.width)
         .toDouble();
-    final tooltipTop = (selected.dy + 8)
+    final preferredTop = selected.dy - tooltipSize.height - 8 >= 0
+        ? selected.dy - tooltipSize.height - 8
+        : selected.dy + 8;
+    final tooltipTop = preferredTop
         .clamp(0.0, size.height - tooltipSize.height)
         .toDouble();
     final tooltipRect = Rect.fromLTWH(
@@ -1990,6 +1998,26 @@ class _ChartPainter extends CustomPainter {
         oldDelegate.dates != dates ||
         oldDelegate.formattedValues != formattedValues ||
         oldDelegate.selectedIndex != selectedIndex;
+  }
+}
+
+void _drawDashedLine(
+  Canvas canvas,
+  Offset start,
+  Offset end,
+  Paint paint, {
+  double dash = 4,
+  double gap = 4,
+}) {
+  final distance = (end - start).distance;
+  if (distance <= 0) return;
+  final direction = (end - start) / distance;
+  var traveled = 0.0;
+  while (traveled < distance) {
+    final segmentStart = start + direction * traveled;
+    final segmentEnd = start + direction * math.min(traveled + dash, distance);
+    canvas.drawLine(segmentStart, segmentEnd, paint);
+    traveled += dash + gap;
   }
 }
 

@@ -148,6 +148,11 @@ class SearchCardTile extends ConsumerWidget {
                                               }
                                             } else if (action ==
                                                     SearchCollectAction
+                                                        .updated &&
+                                                context.mounted) {
+                                              showKandoTopSuccessToast(context);
+                                            } else if (action ==
+                                                    SearchCollectAction
                                                         .ignored &&
                                                 context.mounted) {
                                               showKandoTopFailureToast(context);
@@ -173,11 +178,16 @@ class SearchCardTile extends ConsumerWidget {
                                                         .notifier,
                                                   )
                                                   .toggleWishlistCard(card);
-                                              if (!succeeded &&
-                                                  context.mounted) {
-                                                showKandoTopFailureToast(
-                                                  context,
-                                                );
+                                              if (context.mounted) {
+                                                if (succeeded) {
+                                                  showKandoTopSuccessToast(
+                                                    context,
+                                                  );
+                                                } else {
+                                                  showKandoTopFailureToast(
+                                                    context,
+                                                  );
+                                                }
                                               }
                                             },
                                     ),

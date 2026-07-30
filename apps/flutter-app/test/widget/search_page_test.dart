@@ -566,6 +566,8 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
   });
 
   testWidgets('Search card action buttons do not open CardDetail', (
@@ -595,6 +597,46 @@ void main() {
     expect(find.byType(SearchPage), findsOneWidget);
     expect(find.byKey(const Key('card-detail-hero')), findsNothing);
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+  });
+
+  testWidgets('Search card add and remove actions use the success top toast', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> expectSuccessToast() async {
+      await tester.pump();
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.text(changesSavedToastText), findsOneWidget);
+      expect(
+        tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
+        KandoTopToastType.success,
+      );
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pump();
+    }
+
+    final wishlistButton = find.byKey(const Key('search-wishlist-squirtle'));
+    await tester.tap(wishlistButton);
+    await expectSuccessToast();
+
+    await tester.tap(wishlistButton);
+    await expectSuccessToast();
+
+    final collectButton = find.byKey(const Key('search-collect-squirtle'));
+    await tester.tap(collectButton);
+    await expectSuccessToast();
+
+    await tester.tap(collectButton);
+    await expectSuccessToast();
   });
 
   testWidgets('Search card action failures use the top toast', (tester) async {

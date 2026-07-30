@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -87,6 +88,7 @@ class _StartupPageState extends ConsumerState<_StartupPage>
 
   @override
   Widget build(BuildContext context) {
+    final useIosLaunchMark = defaultTargetPlatform == TargetPlatform.iOS;
     ref.listen<bool>(startupProgressFinishingProvider, (previous, next) {
       if (next && previous != true) unawaited(_finishProgress());
     });
@@ -100,11 +102,14 @@ class _StartupPageState extends ConsumerState<_StartupPage>
             constraints.maxHeight / 844,
           );
           final verticalInset = (constraints.maxHeight - 844 * scale) / 2;
+          final brandingTop = useIosLaunchMark
+              ? constraints.maxHeight * (311 / 844) - 56 * scale
+              : verticalInset + 255 * scale;
           return Stack(
             alignment: Alignment.center,
             children: [
               Positioned(
-                top: verticalInset + 255 * scale,
+                top: brandingTop,
                 child: SizedBox(
                   key: const ValueKey('onboarding-loading-branding'),
                   width: 116 * scale,
@@ -114,12 +119,25 @@ class _StartupPageState extends ConsumerState<_StartupPage>
                         width: 112 * scale,
                         height: 112 * scale,
                         child: Center(
-                          child: Image.asset(
-                            'assets/onboarding/splash_mark.png',
-                            width: 90 * scale,
-                            height: 90 * scale,
-                            filterQuality: FilterQuality.high,
-                          ),
+                          child: useIosLaunchMark
+                              ? Image.asset(
+                                  'assets/onboarding/splash_mark_ios.png',
+                                  key: const ValueKey(
+                                    'onboarding-loading-logo',
+                                  ),
+                                  width: 63,
+                                  height: 77,
+                                  filterQuality: FilterQuality.high,
+                                )
+                              : Image.asset(
+                                  'assets/onboarding/splash_mark.png',
+                                  key: const ValueKey(
+                                    'onboarding-loading-logo',
+                                  ),
+                                  width: 90 * scale,
+                                  height: 90 * scale,
+                                  filterQuality: FilterQuality.high,
+                                ),
                         ),
                       ),
                       SizedBox(height: 8 * scale),

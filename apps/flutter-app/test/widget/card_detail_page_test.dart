@@ -13,6 +13,7 @@ import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -386,8 +387,46 @@ void main() {
         'Raw / Near Mint (NM)',
       );
       expect(savedState.collectionItemRows.single.purchasePriceText, '--');
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.text(changesSavedToastText), findsOneWidget);
+      expect(
+        tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
+        KandoTopToastType.success,
+      );
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pump();
     },
   );
+
+  testWidgets('Add this card waits for the API before showing success', (
+    tester,
+  ) async {
+    final repository = _DelayedCreateCardDetailRepository();
+    await tester.pumpWidget(
+      _CardDetailTestApp(cardId: 'one-piece-luffy', repository: repository),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('card-detail-item-submit')));
+    await tester.pump();
+
+    expect(repository.pendingCreate, isNotNull);
+    expect(find.byKey(const Key('card-detail-add-item-sheet')), findsOneWidget);
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
+
+    repository.completeCreate();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
+    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.text(changesSavedToastText), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+  });
 
   testWidgets(
     'add item links graded graders to the styled grade sheet because grade is a dependent choice',
@@ -739,35 +778,52 @@ void main() {
     },
   );
 
-  testWidgets('owned Collection Item edit dismisses keyboard on outside tap', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'owned Collection Item edit keeps keyboard dismissed after changing another field',
+    (tester) async {
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+      await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.text('Collection Item'), 400);
-    await tester.ensureVisible(find.text('Edit item'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit item'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(
-      find.byKey(const Key('card-detail-item-quantity')),
-    );
-    await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+      await tester.ensureVisible(find.text('Edit item'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit item'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-item-quantity')),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const Key('card-detail-item-quantity')),
-      '3',
-    );
-    await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('card-detail-item-quantity')),
+        '3',
+      );
+      await tester.pump();
 
-    expect(tester.testTextInput.isVisible, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
 
-    await tester.tap(find.byKey(const Key('card-detail-item-grader')));
-    await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-item-language')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('card-detail-item-language')));
+      await tester.pumpAndSettle();
 
-    expect(tester.testTextInput.isVisible, isFalse);
-  });
+      expect(tester.testTextInput.isVisible, isFalse);
+
+      await tester.tap(find.text('English').last);
+      await tester.pumpAndSettle();
+
+      expect(tester.testTextInput.isVisible, isFalse);
+      final quantityField = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const Key('card-detail-item-quantity')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(quantityField.focusNode.hasFocus, isFalse);
+    },
+  );
 
   testWidgets('owned Collection Item purchase price uses decimal keyboard', (
     tester,
@@ -1126,6 +1182,42 @@ class _DelayedUpdateCardDetailRepository extends MockCardDetailRepository {
         finish: 'Holofoil',
         purchasePriceUsd: 120,
         notes: 'Pulled from Obsidian Flames binder.',
+      ),
+    );
+  }
+}
+
+class _DelayedCreateCardDetailRepository extends MockCardDetailRepository {
+  Completer<CardCollectionItem>? pendingCreate;
+
+  @override
+  Future<CardCollectionItem> createCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+  }) {
+    final completer = Completer<CardCollectionItem>();
+    pendingCreate = completer;
+    return completer.future;
+  }
+
+  void completeCreate() {
+    final completer = pendingCreate;
+    if (completer == null || completer.isCompleted) return;
+    completer.complete(
+      const CardCollectionItem(
+        id: 'created-luffy',
+        cardRef: 'one-piece-luffy',
+        folderId: 'main',
+        portfolioName: 'Main',
+        quantity: 1,
+        grader: 'Raw',
+        condition: 'Near Mint (NM)',
+        grade: null,
+        language: 'English',
+        finish: 'Holofoil',
+        purchasePriceUsd: null,
+        notes: '',
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'kando_style.dart';
 const genericFailureToastText = 'Something went wrong. Please try again.';
 const networkFailureToastText =
     'No internet connection. Please check your network and try again.';
+const changesSavedToastText = 'Success! Your changes have been saved';
 const kandoToastDuration = Duration(seconds: 2);
 const kandoTopToastDuration = Duration(seconds: 3);
 const kandoTopToastTopGap = 28.0;
@@ -144,6 +145,17 @@ void showKandoTopNetworkToast(BuildContext context) {
     context,
     message: networkFailureToastText,
     type: KandoTopToastType.network,
+  );
+}
+
+/// Shows the generic saved-success message as a top toast.
+///
+/// 中文：以顶部提示框展示通用的修改已保存文案。
+void showKandoTopSuccessToast(BuildContext context) {
+  showKandoTopToast(
+    context,
+    message: changesSavedToastText,
+    type: KandoTopToastType.success,
   );
 }
 

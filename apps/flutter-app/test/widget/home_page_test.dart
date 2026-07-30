@@ -223,6 +223,10 @@ void main() {
 
       final chart = find.byKey(const Key('home-portfolio-chart'));
       expect(chart, findsOneWidget);
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
 
       final chartRect = tester.getRect(chart);
       await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,52 @@ import 'package:kando_app/features/onboarding/onboarding_gate.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 
 void main() {
+  testWidgets('iOS launch logo keeps the same responsive center and size', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    try {
+      const viewports = [Size(390, 844), Size(430, 932), Size(768, 1024)];
+      tester.view.physicalSize = viewports.first;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appStartupPreloaderProvider.overrideWith((ref) async {}),
+            onboardingRepositoryProvider.overrideWithValue(
+              const _ImmediateOnboardingRepository(completed: true),
+            ),
+          ],
+          child: const MaterialApp(
+            home: OnboardingGate(home: Text('Home ready')),
+          ),
+        ),
+      );
+
+      for (final viewport in viewports) {
+        tester.view.physicalSize = viewport;
+        await tester.pump();
+        final logo = find.byKey(const ValueKey('onboarding-loading-logo'));
+        expect(tester.getSize(logo), const Size(63, 77));
+        expect(tester.getCenter(logo).dx, closeTo(viewport.width / 2, .01));
+        expect(
+          tester.getCenter(logo).dy,
+          closeTo(viewport.height * 311 / 844, .01),
+        );
+      }
+
+      await tester.pump(OnboardingController.minimumSplashDuration);
+      await tester.pump();
+      await tester.pump(OnboardingController.progressCompletionDuration);
+      await tester.pump(OnboardingController.completedProgressHoldDuration);
+      await tester.pump();
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   testWidgets('cold-start branding remains visible for at least 3 seconds', (
     tester,
   ) async {

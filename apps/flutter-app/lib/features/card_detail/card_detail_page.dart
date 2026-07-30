@@ -1323,7 +1323,7 @@ Future<void> _openAddCollectionItemSheet(
     return;
   }
 
-  await showModalBottomSheet<void>(
+  final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -1334,6 +1334,10 @@ Future<void> _openAddCollectionItemSheet(
       entrySource: entrySource,
     ),
   );
+
+  if (saved == true && context.mounted) {
+    showKandoTopSuccessToast(context);
+  }
 
   final current = container.read(provider);
   if (current.collectionItemDraft != null &&
@@ -1546,7 +1550,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                           final saved = await controller
                               .saveCollectionItemDraft();
                           if (saved && context.mounted) {
-                            Navigator.of(context).pop();
+                            Navigator.of(context).pop(true);
                           }
                         },
                         icon: const Icon(Icons.add_circle_outline),
@@ -2485,10 +2489,14 @@ Future<String?> _showChoiceSheet(
   required String selected,
   required List<String> options,
 }) {
+  FocusManager.instance.primaryFocus?.unfocus(
+    disposition: UnfocusDisposition.scope,
+  );
   return showModalBottomSheet<String>(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
+    requestFocus: false,
     backgroundColor: Colors.transparent,
     builder: (sheetContext) {
       final screenHeight = MediaQuery.sizeOf(sheetContext).height;
