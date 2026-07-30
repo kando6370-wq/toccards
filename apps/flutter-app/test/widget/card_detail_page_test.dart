@@ -116,8 +116,8 @@ void main() {
     expect(find.text('Shop'), findsOneWidget);
     expect(find.text('Ungraded'), findsOneWidget);
     expect(find.text('PSA'), findsOneWidget);
-    expect(find.text('ACE'), findsOneWidget);
-    expect(find.text('BGS'), findsOneWidget);
+    expect(find.text('ACE'), findsNothing);
+    expect(find.text('BGS'), findsNothing);
     expect(find.text('Near Mint (NM)'), findsOneWidget);
     expect(find.text(r'$32.13'), findsWidgets);
     expect(find.text('+2.19%'), findsOneWidget);
@@ -794,6 +794,21 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('GRADED'));
     await tester.pumpAndSettle();
+    expect(find.text('PSA 10 Holofoil'), findsOneWidget);
+    expect(find.text('BGS 10 Holofoil'), findsOneWidget);
+    final chart = find.byKey(const Key('card-detail-price-chart-interactive'));
+    await tester.ensureVisible(chart);
+    await tester.pumpAndSettle();
+    final chartRect = tester.getRect(chart);
+    final touch = await tester.startGesture(
+      Offset(chartRect.left + 1, chartRect.center.dy),
+    );
+    await tester.pump();
+    final chartSemantics = tester.widget<Semantics>(chart);
+    expect(chartSemantics.properties.value, contains('PSA 10 Holofoil'));
+    expect(chartSemantics.properties.value, contains('BGS 10 Holofoil'));
+    await touch.up();
+    await tester.pump();
     await tester.ensureVisible(find.text('3M'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('3M'));

@@ -35,12 +35,19 @@ type SkuRow = {
   increase_rate: number | null;
 };
 
+type PriceHistoryRow = Record<string, string | number | null> & {
+  pricecharting_id: string;
+  product_id: string;
+  product_sub_type: string | null;
+};
+
 class FakeCardDatabase {
   constructor(
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
     private readonly sets: SetRow[] = [],
     private readonly hasNumberColumn = true,
+    private readonly priceHistories: PriceHistoryRow[] = [],
   ) {}
 
   readonly preparedSql: string[] = [];
@@ -50,7 +57,13 @@ class FakeCardDatabase {
     if (!this.hasNumberColumn && sql.includes("coalesce(number")) {
       throw new Error("no such column: number");
     }
-    return new FakeStatement(sql, this.cards, this.skus, this.sets);
+    return new FakeStatement(
+      sql,
+      this.cards,
+      this.skus,
+      this.sets,
+      this.priceHistories,
+    );
   }
 }
 
@@ -60,14 +73,29 @@ class FakeStatement {
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
     private readonly sets: SetRow[],
+    private readonly priceHistories: PriceHistoryRow[],
   ) {}
 
   bind(...values: unknown[]): FakeBoundStatement {
-    return new FakeBoundStatement(this.sql, this.cards, this.skus, this.sets, values);
+    return new FakeBoundStatement(
+      this.sql,
+      this.cards,
+      this.skus,
+      this.sets,
+      this.priceHistories,
+      values,
+    );
   }
 
   all<T>(): Promise<{ results: T[] }> {
-    return new FakeBoundStatement(this.sql, this.cards, this.skus, this.sets, []).all<T>();
+    return new FakeBoundStatement(
+      this.sql,
+      this.cards,
+      this.skus,
+      this.sets,
+      this.priceHistories,
+      [],
+    ).all<T>();
   }
 }
 
@@ -77,10 +105,19 @@ class FakeBoundStatement {
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
     private readonly sets: SetRow[],
+    private readonly priceHistories: PriceHistoryRow[],
     private readonly values: unknown[],
   ) {}
 
   async all<T>(): Promise<{ results: T[] }> {
+    if (this.sql.includes("FROM tcg_price_history")) {
+      const productId = String(this.values[0]);
+      return {
+        results: this.priceHistories.filter(
+          (row) => row.product_id === productId,
+        ) as T[],
+      };
+    }
     if (this.sql.includes("SELECT 1 AS has_trending")) {
       const results = this.skus.some((row) => row.increase_rate !== null)
         ? [{ has_trending: 1 }]
@@ -347,6 +384,43 @@ describe("local D1 card data source adapter", () => {
       { date: "2026-07-01", price: 12.5 },
       { date: "2026-07-08", price: 15.75 },
     ]);
+  });
+
+  it("adds only real graded history while raw pricing stays on tcgplayer_skus", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            product_id: "100",
+            price_history: JSON.stringify([
+              { price: "12.50", date: "2026-07-29" },
+              { price: "15.75", date: "2026-07-30" },
+            ]),
+          }),
+        ],
+        [],
+        true,
+        [gradedPriceHistory()],
+      ) as unknown as D1Database,
+    );
+
+    const prices = await adapter.getMarketPrices("100");
+
+    expect(prices[0]).toMatchObject({ grader: "Raw", price: 15.75 });
+    expect(prices).toContainEqual(
+      expect.objectContaining({
+        grader: "PSA",
+        grade: 10,
+        grade_label: "10",
+        price: 360,
+        pricecharting_id: "pc-100-foil",
+        product_sub_type: "Foil",
+        increase_percent: 20,
+      }),
+    );
+    expect(prices.some((price) => price.grader === "ACE")).toBe(false);
+    expect(prices.some((price) => price.price === 9999)).toBe(false);
   });
 
   it("searches by card name and number together because collectors use the number to identify an exact printing", async () => {
@@ -750,6 +824,37 @@ function sku(overrides: Partial<SkuRow>): SkuRow {
     price_history: "[]",
     increase_rate: null,
     ...overrides,
+  };
+}
+
+function gradedPriceHistory(): PriceHistoryRow {
+  return {
+    pricecharting_id: "pc-100-foil",
+    product_id: "100",
+    product_sub_type: "Foil",
+    price_Ungraded: JSON.stringify([
+      { price: "9999", date: "2026-07-30" },
+    ]),
+    increase_Ungraded: 999,
+    price_Grade_7: "[]",
+    price_Grade_8: "[]",
+    price_Grade_9: "[]",
+    price_Grade_9_5: "[]",
+    price_PSA_10: JSON.stringify([
+      { price: "360", date: "2026-07-30" },
+      { price: "300", date: "2026-07-29" },
+    ]),
+    price_BGS_10: "[]",
+    price_CGC_10: "[]",
+    price_SGC_10: "[]",
+    increase_Grade_7: 0,
+    increase_Grade_8: 0,
+    increase_Grade_9: 0,
+    increase_Grade_9_5: 0,
+    increase_PSA_10: 20,
+    increase_BGS_10: 0,
+    increase_CGC_10: 0,
+    increase_SGC_10: 0,
   };
 }
 

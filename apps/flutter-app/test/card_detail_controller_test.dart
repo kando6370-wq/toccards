@@ -40,13 +40,13 @@ void main() {
       expect(cardDataApi.cardRefs, ['catalog:pikachu-025']);
       expect(
         cardDataApi.maxConcurrentSeriesRequests,
-        10,
+        5,
         reason:
             'Card Detail must not serialize every market qualifier and chart range into a network waterfall.',
       );
       expect(
         cardDataApi.totalSeriesRequests,
-        10,
+        5,
         reason:
             'Market prices must reuse the full chart load instead of requesting 7d and 30d series twice.',
       );
@@ -147,9 +147,12 @@ void main() {
       addTearDown(container.dispose);
       await container.read(authControllerProvider.notifier).startupComplete;
       final provider = cardDetailControllerProvider('catalog:pikachu-025');
+      final subscription = container.listen(provider, (_, _) {});
+      addTearDown(subscription.close);
 
-      container.read(provider);
+      subscription.read();
       await portfolioApi.started.future;
+      await Future<void>.delayed(Duration.zero);
 
       final firstContent = container.read(provider);
       expect(firstContent.loadStatus, KandoLoadStatus.content);
@@ -158,6 +161,7 @@ void main() {
 
       portfolioApi.release();
       await container.read(provider.notifier).loadComplete;
+      await _drainSectionLoads();
 
       final complete = container.read(provider);
       expect(complete.assetStateStatus, KandoLoadStatus.content);
@@ -221,7 +225,7 @@ void main() {
       ).loadDetail(_session, 'catalog:pikachu-025');
 
       expect(cardDataApi.priceSeriesBatchCalls, 1);
-      expect(cardDataApi.totalSeriesRequests, 10);
+      expect(cardDataApi.totalSeriesRequests, 5);
       expect(detail.priceSeriesByRange, isNotEmpty);
     },
   );
@@ -1499,8 +1503,18 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
       CardDataMarketPriceDto(
         grader: 'PSA',
         grade: 10,
+        gradeLabel: '10',
         condition: null,
         price: 70,
+        pricechartingId: 'pc-pikachu-psa-10',
+        productSubType: 'Holofoil',
+        increasePercent: 7.69,
+        history: [
+          CardDataPricePointDto(date: '2026-04-10', price: 40),
+          CardDataPricePointDto(date: '2026-06-10', price: 50),
+          CardDataPricePointDto(date: '2026-07-03', price: 65),
+          CardDataPricePointDto(date: '2026-07-10', price: 70),
+        ],
       ),
     ];
   }
@@ -1578,7 +1592,7 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
 
 class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
   var _marketFailuresRemaining = 1;
-  var _seriesFailuresRemaining = 1;
+  var _seriesFailuresRemaining = 2;
   var _soldFailuresRemaining = 1;
 
   @override

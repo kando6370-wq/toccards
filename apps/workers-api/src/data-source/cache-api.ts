@@ -105,7 +105,7 @@ function cacheRequest(key: string): Request {
 }
 
 function marketPricesCacheKey(card_ref: string): string {
-  return ["getMarketPrices", "v2", cacheKeyPart(card_ref)].join(":");
+  return ["getMarketPrices", "v3", cacheKeyPart(card_ref)].join(":");
 }
 
 function priceSeriesCacheKey(

@@ -47,8 +47,13 @@ export type PricePoint = {
 export type MarketPrice = {
   grader: string;
   grade: number | null;
+  grade_label?: string;
   condition: string | null;
   price: number | null;
+  pricecharting_id?: string;
+  product_sub_type?: string | null;
+  increase_percent?: number;
+  history?: PricePoint[];
 };
 
 export type SoldListing = {

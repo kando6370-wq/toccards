@@ -360,10 +360,31 @@ class CardDetailState {
   }
 
   List<CardPricePoint> get selectedPriceSeries {
-    final seriesByRange = selectedPriceChartMode == CardPriceChartMode.raw
-        ? detail.priceSeriesByRange
-        : detail.gradedPriceSeriesByRange;
-    return seriesByRange[selectedPriceRange] ?? const <CardPricePoint>[];
+    return selectedPriceChartSeries
+            .firstOrNull
+            ?.seriesByRange[selectedPriceRange] ??
+        const <CardPricePoint>[];
+  }
+
+  List<CardPriceChartSeries> get selectedPriceChartSeries {
+    if (selectedPriceChartMode == CardPriceChartMode.raw) {
+      return [
+        CardPriceChartSeries(
+          label: 'Raw',
+          seriesByRange: detail.priceSeriesByRange,
+        ),
+      ];
+    }
+    if (detail.gradedPriceSeries.isNotEmpty) {
+      return detail.gradedPriceSeries;
+    }
+    if (detail.gradedPriceSeriesByRange.isEmpty) return const [];
+    return [
+      CardPriceChartSeries(
+        label: 'Graded',
+        seriesByRange: detail.gradedPriceSeriesByRange,
+      ),
+    ];
   }
 
   List<CardPricePointRow> get priceSeriesRows {
@@ -394,16 +415,24 @@ class CardDetailState {
           return CardMarketRow(
             label:
                 selectedMarketPriceCategory == CardMarketPriceCategory.ungraded
-                ? price.condition ??
-                      price.label.replaceFirst(RegExp(r'^Raw\s*'), '')
-                : price.grade == null
-                ? price.label
-                : _gradeText(price.grade!),
+                ? _rawMarketRowLabel(price)
+                : _gradedMarketRowLabel(price),
             priceText: _formatter.formatUsd(price.priceUsd),
             changeText: _marketChange7d(price).percentText,
           );
         })
         .toList();
+  }
+
+  List<CardMarketPriceCategory> get availableMarketPriceCategories {
+    final available = CardMarketPriceCategory.values.where((category) {
+      return detail.marketPrices.any(
+        (price) => price.grader.toLowerCase() == category.grader.toLowerCase(),
+      );
+    }).toList();
+    return available.isEmpty
+        ? const [CardMarketPriceCategory.ungraded]
+        : available;
   }
 
   List<CardSoldListingRow> get soldListingRows {
@@ -446,10 +475,29 @@ class CardDetailState {
   }
 
   MarketChange _marketChange7d(CardMarketPrice price) {
+    if (price.grader.toLowerCase() != 'raw' && price.increasePercent != null) {
+      final increase = price.increasePercent!;
+      return MarketChange.fromPercent(increase > 0 ? increase : null);
+    }
     return MarketChange.fromPrices(
       current: price.priceUsd,
       previous: price.previous7dPriceUsd,
     );
+  }
+
+  String _gradedMarketRowLabel(CardMarketPrice price) {
+    final grade =
+        price.gradeLabel ??
+        (price.grade == null ? price.label : _gradeText(price.grade!));
+    final subtype = price.productSubType?.trim();
+    return subtype?.isNotEmpty == true ? '$grade · $subtype' : grade;
+  }
+
+  String _rawMarketRowLabel(CardMarketPrice price) {
+    final label =
+        price.condition ??
+        price.label.replaceFirst(RegExp(r'^Raw\s*'), '').trim();
+    return label.isEmpty ? 'Raw' : label;
   }
 
   String _collectionStatusText(CardCollectionItem item) {
@@ -558,6 +606,7 @@ class CardDetailController extends Notifier<CardDetailState> {
             marketPrices: _resolvedMarketPrices(data.marketPrices),
             priceSeriesByRange: data.rawSeriesByRange,
             gradedPriceSeriesByRange: data.gradedSeriesByRange,
+            gradedPriceSeries: data.gradedSeries,
           ),
         );
       },
@@ -1186,6 +1235,7 @@ class CardDetailController extends Notifier<CardDetailState> {
             marketPrices: _resolvedMarketPrices(data.marketPrices),
             priceSeriesByRange: data.rawSeriesByRange,
             gradedPriceSeriesByRange: data.gradedSeriesByRange,
+            gradedPriceSeries: data.gradedSeries,
           ),
           priceSeriesStatus: KandoLoadStatus.content,
         );

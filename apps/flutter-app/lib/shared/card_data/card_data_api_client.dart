@@ -148,21 +148,36 @@ class CardDataMarketPriceDto {
   const CardDataMarketPriceDto({
     required this.grader,
     required this.grade,
+    this.gradeLabel,
     required this.condition,
     required this.price,
+    this.pricechartingId,
+    this.productSubType,
+    this.increasePercent,
+    this.history = const [],
   });
 
   final String grader;
   final double? grade;
+  final String? gradeLabel;
   final String? condition;
   final double? price;
+  final String? pricechartingId;
+  final String? productSubType;
+  final double? increasePercent;
+  final List<CardDataPricePointDto> history;
 
   factory CardDataMarketPriceDto.fromJson(Map<String, Object?> json) {
     return CardDataMarketPriceDto(
       grader: _requiredString(json['grader']),
       grade: _nullableDouble(json['grade']),
+      gradeLabel: _nullableString(json['grade_label']),
       condition: _nullableString(json['condition']),
       price: _nullableDouble(json['price']),
+      pricechartingId: _nullableString(json['pricecharting_id']),
+      productSubType: _nullableString(json['product_sub_type']),
+      increasePercent: _nullableDouble(json['increase_percent']),
+      history: _optionalPriceHistory(json['history']),
     );
   }
 }
@@ -573,4 +588,12 @@ double? _nullableDouble(Object? value) {
   if (value is int) return value.toDouble();
   if (value is double) return value;
   throw const CardDataApiException('Something went wrong. Please try again.');
+}
+
+List<CardDataPricePointDto> _optionalPriceHistory(Object? value) {
+  if (value == null) return const [];
+  if (value is! List) {
+    throw const CardDataApiException('Something went wrong. Please try again.');
+  }
+  return value.map(_mapItem).map(CardDataPricePointDto.fromJson).toList();
 }

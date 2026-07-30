@@ -297,6 +297,44 @@ void main() {
   );
 
   test(
+    'getMarketPrices preserves graded identity and history because duplicate product subtypes are not unique',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        return _json(200, {
+          'success': true,
+          'data': {
+            'prices': [
+              {
+                'grader': 'PSA',
+                'grade': 10,
+                'grade_label': '10',
+                'condition': null,
+                'price': 360.0,
+                'pricecharting_id': 'pc-100-foil',
+                'product_sub_type': 'Foil',
+                'increase_percent': 20.0,
+                'history': [
+                  {'date': '2026-07-29', 'price': 300.0},
+                  {'date': '2026-07-30', 'price': 360.0},
+                ],
+              },
+            ],
+          },
+        });
+      });
+
+      final price = (await CardDataApiClient(
+        _dio(adapter),
+      ).getMarketPrices('100')).single;
+
+      expect(price.pricechartingId, 'pc-100-foil');
+      expect(price.productSubType, 'Foil');
+      expect(price.increasePercent, 20);
+      expect(price.history.last.price, 360);
+    },
+  );
+
+  test(
     'getMarketPrices rejects malformed rows because silently dropping prices would hide backend contract drift',
     () async {
       final adapter = _RecordingAdapter((request) {

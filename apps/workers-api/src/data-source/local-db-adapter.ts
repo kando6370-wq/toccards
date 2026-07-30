@@ -51,6 +51,46 @@ type PriceHistoryEntry = {
   price: number;
 };
 
+type TcgPriceHistoryRow = {
+  pricecharting_id: string;
+  product_sub_type: string | null;
+  price_Grade_7: string;
+  price_Grade_8: string;
+  price_Grade_9: string;
+  price_Grade_9_5: string;
+  price_PSA_10: string;
+  price_BGS_10: string;
+  price_CGC_10: string;
+  price_SGC_10: string;
+  increase_Grade_7: number;
+  increase_Grade_8: number;
+  increase_Grade_9: number;
+  increase_Grade_9_5: number;
+  increase_PSA_10: number;
+  increase_BGS_10: number;
+  increase_CGC_10: number;
+  increase_SGC_10: number;
+};
+
+const GRADED_PRICE_FIELDS = [
+  ["Grade", 7, "7/7.5", "price_Grade_7", "increase_Grade_7"],
+  ["Grade", 8, "8/8.5", "price_Grade_8", "increase_Grade_8"],
+  ["Grade", 9, "9", "price_Grade_9", "increase_Grade_9"],
+  ["Grade", 9.5, "9.5", "price_Grade_9_5", "increase_Grade_9_5"],
+  ["PSA", 10, "10", "price_PSA_10", "increase_PSA_10"],
+  ["BGS", 10, "10", "price_BGS_10", "increase_BGS_10"],
+  ["CGC", 10, "10", "price_CGC_10", "increase_CGC_10"],
+  ["SGC", 10, "10", "price_SGC_10", "increase_SGC_10"],
+] as const satisfies ReadonlyArray<
+  readonly [
+    string,
+    number,
+    string,
+    keyof TcgPriceHistoryRow,
+    keyof TcgPriceHistoryRow,
+  ]
+>;
+
 const CARD_SELECT = `
 SELECT product_id, game_id, game, set_name, set_code, name, rarity, product_type_name
 FROM cards_all
@@ -207,7 +247,7 @@ LIMIT ? OFFSET ?`,
         });
       }
 
-      return prices;
+      return [...prices, ...(await findGradedMarketPrices(db, card_ref))];
     },
 
     async getTrending(options) {
@@ -544,6 +584,61 @@ async function findSkuRows(
     .all<TcgplayerSkuRow>();
 
   return results.results ?? [];
+}
+
+async function findGradedMarketPrices(
+  db: D1Database,
+  cardRef: string,
+): Promise<MarketPrice[]> {
+  if (!/^\d+$/.test(cardRef)) return [];
+
+  let rows: TcgPriceHistoryRow[];
+  try {
+    const results = await db
+      .prepare(
+        `SELECT pricecharting_id, product_sub_type,
+                price_Grade_7, price_Grade_8, price_Grade_9, price_Grade_9_5,
+                price_PSA_10, price_BGS_10, price_CGC_10, price_SGC_10,
+                increase_Grade_7, increase_Grade_8, increase_Grade_9,
+                increase_Grade_9_5, increase_PSA_10, increase_BGS_10,
+                increase_CGC_10, increase_SGC_10
+         FROM tcg_price_history
+         WHERE product_id = ?
+         ORDER BY product_sub_type, pricecharting_id`,
+      )
+      .bind(cardRef)
+      .all<TcgPriceHistoryRow>();
+    rows = results.results ?? [];
+  } catch (error) {
+    console.error("Failed to load graded price history.", error);
+    return [];
+  }
+
+  return rows.flatMap((row) =>
+    GRADED_PRICE_FIELDS.flatMap(
+      ([grader, grade, gradeLabel, historyField, increaseField]) => {
+        const history = filterPointsByDays(
+          parsePriceHistory(String(row[historyField] ?? "[]")),
+          90,
+        );
+        const latest = history.at(-1);
+        if (!latest) return [];
+
+        const increase = Number(row[increaseField]);
+        return [{
+          grader,
+          grade,
+          grade_label: gradeLabel,
+          condition: null,
+          price: latest.price,
+          pricecharting_id: row.pricecharting_id,
+          product_sub_type: row.product_sub_type,
+          increase_percent: Number.isFinite(increase) ? increase : 0,
+          history,
+        }];
+      },
+    ),
+  );
 }
 
 function cardFromRow(row: CardCatalogRow, cardNumber = ""): CardSearchResult {
