@@ -53,6 +53,7 @@ type InstallationAnalytics = {
 };
 
 type InstallationRow = {
+  uid: string;
   date: string;
   country: string;
   platform: string;
@@ -402,6 +403,7 @@ function InstallationsPage({ session }: { session: AdminSession }) {
     (value) => ({ value, label: countryName(value) }),
   );
   const columns: ColumnsType<InstallationRow> = [
+    { title: "UID", dataIndex: "uid" },
     { title: "日期", dataIndex: "date" },
     { title: "国家", dataIndex: "country", render: countryName },
     { title: "平台", dataIndex: "platform" },
@@ -431,7 +433,7 @@ function InstallationsPage({ session }: { session: AdminSession }) {
         <LineChart data={trend} />
       </section>
       <DataPanel title="安装数据" count={rows.length}>
-        <Table rowKey={(row) => `${row.date}-${row.country}-${row.platform}`} columns={columns} dataSource={rows} loading={loading} pagination={{ pageSize: 8 }} />
+        <Table rowKey={(row) => `${row.uid}-${row.date}-${row.country}-${row.platform}`} columns={columns} dataSource={rows} loading={loading} pagination={{ pageSize: 8 }} />
       </DataPanel>
     </PagePanel>
   );

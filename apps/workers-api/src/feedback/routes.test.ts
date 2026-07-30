@@ -12,6 +12,7 @@ type SessionRow = {
 
 type FeedbackRow = {
   id: string;
+  uid: string;
   email: string;
   types: string;
   functions: string;
@@ -61,9 +62,10 @@ class FakeD1Statement {
       throw new Error(`Unsupported run SQL: ${sql}`);
     }
 
-    const [id, email, types, functions, message] = this.values as string[];
+    const [id, uid, email, types, functions, message] = this.values as string[];
     this.db.feedback.push({
       id,
+      uid,
       email,
       types,
       functions,
@@ -107,6 +109,7 @@ describe("feedback routes", () => {
     expect(env.DB.feedback).toEqual([
       {
         id: expect.any(String),
+        uid: "100000",
         email: "person@example.com",
         types: '["Bug Report"]',
         functions: '["Price Data"]',
@@ -168,14 +171,14 @@ async function authenticatedEnv() {
   db.sessions.push({
     id: "session-1",
     owner_type: "anonymous",
-    owner_id: "anon-1",
+    owner_id: "100000",
     expires_at: "2099-01-01T00:00:00.000Z",
     revoked_at: null,
   });
-  db.anonymousAccounts.push("anon-1");
+  db.anonymousAccounts.push("100000");
   const env = testEnv(db);
   const token = await signAccessToken(
-    { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+    { owner_type: "anonymous", owner_id: "100000", session_id: "session-1" },
     env.JWT_SECRET,
   );
   return { env, token };

@@ -47,6 +47,7 @@ type AnonymousAccountRow = {
 
 type InstallationRow = {
   installation_id: string;
+  uid: string;
   platform: string;
   country_code: string | null;
   first_seen_at: string;
@@ -54,6 +55,7 @@ type InstallationRow = {
 
 type FeedbackTicketRow = {
   id: string;
+  uid: string;
   email: string;
   types: string;
   functions: string;
@@ -244,7 +246,7 @@ class FakeD1Statement {
     if (sql.includes("AS install_type")) {
       const installations = this.db.installations.map((row) => ({
         install_type: "anonymous",
-        uid: row.installation_id,
+        uid: row.uid,
         platform: row.platform,
         country: row.country_code ?? "Unknown",
         created_at: row.first_seen_at,
@@ -637,6 +639,7 @@ describe("admin routes", () => {
     await seedAdmin(env, "operator-2", "daily@example.com", "correct-password", "operator");
     env.DB.feedbackTickets.push({
       id: "ticket-1",
+      uid: "100321",
       email: "player@example.com",
       types: JSON.stringify(["Bug Report"]),
       functions: JSON.stringify(["Search"]),
@@ -661,6 +664,7 @@ describe("admin routes", () => {
       success: true,
       data: expect.objectContaining({
         id: "ticket-1",
+        uid: "100321",
         status: "processed",
         issue_type: "Bug Report",
         module: "Search",
@@ -700,6 +704,7 @@ describe("admin routes", () => {
     });
     env.DB.installations.push({
       installation_id: "ios-device-install",
+      uid: "100123",
       platform: "iOS",
       country_code: "US",
       first_seen_at: "2026-07-08T08:00:00.000Z",
@@ -726,6 +731,7 @@ describe("admin routes", () => {
         ],
         rows: expect.arrayContaining([
           expect.objectContaining({
+            uid: "100123",
             date: "2026-07-08",
             country: "US",
             environment: "development",
@@ -743,8 +749,8 @@ describe("admin routes", () => {
     env.DB.scanRecords.push({
       id: "scan-db-1",
       owner_type: "anonymous",
-      owner_id: "UID-100284",
-      image_url: "scans/anonymous/UID-100284/2026/07/scan-db-1.jpg",
+      owner_id: "100284",
+      image_url: "scans/anonymous/100284/2026/07/scan-db-1.jpg",
       filename: "scan.jpg",
       platform: "iOS",
       app_version: "1.0.0",
@@ -783,7 +789,7 @@ describe("admin routes", () => {
     });
     const login = await loginAdmin(env, "scan@example.com", "correct-password");
     (env.SCAN_IMAGES as unknown as FakeR2).objects.set(
-      "scans/anonymous/UID-100284/2026/07/scan-db-1.jpg",
+      "scans/anonymous/100284/2026/07/scan-db-1.jpg",
       { bytes: new Uint8Array([1, 2, 3]), contentType: "image/jpeg" },
     );
 
@@ -804,6 +810,7 @@ describe("admin routes", () => {
         items: [
           expect.objectContaining({
             scan_id: "scan-db-1",
+            uid: "100284",
             image_url: "/scans/scan-db-1/image",
             recognition_status: "success",
             user_confirmation_status: "confirmed",

@@ -1,5 +1,6 @@
 import { hashPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
+import { reserveAccountUid } from "../account-uid";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { sendVerificationEmail } from "../mail/verification-email";
@@ -365,7 +366,8 @@ export function registerEmailRegistrationRoutes(
         now,
       );
       const createdAt = now.toISOString();
-      const userId = createId();
+      const userId =
+        anonymousAccount?.id ?? await reserveAccountUid(c.env.DB, createdAt);
       const passwordHash = await hashPassword(input.password);
       const session = await createUserSessionValues(
         userId,

@@ -1,4 +1,5 @@
 import { createId } from "../id";
+import { reserveAccountUid } from "../account-uid";
 import {
   createGuestMigrationStatements,
   findVerifiedAnonymousAccount,
@@ -300,8 +301,6 @@ async function createOAuthUser(
   now: Date,
 ): Promise<OAuthAccountFlowResult> {
   const createdAt = now.toISOString();
-  const userId = createId();
-  const session = await createUserSessionValues(userId, jwtSecret, now);
   const anonymousAccount = await findVerifiedAnonymousAccount(
     db,
     anonymousId,
@@ -309,6 +308,9 @@ async function createOAuthUser(
     jwtSecret,
     now,
   );
+  const userId =
+    anonymousAccount?.id ?? await reserveAccountUid(db, createdAt);
+  const session = await createUserSessionValues(userId, jwtSecret, now);
 
   if (anonymousAccount) {
     const migrationStatements = createGuestMigrationStatements(

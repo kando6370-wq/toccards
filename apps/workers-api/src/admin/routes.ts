@@ -46,6 +46,7 @@ type InstallationSourceRow = {
 
 type FeedbackTicketRow = {
   id: string;
+  uid: string;
   email: string;
   types: string;
   functions: string;
@@ -258,7 +259,7 @@ const SELECT_ADMIN_USERS_SQL = `${ADMIN_USERS_FILTERED_SQL}
 const COUNT_ADMIN_USERS_SQL = `SELECT COUNT(*) AS total FROM (${ADMIN_USERS_FILTERED_SQL})`;
 
 const SELECT_INSTALLATION_SOURCES_SQL = `
-  SELECT 'anonymous' AS install_type, installation_id AS uid, platform,
+  SELECT 'anonymous' AS install_type, uid, platform,
     COALESCE(country_code, 'Unknown') AS country, first_seen_at AS created_at
   FROM app_installation
   ORDER BY first_seen_at ASC
@@ -284,7 +285,7 @@ const DISABLE_USER_SQL = `
 `;
 
 const SELECT_FEEDBACKS_SQL = `
-  SELECT id, email, types, functions, message, status, created_at, updated_at
+  SELECT id, uid, email, types, functions, message, status, created_at, updated_at
   FROM feedback_ticket
   WHERE (? IS NULL OR status = ?)
   ORDER BY created_at DESC
@@ -292,7 +293,7 @@ const SELECT_FEEDBACKS_SQL = `
 `;
 
 const SELECT_FEEDBACK_BY_ID_SQL = `
-  SELECT id, email, types, functions, message, status, created_at, updated_at
+  SELECT id, uid, email, types, functions, message, status, created_at, updated_at
   FROM feedback_ticket
   WHERE id = ?
   LIMIT 1
@@ -1257,6 +1258,7 @@ function buildInstallationTrend(
 
 function buildInstallationRows(installs: Array<ReturnType<typeof toInstallationRecord>>) {
   const groups = new Map<string, {
+    uid: string;
     date: string;
     country: string;
     platform: string;
@@ -1265,12 +1267,13 @@ function buildInstallationRows(installs: Array<ReturnType<typeof toInstallationR
   }>();
 
   for (const item of installs) {
-    const key = [item.date, item.country, item.platform, item.environment].join("|");
+    const key = [item.uid, item.date, item.country, item.platform, item.environment].join("|");
     const existing = groups.get(key);
     if (existing) {
       existing.installs += 1;
     } else {
       groups.set(key, {
+        uid: item.uid,
         date: item.date,
         country: item.country,
         platform: item.platform,
@@ -1308,7 +1311,7 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
     status: normalizeFeedbackStorageStatus(row.status),
     issue_type: types[0] ?? "其他",
     module: functions[0] ?? "App",
-    uid: row.id,
+    uid: row.uid,
     platform: "iOS",
     app_version: "1.9.0",
     device_model: "Unknown",

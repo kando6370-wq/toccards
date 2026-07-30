@@ -122,7 +122,7 @@ POST /auth/anonymous
 {
   "success": true,
   "data": {
-    "anonymous_id": "01JXXXXXX",        // anonymous_account.id
+    "anonymous_id": "100000",           // anonymous_account.id，全局数字 UID
     "access_token": "eyJ...",
     "refresh_token": "eyJ...",
     "expires_in": 900                   // access_token 有效秒数
@@ -208,7 +208,7 @@ POST /auth/register/verify
 {
   "success": true,
   "data": {
-    "user_id": "01JXXXXXX",       // user.id
+    "user_id": "100000",          // user.id，全局数字 UID
     "email": "user@example.com",  // user.email
     "access_token": "eyJ...",
     "refresh_token": "eyJ...",
@@ -232,9 +232,9 @@ POST /auth/register/verify
 
 > Workers 内部逻辑：
 > 1. 校验 `verification_code`（purpose='register'，expires_at > now，used_at IS NULL）。
-> 2. 创建 `user` 记录（id=ULID, email, password_hash=bcrypt(password)）。
+> 2. 创建 `user` 记录；新账号分配至少 6 位的全局数字 UID，游客升级则复用 `anonymous_id`。
 > 3. 初始化 `portfolio_folder`（Main, is_default=1）和 `user_preference`。
-> 4. 若 `anonymous_id` 非空：将该匿名账号下所有资产表（`portfolio_folder`、`collection_item`、`wishlist_item`、`user_preference`）的 owner_type 批量更新为 `user`、owner_id 更新为新 user.id；并回填 `anonymous_account.upgraded_user_id`。
+> 4. 若 `anonymous_id` 非空：复用该 UID，将资产表的 owner_type 批量更新为 `user`，并回填 `anonymous_account.upgraded_user_id`。
 > 5. 签发 JWT，写入 `session`（owner_type='user'）。
 > 6. 将 `verification_code.used_at` 设为当前时间。
 
@@ -263,7 +263,7 @@ POST /auth/login
 {
   "success": true,
   "data": {
-    "user_id": "01JXXXXXX",
+    "user_id": "100000",
     "email": "user@example.com",
     "access_token": "eyJ...",
     "refresh_token": "eyJ...",
@@ -418,7 +418,7 @@ POST /auth/oauth/google/callback
 {
   "success": true,
   "data": {
-    "user_id": "01JXXXXXX",
+    "user_id": "100000",
     "email": "user@gmail.com",
     "access_token": "eyJ...",
     "refresh_token": "eyJ...",
@@ -633,7 +633,7 @@ GET /auth/me
   "success": true,
   "data": {
     "owner_type": "user",          // 'user' | 'anonymous'
-    "user_id": "01JXXXXXX",        // user.id（owner_type='user' 时）
+    "user_id": "100000",           // user.id（owner_type='user' 时）
     "anonymous_id": null,          // anonymous_account.id（owner_type='anonymous' 时）
     "email": "user@example.com",   // owner_type='anonymous' 时为 null
     "display_name": null,          // user.display_name
@@ -1685,7 +1685,7 @@ Query 参数：
     "items": [
       {
         "account_type": "user",
-        "id": "01JXXXXXX",         // user.id
+        "id": "100000",            // user.id，全局数字 UID
         "email": "user@example.com",
         "display_name": null,
         "created_at": "...",
@@ -1693,7 +1693,7 @@ Query 参数：
       },
       {
         "account_type": "anonymous",
-        "id": "01JANON",           // anonymous_account.id
+        "id": "100001",            // anonymous_account.id，全局数字 UID
         "device_id": "...",
         "created_at": "...",
         "upgraded_user_id": null   // 非 null = 已升级为正式账号
@@ -1723,7 +1723,7 @@ GET /admin/users/{account_type}/{id}
   "success": true,
   "data": {
     "account_type": "user",
-    "id": "01JXXXXXX",
+    "id": "100000",
     "email": "user@example.com",
     "display_name": null,
     "created_at": "...",

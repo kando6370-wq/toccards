@@ -1,5 +1,5 @@
 // tcg-card D1 Schema —— 严格对齐 docs/tcg-card/03-data-api/data-model.md。
-// 约定：ULID 主键 TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；金额 REAL；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。
+// 约定：账号主键为至少 6 位的全局数字 UID，其他业务主键为 ULID TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；金额 REAL；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -171,8 +171,18 @@ export const anonymousAccount = sqliteTable(
   ],
 );
 
+export const accountUid = sqliteTable(
+  "account_uid",
+  {
+    uid: integer("uid").primaryKey(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [check("ck_account_uid_minimum", sql`${t.uid} >= 100000`)],
+);
+
 export const appInstallation = sqliteTable("app_installation", {
   installationId: text("installation_id").primaryKey(),
+  uid: text("uid"),
   platform: text("platform").notNull(),
   countryCode: text("country_code"),
   firstSeenAt: text("first_seen_at").notNull(),
@@ -429,6 +439,7 @@ export const feedbackTicket = sqliteTable(
   "feedback_ticket",
   {
     id: text("id").primaryKey(),
+    uid: text("uid"),
     email: text("email").notNull(),
     types: text("types").notNull(), // JSON 数组
     functions: text("functions").notNull(), // JSON 数组

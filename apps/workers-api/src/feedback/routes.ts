@@ -40,8 +40,8 @@ const INTERNAL_ERROR_RESPONSE = {
 
 const INSERT_FEEDBACK_SQL = `
 INSERT INTO feedback_ticket
-  (id, email, types, functions, message, status, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
+  (id, uid, email, types, functions, message, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)
 `;
 
 type FeedbackDraft = {
@@ -78,6 +78,7 @@ export function createFeedbackRoutes(): Hono<{ Bindings: Env }> {
       await c.env.DB.prepare(INSERT_FEEDBACK_SQL)
         .bind(
           id,
+          auth.owner.owner_id,
           draft.email,
           JSON.stringify(draft.types),
           JSON.stringify(draft.functions),

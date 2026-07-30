@@ -299,6 +299,7 @@ class FakeD1 {
     image_url: string | null;
   }> = [];
   installationWrites: unknown[][] = [];
+  nextAccountUid = 100000;
   consumeNextRegisterCodeBeforeUpdate = false;
   failNextBatch = false;
   failNextFirst = false;
@@ -381,6 +382,10 @@ class FakeD1 {
     }
 
     const normalizedSql = normalizeSql(sql);
+
+    if (normalizedSql.startsWith("INSERT INTO account_uid")) {
+      return { uid: this.nextAccountUid++ } as T;
+    }
 
     if (normalizedSql === SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL) {
       const [deviceId] = values as [string];
@@ -3723,6 +3728,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const body = (await response.json()) as OAuthSuccessResponse;
 
     expect(response.status).toBe(200);
+    expect(body.data.user_id).toBe(anonymousBody.data.anonymous_id);
     expect(body.data).toEqual(
       expect.objectContaining({
         email: "google.migrate@example.com",
@@ -4891,6 +4897,7 @@ describe("POST /api/v1/auth/register/verify", () => {
     const body = (await response.json()) as RegisterVerifySuccessResponse;
 
     expect(response.status).toBe(200);
+    expect(body.data.user_id).toMatch(/^\d{6,}$/);
     expect(body).toEqual({
       success: true,
       data: {
@@ -5042,6 +5049,7 @@ describe("POST /api/v1/auth/register/verify", () => {
 
     expect(response.status).toBe(200);
     expect(body.data.migrated).toBe(true);
+    expect(userId).toBe(anonymousId);
     expect(db.anonymousAccounts[0]?.upgraded_user_id).toBe(userId);
     expect(db.portfolioFolders).toHaveLength(1);
     expect(db.userPreferences).toHaveLength(1);
@@ -6605,11 +6613,13 @@ describe("POST /api/v1/auth/anonymous", () => {
     Object.defineProperty(request, "cf", { value: { country: "us" } });
 
     const response = await app.fetch(request, env);
+    const body = (await response.clone().json()) as AnonymousSuccessResponse;
 
     expect(response.status).toBe(200);
     expect(fakeD1(env).installationWrites).toEqual([
       [
         "device-country",
+        body.data.anonymous_id,
         "iOS",
         "US",
         expect.any(String),
@@ -6671,6 +6681,7 @@ describe("POST /api/v1/auth/anonymous", () => {
     const anonymousId = body.data.anonymous_id;
     const accessPayload = decodeJwtPayload(body.data.access_token);
 
+    expect(anonymousId).toMatch(/^\d{6,}$/);
     expect(accessPayload).toMatchObject({
       owner_type: "anonymous",
       owner_id: anonymousId,
