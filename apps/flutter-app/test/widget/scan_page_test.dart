@@ -371,7 +371,7 @@ void main() {
     },
   );
   testWidgets(
-    'Scan closes flash in background and reopens the camera on resume because camera resources cannot outlive the active page',
+    'Scan pauses in background and resumes the same preview without a black frame',
     (tester) async {
       final first = _TestScanCameraSession();
       final factory = _TestScanCameraFactory(first);
@@ -382,19 +382,20 @@ void main() {
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump();
-      expect(first.disposed, isTrue);
+      expect(first.pausePreviewCount, 1);
+      expect(first.disposed, isFalse);
       expect(first.flashEnabled, isFalse);
+      expect(find.byKey(const Key('scan-live-camera-preview')), findsOneWidget);
 
-      final second = _TestScanCameraSession();
-      factory.session = second;
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
+      expect(first.resumePreviewCount, 1);
+      expect(factory.openCount, 1);
       expect(find.byKey(const Key('scan-live-camera-preview')), findsOneWidget);
-      expect(second.disposed, isFalse);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      expect(second.disposed, isTrue);
+      expect(first.disposed, isTrue);
     },
   );
 
@@ -2628,6 +2629,8 @@ class _PermissionDelayedScanCameraFactory implements ScanCameraFactory {
 class _TestScanCameraSession implements ScanCameraSession {
   var _flashEnabled = false;
   var takePhotoCount = 0;
+  var pausePreviewCount = 0;
+  var resumePreviewCount = 0;
   var disposed = false;
 
   @override
@@ -2654,6 +2657,16 @@ class _TestScanCameraSession implements ScanCameraSession {
   Future<bool> toggleFlash() async {
     _flashEnabled = !_flashEnabled;
     return _flashEnabled;
+  }
+
+  @override
+  Future<void> pausePreview() async {
+    pausePreviewCount += 1;
+  }
+
+  @override
+  Future<void> resumePreview() async {
+    resumePreviewCount += 1;
   }
 
   @override

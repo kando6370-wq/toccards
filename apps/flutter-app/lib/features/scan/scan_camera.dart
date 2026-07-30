@@ -10,6 +10,8 @@ abstract interface class ScanCameraSession {
   bool get flashEnabled;
   Future<ScanImage> takePhoto();
   Future<bool> toggleFlash();
+  Future<void> pausePreview();
+  Future<void> resumePreview();
   Future<void> dispose();
 }
 
@@ -96,6 +98,12 @@ class PluginScanCameraSession implements ScanCameraSession {
       return false;
     }
   }
+
+  @override
+  Future<void> pausePreview() => _controller.pausePreview();
+
+  @override
+  Future<void> resumePreview() => _controller.resumePreview();
 
   @override
   Future<void> dispose() async {

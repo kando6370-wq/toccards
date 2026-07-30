@@ -293,6 +293,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _nextScanToken = 1;
   var _cameraGeneration = 0;
   var _openingCamera = false;
+  var _cameraPausedForLifecycle = false;
   var _permissionDialogVisible = false;
   var _appActive = true;
   var _openingReview = false;
@@ -367,12 +368,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _appActive = true;
-      unawaited(_openCamera());
+      unawaited(_resumeCameraForLifecycle());
       return;
     }
     if (state == AppLifecycleState.inactive) return;
     _appActive = false;
-    unawaited(_closeCamera());
+    unawaited(_pauseCameraForLifecycle());
   }
 
   @override
@@ -451,6 +452,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _closeCamera() async {
     _cameraGeneration += 1;
+    _cameraPausedForLifecycle = false;
     _photoRecognitionInFlight = false;
     final session = _cameraSession;
     if (session == null) return;
@@ -460,6 +462,41 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _cameraSession = null;
     }
     await session.dispose();
+  }
+
+  Future<void> _pauseCameraForLifecycle() async {
+    if (_cameraPausedForLifecycle) return;
+    _cameraPausedForLifecycle = true;
+    _photoRecognitionInFlight = false;
+    final session = _cameraSession;
+    if (session == null) return;
+    try {
+      if (session.flashEnabled) {
+        await session.toggleFlash();
+      }
+      await session.pausePreview();
+      if (mounted) setState(() {});
+    } catch (_) {
+      // The platform may already have interrupted the camera session.
+    }
+  }
+
+  Future<void> _resumeCameraForLifecycle() async {
+    _cameraPausedForLifecycle = false;
+    final session = _cameraSession;
+    if (session == null) {
+      await _openCamera();
+      return;
+    }
+    try {
+      await session.resumePreview();
+      if (mounted) setState(() {});
+    } catch (_) {
+      await _closeCamera();
+      if (mounted && _appActive) {
+        await _openCamera();
+      }
+    }
   }
 
   void _startPhotoScan() {
