@@ -21,7 +21,6 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
-import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -532,6 +531,7 @@ void main() {
       find.byKey(const ValueKey('assets/search/wishlist_on.svg')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
 
     final collectButton = find.byKey(const Key('search-collect-squirtle'));
     await tester.ensureVisible(collectButton);
@@ -566,8 +566,7 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pump();
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
   });
 
   testWidgets('Search card action buttons do not open CardDetail', (
@@ -597,49 +596,9 @@ void main() {
     expect(find.byType(SearchPage), findsOneWidget);
     expect(find.byKey(const Key('card-detail-hero')), findsNothing);
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pump();
   });
 
-  testWidgets('Search card add and remove actions use the success top toast', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: _searchOverrides(),
-        child: const _SearchTestApp(),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    Future<void> expectSuccessToast() async {
-      await tester.pump();
-      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
-      expect(find.text(changesSavedToastText), findsOneWidget);
-      expect(
-        tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
-        KandoTopToastType.success,
-      );
-      await tester.tap(find.byTooltip('Close'));
-      await tester.pump();
-    }
-
-    final wishlistButton = find.byKey(const Key('search-wishlist-squirtle'));
-    await tester.tap(wishlistButton);
-    await expectSuccessToast();
-
-    await tester.tap(wishlistButton);
-    await expectSuccessToast();
-
-    final collectButton = find.byKey(const Key('search-collect-squirtle'));
-    await tester.tap(collectButton);
-    await expectSuccessToast();
-
-    await tester.tap(collectButton);
-    await expectSuccessToast();
-  });
-
-  testWidgets('Search card action failures use the top toast', (tester) async {
+  testWidgets('Search card action failures do not show a toast', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -654,24 +613,16 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('search-wishlist-squirtle')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
     expect(find.byKey(const Key('kando-floating-toast')), findsNothing);
-    expect(find.text(genericFailureToastText), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pump();
 
     await tester.tap(find.byKey(const Key('search-collect-squirtle')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
     expect(find.byKey(const Key('kando-floating-toast')), findsNothing);
-    expect(find.text(genericFailureToastText), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pump();
   });
 
   testWidgets('no matching results state is shown', (tester) async {

@@ -1796,6 +1796,11 @@ class _InteractiveChartState extends State<_InteractiveChart> {
     setState(() => _selectedIndex = index);
   }
 
+  void _clearSelection() {
+    if (_selectedIndex == null) return;
+    setState(() => _selectedIndex = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -1807,14 +1812,15 @@ class _InteractiveChartState extends State<_InteractiveChart> {
           value: _semanticValue,
           child: MouseRegion(
             onHover: (event) => _selectAt(event.localPosition.dx, width),
-            child: GestureDetector(
+            onExit: (_) => _clearSelection(),
+            child: Listener(
               behavior: HitTestBehavior.opaque,
-              onTapDown: (details) =>
-                  _selectAt(details.localPosition.dx, width),
-              onHorizontalDragStart: (details) =>
-                  _selectAt(details.localPosition.dx, width),
-              onHorizontalDragUpdate: (details) =>
-                  _selectAt(details.localPosition.dx, width),
+              onPointerDown: (event) =>
+                  _selectAt(event.localPosition.dx, width),
+              onPointerMove: (event) =>
+                  _selectAt(event.localPosition.dx, width),
+              onPointerUp: (_) => _clearSelection(),
+              onPointerCancel: (_) => _clearSelection(),
               child: CustomPaint(
                 painter: _ChartPainter(
                   values: widget.values,

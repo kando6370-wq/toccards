@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -7,13 +9,16 @@ import 'kando_style.dart';
 const genericFailureToastText = 'Something went wrong. Please try again.';
 const networkFailureToastText =
     'No internet connection. Please check your network and try again.';
-const changesSavedToastText = 'Success! Your changes have been saved';
+const portfolioCardAddedToastText = '1 card added to your portfolio';
 const kandoToastDuration = Duration(seconds: 2);
 const kandoTopToastDuration = Duration(seconds: 3);
+const kandoCenteredSuccessToastDuration = Duration(seconds: 3);
 const kandoTopToastTopGap = 28.0;
 
 OverlayEntry? _kandoTopToastEntry;
 Timer? _kandoTopToastTimer;
+OverlayEntry? _kandoCenteredSuccessToastEntry;
+Timer? _kandoCenteredSuccessToastTimer;
 
 /// Visual/semantic variants for top overlay toasts.
 ///
@@ -148,14 +153,32 @@ void showKandoTopNetworkToast(BuildContext context) {
   );
 }
 
-/// Shows the generic saved-success message as a top toast.
+/// Shows the Figma centered success toast and replaces any current instance.
 ///
-/// 中文：以顶部提示框展示通用的修改已保存文案。
-void showKandoTopSuccessToast(BuildContext context) {
-  showKandoTopToast(
-    context,
-    message: changesSavedToastText,
-    type: KandoTopToastType.success,
+/// 中文：显示 Figma 居中成功提示，并替换当前已显示的同类提示。
+void showKandoCenteredSuccessToast(
+  BuildContext context, {
+  String title = 'Success',
+  required String message,
+  Duration duration = kandoCenteredSuccessToastDuration,
+}) {
+  final overlay = Overlay.of(context, rootOverlay: true);
+  _removeKandoCenteredSuccessToast();
+
+  final entry = OverlayEntry(
+    builder: (_) => Positioned.fill(
+      child: IgnorePointer(
+        child: Center(
+          child: KandoCenteredSuccessToast(title: title, message: message),
+        ),
+      ),
+    ),
+  );
+  _kandoCenteredSuccessToastEntry = entry;
+  overlay.insert(entry);
+  _kandoCenteredSuccessToastTimer = Timer(
+    duration,
+    _removeKandoCenteredSuccessToast,
   );
 }
 
@@ -164,6 +187,172 @@ void _removeKandoTopToast() {
   _kandoTopToastTimer = null;
   _kandoTopToastEntry?.remove();
   _kandoTopToastEntry = null;
+}
+
+void _removeKandoCenteredSuccessToast() {
+  _kandoCenteredSuccessToastTimer?.cancel();
+  _kandoCenteredSuccessToastTimer = null;
+  _kandoCenteredSuccessToastEntry?.remove();
+  _kandoCenteredSuccessToastEntry = null;
+}
+
+/// Figma centered success toast from node 183:10881.
+class KandoCenteredSuccessToast extends StatelessWidget {
+  const KandoCenteredSuccessToast({
+    super.key,
+    this.title = 'Success',
+    required this.message,
+  });
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final width = math
+        .min(260.0, math.max(0.0, viewport.width - 48))
+        .toDouble();
+    final widthProgress = ((width - 212) / 48).clamp(0.0, 1.0);
+    final heightProgress = ((viewport.height - 48 - 180) / 30).clamp(0.0, 1.0);
+    final scaleProgress = math.min(widthProgress, heightProgress).toDouble();
+    final height = 180 + (30 * scaleProgress);
+    const horizontalPadding = 20.0;
+    final verticalPadding = 18 + (6 * scaleProgress);
+    final iconSize = 42 + (6 * scaleProgress);
+    final iconInnerSize = 22 + (2 * scaleProgress);
+    final iconGap = 12 + (4 * scaleProgress);
+    final titleGap = 6 + (2 * scaleProgress);
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        key: const Key('kando-centered-success-toast'),
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x40000000),
+              offset: Offset(0, 25),
+              blurRadius: 50,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: DecoratedBox(
+              key: const Key('kando-centered-success-surface'),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xE61C1E15), Color(0xE612140E)],
+                ),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment(-0.9, -1),
+                        radius: 1.5,
+                        colors: [Color(0x3DF0FE70), Color(0x0010100B)],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                      vertical: verticalPadding,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _KandoCenteredSuccessIcon(
+                          size: iconSize,
+                          innerSize: iconInnerSize,
+                        ),
+                        SizedBox(height: iconGap),
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          textScaler: TextScaler.noScaling,
+                          style: const TextStyle(
+                            color: Color(0xFFF1FE70),
+                            fontFamily: 'Fraunces',
+                            fontSize: 24,
+                            height: 32 / 24,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: titleGap),
+                        Text(
+                          message,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          softWrap: true,
+                          textScaler: TextScaler.noScaling,
+                          style: const TextStyle(
+                            color: Color(0xFFE3E3D6),
+                            fontSize: 15,
+                            height: 22 / 15,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _KandoCenteredSuccessIcon extends StatelessWidget {
+  const _KandoCenteredSuccessIcon({
+    required this.size,
+    required this.innerSize,
+  });
+
+  final double size;
+  final double innerSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Color(0x1FF1FE70),
+        shape: BoxShape.circle,
+      ),
+      child: Container(
+        width: innerSize,
+        height: innerSize,
+        decoration: const BoxDecoration(
+          color: Color(0xFFF1FE70),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.check_rounded,
+          size: 19,
+          color: Color(0xFF1C1E15),
+        ),
+      ),
+    );
+  }
 }
 
 /// Figma floating toast content.

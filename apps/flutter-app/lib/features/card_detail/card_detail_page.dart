@@ -1336,7 +1336,10 @@ Future<void> _openAddCollectionItemSheet(
   );
 
   if (saved == true && context.mounted) {
-    showKandoTopSuccessToast(context);
+    showKandoCenteredSuccessToast(
+      context,
+      message: portfolioCardAddedToastText,
+    );
   }
 
   final current = container.read(provider);
@@ -3181,6 +3184,11 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
     setState(() => _selectedIndex = index);
   }
 
+  void _clearSelection() {
+    if (_selectedIndex == null) return;
+    setState(() => _selectedIndex = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -3192,14 +3200,15 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
           value: _semanticValue,
           child: MouseRegion(
             onHover: (event) => _selectAt(event.localPosition.dx, width),
-            child: GestureDetector(
+            onExit: (_) => _clearSelection(),
+            child: Listener(
               behavior: HitTestBehavior.opaque,
-              onTapDown: (details) =>
-                  _selectAt(details.localPosition.dx, width),
-              onHorizontalDragStart: (details) =>
-                  _selectAt(details.localPosition.dx, width),
-              onHorizontalDragUpdate: (details) =>
-                  _selectAt(details.localPosition.dx, width),
+              onPointerDown: (event) =>
+                  _selectAt(event.localPosition.dx, width),
+              onPointerMove: (event) =>
+                  _selectAt(event.localPosition.dx, width),
+              onPointerUp: (_) => _clearSelection(),
+              onPointerCancel: (_) => _clearSelection(),
               child: CustomPaint(
                 painter: _PriceChartPainter(
                   values: widget.values,

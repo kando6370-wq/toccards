@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -174,23 +175,52 @@ void main() {
         'No chart point selected',
       );
 
-      final chartRect = tester.getRect(chart);
-      await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));
+      var chartRect = tester.getRect(chart);
+      final touch = await tester.startGesture(
+        Offset(chartRect.left + 1, chartRect.center.dy),
+      );
       await tester.pump();
       expect(
         tester.widget<Semantics>(chart).properties.value,
         r'Date: 30 days ago, Price: $30.67',
       );
 
-      await tester.dragFrom(
-        Offset(chartRect.left + 1, chartRect.center.dy),
-        Offset(chartRect.width - 2, 0),
-      );
+      await touch.moveTo(Offset(chartRect.right - 1, chartRect.center.dy));
       await tester.pump();
       expect(
         tester.widget<Semantics>(chart).properties.value,
         r'Date: Today, Price: $32.13',
       );
+
+      await touch.up();
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+
+      chartRect = tester.getRect(chart);
+      final mouse = await tester.createGesture(
+        kind: ui.PointerDeviceKind.mouse,
+      );
+      await mouse.addPointer(
+        location: Offset(chartRect.right + 20, chartRect.center.dy),
+      );
+      await tester.pump();
+      await mouse.moveTo(chartRect.center);
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        isNot('No chart point selected'),
+      );
+
+      await mouse.moveTo(Offset(chartRect.right + 20, chartRect.center.dy));
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+      await mouse.removePointer();
     },
   );
 
@@ -430,14 +460,26 @@ void main() {
         'Raw / Near Mint (NM)',
       );
       expect(savedState.collectionItemRows.single.purchasePriceText, '--');
-      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
-      expect(find.text(changesSavedToastText), findsOneWidget);
-      expect(
-        tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
-        KandoTopToastType.success,
+      final successToast = find.byKey(
+        const Key('kando-centered-success-toast'),
       );
-      await tester.tap(find.byTooltip('Close'));
+      expect(successToast, findsOneWidget);
+      expect(find.byKey(const Key('kando-top-toast')), findsNothing);
+      expect(find.text('Success'), findsOneWidget);
+      expect(find.text(portfolioCardAddedToastText), findsOneWidget);
+      expect(tester.getSize(successToast), const Size(260, 210));
+      final viewSize = tester.view.physicalSize / tester.view.devicePixelRatio;
+      expect(
+        tester.getCenter(successToast),
+        Offset(viewSize.width / 2, viewSize.height / 2),
+      );
+      final title = tester.widget<Text>(find.text('Success'));
+      expect(title.style?.fontFamily, 'Fraunces');
+      expect(title.style?.fontSize, 24);
+      expect(title.style?.fontWeight, FontWeight.w600);
+      await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pump();
+      expect(successToast, findsNothing);
     },
   );
 
@@ -465,9 +507,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
-    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
-    expect(find.text(changesSavedToastText), findsOneWidget);
-    await tester.tap(find.byTooltip('Close'));
+    expect(
+      find.byKey(const Key('kando-centered-success-toast')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
+    expect(find.text(portfolioCardAddedToastText), findsOneWidget);
+    await tester.pump(kandoCenteredSuccessToastDuration);
     await tester.pump();
   });
 

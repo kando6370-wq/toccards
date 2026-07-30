@@ -186,4 +186,48 @@ void main() {
 
     expect(find.byKey(const Key('kando-top-toast')), findsNothing);
   });
+
+  testWidgets('centered success Toast adapts below its Figma max size', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(260, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showKandoCenteredSuccessToast(
+                context,
+                message: portfolioCardAddedToastText,
+              ),
+              child: const Text('Show centered success'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Show centered success'));
+    await tester.pump();
+
+    final toast = find.byKey(const Key('kando-centered-success-toast'));
+    expect(tester.getSize(toast), const Size(212, 180));
+    expect(tester.getCenter(toast), const Offset(130, 240));
+    final surface = tester.widget<DecoratedBox>(
+      find.byKey(const Key('kando-centered-success-surface')),
+    );
+    expect((surface.decoration as BoxDecoration).border, isNull);
+    expect(tester.widget<Text>(find.text('Success')).style?.fontSize, 24);
+    final message = tester.widget<Text>(find.text(portfolioCardAddedToastText));
+    expect(message.textAlign, TextAlign.center);
+    expect(message.maxLines, 2);
+    expect(message.softWrap, isTrue);
+
+    await tester.pump(kandoCenteredSuccessToastDuration);
+    await tester.pump();
+  });
 }
