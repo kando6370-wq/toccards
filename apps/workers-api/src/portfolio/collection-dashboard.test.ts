@@ -34,7 +34,7 @@ describe("collection dashboard enrichment", () => {
       created_at: "2026-07-01T00:00:00.000Z",
     }));
     const result = await enrichCollectionDashboard(
-      new FakeDb([card("100")], [sku(100)]) as unknown as D1Database,
+      new FakeDb([card("100")], [sku("100")]) as unknown as D1Database,
       portfolio,
       [{ id: "wish-1", card_ref: "100", created_at: "2026-07-02T00:00:00.000Z" }],
       new Date("2026-07-10T12:00:00.000Z"),
@@ -76,7 +76,7 @@ describe("collection dashboard enrichment", () => {
     const result = await enrichCollectionDashboard(
       new FakeDb(
         [card("100")],
-        [sku(100, "MP", "Moderately Played", 11.23)],
+        [sku("100", "MP", "Moderately Played", 11.23)],
       ) as unknown as D1Database,
       [baseItem, { ...baseItem, id: "explicit-item", language: "Japanese" }],
       [],
@@ -107,7 +107,7 @@ function card(productId: string) {
 }
 
 function sku(
-  productId: number,
+  productId: string,
   conditionCode = "NM",
   conditionName = "Near Mint",
   currentPrice = 20,

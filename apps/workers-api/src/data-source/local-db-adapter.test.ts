@@ -24,7 +24,7 @@ type SetRow = {
 
 type SkuRow = {
   sku_id: number;
-  product_id: string | number;
+  product_id: string;
   condition_code: string | null;
   condition_name: string | null;
   language_code: string | null;
@@ -321,7 +321,7 @@ describe("local D1 card data source adapter", () => {
         [card({ product_id: "100", name: "Charizard" })],
         [
           sku({
-            product_id: 100,
+            product_id: "100",
             condition_name: "Near Mint",
             price_history: JSON.stringify([
               { price: "12.50", date: "2026-07-01" },
@@ -407,14 +407,14 @@ describe("local D1 card data source adapter", () => {
         [
           sku({
             sku_id: 1,
-            product_id: 100,
+            product_id: "100",
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-08" },
             ]),
           }),
           sku({
             sku_id: 2,
-            product_id: 100,
+            product_id: "100",
             price_history: JSON.stringify([
               { price: 12, date: "2026-07-16" },
               { price: 13, date: "2026-07-17" },
@@ -623,7 +623,7 @@ describe("local D1 card data source adapter", () => {
         ],
         [
           sku({
-            product_id: 100,
+            product_id: "100",
             increase_rate: 5,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-14" },
@@ -632,7 +632,7 @@ describe("local D1 card data source adapter", () => {
           }),
           sku({
             sku_id: 2,
-            product_id: 200,
+            product_id: "200",
             increase_rate: 40,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-12" },
@@ -641,7 +641,7 @@ describe("local D1 card data source adapter", () => {
           }),
           sku({
             sku_id: 3,
-            product_id: 200,
+            product_id: "200",
             variant_code: "F",
             variant_name: "Foil",
             increase_rate: 60,
@@ -652,7 +652,7 @@ describe("local D1 card data source adapter", () => {
           }),
           sku({
             sku_id: 4,
-            product_id: 300,
+            product_id: "300",
             increase_rate: null,
             price_history: JSON.stringify([
               { price: 7, date: "2026-07-15" },
@@ -660,7 +660,7 @@ describe("local D1 card data source adapter", () => {
           }),
           sku({
             sku_id: 5,
-            product_id: 400,
+            product_id: "400",
             increase_rate: -20,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-14" },
@@ -708,7 +708,7 @@ describe("local D1 card data source adapter", () => {
   it("returns empty Trending without the ranking scan because an unfinished producer leaves increase_rate null", async () => {
     const db = new FakeCardDatabase(
       [card({ product_id: "100" })],
-      [sku({ product_id: 100, increase_rate: null })],
+      [sku({ product_id: "100", increase_rate: null })],
     );
     const adapter = createLocalDbDataSourceAdapter(
       db as unknown as D1Database,
@@ -740,7 +740,7 @@ function card(overrides: Partial<CardRow>): CardRow {
 function sku(overrides: Partial<SkuRow>): SkuRow {
   return {
     sku_id: 1,
-    product_id: 100,
+    product_id: "100",
     condition_code: "NM",
     condition_name: "Near Mint",
     language_code: "EN",

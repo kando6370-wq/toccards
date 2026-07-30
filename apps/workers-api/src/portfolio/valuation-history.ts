@@ -18,7 +18,7 @@ type ItemEventRow = {
 
 export type SkuRow = {
   sku_id: number;
-  product_id: number;
+  product_id: string;
   condition_code: string | null;
   condition_name: string | null;
   language_code: string | null;
@@ -233,7 +233,7 @@ function parsePriceHistory(value: string): PricePoint[] {
 }
 
 export async function loadSkus(db: D1Database, cardRefs: string[]): Promise<SkuRow[]> {
-  const productIds = cardRefs.filter((ref) => /^\d+$/.test(ref)).map(Number);
+  const productIds = cardRefs.filter((ref) => /^\d+$/.test(ref));
   const rows: SkuRow[] = [];
   for (let offset = 0; offset < productIds.length; offset += 80) {
     const chunk = productIds.slice(offset, offset + 80);
@@ -271,7 +271,7 @@ export async function loadCards(db: D1Database, cardRefs: string[]): Promise<Car
 export function groupSkus(rows: SkuRow[]): Map<string, SkuRow[]> {
   const grouped = new Map<string, SkuRow[]>();
   for (const row of rows) {
-    const key = String(row.product_id);
+    const key = row.product_id;
     grouped.set(key, [...(grouped.get(key) ?? []), row]);
   }
   return grouped;

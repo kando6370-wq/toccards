@@ -33,7 +33,7 @@ tcg-card 的数据分为两层，本文档只定义写入 D1 的部分：
 | `tcgplayer_skus` | SKU 维度价格历史 | `sku_id` 主键、`product_id`、`condition_*`、`language_*`、`variant_*`、`price_history` |
 
 建模注意：
-- `cards_all.product_id` 是 TEXT，`tcgplayer_skus.product_id` 是 INTEGER，查询时需要显式转换或在应用层分别按字符串/数字处理。
+- `cards_all.product_id` 与 `tcgplayer_skus.product_id` 均为 TEXT，Workers 与业务引用统一按字符串处理。
 - `cards_all` 当前没有 `card_number`，数据代理响应该字段为空字符串。
 - `price_history` 是 JSON 数组字符串，结构如 `[{"price":"0.13","date":"2026-07-07"}]`，应用层必须使用 JSON parser。
 
@@ -215,7 +215,7 @@ CREATE INDEX idx_collection_item_card ON collection_item(card_ref);
 - `grader` 为评级机构时，`grade` 必填，`condition` 为 NULL。
 - `object_type = 'sealed'` 时，`grader` 固定为 `'Raw'`（Sealed 无评级），`condition` / `grade` 均为 NULL。
 - `purchase_price` 存原始货币原值，不参与市场价值计算，只作成本记录；展示时按 `purchase_currency` 换算显示货币（见架构文档 §4.1）。
-- `card_ref` 使用 `cards_all.product_id`。该字段在基础表中为 TEXT；与 `tcgplayer_skus.product_id` 关联时由 Workers 显式转换为数字。
+- `card_ref` 使用 `cards_all.product_id`。该字段与 `tcgplayer_skus.product_id` 均为 TEXT，可直接关联。
 
 ### 4.3 wishlist_item（心愿单）
 
