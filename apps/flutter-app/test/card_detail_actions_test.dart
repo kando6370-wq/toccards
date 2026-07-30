@@ -12,6 +12,7 @@ void main() {
       );
 
       await actions.shareCard(
+        cardRef: 'pokemon:sv3:125',
         name: 'Charizard ex',
         setName: 'Obsidian Flames',
         marketPrice: r'$780.00',
@@ -21,7 +22,31 @@ void main() {
       expect(shared?.subject, 'Charizard ex');
       expect(
         shared?.text,
-        'Charizard ex\nObsidian Flames\nMarket price: \$780.00',
+        'Charizard ex\nObsidian Flames\nMarket price: \$780.00\n'
+        'https://api-dev.tcgcard.fun/api/v1/cards/pokemon%3Asv3%3A125',
+      );
+    },
+  );
+
+  test(
+    'card share uses the production API origin in production builds',
+    () async {
+      ShareParams? shared;
+      final actions = PluginCardDetailActions(
+        apiBaseUrl: 'https://api.tcgcard.fun/api/v1',
+        share: (params) async => shared = params,
+      );
+
+      await actions.shareCard(
+        cardRef: 'pokemon:sv3:125',
+        name: 'Charizard ex',
+        setName: 'Obsidian Flames',
+        marketPrice: r'$780.00',
+      );
+
+      expect(
+        shared?.text,
+        contains('https://api.tcgcard.fun/api/v1/cards/pokemon%3Asv3%3A125'),
       );
     },
   );

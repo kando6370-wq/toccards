@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../shared/api/api_environment.dart';
+
 final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
   return const PluginCardDetailActions();
 });
@@ -14,6 +16,7 @@ Future<void> _shareCard(ShareParams params) async {
 
 abstract interface class CardDetailActions {
   Future<void> shareCard({
+    required String cardRef,
     required String name,
     required String setName,
     required String marketPrice,
@@ -28,20 +31,28 @@ abstract interface class CardDetailActions {
 }
 
 class PluginCardDetailActions implements CardDetailActions {
-  const PluginCardDetailActions({CardShareLauncher share = _shareCard})
-    : _share = share;
+  const PluginCardDetailActions({
+    CardShareLauncher share = _shareCard,
+    String apiBaseUrl = kandoApiBaseUrl,
+  }) : _share = share,
+       _apiBaseUrl = apiBaseUrl;
 
   final CardShareLauncher _share;
+  final String _apiBaseUrl;
 
   @override
   Future<void> shareCard({
+    required String cardRef,
     required String name,
     required String setName,
     required String marketPrice,
   }) {
+    final cardUrl = Uri.parse(
+      '$_apiBaseUrl/cards/${Uri.encodeComponent(cardRef)}',
+    );
     return _share(
       ShareParams(
-        text: '$name\n$setName\nMarket price: $marketPrice',
+        text: '$name\n$setName\nMarket price: $marketPrice\n$cardUrl',
         title: 'Share $name',
         subject: name,
       ),

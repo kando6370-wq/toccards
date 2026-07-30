@@ -923,6 +923,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(actions.name, 'Charizard ex');
+    expect(actions.cardRef, 'charizard-ex');
     expect(actions.setName, 'Obsidian Flames');
     expect(actions.marketPrice, r'$780.00');
   });
@@ -1056,6 +1057,7 @@ final _cardDetailOverrides = [
 ];
 
 class _RecordingCardDetailActions implements CardDetailActions {
+  String? cardRef;
   String? name;
   String? setName;
   String? marketPrice;
@@ -1079,10 +1081,12 @@ class _RecordingCardDetailActions implements CardDetailActions {
 
   @override
   Future<void> shareCard({
+    required String cardRef,
     required String name,
     required String setName,
     required String marketPrice,
   }) async {
+    this.cardRef = cardRef;
     this.name = name;
     this.setName = setName;
     this.marketPrice = marketPrice;

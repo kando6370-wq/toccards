@@ -399,6 +399,7 @@ class _CardHero extends ConsumerWidget {
                                 await ref
                                     .read(cardDetailActionsProvider)
                                     .shareCard(
+                                      cardRef: detail.id,
                                       name: detail.name,
                                       setName: detail.setName,
                                       marketPrice: state.marketPriceText,
