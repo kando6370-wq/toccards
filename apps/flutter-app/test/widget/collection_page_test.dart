@@ -69,6 +69,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Collection filter keeps Apply fixed while options scroll', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 884);
+    addTearDown(tester.view.reset);
+
+    await _pumpCollection(tester);
+    await tester.tap(find.byKey(const Key('collection-filter-button')));
+    await tester.pumpAndSettle();
+
+    final apply = find.byKey(const Key('collection-filter-apply'));
+    final sortOption = find.text('Price: Low to High');
+    final applyBeforeScroll = tester.getRect(apply);
+    final sortBeforeScroll = tester.getRect(sortOption);
+
+    await tester.drag(
+      find.byKey(const Key('collection-filter-sheet')),
+      const Offset(0, -260),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(apply), applyBeforeScroll);
+    expect(tester.getTopLeft(sortOption).dy, lessThan(sortBeforeScroll.top));
+  });
+
   testWidgets('Collection shows Portfolio summary and rows by default', (
     tester,
   ) async {
@@ -376,20 +402,20 @@ void main() {
     expect(find.text('Price: High to Low'), findsOneWidget);
     expect(find.text('Price: Low to High'), findsOneWidget);
     expect(find.text('LANGUAGE'), findsOneWidget);
-    expect(find.text('GAME / IP'), findsOneWidget);
     await tester.tap(find.text('Japanese').last);
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('GAME / IP'),
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('GAME / IP'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Pokemon'),
       240,
       scrollable: find.byType(Scrollable).last,
     );
     expect(find.text('Pokemon'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('collection-filter-apply')),
-      240,
-      scrollable: find.byType(Scrollable).last,
-    );
     await tester.tap(find.byKey(const Key('collection-filter-apply')));
     await tester.pumpAndSettle();
 

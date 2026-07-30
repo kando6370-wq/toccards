@@ -1534,6 +1534,42 @@ void main() {
     }
   });
 
+  testWidgets('customer support keeps Submit fixed while form scrolls', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    final authRepository = _WidgetAuthRepository(
+      initialSession: _userSession(),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authRepositoryProvider.overrideWithValue(authRepository)],
+        child: MaterialApp(
+          theme: buildKandoTheme(),
+          home: const CustomerSupportPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final submit = find.byKey(const Key('feedback-submit-button'));
+    final contentList = find.byKey(const Key('customer-support-content-list'));
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(of: contentList, matching: find.byType(Scrollable)),
+    );
+    final submitBeforeScroll = tester.getRect(submit);
+    final scrollOffsetBefore = scrollable.position.pixels;
+
+    await tester.drag(contentList, const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(submit), submitBeforeScroll);
+    expect(scrollable.position.pixels, greaterThan(scrollOffsetBefore));
+  });
+
   testWidgets(
     'customer support submits signed-in feedback and returns to Profile',
     (tester) async {
