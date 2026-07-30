@@ -229,7 +229,13 @@ const ADMIN_USERS_FILTERED_SQL = `
         SELECT sr.platform FROM scan_record sr
         WHERE sr.owner_type = 'user' AND sr.owner_id = u.id
         ORDER BY sr.created_at DESC LIMIT 1
-      ), 'Unknown') AS platform
+      ), 'Unknown') AS platform,
+      COALESCE((
+        SELECT install.country_code FROM app_installation install
+        WHERE install.uid = u.id
+          AND NULLIF(TRIM(install.country_code), '') IS NOT NULL
+        ORDER BY install.last_seen_at DESC, install.first_seen_at DESC LIMIT 1
+      ), 'Unknown') AS country
     FROM user u
     UNION ALL
     SELECT 'anonymous', a.id, NULL, a.device_id, a.created_at,
@@ -239,6 +245,12 @@ const ADMIN_USERS_FILTERED_SQL = `
         SELECT sr.platform FROM scan_record sr
         WHERE sr.owner_type = 'anonymous' AND sr.owner_id = a.id
         ORDER BY sr.created_at DESC LIMIT 1
+      ), 'Unknown'),
+      COALESCE((
+        SELECT install.country_code FROM app_installation install
+        WHERE install.uid = a.id
+          AND NULLIF(TRIM(install.country_code), '') IS NOT NULL
+        ORDER BY install.last_seen_at DESC, install.first_seen_at DESC LIMIT 1
       ), 'Unknown')
     FROM anonymous_account a
   )

@@ -200,24 +200,18 @@ _ScanCollectionDraft _initialReviewDraft(
     grader: 'Raw',
     condition: cardCollectionConditions.first,
     grade: '',
-    language: _supportedValue(
+    language: _reviewOptionOrDefault(
       card.language,
-      cardCollectionLanguages,
-      'English',
+      card.collectionLanguageOptions,
     ),
-    finish: _supportedValue(card.finish, cardCollectionFinishes, 'Normal'),
+    finish: _reviewOptionOrDefault(card.finish, card.collectionFinishOptions),
     purchasePriceText: '',
     notes: '',
   );
 }
 
-String _supportedValue(String? value, List<String> options, String fallback) {
-  final normalized = value?.trim();
-  if (normalized == null || normalized.isEmpty) return fallback;
-  return options
-          .where((option) => option.toLowerCase() == normalized.toLowerCase())
-          .firstOrNull ??
-      normalized;
+String _reviewOptionOrDefault(String? value, List<String> options) {
+  return options.contains(value) ? value! : options.first;
 }
 
 List<String> _optionsIncluding(List<String> options, String current) {
@@ -1219,15 +1213,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
       final draft = _reviewDrafts[item.id];
       if (draft != null) {
         _reviewDrafts[item.id] = draft.copyWith(
-          language: _supportedValue(
+          language: _reviewOptionOrDefault(
             card.language,
-            cardCollectionLanguages,
-            'English',
+            card.collectionLanguageOptions,
           ),
-          finish: _supportedValue(
+          finish: _reviewOptionOrDefault(
             card.finish,
-            cardCollectionFinishes,
-            'Normal',
+            card.collectionFinishOptions,
           ),
         );
       }
@@ -2582,21 +2574,22 @@ class _ScanRevealingToast extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            Positioned(
-                              right: 0,
-                              top: 0,
-                              child: Tooltip(
-                                message: closeTooltip,
-                                child: InkWell(
-                                  onTap: onClosePressed,
-                                  child: SvgPicture.asset(
-                                    'assets/scan/reveal_close.svg',
-                                    width: 10.5,
-                                    height: 10.5,
+                            if (item.status == _ScanItemStatus.revealing)
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Tooltip(
+                                  message: closeTooltip,
+                                  child: InkWell(
+                                    onTap: onClosePressed,
+                                    child: SvgPicture.asset(
+                                      'assets/scan/reveal_close.svg',
+                                      width: 10.5,
+                                      height: 10.5,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
                             const Positioned(
                               left: 0,
                               bottom: 0,
@@ -3680,7 +3673,7 @@ class _ReviewCollectionItem extends StatelessWidget {
                 label: 'Language',
                 value: draft.language,
                 options: _optionsIncluding(
-                  cardCollectionLanguages,
+                  card.collectionLanguageOptions,
                   draft.language,
                 ),
                 enabled: enabled,
@@ -3692,7 +3685,7 @@ class _ReviewCollectionItem extends StatelessWidget {
                 label: 'Finish',
                 value: draft.finish,
                 options: _optionsIncluding(
-                  cardCollectionFinishes,
+                  card.collectionFinishOptions,
                   draft.finish,
                 ),
                 enabled: enabled,

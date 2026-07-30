@@ -69,6 +69,7 @@ type UserItem = {
   created_at: string;
   status: string;
   platform: string;
+  country: string;
   identity: "anonymous" | "email" | "google" | "apple";
 };
 
@@ -452,14 +453,15 @@ function UsersPage({ session }: { session: AdminSession }) {
   const { data, loading, reload, error } = useAdminData<UserListResponse>(path, session);
   const users = data?.items ?? [];
   const columns: ColumnsType<UserItem> = [
-    { title: "UID", dataIndex: "id", width: 230, ellipsis: true },
-    { title: "平台", dataIndex: "platform", width: 100, ellipsis: true },
-    { title: "首次安装日期", dataIndex: "created_at", width: 140, ellipsis: true, render: formatDate },
-    { title: "用户身份", dataIndex: "identity", width: 110, ellipsis: true, render: renderUserIdentity },
-    { title: "登录账号", width: 260, render: (_, row) => {
+    { title: "UID", dataIndex: "id", width: 120, ellipsis: true },
+    { title: "平台", dataIndex: "platform", width: 90, ellipsis: true },
+    { title: "首次安装日期", dataIndex: "created_at", width: 130, ellipsis: true, render: formatDate },
+    { title: "用户身份", dataIndex: "identity", width: 100, ellipsis: true, render: renderUserIdentity },
+    { title: "登录账号", width: 230, render: (_, row) => {
       const account = row.email ?? row.device_id ?? "-";
-      return <Text ellipsis={{ tooltip: account }} style={{ maxWidth: 240 }}>{account}</Text>;
+      return <Text ellipsis={{ tooltip: account }} style={{ display: "block", maxWidth: "100%" }}>{account}</Text>;
     } },
+    { title: "国家", dataIndex: "country", width: 90, ellipsis: true, render: countryName },
   ];
 
   function applyFilters() {
@@ -486,7 +488,7 @@ function UsersPage({ session }: { session: AdminSession }) {
         <Button onClick={resetFilters}>重置</Button>
       </FilterBar>
       <DataPanel title="用户数据" count={data?.total ?? 0} className="users-table-panel">
-        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} size="small" tableLayout="fixed" scroll={{ x: 840, y: "calc(100dvh - 390px)" }} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: setPage }} />
+        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} size="small" tableLayout="fixed" scroll={{ x: 760, y: "calc(100dvh - 390px)" }} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: setPage }} />
       </DataPanel>
     </PagePanel>
   );
@@ -1144,8 +1146,9 @@ function errorMessage(error: unknown) {
 }
 
 function countryName(countryCode: string): string {
-  if (!/^[A-Z]{2}$/.test(countryCode)) return "Unknown";
-  return new Intl.DisplayNames(["zh-CN"], { type: "region" }).of(countryCode) ?? countryCode;
+  const normalized = countryCode.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return "未知";
+  return new Intl.DisplayNames(["zh-CN"], { type: "region" }).of(normalized) ?? normalized;
 }
 const platformOptions = ["iOS", "Google"].map((value) => ({ value, label: value }));
 const environmentOptions = [{ value: "production", label: "Production" }, { value: "development", label: "Development" }];

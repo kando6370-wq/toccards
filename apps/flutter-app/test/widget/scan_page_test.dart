@@ -648,6 +648,7 @@ void main() {
 
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Scanning...'), findsOneWidget);
+      expect(find.byTooltip('Dismiss scan feedback'), findsOneWidget);
       expect(find.text('ALIGN CARD HERE'), findsOneWidget);
       expect(find.byTooltip('Take Photo'), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
@@ -1323,6 +1324,70 @@ void main() {
   );
 
   testWidgets(
+    'Scan review only offers languages and finishes available for the matched card',
+    (tester) async {
+      await _pumpScanTestApp(
+        tester,
+        scanReviewRepository: _FakeScanReviewRepository(
+          availableLanguages: const ['English', 'Japanese'],
+          availableFinishes: const ['Holofoil', 'Normal'],
+        ),
+        scanCameraFactory: _TestScanCameraFactory(_TestScanCameraSession()),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('scan-review-list')),
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('scan-review-list')),
+        const Offset(0, -250),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('scan-review-language-1')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('scan-review-choice-option-English')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-review-choice-option-Japanese')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-review-choice-option-Chinese')),
+        findsNothing,
+      );
+      await tester.tap(
+        find.byKey(const Key('scan-review-choice-option-English')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('scan-review-finish-1')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('scan-review-choice-option-Holofoil')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-review-choice-option-Normal')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-review-choice-option-Foil')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
     'Review waits for editable data and keeps the captured image in its thumbnail',
     (tester) async {
       final target = Completer<ScanReviewTarget>();
@@ -1766,6 +1831,11 @@ void main() {
         find.byKey(const Key('scan-recognition-progress')),
         findsOneWidget,
       );
+      expect(
+        find.byTooltip('Cancel scan'),
+        findsNothing,
+        reason: 'A scan in progress must not show a delete control.',
+      );
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
       expect(
         tester.getRect(find.byKey(const Key('scan-figma-result-rail'))).bottom,
@@ -2064,10 +2134,17 @@ class _AnalyticsRecorder {
 }
 
 class _FakeScanReviewRepository implements ScanReviewRepository {
-  _FakeScanReviewRepository({this.failure, this.rawPrice = 25});
+  _FakeScanReviewRepository({
+    this.failure,
+    this.rawPrice = 25,
+    this.availableLanguages = const ['English'],
+    this.availableFinishes = const ['Holofoil'],
+  });
 
   final Exception? failure;
   final double rawPrice;
+  final List<String> availableLanguages;
+  final List<String> availableFinishes;
   final List<String> confirmedScanIds = [];
   final List<ScanCollectionItemInput> confirmedItems = [];
 
@@ -2105,6 +2182,8 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
           imageUrl: null,
           language: 'English',
           finish: 'Holofoil',
+          availableLanguages: availableLanguages,
+          availableFinishes: availableFinishes,
           prices: [
             ScanReviewPrice(
               grader: 'Raw',

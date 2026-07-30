@@ -62,6 +62,8 @@ class ScanReviewCard {
     required this.imageUrl,
     required this.language,
     required this.finish,
+    this.availableLanguages = const [],
+    this.availableFinishes = const [],
     required this.prices,
   });
 
@@ -73,7 +75,15 @@ class ScanReviewCard {
   final String? imageUrl;
   final String? language;
   final String? finish;
+  final List<String> availableLanguages;
+  final List<String> availableFinishes;
   final List<ScanReviewPrice> prices;
+
+  List<String> get collectionLanguageOptions =>
+      availableLanguages.isEmpty ? [language ?? 'Unknown'] : availableLanguages;
+
+  List<String> get collectionFinishOptions =>
+      availableFinishes.isEmpty ? [finish ?? 'Unknown'] : availableFinishes;
 }
 
 abstract interface class ScanReviewRepository {
@@ -161,6 +171,8 @@ class ApiScanReviewRepository implements ScanReviewRepository {
         imageUrl: cardImageUrl(card.cardRef, CardImageVariant.detail),
         language: card.language,
         finish: card.finish,
+        availableLanguages: card.availableLanguages,
+        availableFinishes: card.availableFinishes,
         prices: prices
             .map(
               (price) => ScanReviewPrice(
