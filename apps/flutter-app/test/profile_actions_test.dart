@@ -4,6 +4,38 @@ import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 
 void main() {
+  test('share uses the platform store URL from App Config', () async {
+    final shared = <Uri>[];
+    final actions = PluginProfileActions(
+      _FakeAppUpgradeRepository(
+        const AppUpgradeConfig(
+          appStoreUrl:
+              'https://play.google.com/store/apps/details?id=com.kando',
+        ),
+      ),
+      shareUri: (uri) async => shared.add(uri),
+    );
+
+    await actions.shareWithFriends();
+
+    expect(
+      shared.single.toString(),
+      'https://play.google.com/store/apps/details?id=com.kando',
+    );
+  });
+
+  test('share fails loudly when no configurable store URL exists', () async {
+    final shared = <Uri>[];
+    final actions = PluginProfileActions(
+      _FakeAppUpgradeRepository(const AppUpgradeConfig()),
+      shareUri: (uri) async => shared.add(uri),
+    );
+
+    await expectLater(actions.shareWithFriends(), throwsStateError);
+
+    expect(shared, isEmpty);
+  });
+
   test('legal actions prefer valid App Config URLs', () async {
     final opened = <Uri>[];
     final actions = PluginProfileActions(

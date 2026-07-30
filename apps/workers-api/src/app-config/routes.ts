@@ -39,6 +39,7 @@ export function createAppConfigRoutes(): Hono<{ Bindings: Env }> {
     const configs = configMap(results);
     const platform = normalizePlatform(c.req.query("platform"));
     const platformVersion = configs.get(`admin.app_version.${platform}`);
+    const platformStoreUrl = parseAdminStoreUrl(platformVersion);
 
     return c.json({
       success: true,
@@ -46,7 +47,8 @@ export function createAppConfigRoutes(): Hono<{ Bindings: Env }> {
         upgrade_prompt: platformVersion === undefined
           ? parseUpgradePrompt(configs.get("upgrade_prompt"))
           : parseAdminUpgradePrompt(platformVersion),
-        app_store_url: stringOrNull(configs.get("app_store_url")),
+        app_store_url:
+          platformStoreUrl ?? stringOrNull(configs.get("app_store_url")),
         terms_url: stringOrNull(configs.get("terms_url")),
         privacy_url: stringOrNull(configs.get("privacy_url")),
         mixpanel_project_token: stringOrNull(c.env.MIXPANEL_PROJECT_TOKEN),
@@ -93,6 +95,16 @@ function parseAdminUpgradePrompt(value: string | undefined): PublicUpgradePrompt
         "Please update Kando to continue.",
       store_url: stringOrNull(parsed.store_url),
     };
+  } catch {
+    return null;
+  }
+}
+
+function parseAdminStoreUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return isRecord(parsed) ? stringOrNull(parsed.store_url) : null;
   } catch {
     return null;
   }

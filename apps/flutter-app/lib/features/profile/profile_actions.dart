@@ -12,9 +12,14 @@ const profileTermsUrl = 'https://tcgcard.fun/terms';
 const profilePrivacyUrl = 'https://tcgcard.fun/privacy';
 
 typedef ProfileUrlLauncher = Future<bool> Function(Uri uri);
+typedef ProfileShareLauncher = Future<void> Function(Uri uri);
 
 Future<bool> _launchProfileUrl(Uri uri) {
   return launchUrl(uri, mode: LaunchMode.externalApplication);
+}
+
+Future<void> _shareProfileUri(Uri uri) async {
+  await SharePlus.instance.share(ShareParams(uri: uri));
 }
 
 final profileActionsProvider = Provider<ProfileActions>((ref) {
@@ -32,10 +37,13 @@ class PluginProfileActions implements ProfileActions {
   const PluginProfileActions(
     this._configRepository, {
     ProfileUrlLauncher launchExternal = _launchProfileUrl,
-  }) : _launchExternalUrl = launchExternal;
+    ProfileShareLauncher shareUri = _shareProfileUri,
+  }) : _launchExternalUrl = launchExternal,
+       _shareUri = shareUri;
 
   final AppUpgradeRepository _configRepository;
   final ProfileUrlLauncher _launchExternalUrl;
+  final ProfileShareLauncher _shareUri;
 
   @override
   Future<void> requestScore() async {
@@ -58,9 +66,7 @@ class PluginProfileActions implements ProfileActions {
 
   @override
   Future<void> shareWithFriends() async {
-    await SharePlus.instance.share(
-      ShareParams(uri: await _configuredUri((config) => config.appStoreUrl)),
-    );
+    await _shareUri(await _configuredUri((config) => config.appStoreUrl));
   }
 
   @override

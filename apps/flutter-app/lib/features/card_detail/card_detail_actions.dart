@@ -6,6 +6,12 @@ final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
   return const PluginCardDetailActions();
 });
 
+typedef CardShareLauncher = Future<void> Function(ShareParams params);
+
+Future<void> _shareCard(ShareParams params) async {
+  await SharePlus.instance.share(params);
+}
+
 abstract interface class CardDetailActions {
   Future<void> shareCard({
     required String name,
@@ -22,7 +28,10 @@ abstract interface class CardDetailActions {
 }
 
 class PluginCardDetailActions implements CardDetailActions {
-  const PluginCardDetailActions();
+  const PluginCardDetailActions({CardShareLauncher share = _shareCard})
+    : _share = share;
+
+  final CardShareLauncher _share;
 
   @override
   Future<void> shareCard({
@@ -30,9 +39,10 @@ class PluginCardDetailActions implements CardDetailActions {
     required String setName,
     required String marketPrice,
   }) {
-    return SharePlus.instance.share(
+    return _share(
       ShareParams(
         text: '$name\n$setName\nMarket price: $marketPrice',
+        title: 'Share $name',
         subject: name,
       ),
     );

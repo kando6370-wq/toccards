@@ -108,7 +108,7 @@ describe("public app config routes", () => {
     expect(JSON.stringify(body)).not.toContain("server-api-secret");
   });
 
-  it("selects the enabled platform rule because Admin must control forced updates per store", async () => {
+  it("returns each platform store URL even when its update prompt is disabled", async () => {
     const env = createTestEnv([
       appConfigRow(
         "admin.app_version.ios",
@@ -129,6 +129,7 @@ describe("public app config routes", () => {
           min_supported_version: "1.1.0",
           recommended_version: "1.4.0",
           force_update: true,
+          store_url: "https://play.google.com/store/apps/details?id=com.kando",
         }),
       ),
     ]);
@@ -138,6 +139,7 @@ describe("public app config routes", () => {
 
     expect(await ios.json()).toMatchObject({
       data: {
+        app_store_url: "https://apps.apple.com/app/kando",
         upgrade_prompt: {
           latest_version: "1.5.0",
           min_version: "1.2.0",
@@ -148,7 +150,11 @@ describe("public app config routes", () => {
       },
     });
     expect(await google.json()).toMatchObject({
-      data: { upgrade_prompt: null },
+      data: {
+        app_store_url:
+          "https://play.google.com/store/apps/details?id=com.kando",
+        upgrade_prompt: null,
+      },
     });
   });
 });
