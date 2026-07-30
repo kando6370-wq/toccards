@@ -42,7 +42,7 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
 
             return RefreshIndicator(
               key: const Key('collection-pull-to-refresh'),
-              onRefresh: () => _refresh(controller),
+              onRefresh: () => _refresh(controller, preserveContent: true),
               child: ListView(
                 key: const Key('collection-content-list'),
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -121,9 +121,14 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
     });
   }
 
-  Future<void> _refresh(CollectionController controller) {
+  Future<void> _refresh(
+    CollectionController controller, {
+    bool preserveContent = false,
+  }) {
     ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-    return controller.refresh();
+    return preserveContent
+        ? controller.refreshPreservingContent()
+        : controller.refresh();
   }
 }
 

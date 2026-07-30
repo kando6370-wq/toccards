@@ -1689,6 +1689,116 @@ void main() {
     },
   );
 
+  testWidgets('Add this card shows loading while confirmation is pending', (
+    tester,
+  ) async {
+    final repository = _BlockingScanReviewRepository();
+    await _pumpScanTestApp(tester, scanReviewRepository: repository);
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tap(find.byTooltip('Review completed scan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('scan-review-add-one')));
+    await tester.pump();
+
+    expect(repository.confirmationCount, 1);
+    expect(
+      find.byKey(const Key('scan-review-add-one-loading')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('scan-review-add-all-loading')), findsNothing);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('scan-review-add-one')))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('scan-review-add-all')))
+          .onPressed,
+      isNull,
+    );
+    expect(find.text('Add this card'), findsOneWidget);
+
+    repository.completeNextConfirmation();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const Key('scan-review-add-one-loading')), findsNothing);
+    expect(find.text(portfolioCardAddedToastText), findsOneWidget);
+    await tester.pump(kandoCenteredSuccessToastDuration);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Add all cards shows loading until every card is confirmed', (
+    tester,
+  ) async {
+    final repository = _BlockingScanReviewRepository();
+    final source = _TestScanResultSource(
+      photoResult: Future.value(
+        const ScanResolution.matched(
+          scanId: 'scan-one',
+          cardRef: 'card-mega',
+          matchName: 'Mega Lucario ex',
+          candidates: ['Mega Lucario ex'],
+          candidateCardRefs: ['card-mega'],
+        ),
+      ),
+      subsequentPhotoResults: [
+        Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-two',
+            cardRef: 'card-charizard',
+            matchName: 'Charizard ex',
+            candidates: ['Charizard ex'],
+            candidateCardRefs: ['card-charizard'],
+          ),
+        ),
+      ],
+    );
+    await _pumpScanTestApp(
+      tester,
+      scanReviewRepository: repository,
+      scanResultSource: source,
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tap(find.text('DONE'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('scan-review-add-all')));
+    await tester.pump();
+
+    expect(repository.confirmationCount, 1);
+    expect(
+      find.byKey(const Key('scan-review-add-all-loading')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('scan-review-add-one-loading')), findsNothing);
+
+    repository.completeNextConfirmation();
+    await tester.pump();
+    await tester.pump();
+    expect(repository.confirmationCount, 2);
+    expect(
+      find.byKey(const Key('scan-review-add-all-loading')),
+      findsOneWidget,
+    );
+
+    repository.completeNextConfirmation();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const Key('scan-review-add-all-loading')), findsNothing);
+    expect(find.text(portfolioCardsAddedToastText(2)), findsOneWidget);
+    await tester.pump(kandoCenteredSuccessToastDuration);
+    await tester.pumpAndSettle();
+  });
+
   testWidgets(
     'Review confirms the selected candidate because users can correct the OCR top match',
     (tester) async {
@@ -2279,6 +2389,37 @@ class _DelayedScanReviewRepository extends _FakeScanReviewRepository {
   Future<ScanReviewTarget> loadTarget({String? preferredFolderId}) {
     loadTargetCount += 1;
     return targetFuture;
+  }
+}
+
+class _BlockingScanReviewRepository extends _FakeScanReviewRepository {
+  final _confirmations =
+      <({String scanId, Completer<ScanConfirmationDto> completer})>[];
+
+  int get confirmationCount => _confirmations.length;
+
+  @override
+  Future<ScanConfirmationDto> addToPortfolio({
+    required String scanId,
+    required ScanCollectionItemInput item,
+  }) {
+    final completer = Completer<ScanConfirmationDto>();
+    _confirmations.add((scanId: scanId, completer: completer));
+    return completer.future;
+  }
+
+  void completeNextConfirmation() {
+    final confirmation = _confirmations
+        .where((candidate) => !candidate.completer.isCompleted)
+        .first;
+    confirmation.completer.complete(
+      ScanConfirmationDto(
+        scanId: confirmation.scanId,
+        collectionItemId: 'item-${confirmation.scanId}',
+        cardRef: 'card-${confirmation.scanId}',
+        folderId: 'main',
+      ),
+    );
   }
 }
 

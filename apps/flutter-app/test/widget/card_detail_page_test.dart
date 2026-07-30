@@ -578,12 +578,39 @@ void main() {
 
     expect(repository.pendingCreate, isNotNull);
     expect(find.byKey(const Key('card-detail-add-item-sheet')), findsOneWidget);
+    expect(
+      find.byKey(const Key('card-detail-item-submit-loading')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const Key('card-detail-item-submit')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(find.byIcon(Icons.add_circle_outline), findsNothing);
+    expect(find.text('Add this card'), findsOneWidget);
     expect(find.byKey(const Key('kando-top-toast')), findsNothing);
 
     repository.completeCreate();
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
+    expect(
+      find.byKey(const Key('card-detail-item-submit-loading')),
+      findsNothing,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CardDetailPage)),
+    );
+    expect(
+      container
+          .read(cardDetailControllerProvider('one-piece-luffy'))
+          .isSavingCollectionItemDraft,
+      isFalse,
+    );
     expect(
       find.byKey(const Key('kando-centered-success-toast')),
       findsOneWidget,

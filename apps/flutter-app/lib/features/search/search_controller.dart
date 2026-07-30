@@ -254,6 +254,14 @@ class SearchController extends Notifier<SearchState> {
     return loadComplete;
   }
 
+  Future<void> refreshPreservingContent() {
+    if (state.isLoading || state.isUnavailable) return refresh();
+    final previousState = state;
+    _resetAssets();
+    _startLoad(preserveState: previousState, session: _assetSession);
+    return loadComplete;
+  }
+
   void _startLoad({SearchState? preserveState, AuthSession? session}) {
     _searchDebounce?.cancel();
     _hasCompleteSets =

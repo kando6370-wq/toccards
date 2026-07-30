@@ -1529,34 +1529,48 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                         key: const Key('card-detail-item-submit'),
                         style: FilledButton.styleFrom(
                           backgroundColor: KandoColors.accent,
+                          disabledBackgroundColor: KandoColors.accent,
                           foregroundColor: KandoColors.ink,
+                          disabledForegroundColor: KandoColors.ink,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: const StadiumBorder(),
                           textStyle: const TextStyle(fontSize: 16),
                         ),
-                        onPressed: () async {
-                          ref
-                              .read(analyticsProvider)
-                              .track(
-                                AnalyticsEvent.collectionItemAddClick,
-                                properties: {
-                                  AnalyticsProperty.ipType: analyticsIpType(
-                                    state.detail.game,
-                                  ),
-                                  AnalyticsProperty.gradeType:
-                                      draft.grader.toLowerCase() == 'raw'
-                                      ? AnalyticsValue.gradeNormal
-                                      : AnalyticsValue.gradeGraded,
-                                  AnalyticsProperty.entrySource: entrySource,
-                                },
-                              );
-                          final saved = await controller
-                              .saveCollectionItemDraft();
-                          if (saved && context.mounted) {
-                            Navigator.of(context).pop(true);
-                          }
-                        },
-                        icon: const Icon(Icons.add_circle_outline),
+                        onPressed: state.isSavingCollectionItemDraft
+                            ? null
+                            : () async {
+                                ref
+                                    .read(analyticsProvider)
+                                    .track(
+                                      AnalyticsEvent.collectionItemAddClick,
+                                      properties: {
+                                        AnalyticsProperty.ipType:
+                                            analyticsIpType(state.detail.game),
+                                        AnalyticsProperty.gradeType:
+                                            draft.grader.toLowerCase() == 'raw'
+                                            ? AnalyticsValue.gradeNormal
+                                            : AnalyticsValue.gradeGraded,
+                                        AnalyticsProperty.entrySource:
+                                            entrySource,
+                                      },
+                                    );
+                                final saved = await controller
+                                    .saveCollectionItemDraft();
+                                if (saved && context.mounted) {
+                                  Navigator.of(context).pop(true);
+                                }
+                              },
+                        icon: state.isSavingCollectionItemDraft
+                            ? const SizedBox(
+                                key: Key('card-detail-item-submit-loading'),
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: KandoColors.ink,
+                                ),
+                              )
+                            : const Icon(Icons.add_circle_outline),
                         label: const Text('Add this card'),
                       ),
                     ),

@@ -35,6 +35,8 @@ enum _ScanItemStatus {
   added,
 }
 
+enum _ScanReviewSaveAction { single, all }
+
 const _viewfinderTop = 163.0;
 const _viewfinderWidth = 280.0;
 const _viewfinderHeight = 400.0;
@@ -305,8 +307,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
   Map<String, ScanReviewCard> _reviewCards = const {};
   final Map<int, _ScanCollectionDraft> _reviewDrafts = {};
   String? _reviewFormError;
-  var _savingReview = false;
+  _ScanReviewSaveAction? _savingReviewAction;
+  var _finishingReview = false;
   int? _dismissedFeedbackItemId;
+
+  bool get _savingReview => _savingReviewAction != null || _finishingReview;
 
   bool get _isRecognizing {
     return _items.any((item) => item.status == _ScanItemStatus.recognizing);
@@ -1102,7 +1107,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final input = _reviewInputFor(item);
     if (input == null) return;
 
-    setState(() => _savingReview = true);
+    setState(() => _savingReviewAction = _ScanReviewSaveAction.single);
     try {
       await ref
           .read(scanReviewRepositoryProvider)
@@ -1119,11 +1124,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } on Exception {
       if (mounted) showKandoTopFailureToast(context);
     } finally {
-      if (mounted) setState(() => _savingReview = false);
+      if (mounted) setState(() => _savingReviewAction = null);
     }
   }
 
   Future<void> _completeSelectedItemAddition(_ScanItem item) async {
+    setState(() {
+      _savingReviewAction = null;
+      _finishingReview = true;
+    });
     showKandoCenteredSuccessToast(
       context,
       message: portfolioCardAddedToastText,
@@ -1140,6 +1149,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewCards = const {};
       _reviewDrafts.remove(item.id);
       _reviewFormError = null;
+      _finishingReview = false;
     });
     unawaited(_openCamera());
     _refreshPortfolioSurfaces();
@@ -1163,7 +1173,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       inputs[item.id] = input;
     }
 
-    setState(() => _savingReview = true);
+    setState(() => _savingReviewAction = _ScanReviewSaveAction.all);
     final addedIds = <int>{};
     var failed = false;
     for (final item in matchedItems) {
@@ -1179,6 +1189,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
     if (!mounted) return;
     final allAdded = addedIds.length == matchedItems.length;
+    setState(() {
+      _savingReviewAction = null;
+      _finishingReview = allAdded;
+    });
     if (allAdded) {
       _refreshPortfolioSurfaces();
       showKandoCenteredSuccessToast(
@@ -1203,7 +1217,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _reviewCards = const {};
       }
       _reviewFormError = null;
-      _savingReview = false;
+      _savingReviewAction = null;
+      _finishingReview = false;
     });
     if (addedIds.isNotEmpty && !allAdded) {
       _refreshPortfolioSurfaces();
@@ -1517,6 +1532,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                           drafts: _reviewDrafts,
                           formError: _reviewFormError,
                           saving: _savingReview,
+                          savingAction: _savingReviewAction,
                           keyboardVisible: keyboardVisible,
                           currency: currency,
                           onCollapse: _closeReview,
@@ -3111,6 +3127,7 @@ class _ReviewMatches extends StatelessWidget {
     required this.drafts,
     required this.formError,
     required this.saving,
+    required this.savingAction,
     required this.keyboardVisible,
     required this.currency,
     required this.onCollapse,
@@ -3130,6 +3147,7 @@ class _ReviewMatches extends StatelessWidget {
   final Map<int, _ScanCollectionDraft> drafts;
   final String? formError;
   final bool saving;
+  final _ScanReviewSaveAction? savingAction;
   final bool keyboardVisible;
   final AppCurrency currency;
   final VoidCallback onCollapse;
@@ -3295,6 +3313,7 @@ class _ReviewMatches extends StatelessWidget {
             child: _ReviewFooter(
               totalText: _reviewTotalText(card, draft, currency),
               saving: saving,
+              savingAction: savingAction,
               onAddThisCard: onAddThisCard,
               onAddAllCards: onAddAllCards,
               onDeleteItem: () => onDeleteItem(selected),
@@ -4271,6 +4290,7 @@ class _ReviewFooter extends StatelessWidget {
   const _ReviewFooter({
     required this.totalText,
     required this.saving,
+    required this.savingAction,
     required this.onAddThisCard,
     required this.onAddAllCards,
     required this.onDeleteItem,
@@ -4279,6 +4299,7 @@ class _ReviewFooter extends StatelessWidget {
 
   final String totalText;
   final bool saving;
+  final _ScanReviewSaveAction? savingAction;
   final VoidCallback onAddThisCard;
   final VoidCallback onAddAllCards;
   final VoidCallback onDeleteItem;
@@ -4286,6 +4307,9 @@ class _ReviewFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final addingSingle = savingAction == _ScanReviewSaveAction.single;
+    final addingAll = savingAction == _ScanReviewSaveAction.all;
+
     return Material(
       color: const Color(0xFF10100B),
       child: SafeArea(
@@ -4321,11 +4345,20 @@ class _ReviewFooter extends StatelessWidget {
                       child: FilledButton.icon(
                         key: const Key('scan-review-add-one'),
                         onPressed: saving ? null : onAddThisCard,
-                        icon: const Text(
-                          '+',
-                          style: TextStyle(fontSize: 20, height: 1),
-                        ),
-                        label: Text(saving ? 'Adding...' : 'Add this card'),
+                        icon: addingSingle
+                            ? const SizedBox(
+                                key: Key('scan-review-add-one-loading'),
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                '+',
+                                style: TextStyle(fontSize: 20, height: 1),
+                              ),
+                        label: const Text('Add this card'),
                       ),
                     ),
                   ),
@@ -4356,8 +4389,23 @@ class _ReviewFooter extends StatelessWidget {
                 children: [
                   Expanded(
                     child: OutlinedButton(
+                      key: const Key('scan-review-add-all'),
                       onPressed: saving ? null : onAddAllCards,
-                      child: const Text('ADD ALL CARDS'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (addingAll) ...[
+                            const SizedBox(
+                              key: Key('scan-review-add-all-loading'),
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          const Text('ADD ALL CARDS'),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),

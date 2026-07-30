@@ -202,15 +202,14 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.view.resetPhysicalSize);
 
+      final authorizationCompleter = Completer<OAuthAuthorizationResult?>();
       final callbackCompleter = Completer<AuthSession>();
       final repository = _WidgetAuthRepository(
         initialSession: _anonymousSession('anon-existing'),
         googleCallbackCompleter: callbackCompleter,
       );
       final authorizer = _WidgetOAuthAuthorizer(
-        result: const OAuthAuthorizationResult.google(
-          code: 'mock-google:flutter-google-user:flutter.google@example.com',
-        ),
+        resultFuture: authorizationCompleter.future,
       );
 
       await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
@@ -223,6 +222,17 @@ void main() {
       final loadingOverlay = find.byKey(
         const Key('auth-oauth-loading-overlay'),
       );
+      expect(authorizer.requests, [OAuthProvider.google]);
+      expect(loadingOverlay, findsNothing);
+      expect(repository.googleCallbackRequests, isEmpty);
+
+      authorizationCompleter.complete(
+        const OAuthAuthorizationResult.google(
+          code: 'mock-google:flutter-google-user:flutter.google@example.com',
+        ),
+      );
+      await tester.pump();
+
       expect(loadingOverlay, findsOneWidget);
       expect(tester.getSize(loadingOverlay), const Size(390, 844));
       expect(find.text('Signing in with Google'), findsOneWidget);
@@ -283,16 +293,14 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.view.resetPhysicalSize);
 
+      final authorizationCompleter = Completer<OAuthAuthorizationResult?>();
       final callbackCompleter = Completer<AuthSession>();
       final repository = _WidgetAuthRepository(
         initialSession: _anonymousSession('anon-existing'),
         appleCallbackCompleter: callbackCompleter,
       );
       final authorizer = _WidgetOAuthAuthorizer(
-        result: const OAuthAuthorizationResult.apple(
-          code: 'apple-auth-code',
-          idToken: 'mock-apple:flutter-apple-user:flutter.apple@example.com',
-        ),
+        resultFuture: authorizationCompleter.future,
       );
 
       await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
@@ -305,6 +313,18 @@ void main() {
       final loadingOverlay = find.byKey(
         const Key('auth-oauth-loading-overlay'),
       );
+      expect(authorizer.requests, [OAuthProvider.apple]);
+      expect(loadingOverlay, findsNothing);
+      expect(repository.appleCallbackRequests, isEmpty);
+
+      authorizationCompleter.complete(
+        const OAuthAuthorizationResult.apple(
+          code: 'apple-auth-code',
+          idToken: 'mock-apple:flutter-apple-user:flutter.apple@example.com',
+        ),
+      );
+      await tester.pump();
+
       expect(loadingOverlay, findsOneWidget);
       expect(tester.getSize(loadingOverlay), const Size(390, 844));
       expect(find.text('Signing in with Apple'), findsOneWidget);
@@ -2548,9 +2568,10 @@ class _WidgetAuthRepository implements AuthRepository {
 }
 
 class _WidgetOAuthAuthorizer implements OAuthAuthorizer {
-  _WidgetOAuthAuthorizer({this.result, this.error});
+  _WidgetOAuthAuthorizer({this.result, this.resultFuture, this.error});
 
   final OAuthAuthorizationResult? result;
+  final Future<OAuthAuthorizationResult?>? resultFuture;
   final Exception? error;
   final List<OAuthProvider> requests = [];
 
@@ -2560,6 +2581,10 @@ class _WidgetOAuthAuthorizer implements OAuthAuthorizer {
     final error = this.error;
     if (error != null) {
       throw error;
+    }
+    final resultFuture = this.resultFuture;
+    if (resultFuture != null) {
+      return resultFuture;
     }
     return result;
   }

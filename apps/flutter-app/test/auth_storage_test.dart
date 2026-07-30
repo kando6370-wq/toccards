@@ -2,13 +2,81 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({});
   });
+
+  test(
+    'fresh app sandbox clears Keychain authentication left by an iOS uninstall',
+    () async {
+      const storage = SecureAuthStorage();
+      const anonymous = AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'anonymous-access',
+        refreshToken: 'anonymous-refresh',
+        anonymousId: 'anonymous-1',
+      );
+      const user = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'user-access',
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      await storage.writeSession(anonymous);
+      await storage.writeSession(user);
+      final previousDeviceId = await storage.readOrCreateDeviceId();
+
+      await storage.prepareForCurrentInstallation();
+
+      expect(await storage.readSession(), isNull);
+      expect(await storage.readPreviousAnonymousSession(), isNull);
+      expect(await storage.readOrCreateDeviceId(), isNot(previousDeviceId));
+    },
+  );
+
+  test(
+    'installation marker preserves authentication across app restarts',
+    () async {
+      const storage = SecureAuthStorage();
+      const user = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'user-access',
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      await storage.prepareForCurrentInstallation();
+      await storage.writeSession(user);
+
+      await const SecureAuthStorage().prepareForCurrentInstallation();
+
+      expectSession(await storage.readSession(), user);
+    },
+  );
+
+  test(
+    'first marker rollout preserves an existing installation session',
+    () async {
+      SharedPreferences.setMockInitialValues({'onboarding.completed': true});
+      const storage = SecureAuthStorage();
+      const user = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'user-access',
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      await storage.writeSession(user);
+
+      await storage.prepareForCurrentInstallation();
+
+      expectSession(await storage.readSession(), user);
+    },
+  );
 
   test(
     'keeps one installation id because anonymous ownership is device scoped',

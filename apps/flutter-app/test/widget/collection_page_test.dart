@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -121,6 +123,30 @@ void main() {
       rightCardId: 'umbreon-vmax',
     );
     expect(find.text('Pokemon · Obsidian Flames'), findsOneWidget);
+  });
+
+  testWidgets('pull refresh keeps Collection content and shows one spinner', (
+    tester,
+  ) async {
+    final repository = _BlockingRefreshCollectionRepository();
+    await _pumpCollection(tester, repository: repository);
+
+    final indicator = find.byKey(const Key('collection-pull-to-refresh'));
+    final refresh = tester.state<RefreshIndicatorState>(indicator).show();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(repository.calls, 2);
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    expect(find.byType(KandoLoadingBlock), findsNothing);
+    expect(find.text('Charizard ex'), findsOneWidget);
+
+    await repository.completeRefresh();
+    await refresh;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RefreshProgressIndicator), findsNothing);
+    expect(find.text('Charizard ex'), findsOneWidget);
   });
 
   testWidgets(
@@ -684,14 +710,15 @@ void main() {
   });
 }
 
-Future<void> _pumpCollection(WidgetTester tester) async {
+Future<void> _pumpCollection(
+  WidgetTester tester, {
+  CollectionRepository repository = const MockCollectionRepository(),
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         ..._localAuthOverrides(),
-        collectionRepositoryProvider.overrideWithValue(
-          const MockCollectionRepository(),
-        ),
+        collectionRepositoryProvider.overrideWithValue(repository),
       ],
       child: const _CollectionTestApp(),
     ),
@@ -801,6 +828,24 @@ class _FailingThenSuccessfulCollectionRepository
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _BlockingRefreshCollectionRepository extends MockCollectionRepository {
+  final _refresh = Completer<CollectionDashboard>();
+  AuthSession? _session;
+  var calls = 0;
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) {
+    _session = session;
+    calls += 1;
+    if (calls == 1) return super.loadDashboard(session);
+    return _refresh.future;
+  }
+
+  Future<void> completeRefresh() async {
+    _refresh.complete(await super.loadDashboard(_session!));
+  }
 }
 
 class _PreferenceCollectionRepository extends MockCollectionRepository {

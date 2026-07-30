@@ -61,9 +61,7 @@ void main() {
       tester.getRect(find.byKey(const Key('search-results-grid'))).right,
       tester.getRect(find.byKey(const Key('search-field'))).right,
     );
-    final squirtlePriceRow = find.byKey(
-      const Key('search-price-row-squirtle'),
-    );
+    final squirtlePriceRow = find.byKey(const Key('search-price-row-squirtle'));
     final squirtlePrice = find.descendant(
       of: squirtlePriceRow,
       matching: find.text(r'$32.13'),
@@ -99,6 +97,36 @@ void main() {
 
     expect(find.text('€29.24'), findsOneWidget);
     expect(find.text(r'$32.13'), findsNothing);
+  });
+
+  testWidgets('pull refresh keeps Search content and shows one spinner', (
+    tester,
+  ) async {
+    final repository = _BlockingRefreshSearchRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final indicator = find.byKey(const Key('search-pull-to-refresh'));
+    final refresh = tester.state<RefreshIndicatorState>(indicator).show();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(repository.calls, 2);
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    expect(find.byType(KandoLoadingBlock), findsNothing);
+    expect(find.text('Squirtle'), findsOneWidget);
+
+    await repository.completeRefresh();
+    await refresh;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RefreshProgressIndicator), findsNothing);
+    expect(find.text('Squirtle'), findsOneWidget);
   });
 
   testWidgets(
@@ -457,15 +485,11 @@ void main() {
     );
     expect((sheet.decoration! as BoxDecoration).color, KandoColors.surface);
     expect(
-      tester
-          .getRect(find.byKey(const Key('search-game-filter-sheet')))
-          .bottom,
+      tester.getRect(find.byKey(const Key('search-game-filter-sheet'))).bottom,
       844,
     );
     expect(
-      tester
-          .getRect(find.byKey(const Key('search-game-apply-filter')))
-          .bottom,
+      tester.getRect(find.byKey(const Key('search-game-apply-filter'))).bottom,
       lessThanOrEqualTo(844 - 34),
     );
     expect(find.text('GAME / IP'), findsOneWidget);
@@ -598,7 +622,9 @@ void main() {
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
   });
 
-  testWidgets('Search card action failures do not show a toast', (tester) async {
+  testWidgets('Search card action failures do not show a toast', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -928,6 +954,32 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
   @override
   Future<List<SearchSet>> searchSets(String query, {String? game}) {
     return const MockSearchRepository().searchSets(query);
+  }
+}
+
+class _BlockingRefreshSearchRepository implements SearchRepository {
+  final _refresh = Completer<SearchCatalog>();
+  var calls = 0;
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    calls += 1;
+    if (calls == 1) return const MockSearchRepository().loadCatalog();
+    return _refresh.future;
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
+    return const MockSearchRepository().searchCards(query, game: game);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
+  }
+
+  Future<void> completeRefresh() async {
+    _refresh.complete(await const MockSearchRepository().loadCatalog());
   }
 }
 

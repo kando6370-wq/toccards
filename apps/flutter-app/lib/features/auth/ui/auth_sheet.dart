@@ -536,23 +536,51 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   }
 
   Future<void> _continueWithGoogle() {
+    OverlayEntry? loadingOverlay;
     return _run(
-      () {
-        return ref.read(authControllerProvider.notifier).continueWithGoogle();
+      () async {
+        try {
+          await ref
+              .read(authControllerProvider.notifier)
+              .continueWithGoogle(
+                onCallbackStart: () {
+                  if (mounted) {
+                    loadingOverlay ??= _showOAuthLoadingOverlay(
+                      'Signing in with Google',
+                    );
+                  }
+                },
+              );
+        } finally {
+          loadingOverlay?.remove();
+        }
       },
       isOAuth: true,
-      loadingMessage: 'Signing in with Google',
       successEvent: AnalyticsEvent.googleSuccess,
     );
   }
 
   Future<void> _continueWithApple() {
+    OverlayEntry? loadingOverlay;
     return _run(
-      () {
-        return ref.read(authControllerProvider.notifier).continueWithApple();
+      () async {
+        try {
+          await ref
+              .read(authControllerProvider.notifier)
+              .continueWithApple(
+                onCallbackStart: () {
+                  if (mounted) {
+                    loadingOverlay ??= _showOAuthLoadingOverlay(
+                      'Signing in with Apple',
+                    );
+                  }
+                },
+              );
+        } finally {
+          loadingOverlay?.remove();
+        }
       },
       isOAuth: true,
-      loadingMessage: 'Signing in with Apple',
       successEvent: AnalyticsEvent.appleSuccess,
     );
   }
@@ -651,7 +679,6 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   Future<void> _run(
     Future<void> Function() action, {
     required bool isOAuth,
-    String? loadingMessage,
     String? successEvent,
   }) async {
     if (_loading) {
@@ -664,9 +691,6 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
       _showOAuthWarning = false;
     });
     widget.onOAuthWarningChanged(false);
-    final loadingOverlay = loadingMessage == null
-        ? null
-        : _showOAuthLoadingOverlay(loadingMessage);
     try {
       await action();
       if (!mounted) {
@@ -691,7 +715,6 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
         widget.onOAuthWarningChanged(isOAuth);
       }
     } finally {
-      loadingOverlay?.remove();
       if (mounted) {
         setState(() => _loading = false);
       }
