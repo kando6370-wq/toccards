@@ -85,7 +85,7 @@ const SELECT_ACCOUNT_ANONYMOUS_OWNER_SQL = `
 const SELECT_ACCOUNT_USER_OWNER_SQL = `
   SELECT id
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `;
 
@@ -98,8 +98,8 @@ const SELECT_ANONYMOUS_ACCOUNT_FOR_MIGRATION_SQL = `
 
 const UPDATE_USER_DELETED_SQL = `
   UPDATE user
-  SET deleted_at = ?, updated_at = ?
-  WHERE id = ? AND deleted_at IS NULL
+  SET status = 'deleted', deleted_at = ?, updated_at = ?
+  WHERE id = ? AND status = 'active'
 `;
 
 const REVOKE_OWNER_SESSIONS_SQL = `
@@ -115,6 +115,11 @@ const DELETE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL = `
 
 const DELETE_ANONYMOUS_COLLECTION_ITEMS_SQL = `
   DELETE FROM collection_item
+  WHERE owner_type = 'anonymous' AND owner_id = ?
+`;
+
+const DELETE_ANONYMOUS_COLLECTION_ITEM_EVENTS_SQL = `
+  DELETE FROM collection_item_event
   WHERE owner_type = 'anonymous' AND owner_id = ?
 `;
 
@@ -153,7 +158,6 @@ export function registerAccountRoutes(routes: Hono<{ Bindings: Env }>): void {
 
     try {
       const nowIso = new Date().toISOString();
-
       if (auth.owner.owner_type === "user") {
         await c.env.DB.batch([
           c.env.DB.prepare(UPDATE_USER_DELETED_SQL).bind(
@@ -173,6 +177,9 @@ export function registerAccountRoutes(routes: Hono<{ Bindings: Env }>): void {
             auth.owner.owner_id,
           ),
           c.env.DB.prepare(DELETE_ANONYMOUS_COLLECTION_ITEMS_SQL).bind(
+            auth.owner.owner_id,
+          ),
+          c.env.DB.prepare(DELETE_ANONYMOUS_COLLECTION_ITEM_EVENTS_SQL).bind(
             auth.owner.owner_id,
           ),
           c.env.DB.prepare(DELETE_ANONYMOUS_WISHLIST_ITEMS_SQL).bind(

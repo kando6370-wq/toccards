@@ -32,8 +32,13 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
   marketPriceCalls = 0;
   priceSeriesCalls = 0;
   soldListingCalls = 0;
+  trendingOptions: Array<{ page?: number; page_size?: number } | undefined> = [];
 
   async searchCards(): Promise<CardSearchResult[]> {
+    return [];
+  }
+
+  async searchSets() {
     return [];
   }
 
@@ -72,7 +77,8 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
     ];
   }
 
-  async getTrending(): Promise<CardSearchResult[]> {
+  async getTrending(options?: { page?: number; page_size?: number }): Promise<CardSearchResult[]> {
+    this.trendingOptions.push(options);
     return [];
   }
 
@@ -91,6 +97,15 @@ class CountingDataSourceAdapter implements DataSourceAdapter {
 }
 
 describe("Cache API data source adapter", () => {
+  it("forwards Trending pagination because the outer production cache must not reset every request to page one", async () => {
+    const source = new CountingDataSourceAdapter();
+    const adapter = createCacheApiDataSourceAdapter(source, new FakeCache());
+
+    await adapter.getTrending({ page: 2, page_size: 40 });
+
+    expect(source.trendingOptions).toEqual([{ page: 2, page_size: 40 }]);
+  });
+
   it("serves repeated getMarketPrices calls from Cache API because current price requests should not hit providers repeatedly", async () => {
     const cache = new FakeCache();
     const source = new CountingDataSourceAdapter();
@@ -102,7 +117,7 @@ describe("Cache API data source adapter", () => {
     expect(first).toEqual(second);
     expect(source.marketPriceCalls).toBe(1);
     expect(cache.puts[0]?.requestUrl).toBe(
-      "https://data-source-cache.invalid/getMarketPrices:mock%3Atcg%3Acharizard",
+      "https://data-source-cache.invalid/getMarketPrices:v2:mock%3Atcg%3Acharizard",
     );
     expect(cache.puts[0]?.response.headers.get("Cache-Control")).toBe(
       "public, max-age=1800",
@@ -138,8 +153,8 @@ describe("Cache API data source adapter", () => {
 
     expect(source.priceSeriesCalls).toBe(2);
     expect(cache.puts.map((put) => put.requestUrl)).toEqual([
-      "https://data-source-cache.invalid/getPriceSeries:mock%3Atcg%3Acharizard:raw:none:near%20mint:30",
-      "https://data-source-cache.invalid/getPriceSeries:mock%3Atcg%3Acharizard:raw:none:lightly%20played:30",
+      "https://data-source-cache.invalid/getPriceSeries:v2:mock%3Atcg%3Acharizard:raw:none:near%20mint:30",
+      "https://data-source-cache.invalid/getPriceSeries:v2:mock%3Atcg%3Acharizard:raw:none:lightly%20played:30",
     ]);
   });
 
@@ -159,5 +174,17 @@ describe("Cache API data source adapter", () => {
     ]);
     expect(source.soldListingCalls).toBe(1);
     expect(cache.puts).toEqual([]);
+  });
+
+  it("versions sold listing keys because marketplace source changes must not reuse stale empty payloads", async () => {
+    const cache = new FakeCache();
+    const source = new CountingDataSourceAdapter();
+    const adapter = createCacheApiDataSourceAdapter(source, cache);
+
+    await adapter.getSoldListings("mock:tcg:charizard");
+
+    expect(cache.puts[0]?.requestUrl).toBe(
+      "https://data-source-cache.invalid/getSoldListings:v4:mock%3Atcg%3Acharizard",
+    );
   });
 });

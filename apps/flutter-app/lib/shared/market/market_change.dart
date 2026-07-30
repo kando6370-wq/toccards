@@ -29,6 +29,14 @@ class MarketChange {
     );
   }
 
+  factory MarketChange.fromPercent(double? percent) {
+    return MarketChange._(
+      currentValue: null,
+      amount: null,
+      percent: percent?.isFinite == true ? percent : null,
+    );
+  }
+
   final double? currentValue;
   final double? amount;
   final double? percent;

@@ -1,8 +1,17 @@
 class AppUpgradeConfig {
-  const AppUpgradeConfig({this.upgradePrompt, this.appStoreUrl});
+  const AppUpgradeConfig({
+    this.upgradePrompt,
+    this.appStoreUrl,
+    this.cardShareBaseUrl,
+    this.termsUrl,
+    this.privacyUrl,
+  });
 
   final UpgradePrompt? upgradePrompt;
   final String? appStoreUrl;
+  final String? cardShareBaseUrl;
+  final String? termsUrl;
+  final String? privacyUrl;
 
   factory AppUpgradeConfig.fromJson(Map<String, Object?> json) {
     final promptJson = json['upgrade_prompt'];
@@ -12,6 +21,9 @@ class AppUpgradeConfig {
           ? UpgradePrompt.fromJson(promptJson)
           : null,
       appStoreUrl: _stringOrNull(json['app_store_url']),
+      cardShareBaseUrl: _stringOrNull(json['card_share_base_url']),
+      termsUrl: _stringOrNull(json['terms_url']),
+      privacyUrl: _stringOrNull(json['privacy_url']),
     );
   }
 }
@@ -23,6 +35,8 @@ class UpgradePrompt {
     required this.title,
     required this.message,
     required this.storeUrl,
+    this.minVersion,
+    this.forcedMessage,
   });
 
   final String latestVersion;
@@ -30,6 +44,8 @@ class UpgradePrompt {
   final String title;
   final String message;
   final String? storeUrl;
+  final String? minVersion;
+  final String? forcedMessage;
 
   factory UpgradePrompt.fromJson(Map<String, Object?> json) {
     return UpgradePrompt(
@@ -43,6 +59,8 @@ class UpgradePrompt {
           _stringOrNull(json['message']) ??
           'Please install the latest Kando version.',
       storeUrl: _stringOrNull(json['store_url']),
+      minVersion: _stringOrNull(json['min_version']),
+      forcedMessage: _stringOrNull(json['forced_message']),
     );
   }
 }
@@ -102,9 +120,15 @@ class AppUpgradePolicy {
 
     final current = _AppVersion.tryParse(currentVersion);
     final latest = _AppVersion.tryParse(prompt.latestVersion);
+    final minimum = _AppVersion.tryParse(
+      prompt.minVersion ?? prompt.latestVersion,
+    );
     final storeUrl = prompt.storeUrl ?? config.appStoreUrl;
 
-    if (current == null || latest == null || storeUrl == null) {
+    if (current == null ||
+        latest == null ||
+        minimum == null ||
+        storeUrl == null) {
       return const AppUpgradeDecision.none();
     }
 
@@ -112,10 +136,13 @@ class AppUpgradePolicy {
       return const AppUpgradeDecision.none();
     }
 
+    final forceUpdate = prompt.forceUpdate && current.compareTo(minimum) < 0;
     return AppUpgradeDecision.update(
-      forceUpdate: prompt.forceUpdate,
-      title: prompt.title,
-      message: prompt.message,
+      forceUpdate: forceUpdate,
+      title: forceUpdate ? 'Update required' : prompt.title,
+      message: forceUpdate
+          ? (prompt.forcedMessage ?? prompt.message)
+          : prompt.message,
       storeUrl: storeUrl,
       latestVersion: prompt.latestVersion,
     );

@@ -1,10 +1,15 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/app/app.dart';
+import 'package:kando_app/app/app_startup_preloader.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
+
+import 'support/in_memory_onboarding_storage.dart';
 
 void main() {
   testWidgets('KandoApp shows onboarding before the startup home page', (
@@ -13,14 +18,19 @@ void main() {
     final storage = InMemoryOnboardingStorage();
 
     await tester.pumpWidget(_testApp(storage));
+    await _finishStartup(tester);
 
-    await tester.pumpAndSettle();
-
-    expect(find.text('Track your collection'), findsOneWidget);
+    expect(find.byKey(const ValueKey('onboarding-guides')), findsOneWidget);
+    expect(find.text('Instantly Scan Cards'), findsOneWidget);
     expect(find.text('Overview'), findsNothing);
 
-    await tester.tap(find.text('Skip'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip("LET'S START"));
+    await _finishPageTransition(tester);
+    await tester.tap(find.byTooltip('NEXT'));
+    await _finishPageTransition(tester);
+    await tester.tap(find.byTooltip('Skip and start now'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('PORTFOLIO'), findsOneWidget);
@@ -28,16 +38,31 @@ void main() {
     expect(find.text('Delete account'), findsNothing);
 
     await tester.pumpWidget(_testApp(storage));
-    await tester.pumpAndSettle();
+    await _finishStartup(tester);
 
-    expect(find.text('Track your collection'), findsNothing);
+    expect(find.byKey(const ValueKey('onboarding-guides')), findsNothing);
     expect(find.text('Overview'), findsOneWidget);
   });
+}
+
+Future<void> _finishStartup(WidgetTester tester) async {
+  await tester.pump(OnboardingController.minimumSplashDuration);
+  await tester.pump();
+  await tester.pump(OnboardingController.progressCompletionDuration);
+  await tester.pump(OnboardingController.completedProgressHoldDuration);
+  await tester.pump();
+}
+
+Future<void> _finishPageTransition(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pump();
 }
 
 ProviderScope _testApp(InMemoryOnboardingStorage storage) {
   return ProviderScope(
     overrides: [
+      appStartupPreloaderProvider.overrideWith((ref) async {}),
       authRepositoryProvider.overrideWithValue(
         _WidgetTestAuthRepository(
           AuthSession(
@@ -93,6 +118,12 @@ class _WidgetTestAuthRepository implements AuthRepository {
   Future<void> sendRegisterCode(String email) async {}
 
   @override
+  Future<void> verifyRegisterCode({
+    required String email,
+    required String code,
+  }) async {}
+
+  @override
   Future<AuthSession> verifyRegister({
     required String email,
     required String code,
@@ -124,8 +155,7 @@ class _WidgetTestAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession> googleCallback({
-    required String code,
-    required String redirectUri,
+    required String idToken,
     String? anonymousId,
   }) async {
     return const AuthSession(

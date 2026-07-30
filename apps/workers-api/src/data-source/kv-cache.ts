@@ -13,7 +13,13 @@ export type DataSourceKvNamespace = {
 };
 
 const SEARCH_CARDS_TTL_SECONDS = 60 * 60;
-const TRENDING_TTL_SECONDS = 15 * 60;
+const TRENDING_LAST_GOOD_TTL_SECONDS = 24 * 60 * 60;
+const CARD_RESPONSE_CACHE_VERSION = "v6";
+const TRENDING_RESPONSE_CACHE_VERSION = "v6";
+const TRENDING_LEGACY_CACHE_KEYS = [
+  "v5:getTrending:last-known-good",
+  "v4:getTrending",
+];
 const DEFAULT_SEARCH_PAGE = 1;
 const DEFAULT_SEARCH_PAGE_SIZE = 20;
 
@@ -31,6 +37,10 @@ export function createKvCachedDataSourceAdapter(
       );
     },
 
+    searchSets(query, options) {
+      return source.searchSets(query, options);
+    },
+
     getCard(card_ref) {
       return source.getCard(card_ref);
     },
@@ -43,13 +53,47 @@ export function createKvCachedDataSourceAdapter(
       return source.getMarketPrices(card_ref);
     },
 
-    async getTrending() {
-      return readThroughKv(
-        kv,
-        "getTrending",
-        TRENDING_TTL_SECONDS,
-        () => source.getTrending(),
-      );
+    async getTrending(options) {
+      const page = options?.page ?? 1;
+      const pageSize = options?.page_size ?? 10;
+      const key = `${TRENDING_RESPONSE_CACHE_VERSION}:getTrending:${page}:${pageSize}`;
+      const lastGoodKey = `${key}:last-known-good`;
+      var lastGood = await readCachedValue<
+        Awaited<ReturnType<typeof source.getTrending>>
+      >(kv, lastGoodKey);
+      if (lastGood === null && page === 1 && pageSize === 10) {
+        for (const legacyKey of TRENDING_LEGACY_CACHE_KEYS) {
+          lastGood = await readCachedValue<
+            Awaited<ReturnType<typeof source.getTrending>>
+          >(kv, legacyKey);
+          if (lastGood !== null) break;
+        }
+        if (lastGood !== null && lastGood.length > 0) {
+          await writeCachedValue(
+            kv,
+            lastGoodKey,
+            lastGood,
+            TRENDING_LAST_GOOD_TTL_SECONDS,
+          );
+        }
+      }
+      try {
+        const fresh = await source.getTrending({ page, page_size: pageSize });
+        if (fresh.length === 0) return lastGood ?? fresh;
+
+        if (JSON.stringify(fresh) != JSON.stringify(lastGood)) {
+          await writeCachedValue(
+            kv,
+            lastGoodKey,
+            fresh,
+            TRENDING_LAST_GOOD_TTL_SECONDS,
+          );
+        }
+        return fresh;
+      } catch (error) {
+        if (lastGood !== null) return lastGood;
+        throw error;
+      }
     },
 
     getSoldListings(card_ref) {
@@ -112,11 +156,16 @@ function searchCardsCacheKey(
     DEFAULT_SEARCH_PAGE_SIZE,
   );
   const objectType = options?.object_type ?? "all";
+  const game = options?.game ?? "all";
+  const setCode = options?.set_code ?? "all";
 
   return [
+    CARD_RESPONSE_CACHE_VERSION,
     "searchCards",
     cacheKeyPart(query),
     cacheKeyPart(objectType),
+    cacheKeyPart(game),
+    cacheKeyPart(setCode),
     String(page),
     String(pageSize),
   ].join(":");

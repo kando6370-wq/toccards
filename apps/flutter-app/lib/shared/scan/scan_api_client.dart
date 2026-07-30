@@ -1,8 +1,8 @@
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+
+import 'scan_image_hasher_contract.dart';
 
 const scanApiBaseUrl = authApiBaseUrl;
 
@@ -10,8 +10,8 @@ Dio createScanDio({String baseUrl = scanApiBaseUrl}) {
   return Dio(
     BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 120),
+      connectTimeout: const Duration(seconds: 4),
+      receiveTimeout: const Duration(seconds: 12),
     ),
   );
 }
@@ -89,20 +89,93 @@ class ScanCandidateDto {
       name: _requiredString(json['name']),
       setCode: _nullableString(json['set_code']),
       cardNumber: _nullableString(json['card_number']),
-      confidence: _nullableDouble(json['confidence']),
+      confidence: _nullableConfidence(json['confidence']),
     );
+  }
+}
+
+class ScanConfirmationDto {
+  const ScanConfirmationDto({
+    required this.scanId,
+    required this.collectionItemId,
+    required this.cardRef,
+    required this.folderId,
+  });
+
+  final String scanId;
+  final String collectionItemId;
+  final String cardRef;
+  final String folderId;
+
+  factory ScanConfirmationDto.fromJson(Map<String, Object?> json) {
+    return ScanConfirmationDto(
+      scanId: _requiredString(json['scan_id']),
+      collectionItemId: _requiredString(json['collection_item_id']),
+      cardRef: _requiredString(json['card_ref']),
+      folderId: _requiredString(json['folder_id']),
+    );
+  }
+}
+
+class ScanCollectionItemInput {
+  const ScanCollectionItemInput({
+    required this.folderId,
+    required this.cardRef,
+    required this.quantity,
+    required this.grader,
+    required this.condition,
+    required this.grade,
+    required this.language,
+    required this.finish,
+    required this.purchasePrice,
+    required this.purchaseCurrency,
+    required this.notes,
+  });
+
+  final String folderId;
+  final String cardRef;
+  final int quantity;
+  final String grader;
+  final String? condition;
+  final double? grade;
+  final String language;
+  final String finish;
+  final double? purchasePrice;
+  final String? purchaseCurrency;
+  final String? notes;
+
+  Map<String, Object?> toJson() {
+    return {
+      'folder_id': folderId,
+      'card_ref': cardRef,
+      'quantity': quantity,
+      'grader': grader,
+      'condition': condition,
+      'grade': grade,
+      'language': language,
+      'finish': finish,
+      'purchase_price': purchasePrice,
+      'purchase_currency': purchaseCurrency,
+      'notes': notes,
+    };
   }
 }
 
 abstract interface class ScanApi {
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required Uint8List imageBytes,
+    required ScanImageHashes hashes,
     required String fileName,
     required String platform,
     required String appVersion,
+    String? cardNumber,
     String? deviceModel,
     String? osVersion,
+  });
+  Future<ScanConfirmationDto> confirmMatch(
+    AuthSession session, {
+    required String scanId,
+    required ScanCollectionItemInput item,
   });
 }
 
@@ -114,29 +187,58 @@ class ScanApiClient implements ScanApi {
   @override
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required Uint8List imageBytes,
+    required ScanImageHashes hashes,
     required String fileName,
     required String platform,
     required String appVersion,
+    String? cardNumber,
     String? deviceModel,
     String? osVersion,
   }) async {
-    final form = FormData.fromMap({
-      'image': MultipartFile.fromBytes(imageBytes, filename: fileName),
+    final cardImageBytes = hashes.cardImageBytes;
+    if (cardImageBytes == null) {
+      throw const ScanApiException('The corrected card image is unavailable.');
+    }
+    final body = FormData.fromMap(<String, Object?>{
+      'r': hashes.r,
+      'g': hashes.g,
+      'b': hashes.b,
+      'filename': fileName,
       'platform': platform,
       'app_version': appVersion,
+      if (cardNumber != null) 'card_number': cardNumber,
       if (deviceModel != null) 'device_model': deviceModel,
       if (osVersion != null) 'os_version': osVersion,
+      'image': MultipartFile.fromBytes(
+        cardImageBytes,
+        filename: 'scan-card.jpg',
+        contentType: DioMediaType('image', 'jpeg'),
+      ),
     });
-    final data = await _requestData('POST', '/scan/recognize', session, form);
+    final data = await _requestData('POST', '/scan/recognize', session, body);
     return ScanRecognitionDto.fromJson(data);
+  }
+
+  @override
+  Future<ScanConfirmationDto> confirmMatch(
+    AuthSession session, {
+    required String scanId,
+    required ScanCollectionItemInput item,
+  }) async {
+    final data = await _requestData(
+      'POST',
+      '/scan/${Uri.encodeComponent(scanId)}/confirm',
+      session,
+      item.toJson(),
+    );
+    return ScanConfirmationDto.fromJson(data);
   }
 
   Future<Map<String, Object?>> _requestData(
     String method,
     String path,
     AuthSession session,
-    FormData body,
+    Object body,
   ) async {
     final response = await _dio.request<Object?>(
       path,
@@ -207,9 +309,15 @@ int _requiredInt(Object? value) {
   throw const ScanApiException('Something went wrong. Please try again.');
 }
 
-double? _nullableDouble(Object? value) {
+double? _nullableConfidence(Object? value) {
   if (value == null) return null;
-  if (value is int) return value.toDouble();
-  if (value is double) return value;
+  final numeric = value is int
+      ? value.toDouble()
+      : value is double
+      ? value
+      : null;
+  if (numeric != null && numeric.isFinite && numeric >= 0 && numeric <= 100) {
+    return numeric;
+  }
   throw const ScanApiException('Something went wrong. Please try again.');
 }

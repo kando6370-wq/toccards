@@ -13,6 +13,7 @@ import {
   Select,
   Segmented,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -52,6 +53,7 @@ type InstallationAnalytics = {
 };
 
 type InstallationRow = {
+  uid: string;
   date: string;
   country: string;
   platform: string;
@@ -66,10 +68,12 @@ type UserItem = {
   device_id: string | null;
   created_at: string;
   status: string;
-  platform?: string;
-  identity?: string;
-  environment?: string;
+  platform: string;
+  identity: "anonymous" | "email" | "google" | "apple";
 };
+
+type UserListResponse = { items: UserItem[]; total: number; page: number; page_size: number };
+type UserFilters = { q: string; platform?: string; identity?: string; date_from: string; date_to: string };
 
 type FeedbackTicket = {
   id: string;
@@ -106,6 +110,13 @@ type ScanDetail = ScanListItem & {
   candidates: Array<Record<string, unknown>>;
 };
 
+type ScanListResponse = {
+  items: ScanListItem[];
+  page: number;
+  page_size: number;
+  total: number;
+};
+
 type PermissionItem = {
   id: string;
   email: string;
@@ -119,6 +130,8 @@ type AppVersionItem = {
   platform: "iOS" | "Google";
   min_supported_version: string;
   recommended_version: string;
+  force_update: boolean;
+  store_url: string;
   recommended_update_message: string;
   forced_update_message: string;
   status: AppVersionStatus;
@@ -133,6 +146,7 @@ const API_BASE = resolveAdminApiBase({
   VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
 });
 const SESSION_STORAGE_KEY = "kando_admin_session";
+const SESSION_EXPIRED_EVENT = "kando-admin-session-expired";
 const PERIOD_OPTIONS = ["1d", "7d", "15d", "1m", "3m"];
 
 const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: string }> }> = [
@@ -169,6 +183,15 @@ export default function App() {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
     }
   }, [session]);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setAuthView("login");
+      setSession(null);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
 
   if (!session) {
     if (authView === "password") return <PasswordSetupView onBack={() => setAuthView("login")} />;
@@ -380,6 +403,7 @@ function InstallationsPage({ session }: { session: AdminSession }) {
     (value) => ({ value, label: countryName(value) }),
   );
   const columns: ColumnsType<InstallationRow> = [
+    { title: "UID", dataIndex: "uid" },
     { title: "日期", dataIndex: "date" },
     { title: "国家", dataIndex: "country", render: countryName },
     { title: "平台", dataIndex: "platform" },
@@ -409,36 +433,60 @@ function InstallationsPage({ session }: { session: AdminSession }) {
         <LineChart data={trend} />
       </section>
       <DataPanel title="安装数据" count={rows.length}>
-        <Table rowKey={(row) => `${row.date}-${row.country}-${row.platform}`} columns={columns} dataSource={rows} loading={loading} pagination={{ pageSize: 8 }} />
+        <Table rowKey={(row) => `${row.uid}-${row.date}-${row.country}-${row.platform}`} columns={columns} dataSource={rows} loading={loading} pagination={{ pageSize: 8 }} />
       </DataPanel>
     </PagePanel>
   );
 }
 
 function UsersPage({ session }: { session: AdminSession }) {
-  const { data, loading, reload, error } = useAdminData<{ items: UserItem[] }>("/users?page_size=100", session);
+  const [page, setPage] = useState(1);
+  const [dateRangeKey, setDateRangeKey] = useState(0);
+  const [draft, setDraft] = useState<UserFilters>({ q: "", date_from: "", date_to: "" });
+  const [filters, setFilters] = useState<UserFilters>(draft);
+  const path = useMemo(() => {
+    const params = new URLSearchParams({ page: String(page), page_size: "8" });
+    Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+    return `/users?${params.toString()}`;
+  }, [filters, page]);
+  const { data, loading, reload, error } = useAdminData<UserListResponse>(path, session);
   const users = data?.items ?? [];
   const columns: ColumnsType<UserItem> = [
-    { title: "UID", dataIndex: "id", ellipsis: true },
-    { title: "平台", render: () => "iOS" },
-    { title: "首次安装日期", dataIndex: "created_at", render: formatDate },
-    { title: "用户身份", render: (_, row) => (row.account_type === "anonymous" ? <Tag>游客</Tag> : <Tag color="cyan">邮箱</Tag>) },
-    { title: "登录账号", render: (_, row) => row.email ?? row.device_id ?? "-" },
+    { title: "UID", dataIndex: "id", width: 230, ellipsis: true },
+    { title: "平台", dataIndex: "platform", width: 100, ellipsis: true },
+    { title: "首次安装日期", dataIndex: "created_at", width: 140, ellipsis: true, render: formatDate },
+    { title: "用户身份", dataIndex: "identity", width: 110, ellipsis: true, render: renderUserIdentity },
+    { title: "登录账号", width: 260, render: (_, row) => {
+      const account = row.email ?? row.device_id ?? "-";
+      return <Text ellipsis={{ tooltip: account }} style={{ maxWidth: 240 }}>{account}</Text>;
+    } },
   ];
 
+  function applyFilters() {
+    setPage(1);
+    setFilters(draft);
+  }
+
+  function resetFilters() {
+    const empty = { q: "", date_from: "", date_to: "" };
+    setDraft(empty);
+    setFilters(empty);
+    setPage(1);
+    setDateRangeKey((value) => value + 1);
+  }
+
   return (
-    <PagePanel error={error} onRefresh={reload}>
+    <PagePanel error={error} onRefresh={reload} className="users-page">
       <FilterBar>
-        <Input placeholder="UID" className="filter-control" />
-        <Select placeholder="平台" className="filter-control" options={platformOptions} />
-        <Select placeholder="用户身份" className="filter-control" options={identityOptions} />
-        <Select placeholder="环境" className="filter-control" options={environmentOptions} />
-        <DatePicker.RangePicker />
-        <Button className="cyan-button">查询</Button>
-        <Button>重置</Button>
+        <Input value={draft.q} onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value }))} onPressEnter={applyFilters} placeholder="UID、邮箱或设备号" className="filter-control user-search-control" />
+        <Select allowClear value={draft.platform} onChange={(platform) => setDraft((current) => ({ ...current, platform }))} placeholder="平台" className="filter-control" options={userPlatformOptions} />
+        <Select allowClear value={draft.identity} onChange={(identity) => setDraft((current) => ({ ...current, identity }))} placeholder="用户身份" className="filter-control" options={identityOptions} />
+        <DatePicker.RangePicker key={dateRangeKey} onChange={(_, values) => setDraft((current) => ({ ...current, date_from: values[0], date_to: values[1] }))} />
+        <Button className="cyan-button" onClick={applyFilters}>查询</Button>
+        <Button onClick={resetFilters}>重置</Button>
       </FilterBar>
-      <DataPanel title="用户数据" count={users.length}>
-        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} pagination={{ pageSize: 8 }} />
+      <DataPanel title="用户数据" count={data?.total ?? 0} className="users-table-panel">
+        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} size="small" tableLayout="fixed" scroll={{ x: 840, y: "calc(100dvh - 390px)" }} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: setPage }} />
       </DataPanel>
     </PagePanel>
   );
@@ -508,7 +556,17 @@ function FeedbackPage({ session }: { session: AdminSession }) {
 
 function ScansPage({ session }: { session: AdminSession }) {
   const [selected, setSelected] = useState<ScanDetail | null>(null);
-  const { data, loading, reload, error } = useAdminData<{ items: ScanListItem[] }>("/scans?page_size=100", session);
+  const [page, setPage] = useState(1);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const queryPath = useMemo(() => {
+    const params = new URLSearchParams({ page: String(page), page_size: "10" });
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    return `/scans?${params.toString()}`;
+  }, [filters, page]);
+  const { data, loading, reload, error } = useAdminData<ScanListResponse>(queryPath, session);
   const scans = data?.items ?? [];
 
   async function openDetail(scanId: string) {
@@ -516,9 +574,15 @@ function ScansPage({ session }: { session: AdminSession }) {
     setSelected(detail);
   }
 
+  function applyScanFilters() {
+    setPage(1);
+    setFilters(draft);
+    reload();
+  }
+
   const columns: ColumnsType<ScanListItem> = [
     { title: "SCAN ID", dataIndex: "scan_id", ellipsis: true },
-    { title: "卡牌图片", dataIndex: "image_url", render: (value: string) => value ? <img className="scan-thumb" src={value} alt="card" /> : <Tag>未存储</Tag> },
+    { title: "卡牌图片", dataIndex: "image_url", render: (value: string) => <AuthenticatedScanImage path={value} session={session} className="scan-thumb" /> },
     { title: "UID", dataIndex: "uid" },
     { title: "APP版本", dataIndex: "app_version" },
     { title: "扫描时间", dataIndex: "scan_time", render: formatTime },
@@ -528,23 +592,50 @@ function ScansPage({ session }: { session: AdminSession }) {
   ];
 
   return (
-    <PagePanel error={error} onRefresh={reload}>
-      <FilterBar>
-        <DatePicker.RangePicker placeholder={["扫描开始", "扫描结束"]} />
-        <Input placeholder="UID" className="filter-control" />
-        <Select placeholder="平台" className="filter-control" options={platformOptions} />
-        <Input placeholder="App 版本" className="filter-control" />
-        <Select placeholder="识别状态" className="filter-control" options={recognitionOptions} />
-        <Select placeholder="用户确认状态" className="filter-control" options={confirmationOptions} />
-        <Button className="cyan-button">查询</Button>
-        <Button>重置</Button>
-      </FilterBar>
-      <DataPanel title="扫描数据" count={scans.length}>
-        <Table rowKey="scan_id" columns={columns} dataSource={scans} loading={loading} pagination={{ pageSize: 8 }} />
-      </DataPanel>
-      <ScanDetailDrawer scan={selected} onClose={() => setSelected(null)} />
-    </PagePanel>
+    <div className="scans-page">
+      {error && <Alert type="error" showIcon message={error} action={<Button onClick={reload}>重试</Button>} />}
+      <section className="scans-filter-panel">
+        <ScanFilterField label="扫描时间">
+          <DatePicker.RangePicker placeholder={["扫描开始", "扫描结束"]} onChange={(_, values) => setDraft((current) => ({ ...current, date_from: values[0], date_to: values[1] }))} />
+        </ScanFilterField>
+        <ScanFilterField label="UID">
+          <Input placeholder="输入用户 ID" value={draft.uid ?? ""} onChange={(event) => setDraft((current) => ({ ...current, uid: event.target.value }))} />
+        </ScanFilterField>
+        <ScanFilterField label="平台">
+          <Select placeholder="全部" allowClear value={draft.platform || undefined} options={scanPlatformOptions} onChange={(value) => setDraft((current) => ({ ...current, platform: value ?? "" }))} />
+        </ScanFilterField>
+        <ScanFilterField label="App 版本">
+          <Input placeholder="e.g. 2.4.0" value={draft.app_version ?? ""} onChange={(event) => setDraft((current) => ({ ...current, app_version: event.target.value }))} />
+        </ScanFilterField>
+        <ScanFilterField label="识别状态">
+          <Select placeholder="全部" allowClear value={draft.recognition_status || undefined} options={recognitionOptions} onChange={(value) => setDraft((current) => ({ ...current, recognition_status: value ?? "" }))} />
+        </ScanFilterField>
+        <ScanFilterField label="用户确认状态">
+          <Select placeholder="全部" allowClear value={draft.user_confirmation_status || undefined} options={confirmationOptions} onChange={(value) => setDraft((current) => ({ ...current, user_confirmation_status: value ?? "" }))} />
+        </ScanFilterField>
+        <ScanFilterField label="是否修改结果">
+          <Select placeholder="全部" allowClear value={draft.modified_result || undefined} options={[{ value: "true", label: "是" }, { value: "false", label: "否" }]} onChange={(value) => setDraft((current) => ({ ...current, modified_result: value ?? "" }))} />
+        </ScanFilterField>
+        <div className="scans-filter-actions">
+          <Button className="cyan-button" onClick={applyScanFilters}>查询</Button>
+          <Button onClick={() => { setDraft({}); setFilters({}); setPage(1); }}>重置</Button>
+        </div>
+      </section>
+      <section className="scans-table-panel">
+        <Table rowKey="scan_id" columns={columns} dataSource={scans} loading={loading} pagination={false} />
+        <div className="scans-pagination">
+          <Text>{rangeSummaryPage(page, data?.page_size ?? 10, data?.total ?? 0)}</Text>
+          <Pagination size="small" current={page} pageSize={data?.page_size ?? 10} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} />
+        </div>
+      </section>
+      <p className="scans-data-note">ⓘ 数据用途说明：扫描图片和识别结果仅用于问题排查、支持与识别质量审计。</p>
+      <ScanDetailDrawer scan={selected} session={session} onClose={() => setSelected(null)} />
+    </div>
   );
+}
+
+function ScanFilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="scan-filter-field"><span>{label}</span>{children}</label>;
 }
 
 function PermissionsPage({ session }: { session: AdminSession }) {
@@ -651,6 +742,7 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
     { title: "操作平台", dataIndex: "platform" },
     { title: "最低支持版本", dataIndex: "min_supported_version" },
     { title: "建议更新版本", dataIndex: "recommended_version", render: (value: string) => <Text className="accent-text">{value}</Text> },
+    { title: "强制更新", dataIndex: "force_update", render: (value: boolean) => value ? "开启" : "关闭" },
     { title: "更新时间", dataIndex: "updated_at", render: formatDate },
     { title: "状态", dataIndex: "status", render: renderAppVersionStatus },
     {
@@ -698,6 +790,12 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
               <Input />
             </Form.Item>
           </div>
+          <Form.Item name="force_update" label="强制更新" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Form.Item name="store_url" label="应用商店地址" rules={[{ type: "url", message: "请输入有效的 HTTP(S) 地址" }]}>
+            <Input placeholder="https://..." />
+          </Form.Item>
           <Form.Item name="recommended_update_message" label="建议更新文案">
             <TextArea rows={5} />
           </Form.Item>
@@ -719,14 +817,14 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
   );
 }
 
-function ScanDetailDrawer({ scan, onClose }: { scan: ScanDetail | null; onClose: () => void }) {
+function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null; session: AdminSession; onClose: () => void }) {
   return (
     <Drawer open={!!scan} onClose={onClose} title="扫描详情" width={560} className="scan-detail-drawer">
       {scan && (
         <Space direction="vertical" size={20} className="drawer-stack">
           <DetailSection title="扫描图片">
-            {scan.image_url ? <img className="scan-preview" src={scan.image_url} alt="scan" /> : <Alert message="图片未存储" type="info" showIcon />}
-            <Input value={scan.image_url || "-"} readOnly addonAfter="复制链接" />
+            <AuthenticatedScanImage path={scan.image_url} session={session} className="scan-preview" />
+            <Input value={scan.image_url ? "Private R2 scan image" : "-"} readOnly addonAfter="受控访问" />
           </DetailSection>
           <DetailSection title="基础信息">
             <InfoGrid items={[
@@ -763,10 +861,19 @@ function ScanDetailDrawer({ scan, onClose }: { scan: ScanDetail | null; onClose:
             <div className="candidate-list">
               {scan.candidates.map((candidate, index) => (
                 <div className="candidate-card" key={index}>
-                  <span className="candidate-thumb" />
+                  <span className="candidate-thumb">
+                    {typeof candidate.image_url === "string" && candidate.image_url && (
+                      <img
+                        src={candidate.image_url}
+                        alt={String(candidate.name ?? "候选卡牌")}
+                        loading="lazy"
+                        onError={(event) => { event.currentTarget.style.display = "none"; }}
+                      />
+                    )}
+                  </span>
                   <div>
                     <strong>{displayValue(candidate.name)}</strong>
-                    <Text>{displayValue(candidate.set)} {displayValue(candidate.number)} · {confidenceText(candidate.confidence)}</Text>
+                    <Text>{displayValue(candidate.set_code ?? candidate.set)} {displayValue(candidate.card_number ?? candidate.number)} · {confidenceText(candidate.confidence)}</Text>
                   </div>
                 </div>
               ))}
@@ -776,6 +883,37 @@ function ScanDetailDrawer({ scan, onClose }: { scan: ScanDetail | null; onClose:
       )}
     </Drawer>
   );
+}
+
+function AuthenticatedScanImage({ path, session, className }: { path: string; session: AdminSession; className: string }) {
+  const [source, setSource] = useState<string | null>(null);
+  useEffect(() => {
+    if (!path) {
+      setSource(null);
+      return;
+    }
+    let active = true;
+    let objectUrl: string | null = null;
+    fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${session.accessToken}` } })
+      .then((response) => {
+        dispatchSessionExpiredOnUnauthorized(response, session.accessToken);
+        if (!response.ok) throw new Error("Scan image unavailable");
+        return response.blob();
+      })
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSource(objectUrl);
+      })
+      .catch(() => { if (active) setSource(null); });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [path, session.accessToken]);
+  return source
+    ? <img className={className} src={source} alt="扫描卡牌" />
+    : <span className={`${className} scan-image-placeholder`} aria-label="图片未存储" />;
 }
 
 function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -812,9 +950,9 @@ function DataPanel({ title, count, children, className = "" }: { title: string; 
   );
 }
 
-function PagePanel({ error, onRefresh, children }: { error: string | null; onRefresh: () => void; children: React.ReactNode }) {
+function PagePanel({ error, onRefresh, children, className = "" }: { error: string | null; onRefresh: () => void; children: React.ReactNode; className?: string }) {
   return (
-    <div className="page-panel">
+    <div className={`page-panel ${className}`.trim()}>
       <div className="refresh-row">
         <span />
         <Button onClick={onRefresh}>刷新</Button>
@@ -900,10 +1038,6 @@ function mutate(session: AdminSession, path: string, init: AdminRequestInit) {
 }
 
 async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promise<T> {
-  if (isViteDev() && init.token === "local-token") {
-    return demoAdminResponse(path, init) as T;
-  }
-
   const headers = new Headers(init.headers);
   if (init.token) headers.set("Authorization", `Bearer ${init.token}`);
   if (init.body !== undefined) headers.set("Content-Type", "application/json");
@@ -913,6 +1047,7 @@ async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promi
     headers,
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
   });
+  dispatchSessionExpiredOnUnauthorized(response, init.token);
   const payload = (await response.json()) as ApiResponse<T>;
   if (!response.ok || !payload.success) {
     if (payload.success) throw new AdminApiError("REQUEST_FAILED", "请求失败");
@@ -921,20 +1056,10 @@ async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promi
   return payload.data;
 }
 
-function demoAdminResponse(path: string, init: AdminRequestInit): unknown {
-  if (path.startsWith("/feedbacks/") && path.endsWith("/status")) {
-    return { ...demoFeedbacks[0], status: (init.body as { status?: FeedbackStatus })?.status ?? "processed" };
+function dispatchSessionExpiredOnUnauthorized(response: Response, token?: string) {
+  if (token && response.status === 401) {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
   }
-  if (path.startsWith("/scans/")) return demoScanDetail;
-  if (path.startsWith("/permissions/")) return { ...demoPermissions[1], permission_status: "disabled" };
-  if (path.startsWith("/app-versions/")) return { ...demoAppVersions[0], ...(init.body as Partial<AppVersionItem>) };
-  if (path.startsWith("/analytics/installations")) return demoInstallationAnalytics;
-  if (path.startsWith("/users")) return { items: demoUsers };
-  if (path.startsWith("/feedbacks")) return { items: demoFeedbacks };
-  if (path.startsWith("/scans")) return { items: [demoScanDetail] };
-  if (path.startsWith("/permissions")) return { items: demoPermissions };
-  if (path.startsWith("/app-versions")) return { items: demoAppVersions };
-  return {};
 }
 
 class AdminApiError extends Error {
@@ -944,25 +1069,12 @@ class AdminApiError extends Error {
 }
 
 function readStoredSession(): AdminSession | null {
-  if (isViteDev() && new URLSearchParams(window.location.search).get("demo_admin") === "1") {
-    return {
-      adminId: "local-admin",
-      email: "admin@example.com",
-      role: "super_admin",
-      accessToken: "local-token",
-      refreshToken: "local-refresh",
-    };
-  }
   try {
     const value = window.localStorage.getItem(SESSION_STORAGE_KEY);
     return value ? (JSON.parse(value) as AdminSession) : null;
   } catch {
     return null;
   }
-}
-
-function isViteDev(): boolean {
-  return Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
 }
 
 function FeedbackStatusTag({ status }: { status: FeedbackStatus }) {
@@ -983,7 +1095,15 @@ function renderAppVersionStatus(value: AppVersionStatus) {
 }
 
 function renderRecognitionStatus(value: string) {
-  return value === "success" ? <Tag color="green">识别成功</Tag> : <Tag color="red">识别失败</Tag>;
+  if (value === "success") return <Tag color="cyan">识别成功</Tag>;
+  if (value === "no_match") return <Tag color="gold">未命中</Tag>;
+  return <Tag color="red">识别失败</Tag>;
+}
+
+function renderUserIdentity(value: UserItem["identity"]) {
+  const labels = { anonymous: "游客", email: "邮箱", google: "Google", apple: "Apple" };
+  const colors = { anonymous: "default", email: "cyan", google: "blue", apple: "purple" };
+  return <Tag color={colors[value]}>{labels[value]}</Tag>;
 }
 
 function formatDate(value: string | null) {
@@ -1003,7 +1123,15 @@ function displayValue(value: unknown) {
 function confidenceText(value: unknown) {
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) return displayValue(value);
-  return numeric <= 1 ? `${(numeric * 100).toFixed(1)}%` : `${numeric}%`;
+  const rounded = Math.round(numeric * 1000) / 1000;
+  return `${rounded.toFixed(3).replace(/\.?0+$/, "")}%`;
+}
+
+function rangeSummaryPage(page: number, pageSize: number, total: number) {
+  if (total === 0) return "显示 0 条，共 0 条";
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  return `显示 ${start}-${end} 条，共 ${total.toLocaleString()} 条`;
 }
 
 function rangeSummary(count: number, unit: string) {
@@ -1021,97 +1149,22 @@ function countryName(countryCode: string): string {
 }
 const platformOptions = ["iOS", "Google"].map((value) => ({ value, label: value }));
 const environmentOptions = [{ value: "production", label: "Production" }, { value: "development", label: "Development" }];
-const identityOptions = ["Google", "游客", "Apple", "邮箱"].map((value) => ({ value, label: value }));
+const userPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
+const identityOptions = [
+  { value: "google", label: "Google" }, { value: "anonymous", label: "游客" },
+  { value: "apple", label: "Apple" }, { value: "email", label: "邮箱" },
+];
 const feedbackTypeOptions = ["Bug Report", "Feature Request", "Account", "Other"].map((value) => ({ value, label: value }));
 const feedbackStatusOptions = [
   { value: "pending", label: "待处理" },
   { value: "processed", label: "已处理" },
   { value: "ignored", label: "无需处理" },
 ];
-const recognitionOptions = [{ value: "success", label: "识别成功" }, { value: "failed", label: "识别失败" }];
+const recognitionOptions = [
+  { value: "success", label: "识别成功" },
+  { value: "no_match", label: "未命中" },
+  { value: "failed", label: "识别失败" },
+];
+const scanPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
 const confirmationOptions = [{ value: "confirmed", label: "已确认" }, { value: "pending", label: "待确认" }];
 const permissionStatusOptions = [{ value: "active", label: "启用" }, { value: "disabled", label: "停用" }];
-
-const demoInstallationAnalytics: InstallationAnalytics = {
-  summary: { total_installations: 19842, countries: 5, platforms: 2 },
-  trend: [
-    { date: "2026-07-04", total: 1200 },
-    { date: "2026-07-05", total: 1840 },
-    { date: "2026-07-06", total: 1680 },
-    { date: "2026-07-07", total: 2380 },
-    { date: "2026-07-08", total: 2960 },
-  ],
-  rows: [
-    { date: "2026-07-08", country: "United States", platform: "iOS", environment: "production", installs: 1280 },
-    { date: "2026-07-08", country: "Canada", platform: "Google", environment: "production", installs: 420 },
-    { date: "2026-07-07", country: "United Kingdom", platform: "iOS", environment: "production", installs: 368 },
-    { date: "2026-07-07", country: "Japan", platform: "Google", environment: "production", installs: 512 },
-  ],
-};
-
-const demoUsers: UserItem[] = [
-  { account_type: "user", id: "UID-100284", email: "collector@example.com", device_id: null, created_at: "2026-07-08T10:18:00.000Z", status: "active" },
-  { account_type: "anonymous", id: "UID-100285", email: null, device_id: "ios-device-72", created_at: "2026-07-08T09:42:00.000Z", status: "guest" },
-  { account_type: "user", id: "UID-100286", email: "apple-user@example.com", device_id: null, created_at: "2026-07-07T18:30:00.000Z", status: "active" },
-];
-
-const demoFeedbacks: FeedbackTicket[] = [
-  {
-    id: "FB-20260708-001",
-    email: "player@example.com",
-    message: "扫描后候选结果不准确，最终卡牌需要手动修改。",
-    status: "pending",
-    created_at: "2026-07-08T11:20:00.000Z",
-    issue_type: "Bug Report",
-    module: "Card Scanner",
-    uid: "UID-100284",
-    platform: "iOS",
-    app_version: "1.9.0",
-    device_model: "iPhone 15 Pro",
-    os_version: "iOS 18.5",
-  },
-  {
-    id: "FB-20260708-002",
-    email: "collector@example.com",
-    message: "希望愿望单支持批量移动到库存。",
-    status: "processed",
-    created_at: "2026-07-08T09:16:00.000Z",
-    issue_type: "Feature Request",
-    module: "Wishlist",
-    uid: "UID-100286",
-    platform: "Google",
-    app_version: "1.9.0",
-    device_model: "Pixel 9",
-    os_version: "Android 16",
-  },
-];
-
-const demoScanDetail: ScanDetail = {
-  scan_id: "scan_20260708_001",
-  image_url: "https://images.pokemontcg.io/sv4/198_hires.png",
-  uid: "UID-100284",
-  platform: "iOS",
-  app_version: "1.9.0",
-  scan_time: "2026-07-08T10:18:00.000Z",
-  recognition_status: "success",
-  user_confirmation_status: "confirmed",
-  modified_result: true,
-  device_model: "iPhone 15 Pro",
-  os_version: "iOS 18.5",
-  system_result: { status: "success", name: "Charizard ex", ip_game: "Pokemon", set: "Obsidian Flames", number: "223/197", confidence: 0.94, candidate_count: 3 },
-  user_result: { confirmation_status: "confirmed", final_card: "Charizard ex - Obsidian Flames 223/197", modified_result: true, added_to_inventory: true, added_to_wishlist: false },
-  candidates: [
-    { rank: 1, name: "Charizard ex", set: "Obsidian Flames", number: "223/197", confidence: 0.94 },
-    { rank: 2, name: "Charizard ex", set: "Obsidian Flames", number: "125/197", confidence: 0.71 },
-  ],
-};
-
-const demoPermissions: PermissionItem[] = [
-  { id: "admin-1", email: "admin@example.com", role: "super_admin", permission_status: "active", created_at: "2026-07-01T00:00:00.000Z", updated_at: "2026-07-08T00:00:00.000Z" },
-  { id: "ops-1", email: "ops@example.com", role: "operator", permission_status: "active", created_at: "2026-07-03T00:00:00.000Z", updated_at: "2026-07-08T00:00:00.000Z" },
-];
-
-const demoAppVersions: AppVersionItem[] = [
-  { platform: "iOS", min_supported_version: "1.0.0", recommended_version: "1.9.0", recommended_update_message: "优化首页加载速度\n修复已知的部分闪退问题\n适配最新的系统特性", forced_update_message: "由于系统架构重大升级，您需要更新至最新版本才能继续使用核心功能。", status: "disabled", updated_at: "2025-04-30T00:00:00.000Z" },
-  { platform: "Google", min_supported_version: "1.0.0", recommended_version: "1.9.0", recommended_update_message: "优化首页加载速度\n增强数据同步安全性", forced_update_message: "请更新至最新版本后继续使用。", status: "enabled", updated_at: "2025-04-30T00:00:00.000Z" },
-];

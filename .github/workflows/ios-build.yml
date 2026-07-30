@@ -1,0 +1,84 @@
+name: iOS build
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - ".github/workflows/ios-build.yml"
+      - "apps/flutter-app/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+  pull_request:
+    paths:
+      - ".github/workflows/ios-build.yml"
+      - "apps/flutter-app/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.44.7"
+          cache: true
+
+      - name: Install Ruby dependencies
+        working-directory: apps/flutter-app
+        run: bundle install --jobs 4 --retry 3
+
+      - name: Record Apple toolchain
+        working-directory: apps/flutter-app
+        run: |
+          xcodebuild -version
+          bundle exec pod --version
+
+      - name: Validate Fastlane configuration
+        working-directory: apps/flutter-app
+        run: bundle exec ruby -c fastlane/Fastfile
+
+      - name: Resolve Flutter workspace dependencies
+        run: flutter pub get
+
+      - name: Install iOS pods
+        working-directory: apps/flutter-app/ios
+        run: |
+          bundle exec pod install 2>&1 | tee "$RUNNER_TEMP/pod-install.log"
+          if grep -Fq "CocoaPods did not set the base configuration" "$RUNNER_TEMP/pod-install.log"; then
+            exit 1
+          fi
+
+      - name: Upload iOS release lockfiles
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-lockfiles-${{ github.sha }}
+          path: |
+            apps/flutter-app/Gemfile.lock
+            apps/flutter-app/ios/Podfile.lock
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Verify committed iOS release lockfiles
+        run: |
+          changes="$(git status --porcelain --untracked-files=all -- apps/flutter-app/Gemfile.lock apps/flutter-app/ios/Podfile.lock)"
+          if [[ -n "$changes" ]]; then
+            echo "$changes"
+            exit 1
+          fi
+
+      - name: Build unsigned iOS release
+        working-directory: apps/flutter-app
+        run: flutter build ios --release --no-codesign --no-pub

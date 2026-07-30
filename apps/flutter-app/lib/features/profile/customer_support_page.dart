@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/validation/email.dart';
 
 import '../../shared/ui/toast.dart';
 import '../auth/auth_controller.dart';
 import 'feedback_repository.dart';
+import 'profile_detail_scaffold.dart';
 
 const feedbackSubmittedToastText = 'Feedback submitted. Thank you.';
 const feedbackSubmitFailureText =
@@ -64,51 +67,123 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
   Widget build(BuildContext context) {
     final isTooLong = _messageController.text.length > feedbackMessageMaxLength;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Customer Support')),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
+    return ProfileDetailScaffold(
+      child: ListView(
+        key: const Key('customer-support-content-list'),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
         children: [
+          const Text(
+            'CONNECT WITH US',
+            style: TextStyle(
+              color: KandoColors.accent,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Send Feedback',
+            style: TextStyle(
+              color: KandoColors.text,
+              fontFamily: 'Fraunces',
+              fontSize: 32,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Help us refine the Vault experience. '
+            'Your insights drive our innovation.',
+            style: TextStyle(
+              color: KandoColors.mutedText,
+              fontSize: 16,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 32),
           _ChipSection(
-            title: 'Type',
+            title: 'Feedback Type',
             options: _typeOptions,
             selectedValues: _selectedTypes,
             onToggle: _toggleType,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           _ChipSection(
-            title: 'Function',
+            title: 'Affected Function',
             options: _functionOptions,
             selectedValues: _selectedFunctions,
             onToggle: _toggleFunction,
+            iconForOption: _functionIcon,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          _FieldLabel('Email Address'),
+          const SizedBox(height: 8),
           TextFormField(
             key: const ValueKey('feedback-email-field'),
             controller: _emailController,
-            decoration: InputDecoration(
-              labelText: 'Email',
-              hintText: 'your@email.com',
+            decoration: _feedbackInputDecoration(
+              hintText: 'collector@vault.io',
               errorText: _emailError,
             ),
             keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            key: const ValueKey('feedback-message-field'),
-            controller: _messageController,
-            decoration: InputDecoration(
-              labelText: 'Message',
-              hintText: "Tell us what's on your mind...",
-              errorText: _messageError,
-            ),
-            minLines: 4,
-            maxLines: 8,
+            style: _feedbackInputTextStyle,
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
           ),
           const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _isSubmitting || isTooLong ? null : _submit,
-            child: Text(_isSubmitting ? 'Submitting...' : 'Submit Feedback'),
+          const _FieldLabel('Your Message'),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 178,
+            child: TextFormField(
+              key: const ValueKey('feedback-message-field'),
+              controller: _messageController,
+              decoration: _feedbackInputDecoration(
+                hintText: "Tell us what's on your mind...",
+                errorText: _messageError,
+              ),
+              style: _feedbackInputTextStyle,
+              textAlignVertical: TextAlignVertical.top,
+              expands: true,
+              minLines: null,
+              maxLines: null,
+              onTapOutside: (_) => FocusScope.of(context).unfocus(),
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _isSubmitting || isTooLong ? null : _submit,
+              style: FilledButton.styleFrom(
+                backgroundColor: KandoColors.accent,
+                foregroundColor: KandoColors.ink,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _isSubmitting ? 'SUBMITTING...' : 'SUBMIT FEEDBACK',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SvgPicture.asset(
+                    'assets/profile/send_feedback.svg',
+                    key: const Key('feedback-submit-icon'),
+                    width: 24,
+                    height: 24,
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -149,6 +224,12 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
       return;
     }
 
+    final session = ref.read(authControllerProvider).session;
+    if (session == null) {
+      showKandoToast(context, message: feedbackSubmitFailureText);
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -157,6 +238,7 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
       await ref
           .read(feedbackRepositoryProvider)
           .submit(
+            session,
             FeedbackSubmission(
               email: normalizedEmail(_emailController.text),
               types: _selectedOrOther(_selectedTypes),
@@ -217,39 +299,166 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
   }
 }
 
+const _feedbackInputTextStyle = TextStyle(
+  color: KandoColors.text,
+  fontSize: 15,
+  height: 22 / 15,
+);
+
+InputDecoration _feedbackInputDecoration({
+  required String hintText,
+  String? errorText,
+}) {
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(8),
+    borderSide: const BorderSide(color: KandoColors.border),
+  );
+
+  return InputDecoration(
+    hintText: hintText,
+    hintStyle: const TextStyle(
+      color: KandoColors.disabledText,
+      fontSize: 15,
+      height: 22 / 15,
+    ),
+    errorText: errorText,
+    contentPadding: const EdgeInsets.all(16),
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: const BorderSide(color: KandoColors.borderFocus),
+    ),
+  );
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: KandoColors.mutedText,
+        fontSize: 14,
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+}
+
 class _ChipSection extends StatelessWidget {
   const _ChipSection({
     required this.title,
     required this.options,
     required this.selectedValues,
     required this.onToggle,
+    this.iconForOption,
   });
 
   final String title;
   final List<String> options;
   final Set<String> selectedValues;
   final ValueChanged<String> onToggle;
+  final IconData? Function(String option)? iconForOption;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
+        _FieldLabel(title),
+        const SizedBox(height: 16),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 12,
+          runSpacing: 12,
           children: [
             for (final option in options)
-              FilterChip(
-                label: Text(option),
+              _PillChip(
+                label: option,
+                icon: iconForOption?.call(option),
                 selected: selectedValues.contains(option),
-                onSelected: (_) => onToggle(option),
+                onTap: () => onToggle(option),
               ),
           ],
         ),
       ],
     );
   }
+}
+
+class _PillChip extends StatelessWidget {
+  const _PillChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? KandoColors.accent.withValues(alpha: 0.2)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(9999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(9999),
+            border: Border.all(
+              color: selected
+                  ? KandoColors.accent.withValues(alpha: 0.5)
+                  : KandoColors.border,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: KandoColors.accent.withValues(alpha: 0.2),
+                      blurRadius: 10,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 12, color: KandoColors.text),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                label,
+                style: const TextStyle(color: KandoColors.text, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+IconData? _functionIcon(String option) {
+  return switch (option) {
+    'Scan' => Icons.document_scanner_outlined,
+    'Search' => Icons.search,
+    'Collection' => Icons.collections_bookmark_outlined,
+    'Portfolio' => Icons.account_balance_wallet_outlined,
+    'Wishlist' => Icons.favorite_border,
+    'Account' => Icons.person_outline,
+    'Price Data' => Icons.show_chart,
+    'Other' => Icons.more_horiz,
+    _ => null,
+  };
 }

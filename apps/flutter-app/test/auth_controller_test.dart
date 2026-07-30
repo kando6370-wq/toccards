@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,7 +7,9 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/oauth_authorizer.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
-import 'package:kando_app/features/auth/auth_storage.dart';
+
+import 'support/in_memory_auth_storage.dart';
+import 'support/local_placeholder_auth_repository.dart';
 
 void main() {
   const deviceId = 'test-device';
@@ -33,6 +36,47 @@ void main() {
       expect(repository.validatedSessions, [same(storedUser)]);
       expect(repository.createdDeviceIds, isEmpty);
       expect(repository.persistedSessions, isEmpty);
+    },
+  );
+
+  test(
+    'unexpired stored JWT skips remote validation because cold start must not wait for a redundant request',
+    () async {
+      final storedUser = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: _jwtExpiringAt(
+          DateTime.now().add(const Duration(minutes: 5)),
+        ),
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      final repository = _FakeAuthRepository(storedSession: storedUser);
+
+      final state = await _startAuth(repository, deviceId);
+
+      expect(state.session, same(storedUser));
+      expect(repository.validatedSessions, isEmpty);
+    },
+  );
+
+  test(
+    'validation network failure preserves the stored identity because offline startup must remain recoverable',
+    () async {
+      final storedUser = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'expired-or-opaque-access',
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      final repository = _FakeAuthRepository(
+        storedSession: storedUser,
+        validationError: const AuthNetworkException(),
+      );
+
+      final state = await _startAuth(repository, deviceId);
+
+      expect(state.session, same(storedUser));
+      expect(repository.createdDeviceIds, isEmpty);
     },
   );
 
@@ -134,8 +178,7 @@ void main() {
       expect(authorizer.requests, [OAuthProvider.google]);
       expect(repository.googleCallbackRequests, [
         const _GoogleCallbackRequest(
-          code: 'mock-google:flutter-google-user:flutter.google@example.com',
-          redirectUri: 'kando://auth/google',
+          idToken: 'mock-google:flutter-google-user:flutter.google@example.com',
           anonymousId: 'anon-existing',
         ),
       ]);
@@ -192,7 +235,7 @@ void main() {
   );
 
   test(
-    'cancelled authorization leaves guest state untouched because no provider proof exists',
+    'cancelled authorization leaves guest state untouched without a backend request because cancellation is not a failure',
     () async {
       final anonymous = _anonymousSession('anon-existing');
       final repository = _FakeAuthRepository(
@@ -218,6 +261,34 @@ void main() {
       expect(repository.persistedSessions, isEmpty);
       expect(state.session, same(anonymous));
       expect(state.session!.isAnonymous, isTrue);
+    },
+  );
+
+  test(
+    'default OAuth authorizer fails closed because a release build must not mint mock provider identities',
+    () async {
+      final anonymous = _anonymousSession('anon-existing');
+      final repository = _FakeAuthRepository(
+        storedSession: anonymous,
+        validatedSession: anonymous,
+      );
+      final container = _createContainer(repository, deviceId);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await expectLater(
+        container.read(authControllerProvider.notifier).continueWithGoogle(),
+        throwsA(
+          isA<AuthActionException>().having(
+            (error) => error.toString(),
+            'retry copy',
+            authAuthorizationFailedMessage,
+          ),
+        ),
+      );
+
+      expect(repository.googleCallbackRequests, isEmpty);
+      expect(container.read(authControllerProvider).session, same(anonymous));
     },
   );
 
@@ -348,8 +419,7 @@ void main() {
 
       expect(repository.googleCallbackRequests, [
         const _GoogleCallbackRequest(
-          code: 'mock-google:flutter-google-user:flutter.google@example.com',
-          redirectUri: 'kando://auth/google',
+          idToken: 'mock-google:flutter-google-user:flutter.google@example.com',
           anonymousId: 'anon-existing',
         ),
       ]);
@@ -400,8 +470,7 @@ void main() {
 
       expect(repository.googleCallbackRequests, [
         const _GoogleCallbackRequest(
-          code: 'mock-google:flutter-google-user:flutter.google@example.com',
-          redirectUri: 'kando://auth/google',
+          idToken: 'mock-google:flutter-google-user:flutter.google@example.com',
           anonymousId: 'anon-existing',
         ),
       ]);
@@ -783,6 +852,13 @@ AuthSession _userSession({required String userId, required String email}) {
   );
 }
 
+String _jwtExpiringAt(DateTime expiresAt) {
+  String encode(Object value) =>
+      base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+  return '${encode({'alg': 'HS256', 'typ': 'JWT'})}.'
+      '${encode({'exp': expiresAt.toUtc().millisecondsSinceEpoch ~/ 1000})}.signature';
+}
+
 class _FakeOAuthAuthorizer implements OAuthAuthorizer {
   _FakeOAuthAuthorizer({this.result, this.resultFuture, this.error});
 
@@ -811,6 +887,7 @@ class _FakeAuthRepository implements AuthRepository {
     this.storedSession,
     this.validatedSession,
     this.validationCompleter,
+    this.validationError,
     this.previousAnonymousSession,
     AuthSession? createdAnonymousSession,
     List<AuthSession>? createdAnonymousSessions,
@@ -838,6 +915,7 @@ class _FakeAuthRepository implements AuthRepository {
   final AuthSession? storedSession;
   final AuthSession? validatedSession;
   final Completer<AuthSession?>? validationCompleter;
+  final Exception? validationError;
   final AuthSession? previousAnonymousSession;
   final List<Future<AuthSession>> _createAnonymousResults;
   final List<Future<void>> _persistResults;
@@ -868,6 +946,8 @@ class _FakeAuthRepository implements AuthRepository {
   @override
   Future<AuthSession?> validateStoredSession(AuthSession session) async {
     validatedSessions.add(session);
+    final validationError = this.validationError;
+    if (validationError != null) throw validationError;
     if (validationCompleter != null) {
       return validationCompleter!.future;
     }
@@ -916,6 +996,12 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> sendRegisterCode(String email) async {}
 
   @override
+  Future<void> verifyRegisterCode({
+    required String email,
+    required String code,
+  }) async {}
+
+  @override
   Future<AuthSession> verifyRegister({
     required String email,
     required String code,
@@ -947,16 +1033,11 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession> googleCallback({
-    required String code,
-    required String redirectUri,
+    required String idToken,
     String? anonymousId,
   }) async {
     googleCallbackRequests.add(
-      _GoogleCallbackRequest(
-        code: code,
-        redirectUri: redirectUri,
-        anonymousId: anonymousId,
-      ),
+      _GoogleCallbackRequest(idToken: idToken, anonymousId: anonymousId),
     );
     final error = googleCallbackError;
     if (error != null) {
@@ -1008,25 +1089,22 @@ class _FakeAuthRepository implements AuthRepository {
 
 class _GoogleCallbackRequest {
   const _GoogleCallbackRequest({
-    required this.code,
-    required this.redirectUri,
+    required this.idToken,
     required this.anonymousId,
   });
 
-  final String code;
-  final String redirectUri;
+  final String idToken;
   final String? anonymousId;
 
   @override
   bool operator ==(Object other) {
     return other is _GoogleCallbackRequest &&
-        other.code == code &&
-        other.redirectUri == redirectUri &&
+        other.idToken == idToken &&
         other.anonymousId == anonymousId;
   }
 
   @override
-  int get hashCode => Object.hash(code, redirectUri, anonymousId);
+  int get hashCode => Object.hash(idToken, anonymousId);
 }
 
 class _AppleCallbackRequest {

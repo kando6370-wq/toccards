@@ -1,9 +1,12 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/api/api_environment.dart';
+import '../../shared/api/api_request_log.dart';
+import '../../shared/debug/app_debug_overlay.dart';
 import 'app_upgrade_models.dart';
 
 const appUpgradeApiBaseUrl = kandoApiBaseUrl;
@@ -16,12 +19,22 @@ final appUpgradeDioProvider = Provider<Dio>((ref) {
       receiveTimeout: const Duration(seconds: 2),
     ),
   );
+  dio.interceptors.add(
+    ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
+  );
+  addAppDebugHttpLogging(dio);
   ref.onDispose(dio.close);
   return dio;
 });
 
 final appUpgradeRepositoryProvider = Provider<AppUpgradeRepository>((ref) {
-  return HttpAppUpgradeRepository(ref.watch(appUpgradeDioProvider));
+  final platform = defaultTargetPlatform == TargetPlatform.android
+      ? 'google'
+      : 'ios';
+  return HttpAppUpgradeRepository(
+    ref.watch(appUpgradeDioProvider),
+    platform: platform,
+  );
 });
 
 final installedVersionReaderProvider = Provider<InstalledVersionReader>((ref) {
@@ -51,14 +64,18 @@ abstract interface class AppUpgradeRepository {
 }
 
 class HttpAppUpgradeRepository implements AppUpgradeRepository {
-  const HttpAppUpgradeRepository(this._dio);
+  const HttpAppUpgradeRepository(this._dio, {this.platform = 'ios'});
 
   final Dio _dio;
+  final String platform;
 
   @override
   Future<AppUpgradeConfig> loadConfig() async {
     try {
-      final response = await _dio.get<Map<String, Object?>>('/app-config');
+      final response = await _dio.get<Map<String, Object?>>(
+        '/app-config',
+        queryParameters: {'platform': platform},
+      );
       final body = response.data;
       final data = body?['data'];
 

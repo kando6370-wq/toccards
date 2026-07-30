@@ -4,6 +4,7 @@ import type {
   DataSourceAdapter,
   MarketPrice,
   PricePoint,
+  SetSearchResult,
   SoldListing,
 } from "./adapter";
 
@@ -20,7 +21,7 @@ type CardCatalogRow = {
 
 type TcgplayerSkuRow = {
   sku_id: number;
-  product_id: number;
+  product_id: string;
   condition_code: string | null;
   condition_name: string | null;
   language_code: string | null;
@@ -29,6 +30,21 @@ type TcgplayerSkuRow = {
   variant_name: string | null;
   price_history: string;
 };
+
+type CardNumberRow = {
+  product_id: string;
+  number: string | null;
+};
+
+type TrendingRow = CardCatalogRow &
+  Omit<TcgplayerSkuRow, "product_id"> & {
+    increase_rate: number;
+  };
+
+type SkuPricingRow = Pick<
+  TcgplayerSkuRow,
+  "variant_name" | "variant_code" | "language_name" | "language_code" | "price_history"
+>;
 
 type PriceHistoryEntry = {
   date: string;
@@ -44,28 +60,88 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
   return {
     async searchCards(query, options = {}) {
       const normalizedQuery = query.trim().toLowerCase();
+      const searchTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+      const effectiveSearchTerms = searchTerms.length > 0 ? searchTerms : [""];
       const page = positiveIntegerOrDefault(options.page, 1);
-      const pageSize = positiveIntegerOrDefault(options.page_size, 20);
+      const pageSize = positiveIntegerOrDefault(options.page_size, 40);
       const offset = (page - 1) * pageSize;
       const objectTypeClause = objectTypeWhereClause(options.object_type);
-      const results = await db
-        .prepare(
-          `${CARD_SELECT}
-WHERE lower(
+      const gameClause = options.game ? "AND lower(game) = lower(?)" : "";
+      const setClause = options.set_code ? "AND lower(set_code) = lower(?)" : "";
+      const bindings = [
+        ...effectiveSearchTerms.map((term) => `%${term}%`),
+        ...(options.game ? [options.game] : []),
+        ...(options.set_code ? [options.set_code] : []),
+        pageSize,
+        offset,
+      ];
+      const searchCatalog = (includeCardNumber: boolean) =>
+        db
+          .prepare(
+            `${CARD_SELECT}
+WHERE ${effectiveSearchTerms
+  .map(
+    () => `lower(
   coalesce(name, '') || ' ' ||
+  ${includeCardNumber ? "coalesce(number, '') || ' ' ||" : ""}
   coalesce(set_name, '') || ' ' ||
   coalesce(set_code, '') || ' ' ||
   coalesce(rarity, '') || ' ' ||
   coalesce(game, '')
-) LIKE ?
+) LIKE ?`,
+  )
+  .join("\nAND ")}
 ${objectTypeClause}
+${gameClause}
+${setClause}
 ORDER BY updated_at DESC, product_id ASC
 LIMIT ? OFFSET ?`,
-        )
-        .bind(`%${normalizedQuery}%`, pageSize, offset)
-        .all<CardCatalogRow>();
+          )
+          .bind(...bindings)
+          .all<CardCatalogRow>();
 
-      return (results.results ?? []).map(cardFromRow);
+      let results: D1Result<CardCatalogRow>;
+      try {
+        results = await searchCatalog(true);
+      } catch (error) {
+        if (!isMissingCardNumberColumn(error)) throw error;
+        results = await searchCatalog(false);
+      }
+
+      return cardsWithSearchPricing(db, results.results ?? []);
+    },
+
+    async searchSets(query, options = {}) {
+      const normalizedQuery = query.trim().toLowerCase();
+      const page = positiveIntegerOrDefault(options.page, 1);
+      const pageSize = positiveIntegerOrDefault(options.page_size, 20);
+      const offset = (page - 1) * pageSize;
+      const gameClause = options.game ? "AND lower(s.game) = lower(?)" : "";
+      const bindings = [
+        `%${normalizedQuery}%`,
+        ...(options.game ? [options.game] : []),
+        pageSize,
+        offset,
+      ];
+      const results = await db
+        .prepare(
+          `SELECT s.set_code,
+                  s.name AS set_name,
+                  s.game,
+                  NULL AS image_url,
+                  nullif(trim(s.set_image_id), '') AS image_card_ref,
+                  coalesce(s.total_cards, 0) AS card_count
+           FROM sets s
+           WHERE lower(s.name || ' ' || coalesce(s.set_code, '')) LIKE ?
+             AND trim(coalesce(s.set_code, '')) <> ''
+             ${gameClause}
+           ORDER BY s.name ASC
+           LIMIT ? OFFSET ?`,
+        )
+        .bind(...bindings)
+        .all<SetSearchResult>();
+
+      return results.results ?? [];
     },
 
     async getCard(card_ref) {
@@ -74,7 +150,25 @@ LIMIT ? OFFSET ?`,
         .bind(card_ref)
         .first<CardCatalogRow>();
 
-      return row ? cardFromRow(row) : null;
+      if (!row) return null;
+      const numbers = await findCardNumbersByProductId(db, [row.product_id]);
+      const skuRows = await findSkuRows(db, card_ref);
+      const card = cardWithSearchPricing(
+        row,
+        skuRows,
+        numbers.get(row.product_id) ?? "",
+      );
+      return {
+        ...card,
+        available_languages: uniqueSkuValues(
+          skuRows,
+          (sku) => sku.language_name ?? sku.language_code,
+        ),
+        available_finishes: uniqueSkuValues(
+          skuRows,
+          (sku) => sku.variant_name ?? sku.variant_code,
+        ),
+      };
     },
 
     async getPriceSeries(card_ref, grader, _grade, condition, days) {
@@ -86,9 +180,10 @@ LIMIT ? OFFSET ?`,
       const matchingRows = condition
         ? skuRows.filter((row) => skuMatchesCondition(row, condition))
         : skuRows;
-      const points = matchingRows
-        .flatMap((row) => parsePriceHistory(row.price_history))
-        .sort((left, right) => left.date.localeCompare(right.date));
+      const selectedRow = preferredSearchSku(matchingRows);
+      const points = selectedRow
+        ? parsePriceHistory(selectedRow.price_history)
+        : [];
 
       return filterPointsByDays(points, days);
     },
@@ -97,7 +192,7 @@ LIMIT ? OFFSET ?`,
       const skuRows = await findSkuRows(db, card_ref);
       const prices: MarketPrice[] = [];
 
-      for (const row of skuRows) {
+      for (const row of preferredMarketSkus(skuRows)) {
         const latest = latestPricePoint(parsePriceHistory(row.price_history));
 
         if (!latest) {
@@ -115,14 +210,318 @@ LIMIT ? OFFSET ?`,
       return prices;
     },
 
-    async getTrending() {
-      return [];
+    async getTrending(options) {
+      const page = options?.page ?? 1;
+      const pageSize = options?.page_size ?? 10;
+      const available = await db
+        .prepare(
+          `SELECT 1 AS has_trending
+FROM tcgplayer_skus INDEXED BY idx_tcgplayer_skus_increase_rate
+WHERE increase_rate IS NOT NULL
+LIMIT 1`,
+        )
+        .all<{ has_trending: number }>();
+      if ((available.results ?? []).length === 0) {
+        return [];
+      }
+
+      const results = await db
+        .prepare(
+          `SELECT cards_all.product_id, cards_all.game_id, cards_all.game,
+       cards_all.set_name, cards_all.set_code, cards_all.name,
+       cards_all.rarity, cards_all.product_type_name,
+       sku.sku_id, sku.condition_code, sku.condition_name,
+       sku.language_code, sku.language_name, sku.variant_code,
+       sku.variant_name, sku.price_history, sku.increase_rate
+FROM tcgplayer_skus AS sku
+JOIN cards_all
+  ON cards_all.product_id = sku.product_id
+WHERE sku.increase_rate IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM tcgplayer_skus AS better
+    WHERE better.product_id = sku.product_id
+      AND better.increase_rate IS NOT NULL
+      AND (
+        better.increase_rate > sku.increase_rate
+        OR (better.increase_rate = sku.increase_rate AND better.sku_id < sku.sku_id)
+      )
+  )
+ORDER BY sku.increase_rate DESC, sku.sku_id ASC
+LIMIT ? OFFSET ?`,
+        )
+        .bind(pageSize, (page - 1) * pageSize)
+        .all<TrendingRow>();
+
+      return (results.results ?? []).map((row) => ({
+        ...cardWithSkuPricing(row, row),
+        price_change_1d_percent: row.increase_rate,
+      }));
     },
 
-    async getSoldListings(): Promise<SoldListing[]> {
-      return [];
+    async getSoldListings(card_ref): Promise<SoldListing[]> {
+      const card = await db
+        .prepare(`${CARD_SELECT}WHERE product_id = ? LIMIT 1`)
+        .bind(card_ref)
+        .first<CardCatalogRow>();
+
+      if (!card) {
+        return [];
+      }
+
+      const skuRows = preferredMarketSkus(await findSkuRows(db, card_ref));
+
+      return skuRows
+        .map((row) => soldListingFromSku(card, row))
+        .filter((listing): listing is SoldListing => listing !== null)
+        .sort((left, right) => right.date.localeCompare(left.date))
+        .slice(0, 4);
     },
   };
+}
+
+function soldListingFromSku(
+  card: CardCatalogRow,
+  sku: TcgplayerSkuRow,
+): SoldListing | null {
+  const latest = latestPricePoint(parsePriceHistory(sku.price_history));
+
+  if (!latest) {
+    return null;
+  }
+
+  const title = [
+    card.name ?? card.product_id,
+    sku.condition_name ?? sku.condition_code,
+    sku.language_name ?? sku.language_code,
+    sku.variant_name ?? sku.variant_code,
+  ]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .join(" / ");
+
+  return {
+    date: latest.date,
+    title,
+    price: latest.price,
+    platform: "TCGplayer",
+    url: `https://www.tcgplayer.com/product/${encodeURIComponent(card.product_id)}`,
+  };
+}
+
+async function cardsWithSearchPricing(
+  db: D1Database,
+  rows: CardCatalogRow[],
+): Promise<CardSearchResult[]> {
+  const skusByProductId = await findSkuRowsByProductId(
+    db,
+    rows.map((row) => row.product_id),
+  );
+  const numbersByProductId = await findCardNumbersByProductId(
+    db,
+    rows.map((row) => row.product_id),
+  );
+
+  return rows.map((row) =>
+    cardWithSearchPricing(
+      row,
+      skusByProductId.get(row.product_id) ?? [],
+      numbersByProductId.get(row.product_id) ?? "",
+    ),
+  );
+}
+
+function isMissingCardNumberColumn(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  return message.includes("no such column") && message.includes("number");
+}
+
+function cardWithSearchPricing(
+  row: CardCatalogRow,
+  skus: TcgplayerSkuRow[],
+  cardNumber: string,
+): CardSearchResult {
+  const card = cardFromRow(row, cardNumber);
+  const sku = preferredSearchSku(skus);
+
+  if (!sku) {
+    return card;
+  }
+
+  return cardWithSkuPricing(row, sku, cardNumber);
+}
+
+function cardWithSkuPricing(
+  row: CardCatalogRow,
+  sku: SkuPricingRow,
+  cardNumber = "",
+): CardSearchResult {
+  const card = cardFromRow(row, cardNumber);
+
+  const series = filterPointsByDays(parsePriceHistory(sku.price_history), 30);
+  const current = series.at(-1)?.price;
+  const previous = series.length > 1 ? series[0]?.price : undefined;
+
+  return {
+    ...card,
+    finish: sku.variant_name ?? sku.variant_code,
+    language: sku.language_name ?? sku.language_code,
+    ...(current === undefined ? {} : { price_usd: current }),
+    ...(previous === undefined ? {} : { previous_30d_price_usd: previous }),
+  };
+}
+
+async function findCardNumbersByProductId(
+  db: D1Database,
+  cardRefs: string[],
+): Promise<Map<string, string>> {
+  const numbersByProductId = new Map<string, string>();
+  if (cardRefs.length === 0) return numbersByProductId;
+
+  const placeholders = cardRefs.map(() => "?").join(", ");
+  try {
+    const results = await db
+      .prepare(
+        `SELECT product_id, number
+         FROM cards_all
+         WHERE product_id IN (${placeholders})`,
+      )
+      .bind(...cardRefs)
+      .all<CardNumberRow>();
+    for (const row of results.results ?? []) {
+      const number = row.number?.trim();
+      if (number) numbersByProductId.set(row.product_id, number);
+    }
+  } catch {
+    // Older local catalogs predate the optional number column.
+  }
+  return numbersByProductId;
+}
+
+async function findSkuRowsByProductId(
+  db: D1Database,
+  cardRefs: string[],
+): Promise<Map<string, TcgplayerSkuRow[]>> {
+  const productIds = cardRefs.filter((cardRef) => /^\d+$/.test(cardRef));
+  const skusByProductId = new Map<string, TcgplayerSkuRow[]>();
+  if (productIds.length === 0) return skusByProductId;
+
+  const placeholders = productIds.map(() => "?").join(", ");
+  const results = await db
+    .prepare(
+      `SELECT sku_id, product_id, condition_code, condition_name, language_code,
+              language_name, variant_code, variant_name, price_history
+       FROM tcgplayer_skus
+       WHERE product_id IN (${placeholders})
+       ORDER BY product_id, language_code, variant_code, condition_code`,
+    )
+    .bind(...productIds)
+    .all<TcgplayerSkuRow>();
+  for (const sku of results.results ?? []) {
+    const productId = sku.product_id;
+    const productSkus = skusByProductId.get(productId);
+    if (productSkus) {
+      productSkus.push(sku);
+    } else {
+      skusByProductId.set(productId, [sku]);
+    }
+  }
+  return skusByProductId;
+}
+
+function preferredSearchSku(rows: TcgplayerSkuRow[]): TcgplayerSkuRow | null {
+  return (
+    [...rows]
+      .filter((row) => parsePriceHistory(row.price_history).length > 0)
+      .sort(compareSkuPreference)[0] ?? null
+  );
+}
+
+function uniqueSkuValues(
+  rows: TcgplayerSkuRow[],
+  valueOf: (row: TcgplayerSkuRow) => string | null,
+): string[] {
+  return [...new Set(rows.map(valueOf).map((value) => value?.trim()).filter(
+    (value): value is string => Boolean(value),
+  ))].sort((left, right) => left.localeCompare(right));
+}
+
+function preferredMarketSkus(rows: TcgplayerSkuRow[]): TcgplayerSkuRow[] {
+  const rowsByCondition = new Map<string, TcgplayerSkuRow>();
+
+  for (const row of rows) {
+    if (parsePriceHistory(row.price_history).length === 0) {
+      continue;
+    }
+    const condition = (row.condition_code ?? row.condition_name ?? "unknown")
+      .trim()
+      .toLowerCase();
+    const current = rowsByCondition.get(condition);
+
+    if (
+      !current ||
+      searchSkuRank(row) < searchSkuRank(current) ||
+      (searchSkuRank(row) === searchSkuRank(current) &&
+        isFresherSku(row, current))
+    ) {
+      rowsByCondition.set(condition, row);
+    }
+  }
+
+  return [...rowsByCondition.values()].sort(
+    (left, right) =>
+      marketConditionRank(left) - marketConditionRank(right) ||
+      left.sku_id - right.sku_id,
+  );
+}
+
+function marketConditionRank(row: TcgplayerSkuRow): number {
+  switch ((row.condition_code ?? "").trim().toUpperCase()) {
+    case "NM":
+      return 0;
+    case "LP":
+      return 1;
+    case "MP":
+      return 2;
+    case "HP":
+      return 3;
+    case "DMG":
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+function searchSkuRank(row: TcgplayerSkuRow): number {
+  return (
+    (row.condition_code === "NM" ? 0 : 100) +
+    (row.language_code === "EN" ? 0 : 10) +
+    (row.variant_code === "N" ? 0 : 1)
+  );
+}
+
+function compareSkuPreference(
+  left: TcgplayerSkuRow,
+  right: TcgplayerSkuRow,
+): number {
+  return (
+    searchSkuRank(left) - searchSkuRank(right) ||
+    latestPriceDate(right).localeCompare(latestPriceDate(left)) ||
+    left.sku_id - right.sku_id
+  );
+}
+
+function isFresherSku(
+  candidate: TcgplayerSkuRow,
+  current: TcgplayerSkuRow,
+): boolean {
+  const candidateDate = latestPriceDate(candidate);
+  const currentDate = latestPriceDate(current);
+  return candidateDate > currentDate ||
+    (candidateDate === currentDate && candidate.sku_id < current.sku_id);
+}
+
+function latestPriceDate(row: TcgplayerSkuRow): string {
+  return latestPricePoint(parsePriceHistory(row.price_history))?.date ?? "";
 }
 
 async function findSkuRows(
@@ -141,19 +540,20 @@ async function findSkuRows(
        WHERE product_id = ?
        ORDER BY language_code, variant_code, condition_code`,
     )
-    .bind(Number(cardRef))
+    .bind(cardRef)
     .all<TcgplayerSkuRow>();
 
   return results.results ?? [];
 }
 
-function cardFromRow(row: CardCatalogRow): CardSearchResult {
+function cardFromRow(row: CardCatalogRow, cardNumber = ""): CardSearchResult {
   return {
     card_ref: row.product_id,
     name: row.name ?? row.product_id,
+    game: row.game,
     set_name: row.set_name ?? "",
     set_code: row.set_code ?? "",
-    card_number: "",
+    card_number: cardNumber,
     finish: null,
     language: null,
     object_type: objectTypeFromProductType(row.product_type_name),
@@ -227,7 +627,10 @@ function filterPointsByDays(
   points: PriceHistoryEntry[],
   days: number,
 ): PricePoint[] {
-  const latest = latestPricePoint([...points]);
+  const sorted = [...points].sort((left, right) =>
+    left.date.localeCompare(right.date),
+  );
+  const latest = sorted.at(-1) ?? null;
 
   if (!latest) {
     return [];
@@ -236,9 +639,17 @@ function filterPointsByDays(
   const cutoff = new Date(`${latest.date}T00:00:00.000Z`);
   cutoff.setUTCDate(cutoff.getUTCDate() - Math.max(days, 1));
 
-  return points
-    .filter((point) => new Date(`${point.date}T00:00:00.000Z`) >= cutoff)
-    .map((point) => ({ date: point.date, price: point.price }));
+  const inRange = sorted.filter(
+    (point) => new Date(`${point.date}T00:00:00.000Z`) >= cutoff,
+  );
+  const baseline = sorted
+    .filter((point) => new Date(`${point.date}T00:00:00.000Z`) < cutoff)
+    .at(-1);
+
+  return [...(baseline ? [baseline] : []), ...inRange].map((point) => ({
+    date: point.date,
+    price: point.price,
+  }));
 }
 
 function skuMatchesCondition(

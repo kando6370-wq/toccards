@@ -1,5 +1,6 @@
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/card_image/card_image_url.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import 'card_detail_models.dart';
@@ -25,87 +26,82 @@ abstract interface class CardDetailRepository {
   Future<void> deleteWishlist(AuthSession session, String wishlistItemId);
 }
 
-class MockCardDetailRepository implements CardDetailRepository {
-  const MockCardDetailRepository();
+class CardDetailMarketData {
+  const CardDetailMarketData({
+    required this.prices,
+    required this.marketPrices,
+  });
 
-  @override
-  Future<CardDetail> loadDetail(AuthSession session, String cardId) {
-    return Future<CardDetail>.value(_mockDetail(cardId));
-  }
-
-  @override
-  Future<CardCollectionItem> quickCollect(
-    AuthSession session,
-    CardDetail detail,
-  ) async {
-    return CardCollectionItem(
-      id: 'item-${detail.id}',
-      cardRef: detail.id,
-      folderId: 'main',
-      portfolioName: 'Main',
-      quantity: 1,
-      grader: 'Raw',
-      condition: 'Near Mint (NM)',
-      grade: null,
-      language: detail.language,
-      finish: detail.finish,
-      purchasePriceUsd: null,
-      notes: 'Quick collected from CardDetail.',
-    );
-  }
-
-  @override
-  Future<CardCollectionItem> createCollectionItem(
-    AuthSession session, {
-    required CardDetail detail,
-    required CardCollectionItem item,
-  }) async {
-    return item.copyWith(cardRef: detail.id, folderId: item.folderId ?? 'main');
-  }
-
-  @override
-  Future<CardCollectionItem> updateCollectionItem(
-    AuthSession session, {
-    required CardDetail detail,
-    required CardCollectionItem item,
-  }) async {
-    return item.copyWith(cardRef: detail.id);
-  }
-
-  @override
-  Future<void> deleteCollectionItem(AuthSession session, String itemId) async {}
-
-  @override
-  Future<String> addWishlist(AuthSession session, String cardRef) async {
-    return 'wish-$cardRef';
-  }
-
-  @override
-  Future<void> deleteWishlist(
-    AuthSession session,
-    String wishlistItemId,
-  ) async {}
+  final List<CardDataMarketPriceDto> prices;
+  final List<CardMarketPrice> marketPrices;
 }
 
-class HttpCardDetailRepository implements CardDetailRepository {
+class CardDetailSeriesData {
+  const CardDetailSeriesData({
+    required this.marketPrices,
+    required this.rawSeriesByRange,
+    required this.gradedSeriesByRange,
+  });
+
+  final List<CardMarketPrice> marketPrices;
+  final Map<CardPriceRange, List<CardPricePoint>> rawSeriesByRange;
+  final Map<CardPriceRange, List<CardPricePoint>> gradedSeriesByRange;
+}
+
+abstract interface class CardDetailSectionRepository {
+  Future<CardDetail> loadCoreDetail(String cardId);
+  Future<CardDetail> loadAssetState(AuthSession session, CardDetail detail);
+  Future<CardDetail> loadBaseDetail(AuthSession session, String cardId);
+  Future<CardDetailMarketData> loadMarketPrices(String cardId);
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, [
+    CardDetailMarketData? market,
+  ]);
+  Future<List<CardSoldListing>> loadSoldListings(String cardId);
+}
+
+class HttpCardDetailRepository
+    implements CardDetailRepository, CardDetailSectionRepository {
   const HttpCardDetailRepository({
     required PortfolioApi api,
-    CardDataApi? cardDataApi,
-    CardDetailRepository presentationRepository =
-        const MockCardDetailRepository(),
+    required CardDataApi cardDataApi,
   }) : _api = api,
-       _cardDataApi = cardDataApi,
-       _presentationRepository = presentationRepository;
+       _cardDataApi = cardDataApi;
 
   final PortfolioApi _api;
-  final CardDataApi? _cardDataApi;
-  final CardDetailRepository _presentationRepository;
+  final CardDataApi _cardDataApi;
 
   @override
   Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
-    final detail = _cardDataApi == null
-        ? await _presentationRepository.loadDetail(session, cardId)
-        : await _loadCardDataDetail(cardId);
+    final results = await Future.wait([
+      loadBaseDetail(session, cardId),
+      loadMarketPrices(
+        cardId,
+      ).then((market) => loadPriceSeries(cardId, market)),
+      loadSoldListings(cardId),
+    ]);
+    final detail = results[0] as CardDetail;
+    final series = results[1] as CardDetailSeriesData;
+    final soldListings = results[2] as List<CardSoldListing>;
+    return _mergeSections(detail, series, soldListings);
+  }
+
+  @override
+  Future<CardDetail> loadBaseDetail(AuthSession session, String cardId) async {
+    final detail = await loadCoreDetail(cardId);
+    return loadAssetState(session, detail);
+  }
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) async {
+    return _baseDetailFromDto(await _cardDataApi.getCard(cardId));
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(
+    AuthSession session,
+    CardDetail detail,
+  ) async {
     final results = await Future.wait([
       _api.listFolders(session),
       _api.listCollectionItems(session),
@@ -118,10 +114,77 @@ class HttpCardDetailRepository implements CardDetailRepository {
   }
 
   @override
+  Future<CardDetailMarketData> loadMarketPrices(String cardId) async {
+    final prices = await _cardDataApi.getMarketPrices(cardId);
+    return CardDetailMarketData(
+      prices: prices,
+      marketPrices: prices
+          .map(
+            (price) => _marketPriceFromDto(
+              price,
+              const <CardPriceRange, List<CardPricePoint>>{},
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  @override
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, [
+    CardDetailMarketData? market,
+  ]) async {
+    final prices = market?.prices ?? await _cardDataApi.getMarketPrices(cardId);
+    final rawPrice = _firstWhereOrNull(
+      prices,
+      (price) => price.grader.toLowerCase() == 'raw',
+    );
+    final gradedPrice = _firstWhereOrNull(
+      prices,
+      (price) => price.grader.toLowerCase() != 'raw',
+    );
+    final rangesByPrice = {
+      for (final price in prices)
+        price: identical(price, rawPrice) || identical(price, gradedPrice)
+            ? CardPriceRange.values
+            : const [CardPriceRange.sevenDays, CardPriceRange.oneMonth],
+    };
+    final seriesByPrice = await _loadSeriesForPrices(cardId, rangesByPrice);
+    return CardDetailSeriesData(
+      marketPrices: prices
+          .map((price) => _marketPriceFromDto(price, seriesByPrice[price]!))
+          .toList(),
+      rawSeriesByRange: rawPrice == null
+          ? const <CardPriceRange, List<CardPricePoint>>{}
+          : seriesByPrice[rawPrice]!,
+      gradedSeriesByRange: gradedPrice == null
+          ? const <CardPriceRange, List<CardPricePoint>>{}
+          : seriesByPrice[gradedPrice]!,
+    );
+  }
+
+  @override
+  Future<List<CardSoldListing>> loadSoldListings(String cardId) async {
+    final listings = await _cardDataApi.getSoldListings(cardId);
+    return listings
+        .map(
+          (listing) => CardSoldListing(
+            dateText: listing.date,
+            title: listing.title,
+            priceUsd: listing.price,
+            platform: listing.platform,
+            url: listing.url,
+          ),
+        )
+        .toList();
+  }
+
+  @override
   Future<CardCollectionItem> quickCollect(
     AuthSession session,
     CardDetail detail,
   ) async {
+    final defaultFolder = _defaultPortfolioFolder(detail.portfolioFolders);
     final dto = await _api.quickCollect(
       session,
       cardRef: detail.id,
@@ -130,8 +193,8 @@ class HttpCardDetailRepository implements CardDetailRepository {
         CardCollectionItem(
           id: '',
           cardRef: detail.id,
-          folderId: _defaultFolderId,
-          portfolioName: 'Main',
+          folderId: defaultFolder?.id,
+          portfolioName: defaultFolder?.name ?? 'Main',
           quantity: 1,
           grader: 'Raw',
           condition: 'Near Mint (NM)',
@@ -189,94 +252,161 @@ class HttpCardDetailRepository implements CardDetailRepository {
     return _api.deleteWishlist(session, wishlistItemId);
   }
 
-  Future<CardDetail> _loadCardDataDetail(String cardId) async {
-    final api = _cardDataApi!;
-    final card = await api.getCard(cardId);
-    final prices = await api.getMarketPrices(cardId);
-    final seriesByPrice =
-        <CardDataMarketPriceDto, Map<CardPriceRange, List<CardPricePoint>>>{};
-
-    for (final price in prices) {
-      seriesByPrice[price] = await _loadSeriesByRange(card.cardRef, price);
-    }
-
-    final rawPrice = _firstWhereOrNull(
-      prices,
-      (price) => price.grader.toLowerCase() == 'raw',
+  Future<List<CardPricePoint>> _loadSeries(
+    String cardRef,
+    CardDataMarketPriceDto price,
+    CardPriceRange range,
+  ) async {
+    final series = await _cardDataApi.getPriceSeries(
+      cardRef,
+      days: range.days,
+      grader: price.grader,
+      grade: price.grade,
+      condition: price.condition,
     );
-    final gradedPrice = _firstWhereOrNull(
-      prices,
-      (price) => price.grader.toLowerCase() != 'raw',
-    );
-    final rawSeries = rawPrice == null
-        ? const <CardPriceRange, List<CardPricePoint>>{}
-        : seriesByPrice[rawPrice]!;
-    final gradedSeries = gradedPrice == null
-        ? const <CardPriceRange, List<CardPricePoint>>{}
-        : seriesByPrice[gradedPrice]!;
-    final marketPrices = prices
-        .map((price) => _marketPriceFromDto(price, seriesByPrice[price]!))
+    return series
+        .map(
+          (point) =>
+              CardPricePoint(dateLabel: point.date, priceUsd: point.price),
+        )
         .toList();
-    final soldListings = await api.getSoldListings(card.cardRef);
-
-    return CardDetail(
-      id: card.cardRef,
-      type: _detailTypeFromObjectType(card.objectType),
-      name: card.name,
-      game: _gameLabelFromObjectType(card.objectType),
-      setName: card.setName,
-      identityLine: _identityLine(card),
-      finish: card.finish ?? 'Unknown',
-      language: card.language ?? 'Unknown',
-      quantity: 0,
-      isWishlisted: false,
-      marketPrices: marketPrices.isEmpty
-          ? const [
-              CardMarketPrice(
-                label: 'Raw',
-                priceUsd: null,
-                previous30dPriceUsd: null,
-              ),
-            ]
-          : marketPrices,
-      priceSeriesByRange: rawSeries,
-      gradedPriceSeriesByRange: gradedSeries,
-      soldListings: soldListings
-          .map(
-            (listing) => CardSoldListing(
-              dateText: listing.date,
-              title: listing.title,
-              priceUsd: listing.price,
-              platform: listing.platform,
-            ),
-          )
-          .toList(),
-    );
   }
 
   Future<Map<CardPriceRange, List<CardPricePoint>>> _loadSeriesByRange(
     String cardRef,
-    CardDataMarketPriceDto price,
-  ) async {
-    final api = _cardDataApi!;
-    final result = <CardPriceRange, List<CardPricePoint>>{};
-    for (final range in CardPriceRange.values) {
-      final series = await api.getPriceSeries(
-        cardRef,
-        days: range.days,
-        grader: price.grader,
-        grade: price.grade,
-        condition: price.condition,
-      );
-      result[range] = series
-          .map(
-            (point) =>
-                CardPricePoint(dateLabel: point.date, priceUsd: point.price),
-          )
-          .toList();
-    }
-    return result;
+    CardDataMarketPriceDto price, {
+    required bool includeChartRanges,
+  }) async {
+    final ranges = includeChartRanges
+        ? CardPriceRange.values
+        : const [CardPriceRange.sevenDays, CardPriceRange.oneMonth];
+    return Map.fromEntries(
+      await Future.wait(
+        ranges.map((range) async {
+          return MapEntry(range, await _loadSeries(cardRef, price, range));
+        }),
+      ),
+    );
   }
+
+  Future<Map<CardDataMarketPriceDto, Map<CardPriceRange, List<CardPricePoint>>>>
+  _loadSeriesForPrices(
+    String cardRef,
+    Map<CardDataMarketPriceDto, List<CardPriceRange>> rangesByPrice,
+  ) async {
+    final api = _cardDataApi;
+    if (api is BatchCardDataApi) {
+      final batchApi = api as BatchCardDataApi;
+      try {
+        final keys = [
+          for (final entry in rangesByPrice.entries)
+            for (final range in entry.value) (entry.key, range),
+        ];
+        final results = await batchApi.getPriceSeriesBatch(cardRef, [
+          for (final (price, range) in keys)
+            CardDataPriceSeriesQuery(
+              days: range.days,
+              grader: price.grader,
+              grade: price.grade,
+              condition: price.condition,
+            ),
+        ]);
+        final mapped = {
+          for (final price in rangesByPrice.keys)
+            price: <CardPriceRange, List<CardPricePoint>>{},
+        };
+        for (var index = 0; index < keys.length; index += 1) {
+          final (price, range) = keys[index];
+          mapped[price]![range] = _pricePointsFromDtos(results[index]);
+        }
+        return mapped;
+      } catch (_) {
+        // Supports clients deployed before the batch Workers route is live.
+      }
+    }
+
+    return Map.fromEntries(
+      await Future.wait(
+        rangesByPrice.entries.map(
+          (entry) async => MapEntry(
+            entry.key,
+            await _loadSeriesByRange(
+              cardRef,
+              entry.key,
+              includeChartRanges:
+                  entry.value.length == CardPriceRange.values.length,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+List<CardPricePoint> _pricePointsFromDtos(List<CardDataPricePointDto> points) {
+  return points
+      .map(
+        (point) => CardPricePoint(dateLabel: point.date, priceUsd: point.price),
+      )
+      .toList();
+}
+
+CardDetail _baseDetailFromDto(CardDataCardDto card) {
+  return CardDetail(
+    id: card.cardRef,
+    imageUrl: cardImageUrl(card.cardRef, CardImageVariant.detail),
+    type: _detailTypeFromObjectType(card.objectType),
+    name: card.name,
+    game: card.game?.trim().isNotEmpty == true
+        ? card.game!.trim()
+        : _gameLabelFromObjectType(card.objectType),
+    setName: card.setName,
+    identityLine: _identityLine(card),
+    finish: card.finish ?? 'Unknown',
+    language: card.language ?? 'Unknown',
+    availableFinishes: card.availableFinishes,
+    availableLanguages: card.availableLanguages,
+    quantity: 0,
+    isWishlisted: false,
+    marketPrices: [
+      CardMarketPrice(
+        label: 'Raw',
+        priceUsd: card.priceUsd,
+        previous30dPriceUsd: card.previous30dPriceUsd,
+      ),
+    ],
+  );
+}
+
+CardDetail _mergeSections(
+  CardDetail detail,
+  CardDetailSeriesData series,
+  List<CardSoldListing> soldListings,
+) {
+  return CardDetail(
+    id: detail.id,
+    imageUrl: detail.imageUrl,
+    type: detail.type,
+    name: detail.name,
+    game: detail.game,
+    setName: detail.setName,
+    identityLine: detail.identityLine,
+    finish: detail.finish,
+    language: detail.language,
+    availableFinishes: detail.availableFinishes,
+    availableLanguages: detail.availableLanguages,
+    quantity: detail.quantity,
+    isWishlisted: detail.isWishlisted,
+    wishlistItemId: detail.wishlistItemId,
+    marketPrices: series.marketPrices.isEmpty
+        ? detail.marketPrices
+        : series.marketPrices,
+    portfolioFolders: detail.portfolioFolders,
+    collectionItems: detail.collectionItems,
+    priceSeriesByRange: series.rawSeriesByRange,
+    gradedPriceSeriesByRange: series.gradedSeriesByRange,
+    soldListings: soldListings,
+  );
 }
 
 CardMarketPrice _marketPriceFromDto(
@@ -285,6 +415,9 @@ CardMarketPrice _marketPriceFromDto(
 ) {
   return CardMarketPrice(
     label: _marketPriceLabel(dto),
+    grader: dto.grader,
+    grade: dto.grade,
+    condition: dto.condition,
     priceUsd: dto.price,
     previous30dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.oneMonth]),
     previous7dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.sevenDays]),
@@ -348,231 +481,6 @@ T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T item) test) {
   return null;
 }
 
-CardDetail _mockDetail(String cardId) {
-  return switch (cardId) {
-    'squirtle' => const CardDetail(
-      id: 'squirtle',
-      type: CardDetailType.tcg,
-      name: 'Squirtle',
-      game: 'Pokemon',
-      setName: 'Mega Evolution Promos',
-      identityLine: 'Promo #039',
-      finish: 'Holofoil',
-      language: 'English',
-      quantity: 0,
-      isWishlisted: false,
-      marketPrices: [
-        CardMarketPrice(
-          label: 'Raw Near Mint (NM)',
-          priceUsd: 32.13,
-          previous30dPriceUsd: 30.67,
-          previous7dPriceUsd: 31.44,
-        ),
-        CardMarketPrice(
-          label: 'PSA 10',
-          priceUsd: 124.5,
-          previous30dPriceUsd: 117.2,
-          previous7dPriceUsd: 121.3,
-        ),
-      ],
-      priceSeriesByRange: {
-        CardPriceRange.oneDay: [
-          CardPricePoint(dateLabel: 'Yesterday', priceUsd: 31.92),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
-        ],
-        CardPriceRange.sevenDays: [
-          CardPricePoint(dateLabel: '7 days ago', priceUsd: 31.44),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
-        ],
-        CardPriceRange.fifteenDays: [
-          CardPricePoint(dateLabel: '15 days ago', priceUsd: 31.02),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
-        ],
-        CardPriceRange.oneMonth: [
-          CardPricePoint(dateLabel: '30 days ago', priceUsd: 30.67),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
-        ],
-        CardPriceRange.threeMonths: [
-          CardPricePoint(dateLabel: '90 days ago', priceUsd: 28.1),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 32.13),
-        ],
-      },
-      gradedPriceSeriesByRange: {
-        CardPriceRange.oneDay: [
-          CardPricePoint(dateLabel: 'Yesterday', priceUsd: 123),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 124.5),
-        ],
-        CardPriceRange.sevenDays: [
-          CardPricePoint(dateLabel: '7 days ago', priceUsd: 121.3),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 124.5),
-        ],
-        CardPriceRange.fifteenDays: [
-          CardPricePoint(dateLabel: '15 days ago', priceUsd: 119.6),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 124.5),
-        ],
-        CardPriceRange.oneMonth: [
-          CardPricePoint(dateLabel: '30 days ago', priceUsd: 117.2),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 124.5),
-        ],
-        CardPriceRange.threeMonths: [
-          CardPricePoint(dateLabel: '90 days ago', priceUsd: 108),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 124.5),
-        ],
-      },
-      soldListings: [
-        CardSoldListing(
-          dateText: '2026-07-02',
-          title: 'Squirtle Promo Holofoil',
-          priceUsd: 32.13,
-          platform: 'eBay',
-        ),
-      ],
-    ),
-    'charizard-ex' => const CardDetail(
-      id: 'charizard-ex',
-      type: CardDetailType.tcg,
-      name: 'Charizard ex',
-      game: 'Pokemon',
-      setName: 'Obsidian Flames',
-      identityLine: 'Special Illustration Rare #223/197',
-      finish: 'Holofoil',
-      language: 'English',
-      quantity: 1,
-      isWishlisted: false,
-      marketPrices: [
-        CardMarketPrice(
-          label: 'PSA 10',
-          priceUsd: 780,
-          previous30dPriceUsd: 721.58,
-          previous7dPriceUsd: 760,
-        ),
-        CardMarketPrice(
-          label: 'Raw Near Mint (NM)',
-          priceUsd: 215,
-          previous30dPriceUsd: 204.5,
-          previous7dPriceUsd: 209,
-        ),
-      ],
-      collectionItems: [
-        CardCollectionItem(
-          id: 'item-charizard',
-          cardRef: 'charizard-ex',
-          folderId: 'main',
-          portfolioName: 'Main',
-          quantity: 1,
-          grader: 'PSA',
-          condition: null,
-          grade: '10',
-          language: 'English',
-          finish: 'Holofoil',
-          purchasePriceUsd: 650,
-          notes: 'Pulled from Obsidian Flames binder.',
-        ),
-      ],
-      priceSeriesByRange: {
-        CardPriceRange.oneDay: [
-          CardPricePoint(dateLabel: 'Yesterday', priceUsd: 212),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 215),
-        ],
-        CardPriceRange.sevenDays: [
-          CardPricePoint(dateLabel: '7 days ago', priceUsd: 209),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 215),
-        ],
-        CardPriceRange.fifteenDays: [
-          CardPricePoint(dateLabel: '15 days ago', priceUsd: 207),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 215),
-        ],
-        CardPriceRange.oneMonth: [
-          CardPricePoint(dateLabel: '30 days ago', priceUsd: 204.5),
-          CardPricePoint(dateLabel: '14 days ago', priceUsd: 209),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 215),
-        ],
-        CardPriceRange.threeMonths: [
-          CardPricePoint(dateLabel: '90 days ago', priceUsd: 180),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 215),
-        ],
-      },
-      gradedPriceSeriesByRange: {
-        CardPriceRange.oneDay: [
-          CardPricePoint(dateLabel: 'Yesterday', priceUsd: 770),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 780),
-        ],
-        CardPriceRange.sevenDays: [
-          CardPricePoint(dateLabel: '7 days ago', priceUsd: 760),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 780),
-        ],
-        CardPriceRange.fifteenDays: [
-          CardPricePoint(dateLabel: '15 days ago', priceUsd: 744),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 780),
-        ],
-        CardPriceRange.oneMonth: [
-          CardPricePoint(dateLabel: '30 days ago', priceUsd: 721.58),
-          CardPricePoint(dateLabel: '14 days ago', priceUsd: 750),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 780),
-        ],
-        CardPriceRange.threeMonths: [
-          CardPricePoint(dateLabel: '90 days ago', priceUsd: 690),
-          CardPricePoint(dateLabel: 'Today', priceUsd: 780),
-        ],
-      },
-      soldListings: [
-        CardSoldListing(
-          dateText: '2026-07-03',
-          title: 'Charizard ex PSA 10',
-          priceUsd: 780,
-          platform: 'eBay',
-        ),
-        CardSoldListing(
-          dateText: '2026-06-28',
-          title: 'Charizard ex Raw Near Mint (NM)',
-          priceUsd: 215,
-          platform: 'TCGplayer',
-        ),
-      ],
-    ),
-    'mystery-promo' => const CardDetail(
-      id: 'mystery-promo',
-      type: CardDetailType.other,
-      name: 'Mystery Promo',
-      game: 'Pokemon',
-      setName: 'Promo Vault',
-      identityLine: 'Special Release',
-      finish: 'Raw',
-      language: 'English',
-      quantity: 0,
-      isWishlisted: false,
-      marketPrices: [
-        CardMarketPrice(
-          label: 'Raw',
-          priceUsd: null,
-          previous30dPriceUsd: null,
-        ),
-      ],
-    ),
-    'one-piece-luffy' => const CardDetail(
-      id: 'one-piece-luffy',
-      type: CardDetailType.tcg,
-      name: 'One Piece Manga Luffy',
-      game: 'One Piece',
-      setName: 'Romance Dawn',
-      identityLine: 'Manga Rare #001',
-      finish: 'Normal',
-      language: 'Japanese',
-      quantity: 0,
-      isWishlisted: true,
-      wishlistItemId: 'wish-one-piece-luffy',
-      marketPrices: [
-        CardMarketPrice(
-          label: 'Raw Near Mint (NM)',
-          priceUsd: 330,
-          previous30dPriceUsd: 306.69,
-        ),
-      ],
-    ),
-    _ => throw StateError('Unknown card detail id: $cardId'),
-  };
-}
-
 CardDetail _mergeAssetState(
   CardDetail detail,
   List<PortfolioFolderDto> folders,
@@ -598,6 +506,15 @@ CardDetail _mergeAssetState(
 
   return detail.copyWith(
     quantity: quantity,
+    portfolioFolders: folders
+        .map(
+          (folder) => CardPortfolioFolder(
+            id: folder.id,
+            name: folder.name,
+            isDefault: folder.isDefault,
+          ),
+        )
+        .toList(),
     collectionItems: collectionItems,
     isWishlisted: wishlistItem != null,
     wishlistItemId: wishlistItem?.id,
@@ -628,8 +545,12 @@ PortfolioItemDraftDto _draftFromCardItem(
   CardDetail detail,
   CardCollectionItem item,
 ) {
+  final folderId = item.folderId;
+  if (folderId == null) {
+    throw StateError('Collection Item requires a server portfolio folder.');
+  }
   return PortfolioItemDraftDto(
-    folderId: item.folderId ?? _defaultFolderId,
+    folderId: folderId,
     cardRef: item.cardRef.isEmpty ? detail.id : item.cardRef,
     objectType: _objectTypeFromDetail(detail),
     grader: item.grader,
@@ -653,4 +574,13 @@ String _objectTypeFromDetail(CardDetail detail) {
   };
 }
 
-const _defaultFolderId = 'main';
+CardPortfolioFolder? _defaultPortfolioFolder(
+  List<CardPortfolioFolder> folders,
+) {
+  for (final folder in folders) {
+    if (folder.isDefault) {
+      return folder;
+    }
+  }
+  return folders.firstOrNull;
+}

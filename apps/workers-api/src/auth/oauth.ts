@@ -7,13 +7,12 @@ import {
 } from "./account-flow";
 import { hasSigningSecret } from "./http-auth";
 import {
-  resolveMockAppleIdentity,
-  resolveMockGoogleIdentity,
+  resolveAppleIdentity,
+  resolveGoogleIdentity,
 } from "./oauth-provider";
 
 type GoogleOAuthCallbackInput = {
-  code: string | null;
-  redirectUri: string | null;
+  idToken: string | null;
   anonymousId: string | null;
 };
 
@@ -50,10 +49,10 @@ const STALE_ANONYMOUS_ACCOUNT_RESPONSE = {
 export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
   routes.post("/oauth/google/callback", async (c) => {
     const input = await readGoogleOAuthCallbackInput(c.req);
-    const identity = resolveMockGoogleIdentity({
-      code: input.code,
-      redirectUri: input.redirectUri,
-    });
+    const identity = await resolveGoogleIdentity(
+      { idToken: input.idToken },
+      c.env.GOOGLE_CLIENT_ID,
+    );
 
     if (!identity) {
       return c.json(AUTHORIZATION_FAILED_RESPONSE, 422);
@@ -78,6 +77,7 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
         data: {
           user_id: result.userId,
           email: identity.email,
+          login_method: identity.provider,
           access_token: result.session.accessToken,
           refresh_token: result.session.refreshToken,
           expires_in: result.session.expiresIn,
@@ -101,10 +101,10 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
 
   routes.post("/oauth/apple/callback", async (c) => {
     const input = await readAppleOAuthCallbackInput(c.req);
-    const identity = resolveMockAppleIdentity({
-      code: input.code,
-      idToken: input.idToken,
-    });
+    const identity = await resolveAppleIdentity(
+      { code: input.code, idToken: input.idToken },
+      c.env.APPLE_CLIENT_ID,
+    );
 
     if (!identity) {
       return c.json(AUTHORIZATION_FAILED_RESPONSE, 422);
@@ -129,6 +129,7 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
         data: {
           user_id: result.userId,
           email: identity.email,
+          login_method: identity.provider,
           access_token: result.session.accessToken,
           refresh_token: result.session.refreshToken,
           expires_in: result.session.expiresIn,
@@ -159,16 +160,12 @@ async function readGoogleOAuthCallbackInput(request: {
   try {
     body = await request.json();
   } catch {
-    return { code: null, redirectUri: null, anonymousId: null };
+    return { idToken: null, anonymousId: null };
   }
 
-  const rawCode =
+  const rawIdToken =
     body && typeof body === "object"
-      ? (body as { code?: unknown }).code
-      : undefined;
-  const rawRedirectUri =
-    body && typeof body === "object"
-      ? (body as { redirect_uri?: unknown }).redirect_uri
+      ? (body as { id_token?: unknown }).id_token
       : undefined;
   const rawAnonymousId =
     body && typeof body === "object"
@@ -176,8 +173,7 @@ async function readGoogleOAuthCallbackInput(request: {
       : undefined;
 
   return {
-    code: trimString(rawCode),
-    redirectUri: trimString(rawRedirectUri),
+    idToken: trimString(rawIdToken),
     anonymousId: trimString(rawAnonymousId),
   };
 }

@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/card_detail/card_detail_controller.dart';
+import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -15,7 +18,8 @@ import 'collection_repository.dart';
 final collectionRepositoryProvider = Provider<CollectionRepository>((ref) {
   return HttpCollectionRepository(
     ref.watch(portfolioApiClientProvider),
-    cardDataApi: ref.watch(cardDataApiClientProvider),
+    managementApi: ref.watch(portfolioManagementApiProvider),
+    gameCatalogApi: ref.watch(setCatalogApiClientProvider),
   );
 });
 
@@ -23,6 +27,24 @@ final collectionControllerProvider =
     NotifierProvider<CollectionController, CollectionState>(
       CollectionController.new,
     );
+
+final collectionInitialSortProvider =
+    NotifierProvider<CollectionInitialSortController, CollectionSort?>(
+      CollectionInitialSortController.new,
+    );
+
+class CollectionInitialSortController extends Notifier<CollectionSort?> {
+  @override
+  CollectionSort? build() => null;
+
+  void select(CollectionSort sort) {
+    state = sort;
+  }
+
+  void clear() {
+    state = null;
+  }
+}
 
 class CollectionSummary {
   const CollectionSummary({
@@ -55,6 +77,8 @@ class CollectionViewItem {
   String get finish => source.finish;
   String get statusText => source.statusText;
   int get quantity => source.quantity;
+  String get cardRef => source.cardRef;
+  String? get imageUrl => source.imageUrl;
 }
 
 class CollectionState {
@@ -68,6 +92,7 @@ class CollectionState {
     required this.sortByTab,
     required this.gamesByTab,
     required this.languagesByTab,
+    this.gameOptions = const [],
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.content;
 
@@ -92,6 +117,7 @@ class CollectionState {
         CollectionTab.portfolio: <String>{},
         CollectionTab.wishlist: <String>{},
       },
+      gameOptions = const [],
       loadStatus = KandoLoadStatus.failure;
 
   const CollectionState.loading({required this.currency})
@@ -115,6 +141,7 @@ class CollectionState {
         CollectionTab.portfolio: <String>{},
         CollectionTab.wishlist: <String>{},
       },
+      gameOptions = const [],
       loadStatus = KandoLoadStatus.loading;
 
   const CollectionState._({
@@ -127,6 +154,7 @@ class CollectionState {
     required this.sortByTab,
     required this.gamesByTab,
     required this.languagesByTab,
+    required this.gameOptions,
     required this.loadStatus,
   }) : _dashboard = dashboard;
 
@@ -139,6 +167,7 @@ class CollectionState {
   final Map<CollectionTab, CollectionSort> sortByTab;
   final Map<CollectionTab, Set<String>> gamesByTab;
   final Map<CollectionTab, Set<String>> languagesByTab;
+  final List<String> gameOptions;
   final KandoLoadStatus loadStatus;
 
   CollectionDashboard get dashboard {
@@ -194,8 +223,12 @@ class CollectionState {
 
     filtered.sort((a, b) {
       return switch (selectedSort) {
-        CollectionSort.newest => b.createdAtSort.compareTo(a.createdAtSort),
+        CollectionSort.newest => b.addedAtSort.compareTo(a.addedAtSort),
         CollectionSort.valueDesc => _nullableDoubleDesc(
+          a.marketValueUsd,
+          b.marketValueUsd,
+        ),
+        CollectionSort.valueAsc => _nullableDoubleAsc(
           a.marketValueUsd,
           b.marketValueUsd,
         ),
@@ -218,9 +251,7 @@ class CollectionState {
   }
 
   CollectionSummary get portfolioSummary {
-    final items = dashboard.portfolioItems
-        .where((item) => item.folderId == selectedFolder.id)
-        .toList();
+    final items = visibleItems.map((item) => item.source).toList();
     final total = items.fold<double>(0, (sum, item) {
       final value = item.marketValueUsd;
       if (value == null || value <= 0) {
@@ -231,8 +262,10 @@ class CollectionState {
 
     return CollectionSummary(
       totalValueText: _formatPortfolioTotal(total),
-      cardCount: items.length,
-      gradedCount: items.where((item) => item.isGraded).length,
+      cardCount: items.fold(0, (sum, item) => sum + item.quantity),
+      gradedCount: items
+          .where((item) => item.isGraded)
+          .fold(0, (sum, item) => sum + item.quantity),
     );
   }
 
@@ -240,7 +273,18 @@ class CollectionState {
 
   bool get isNoMatch => _baseItems.isNotEmpty && visibleItems.isEmpty;
 
+  List<String> get availableGames {
+    return gameOptions;
+  }
+
+  List<String> get availableLanguages {
+    final values = _baseItems.map((item) => item.language).toSet().toList()
+      ..sort();
+    return values;
+  }
+
   CollectionState copyWith({
+    CollectionDashboard? dashboard,
     CollectionTab? selectedTab,
     String? selectedFolderId,
     AppCurrency? currency,
@@ -249,9 +293,10 @@ class CollectionState {
     Map<CollectionTab, CollectionSort>? sortByTab,
     Map<CollectionTab, Set<String>>? gamesByTab,
     Map<CollectionTab, Set<String>>? languagesByTab,
+    List<String>? gameOptions,
   }) {
     return CollectionState._(
-      dashboard: _dashboard,
+      dashboard: dashboard ?? _dashboard,
       selectedTab: selectedTab ?? this.selectedTab,
       selectedFolderId: selectedFolderId ?? this.selectedFolderId,
       currency: currency ?? this.currency,
@@ -260,6 +305,7 @@ class CollectionState {
       sortByTab: sortByTab ?? this.sortByTab,
       gamesByTab: gamesByTab ?? this.gamesByTab,
       languagesByTab: languagesByTab ?? this.languagesByTab,
+      gameOptions: gameOptions ?? this.gameOptions,
       loadStatus: loadStatus,
     );
   }
@@ -271,9 +317,6 @@ class CollectionState {
   }
 
   String _formatMoney(double? valueUsd, int quantity) {
-    if (amountHidden) {
-      return hiddenMoneyText;
-    }
     if (valueUsd == null || valueUsd <= 0) {
       return '--';
     }
@@ -308,6 +351,19 @@ class CollectionState {
     }
     return right.compareTo(left);
   }
+
+  static int _nullableDoubleAsc(double? left, double? right) {
+    if (left == null && right == null) {
+      return 0;
+    }
+    if (left == null) {
+      return 1;
+    }
+    if (right == null) {
+      return -1;
+    }
+    return left.compareTo(right);
+  }
 }
 
 class CollectionController extends Notifier<CollectionState> {
@@ -323,8 +379,19 @@ class CollectionController extends Notifier<CollectionState> {
     ref.listen<AppCurrency>(selectedCurrencyProvider, (previous, next) {
       state = state.copyWith(currency: next);
     });
+    ref.listen<String?>(selectedPortfolioFolderProvider, (previous, next) {
+      if (next == null || state.isLoading || state.isUnavailable) return;
+      if (state.dashboard.folders.any((folder) => folder.id == next)) {
+        state = state.copyWith(selectedFolderId: next);
+      }
+    });
+    ref.listen<bool?>(portfolioAmountHiddenProvider, (previous, next) {
+      if (next != null && !state.isLoading && !state.isUnavailable) {
+        state = state.copyWith(amountHidden: next);
+      }
+    });
 
-    final currency = ref.watch(selectedCurrencyProvider);
+    final currency = ref.read(selectedCurrencyProvider);
     final authState = ref.watch(authControllerProvider);
     final session = authState.session;
     if (authState.isLoading || session == null) {
@@ -364,22 +431,54 @@ class CollectionController extends Notifier<CollectionState> {
     Completer<void> completer,
   ) async {
     try {
-      final dashboard = await ref
-          .read(collectionRepositoryProvider)
-          .loadDashboard(session);
+      final repository = ref.read(collectionRepositoryProvider);
+      final dashboardFuture = repository.loadDashboard(session);
+      final gameOptionsFuture = _loadGameOptions(repository);
+      final dashboard = await dashboardFuture;
+      final gameOptions = {
+        ...dashboard.portfolioItems.map((item) => item.game),
+        ...dashboard.wishlistItems.map((item) => item.game),
+      }.toList()..sort();
       if (generation == _loadGeneration) {
+        final currencyMetadata = AppCurrency.fromCode(dashboard.currencyCode);
+        var preferredCurrency = ref.read(selectedCurrencyProvider);
+        if (preferredCurrency.code != currencyMetadata.code ||
+            preferredCurrency.usdRate == null) {
+          preferredCurrency = AppCurrency.usd;
+          if (currencyMetadata.code != 'USD') {
+            try {
+              final rate = await ref
+                  .read(currencyRateApiProvider)
+                  .loadUsdRate(currencyMetadata.code);
+              preferredCurrency = currencyMetadata.withUsdRate(rate);
+            } catch (_) {
+              // Keep USD until the provider can prove a conversion rate.
+            }
+          }
+        }
+        if (generation != _loadGeneration) return;
+        final sharedFolderId = ref.read(selectedPortfolioFolderProvider);
+        final selectedFolderId =
+            dashboard.folders.any((folder) => folder.id == sharedFolderId)
+            ? sharedFolderId!
+            : dashboard.defaultFolder.id;
+        final amountHidden =
+            ref.read(portfolioAmountHiddenProvider) ?? dashboard.amountHidden;
+        final initialSort =
+            ref.read(collectionInitialSortProvider) ?? CollectionSort.newest;
+        ref.read(selectedCurrencyProvider.notifier).select(preferredCurrency);
         state = CollectionState(
           dashboard: dashboard,
           selectedTab: CollectionTab.portfolio,
-          selectedFolderId: dashboard.defaultFolder.id,
-          currency: currency,
-          amountHidden: false,
+          selectedFolderId: selectedFolderId,
+          currency: preferredCurrency,
+          amountHidden: amountHidden,
           searchByTab: const {
             CollectionTab.portfolio: '',
             CollectionTab.wishlist: '',
           },
-          sortByTab: const {
-            CollectionTab.portfolio: CollectionSort.newest,
+          sortByTab: {
+            CollectionTab.portfolio: initialSort,
             CollectionTab.wishlist: CollectionSort.newest,
           },
           gamesByTab: const {
@@ -390,7 +489,21 @@ class CollectionController extends Notifier<CollectionState> {
             CollectionTab.portfolio: <String>{},
             CollectionTab.wishlist: <String>{},
           },
+          gameOptions: gameOptions,
         );
+        ref.read(collectionInitialSortProvider.notifier).clear();
+        if (sharedFolderId == null) {
+          ref
+              .read(selectedPortfolioFolderProvider.notifier)
+              .select(selectedFolderId);
+        }
+        if (ref.read(portfolioAmountHiddenProvider) == null) {
+          ref.read(portfolioAmountHiddenProvider.notifier).select(amountHidden);
+        }
+      }
+      final catalogGames = await gameOptionsFuture;
+      if (generation == _loadGeneration && catalogGames.isNotEmpty) {
+        state = state.copyWith(gameOptions: catalogGames);
       }
     } catch (_) {
       if (generation == _loadGeneration) {
@@ -403,27 +516,210 @@ class CollectionController extends Notifier<CollectionState> {
     }
   }
 
+  Future<List<String>> _loadGameOptions(CollectionRepository repository) async {
+    if (repository is! CollectionGameCatalogRepository) {
+      return const [];
+    }
+    final gameCatalogRepository = repository as CollectionGameCatalogRepository;
+    try {
+      return await gameCatalogRepository.loadGameOptions();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   void selectTab(CollectionTab tab) {
     if (state.isUnavailable || state.isLoading) {
       return;
     }
+    if (tab == state.selectedTab) return;
 
-    state = state.copyWith(selectedTab: tab);
+    final previousTab = state.selectedTab;
+    state = state.copyWith(
+      selectedTab: tab,
+      searchByTab: {...state.searchByTab, previousTab: ''},
+      sortByTab: {...state.sortByTab, previousTab: CollectionSort.newest},
+      gamesByTab: {...state.gamesByTab, previousTab: <String>{}},
+      languagesByTab: {...state.languagesByTab, previousTab: <String>{}},
+    );
   }
 
-  void selectFolder(String folderId) {
+  Future<bool> selectFolder(String folderId) async {
     if (state.isUnavailable || state.isLoading) {
-      return;
+      return false;
     }
 
     final exists = state.dashboard.folders.any(
       (folder) => folder.id == folderId,
     );
     if (!exists) {
-      return;
+      return false;
     }
 
+    final previousFolderId = state.selectedFolderId;
     state = state.copyWith(selectedFolderId: folderId);
+    ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
+    try {
+      final session = ref.read(authControllerProvider).session!;
+      await ref
+          .read(collectionRepositoryProvider)
+          .updatePreferences(session, lastSelectedFolderId: folderId);
+      return true;
+    } catch (_) {
+      state = state.copyWith(selectedFolderId: previousFolderId);
+      ref
+          .read(selectedPortfolioFolderProvider.notifier)
+          .select(previousFolderId);
+      return false;
+    }
+  }
+
+  Future<CollectionFolder?> createFolder(String name) async {
+    final normalized = name.trim();
+    if (state.isUnavailable ||
+        state.isLoading ||
+        normalized.isEmpty ||
+        normalized.length > 50) {
+      return null;
+    }
+    try {
+      final session = ref.read(authControllerProvider).session!;
+      final folder = await ref
+          .read(collectionRepositoryProvider)
+          .createFolder(session, normalized);
+      state = state.copyWith(
+        dashboard: state.dashboard.copyWith(
+          folders: [...state.dashboard.folders, folder],
+        ),
+      );
+      _invalidateFolderConsumers();
+      return folder;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> renameFolder(String folderId, String name) async {
+    final normalized = name.trim();
+    if (state.isUnavailable ||
+        state.isLoading ||
+        normalized.isEmpty ||
+        normalized.length > 50) {
+      return false;
+    }
+    try {
+      final session = ref.read(authControllerProvider).session!;
+      final updated = await ref
+          .read(collectionRepositoryProvider)
+          .renameFolder(session, folderId, normalized);
+      state = state.copyWith(
+        dashboard: state.dashboard.copyWith(
+          folders: [
+            for (final folder in state.dashboard.folders)
+              if (folder.id == folderId) updated else folder,
+          ],
+        ),
+      );
+      _invalidateFolderConsumers();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> setDefaultFolder(String folderId) async {
+    if (state.isUnavailable || state.isLoading) {
+      return false;
+    }
+    try {
+      final session = ref.read(authControllerProvider).session!;
+      await ref
+          .read(collectionRepositoryProvider)
+          .setDefaultFolder(session, folderId);
+      state = state.copyWith(
+        dashboard: state.dashboard.copyWith(
+          folders: [
+            for (final folder in state.dashboard.folders)
+              folder.copyWith(isDefault: folder.id == folderId),
+          ],
+        ),
+      );
+      _invalidateFolderConsumers();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> reorderFolders(List<String> folderIds) async {
+    final current = state.dashboard.folders;
+    if (state.isUnavailable ||
+        state.isLoading ||
+        folderIds.length != current.length ||
+        folderIds.toSet().length != current.length) {
+      return false;
+    }
+    final byId = {for (final folder in current) folder.id: folder};
+    if (folderIds.any((id) => !byId.containsKey(id))) {
+      return false;
+    }
+    final reordered = [for (final id in folderIds) byId[id]!];
+    state = state.copyWith(
+      dashboard: state.dashboard.copyWith(folders: reordered),
+    );
+    try {
+      final session = ref.read(authControllerProvider).session!;
+      await ref
+          .read(collectionRepositoryProvider)
+          .reorderFolders(session, folderIds);
+      _invalidateFolderConsumers();
+      return true;
+    } catch (_) {
+      state = state.copyWith(
+        dashboard: state.dashboard.copyWith(folders: current),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> deleteFolder(String folderId) async {
+    if (state.isUnavailable || state.isLoading) {
+      return false;
+    }
+    final folder = state.dashboard.folders
+        .where((candidate) => candidate.id == folderId)
+        .firstOrNull;
+    if (folder == null || folder.isDefault) {
+      return false;
+    }
+    try {
+      final session = ref.read(authControllerProvider).session!;
+      await ref
+          .read(collectionRepositoryProvider)
+          .deleteFolder(session, folderId);
+      final fallbackId = state.dashboard.defaultFolder.id;
+      final selectedFolderId = state.selectedFolderId == folderId
+          ? fallbackId
+          : state.selectedFolderId;
+      state = state.copyWith(
+        dashboard: state.dashboard.copyWith(
+          folders: state.dashboard.folders
+              .where((candidate) => candidate.id != folderId)
+              .toList(),
+          portfolioItems: state.dashboard.portfolioItems
+              .where((item) => item.folderId != folderId)
+              .toList(),
+        ),
+        selectedFolderId: selectedFolderId,
+      );
+      if (selectedFolderId == fallbackId) {
+        ref.read(selectedPortfolioFolderProvider.notifier).select(fallbackId);
+      }
+      _invalidateFolderConsumers();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   void updateSearch(String value) {
@@ -464,11 +760,28 @@ class CollectionController extends Notifier<CollectionState> {
     );
   }
 
-  void toggleAmountHidden() {
+  Future<bool> toggleAmountHidden() async {
     if (state.isUnavailable || state.isLoading) {
-      return;
+      return false;
     }
 
-    state = state.copyWith(amountHidden: !state.amountHidden);
+    final previous = state.amountHidden;
+    state = state.copyWith(amountHidden: !previous);
+    try {
+      final session = ref.read(authControllerProvider).session!;
+      await ref
+          .read(collectionRepositoryProvider)
+          .updatePreferences(session, amountHidden: !previous);
+      ref.read(portfolioAmountHiddenProvider.notifier).select(!previous);
+      return true;
+    } catch (_) {
+      state = state.copyWith(amountHidden: previous);
+      return false;
+    }
+  }
+
+  void _invalidateFolderConsumers() {
+    ref.invalidate(homeControllerProvider);
+    ref.invalidate(cardDetailControllerProvider);
   }
 }

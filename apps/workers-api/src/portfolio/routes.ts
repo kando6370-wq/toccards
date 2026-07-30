@@ -1,7 +1,14 @@
 import { Hono } from "hono";
+import {
+  collectionItemDraftFromBody,
+  collectionItemPatchFromBody,
+  type CollectionItemDraft,
+} from "../collection-item";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
+import { enrichCollectionDashboard } from "./collection-dashboard";
+import { loadValuationHistory } from "./valuation-history";
 
 type PortfolioFolderRow = {
   id: string;
@@ -31,23 +38,9 @@ type CollectionItemRow = {
   purchase_price: number | null;
   purchase_currency: string | null;
   notes: string | null;
+  folder_joined_at: string;
   created_at: string;
   updated_at: string;
-};
-
-type CollectionItemDraft = {
-  folder_id: string;
-  card_ref: string;
-  object_type: string;
-  grader: string;
-  condition: string | null;
-  grade: number | null;
-  language: string | null;
-  finish: string | null;
-  quantity: number;
-  purchase_price: number | null;
-  purchase_currency: string | null;
-  notes: string | null;
 };
 
 type WishlistItemRow = {
@@ -169,14 +162,16 @@ WHERE owner_type = ? AND owner_id = ? AND id = ?
 
 const SELECT_COLLECTION_ITEMS_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency, notes, created_at, updated_at
+  finish, quantity, purchase_price, purchase_currency, notes,
+  COALESCE(folder_joined_at, created_at) AS folder_joined_at, created_at, updated_at
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ?
 `;
 
 const SELECT_COLLECTION_ITEM_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency, notes, created_at, updated_at
+  finish, quantity, purchase_price, purchase_currency, notes,
+  COALESCE(folder_joined_at, created_at) AS folder_joined_at, created_at, updated_at
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 LIMIT 1
@@ -184,7 +179,8 @@ LIMIT 1
 
 const SELECT_COLLECTION_ITEM_BY_CARD_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency, notes, created_at, updated_at
+  finish, quantity, purchase_price, purchase_currency, notes,
+  COALESCE(folder_joined_at, created_at) AS folder_joined_at, created_at, updated_at
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND card_ref = ?
 LIMIT 1
@@ -200,20 +196,36 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
 const UPDATE_COLLECTION_ITEM_SQL = `
 UPDATE collection_item
-SET grader = ?, condition = ?, grade = ?, language = ?, finish = ?, quantity = ?,
+SET folder_id = ?, folder_joined_at = ?, grader = ?, condition = ?, grade = ?, language = ?, finish = ?, quantity = ?,
   purchase_price = ?, purchase_currency = ?, notes = ?, updated_at = ?
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 `;
 
+const SELECT_COLLECTION_ITEM_BY_SKU_SQL = `
+SELECT id
+FROM collection_item
+WHERE owner_type = ? AND owner_id = ? AND folder_id = ? AND card_ref = ?
+  AND object_type = ? AND grader = ? AND condition IS ? AND grade IS ?
+  AND language IS ? AND finish IS ?
+LIMIT 1
+`;
+
 const MOVE_COLLECTION_ITEM_SQL = `
 UPDATE collection_item
-SET folder_id = ?, updated_at = ?
+SET folder_id = ?, folder_joined_at = ?, updated_at = ?
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 `;
 
 const DELETE_COLLECTION_ITEM_SQL = `
 DELETE FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND id = ?
+`;
+
+const INSERT_COLLECTION_ITEM_EVENT_SQL = `
+INSERT INTO collection_item_event
+  (id, item_id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
+   condition, grade, language, finish, quantity, event_type, effective_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const DELETE_WISHLIST_CARD_SQL = `
@@ -258,21 +270,76 @@ SET currency = ?, amount_hidden = ?, last_selected_folder_id = ?, updated_at = ?
 WHERE owner_type = ? AND owner_id = ?
 `;
 
-const SUPPORTED_OBJECT_TYPES = new Set(["tcg", "sports", "sealed", "other"]);
-const SUPPORTED_GRADERS = new Set(["Raw", "PSA", "BGS", "SGC", "CGC", "TAG", "AGS"]);
-const SUPPORTED_RAW_CONDITIONS = new Set([
-  "Near Mint (NM)",
-  "Lightly Played (LP)",
-  "Moderately Played (MP)",
-  "Heavily Played (HP)",
-  "Damaged (D)",
+const ITEM_SORT_FIELDS = new Set([
+  "folder_joined_at",
+  "created_at",
+  "updated_at",
+  "card_ref",
 ]);
-const ITEM_SORT_FIELDS = new Set(["created_at", "updated_at", "card_ref"]);
 const WISHLIST_SORT_FIELDS = new Set(["created_at", "card_ref"]);
 const ISO_4217_CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
 export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
   const routes = new Hono<{ Bindings: Env }>();
+
+  routes.get("/collection/dashboard", async (c) => {
+    const auth = await authenticateOwner(
+      c.env,
+      c.req.header("Authorization"),
+    );
+    if (auth.status === "internal_error") {
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+    if (auth.status === "unauthorized") {
+      return c.json(UNAUTHORIZED_RESPONSE, 401);
+    }
+
+    const [folders, portfolioItems, wishlistItems, preference] = await Promise.all([
+      listFolders(c.env.DB, auth.owner),
+      listCollectionItems(c.env.DB, auth.owner),
+      listWishlistItems(c.env.DB, auth.owner),
+      findUserPreference(c.env.DB, auth.owner),
+    ]);
+    if (!preference) {
+      return c.json(NOT_FOUND_RESPONSE, 404);
+    }
+    const enriched = await enrichCollectionDashboard(
+      c.env.DB,
+      portfolioItems,
+      wishlistItems,
+    );
+    return c.json({
+      success: true,
+      data: {
+        folders: folders.map(folderResponse),
+        preference: userPreferenceResponse(preference),
+        ...enriched,
+      },
+    });
+  });
+
+  routes.get("/portfolio/valuation-history", async (c) => {
+    const auth = await authenticateOwner(
+      c.env,
+      c.req.header("Authorization"),
+    );
+    if (auth.status === "internal_error") {
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+    if (auth.status === "unauthorized") {
+      return c.json(UNAUTHORIZED_RESPONSE, 401);
+    }
+
+    const days = positiveIntegerOrDefault(c.req.query("days"), 90, 90);
+    const folders = await listFolders(c.env.DB, auth.owner);
+    const items = await loadValuationHistory(
+      c.env.DB,
+      auth.owner,
+      folders.map((folder) => folder.id),
+      days,
+    );
+    return c.json({ success: true, data: { days, items } });
+  });
 
   routes.post("/cards/:card_ref/collect", async (c) => {
     const auth = await authenticateOwner(
@@ -315,6 +382,10 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
+    if (await findCollectionItemBySku(c.env.DB, auth.owner, draft)) {
+      return c.json(CONFLICT_RESPONSE, 409);
+    }
+
     const now = new Date().toISOString();
     const itemId = createId();
 
@@ -338,6 +409,12 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         now,
         now,
       ),
+      collectionItemEventStatement(c.env.DB, auth.owner, {
+        id: itemId,
+        ...draft,
+        created_at: now,
+        updated_at: now,
+      }, "upsert", now),
       c.env.DB.prepare(DELETE_WISHLIST_CARD_SQL).bind(
         auth.owner.owner_type,
         auth.owner.owner_id,
@@ -600,6 +677,10 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(NOT_FOUND_RESPONSE, 404);
     }
 
+    if (await findCollectionItemBySku(c.env.DB, auth.owner, draft)) {
+      return c.json(CONFLICT_RESPONSE, 409);
+    }
+
     const now = new Date().toISOString();
     const itemId = createId();
 
@@ -623,6 +704,12 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         now,
         now,
       ),
+      collectionItemEventStatement(c.env.DB, auth.owner, {
+        id: itemId,
+        ...draft,
+        created_at: now,
+        updated_at: now,
+      }, "upsert", now),
       c.env.DB.prepare(DELETE_WISHLIST_CARD_SQL).bind(
         auth.owner.owner_type,
         auth.owner.owner_id,
@@ -688,15 +775,24 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(NOT_FOUND_RESPONSE, 404);
     }
 
-    await c.env.DB.prepare(MOVE_COLLECTION_ITEM_SQL)
-      .bind(
+    const now = new Date().toISOString();
+    await c.env.DB.batch([
+      c.env.DB.prepare(MOVE_COLLECTION_ITEM_SQL).bind(
         folderId,
-        new Date().toISOString(),
+        now,
+        now,
         auth.owner.owner_type,
         auth.owner.owner_id,
         item.id,
-      )
-      .run();
+      ),
+      collectionItemEventStatement(
+        c.env.DB,
+        auth.owner,
+        { ...item, folder_id: folderId, updated_at: now },
+        "upsert",
+        now,
+      ),
+    ]);
 
     const updatedItem = await findCollectionItem(c.env.DB, auth.owner, item.id);
 
@@ -729,8 +825,20 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
-    await c.env.DB.prepare(UPDATE_COLLECTION_ITEM_SQL)
-      .bind(
+    if (
+      draft.folder_id !== item.folder_id &&
+      !(await findFolder(c.env.DB, auth.owner, draft.folder_id))
+    ) {
+      return c.json(NOT_FOUND_RESPONSE, 404);
+    }
+
+    const now = new Date().toISOString();
+    const folderJoinedAt =
+      draft.folder_id === item.folder_id ? item.folder_joined_at : now;
+    await c.env.DB.batch([
+      c.env.DB.prepare(UPDATE_COLLECTION_ITEM_SQL).bind(
+        draft.folder_id,
+        folderJoinedAt,
         draft.grader,
         draft.condition,
         draft.grade,
@@ -740,12 +848,19 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         draft.purchase_price,
         draft.purchase_currency,
         draft.notes,
-        new Date().toISOString(),
+        now,
         auth.owner.owner_type,
         auth.owner.owner_id,
         item.id,
-      )
-      .run();
+      ),
+      collectionItemEventStatement(
+        c.env.DB,
+        auth.owner,
+        { ...item, ...draft, updated_at: now },
+        "upsert",
+        now,
+      ),
+    ]);
 
     const updatedItem = await findCollectionItem(c.env.DB, auth.owner, item.id);
 
@@ -772,9 +887,15 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(NOT_FOUND_RESPONSE, 404);
     }
 
-    await c.env.DB.prepare(DELETE_COLLECTION_ITEM_SQL)
-      .bind(auth.owner.owner_type, auth.owner.owner_id, item.id)
-      .run();
+    const now = new Date().toISOString();
+    await c.env.DB.batch([
+      c.env.DB.prepare(DELETE_COLLECTION_ITEM_SQL).bind(
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+        item.id,
+      ),
+      collectionItemEventStatement(c.env.DB, auth.owner, item, "delete", now),
+    ]);
 
     return c.json({ success: true, data: {} });
   });
@@ -1124,7 +1245,7 @@ async function findCollectionItemByCard(
 
 function collectionItemResponse(item: CollectionItemRow): Omit<
   CollectionItemRow,
-  "owner_type" | "owner_id"
+  "folder_joined_at"
 > {
   return {
     id: item.id,
@@ -1198,148 +1319,71 @@ function userPreferenceResponse(preference: UserPreferenceRow): {
   };
 }
 
-function collectionItemDraftFromBody(
-  body: unknown,
-): CollectionItemDraft | null {
-  if (!isRecord(body)) {
-    return null;
-  }
-
-  const folderId = requiredString(body.folder_id);
-  const cardRef = requiredString(body.card_ref);
-  const objectType = requiredString(body.object_type);
-  const grader = requiredString(body.grader);
-  const quantity = positiveInteger(body.quantity);
-
-  if (!folderId || !cardRef || !objectType || !grader || !quantity) {
-    return null;
-  }
-
-  return normalizeCollectionItemDraft({
-    folder_id: folderId,
-    card_ref: cardRef,
-    object_type: objectType,
-    grader,
-    condition: nullableStringValue(body.condition),
-    grade: nullableNumberValue(body.grade),
-    language: nullableStringValue(body.language),
-    finish: nullableStringValue(body.finish),
-    quantity,
-    purchase_price: nullableNumberValue(body.purchase_price),
-    purchase_currency: nullableStringValue(body.purchase_currency),
-    notes: nullableStringValue(body.notes),
-  });
-}
-
 function collectItemDraftFromBody(
   body: Record<string, unknown>,
   cardRef: string,
   folderId: string,
 ): CollectionItemDraft | null {
-  const objectType = requiredString(body.object_type);
-  const grader = requiredString(body.grader);
-  const quantity = positiveInteger(body.quantity);
-
-  if (!objectType || !grader || !quantity) {
-    return null;
-  }
-
-  return normalizeCollectionItemDraft({
+  return collectionItemDraftFromBody(body, {
     folder_id: folderId,
     card_ref: cardRef,
-    object_type: objectType,
-    grader,
-    condition: nullableStringValue(body.condition),
-    grade: nullableNumberValue(body.grade),
-    language: nullableStringValue(body.language),
-    finish: nullableStringValue(body.finish),
-    quantity,
-    purchase_price: nullableNumberValue(body.purchase_price),
-    purchase_currency: nullableStringValue(body.purchase_currency),
-    notes: nullableStringValue(body.notes),
   });
 }
 
-function collectionItemPatchFromBody(
-  body: unknown,
-  item: CollectionItemRow,
-): CollectionItemDraft | null {
-  if (!isRecord(body)) {
-    return null;
-  }
-
-  const quantity =
-    body.quantity === undefined ? item.quantity : positiveInteger(body.quantity);
-
-  if (!quantity) {
-    return null;
-  }
-
-  return normalizeCollectionItemDraft({
-    folder_id: item.folder_id,
-    card_ref: item.card_ref,
-    object_type: item.object_type,
-    grader:
-      body.grader === undefined ? item.grader : requiredString(body.grader) ?? "",
-    condition:
-      body.condition === undefined
-        ? item.condition
-        : nullableStringValue(body.condition),
-    grade:
-      body.grade === undefined ? item.grade : nullableNumberValue(body.grade),
-    language:
-      body.language === undefined ? item.language : nullableStringValue(body.language),
-    finish:
-      body.finish === undefined ? item.finish : nullableStringValue(body.finish),
-    quantity,
-    purchase_price:
-      body.purchase_price === undefined
-        ? item.purchase_price
-        : nullableNumberValue(body.purchase_price),
-    purchase_currency:
-      body.purchase_currency === undefined
-        ? item.purchase_currency
-        : nullableStringValue(body.purchase_currency),
-    notes: body.notes === undefined ? item.notes : nullableStringValue(body.notes),
-  });
-}
-
-function normalizeCollectionItemDraft(
+async function findCollectionItemBySku(
+  db: D1Database,
+  owner: AuthenticatedOwner,
   draft: CollectionItemDraft,
-): CollectionItemDraft | null {
-  if (
-    !SUPPORTED_OBJECT_TYPES.has(draft.object_type) ||
-    !SUPPORTED_GRADERS.has(draft.grader) ||
-    (draft.notes?.length ?? 0) > 500 ||
-    (draft.purchase_price !== null && !draft.purchase_currency)
-  ) {
-    return null;
-  }
+): Promise<{ id: string } | null> {
+  return db
+    .prepare(SELECT_COLLECTION_ITEM_BY_SKU_SQL)
+    .bind(
+      owner.owner_type,
+      owner.owner_id,
+      draft.folder_id,
+      draft.card_ref,
+      draft.object_type,
+      draft.grader,
+      draft.condition,
+      draft.grade,
+      draft.language,
+      draft.finish,
+    )
+    .first<{ id: string }>();
+}
 
-  if (draft.object_type === "sealed") {
-    return draft.grader === "Raw" && draft.condition === null && draft.grade === null
-      ? draft
-      : null;
-  }
-
-  if (draft.grader === "Raw") {
-    return draft.condition &&
-      SUPPORTED_RAW_CONDITIONS.has(draft.condition) &&
-      draft.grade === null
-      ? draft
-      : null;
-  }
-
-  return draft.grade !== null &&
-    isValidGrade(draft.grade) &&
-    draft.condition === null
-    ? draft
-    : null;
+function collectionItemEventStatement(
+  db: D1Database,
+  owner: AuthenticatedOwner,
+  item: Omit<CollectionItemRow, "folder_joined_at">,
+  eventType: "upsert" | "delete",
+  effectiveAt: string,
+): D1PreparedStatement {
+  return db.prepare(INSERT_COLLECTION_ITEM_EVENT_SQL).bind(
+    createId(),
+    item.id,
+    owner.owner_type,
+    owner.owner_id,
+    item.folder_id,
+    item.card_ref,
+    item.object_type,
+    item.grader,
+    item.condition,
+    item.grade,
+    item.language,
+    item.finish,
+    item.quantity,
+    eventType,
+    effectiveAt,
+  );
 }
 
 function sortCollectionItems(
   items: CollectionItemRow[],
-  sortBy: keyof Pick<CollectionItemRow, "created_at" | "updated_at" | "card_ref">,
+  sortBy: keyof Pick<
+    CollectionItemRow,
+    "folder_joined_at" | "created_at" | "updated_at" | "card_ref"
+  >,
   sortOrder: "asc" | "desc",
 ): CollectionItemRow[] {
   return [...items].sort((left, right) => {
@@ -1351,10 +1395,13 @@ function sortCollectionItems(
 
 function itemSortBy(
   value: string | undefined,
-): keyof Pick<CollectionItemRow, "created_at" | "updated_at" | "card_ref"> {
+): keyof Pick<
+  CollectionItemRow,
+  "folder_joined_at" | "created_at" | "updated_at" | "card_ref"
+> {
   return ITEM_SORT_FIELDS.has(value ?? "")
-    ? (value as "created_at" | "updated_at" | "card_ref")
-    : "created_at";
+    ? (value as "folder_joined_at" | "created_at" | "updated_at" | "card_ref")
+    : "folder_joined_at";
 }
 
 function sortWishlistItems(
@@ -1393,15 +1440,6 @@ function folderNameFromBody(body: unknown): string | null {
   const name = body.name.trim();
 
   return name.length > 0 && name.length <= 50 ? name : null;
-}
-
-function isValidGrade(grade: number): boolean {
-  return (
-    Number.isFinite(grade) &&
-    grade > 0 &&
-    grade <= 10 &&
-    Number.isSafeInteger(grade * 2)
-  );
 }
 
 function folderOrdersFromBody(body: unknown): FolderOrder[] | null {
@@ -1512,28 +1550,6 @@ function requiredString(value: unknown): string | null {
 
 function nullableString(value: string | undefined): string | null {
   return requiredString(value);
-}
-
-function nullableStringValue(value: unknown): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  return requiredString(value);
-}
-
-function nullableNumberValue(value: unknown): number | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function positiveInteger(value: unknown): number | null {
-  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
-    ? value
-    : null;
 }
 
 function positiveIntegerOrDefault(

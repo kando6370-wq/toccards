@@ -5,8 +5,11 @@ import { cors } from "hono/cors";
 import { authRoutes } from "./auth/anonymous";
 import { createDataSourceRoutes } from "./data-source/routes";
 import type { Env } from "./env";
+import { createFeedbackRoutes } from "./feedback/routes";
+import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
 import { createScanRoutes } from "./scan/routes";
+import { createCardShareRoutes } from "./card-share/routes";
 
 export type { Env } from "./env";
 
@@ -15,6 +18,9 @@ const allowedOrigins = new Set([
   "https://admin.tcgcard.fun",
   "https://dev.toccards2.pages.dev",
   "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://192.168.35.3:3000",
+  "https://192.168.35.3:3000",
 ]);
 app.use(
   "/api/*",
@@ -25,6 +31,7 @@ app.use(
     maxAge: 86400,
   }),
 );
+app.route("/", createCardShareRoutes());
 const api = app.basePath("/api/v1");
 
 api.route("/admin", adminRoutes);
@@ -32,6 +39,8 @@ api.get("/health", (c) => c.json({ status: "ok" }));
 api.route("/auth", authRoutes);
 api.route("/", createAppConfigRoutes());
 api.route("/", createDataSourceRoutes());
+api.route("/", createFeedbackRoutes());
+api.route("/", createLegalRoutes());
 api.route("/", createPortfolioRoutes());
 api.route("/", createScanRoutes());
 

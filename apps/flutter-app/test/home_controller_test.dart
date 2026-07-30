@@ -1,16 +1,30 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/currency/currency_rate_api.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+
+import 'support/in_memory_auth_storage.dart';
+import 'support/local_placeholder_auth_repository.dart';
+import 'support/mock_home_repository.dart';
 
 void main() {
   test(
     'dashboard exposes spec-shaped folder, portfolio, highlight, and trend data',
     () {
-      final container = ProviderContainer();
+      final container = _mockHomeContainer();
       addTearDown(container.dispose);
 
       final state = container.read(homeControllerProvider);
@@ -27,33 +41,54 @@ void main() {
       ]);
       expect(dashboard.defaultFolder.id, 'main');
       expect(dashboard.defaultFolder.isDefault, isTrue);
-      expect(mainPortfolio.totalValueUsd, 12840);
-      expect(mainPortfolio.previous30dValueUsd, 12420);
+      expect(mainPortfolio.totalValueUsd, 12450.8);
+      expect(mainPortfolio.previous30dValueUsd, 12030.8);
       expect(mainPortfolio.chartValuesByRange[HomeChartRange.fifteenDays], [
+        11800,
+        12350,
+        12800,
+        12450,
+        12050,
+        12300,
+        13250,
+        12700,
         11600,
-        12040,
-        12420,
-        12680,
-        12840,
+        12450.8,
       ]);
       expect(mainHighlight.title, 'Charizard ex');
       expect(mainHighlight.subtitle, 'PSA 10 · Holofoil');
       expect(mainHighlight.priceUsd, 780);
       expect(mainHighlight.previousPriceUsd, 721.55);
-      expect(dashboard.trending.first.title, 'Umbreon VMAX');
-      expect(dashboard.trending.first.previousPriceUsd, 365.42);
-      expect(state.totalAmountText, r'$12,840.00');
+      expect(dashboard.trending.first.title, 'Ragavan, Nimble Pilferer');
+      expect(dashboard.trending.first.increaseRate, 12.34);
+      expect(state.totalAmountText, r'$12,450.80');
       expect(state.changeAmountText, r'$420.00 in the last 30 days');
-      expect(state.changePercentText, '+3.38%');
+      expect(state.changePercentText, '+3.49%');
       expect(
         state.selectedPortfolio.chartValuesByRange[HomeChartRange.fifteenDays],
-        [11600, 12040, 12420, 12680, 12840],
+        [
+          11800,
+          12350,
+          12800,
+          12450,
+          12050,
+          12300,
+          13250,
+          12700,
+          11600,
+          12450.8,
+        ],
+      );
+      expect(
+        state.chartDates[6],
+        '2025-02-18',
+        reason: 'HOME tooltips must use the date paired with the live curve.',
       );
     },
   );
 
   test(
-    'repository failure shows page failure and refresh restores dashboard',
+    'initial repository failure exposes no fabricated assets and refresh restores dashboard',
     () {
       final repository = _FailingThenSuccessfulHomeRepository();
       final container = ProviderContainer(
@@ -65,6 +100,8 @@ void main() {
 
       expect(failed.loadStatus, KandoLoadStatus.failure);
       expect(failed.isUnavailable, isTrue);
+      expect(failed.totalAmountText, r'$0.00');
+      expect(failed.dashboard.trending, isEmpty);
       expect(repository.calls, 1);
 
       container.read(homeControllerProvider.notifier).refresh();
@@ -72,23 +109,50 @@ void main() {
 
       expect(restored.loadStatus, KandoLoadStatus.content);
       expect(restored.isUnavailable, isFalse);
-      expect(restored.totalAmountText, r'$12,840.00');
+      expect(restored.totalAmountText, r'$12,450.80');
+      expect(repository.calls, 2);
+    },
+  );
+
+  test(
+    'refresh failure preserves the selected dashboard shell instead of resetting it to Main',
+    () async {
+      final repository = _SuccessfulThenFailingHomeRepository();
+      final container = _homeContainer(repository);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      final controller = container.read(homeControllerProvider.notifier);
+      await controller.selectFolder('sealed');
+      await controller.toggleAmountHidden();
+      controller.selectChartRange(HomeChartRange.oneMonth);
+      controller.refresh();
+
+      final failed = container.read(homeControllerProvider);
+      expect(failed.isUnavailable, isTrue);
+      expect(failed.selectedFolder.id, 'sealed');
+      expect(failed.amountHidden, isTrue);
+      expect(failed.chartRange, HomeChartRange.oneMonth);
+      expect(failed.totalAmountText, hiddenMoneyText);
       expect(repository.calls, 2);
     },
   );
 
   test(
     'switching folder changes portfolio-scoped data while market trending stays stable',
-    () {
-      final container = ProviderContainer();
+    () async {
+      final container = _mockHomeContainer();
       addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
 
       final initial = container.read(homeControllerProvider);
       final initialTrendingTitles = initial.dashboard.trending
           .map((card) => card.title)
           .toList();
 
-      container.read(homeControllerProvider.notifier).selectFolder('sealed');
+      await container
+          .read(homeControllerProvider.notifier)
+          .selectFolder('sealed');
       final changed = container.read(homeControllerProvider);
 
       expect(changed.selectedFolder.name, 'Sealed');
@@ -104,113 +168,162 @@ void main() {
 
   test(
     'currency conversion changes money display but leaves percentage stable',
-    () {
-      final container = ProviderContainer();
+    () async {
+      final container = _mockHomeContainer();
       addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
 
       final controller = container.read(homeControllerProvider.notifier);
       expect(
         container.read(homeControllerProvider).totalAmountText,
-        r'$12,840.00',
+        r'$12,450.80',
       );
       expect(
         container.read(homeControllerProvider).changePercentText,
-        '+3.38%',
+        '+3.49%',
       );
 
-      controller.selectCurrency('EUR');
+      expect(await controller.selectCurrency('EUR'), isTrue);
       final state = container.read(homeControllerProvider);
 
-      expect(state.totalAmountText, '€11,684.40');
+      expect(state.totalAmountText, '€11,330.23');
       expect(state.changeAmountText, '€382.20 in the last 30 days');
-      expect(state.changePercentText, '+3.38%');
+      expect(state.changePercentText, '+3.49%');
     },
   );
 
-  test('negative change amount keeps minus before the currency symbol', () {
-    final container = ProviderContainer(
-      overrides: [
-        homeRepositoryProvider.overrideWithValue(
-          const _NegativeChangeHomeRepository(),
-        ),
-      ],
-    );
+  test(
+    'restores a saved non-USD currency only after loading its rate',
+    () async {
+      final container = _homeContainer(const _EurPreferenceHomeRepository());
+      addTearDown(container.dispose);
+
+      expect(container.read(homeControllerProvider).currencyCode, 'USD');
+      await Future<void>.delayed(Duration.zero);
+
+      final restored = container.read(homeControllerProvider);
+      expect(restored.currencyCode, 'EUR');
+      expect(restored.totalAmountText, '€11,330.23');
+    },
+  );
+
+  test(
+    'negative change amount keeps minus before the currency symbol',
+    () async {
+      final container = _homeContainer(const _NegativeChangeHomeRepository());
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      expect(
+        container.read(homeControllerProvider).changeAmountText,
+        r'-$420.00 in the last 30 days',
+      );
+      expect(
+        container.read(homeControllerProvider).changePercentText,
+        '-3.17%',
+      );
+
+      expect(
+        await container
+            .read(homeControllerProvider.notifier)
+            .selectCurrency('EUR'),
+        isTrue,
+      );
+      expect(
+        container.read(homeControllerProvider).changeAmountText,
+        '-€382.20 in the last 30 days',
+      );
+    },
+  );
+
+  test(
+    'rate failure keeps the previous currency because conversion is unproven',
+    () async {
+      final container = _homeContainer(
+        const MockHomeRepository(),
+        currencyRateApi: const _TestCurrencyRateApi(fails: true),
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      final changed = await container
+          .read(homeControllerProvider.notifier)
+          .selectCurrency('EUR');
+
+      expect(changed, isFalse);
+      expect(container.read(homeControllerProvider).currencyCode, 'USD');
+      expect(
+        container.read(homeControllerProvider).totalAmountText,
+        r'$12,450.80',
+      );
+    },
+  );
+
+  test(
+    'invalid folder and currency selections leave state unchanged',
+    () async {
+      final container = _mockHomeContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(homeControllerProvider.notifier);
+      final initial = container.read(homeControllerProvider);
+
+      controller.selectFolder('missing');
+      expect(await controller.selectCurrency('CNY'), isFalse);
+      final state = container.read(homeControllerProvider);
+
+      expect(state.selectedFolder.id, initial.selectedFolder.id);
+      expect(state.totalAmountText, initial.totalAmountText);
+      expect(state.currencyCode, initial.currencyCode);
+    },
+  );
+
+  test('hidden amount masks only the portfolio total', () async {
+    final container = _mockHomeContainer();
     addTearDown(container.dispose);
-
-    expect(
-      container.read(homeControllerProvider).changeAmountText,
-      r'-$420.00 in the last 30 days',
-    );
-    expect(container.read(homeControllerProvider).changePercentText, '-3.17%');
-
-    container.read(homeControllerProvider.notifier).selectCurrency('EUR');
-    expect(
-      container.read(homeControllerProvider).changeAmountText,
-      '-€382.20 in the last 30 days',
-    );
-  });
-
-  test('invalid folder and currency selections leave state unchanged', () {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
+    await container.read(authControllerProvider.notifier).startupComplete;
 
     final controller = container.read(homeControllerProvider.notifier);
-    final initial = container.read(homeControllerProvider);
-
-    controller.selectFolder('missing');
-    controller.selectCurrency('CNY');
+    await controller.selectFolder('sealed');
+    await controller.toggleAmountHidden();
     final state = container.read(homeControllerProvider);
 
-    expect(state.selectedFolder.id, initial.selectedFolder.id);
-    expect(state.totalAmountText, initial.totalAmountText);
-    expect(state.currencyCode, initial.currencyCode);
+    expect(state.selectedFolder.id, 'sealed');
+    expect(state.totalAmountText, hiddenMoneyText);
+    expect(state.changeAmountText, r'$310.00 in the last 30 days');
+    expect(state.mostValuablePriceText, r'$620.00');
+    expect(state.formatCardPrice(8640), r'$8,640.00');
   });
 
   test(
-    'hidden amount masks asset money without losing selected folder state',
-    () {
-      final container = ProviderContainer();
+    'empty folder most valuable price stays a card placeholder when totals are hidden',
+    () async {
+      final container = _mockHomeContainer();
       addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
 
       final controller = container.read(homeControllerProvider.notifier);
-      controller.selectFolder('sealed');
-      controller.toggleAmountHidden();
-      final state = container.read(homeControllerProvider);
-
-      expect(state.selectedFolder.id, 'sealed');
-      expect(state.totalAmountText, hiddenMoneyText);
-      expect(state.changeAmountText, '$hiddenMoneyText in the last 30 days');
-      expect(state.mostValuablePriceText, hiddenMoneyText);
-    },
-  );
-
-  test(
-    'empty folder most valuable price uses placeholder unless amounts are hidden',
-    () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      final controller = container.read(homeControllerProvider.notifier);
-      controller.selectFolder('empty');
+      await controller.selectFolder('empty');
       expect(
         container.read(homeControllerProvider).mostValuablePriceText,
         '--',
       );
 
-      controller.toggleAmountHidden();
+      await controller.toggleAmountHidden();
       expect(
         container.read(homeControllerProvider).mostValuablePriceText,
-        hiddenMoneyText,
+        '--',
       );
     },
   );
 
-  test('zero previous portfolio value falls back for percent change', () {
-    final container = ProviderContainer();
+  test('zero previous portfolio value falls back for percent change', () async {
+    final container = _mockHomeContainer();
     addTearDown(container.dispose);
+    await container.read(authControllerProvider.notifier).startupComplete;
 
     final controller = container.read(homeControllerProvider.notifier);
-    controller.selectFolder('empty');
+    await controller.selectFolder('empty');
 
     expect(
       container.read(homeControllerProvider).changeAmountText,
@@ -219,22 +332,291 @@ void main() {
     expect(container.read(homeControllerProvider).changePercentText, '-/-');
   });
 
+  test(
+    'dashboard selects an available chart range when a source omits the Figma default 15D series',
+    () {
+      final container = ProviderContainer(
+        overrides: [
+          homeRepositoryProvider.overrideWithValue(
+            const _NegativeChangeHomeRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final state = container.read(homeControllerProvider);
+
+      expect(state.chartRange, HomeChartRange.oneMonth);
+      expect(state.chartValues, [12840]);
+    },
+  );
+
   test('chart range switches the selected mock series', () {
-    final container = ProviderContainer();
+    final container = _mockHomeContainer();
     addTearDown(container.dispose);
 
     final controller = container.read(homeControllerProvider.notifier);
     expect(
       container.read(homeControllerProvider).chartRange,
-      HomeChartRange.oneMonth,
+      HomeChartRange.fifteenDays,
     );
+
+    controller.selectChartRange(HomeChartRange.oneMonth);
+
+    var state = container.read(homeControllerProvider);
+    expect(state.chartRange, HomeChartRange.oneMonth);
+    expect(state.chartValues, [10800, 11320, 11940, 12220, 12450.8]);
 
     controller.selectChartRange(HomeChartRange.fifteenDays);
 
-    final state = container.read(homeControllerProvider);
+    state = container.read(homeControllerProvider);
     expect(state.chartRange, HomeChartRange.fifteenDays);
-    expect(state.chartValues, [11600, 12040, 12420, 12680, 12840]);
+    expect(state.chartValues, [
+      11800,
+      12350,
+      12800,
+      12450,
+      12050,
+      12300,
+      13250,
+      12700,
+      11600,
+      12450.8,
+    ]);
   });
+
+  test(
+    'portfolio content renders before slow Trending because market data is not on the critical path',
+    () async {
+      final repository = _SlowTrendingHomeRepository();
+      final container = _homeContainer(repository);
+      addTearDown(container.dispose);
+
+      expect(container.read(homeControllerProvider).isLoading, isTrue);
+      expect(repository.trendingCalls, 0);
+      repository.core.complete(mockHomeDashboard.copyWith(trending: const []));
+      await Future<void>.delayed(Duration.zero);
+
+      var state = container.read(homeControllerProvider);
+      expect(state.isLoading, isFalse);
+      expect(state.totalAmountText, r'$12,450.80');
+      expect(state.trendingStatus, KandoLoadStatus.loading);
+      expect(state.dashboard.trending, isEmpty);
+      expect(repository.trendingCalls, 1);
+
+      repository.trending.complete(mockHomeDashboard.trending);
+      await Future<void>.delayed(Duration.zero);
+
+      state = container.read(homeControllerProvider);
+      expect(state.trendingStatus, KandoLoadStatus.content);
+      expect(state.dashboard.trending, mockHomeDashboard.trending);
+    },
+  );
+
+  test(
+    'temporary core network failure retries automatically and restores content',
+    () async {
+      final repository = _TransientCoreFailureHomeRepository();
+      final container = ProviderContainer(
+        overrides: [
+          homeRepositoryProvider.overrideWithValue(repository),
+          homeAutomaticRetryDelaysProvider.overrideWithValue(const [
+            Duration.zero,
+          ]),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(homeControllerProvider).isLoading, isTrue);
+      final result = await container
+          .read(homeControllerProvider.notifier)
+          .coreLoadComplete;
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(homeControllerProvider);
+      expect(result, HomeCoreLoadResult.content);
+      expect(repository.coreCalls, 2);
+      expect(repository.trendingCalls, 1);
+      expect(state.isUnavailable, isFalse);
+      expect(state.totalAmountText, r'$12,450.80');
+    },
+  );
+
+  test(
+    'Trending refresh calls only its live feed because local failure must preserve portfolio data',
+    () async {
+      final repository = _TrendingFailureHomeRepository();
+      final cardDataApi = _RecoveringTrendingApi();
+      final container = _homeContainer(repository, cardDataApi: cardDataApi);
+      addTearDown(container.dispose);
+
+      var state = container.read(homeControllerProvider);
+      expect(state.dashboard.trendingUnavailable, isTrue);
+      expect(state.totalAmountText, r'$12,450.80');
+
+      final restored = await container
+          .read(homeControllerProvider.notifier)
+          .refreshTrending();
+
+      state = container.read(homeControllerProvider);
+      expect(restored, isTrue);
+      expect(repository.calls, 1);
+      expect(cardDataApi.calls, 1);
+      expect(state.dashboard.trendingUnavailable, isFalse);
+      expect(state.dashboard.trending.single.title, 'Live Trending Card');
+      expect(state.totalAmountText, r'$12,450.80');
+    },
+  );
+}
+
+ProviderContainer _mockHomeContainer() {
+  return _homeContainer(const MockHomeRepository());
+}
+
+ProviderContainer _homeContainer(
+  HomeRepository repository, {
+  CurrencyRateApi currencyRateApi = const _TestCurrencyRateApi(),
+  CardDataApi? cardDataApi,
+}) {
+  final storage = InMemoryAuthStorage();
+  return ProviderContainer(
+    overrides: [
+      authStorageProvider.overrideWithValue(storage),
+      authRepositoryProvider.overrideWithValue(
+        LocalPlaceholderAuthRepository(storage),
+      ),
+      authDeviceIdProvider.overrideWithValue('home-controller-test-device'),
+      homeRepositoryProvider.overrideWithValue(repository),
+      currencyRateApiProvider.overrideWithValue(currencyRateApi),
+      if (cardDataApi != null)
+        cardDataApiClientProvider.overrideWithValue(cardDataApi),
+      portfolioManagementApiProvider.overrideWithValue(
+        const _TestPortfolioManagementApi(),
+      ),
+    ],
+  );
+}
+
+class _TrendingFailureHomeRepository implements HomeRepository {
+  var calls = 0;
+
+  @override
+  HomeDashboard loadDashboard() {
+    calls += 1;
+    return mockHomeDashboard.copyWith(
+      trending: const [],
+      trendingUnavailable: true,
+    );
+  }
+}
+
+class _SlowTrendingHomeRepository implements ProgressiveHomeRepository {
+  final core = Completer<HomeDashboard>();
+  final trending = Completer<List<TrendingCard>>();
+  var trendingCalls = 0;
+
+  @override
+  Future<HomeDashboard> loadCoreDashboard() => core.future;
+
+  @override
+  Future<List<TrendingCard>> loadTrending() {
+    trendingCalls += 1;
+    return trending.future;
+  }
+
+  @override
+  Future<HomeDashboard> loadDashboard() {
+    throw StateError('Progressive loading must not call the combined path.');
+  }
+}
+
+class _TransientCoreFailureHomeRepository implements ProgressiveHomeRepository {
+  var coreCalls = 0;
+  var trendingCalls = 0;
+
+  @override
+  Future<HomeDashboard> loadCoreDashboard() async {
+    coreCalls += 1;
+    if (coreCalls == 1) {
+      throw DioException(
+        requestOptions: RequestOptions(path: '/portfolio/folders'),
+        type: DioExceptionType.connectionError,
+      );
+    }
+    return mockHomeDashboard.copyWith(trending: const []);
+  }
+
+  @override
+  Future<List<TrendingCard>> loadTrending() async {
+    trendingCalls += 1;
+    return mockHomeDashboard.trending;
+  }
+
+  @override
+  Future<HomeDashboard> loadDashboard() {
+    throw StateError('Progressive loading must not call the combined path.');
+  }
+}
+
+class _RecoveringTrendingApi implements CardDataApi {
+  var calls = 0;
+
+  @override
+  Future<List<CardDataCardDto>> trendingCards() async {
+    calls += 1;
+    return const [
+      CardDataCardDto(
+        cardRef: 'live-trending',
+        name: 'Live Trending Card',
+        setName: 'Live Set',
+        setCode: 'LIVE',
+        cardNumber: '1',
+        finish: 'Normal',
+        language: 'English',
+        objectType: 'tcg',
+        imageUrl: null,
+        rarity: 'Rare',
+        priceUsd: 25,
+        priceChange1dPercent: 25,
+      ),
+    ];
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _TestCurrencyRateApi implements CurrencyRateApi {
+  const _TestCurrencyRateApi({this.fails = false});
+
+  final bool fails;
+
+  @override
+  Future<double> loadUsdRate(String targetCurrency) async {
+    if (fails) throw const CurrencyRateApiException();
+    return 0.91;
+  }
+}
+
+class _TestPortfolioManagementApi implements PortfolioManagementApi {
+  const _TestPortfolioManagementApi();
+
+  @override
+  Future<UserPreferenceDto> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) async {
+    return UserPreferenceDto(
+      currency: currency ?? 'USD',
+      amountHidden: amountHidden ?? false,
+      lastSelectedFolderId: lastSelectedFolderId,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _NegativeChangeHomeRepository implements HomeRepository {
@@ -260,6 +642,24 @@ class _NegativeChangeHomeRepository implements HomeRepository {
   }
 }
 
+class _EurPreferenceHomeRepository implements HomeRepository {
+  const _EurPreferenceHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() {
+    final dashboard = const MockHomeRepository().loadDashboard();
+    return HomeDashboard(
+      folders: dashboard.folders,
+      portfoliosByFolderId: dashboard.portfoliosByFolderId,
+      mostValuableByFolderId: dashboard.mostValuableByFolderId,
+      mostValuableCardsByFolderId: dashboard.mostValuableCardsByFolderId,
+      trending: dashboard.trending,
+      currencyCode: 'EUR',
+      amountHidden: dashboard.amountHidden,
+    );
+  }
+}
+
 class _FailingThenSuccessfulHomeRepository implements HomeRepository {
   var calls = 0;
 
@@ -270,5 +670,18 @@ class _FailingThenSuccessfulHomeRepository implements HomeRepository {
       throw StateError('mock home unavailable');
     }
     return const MockHomeRepository().loadDashboard();
+  }
+}
+
+class _SuccessfulThenFailingHomeRepository implements HomeRepository {
+  var calls = 0;
+
+  @override
+  HomeDashboard loadDashboard() {
+    calls += 1;
+    if (calls == 1) {
+      return const MockHomeRepository().loadDashboard();
+    }
+    throw StateError('mock home unavailable');
   }
 }

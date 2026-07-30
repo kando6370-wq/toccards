@@ -2,22 +2,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const hiddenMoneyText = '••••••';
 
-enum AppCurrency {
-  usd('USD', 'US Dollar', r'$', 1),
-  eur('EUR', 'Euro', '€', 0.91),
-  jpy('JPY', 'Japanese Yen', '¥', 155.32),
-  gbp('GBP', 'British Pound', '£', 0.79),
-  cad('CAD', 'Canadian Dollar', r'C$', 1.37),
-  aud('AUD', 'Australian Dollar', r'A$', 1.52),
-  nzd('NZD', 'New Zealand Dollar', r'NZ$', 1.66),
-  sgd('SGD', 'Singapore Dollar', r'S$', 1.35);
+class AppCurrency {
+  const AppCurrency._(this.code, this.label, this.symbol, this.usdRate);
 
-  const AppCurrency(this.code, this.label, this.symbol, this.usdRate);
+  static const usd = AppCurrency._('USD', 'US Dollar', r'$', 1);
+  static const eur = AppCurrency._('EUR', 'Euro', '€', null);
+  static const jpy = AppCurrency._('JPY', 'Japanese Yen', '¥', null);
+  static const gbp = AppCurrency._('GBP', 'British Pound', '£', null);
+  static const cad = AppCurrency._('CAD', 'Canadian Dollar', r'C$', null);
+  static const aud = AppCurrency._('AUD', 'Australian Dollar', r'A$', null);
+  static const nzd = AppCurrency._('NZD', 'New Zealand Dollar', r'NZ$', null);
+  static const sgd = AppCurrency._('SGD', 'Singapore Dollar', r'S$', null);
+
+  static const values = [usd, eur, jpy, gbp, cad, aud, nzd, sgd];
 
   final String code;
   final String label;
   final String symbol;
-  final double usdRate;
+  final double? usdRate;
+
+  AppCurrency withUsdRate(double rate) {
+    return AppCurrency._(code, label, symbol, rate);
+  }
 
   static AppCurrency fromCode(String code) {
     return AppCurrency.values.firstWhere(
@@ -38,16 +44,36 @@ class CurrencyFormatter {
     bool hidden = false,
     bool allowZero = true,
   }) {
+    final normalizedQuantity = quantity < 1 ? 1 : quantity;
+    return formatAmount(
+      convertUsd(valueUsd == null ? null : valueUsd * normalizedQuantity),
+      hidden: hidden,
+      allowZero: allowZero,
+    );
+  }
+
+  double? convertUsd(double? valueUsd) {
+    final rate = currency.usdRate;
+    return valueUsd == null || rate == null ? null : valueUsd * rate;
+  }
+
+  double? toUsd(double? value) {
+    final rate = currency.usdRate;
+    return value == null || rate == null || rate <= 0 ? null : value / rate;
+  }
+
+  String formatAmount(
+    double? value, {
+    bool hidden = false,
+    bool allowZero = true,
+  }) {
     if (hidden) {
       return hiddenMoneyText;
     }
-    if (valueUsd == null || (!allowZero && valueUsd <= 0)) {
+    if (value == null || (!allowZero && value <= 0)) {
       return '--';
     }
-
-    final normalizedQuantity = quantity < 1 ? 1 : quantity;
-    final converted = valueUsd * normalizedQuantity * currency.usdRate;
-    return _format(converted);
+    return _format(value);
   }
 
   String _format(double value) {
@@ -83,9 +109,5 @@ class SelectedCurrencyController extends Notifier<AppCurrency> {
 
   void select(AppCurrency currency) {
     state = currency;
-  }
-
-  void selectCode(String code) {
-    select(AppCurrency.fromCode(code));
   }
 }

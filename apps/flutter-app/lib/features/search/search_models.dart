@@ -1,4 +1,7 @@
+import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+
+const _searchCardFieldUnset = Object();
 
 enum SearchTab { cards, sets }
 
@@ -25,6 +28,12 @@ class SearchCard {
     required this.quantity,
     required this.isWishlisted,
     this.collectionItemCount = 0,
+    this.collectionItemId,
+    this.wishlistItemId,
+    this.collectionInfo,
+    this.language,
+    this.finish,
+    this.imageUrl,
   });
 
   final String id;
@@ -39,20 +48,22 @@ class SearchCard {
   final int quantity;
   final bool isWishlisted;
   final int collectionItemCount;
+  final String? collectionItemId;
+  final String? wishlistItemId;
+  final String? collectionInfo;
+  final String? language;
+  final String? finish;
+  final String? imageUrl;
 
   bool get isCollected => quantity > 0;
 
   String get searchableText {
-    return '$name $setName $metadataLine $variantLine'.toLowerCase();
+    return '$name $setName $metadataLine $variantLine ${language ?? ''}'
+        .toLowerCase();
   }
 
-  String get priceText {
-    final value = priceUsd;
-    if (value == null) {
-      return '--';
-    }
-
-    return r'$' + value.toStringAsFixed(2);
+  String priceText(AppCurrency currency) {
+    return CurrencyFormatter(currency: currency).formatUsd(priceUsd);
   }
 
   String get changeText {
@@ -66,6 +77,9 @@ class SearchCard {
     int? quantity,
     bool? isWishlisted,
     int? collectionItemCount,
+    Object? collectionItemId = _searchCardFieldUnset,
+    Object? wishlistItemId = _searchCardFieldUnset,
+    Object? collectionInfo = _searchCardFieldUnset,
   }) {
     return SearchCard(
       id: id,
@@ -80,6 +94,18 @@ class SearchCard {
       quantity: quantity ?? this.quantity,
       isWishlisted: isWishlisted ?? this.isWishlisted,
       collectionItemCount: collectionItemCount ?? this.collectionItemCount,
+      collectionItemId: collectionItemId == _searchCardFieldUnset
+          ? this.collectionItemId
+          : collectionItemId as String?,
+      wishlistItemId: wishlistItemId == _searchCardFieldUnset
+          ? this.wishlistItemId
+          : wishlistItemId as String?,
+      collectionInfo: collectionInfo == _searchCardFieldUnset
+          ? this.collectionInfo
+          : collectionInfo as String?,
+      language: language,
+      finish: finish,
+      imageUrl: imageUrl,
     );
   }
 }
@@ -92,6 +118,8 @@ class SearchSet {
     required this.subtitle,
     required this.releaseText,
     required this.cardCountText,
+    this.game = 'TCG',
+    this.imageUrl,
   });
 
   final String id;
@@ -100,6 +128,8 @@ class SearchSet {
   final String subtitle;
   final String releaseText;
   final String cardCountText;
+  final String game;
+  final String? imageUrl;
 
   String get searchableText {
     return '$name $subtitle $releaseText'.toLowerCase();

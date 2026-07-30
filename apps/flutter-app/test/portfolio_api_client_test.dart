@@ -44,12 +44,203 @@ void main() {
   );
 
   test(
+    'folder mutations use Workers routes because Portfolio management must persist for the current owner',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) {
+        expect(request.authorization, 'Bearer owner-access');
+        switch (call++) {
+          case 0:
+            expect(request.method, 'POST');
+            expect(request.path, '/portfolio/folders');
+            expect(request.body, {'name': 'Trade'});
+            return _json(201, {
+              'success': true,
+              'data': _folderJson(id: 'trade', name: 'Trade', sortOrder: 200),
+            });
+          case 1:
+            expect(request.method, 'PATCH');
+            expect(request.path, '/portfolio/folders/trade');
+            expect(request.body, {'name': 'Trade Binder'});
+            return _json(200, {
+              'success': true,
+              'data': _folderJson(
+                id: 'trade',
+                name: 'Trade Binder',
+                sortOrder: 200,
+              ),
+            });
+          case 2:
+            expect(request.method, 'PATCH');
+            expect(request.path, '/portfolio/folders/trade/set-default');
+            return _json(200, {
+              'success': true,
+              'data': _folderJson(
+                id: 'trade',
+                name: 'Trade Binder',
+                isDefault: true,
+                sortOrder: 200,
+              ),
+            });
+          case 3:
+            expect(request.method, 'PATCH');
+            expect(request.path, '/portfolio/folders/reorder');
+            expect(request.body, {
+              'orders': [
+                {'folder_id': 'trade', 'sort_order': 100},
+                {'folder_id': 'main', 'sort_order': 200},
+              ],
+            });
+            return _json(200, {'success': true, 'data': <String, Object?>{}});
+          case 4:
+            expect(request.method, 'DELETE');
+            expect(request.path, '/portfolio/folders/trade');
+            return _json(200, {'success': true, 'data': <String, Object?>{}});
+          default:
+            throw StateError('unexpected request');
+        }
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+
+      final created = await api.createFolder(_session, 'Trade');
+      final renamed = await api.renameFolder(_session, 'trade', 'Trade Binder');
+      final defaultFolder = await api.setDefaultFolder(_session, 'trade');
+      await api.reorderFolders(_session, const ['trade', 'main']);
+      await api.deleteFolder(_session, 'trade');
+
+      expect(created.name, 'Trade');
+      expect(renamed.name, 'Trade Binder');
+      expect(defaultFolder.isDefault, isTrue);
+      expect(adapter.requests, hasLength(5));
+    },
+  );
+
+  test(
+    'preferences round-trip currency visibility and selected folder because Home and Collection share owner settings',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) {
+        expect(request.authorization, 'Bearer owner-access');
+        if (call++ == 0) {
+          expect(request.method, 'GET');
+          expect(request.path, '/preferences');
+          return _json(200, {
+            'success': true,
+            'data': {
+              'currency': 'USD',
+              'amount_hidden': false,
+              'last_selected_folder_id': 'main',
+            },
+          });
+        }
+        expect(request.method, 'PATCH');
+        expect(request.path, '/preferences');
+        expect(request.body, {
+          'currency': 'NZD',
+          'amount_hidden': true,
+          'last_selected_folder_id': 'trade',
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'currency': 'NZD',
+            'amount_hidden': true,
+            'last_selected_folder_id': 'trade',
+          },
+        });
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+
+      final initial = await api.getPreferences(_session);
+      final updated = await api.updatePreferences(
+        _session,
+        currency: 'NZD',
+        amountHidden: true,
+        lastSelectedFolderId: 'trade',
+      );
+
+      expect(initial.currency, 'USD');
+      expect(initial.amountHidden, isFalse);
+      expect(initial.lastSelectedFolderId, 'main');
+      expect(updated.currency, 'NZD');
+      expect(updated.amountHidden, isTrue);
+      expect(updated.lastSelectedFolderId, 'trade');
+    },
+  );
+
+  test(
+    'collection dashboard maps all display data in one request because Collection must not issue per-card calls',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/collection/dashboard');
+        expect(request.queryParameters, isEmpty);
+        return _json(200, {
+          'success': true,
+          'data': {
+            'folders': [
+              _folderJson(
+                id: 'main',
+                name: 'Main',
+                isDefault: true,
+                sortOrder: 100,
+              ),
+            ],
+            'preference': {
+              'currency': 'NZD',
+              'amount_hidden': true,
+              'last_selected_folder_id': 'main',
+            },
+            'portfolio_items': [
+              {
+                'id': 'item-1',
+                'folder_id': 'main',
+                'card_ref': '100',
+                'name': 'Pikachu',
+                'set_name': 'Base Set',
+                'card_number': '25',
+                'game': 'Pokemon',
+                'language': 'English',
+                'finish': 'Normal',
+                'grader': 'Raw',
+                'condition': 'Near Mint (NM)',
+                'grade': null,
+                'quantity': 2,
+                'market_price_usd': 20,
+                'previous_30d_price_usd': 10,
+                'folder_joined_at': '2026-07-05T00:00:00.000Z',
+                'created_at': '2026-07-01T00:00:00.000Z',
+                'image_url': 'https://img.example/100.jpg',
+              },
+            ],
+            'wishlist_items': <Object?>[],
+          },
+        });
+      });
+
+      final dashboard = await PortfolioApiClient(
+        _dio(adapter),
+      ).getCollectionDashboard(_session);
+
+      expect(dashboard.folders.single.id, 'main');
+      expect(dashboard.preference.currency, 'NZD');
+      expect(dashboard.portfolioItems.single.marketPriceUsd, 20);
+      expect(dashboard.portfolioItems.single.previous30dPriceUsd, 10);
+      expect(
+        dashboard.portfolioItems.single.folderJoinedAt,
+        DateTime.parse('2026-07-05T00:00:00.000Z'),
+      );
+      expect(adapter.requests, hasLength(1));
+    },
+  );
+
+  test(
     'listCollectionItems maps backend rows because Collection reads Workers asset state',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'GET');
         expect(request.path, '/portfolio/items');
-        expect(request.queryParameters, {'page_size': '100'});
+        expect(request.queryParameters, {'page': '1', 'page_size': '40'});
         expect(request.authorization, 'Bearer owner-access');
         return _json(200, {
           'success': true,
@@ -88,12 +279,44 @@ void main() {
   );
 
   test(
+    'asset lists request every 40-row page because pagination must not truncate ownership state',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        final page = request.queryParameters['page'];
+        final items = page == '1'
+            ? List.generate(
+                40,
+                (index) => _portfolioItemJson(
+                  id: 'item-$index',
+                  cardRef: 'card-$index',
+                ),
+              )
+            : [_portfolioItemJson(id: 'item-40', cardRef: 'card-40')];
+        return _json(200, {
+          'success': true,
+          'data': {'items': items},
+        });
+      });
+
+      final items = await PortfolioApiClient(
+        _dio(adapter),
+      ).listCollectionItems(_session);
+
+      expect(items, hasLength(41));
+      expect(adapter.requests.map((request) => request.queryParameters), [
+        {'page': '1', 'page_size': '40'},
+        {'page': '2', 'page_size': '40'},
+      ]);
+    },
+  );
+
+  test(
     'listWishlistItems maps backend rows because wishlist deletions need row ids',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'GET');
         expect(request.path, '/wishlist');
-        expect(request.queryParameters, {'page_size': '100'});
+        expect(request.queryParameters, {'page': '1', 'page_size': '40'});
         expect(request.authorization, 'Bearer owner-access');
         return _json(200, {
           'success': true,
@@ -119,6 +342,56 @@ void main() {
         wishlist.single.createdAt,
         DateTime.parse('2026-01-03T00:00:00.000Z'),
       );
+    },
+  );
+
+  test(
+    'getValuationHistory maps the single portfolio curve response because Home must not rebuild history per card',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/portfolio/valuation-history');
+        expect(request.queryParameters, {'days': '90'});
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'folder_id': 'main',
+                'current_value_usd': 42.5,
+                'series': [
+                  {'date': '2026-07-15', 'value_usd': 40},
+                  {'date': '2026-07-16', 'value_usd': 42.5},
+                ],
+                'most_valuable': [
+                  {
+                    'item_id': 'item-1',
+                    'card_ref': '9359',
+                    'name': 'Escape Artist',
+                    'set_name': 'Odyssey',
+                    'card_number': '',
+                    'finish': 'Normal',
+                    'image_url': 'https://img.example/9359.jpg',
+                    'price_usd': 0.21,
+                    'previous_30d_price_usd': null,
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      });
+
+      final history = await PortfolioApiClient(
+        _dio(adapter),
+      ).getValuationHistory(_session);
+
+      expect(history.single.folderId, 'main');
+      expect(history.single.currentValueUsd, 42.5);
+      expect(history.single.series.first.valueUsd, 40);
+      expect(history.single.series.last.date, '2026-07-16');
+      expect(history.single.mostValuable.single.name, 'Escape Artist');
+      expect(history.single.mostValuable.single.previous30dPriceUsd, isNull);
     },
   );
 
@@ -225,13 +498,14 @@ void main() {
   );
 
   test(
-    'updateCollectionItem sends only mutable fields because Workers PATCH rejects identity fields',
+    'updateCollectionItem sends folder with fields because edited moves must complete atomically',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'PATCH');
         expect(request.path, '/portfolio/items/item-squirtle');
         expect(request.authorization, 'Bearer owner-access');
         expect(request.body, {
+          'folder_id': 'trade',
           'grader': 'Raw',
           'condition': 'Near Mint (NM)',
           'grade': null,
@@ -243,11 +517,15 @@ void main() {
           'notes': 'Edited from CardDetail.',
         });
         final body = request.body as Map;
-        expect(body.containsKey('folder_id'), isFalse);
         expect(body.containsKey('card_ref'), isFalse);
+        expect(body.containsKey('object_type'), isFalse);
         return _json(200, {
           'success': true,
-          'data': _portfolioItemJson(id: 'item-squirtle', cardRef: 'squirtle'),
+          'data': _portfolioItemJson(
+            id: 'item-squirtle',
+            cardRef: 'squirtle',
+            folderId: 'trade',
+          ),
         });
       });
 
@@ -255,7 +533,7 @@ void main() {
         _session,
         itemId: 'item-squirtle',
         draft: const PortfolioItemDraftDto(
-          folderId: 'main',
+          folderId: 'trade',
           cardRef: 'squirtle',
           objectType: 'tcg',
           grader: 'Raw',
@@ -271,6 +549,7 @@ void main() {
       );
 
       expect(item.id, 'item-squirtle');
+      expect(item.folderId, 'trade');
     },
   );
 
@@ -376,10 +655,11 @@ Dio _dio(_RecordingAdapter adapter) {
 Map<String, Object?> _portfolioItemJson({
   required String id,
   required String cardRef,
+  String folderId = 'main',
 }) {
   return {
     'id': id,
-    'folder_id': 'main',
+    'folder_id': folderId,
     'card_ref': cardRef,
     'object_type': 'tcg',
     'grader': 'Raw',
@@ -393,6 +673,20 @@ Map<String, Object?> _portfolioItemJson({
     'notes': 'binder copy',
     'created_at': '2026-01-01T00:00:00.000Z',
     'updated_at': '2026-01-02T00:00:00.000Z',
+  };
+}
+
+Map<String, Object?> _folderJson({
+  required String id,
+  required String name,
+  bool isDefault = false,
+  required int sortOrder,
+}) {
+  return {
+    'id': id,
+    'name': name,
+    'is_default': isDefault,
+    'sort_order': sortOrder,
   };
 }
 

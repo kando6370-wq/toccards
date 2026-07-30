@@ -40,6 +40,7 @@ type CollectionItemRow = {
   purchase_price: number | null;
   purchase_currency: string | null;
   notes: string | null;
+  folder_joined_at: string;
   created_at: string;
   updated_at: string;
 };
@@ -48,6 +49,24 @@ type WishlistRow = {
   owner_type: OwnerType;
   owner_id: string;
   card_ref: string;
+};
+
+type CollectionItemEventRow = {
+  id: string;
+  item_id: string;
+  owner_type: OwnerType;
+  owner_id: string;
+  folder_id: string;
+  card_ref: string;
+  object_type: string;
+  grader: string;
+  condition: string | null;
+  grade: number | null;
+  language: string | null;
+  finish: string | null;
+  quantity: number;
+  event_type: "upsert" | "delete";
+  effective_at: string;
 };
 
 const JWT_SECRET = "test-secret";
@@ -60,13 +79,16 @@ class FakeD1Database {
   anonymousAccounts: OwnerRow[] = [];
   folders: FolderRow[] = [];
   items: CollectionItemRow[] = [];
+  itemEvents: CollectionItemEventRow[] = [];
   wishlist: WishlistRow[] = [];
+  batchSizes: number[] = [];
 
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
   }
 
   async batch(statements: FakeD1Statement[]): Promise<unknown[]> {
+    this.batchSizes.push(statements.length);
     return Promise.all(statements.map((statement) => statement.run()));
   }
 }
@@ -116,6 +138,14 @@ class FakeD1Statement {
     }
 
     if (this.sql.includes("FROM collection_item")) {
+      if (this.sql.includes("folder_id = ?")) {
+        const [ownerType, ownerId, folderId, cardRef, objectType, grader, condition, grade, language, finish] = this.args;
+        return (this.db.items.find((row) =>
+          row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
+          row.card_ref === cardRef && row.object_type === objectType && row.grader === grader &&
+          row.condition === condition && row.grade === grade && row.language === language && row.finish === finish
+        ) ?? null) as T | null;
+      }
       const [ownerType, ownerId, itemId] = this.args;
       return (this.db.items.find(
         (row) =>
@@ -142,6 +172,60 @@ class FakeD1Statement {
   }
 
   async run(): Promise<{ success: true; meta: { changes: number } }> {
+    if (this.sql.includes("INSERT INTO collection_item_event")) {
+      const [
+        id,
+        itemId,
+        ownerType,
+        ownerId,
+        folderId,
+        cardRef,
+        objectType,
+        grader,
+        condition,
+        grade,
+        language,
+        finish,
+        quantity,
+        eventType,
+        effectiveAt,
+      ] = this.args as [
+        string,
+        string,
+        OwnerType,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string | null,
+        number | null,
+        string | null,
+        string | null,
+        number,
+        "upsert" | "delete",
+        string,
+      ];
+      this.db.itemEvents.push({
+        id,
+        item_id: itemId,
+        owner_type: ownerType,
+        owner_id: ownerId,
+        folder_id: folderId,
+        card_ref: cardRef,
+        object_type: objectType,
+        grader,
+        condition,
+        grade,
+        language,
+        finish,
+        quantity,
+        event_type: eventType,
+        effective_at: effectiveAt,
+      });
+      return changed(1);
+    }
+
     if (this.sql.includes("INSERT INTO collection_item")) {
       const [
         id,
@@ -197,6 +281,7 @@ class FakeD1Statement {
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
         notes,
+        folder_joined_at: createdAt,
         created_at: createdAt,
         updated_at: updatedAt,
       });
@@ -204,8 +289,10 @@ class FakeD1Statement {
       return changed(1);
     }
 
-    if (this.sql.includes("UPDATE collection_item") && this.sql.includes("SET grader")) {
+    if (this.sql.includes("UPDATE collection_item") && this.sql.includes("grader = ?")) {
       const [
+        folderId,
+        folderJoinedAt,
         grader,
         condition,
         grade,
@@ -220,6 +307,8 @@ class FakeD1Statement {
         ownerId,
         itemId,
       ] = this.args as [
+        string,
+        string,
         string,
         string | null,
         number | null,
@@ -239,6 +328,8 @@ class FakeD1Statement {
       if (!item) return changed(0);
 
       Object.assign(item, {
+        folder_id: folderId,
+        folder_joined_at: folderJoinedAt,
         grader,
         condition,
         grade,
@@ -255,7 +346,8 @@ class FakeD1Statement {
     }
 
     if (this.sql.includes("UPDATE collection_item") && this.sql.includes("SET folder_id")) {
-      const [folderId, updatedAt, ownerType, ownerId, itemId] = this.args as [
+      const [folderId, folderJoinedAt, updatedAt, ownerType, ownerId, itemId] = this.args as [
+        string,
         string,
         string,
         OwnerType,
@@ -267,6 +359,7 @@ class FakeD1Statement {
       if (!item) return changed(0);
 
       item.folder_id = folderId;
+      item.folder_joined_at = folderJoinedAt;
       item.updated_at = updatedAt;
       return changed(1);
     }
@@ -378,6 +471,15 @@ describe("collection item routes", () => {
       }),
     });
     expect(db.wishlist).toEqual([]);
+    expect(db.itemEvents).toEqual([
+      expect.objectContaining({
+        item_id: expect.any(String),
+        folder_id: "main",
+        card_ref: "card-a",
+        quantity: 2,
+        event_type: "upsert",
+      }),
+    ]);
   });
 
   it("rejects the old Raw condition label because raw card condition must use the PRD canonical value", async () => {
@@ -538,6 +640,173 @@ describe("collection item routes", () => {
     });
   });
 
+  it("rejects the same card SKU in one folder because quantity represents identical copies", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    db.items.push(item({ id: "owned", folder_id: "main", card_ref: "card-a" }));
+
+    const response = await app.request("/api/v1/portfolio/items", {
+      method: "POST",
+      headers: await authHeaders("anonymous", "anon-1"),
+      body: JSON.stringify({
+        folder_id: "main", card_ref: "card-a", object_type: "tcg", grader: "Raw",
+        condition: "Near Mint (NM)", grade: null, language: "English",
+        finish: "Holofoil", quantity: 1,
+      }),
+    }, createTestEnv(db));
+
+    expect(response.status).toBe(409);
+    expect(db.items).toHaveLength(1);
+  });
+
+  it("defaults to current-folder join time because moved assets must appear before older folder entries", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "trade" }));
+    db.items.push(
+      item({
+        id: "created-later",
+        folder_id: "trade",
+        created_at: "2026-07-10T00:00:00.000Z",
+        folder_joined_at: "2026-07-10T00:00:00.000Z",
+      }),
+      item({
+        id: "moved-later",
+        folder_id: "trade",
+        created_at: "2026-07-01T00:00:00.000Z",
+        folder_joined_at: "2026-07-15T00:00:00.000Z",
+      }),
+    );
+
+    const response = await app.request(
+      "/api/v1/portfolio/items?folder_id=trade&page_size=10",
+      { headers: await authHeaders("anonymous", "anon-1") },
+      createTestEnv(db),
+    );
+    const body = await response.json<{ data: { items: Array<{ id: string }> } }>();
+
+    expect(response.status).toBe(200);
+    expect(body.data.items.map((row) => row.id)).toEqual([
+      "moved-later",
+      "created-later",
+    ]);
+  });
+
+  it("preserves folder join time during field-only edits because ordinary edits are not folder additions", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    db.items.push(item({ id: "owned", folder_id: "main" }));
+
+    const response = await app.request(
+      "/api/v1/portfolio/items/owned",
+      {
+        method: "PATCH",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({ quantity: 2, notes: "edited in place" }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(200);
+    expect(db.items[0].quantity).toBe(2);
+    expect(db.items[0].folder_joined_at).toBe(NOW);
+    expect(db.items[0].updated_at).not.toBe(NOW);
+  });
+
+  it("edits fields and moves folders in one PATCH because edited moves must complete atomically", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
+    db.items.push(item({ id: "owned", folder_id: "main" }));
+
+    const response = await app.request(
+      "/api/v1/portfolio/items/owned",
+      {
+        method: "PATCH",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({
+          folder_id: "trade",
+          grader: "PSA",
+          condition: null,
+          grade: 10,
+          quantity: 2,
+          notes: "trade binder",
+        }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: itemResponse({
+        id: "owned",
+        folder_id: "trade",
+        grader: "PSA",
+        condition: null,
+        grade: 10,
+        quantity: 2,
+        notes: "trade binder",
+        updated_at: expect.any(String),
+      }),
+    });
+    expect(db.batchSizes).toEqual([2]);
+    expect(db.items).toEqual([
+      expect.objectContaining({
+        id: "owned",
+        folder_id: "trade",
+        grader: "PSA",
+        grade: 10,
+        quantity: 2,
+        notes: "trade binder",
+      }),
+    ]);
+    expect(db.items[0].folder_joined_at).toBe(db.items[0].updated_at);
+    expect(db.items[0].folder_joined_at).not.toBe(NOW);
+    expect(db.itemEvents).toEqual([
+      expect.objectContaining({
+        item_id: "owned",
+        folder_id: "trade",
+        grader: "PSA",
+        grade: 10,
+        quantity: 2,
+        event_type: "upsert",
+      }),
+    ]);
+  });
+
+  it("keeps the original folder when an edited move targets another owner because failed saves must not move assets", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(
+      folder({ id: "main" }),
+      folder({ id: "private", owner_type: "user", owner_id: "user-2" }),
+    );
+    db.items.push(item({ id: "owned", folder_id: "main" }));
+
+    const response = await app.request(
+      "/api/v1/portfolio/items/owned",
+      {
+        method: "PATCH",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({ folder_id: "private", quantity: 2 }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      success: false,
+      error: { code: "NOT_FOUND", message: "Not found." },
+    });
+    expect(db.batchSizes).toEqual([]);
+    expect(db.items).toEqual([
+      expect.objectContaining({
+        id: "owned",
+        folder_id: "main",
+        quantity: 1,
+      }),
+    ]);
+    expect(db.itemEvents).toEqual([]);
+  });
+
   it("gets, updates, moves, and deletes only owned collection items because item operations must stay inside the owner boundary", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
@@ -625,6 +894,29 @@ describe("collection item routes", () => {
     expect(remove.status).toBe(200);
     expect(await remove.json()).toEqual({ success: true, data: {} });
     expect(db.items).toEqual([]);
+    expect(db.itemEvents).toEqual([
+      expect.objectContaining({
+        item_id: "owned",
+        folder_id: "main",
+        grader: "PSA",
+        quantity: 3,
+        event_type: "upsert",
+      }),
+      expect.objectContaining({
+        item_id: "owned",
+        folder_id: "trade",
+        grader: "PSA",
+        quantity: 3,
+        event_type: "upsert",
+      }),
+      expect.objectContaining({
+        item_id: "owned",
+        folder_id: "trade",
+        grader: "PSA",
+        quantity: 3,
+        event_type: "delete",
+      }),
+    ]);
   });
 });
 
@@ -720,6 +1012,7 @@ function item(overrides: Partial<CollectionItemRow>): CollectionItemRow {
     purchase_price: null,
     purchase_currency: null,
     notes: null,
+    folder_joined_at: NOW,
     created_at: NOW,
     updated_at: NOW,
     ...overrides,

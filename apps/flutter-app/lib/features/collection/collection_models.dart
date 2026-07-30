@@ -1,6 +1,6 @@
 enum CollectionTab { portfolio, wishlist }
 
-enum CollectionSort { newest, valueDesc, changeDesc, nameAsc }
+enum CollectionSort { newest, valueDesc, valueAsc, changeDesc, nameAsc }
 
 class CollectionFolder {
   const CollectionFolder({
@@ -12,6 +12,14 @@ class CollectionFolder {
   final String id;
   final String name;
   final bool isDefault;
+
+  CollectionFolder copyWith({String? name, bool? isDefault}) {
+    return CollectionFolder(
+      id: id,
+      name: name ?? this.name,
+      isDefault: isDefault ?? this.isDefault,
+    );
+  }
 }
 
 class CollectionItem {
@@ -31,7 +39,8 @@ class CollectionItem {
     required this.quantity,
     required this.marketValueUsd,
     required this.previous30dPriceUsd,
-    required this.createdAtSort,
+    required this.addedAtSort,
+    this.imageUrl,
   });
 
   final String id;
@@ -49,7 +58,8 @@ class CollectionItem {
   final int quantity;
   final double? marketValueUsd;
   final double? previous30dPriceUsd;
-  final int createdAtSort;
+  final int addedAtSort;
+  final String? imageUrl;
 
   bool get isGraded => grader != 'Raw';
 
@@ -71,13 +81,33 @@ class CollectionDashboard {
     required this.folders,
     required this.portfolioItems,
     required this.wishlistItems,
+    this.currencyCode = 'USD',
+    this.amountHidden = false,
   });
 
   final List<CollectionFolder> folders;
   final List<CollectionItem> portfolioItems;
   final List<CollectionItem> wishlistItems;
+  final String currencyCode;
+  final bool amountHidden;
 
   CollectionFolder get defaultFolder {
     return folders.firstWhere((folder) => folder.isDefault);
+  }
+
+  CollectionDashboard copyWith({
+    List<CollectionFolder>? folders,
+    List<CollectionItem>? portfolioItems,
+    List<CollectionItem>? wishlistItems,
+    String? currencyCode,
+    bool? amountHidden,
+  }) {
+    return CollectionDashboard(
+      folders: folders ?? this.folders,
+      portfolioItems: portfolioItems ?? this.portfolioItems,
+      wishlistItems: wishlistItems ?? this.wishlistItems,
+      currencyCode: currencyCode ?? this.currencyCode,
+      amountHidden: amountHidden ?? this.amountHidden,
+    );
   }
 }

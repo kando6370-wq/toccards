@@ -6,6 +6,7 @@ import {
   signAccessToken,
 } from "@kando/auth-core";
 import { Hono } from "hono";
+import { reserveAccountUid } from "../account-uid";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { registerAccountRoutes } from "./account";
@@ -51,9 +52,10 @@ const INSERT_ANONYMOUS_ACCOUNT_SQL = `
 
 const UPSERT_APP_INSTALLATION_SQL = `
   INSERT INTO app_installation
-    (installation_id, platform, country_code, first_seen_at, last_seen_at)
-  VALUES (?, ?, ?, ?, ?)
+    (installation_id, uid, platform, country_code, first_seen_at, last_seen_at)
+  VALUES (?, ?, ?, ?, ?, ?)
   ON CONFLICT(installation_id) DO UPDATE SET
+    uid = excluded.uid,
     platform = CASE WHEN excluded.platform = 'Unknown' THEN app_installation.platform ELSE excluded.platform END,
     country_code = COALESCE(excluded.country_code, app_installation.country_code),
     last_seen_at = excluded.last_seen_at
@@ -73,8 +75,8 @@ const INSERT_USER_PREFERENCE_SQL = `
 
 const INSERT_SESSION_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  VALUES (?, 'anonymous', ?, ?, ?, ?, NULL)
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'anonymous', ?, NULL, ?, ?, ?, NULL)
 `;
 
 export const authRoutes = new Hono<{ Bindings: Env }>();
@@ -135,7 +137,7 @@ authRoutes.post("/anonymous", async (c) => {
       createdAt,
     );
     await c.env.DB.prepare(UPSERT_APP_INSTALLATION_SQL)
-      .bind(deviceId, platform, countryCode, createdAt, createdAt)
+      .bind(deviceId, anonymousId, platform, countryCode, createdAt, createdAt)
       .run();
     const sessionId = createId();
     const refreshToken = createRefreshToken();
@@ -204,7 +206,7 @@ async function findOrCreateAnonymousAccount(
     return existing.id;
   }
 
-  const anonymousId = createId();
+  const anonymousId = await reserveAccountUid(db, createdAt);
 
   await db.batch([
     db

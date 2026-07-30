@@ -1,5 +1,5 @@
 // tcg-card D1 Schema —— 严格对齐 docs/tcg-card/03-data-api/data-model.md。
-// 约定：ULID 主键 TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；金额 REAL；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。
+// 约定：账号主键为至少 6 位的全局数字 UID，其他业务主键为 ULID TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；金额 REAL；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -9,6 +9,7 @@ import {
   sqliteTable,
   text,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 // ── 卡牌基础数据源层 ──────────────────────────────────────────
@@ -22,13 +23,13 @@ export const cardsAll = sqliteTable(
     setName: text("set_name"),
     setCode: text("set_code"),
     setId: text("set_id"),
+    number: text("number"),
     name: text("name"),
     rarity: text("rarity"),
     description: text("description"),
     productTypeName: text("product_type_name"),
     foilOnly: integer("foil_only").default(0),
     normalOnly: integer("normal_only").default(0),
-    imageUrl: text("image_url"),
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
     cardType: text("card_type"),
@@ -43,37 +44,53 @@ export const cardsAll = sqliteTable(
   (t) => [
     index("idx_cards_all_game_id").on(t.gameId),
     index("idx_cards_all_game_product").on(t.gameId, t.productId),
+    index("idx_cards_all_updated_product").on(
+      sql`${t.updatedAt} DESC`,
+      sql`${t.productId} ASC`,
+    ),
+    index("idx_cards_all_game_updated_product").on(
+      sql`lower(${t.game})`,
+      sql`${t.updatedAt} DESC`,
+      sql`${t.productId} ASC`,
+    ),
+    index("idx_cards_all_game_set_updated_product").on(
+      sql`lower(${t.game})`,
+      sql`lower(${t.setCode})`,
+      sql`${t.updatedAt} DESC`,
+      sql`${t.productId} ASC`,
+    ),
   ],
 );
 
-export const games = sqliteTable("games", {
-  id: integer("id"),
-  gameId: real("game_id"),
-  name: text("name"),
-  totalCards: integer("total_cards"),
-  imageSource: text("image_source"),
-  imagesEnabled: integer("images_enabled"),
-  createdAt: text("created_at"),
-  load: integer("load"),
-});
+export const games = sqliteTable(
+  "games",
+  {
+    id: integer("id"),
+    gameId: real("game_id"),
+    name: text("name"),
+    totalCards: integer("total_cards"),
+    imageSource: text("image_source"),
+    imagesEnabled: integer("images_enabled"),
+    createdAt: text("created_at"),
+    load: integer("load"),
+    searchSort: integer("search_sort").notNull().default(1000),
+  },
+  (t) => [index("idx_games_load_sort").on(t.load, t.searchSort, t.gameId)],
+);
 
 export const sets = sqliteTable(
   "sets",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
     game: text("game").notNull(),
     name: text("name").notNull(),
-    setName: text("set_name"),
     setCode: text("set_code"),
-    setId: text("set_id"),
-    series: text("series"),
+    setId: text("set_id").primaryKey(),
+    setImageId: text("set_image_id"),
     totalCards: integer("total_cards").default(0),
-    releaseDate: text("release_date"),
-    createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
   },
   (t) => [
     unique("uq_sets_game_name").on(t.game, t.name),
-    index("idx_sets_set_id").on(t.setId),
+    index("idx_sets_game_name_search").on(sql`lower(${t.game})`, t.name),
   ],
 );
 
@@ -81,7 +98,7 @@ export const tcgplayerSkus = sqliteTable(
   "tcgplayer_skus",
   {
     skuId: integer("sku_id").primaryKey(),
-    productId: integer("product_id").notNull(),
+    productId: text("product_id").notNull(),
     skuKey: text("sku_key").notNull(),
     conditionCode: text("condition_code"),
     conditionName: text("condition_name"),
@@ -92,6 +109,7 @@ export const tcgplayerSkus = sqliteTable(
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
     priceHistory: text("price_history").notNull().default("[]"),
+    increaseRate: real("increase_rate"),
   },
   (t) => [
     index("idx_tcgplayer_skus_product_id").on(t.productId),
@@ -101,30 +119,64 @@ export const tcgplayerSkus = sqliteTable(
       t.variantCode,
       t.conditionCode,
     ),
+    index("idx_tcgplayer_skus_increase_rate").on(t.increaseRate),
   ],
 );
 
 // ── 用户 / 账号层 ──────────────────────────────────────────────
 
-export const user = sqliteTable("user", {
-  id: text("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  passwordHash: text("password_hash"), // OAuth 唯一注册时可为 NULL
-  displayName: text("display_name"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-  deletedAt: text("deleted_at"), // 软删除；NULL = 正常账号
-});
+export const user = sqliteTable(
+  "user",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    passwordHash: text("password_hash"), // OAuth 唯一注册时可为 NULL
+    displayName: text("display_name"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    status: text("status").notNull().default("active"),
+    deletedAt: text("deleted_at"),
+  },
+  (t) => [
+    check(
+      "ck_user_status",
+      sql`${t.status} IN ('active', 'deleted', 'disabled')`,
+    ),
+    uniqueIndex("uq_user_non_deleted_email")
+      .on(t.email)
+      .where(sql`${t.status} <> 'deleted'`),
+  ],
+);
 
-export const anonymousAccount = sqliteTable("anonymous_account", {
-  id: text("id").primaryKey(),
-  deviceId: text("device_id").notNull(),
-  createdAt: text("created_at").notNull(),
-  upgradedUserId: text("upgraded_user_id"), // 升级后回填 user.id；NULL = 仍为游客
-});
+export const anonymousAccount = sqliteTable(
+  "anonymous_account",
+  {
+    id: text("id").primaryKey(),
+    deviceId: text("device_id").notNull(),
+    createdAt: text("created_at").notNull(),
+    upgradedUserId: text("upgraded_user_id"), // 升级后回填 user.id；NULL = 仍为游客
+  },
+  (t) => [
+    index("idx_anonymous_account_device_live").on(
+      t.deviceId,
+      t.upgradedUserId,
+      t.createdAt,
+    ),
+  ],
+);
+
+export const accountUid = sqliteTable(
+  "account_uid",
+  {
+    uid: integer("uid").primaryKey(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [check("ck_account_uid_minimum", sql`${t.uid} >= 100000`)],
+);
 
 export const appInstallation = sqliteTable("app_installation", {
   installationId: text("installation_id").primaryKey(),
+  uid: text("uid"),
   platform: text("platform").notNull(),
   countryCode: text("country_code"),
   firstSeenAt: text("first_seen_at").notNull(),
@@ -142,7 +194,10 @@ export const authIdentity = sqliteTable(
     providerUid: text("provider_uid").notNull(),
     createdAt: text("created_at").notNull(),
   },
-  (t) => [unique("uq_auth_identity_provider").on(t.provider, t.providerUid)],
+  (t) => [
+    unique("uq_auth_identity_provider").on(t.provider, t.providerUid),
+    index("idx_auth_identity_user").on(t.userId),
+  ],
 );
 
 export const session = sqliteTable(
@@ -151,12 +206,19 @@ export const session = sqliteTable(
     id: text("id").primaryKey(),
     ownerType: text("owner_type").notNull(), // 'user' | 'anonymous'
     ownerId: text("owner_id").notNull(),
+    loginMethod: text("login_method"), // NULL for anonymous or legacy sessions
     refreshToken: text("refresh_token").notNull().unique(),
     expiresAt: text("expires_at").notNull(),
     createdAt: text("created_at").notNull(),
     revokedAt: text("revoked_at"), // NULL = 有效
   },
-  (t) => [index("idx_session_owner").on(t.ownerType, t.ownerId)],
+  (t) => [
+    index("idx_session_owner").on(t.ownerType, t.ownerId),
+    check(
+      "ck_session_login_method",
+      sql`${t.loginMethod} IS NULL OR ${t.loginMethod} IN ('email', 'google', 'apple')`,
+    ),
+  ],
 );
 
 export const verificationCode = sqliteTable(
@@ -170,7 +232,9 @@ export const verificationCode = sqliteTable(
     usedAt: text("used_at"), // NULL = 未使用
     createdAt: text("created_at").notNull(),
   },
-  (t) => [index("idx_verification_code_email").on(t.email, t.purpose)],
+  (t) => [
+    index("idx_verification_code_email").on(t.email, t.purpose, t.createdAt),
+  ],
 );
 
 // ── 资产层 ────────────────────────────────────────────────────
@@ -189,7 +253,7 @@ export const portfolioFolder = sqliteTable(
   },
   (t) => [
     unique("uq_portfolio_folder_name").on(t.ownerType, t.ownerId, t.name),
-    index("idx_portfolio_folder_owner").on(t.ownerType, t.ownerId),
+    index("idx_portfolio_folder_owner").on(t.ownerType, t.ownerId, t.sortOrder),
     check("ck_portfolio_folder_is_default", sql`${t.isDefault} IN (0, 1)`),
   ],
 );
@@ -214,14 +278,50 @@ export const collectionItem = sqliteTable(
     purchasePrice: real("purchase_price"),
     purchaseCurrency: text("purchase_currency"),
     notes: text("notes"), // 最多 500 字符（Workers 层校验）
+    folderJoinedAt: text("folder_joined_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (t) => [
-    index("idx_collection_item_owner").on(t.ownerType, t.ownerId),
+    index("idx_collection_item_owner").on(t.ownerType, t.ownerId, t.cardRef),
     index("idx_collection_item_folder").on(t.folderId),
     index("idx_collection_item_card").on(t.cardRef),
     check("ck_collection_item_quantity", sql`${t.quantity} >= 1`),
+  ],
+);
+
+export const collectionItemEvent = sqliteTable(
+  "collection_item_event",
+  {
+    id: text("id").primaryKey(),
+    itemId: text("item_id").notNull(),
+    ownerType: text("owner_type").notNull(),
+    ownerId: text("owner_id").notNull(),
+    folderId: text("folder_id").notNull(),
+    cardRef: text("card_ref").notNull(),
+    objectType: text("object_type").notNull(),
+    grader: text("grader").notNull(),
+    condition: text("condition"),
+    grade: real("grade"),
+    language: text("language"),
+    finish: text("finish"),
+    quantity: integer("quantity").notNull(),
+    eventType: text("event_type").notNull(),
+    effectiveAt: text("effective_at").notNull(),
+  },
+  (t) => [
+    index("idx_collection_item_event_owner_time").on(
+      t.ownerType,
+      t.ownerId,
+      t.effectiveAt,
+    ),
+    index("idx_collection_item_event_folder_time").on(t.folderId, t.effectiveAt),
+    index("idx_collection_item_event_item_time").on(t.itemId, t.effectiveAt),
+    check("ck_collection_item_event_quantity", sql`${t.quantity} >= 1`),
+    check(
+      "ck_collection_item_event_type",
+      sql`${t.eventType} IN ('upsert', 'delete')`,
+    ),
   ],
 );
 
@@ -262,7 +362,7 @@ export const scanRecord = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [
-    index("idx_scan_record_owner").on(t.ownerType, t.ownerId),
+    index("idx_scan_record_owner").on(t.ownerType, t.ownerId, t.createdAt),
     index("idx_scan_record_created_at").on(t.createdAt),
     check("ck_scan_record_modified_result", sql`${t.modifiedResult} IN (0, 1)`),
   ],
@@ -333,6 +433,7 @@ export const feedbackTicket = sqliteTable(
   "feedback_ticket",
   {
     id: text("id").primaryKey(),
+    uid: text("uid"),
     email: text("email").notNull(),
     types: text("types").notNull(), // JSON 数组
     functions: text("functions").notNull(), // JSON 数组

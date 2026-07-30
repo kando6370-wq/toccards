@@ -1,177 +1,250 @@
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/card_image/card_image_url.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import 'search_models.dart';
 
 abstract interface class SearchRepository {
   Future<SearchCatalog> loadCatalog();
-  Future<List<SearchCard>> searchCards(String query);
-  Future<List<SearchSet>> searchSets(String query);
+  Future<List<SearchCard>> searchCards(String query, {String? game});
+  Future<List<SearchSet>> searchSets(String query, {String? game});
 }
 
-class HttpSearchRepository implements SearchRepository {
-  const HttpSearchRepository(this._api, {String defaultSetQuery = 'pokemon'})
-    : _defaultSetQuery = defaultSetQuery;
+abstract interface class PaginatedSearchRepository {
+  Future<List<SearchCard>> searchCardPage(
+    String query, {
+    String? game,
+    required int page,
+  });
+}
+
+abstract interface class SearchAssetRepository implements SearchRepository {
+  Future<SearchAssetSnapshot> loadAssets(
+    AuthSession session, {
+    String? selectedFolderId,
+  });
+  Future<PortfolioItemDto> collect(
+    AuthSession session, {
+    required SearchCard card,
+    required String folderId,
+  });
+  Future<void> deleteCollectionItem(AuthSession session, String itemId);
+  Future<WishlistItemDto> addWishlist(AuthSession session, String cardRef);
+  Future<void> deleteWishlist(AuthSession session, String itemId);
+}
+
+class SearchAssetSnapshot {
+  const SearchAssetSnapshot({
+    required this.folderId,
+    required this.statesByCardRef,
+  });
+
+  final String folderId;
+  final Map<String, SearchCardAssetState> statesByCardRef;
+}
+
+class SearchCardAssetState {
+  const SearchCardAssetState({
+    required this.quantity,
+    required this.collectionItemIds,
+    required this.wishlistItemId,
+    required this.collectionInfo,
+  });
+
+  final int quantity;
+  final List<String> collectionItemIds;
+  final String? wishlistItemId;
+  final String? collectionInfo;
+}
+
+class HttpSearchRepository
+    implements
+        SearchRepository,
+        PaginatedSearchRepository,
+        SearchAssetRepository {
+  const HttpSearchRepository(
+    this._api, {
+    SetCatalogApi? setCatalogApi,
+    PortfolioApi? portfolioApi,
+    String? defaultSetQuery,
+  }) : _setCatalogApi = setCatalogApi,
+       _portfolioApi = portfolioApi,
+       _defaultSetQuery = defaultSetQuery;
 
   final CardDataApi _api;
-  final String _defaultSetQuery;
+  final SetCatalogApi? _setCatalogApi;
+  final PortfolioApi? _portfolioApi;
+  final String? _defaultSetQuery;
 
   @override
   Future<SearchCatalog> loadCatalog() async {
-    final cards = await _api.trendingCards();
-    final sets = await _api.searchSets(_defaultSetQuery);
-
-    return SearchCatalog(
-      games: _gamesFromCards(cards),
-      cards: cards.map(_cardFromDto).toList(),
-      sets: sets.map(_setFromDto).toList(),
-    );
+    final gameDtos = await _setCatalogApi?.listGames();
+    late final List<SearchGame> games;
+    late final List<SearchCard> cards;
+    if (gameDtos == null) {
+      final seedCards = await _api.trendingCards();
+      games = _gamesFromCards(seedCards);
+      cards = seedCards.map(searchCardFromDto).toList();
+      final setQuery = _defaultSetQuery ?? games.first.label;
+      final sets = await _api.searchSets('', game: setQuery);
+      return SearchCatalog(
+        games: games,
+        cards: cards,
+        sets: sets.map(_setFromDto).toList(),
+      );
+    } else {
+      games = gameDtos
+          .map(
+            (game) =>
+                SearchGame(id: _gameIdFromValue(game.name), label: game.name),
+          )
+          .toList();
+      final setQuery = _defaultSetQuery ?? games.first.label;
+      final results = await Future.wait([
+        searchCardPage('', game: games.first.label, page: 1),
+        _api.searchSets('', game: setQuery),
+      ]);
+      cards = results[0] as List<SearchCard>;
+      final sets = results[1] as List<CardDataSetDto>;
+      return SearchCatalog(
+        games: games,
+        cards: cards,
+        sets: sets.map(_setFromDto).toList(),
+      );
+    }
   }
 
   @override
-  Future<List<SearchCard>> searchCards(String query) async {
-    final cards = await _api.searchCards(query);
-    return cards.map(_cardFromDto).toList();
+  Future<List<SearchCard>> searchCards(String query, {String? game}) async {
+    return searchCardPage(query, game: game, page: 1);
   }
 
   @override
-  Future<List<SearchSet>> searchSets(String query) async {
-    final sets = await _api.searchSets(query);
+  Future<List<SearchCard>> searchCardPage(
+    String query, {
+    String? game,
+    required int page,
+  }) async {
+    final cards = _api is PaginatedCardDataApi
+        ? await (_api as PaginatedCardDataApi).searchCardPage(
+            query,
+            game: game,
+            page: page,
+          )
+        : page == 1
+        ? await _api.searchCards(query, game: game)
+        : const <CardDataCardDto>[];
+    return cards.map(searchCardFromDto).toList();
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) async {
+    final sets = _setCatalogApi == null
+        ? await _api.searchSets(query, game: game)
+        : await _setCatalogApi.searchCatalogSets(query, game: game);
     return sets.map(_setFromDto).toList();
   }
-}
-
-class MockSearchRepository implements SearchRepository {
-  const MockSearchRepository();
 
   @override
-  Future<SearchCatalog> loadCatalog() async {
-    return const SearchCatalog(
-      games: [
-        SearchGame(id: 'pokemon', label: 'Pokemon'),
-        SearchGame(id: 'lorcana', label: 'Lorcana'),
-        SearchGame(id: 'one-piece', label: 'One Piece'),
-      ],
-      cards: [
-        SearchCard(
-          id: 'squirtle',
-          gameId: 'pokemon',
-          type: SearchCardType.tcg,
-          name: 'Squirtle',
-          priceUsd: 32.13,
-          previous30dPriceUsd: 30.67,
-          setName: 'Mega Evolution Promos',
-          metadataLine: 'Promo · 039',
-          variantLine: 'Holofoil',
-          quantity: 0,
-          isWishlisted: false,
-        ),
-        SearchCard(
-          id: 'charizard-ex',
-          gameId: 'pokemon',
-          type: SearchCardType.tcg,
-          name: 'Charizard ex',
-          priceUsd: 780,
-          previous30dPriceUsd: 721.58,
-          setName: 'Obsidian Flames',
-          metadataLine: 'Special Illustration Rare · 223',
-          variantLine: 'PSA 10',
-          quantity: 1,
-          collectionItemCount: 1,
-          isWishlisted: false,
-        ),
-        SearchCard(
-          id: 'mystery-promo',
-          gameId: 'pokemon',
-          type: SearchCardType.other,
-          name: 'Mystery Promo',
-          priceUsd: null,
-          previous30dPriceUsd: null,
-          setName: 'Promo Vault',
-          metadataLine: 'Special Release',
-          variantLine: 'Raw',
-          quantity: 0,
-          isWishlisted: false,
-        ),
-        SearchCard(
-          id: 'lorcana-elsa',
-          gameId: 'lorcana',
-          type: SearchCardType.tcg,
-          name: 'Lorcana Elsa',
-          priceUsd: 480,
-          previous30dPriceUsd: 449.86,
-          setName: 'The First Chapter',
-          metadataLine: 'Enchanted · 212',
-          variantLine: 'Cold Foil',
-          quantity: 0,
-          isWishlisted: false,
-        ),
-        SearchCard(
-          id: 'one-piece-luffy',
-          gameId: 'one-piece',
-          type: SearchCardType.tcg,
-          name: 'One Piece Manga Luffy',
-          priceUsd: 330,
-          previous30dPriceUsd: 306.69,
-          setName: 'Romance Dawn',
-          metadataLine: 'Manga Rare · 001',
-          variantLine: 'Japanese',
-          quantity: 0,
-          isWishlisted: true,
-        ),
-      ],
-      sets: [
-        SearchSet(
-          id: 'mega-evolution-promos',
-          gameId: 'pokemon',
-          name: 'Mega Evolution Promos',
-          subtitle: 'Pokemon promotional cards',
-          releaseText: '2025',
-          cardCountText: '124 cards',
-        ),
-        SearchSet(
-          id: 'obsidian-flames',
-          gameId: 'pokemon',
-          name: 'Obsidian Flames',
-          subtitle: 'Scarlet & Violet',
-          releaseText: '2023',
-          cardCountText: '230 cards',
-        ),
-        SearchSet(
-          id: 'the-first-chapter',
-          gameId: 'lorcana',
-          name: 'The First Chapter',
-          subtitle: 'Disney Lorcana',
-          releaseText: '2023',
-          cardCountText: '216 cards',
-        ),
-        SearchSet(
-          id: 'romance-dawn',
-          gameId: 'one-piece',
-          name: 'Romance Dawn',
-          subtitle: 'One Piece Card Game',
-          releaseText: '2022',
-          cardCountText: '121 cards',
-        ),
-      ],
+  Future<SearchAssetSnapshot> loadAssets(
+    AuthSession session, {
+    String? selectedFolderId,
+  }) async {
+    final api = _requiredPortfolioApi;
+    final results = await Future.wait([
+      api.listFolders(session),
+      api.listCollectionItems(session),
+      api.listWishlistItems(session),
+    ]);
+    final folders = results[0] as List<PortfolioFolderDto>;
+    final items = results[1] as List<PortfolioItemDto>;
+    final wishlist = results[2] as List<WishlistItemDto>;
+    if (folders.isEmpty) {
+      throw StateError('Search requires at least one portfolio folder.');
+    }
+    final folder =
+        folders.where((item) => item.id == selectedFolderId).firstOrNull ??
+        folders.where((item) => item.isDefault).firstOrNull ??
+        folders.first;
+    final itemsByCardRef = <String, List<PortfolioItemDto>>{};
+    for (final item in items.where((item) => item.folderId == folder.id)) {
+      (itemsByCardRef[item.cardRef] ??= []).add(item);
+    }
+    final wishlistByCardRef = {
+      for (final item in wishlist) item.cardRef: item.id,
+    };
+    final cardRefs = {...itemsByCardRef.keys, ...wishlistByCardRef.keys};
+
+    return SearchAssetSnapshot(
+      folderId: folder.id,
+      statesByCardRef: {
+        for (final cardRef in cardRefs)
+          cardRef: SearchCardAssetState(
+            quantity: (itemsByCardRef[cardRef] ?? const []).fold(
+              0,
+              (sum, item) => sum + item.quantity,
+            ),
+            collectionItemIds: [
+              for (final item in itemsByCardRef[cardRef] ?? const []) item.id,
+            ],
+            wishlistItemId: wishlistByCardRef[cardRef],
+            collectionInfo: collectionInfoFor(
+              itemsByCardRef[cardRef] ?? const [],
+            ),
+          ),
+      },
     );
   }
 
   @override
-  Future<List<SearchCard>> searchCards(String query) async {
-    final catalog = await loadCatalog();
-    final normalized = query.trim().toLowerCase();
-    return catalog.cards
-        .where((card) => card.searchableText.contains(normalized))
-        .toList();
+  Future<PortfolioItemDto> collect(
+    AuthSession session, {
+    required SearchCard card,
+    required String folderId,
+  }) {
+    final sealed = card.type == SearchCardType.sealed;
+    return _requiredPortfolioApi.quickCollect(
+      session,
+      cardRef: card.id,
+      draft: PortfolioItemDraftDto(
+        folderId: folderId,
+        cardRef: card.id,
+        objectType: card.type.name,
+        grader: 'Raw',
+        condition: sealed ? null : 'Near Mint (NM)',
+        grade: null,
+        language: card.language ?? 'English',
+        finish: card.finish,
+        quantity: 1,
+        purchasePrice: null,
+        purchaseCurrency: null,
+        notes: null,
+      ),
+    );
   }
 
   @override
-  Future<List<SearchSet>> searchSets(String query) async {
-    final catalog = await loadCatalog();
-    final normalized = query.trim().toLowerCase();
-    return catalog.sets
-        .where((set) => set.searchableText.contains(normalized))
-        .toList();
+  Future<void> deleteCollectionItem(AuthSession session, String itemId) {
+    return _requiredPortfolioApi.deleteCollectionItem(session, itemId);
+  }
+
+  @override
+  Future<WishlistItemDto> addWishlist(AuthSession session, String cardRef) {
+    return _requiredPortfolioApi.addWishlist(session, cardRef);
+  }
+
+  @override
+  Future<void> deleteWishlist(AuthSession session, String itemId) {
+    return _requiredPortfolioApi.deleteWishlist(session, itemId);
+  }
+
+  PortfolioApi get _requiredPortfolioApi {
+    final api = _portfolioApi;
+    if (api == null) {
+      throw StateError('Portfolio API is unavailable.');
+    }
+    return api;
   }
 }
 
@@ -179,9 +252,9 @@ List<SearchGame> _gamesFromCards(List<CardDataCardDto> cards) {
   final seen = <String>{};
   final games = <SearchGame>[];
   for (final card in cards) {
-    final id = _gameIdFromObjectType(card.objectType);
+    final id = _gameIdFromCard(card);
     if (seen.add(id)) {
-      games.add(SearchGame(id: id, label: _gameLabelFromObjectType(id)));
+      games.add(SearchGame(id: id, label: _gameLabelFromCard(card)));
     }
   }
 
@@ -191,30 +264,35 @@ List<SearchGame> _gamesFromCards(List<CardDataCardDto> cards) {
   return games;
 }
 
-SearchCard _cardFromDto(CardDataCardDto dto) {
+SearchCard searchCardFromDto(CardDataCardDto dto) {
   return SearchCard(
     id: dto.cardRef,
-    gameId: _gameIdFromObjectType(dto.objectType),
+    gameId: _gameIdFromCard(dto),
     type: _cardTypeFromObjectType(dto.objectType),
     name: dto.name,
-    priceUsd: null,
-    previous30dPriceUsd: null,
+    priceUsd: dto.priceUsd,
+    previous30dPriceUsd: dto.previous30dPriceUsd,
     setName: dto.setName,
     metadataLine: _metadataLine(dto),
     variantLine: _variantLine(dto),
     quantity: 0,
     isWishlisted: false,
+    language: dto.language,
+    finish: dto.finish,
+    imageUrl: cardImageUrl(dto.cardRef, CardImageVariant.list),
   );
 }
 
 SearchSet _setFromDto(CardDataSetDto dto) {
   return SearchSet(
     id: dto.setCode,
-    gameId: 'tcg',
+    gameId: _gameIdFromValue(dto.game),
     name: dto.setName,
-    subtitle: 'Card catalog set',
+    subtitle: dto.game ?? 'Card catalog set',
     releaseText: dto.setCode,
     cardCountText: '${dto.cardCount} cards',
+    game: dto.game ?? 'TCG',
+    imageUrl: dto.imageUrl,
   );
 }
 
@@ -245,6 +323,31 @@ String _gameLabelFromObjectType(String objectType) {
   };
 }
 
+String _gameIdFromCard(CardDataCardDto card) {
+  if (card.game == null || card.game!.trim().isEmpty) {
+    return _gameIdFromObjectType(card.objectType);
+  }
+
+  return _gameIdFromValue(card.game);
+}
+
+String _gameIdFromValue(String? value) {
+  final game = value?.trim();
+  if (game == null || game.isEmpty) return 'tcg';
+
+  return game
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+}
+
+String _gameLabelFromCard(CardDataCardDto card) {
+  final game = card.game?.trim();
+  return game == null || game.isEmpty
+      ? _gameLabelFromObjectType(_gameIdFromObjectType(card.objectType))
+      : game;
+}
+
 String _metadataLine(CardDataCardDto dto) {
   final parts = [
     if (dto.rarity != null) dto.rarity!,
@@ -254,9 +357,27 @@ String _metadataLine(CardDataCardDto dto) {
 }
 
 String _variantLine(CardDataCardDto dto) {
-  final parts = [
-    if (dto.finish != null) dto.finish!,
-    if (dto.language != null) dto.language!,
-  ];
-  return parts.isEmpty ? 'Standard' : parts.join(' / ');
+  return dto.finish ?? 'Standard';
+}
+
+String? collectionItemInfo(PortfolioItemDto item) {
+  if (item.grader.trim().toLowerCase() == 'raw') {
+    final condition = item.condition?.trim();
+    return condition == null || condition.isEmpty ? null : condition;
+  }
+
+  final grader = item.grader.trim();
+  if (grader.isEmpty) return null;
+  final grade = item.grade;
+  if (grade == null) return grader;
+  final gradeText = grade == grade.truncateToDouble()
+      ? grade.toInt().toString()
+      : grade.toString();
+  return '$grader $gradeText';
+}
+
+String? collectionInfoFor(List<PortfolioItemDto> items) {
+  final values = items.map(collectionItemInfo).whereType<String>().toSet();
+  if (values.isEmpty) return null;
+  return values.length == 1 ? values.single : 'Mixed';
 }

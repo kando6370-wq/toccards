@@ -2,7 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
+import 'shared/analytics/app_analytics.dart';
+import 'shared/api/api_environment.dart';
+import 'shared/debug/app_debug_overlay.dart';
+import 'shared/firebase/app_firebase.dart';
 
-void main() {
-  runApp(const ProviderScope(child: KandoApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  AppConfig.validate();
+  configureAppDebugOverlay();
+  final firebase = await AppFirebase.initialize();
+  firebase?.installGlobalErrorHandlers();
+  installAppDebugErrorHandlers();
+  final analytics = await AppAnalytics.initialize(firebase: firebase);
+  runApp(
+    ProviderScope(
+      overrides: [analyticsProvider.overrideWithValue(analytics)],
+      child: const KandoApp(),
+    ),
+  );
 }

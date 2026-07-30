@@ -1,82 +1,219 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
+import 'search_card_tile.dart';
 import 'search_controller.dart';
 import 'search_models.dart';
 
-class SearchPage extends ConsumerWidget {
-  const SearchPage({super.key});
+class SearchPage extends ConsumerStatefulWidget {
+  const SearchPage({this.fromScan = false, super.key});
+
+  final bool fromScan;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends ConsumerState<SearchPage> {
+  String? _lastViewSignature;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(searchControllerProvider);
     final controller = ref.read(searchControllerProvider.notifier);
+    _trackSearchView(state);
 
     return KandoTabScaffold(
       currentTab: KandoMainTab.search,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (state.isLoading) ...[
-              Text('Search', style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 16),
-              const KandoLoadingBlock(),
-            ] else if (state.isUnavailable) ...[
-              Text('Search', style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 16),
-              KandoFailureBlock(onRefresh: controller.refresh),
-            ] else ...[
-              _SearchHeader(
-                selectedGame: state.selectedGame,
-                onGamePressed: () => _showGameSheet(context, ref),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                key: ValueKey(
-                  'search-field-${state.selectedTab}-${state.searchText}',
-                ),
-                initialValue: state.searchText,
-                decoration: InputDecoration(
-                  hintText: 'Search cards, sets, or characters',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
+        bottom: false,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.depth == 0 &&
+                notification.metrics.extentAfter <= 320) {
+              controller.loadNextCardPage();
+            }
+            return false;
+          },
+          child: RefreshIndicator(
+            key: const Key('search-pull-to-refresh'),
+            onRefresh: () {
+              ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+              return controller.refresh();
+            },
+            child: state.isLoading || state.isUnavailable
+                ? ListView(
+                    key: const Key('search-content-list'),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      16,
+                      KandoLayout.mainTabTopPadding,
+                      16,
+                      116,
+                    ),
                     children: [
-                      if (state.hasQuery)
-                        IconButton(
-                          key: const Key('search-clear-button'),
-                          onPressed: controller.clearSearch,
-                          icon: const Icon(Icons.close),
+                      if (widget.fromScan) ...[
+                        _BackToScanButton(context: context),
+                        const SizedBox(height: 8),
+                      ],
+                      if (state.isLoading) ...[
+                        Text(
+                          'Search',
+                          style: Theme.of(context).textTheme.headlineMedium,
                         ),
-                      IconButton(
-                        onPressed: () => context.go('/scan'),
-                        icon: const Icon(Icons.qr_code_scanner_outlined),
+                        const SizedBox(height: 16),
+                        const KandoLoadingBlock(),
+                      ] else ...[
+                        Text(
+                          'Search',
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                        const SizedBox(height: 16),
+                        KandoFailureBlock(onRefresh: controller.refresh),
+                      ],
+                    ],
+                  )
+                : CustomScrollView(
+                    key: const Key('search-content-scroll'),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        key: const Key('search-content-top-padding'),
+                        padding: const EdgeInsets.fromLTRB(
+                          16,
+                          KandoLayout.mainTabTopPadding,
+                          16,
+                          0,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: widget.fromScan
+                              ? Column(
+                                  children: [
+                                    _BackToScanButton(context: context),
+                                    const SizedBox(height: 8),
+                                  ],
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _SearchControlsHeaderDelegate(
+                          child: _SearchControlsHeader(
+                            state: state,
+                            onSearchChanged: controller.submitSearch,
+                            onClear: () => controller.submitSearch(''),
+                            onSelectTab: controller.selectTab,
+                            onGamePressed: () => _showGameSheet(context, ref),
+                            onScan: () => context.go('/scan'),
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 116),
+                        sliver: SliverToBoxAdapter(
+                          child: _SearchResults(state: state),
+                        ),
                       ),
                     ],
                   ),
-                  border: const OutlineInputBorder(),
-                ),
-                onChanged: controller.updateSearch,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _trackSearchView(SearchState state) {
+    if (state.isLoading || state.isUnavailable) return;
+    final signature = '${state.selectedGame.id}:${state.selectedTab.name}';
+    if (_lastViewSignature == signature) return;
+    _lastViewSignature = signature;
+    final properties = <String, Object?>{
+      AnalyticsProperty.ipType: analyticsIpType(state.selectedGame.label),
+      AnalyticsProperty.tabType: state.selectedTab == SearchTab.cards
+          ? AnalyticsValue.tabCard
+          : AnalyticsValue.tabSet,
+    };
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _lastViewSignature != signature) return;
+      ref
+          .read(analyticsProvider)
+          .track(AnalyticsEvent.searchView, properties: properties);
+    });
+  }
+}
+
+class _BackToScanButton extends StatelessWidget {
+  const _BackToScanButton({required this.context});
+
+  final BuildContext context;
+
+  @override
+  Widget build(BuildContext _) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: IconButton(
+        key: const Key('search-back-to-scan'),
+        tooltip: 'Back to Scan',
+        onPressed: () => context.canPop() ? context.pop() : context.go('/scan'),
+        icon: const Icon(Icons.arrow_back),
+      ),
+    );
+  }
+}
+
+class _SearchControlsHeader extends StatelessWidget {
+  const _SearchControlsHeader({
+    required this.state,
+    required this.onSearchChanged,
+    required this.onClear,
+    required this.onSelectTab,
+    required this.onGamePressed,
+    required this.onScan,
+  });
+
+  final SearchState state;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onClear;
+  final ValueChanged<SearchTab> onSelectTab;
+  final VoidCallback onGamePressed;
+  final VoidCallback onScan;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 48,
+              child: _DebouncedSearchField(
+                key: ValueKey('search-field-${state.selectedTab}'),
+                searchText: state.searchText,
+                selectedTab: state.selectedTab,
+                onChanged: onSearchChanged,
+                onClear: onClear,
+                onScan: onScan,
               ),
-              const SizedBox(height: 12),
-              SegmentedButton<SearchTab>(
-                segments: const [
-                  ButtonSegment(value: SearchTab.cards, label: Text('Cards')),
-                  ButtonSegment(value: SearchTab.sets, label: Text('Sets')),
-                ],
-                selected: {state.selectedTab},
-                onSelectionChanged: (selection) {
-                  controller.selectTab(selection.single);
-                },
-              ),
-              const SizedBox(height: 16),
-              _SearchResults(state: state),
-            ],
+            ),
+            const SizedBox(height: 12),
+            _GameSelectorField(
+              selectedGame: state.selectedGame,
+              onPressed: onGamePressed,
+            ),
+            const SizedBox(height: 16),
+            _SearchTabs(selected: state.selectedTab, onSelect: onSelectTab),
           ],
         ),
       ),
@@ -84,34 +221,288 @@ class SearchPage extends ConsumerWidget {
   }
 }
 
-class _SearchHeader extends StatelessWidget {
-  const _SearchHeader({
-    required this.selectedGame,
-    required this.onGamePressed,
+class _SearchControlsHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _SearchControlsHeaderDelegate({required this.child});
+
+  static const extent = 196.0;
+  final Widget child;
+
+  @override
+  double get minExtent => extent;
+
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(_SearchControlsHeaderDelegate oldDelegate) => true;
+}
+
+OutlineInputBorder _inputBorder(Color color) {
+  return OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: color),
+  );
+}
+
+class _DebouncedSearchField extends StatefulWidget {
+  const _DebouncedSearchField({
+    super.key,
+    required this.searchText,
+    required this.selectedTab,
+    required this.onChanged,
+    required this.onClear,
+    required this.onScan,
   });
 
-  final SearchGame selectedGame;
-  final VoidCallback onGamePressed;
+  final String searchText;
+  final SearchTab selectedTab;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  final VoidCallback onScan;
+
+  @override
+  State<_DebouncedSearchField> createState() => _DebouncedSearchFieldState();
+}
+
+class _DebouncedSearchFieldState extends State<_DebouncedSearchField> {
+  late final TextEditingController _controller;
+  Timer? _debounce;
+  late String _lastExternalText;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastExternalText = widget.searchText;
+    _controller = TextEditingController(text: widget.searchText);
+  }
+
+  @override
+  void didUpdateWidget(covariant _DebouncedSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final tabChanged = widget.selectedTab != oldWidget.selectedTab;
+    final externalTextChanged = widget.searchText != _lastExternalText;
+    if (!tabChanged && !externalTextChanged) {
+      return;
+    }
+
+    _debounce?.cancel();
+    _lastExternalText = widget.searchText;
+    if (_controller.text != widget.searchText) {
+      _controller.value = TextEditingValue(
+        text: widget.searchText,
+        selection: TextSelection.collapsed(offset: widget.searchText.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _queueSearch(String value) {
+    setState(() {});
+    _debounce?.cancel();
+    _debounce = Timer(searchDebounceDuration, () {
+      _lastExternalText = value;
+      widget.onChanged(value);
+    });
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _lastExternalText = '';
+    if (_controller.text.isNotEmpty) {
+      _controller.clear();
+      setState(() {});
+    }
+    widget.onClear();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
+    final hasInput = _controller.text.trim().isNotEmpty;
+    return TextFormField(
+      key: const Key('search-field'),
+      controller: _controller,
+      style: const TextStyle(fontSize: 15, color: KandoColors.text),
+      decoration: InputDecoration(
+        hintText: 'Search cards, sets, or characters',
+        hintStyle: const TextStyle(fontSize: 15, color: KandoColors.mutedText),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        filled: true,
+        fillColor: KandoColors.surface,
+        prefixIcon: const Icon(
+          Icons.search,
+          size: 20,
+          color: KandoColors.mutedText,
+        ),
+        suffixIcon: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasInput)
+              IconButton(
+                key: const Key('search-clear-button'),
+                onPressed: _clearSearch,
+                icon: const Icon(Icons.close, size: 20),
+                color: KandoColors.mutedText,
+              ),
+            IconButton(
+              onPressed: widget.onScan,
+              icon: const Icon(Icons.photo_camera_outlined, size: 20),
+              color: KandoColors.accent,
+            ),
+          ],
+        ),
+        border: _inputBorder(KandoColors.border),
+        enabledBorder: _inputBorder(KandoColors.border),
+        focusedBorder: _inputBorder(KandoColors.accent),
+      ),
+      onTapOutside: (_) => FocusScope.of(context).unfocus(),
+      onChanged: _queueSearch,
+    );
+  }
+}
+
+class _GameSelectorField extends StatelessWidget {
+  const _GameSelectorField({
+    required this.selectedGame,
+    required this.onPressed,
+  });
+
+  final SearchGame selectedGame;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('search-game-selector'),
+      color: KandoColors.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: KandoColors.border),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.style_outlined,
+                size: 20,
+                color: KandoColors.mutedText,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  selectedGame.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 15, color: KandoColors.text),
+                ),
+              ),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 20,
+                color: KandoColors.mutedText,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchTabs extends StatelessWidget {
+  const _SearchTabs({required this.selected, required this.onSelect});
+
+  final SearchTab selected;
+  final ValueChanged<SearchTab> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('search-tabs'),
+      height: 52,
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: KandoColors.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: KandoColors.border.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SearchTabButton(
+              label: 'Cards',
+              isSelected: selected == SearchTab.cards,
+              onTap: () => onSelect(SearchTab.cards),
+            ),
+          ),
+          Expanded(
+            child: _SearchTabButton(
+              label: 'Sets',
+              isSelected: selected == SearchTab.sets,
+              onTap: () => onSelect(SearchTab.sets),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchTabButton extends StatelessWidget {
+  const _SearchTabButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isSelected
+          ? KandoColors.accent.withValues(alpha: 0.22)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          alignment: Alignment.center,
+          height: 42,
           child: Text(
-            'Search',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: KandoColors.text,
-              fontWeight: FontWeight.w700,
+            label,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              color: isSelected ? KandoColors.accent : KandoColors.mutedText,
             ),
           ),
         ),
-        OutlinedButton.icon(
-          onPressed: onGamePressed,
-          icon: const Icon(Icons.style_outlined),
-          label: Text(selectedGame.label),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -123,11 +514,25 @@ class _SearchResults extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (state.isNoMatch) {
-      return const KandoEmptyBlock(
-        title: 'No results found',
-        body: 'Try a different keyword',
+    if (state.isSearching) {
+      return const SizedBox(
+        key: Key('search-results-loading'),
+        height: 160,
+        child: KandoLoadingBlock(),
       );
+    }
+
+    if (state.isCurrentSearchUnavailable) {
+      return _SearchFailureState(
+        onRefresh: () {
+          ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+          ref.read(searchControllerProvider.notifier).retrySearch();
+        },
+      );
+    }
+
+    if (state.isNoMatch) {
+      return const _SearchNoResultsState();
     }
 
     if (state.selectedTab == SearchTab.sets) {
@@ -138,105 +543,166 @@ class _SearchResults extends ConsumerWidget {
       );
     }
 
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.2,
-      physics: const NeverScrollableScrollPhysics(),
+    return Column(
       children: [
-        for (final card in state.visibleCards) _SearchCardTile(card: card),
+        GridView.count(
+          key: const Key('search-results-grid'),
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          mainAxisExtent: 378,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            for (final card in state.visibleCards)
+              SearchCardTile(
+                card: card,
+                actionsEnabled: state.assetStatus == KandoLoadStatus.content,
+                showSearchMetadata: true,
+              ),
+          ],
+        ),
+        if (state.isLoadingMoreCards) ...[
+          const SizedBox(height: 12),
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ],
       ],
     );
   }
 }
 
-class _SearchCardTile extends ConsumerWidget {
-  const _SearchCardTile({required this.card});
-
-  final SearchCard card;
+class _SearchNoResultsState extends StatelessWidget {
+  const _SearchNoResultsState();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.read(searchControllerProvider.notifier);
-    final showFilledHeart = card.isWishlisted && !card.isCollected;
-
-    return Card(
-      key: Key('search-card-${card.id}'),
-      child: InkWell(
-        onTap: () => context.go('/cards/${card.id}'),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: KandoColors.border),
-                  ),
-                  child: Icon(
-                    Icons.style_outlined,
-                    color: Theme.of(context).colorScheme.onSecondaryContainer,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                card.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              Text(card.setName, maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text(
-                card.metadataLine,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                card.variantLine,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text(card.priceText),
-                  const Spacer(),
-                  Text(card.changeText),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text('Qty: ${card.quantity}'),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      final action = controller.toggleCollect(card.id);
-                      if (action == SearchCollectAction.openDetail) {
-                        context.go('/cards/${card.id}');
-                      }
-                    },
-                    child: Text(card.isCollected ? 'Collected' : 'Collect'),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    key: Key('search-wishlist-${card.id}'),
-                    onPressed: () => controller.toggleWishlist(card.id),
-                    icon: Icon(
-                      showFilledHeart ? Icons.favorite : Icons.favorite_border,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+  Widget build(BuildContext context) {
+    return const Padding(
+      key: Key('search-no-results'),
+      padding: EdgeInsets.only(top: 16),
+      child: Column(
+        children: [
+          _SearchNoResultsIllustration(),
+          SizedBox(height: 16),
+          Text(
+            'No results found',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              height: 26 / 20,
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w600,
+              color: KandoColors.text,
+            ),
           ),
-        ),
+          SizedBox(height: 12),
+          Text(
+            'Try a different keyword',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              height: 20 / 14,
+              color: Color(0xFF92927D),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchNoResultsIllustration extends StatelessWidget {
+  const _SearchNoResultsIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 100,
+      height: 100,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 4.96,
+            top: 8.94,
+            child: SvgPicture.asset(
+              'assets/home/empty_state_magnifier_outer.svg',
+              key: const Key('search-no-results-magnifier-outer'),
+              width: 89.04,
+              height: 79.08,
+              excludeFromSemantics: true,
+            ),
+          ),
+          Positioned(
+            left: 29,
+            top: 32.37,
+            child: SvgPicture.asset(
+              'assets/home/empty_state_magnifier_inner.svg',
+              key: const Key('search-no-results-magnifier-inner'),
+              width: 27.1,
+              height: 29.61,
+              excludeFromSemantics: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchFailureState extends StatelessWidget {
+  const _SearchFailureState({required this.onRefresh});
+
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const Key('search-failure'),
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        children: [
+          SvgPicture.asset(
+            'assets/search/no_content_available.svg',
+            key: const Key('search-failure-illustration'),
+            width: 100,
+            height: 100,
+            excludeFromSemantics: true,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            noContentAvailableText,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 20,
+              height: 26 / 20,
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w600,
+              color: KandoColors.text,
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            height: 44,
+            child: FilledButton.icon(
+              key: const Key('search-empty-refresh'),
+              onPressed: onRefresh,
+              style: FilledButton.styleFrom(
+                backgroundColor: KandoColors.accent,
+                foregroundColor: KandoColors.ink,
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                shape: const StadiumBorder(),
+              ),
+              icon: const Icon(Icons.refresh, size: 20),
+              label: const Text(
+                refreshText,
+                style: TextStyle(fontSize: 13, height: 16 / 13),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -249,34 +715,94 @@ class _SearchSetRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+    return InkWell(
+      key: Key('search-set-${set.id}'),
+      onTap: () => context.push(
+        '/sets/${Uri.encodeComponent(set.id)}'
+        '?game=${Uri.encodeQueryComponent(set.game)}'
+        '&name=${Uri.encodeQueryComponent(set.name)}',
+      ),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 92,
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xCC1C1E15), Color(0xE612140D)],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: KandoColors.border),
+        ),
+        padding: const EdgeInsets.all(13),
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              key: Key('search-set-image-${set.id}'),
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
               ),
-              child: const Icon(Icons.layers_outlined),
+              clipBehavior: Clip.antiAlias,
+              child: set.imageUrl == null
+                  ? const Icon(
+                      Icons.layers_outlined,
+                      color: KandoColors.mutedText,
+                    )
+                  : Image.network(
+                      set.imageUrl!,
+                      fit: BoxFit.contain,
+                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.layers_outlined,
+                        color: KandoColors.mutedText,
+                      ),
+                    ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     set.name,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Fraunces',
+                      fontSize: 14,
+                      height: 20 / 14,
+                      fontWeight: FontWeight.w600,
+                      color: KandoColors.text,
+                    ),
                   ),
-                  Text(set.subtitle),
-                  Text('${set.releaseText} · ${set.cardCountText}'),
+                  Text(
+                    set.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      height: 18 / 10,
+                      color: Color(0xFF92927D),
+                    ),
+                  ),
+                  Text(
+                    '${set.releaseText} · ${set.cardCountText}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      height: 18 / 10,
+                      color: Color(0xFF92927D),
+                    ),
+                  ),
                 ],
               ),
             ),
+            const Icon(Icons.chevron_right, size: 21, color: Color(0xFF92927D)),
           ],
         ),
       ),
@@ -288,27 +814,196 @@ Future<void> _showGameSheet(BuildContext context, WidgetRef ref) {
   final state = ref.read(searchControllerProvider);
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: const Color(0xB3000000),
     builder: (context) {
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final game in state.catalog.games)
-              ListTile(
-                title: Text(game.label),
-                trailing: game.id == state.selectedGame.id
-                    ? const Icon(Icons.check)
-                    : null,
-                onTap: () {
-                  ref
-                      .read(searchControllerProvider.notifier)
-                      .selectGame(game.id);
-                  Navigator.of(context).pop();
-                },
-              ),
-          ],
-        ),
+      return _GameFilterSheet(
+        games: state.catalog.games,
+        selectedGameId: state.selectedGame.id,
+        onApply: (gameId) {
+          ref.read(searchControllerProvider.notifier).selectGame(gameId);
+          Navigator.of(context).pop();
+        },
       );
     },
   );
+}
+
+class _GameFilterSheet extends StatefulWidget {
+  const _GameFilterSheet({
+    required this.games,
+    required this.selectedGameId,
+    required this.onApply,
+  });
+
+  final List<SearchGame> games;
+  final String selectedGameId;
+  final ValueChanged<String> onApply;
+
+  @override
+  State<_GameFilterSheet> createState() => _GameFilterSheetState();
+}
+
+class _GameFilterSheetState extends State<_GameFilterSheet> {
+  late String _selectedGameId = widget.selectedGameId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('search-game-filter-sheet'),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+      ),
+      decoration: const BoxDecoration(
+        color: KandoColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Align(
+                alignment: Alignment.center,
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF77734A),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Filter',
+                style: TextStyle(
+                  fontFamily: 'Fraunces',
+                  fontSize: 28,
+                  height: 32 / 28,
+                  fontWeight: FontWeight.w600,
+                  color: KandoColors.text,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'GAME / IP',
+                style: TextStyle(
+                  fontFamily: 'Fraunces',
+                  fontSize: 18,
+                  height: 24 / 18,
+                  fontWeight: FontWeight.w600,
+                  color: KandoColors.text,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final game in widget.games)
+                        _GameFilterChip(
+                          game: game,
+                          selected: game.id == _selectedGameId,
+                          onTap: () =>
+                              setState(() => _selectedGameId = game.id),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  key: const Key('search-game-apply-filter'),
+                  onPressed: () => widget.onApply(_selectedGameId),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: KandoColors.accent,
+                    foregroundColor: KandoColors.ink,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: const Text('APPLY FILTERS'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GameFilterChip extends StatelessWidget {
+  const _GameFilterChip({
+    required this.game,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final SearchGame game;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? const Color(0xFF303125) : const Color(0xFF1A1C14),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        key: Key('search-game-filter-${game.id}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? KandoColors.accent : KandoColors.border,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                game.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: selected ? KandoColors.text : KandoColors.mutedText,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 14,
+                height: 14,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? KandoColors.accent : KandoColors.border,
+                  ),
+                ),
+                child: selected
+                    ? const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: KandoColors.accent,
+                          shape: BoxShape.circle,
+                        ),
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

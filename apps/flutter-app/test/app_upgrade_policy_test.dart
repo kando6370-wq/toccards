@@ -3,6 +3,23 @@ import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 
 void main() {
   test(
+    'config parses Profile links because legal and store actions must use operations-owned URLs',
+    () {
+      final config = AppUpgradeConfig.fromJson(const {
+        'app_store_url': 'https://apps.apple.com/app/kando/id123',
+        'card_share_base_url': 'https://api.tcgcard.fun/share/cards',
+        'terms_url': 'https://www.tcgcard.fun/terms',
+        'privacy_url': 'https://www.tcgcard.fun/privacy',
+      });
+
+      expect(config.appStoreUrl, 'https://apps.apple.com/app/kando/id123');
+      expect(config.cardShareBaseUrl, 'https://api.tcgcard.fun/share/cards');
+      expect(config.termsUrl, 'https://www.tcgcard.fun/terms');
+      expect(config.privacyUrl, 'https://www.tcgcard.fun/privacy');
+    },
+  );
+
+  test(
     'policy requires forced update because operations marked this release as mandatory',
     () {
       final decision = AppUpgradePolicy.evaluate(
@@ -46,6 +63,38 @@ void main() {
       expect(decision.showUpdate, isTrue);
       expect(decision.forceUpdate, isFalse);
       expect(decision.storeUrl, 'https://apps.apple.com/app/kando');
+    },
+  );
+
+  test(
+    'policy forces only versions below the minimum because newer supported builds may defer the recommendation',
+    () {
+      const config = AppUpgradeConfig(
+        upgradePrompt: UpgradePrompt(
+          latestVersion: '2.0.0',
+          minVersion: '1.2.0',
+          forceUpdate: true,
+          title: 'Update available',
+          message: 'A newer version is available.',
+          forcedMessage: 'Update to continue.',
+          storeUrl: 'https://apps.apple.com/app/kando',
+        ),
+      );
+
+      final supported = AppUpgradePolicy.evaluate(
+        currentVersion: '1.5.0',
+        config: config,
+      );
+      final unsupported = AppUpgradePolicy.evaluate(
+        currentVersion: '1.0.0',
+        config: config,
+      );
+
+      expect(supported.forceUpdate, isFalse);
+      expect(supported.message, 'A newer version is available.');
+      expect(unsupported.forceUpdate, isTrue);
+      expect(unsupported.title, 'Update required');
+      expect(unsupported.message, 'Update to continue.');
     },
   );
 

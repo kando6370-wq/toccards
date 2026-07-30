@@ -1,0 +1,15 @@
+Card AI helps trading card collectors identify cards, organize their collection, and follow market information.
+
+SCAN WITH CONTROL
+Capture a card or choose photos from your library. Card images are processed on your device to create recognition hashes. Review suggested matches before anything is added to your portfolio.
+
+ORGANIZE YOUR COLLECTION
+Track quantities, conditions, grading details, purchase values, and notes. Use folders to keep different parts of your portfolio organized, and save cards to your Wishlist for later.
+
+FOLLOW VALUE
+View current market information, price history, and portfolio changes in your selected currency. Card and price information may be incomplete or delayed and is provided for collection management, not financial advice.
+
+USE IT YOUR WAY
+Start as a guest or sign in to keep an account. Manage preferences, contact support, review the Terms and Privacy Policy, and delete your account from within the app.
+
+Card AI currently focuses on trading card collection workflows, including scanning, search, card details, Portfolio, Wishlist, and market context.

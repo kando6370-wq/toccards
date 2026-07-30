@@ -1,15 +1,16 @@
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import app, { type Env } from "../index";
 import type {
   CardSearchResult,
   DataSourceAdapter,
   MarketPrice,
   PricePoint,
+  SetSearchResult,
   SoldListing,
 } from "./adapter";
-import { createMockDataSourceAdapter } from "./adapter";
 import { createDataSourceRoutes } from "./routes";
+import { createMockDataSourceAdapter } from "./test-support/mock-data-source-adapter";
 
 class FakeKvNamespace {
   values = new Map<string, string>();
@@ -42,6 +43,21 @@ type CardCatalogRow = {
   image_url: string | null;
 };
 
+type SetCatalogRow = {
+  game: string;
+  name: string;
+  set_code: string | null;
+  set_image_id: string | null;
+  total_cards: number | null;
+};
+
+type GameCatalogRow = {
+  game_id: number;
+  name: string;
+  load: number;
+  search_sort: number;
+};
+
 type TrendingPinRow = {
   card_ref: string;
   rank: number;
@@ -53,10 +69,19 @@ class FakeD1Database {
     private readonly cardOverrides: CardOverrideRow[] = [],
     private readonly cards: CardCatalogRow[] = [],
     private readonly trendingPins: TrendingPinRow[] = [],
+    private readonly sets: SetCatalogRow[] = [],
+    private readonly games: GameCatalogRow[] = [],
   ) {}
 
   prepare(sql: string): FakeD1Statement {
-    return new FakeD1Statement(sql, this.cardOverrides, this.cards, this.trendingPins);
+    return new FakeD1Statement(
+      sql,
+      this.cardOverrides,
+      this.cards,
+      this.trendingPins,
+      this.sets,
+      this.games,
+    );
   }
 }
 
@@ -66,6 +91,8 @@ class FakeD1Statement {
     private readonly cardOverrides: CardOverrideRow[],
     private readonly cards: CardCatalogRow[],
     private readonly trendingPins: TrendingPinRow[],
+    private readonly sets: SetCatalogRow[],
+    private readonly games: GameCatalogRow[],
   ) {}
 
   bind(...values: unknown[]): FakeD1BoundStatement {
@@ -74,6 +101,8 @@ class FakeD1Statement {
       this.cardOverrides,
       this.cards,
       this.trendingPins,
+      this.sets,
+      this.games,
       values,
     );
   }
@@ -84,6 +113,8 @@ class FakeD1Statement {
       this.cardOverrides,
       this.cards,
       this.trendingPins,
+      this.sets,
+      this.games,
       [],
     ).all<T>();
   }
@@ -95,6 +126,8 @@ class FakeD1BoundStatement {
     private readonly cardOverrides: CardOverrideRow[],
     private readonly cards: CardCatalogRow[],
     private readonly trendingPins: TrendingPinRow[],
+    private readonly sets: SetCatalogRow[],
+    private readonly games: GameCatalogRow[],
     private readonly values: unknown[],
   ) {}
 
@@ -120,6 +153,13 @@ class FakeD1BoundStatement {
   }
 
   async all<T>(): Promise<{ results: T[] }> {
+    if (this.sql.includes("FROM card_override")) {
+      const cardRefs = new Set(this.values.map(String));
+      return {
+        results: this.cardOverrides.filter((row) => cardRefs.has(row.card_ref)) as T[],
+      };
+    }
+
     if (this.sql.includes("FROM trending_pin")) {
       return {
         results: this.trendingPins
@@ -128,14 +168,102 @@ class FakeD1BoundStatement {
       };
     }
 
+    if (this.sql.includes("FROM games")) {
+      return {
+        results: this.games
+          .filter((game) => game.load === 1 && game.name.trim())
+          .sort(
+            (left, right) =>
+              left.search_sort - right.search_sort ||
+              left.game_id - right.game_id,
+          )
+          .map((game) => ({ id: String(game.game_id), name: game.name })) as T[],
+      };
+    }
+
+    if (this.sql.includes("FROM sets s")) {
+      const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
+      const hasGameFilter = this.sql.includes("lower(s.game) = lower(?)");
+      const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
+      const limit = Number(this.values[hasGameFilter ? 2 : 1]);
+      const offset = Number(this.values[hasGameFilter ? 3 : 2]);
+      const results = this.sets
+        .filter(
+          (set) =>
+            (game === null || set.game.toLowerCase() === game) &&
+            `${set.name} ${set.set_code ?? ""}`
+              .toLowerCase()
+              .includes(query) &&
+            Boolean(set.set_code?.trim()),
+        )
+        .sort((left, right) => left.name.localeCompare(right.name))
+        .slice(offset, offset + limit)
+        .map((set) => ({
+          set_code: set.set_code,
+          set_name: set.name,
+          game: set.game,
+          image_url: null,
+          image_card_ref: set.set_image_id?.trim() || null,
+          card_count: set.total_cards ?? 0,
+        }));
+      return { results: results as T[] };
+    }
+
     if (!this.sql.includes("FROM cards_all")) {
       return { results: [] };
     }
 
     const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
-    const limit = Number(this.values[1]);
-    const offset = Number(this.values[2]);
+    const hasGameFilter = this.sql.includes("lower(game) = lower(?)");
+    const hasSetFilter = this.sql.includes("lower(set_code) = lower(?)");
+    const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
+    const setCode = hasSetFilter
+      ? String(this.values[hasGameFilter ? 2 : 1]).toLowerCase()
+      : null;
+    const filterCount = Number(hasGameFilter) + Number(hasSetFilter);
+    const limit = Number(this.values[1 + filterCount]);
+    const offset = Number(this.values[2 + filterCount]);
+    const catalogCards = this.sql.includes("product_type_name = 'Cards'")
+      ? this.cards.filter((card) => card.product_type_name === "Cards")
+      : this.cards;
+    const gameCards = catalogCards.filter(
+      (card) =>
+        (game === null || card.game?.toLowerCase() === game) &&
+        (setCode === null || card.set_code?.toLowerCase() === setCode),
+    );
+
+    if (this.sql.includes("GROUP BY game_id")) {
+      const sets = new Map<string, Record<string, unknown>>();
+      for (const card of gameCards) {
+        if (
+          !`${card.set_name ?? ""} ${card.set_code ?? ""}`
+            .toLowerCase()
+            .includes(query) ||
+          !card.set_name?.trim() ||
+          !card.set_code?.trim()
+        ) {
+          continue;
+        }
+        const key = `${card.game_id}\u0000${card.set_code}\u0000${card.set_name}`;
+        const existing = sets.get(key);
+        if (existing) {
+          existing.card_count = Number(existing.card_count) + 1;
+        } else {
+          sets.set(key, {
+            set_code: card.set_code,
+            set_name: card.set_name,
+            game: card.game,
+            image_url: card.image_url,
+            image_card_ref: card.image_url ? card.product_id : null,
+            card_count: 1,
+          });
+        }
+      }
+      return { results: [...sets.values()].slice(offset, offset + limit) as T[] };
+    }
+
     const results = this.cards
+      .filter((card) => gameCards.includes(card))
       .filter((card) =>
         [card.name, card.set_name, card.set_code, card.rarity, card.game]
           .filter(Boolean)
@@ -150,6 +278,10 @@ class FakeD1BoundStatement {
 class FailingDataSourceAdapter implements DataSourceAdapter {
   async searchCards(): Promise<CardSearchResult[]> {
     throw new Error("Injected search failure.");
+  }
+
+  async searchSets(): Promise<SetSearchResult[]> {
+    throw new Error("Injected set search failure.");
   }
 
   async getCard(): Promise<CardSearchResult | null> {
@@ -178,6 +310,10 @@ class MissingCardDataSourceAdapter implements DataSourceAdapter {
     return [];
   }
 
+  async searchSets() {
+    return [];
+  }
+
   async getCard(): Promise<CardSearchResult | null> {
     return null;
   }
@@ -200,6 +336,10 @@ class MissingCardDataSourceAdapter implements DataSourceAdapter {
 }
 
 describe("data source routes", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("uses current D1 card catalog tables by default because M2 no longer depends on third-party mock data", async () => {
     const response = await app.request(
       "/api/v1/cards/search?q=pikachu",
@@ -233,12 +373,46 @@ describe("data source routes", () => {
         ],
         total: 1,
         page: 1,
-        page_size: 20,
+        page_size: 40,
       },
     });
   });
 
-  it("builds trending from active D1 pins and local card rows because the local catalog has no third-party trending feed", async () => {
+  it("returns only Cards products because the app card grid must exclude sealed products", async () => {
+    const response = await app.request(
+      "/api/v1/cards/search?q=charizard",
+      {},
+      createTestEnv([], [
+        {
+          product_id: "card-1",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Base Set",
+          set_code: "BS",
+          name: "Charizard",
+          rarity: "Rare",
+          product_type_name: "Cards",
+          image_url: null,
+        },
+        {
+          product_id: "box-1",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Base Set",
+          set_code: "BS",
+          name: "Charizard Booster Box",
+          rarity: null,
+          product_type_name: "Booster Box",
+          image_url: null,
+        },
+      ]),
+    );
+
+    const body = await response.json<{ data: { items: Array<{ card_ref: string }> } }>();
+    expect(body.data.items.map((item) => item.card_ref)).toEqual(["card-1"]);
+  });
+
+  it("does not let admin pins override Trending Today because the feed order is defined by real price change", async () => {
     const response = await app.request(
       "/api/v1/cards/trending",
       {},
@@ -262,22 +436,107 @@ describe("data source routes", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true, data: { items: [] } });
+  });
+
+  it("returns transformed R2 detail images and redirects the legacy image route to the R2 master because card rendering must not depend on provider images", async () => {
+    const imageUrl =
+      "https://product-images.tcgplayer.com/filters:quality(100)/9359.jpg";
+    const env = createTestEnv([], [
+      {
+        product_id: "9359",
+        game_id: 1,
+        game: "Magic",
+        set_name: "Odyssey",
+        set_code: "ODY",
+        name: "Escape Artist",
+        rarity: "Common",
+        product_type_name: "Cards",
+        image_url: imageUrl,
+      },
+    ]);
+    const detail = await app.request(
+      "https://api.tcgcard.fun/api/v1/cards/9359",
+      { headers: { Origin: "http://localhost:3000" } },
+      env,
+    );
+    const image = await app.request(
+      "https://api.tcgcard.fun/api/v1/cards/9359/image",
+      { headers: { Origin: "http://localhost:3000" } },
+      env,
+    );
+
+    expect(await detail.json()).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        card_ref: "9359",
+        image_url: "https://image.tcgcard.fun/cards/9359.jpg",
+      }),
+    });
+    expect(image.status).toBe(302);
+    expect(image.headers.get("location")).toBe(
+      "https://image.tcgcard.fun/cards/9359.jpg",
+    );
+    expect(image.headers.get("access-control-allow-origin")).toBe(
+      "http://localhost:3000",
+    );
+  });
+
+  it("ignores provider image hosts because every catalog card must render from R2", async () => {
+    const response = await app.request(
+      "/api/v1/cards/search?q=pikachu",
+      {},
+      createTestEnv([], [
+        {
+          product_id: "300",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Base Set",
+          set_code: "BS",
+          name: "Pikachu",
+          rarity: "Common",
+          product_type_name: "Cards",
+          image_url: "https://img.example/300.jpg",
+        },
+      ]),
+    );
+
     expect(await response.json()).toEqual({
       success: true,
       data: {
         items: [
           expect.objectContaining({
             card_ref: "300",
-            name: "Pikachu",
-            pinned: true,
-            override_applied: false,
+            image_url: "https://image.tcgcard.fun/cards/300.jpg",
           }),
         ],
+        total: 1,
+        page: 1,
+        page_size: 40,
       },
     });
   });
 
   it("keeps mock-backed M2 data proxy endpoints injectable because tests need a stable provider-independent contract", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          amount: 1,
+          base: "USD",
+          date: "2026-07-14",
+          rates: {
+            AUD: 1.4404,
+            CAD: 1.4112,
+            EUR: 0.87681,
+            GBP: 0.74717,
+            JPY: 162.22,
+            NZD: 1.724,
+            SGD: 1.2927,
+          },
+        }),
+      ),
+    );
     const routeApp = new Hono<{ Bindings: Env }>();
     routeApp.route(
       "/",
@@ -292,7 +551,7 @@ describe("data source routes", () => {
       {},
       env,
     );
-    const sets = await routeApp.request("/sets/search?q=charizard", {}, env);
+    const sets = await routeApp.request("/sets/search?q=t", {}, env);
     const detail = await routeApp.request(
       `/cards/${encodeURIComponent("mock:tcg:charizard-base-4")}`,
       {},
@@ -349,12 +608,14 @@ describe("data source routes", () => {
           {
             set_code: "BS",
             set_name: "Base Set",
+            game: null,
             image_url: null,
             card_count: 1,
           },
           {
             set_code: "EVO",
             set_name: "Evolutions",
+            game: null,
             image_url: null,
             card_count: 1,
           },
@@ -373,6 +634,7 @@ describe("data source routes", () => {
       }),
     });
     expect(marketPrices.status).toBe(200);
+    expect(marketPrices.headers.get("Cache-Control")).toBe("no-store");
     expect(await marketPrices.json()).toEqual({
       success: true,
       data: {
@@ -385,6 +647,7 @@ describe("data source routes", () => {
       },
     });
     expect(priceSeries.status).toBe(200);
+    expect(priceSeries.headers.get("Cache-Control")).toBe("no-store");
     expect(await priceSeries.json()).toEqual({
       success: true,
       data: {
@@ -416,6 +679,7 @@ describe("data source routes", () => {
       },
     });
     expect(soldListings.status).toBe(200);
+    expect(soldListings.headers.get("Cache-Control")).toBe("no-store");
     expect(await soldListings.json()).toEqual({
       success: true,
       data: {
@@ -436,8 +700,162 @@ describe("data source routes", () => {
       success: true,
       data: {
         base: "USD",
-        rates: { JPY: 155.32, EUR: 0.91 },
-        updated_at: expect.any(String),
+        rates: { JPY: 162.22, EUR: 0.87681 },
+        updated_at: "2026-07-14T00:00:00.000Z",
+        stale: false,
+      },
+    });
+  });
+
+  it("keeps sets with the same code separate across games because Search filters sets by their real game", async () => {
+    const env = createTestEnv(
+      [],
+      [
+        {
+          product_id: "pokemon-1",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Shared Pokemon Set",
+          set_code: "SHARED",
+          name: "Pokemon Card",
+          rarity: "Common",
+          product_type_name: "Cards",
+          image_url: null,
+        },
+        {
+          product_id: "pokemon-2",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Shared Pokemon Set",
+          set_code: "SHARED",
+          name: "Pokemon Card Two",
+          rarity: "Uncommon",
+          product_type_name: "Cards",
+          image_url: null,
+        },
+        {
+          product_id: "magic-1",
+          game_id: 1,
+          game: "Magic: The Gathering",
+          set_name: "Shared Magic Set",
+          set_code: "SHARED",
+          name: "Magic Card",
+          rarity: "Common",
+          product_type_name: "Cards",
+          image_url: null,
+        },
+      ],
+      [],
+      [
+        {
+          game: "Pokemon",
+          name: "Shared Pokemon Set",
+          set_code: "SHARED",
+          set_image_id: "pokemon-1",
+          total_cards: 2,
+        },
+        {
+          game: "Magic: The Gathering",
+          name: "Shared Magic Set",
+          set_code: "SHARED",
+          set_image_id: "magic-1",
+          total_cards: 1,
+        },
+      ],
+    );
+    const response = await app.request(
+      "/api/v1/sets/search?q=shared",
+      {},
+      env,
+    );
+    const filteredSets = await app.request(
+      "/api/v1/sets/search?game=Pokemon",
+      {},
+      env,
+    );
+    const filteredCards = await app.request(
+      "/api/v1/cards/search?game=Pokemon",
+      {},
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        items: [
+          expect.objectContaining({
+            set_code: "SHARED",
+            game: "Magic: The Gathering",
+            card_count: 1,
+          }),
+          expect.objectContaining({
+            set_code: "SHARED",
+            game: "Pokemon",
+            card_count: 2,
+            image_url:
+              "https://image.tcgcard.fun/cards/pokemon-1.jpg",
+          }),
+        ],
+        total: 2,
+        page: 1,
+        page_size: 20,
+      },
+    });
+    expect(await filteredSets.json()).toEqual({
+      success: true,
+      data: {
+        items: [
+          expect.objectContaining({
+            set_code: "SHARED",
+            game: "Pokemon",
+            card_count: 2,
+          }),
+        ],
+        total: 1,
+        page: 1,
+        page_size: 20,
+      },
+    });
+    expect(await filteredCards.json()).toMatchObject({
+      success: true,
+      data: {
+        items: [
+          { card_ref: "pokemon-1", game: "Pokemon" },
+          { card_ref: "pokemon-2", game: "Pokemon" },
+        ],
+      },
+    });
+  });
+
+  it("returns enabled games by search_sort because the database owns the Search default", async () => {
+    const env = createTestEnv(
+      [],
+      [],
+      [],
+      [],
+      [
+        { game_id: 3, name: "Pokemon", load: 1, search_sort: 0 },
+        {
+          game_id: 1,
+          name: "Magic: The Gathering",
+          load: 1,
+          search_sort: 1000,
+        },
+        { game_id: 9, name: "Disabled", load: 0, search_sort: -1 },
+      ],
+    );
+
+    const response = await app.request("/api/v1/games", {}, env);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        items: [
+          { id: "3", name: "Pokemon" },
+          { id: "1", name: "Magic: The Gathering" },
+        ],
       },
     });
   });
@@ -476,7 +894,7 @@ describe("data source routes", () => {
         name: "Corrected Charizard",
         set_code: "BS",
         rarity: "Promo",
-        image_url: "https://cdn.example.test/charizard.png",
+        image_url: "https://image.tcgcard.fun/cards/mock%3Atcg%3Acharizard-base-4.jpg",
         override_applied: true,
       }),
     });
@@ -526,7 +944,7 @@ describe("data source routes", () => {
         finish: null,
         language: "English",
         object_type: "tcg",
-        image_url: "https://cdn.example.test/missing-promo.png",
+        image_url: "https://image.tcgcard.fun/cards/admin%3Atcg%3Amissing-promo.jpg",
         rarity: "Promo",
         override_applied: true,
       },
@@ -564,7 +982,7 @@ describe("data source routes", () => {
           expect.objectContaining({
             card_ref: cardRef,
             name: "Trending Charizard",
-            image_url: "https://cdn.example.test/trending-charizard.png",
+            image_url: "https://image.tcgcard.fun/cards/mock%3Atcg%3Acharizard-base-4.jpg",
             pinned: false,
             override_applied: true,
           }),
@@ -578,7 +996,7 @@ describe("data source routes", () => {
     });
   });
 
-  it("returns documented fallback payloads when the adapter fails because proxy routes must degrade without 500s", async () => {
+  it("keeps list fallbacks but fails Trending loudly because clients must not mistake an outage for an empty ranking", async () => {
     const routeApp = new Hono<{ Bindings: Env }>();
     routeApp.route(
       "/",
@@ -628,7 +1046,7 @@ describe("data source routes", () => {
     expect(search.status).toBe(200);
     expect(await search.json()).toEqual({
       success: true,
-      data: { items: [], total: 0, page: 1, page_size: 20 },
+      data: { items: [], total: 0, page: 1, page_size: 40 },
     });
     expect(sets.status).toBe(200);
     expect(await sets.json()).toEqual({
@@ -656,11 +1074,7 @@ describe("data source routes", () => {
         series: [],
       },
     });
-    expect(trending.status).toBe(200);
-    expect(await trending.json()).toEqual({
-      success: true,
-      data: { items: [] },
-    });
+    expect(trending.status).toBe(500);
     expect(soldListings.status).toBe(200);
     expect(await soldListings.json()).toEqual({
       success: true,
@@ -672,15 +1086,86 @@ describe("data source routes", () => {
       error: { code: "NOT_FOUND", message: "Not found." },
     });
   });
+
+  it("batches price series in request order because Card Detail must avoid one HTTP round trip per chart dimension", async () => {
+    const routeApp = new Hono<{ Bindings: Env }>();
+    routeApp.route(
+      "/",
+      createDataSourceRoutes({
+        createAdapter: () => createMockDataSourceAdapter(),
+      }),
+    );
+    const path = `/cards/${encodeURIComponent(
+      "mock:tcg:charizard-base-4",
+    )}/price-series/batch`;
+    const response = await routeApp.request(
+      path,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requests: [
+            { grader: "Raw", grade: null, condition: "Near Mint", days: 30 },
+            { grader: "PSA", grade: 10, condition: null, days: 90 },
+          ],
+        }),
+      },
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toEqual({
+      success: true,
+      data: {
+        card_ref: "mock:tcg:charizard-base-4",
+        results: [
+          expect.objectContaining({
+            grader: "Raw",
+            grade: null,
+            condition: "Near Mint",
+            days: 30,
+            series: expect.any(Array),
+          }),
+          expect.objectContaining({
+            grader: "PSA",
+            grade: 10,
+            condition: null,
+            days: 90,
+            series: expect.any(Array),
+          }),
+        ],
+      },
+    });
+
+    const invalid = await routeApp.request(
+      path,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requests: [] }),
+      },
+      createTestEnv(),
+    );
+    expect(invalid.status).toBe(422);
+  });
 });
 
 function createTestEnv(
   cardOverrides: CardOverrideRow[] = [],
   cards: CardCatalogRow[] = [],
   trendingPins: TrendingPinRow[] = [],
+  sets: SetCatalogRow[] = [],
+  games: GameCatalogRow[] = [],
 ): Env {
   return {
-    DB: new FakeD1Database(cardOverrides, cards, trendingPins) as unknown as D1Database,
+    DB: new FakeD1Database(
+      cardOverrides,
+      cards,
+      trendingPins,
+      sets,
+      games,
+    ) as unknown as D1Database,
     CACHE_KV: new FakeKvNamespace() as unknown as KVNamespace,
     JWT_SECRET: "test-secret",
   };

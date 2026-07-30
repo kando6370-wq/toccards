@@ -17,6 +17,10 @@ export function createCacheApiDataSourceAdapter(
       return source.searchCards(query, options);
     },
 
+    searchSets(query, options) {
+      return source.searchSets(query, options);
+    },
+
     getCard(card_ref) {
       return source.getCard(card_ref);
     },
@@ -35,8 +39,8 @@ export function createCacheApiDataSourceAdapter(
       );
     },
 
-    getTrending() {
-      return source.getTrending();
+    getTrending(options) {
+      return source.getTrending(options);
     },
 
     getSoldListings(card_ref) {
@@ -101,7 +105,7 @@ function cacheRequest(key: string): Request {
 }
 
 function marketPricesCacheKey(card_ref: string): string {
-  return ["getMarketPrices", cacheKeyPart(card_ref)].join(":");
+  return ["getMarketPrices", "v2", cacheKeyPart(card_ref)].join(":");
 }
 
 function priceSeriesCacheKey(
@@ -113,6 +117,7 @@ function priceSeriesCacheKey(
 ): string {
   return [
     "getPriceSeries",
+    "v2",
     cacheKeyPart(card_ref),
     cacheKeyPart(grader),
     nullableCacheKeyPart(grade),
@@ -122,7 +127,7 @@ function priceSeriesCacheKey(
 }
 
 function soldListingsCacheKey(card_ref: string): string {
-  return ["getSoldListings", cacheKeyPart(card_ref)].join(":");
+  return ["getSoldListings", "v4", cacheKeyPart(card_ref)].join(":");
 }
 
 function nullableCacheKeyPart(value: string | number | null): string {

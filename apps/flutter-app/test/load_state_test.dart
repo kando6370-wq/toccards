@@ -5,7 +5,7 @@ import 'package:kando_app/shared/ui/load_state.dart';
 void main() {
   test('global load state copy matches PRD fallback text', () {
     expect(noContentAvailableText, 'No content available');
-    expect(refreshText, 'Refresh');
+    expect(refreshText, 'REFRESH');
   });
 
   testWidgets('loading block uses the shared progress indicator', (

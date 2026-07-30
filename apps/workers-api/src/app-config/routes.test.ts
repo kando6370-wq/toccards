@@ -49,6 +49,12 @@ describe("public app config routes", () => {
         }),
       ),
       appConfigRow("app_store_url", "https://apps.apple.com/app/kando"),
+      appConfigRow(
+        "card_share_base_url",
+        "https://api.tcgcard.fun/share/cards",
+      ),
+      appConfigRow("terms_url", "https://www.tcgcard.fun/terms"),
+      appConfigRow("privacy_url", "https://www.tcgcard.fun/privacy"),
       appConfigRow("announcement", "{\"title\":\"Ops only\"}"),
     ]);
 
@@ -66,6 +72,10 @@ describe("public app config routes", () => {
           store_url: "https://apps.apple.com/app/kando",
         },
         app_store_url: "https://apps.apple.com/app/kando",
+        card_share_base_url: "https://api.tcgcard.fun/share/cards",
+        terms_url: "https://www.tcgcard.fun/terms",
+        privacy_url: "https://www.tcgcard.fun/privacy",
+        mixpanel_project_token: "public-project-token",
       },
     });
   });
@@ -84,6 +94,72 @@ describe("public app config routes", () => {
       data: {
         upgrade_prompt: null,
         app_store_url: "https://apps.apple.com/app/kando",
+        card_share_base_url: null,
+        terms_url: null,
+        privacy_url: null,
+        mixpanel_project_token: "public-project-token",
+      },
+    });
+  });
+
+  it("exposes only the Mixpanel project token because API secrets must remain server-side", async () => {
+    const env = createTestEnv([]);
+
+    const response = await app.request("/api/v1/app-config", {}, env);
+    const body = await response.json();
+
+    expect(body).toMatchObject({
+      data: { mixpanel_project_token: "public-project-token" },
+    });
+    expect(JSON.stringify(body)).not.toContain("server-api-secret");
+  });
+
+  it("returns each platform store URL even when its update prompt is disabled", async () => {
+    const env = createTestEnv([
+      appConfigRow(
+        "admin.app_version.ios",
+        JSON.stringify({
+          status: "enabled",
+          min_supported_version: "1.2.0",
+          recommended_version: "1.5.0",
+          force_update: true,
+          store_url: "https://apps.apple.com/app/kando",
+          recommended_update_message: "A newer version is available.",
+          forced_update_message: "Update to continue.",
+        }),
+      ),
+      appConfigRow(
+        "admin.app_version.google",
+        JSON.stringify({
+          status: "disabled",
+          min_supported_version: "1.1.0",
+          recommended_version: "1.4.0",
+          force_update: true,
+          store_url: "https://play.google.com/store/apps/details?id=com.kando",
+        }),
+      ),
+    ]);
+
+    const ios = await app.request("/api/v1/app-config?platform=ios", {}, env);
+    const google = await app.request("/api/v1/app-config?platform=google", {}, env);
+
+    expect(await ios.json()).toMatchObject({
+      data: {
+        app_store_url: "https://apps.apple.com/app/kando",
+        upgrade_prompt: {
+          latest_version: "1.5.0",
+          min_version: "1.2.0",
+          force_update: true,
+          forced_message: "Update to continue.",
+          store_url: "https://apps.apple.com/app/kando",
+        },
+      },
+    });
+    expect(await google.json()).toMatchObject({
+      data: {
+        app_store_url:
+          "https://play.google.com/store/apps/details?id=com.kando",
+        upgrade_prompt: null,
       },
     });
   });
@@ -103,6 +179,8 @@ function createTestEnv(appConfigs: AppConfigRow[]): Env {
     DB: new FakeD1(appConfigs) as unknown as D1Database,
     CACHE_KV: {} as KVNamespace,
     JWT_SECRET: "test-secret",
+    MIXPANEL_PROJECT_TOKEN: "public-project-token",
+    MIXPANEL_API_SECRET: "server-api-secret",
   };
 }
 

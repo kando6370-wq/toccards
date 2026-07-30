@@ -23,17 +23,18 @@ tcg-card 是一款 iOS 集卡管理应用，支持 TCG 单卡、体育卡、Seal
 7. [`03-data-api/api-spec.md`](03-data-api/api-spec.md) — REST API 规范（含管理员鉴权）
 8. [`03-data-api/third-party.md`](03-data-api/third-party.md) — 卡牌数据源适配层
 9. [`00-product/modules/global-rules.md`](00-product/modules/global-rules.md) — 全局跨切面规则（文案/错误码/金额/图片）
-10. [`00-product/modules/auth.md`](00-product/modules/auth.md) — 注册登录模块
-11. [`00-product/modules/profile.md`](00-product/modules/profile.md) — 个人中心模块
-12. [`00-product/modules/home.md`](00-product/modules/home.md) — 首页模块
-13. [`00-product/modules/collection.md`](00-product/modules/collection.md) — Collection 模块
-14. [`00-product/modules/search.md`](00-product/modules/search.md) — 搜索模块
-15. [`00-product/modules/card-detail.md`](00-product/modules/card-detail.md) — 卡牌详情模块
-16. [`00-product/modules/scan.md`](00-product/modules/scan.md) — 扫描模块（v1.0 占位）
-17. [`01-flows/flows.md`](01-flows/flows.md) — 关键业务流程
-18. [`01-flows/state-machines.md`](01-flows/state-machines.md) — 状态机
-19. [`04-admin/admin.md`](04-admin/admin.md) — 后台管理系统
-20. [`05-plan/dev-plan.md`](05-plan/dev-plan.md) — 开发计划与里程碑
+10. [`00-product/ui-design-system.md`](00-product/ui-design-system.md) — Figma UI 设计系统硬规范（所有 App UI 修改必须遵守）
+11. [`00-product/modules/auth.md`](00-product/modules/auth.md) — 注册登录模块
+12. [`00-product/modules/profile.md`](00-product/modules/profile.md) — 个人中心模块
+13. [`00-product/modules/home.md`](00-product/modules/home.md) — 首页模块
+14. [`00-product/modules/collection.md`](00-product/modules/collection.md) — Collection 模块
+15. [`00-product/modules/search.md`](00-product/modules/search.md) — 搜索模块
+16. [`00-product/modules/card-detail.md`](00-product/modules/card-detail.md) — 卡牌详情模块
+17. [`00-product/modules/scan.md`](00-product/modules/scan.md) — 扫描模块（v1.0 占位）
+18. [`01-flows/flows.md`](01-flows/flows.md) — 关键业务流程
+19. [`01-flows/state-machines.md`](01-flows/state-machines.md) — 状态机
+20. [`04-admin/admin.md`](04-admin/admin.md) — 后台管理系统
+21. [`05-plan/dev-plan.md`](05-plan/dev-plan.md) — 开发计划与里程碑
 
 ---
 
@@ -46,6 +47,7 @@ docs/tcg-card/
 ├── 00-product/
 │   ├── overview.md                        产品总览、v1.0 范围、底部导航
 │   ├── glossary.md                        术语表
+│   ├── ui-design-system.md                Figma UI 设计系统硬规范（所有 App UI 修改必须遵守）
 │   └── modules/
 │       ├── global-rules.md                跨切面规则（文案/错误码/金额/图片/网络）
 │       ├── auth.md                        注册登录（邮箱、Google、Apple、匿名）

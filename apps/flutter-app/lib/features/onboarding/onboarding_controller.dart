@@ -1,40 +1,51 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/app_startup_preloader.dart';
 import 'onboarding_repository.dart';
 
 final onboardingControllerProvider =
-    NotifierProvider<OnboardingController, OnboardingState>(
-      OnboardingController.new,
+    AsyncNotifierProvider<OnboardingController, bool>(OnboardingController.new);
+
+final startupProgressFinishingProvider =
+    NotifierProvider<StartupProgressFinishingController, bool>(
+      StartupProgressFinishingController.new,
     );
 
-class OnboardingState {
-  const OnboardingState({required this.slides, required this.completed});
+class StartupProgressFinishingController extends Notifier<bool> {
+  @override
+  bool build() => false;
 
-  final List<OnboardingSlide> slides;
-  final bool completed;
-
-  bool get shouldShow => !completed && slides.isNotEmpty;
-
-  OnboardingState copyWith({bool? completed}) {
-    return OnboardingState(
-      slides: slides,
-      completed: completed ?? this.completed,
-    );
-  }
+  void finish() => state = true;
 }
 
-class OnboardingController extends Notifier<OnboardingState> {
+class OnboardingController extends AsyncNotifier<bool> {
+  static const minimumSplashDuration = Duration(seconds: 3);
+  static const progressCompletionDuration = Duration(milliseconds: 180);
+  static const completedProgressHoldDuration = Duration(milliseconds: 120);
+
   @override
-  OnboardingState build() {
-    final repository = ref.watch(onboardingRepositoryProvider);
-    return OnboardingState(
-      slides: repository.loadSlides(),
-      completed: repository.readCompleted(),
+  Future<bool> build() async {
+    final completed = ref.watch(onboardingRepositoryProvider).readCompleted();
+    await Future.wait<void>([
+      Future<void>.delayed(minimumSplashDuration),
+      ref.watch(appStartupPreloaderProvider.future),
+    ]);
+    final completedValue = await completed;
+    ref.read(startupProgressFinishingProvider.notifier).finish();
+    await Future<void>.delayed(
+      progressCompletionDuration + completedProgressHoldDuration,
     );
+    return completedValue;
   }
 
-  void complete() {
-    ref.read(onboardingRepositoryProvider).markCompleted();
-    state = state.copyWith(completed: true);
+  Future<bool> complete() async {
+    try {
+      await ref.read(onboardingRepositoryProvider).markCompleted();
+      if (!ref.mounted) return false;
+      state = const AsyncData(true);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }

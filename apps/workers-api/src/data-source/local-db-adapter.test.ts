@@ -7,14 +7,24 @@ type CardRow = {
   game: string | null;
   set_name: string | null;
   set_code: string | null;
+  number: string | null;
   name: string | null;
   rarity: string | null;
   product_type_name: string | null;
+  image_url: string | null;
+};
+
+type SetRow = {
+  game: string;
+  name: string;
+  set_code: string | null;
+  set_image_id: string | null;
+  total_cards: number | null;
 };
 
 type SkuRow = {
   sku_id: number;
-  product_id: number;
+  product_id: string | number;
   condition_code: string | null;
   condition_name: string | null;
   language_code: string | null;
@@ -22,16 +32,25 @@ type SkuRow = {
   variant_code: string | null;
   variant_name: string | null;
   price_history: string;
+  increase_rate: number | null;
 };
 
 class FakeCardDatabase {
   constructor(
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
+    private readonly sets: SetRow[] = [],
+    private readonly hasNumberColumn = true,
   ) {}
 
+  readonly preparedSql: string[] = [];
+
   prepare(sql: string): FakeStatement {
-    return new FakeStatement(sql, this.cards, this.skus);
+    this.preparedSql.push(sql);
+    if (!this.hasNumberColumn && sql.includes("coalesce(number")) {
+      throw new Error("no such column: number");
+    }
+    return new FakeStatement(sql, this.cards, this.skus, this.sets);
   }
 }
 
@@ -40,10 +59,15 @@ class FakeStatement {
     private readonly sql: string,
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
+    private readonly sets: SetRow[],
   ) {}
 
   bind(...values: unknown[]): FakeBoundStatement {
-    return new FakeBoundStatement(this.sql, this.cards, this.skus, values);
+    return new FakeBoundStatement(this.sql, this.cards, this.skus, this.sets, values);
+  }
+
+  all<T>(): Promise<{ results: T[] }> {
+    return new FakeBoundStatement(this.sql, this.cards, this.skus, this.sets, []).all<T>();
   }
 }
 
@@ -52,24 +76,136 @@ class FakeBoundStatement {
     private readonly sql: string,
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
+    private readonly sets: SetRow[],
     private readonly values: unknown[],
   ) {}
 
   async all<T>(): Promise<{ results: T[] }> {
-    if (this.sql.includes("image_url")) {
-      throw new Error("no such column: image_url");
+    if (this.sql.includes("SELECT 1 AS has_trending")) {
+      const results = this.skus.some((row) => row.increase_rate !== null)
+        ? [{ has_trending: 1 }]
+        : [];
+      return { results: results as T[] };
+    }
+
+    if (this.sql.includes("FROM tcgplayer_skus AS sku")) {
+      const highestSkuByProduct = new Map<string, SkuRow>();
+      for (const sku of this.skus.filter((row) => row.increase_rate !== null)) {
+        const productId = String(sku.product_id);
+        const current = highestSkuByProduct.get(productId);
+        if (
+          !current ||
+          sku.increase_rate! > current.increase_rate! ||
+          (sku.increase_rate === current.increase_rate && sku.sku_id < current.sku_id)
+        ) {
+          highestSkuByProduct.set(productId, sku);
+        }
+      }
+      const results = [...highestSkuByProduct.values()]
+        .sort(
+          (left, right) =>
+            right.increase_rate! - left.increase_rate! || left.sku_id - right.sku_id,
+        )
+        .slice(0, 10)
+        .flatMap((sku) => {
+          const card = this.cards.find(
+            (candidate) => candidate.product_id === String(sku.product_id),
+          );
+          return card ? [{ ...card, ...sku, product_id: card.product_id }] : [];
+        });
+      return { results: results as T[] };
+    }
+
+    if (this.sql.includes("FROM sets s")) {
+      const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
+      const hasGameFilter = this.sql.includes("lower(s.game) = lower(?)");
+      const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
+      const limit = Number(this.values[hasGameFilter ? 2 : 1]);
+      const offset = Number(this.values[hasGameFilter ? 3 : 2]);
+      const results = this.sets
+        .filter(
+          (set) =>
+            (game === null || set.game.toLowerCase() === game) &&
+            `${set.name} ${set.set_code ?? ""}`
+              .toLowerCase()
+              .includes(query) &&
+            Boolean(set.set_code?.trim()),
+        )
+        .sort((left, right) => left.name.localeCompare(right.name))
+        .slice(offset, offset + limit)
+        .map((set) => ({
+          set_code: set.set_code,
+          set_name: set.name,
+          game: set.game,
+          image_url: null,
+          image_card_ref: set.set_image_id?.trim() || null,
+          card_count: set.total_cards ?? 0,
+        }));
+      return { results: results as T[] };
     }
 
     if (this.sql.includes("FROM cards_all") && this.sql.includes("LIKE")) {
-      const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
+      const queryCount = this.sql.split(") LIKE ?").length - 1;
+      const queries = this.values
+        .slice(0, queryCount)
+        .map((value) => String(value).replaceAll("%", "").toLowerCase());
+      const hasGameFilter = this.sql.includes("lower(game) = lower(?)");
+      const hasSetFilter = this.sql.includes("lower(set_code) = lower(?)");
+      const game = hasGameFilter
+        ? String(this.values[queryCount]).toLowerCase()
+        : null;
+      const setCode = hasSetFilter
+        ? String(this.values[queryCount + Number(hasGameFilter)]).toLowerCase()
+        : null;
       const objectType = objectTypeFilterFromSql(this.sql);
-      const limit = Number(this.values[1]);
-      const offset = Number(this.values[2]);
-      const results = this.cards
+      const filterCount = Number(hasGameFilter) + Number(hasSetFilter);
+      const limit = Number(this.values[queryCount + filterCount]);
+      const offset = Number(this.values[queryCount + filterCount + 1]);
+      const gameCards = this.cards.filter(
+        (card) =>
+          (game === null || card.game?.toLowerCase() === game) &&
+          (setCode === null || card.set_code?.toLowerCase() === setCode),
+      );
+
+      if (this.sql.includes("GROUP BY game_id")) {
+        const sets = new Map<string, Record<string, unknown>>();
+        for (const card of gameCards) {
+          if (
+            !`${card.set_name ?? ""} ${card.set_code ?? ""}`
+              .toLowerCase()
+              .includes(queries[0] ?? "") ||
+            !card.set_name?.trim() ||
+            !card.set_code?.trim()
+          ) {
+            continue;
+          }
+          const key = `${card.game_id}\u0000${card.set_code}\u0000${card.set_name}`;
+          const existing = sets.get(key);
+          if (existing) {
+            existing.card_count = Number(existing.card_count) + 1;
+          } else {
+            sets.set(key, {
+              set_code: card.set_code,
+              set_name: card.set_name,
+              game: card.game,
+              image_url: card.image_url,
+              image_card_ref: card.image_url ? card.product_id : null,
+              card_count: 1,
+            });
+          }
+        }
+        return {
+          results: [...sets.values()].slice(offset, offset + limit) as T[],
+        };
+      }
+
+      const results = gameCards
         .filter((card) =>
-          [card.name, card.set_name, card.set_code, card.rarity, card.game]
-            .filter(Boolean)
-            .some((value) => value!.toLowerCase().includes(query)),
+          queries.every((query) =>
+            `${card.name ?? ""} ${card.number ?? ""} ${card.set_name ?? ""} ${card.set_code ?? ""} ${card.rarity ?? ""} ${card.game ?? ""}`
+              .toLowerCase()
+              .includes(query),
+          ),
         )
         .filter((card) => {
           return objectType === null || objectTypeFromProductType(card.product_type_name) === objectType;
@@ -79,10 +215,16 @@ class FakeBoundStatement {
       return { results: results as T[] };
     }
 
+    if (this.sql.includes("FROM cards_all")) {
+      return { results: this.cards as T[] };
+    }
+
     if (this.sql.includes("FROM tcgplayer_skus")) {
-      const productId = Number(this.values[0]);
+      const productIds = new Set(this.values.map(String));
       return {
-        results: this.skus.filter((sku) => sku.product_id === productId) as T[],
+        results: this.skus.filter((sku) =>
+          productIds.has(String(sku.product_id)),
+        ).map((sku) => ({ ...sku, product_id: String(sku.product_id) })) as T[],
       };
     }
 
@@ -90,10 +232,6 @@ class FakeBoundStatement {
   }
 
   async first<T>(): Promise<T | null> {
-    if (this.sql.includes("image_url")) {
-      throw new Error("no such column: image_url");
-    }
-
     if (this.sql.includes("FROM cards_all")) {
       const cardRef = String(this.values[0]);
       return (this.cards.find((card) => card.product_id === cardRef) ?? null) as T | null;
@@ -108,7 +246,7 @@ describe("local D1 card data source adapter", () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [
-          card({ product_id: "100", name: "Charizard", product_type_name: "Cards" }),
+          card({ product_id: "100", name: "Charizard", number: "4/102", product_type_name: "Cards" }),
           card({ product_id: "200", name: "Charizard Booster Box", product_type_name: "Booster Box" }),
         ],
         [],
@@ -125,9 +263,10 @@ describe("local D1 card data source adapter", () => {
       {
         card_ref: "100",
         name: "Charizard",
+        game: "Pokemon",
         set_name: "Base Set",
         set_code: "BS",
-        card_number: "",
+        card_number: "4/102",
         finish: null,
         language: null,
         object_type: "tcg",
@@ -135,6 +274,45 @@ describe("local D1 card data source adapter", () => {
         rarity: "Rare Holo",
       },
     ]);
+  });
+
+  it("loads a card number by id because scan disambiguation compares exact printings", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Leafeon ex", number: "200/187" })],
+        [],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getCard("100")).resolves.toMatchObject({
+      card_ref: "100",
+      card_number: "200/187",
+    });
+  });
+
+  it("returns only the card's distinct SKU qualifiers because collection editing must not offer nonexistent variants", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Leafeon ex" })],
+        [
+          sku({ sku_id: 1, language_name: "Japanese", variant_name: "Normal" }),
+          sku({ sku_id: 2, language_name: "English", variant_name: "Holofoil" }),
+          sku({ sku_id: 3, language_name: "English", variant_name: "Holofoil" }),
+          sku({
+            sku_id: 4,
+            language_name: null,
+            language_code: "FR",
+            variant_name: null,
+            variant_code: "Foil",
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getCard("100")).resolves.toMatchObject({
+      available_languages: ["English", "FR", "Japanese"],
+      available_finishes: ["Foil", "Holofoil", "Normal"],
+    });
   });
 
   it("parses tcgplayer_skus price_history with JSON because price strings must become numeric market data", async () => {
@@ -163,6 +341,383 @@ describe("local D1 card data source adapter", () => {
       { date: "2026-07-01", price: 12.5 },
       { date: "2026-07-08", price: 15.75 },
     ]);
+    await expect(
+      adapter.getPriceSeries("100", "Raw", null, "Near Mint", 1),
+    ).resolves.toEqual([
+      { date: "2026-07-01", price: 12.5 },
+      { date: "2026-07-08", price: 15.75 },
+    ]);
+  });
+
+  it("searches by card name and number together because collectors use the number to identify an exact printing", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [
+          card({ product_id: "100", name: "Vaporeon", number: "022/131" }),
+          card({ product_id: "200", name: "Vaporeon", number: "030/131" }),
+        ],
+        [],
+      ) as unknown as D1Database,
+    );
+
+    const cards = await adapter.searchCards("VAPOREON 022/131");
+
+    expect(cards.map((card) => card.card_ref)).toEqual(["100"]);
+  });
+
+  it("matches every search term across card fields because abbreviated queries need not be one literal phrase", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [
+          card({
+            product_id: "100",
+            name: "Charizard ex",
+            set_name: "Mega Evolution",
+          }),
+          card({ product_id: "200", name: "Charizard ex", set_name: "Base Set" }),
+        ],
+        [],
+      ) as unknown as D1Database,
+    );
+
+    const cards = await adapter.searchCards("  MEGA   ch  ");
+
+    expect(cards.map((card) => card.card_ref)).toEqual(["100"]);
+  });
+
+  it("keeps name search working without the optional number column because older local catalogs must remain usable", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Vaporeon" })],
+        [],
+        [],
+        false,
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.searchCards("vaporeon")).resolves.toMatchObject([
+      { card_ref: "100", name: "Vaporeon" },
+    ]);
+  });
+
+  it("prefers the freshest same-specification row because a provider refresh must replace stale imported prices", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            sku_id: 1,
+            product_id: 100,
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-08" },
+            ]),
+          }),
+          sku({
+            sku_id: 2,
+            product_id: 100,
+            price_history: JSON.stringify([
+              { price: 12, date: "2026-07-16" },
+              { price: 13, date: "2026-07-17" },
+            ]),
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getMarketPrices("100")).resolves.toEqual([
+      { grader: "Raw", grade: null, condition: "Near Mint", price: 13 },
+    ]);
+    await expect(
+      adapter.getPriceSeries("100", "Raw", null, "Near Mint", 30),
+    ).resolves.toEqual([
+      { date: "2026-07-16", price: 12 },
+      { date: "2026-07-17", price: 13 },
+    ]);
+  });
+
+  it("filters by game before paging and counts the complete set because Search Game controls both tabs", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [
+          card({ product_id: "100", name: "Pokemon One" }),
+          card({ product_id: "101", name: "Pokemon Two" }),
+          card({
+            product_id: "200",
+            game_id: 1,
+            game: "Magic: The Gathering",
+            name: "Magic One",
+          }),
+        ],
+        [],
+        [
+          {
+            game: "Pokemon",
+            name: "Base Set",
+            set_code: "BS",
+            set_image_id: "100",
+            total_cards: 2,
+          },
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(
+      adapter.searchCards("one", { game: "Pokemon", page_size: 1 }),
+    ).resolves.toMatchObject([{ card_ref: "100", game: "Pokemon" }]);
+    await expect(
+      adapter.searchSets("base", { game: "Pokemon", page_size: 1 }),
+    ).resolves.toEqual([
+      {
+        set_code: "BS",
+        set_name: "Base Set",
+        game: "Pokemon",
+        image_url: null,
+        image_card_ref: "100",
+        card_count: 2,
+      },
+    ]);
+    await expect(
+      adapter.searchCards("", {
+        game: "Pokemon",
+        set_code: "BS",
+        page_size: 10,
+      }),
+    ).resolves.toHaveLength(2);
+  });
+
+  it("adds the preferred SKU price to search results because Search must show real market reference data without per-card HTTP requests", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            sku_id: 1,
+            variant_code: "F",
+            variant_name: "Foil",
+            price_history: JSON.stringify([
+              { price: "12.50", date: "2026-06-01" },
+              { price: "15.75", date: "2026-07-08" },
+            ]),
+          }),
+          sku({
+            sku_id: 2,
+            variant_code: "N",
+            variant_name: "Normal",
+            price_history: JSON.stringify([
+              { price: "9.25", date: "2026-06-01" },
+              { price: "10.50", date: "2026-07-08" },
+            ]),
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.searchCards("charizard")).resolves.toMatchObject([
+      {
+        card_ref: "100",
+        finish: "Normal",
+        language: "English",
+        price_usd: 10.5,
+        previous_30d_price_usd: 9.25,
+      },
+    ]);
+  });
+
+  it("uses one preferred SKU per condition because chart series must not interleave languages and finishes", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            sku_id: 1,
+            variant_code: "F",
+            variant_name: "Foil",
+            price_history: JSON.stringify([
+              { price: 20, date: "2026-07-01" },
+              { price: 22, date: "2026-07-08" },
+            ]),
+          }),
+          sku({
+            sku_id: 2,
+            variant_code: "N",
+            variant_name: "Normal",
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-01" },
+              { price: 12, date: "2026-07-08" },
+            ]),
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getMarketPrices("100")).resolves.toEqual([
+      { grader: "Raw", grade: null, condition: "Near Mint", price: 12 },
+    ]);
+    await expect(
+      adapter.getPriceSeries("100", "Raw", null, "Near Mint", 30),
+    ).resolves.toEqual([
+      { date: "2026-07-01", price: 10 },
+      { date: "2026-07-08", price: 12 },
+    ]);
+  });
+
+  it("builds Shop rows from real SKU history because Card Detail must not rely on mock marketplace data", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            condition_name: "Near Mint",
+            language_name: "English",
+            variant_name: "Normal",
+            price_history: JSON.stringify([
+              { price: 12.5, date: "2026-07-01" },
+              { price: 15.75, date: "2026-07-08" },
+            ]),
+          }),
+          sku({
+            sku_id: 3,
+            condition_code: "LP",
+            condition_name: "Lightly Played",
+            language_name: "English",
+            variant_name: "Normal",
+            price_history: JSON.stringify([
+              { price: 11, date: "2026-07-01" },
+              { price: 12, date: "2026-07-10" },
+            ]),
+          }),
+          sku({
+            sku_id: 2,
+            variant_name: "Foil",
+            price_history: "[]",
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getSoldListings("100")).resolves.toEqual([
+      {
+        date: "2026-07-10",
+        title: "Charizard / Lightly Played / English / Normal",
+        price: 12,
+        platform: "TCGplayer",
+        url: "https://www.tcgplayer.com/product/100",
+      },
+      {
+        date: "2026-07-08",
+        title: "Charizard / Near Mint / English / Normal",
+        price: 15.75,
+        platform: "TCGplayer",
+        url: "https://www.tcgplayer.com/product/100",
+      },
+    ]);
+  });
+
+  it("ranks Trending Today by non-null stored SKU increase because Home must show the same SKU price it ranked", async () => {
+    const db = new FakeCardDatabase(
+        [
+          card({ product_id: "100", name: "Small Mover" }),
+          card({ product_id: "200", name: "Largest Mover" }),
+          card({ product_id: "300", name: "Missing Increase" }),
+          card({ product_id: "400", name: "Falling Card" }),
+        ],
+        [
+          sku({
+            product_id: 100,
+            increase_rate: 5,
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-14" },
+              { price: 11, date: "2026-07-15" },
+            ]),
+          }),
+          sku({
+            sku_id: 2,
+            product_id: 200,
+            increase_rate: 40,
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-12" },
+              { price: 15, date: "2026-07-15" },
+            ]),
+          }),
+          sku({
+            sku_id: 3,
+            product_id: 200,
+            variant_code: "F",
+            variant_name: "Foil",
+            increase_rate: 60,
+            price_history: JSON.stringify([
+              { price: 20, date: "2026-07-14" },
+              { price: 25, date: "2026-07-15" },
+            ]),
+          }),
+          sku({
+            sku_id: 4,
+            product_id: 300,
+            increase_rate: null,
+            price_history: JSON.stringify([
+              { price: 7, date: "2026-07-15" },
+            ]),
+          }),
+          sku({
+            sku_id: 5,
+            product_id: 400,
+            increase_rate: -20,
+            price_history: JSON.stringify([
+              { price: 10, date: "2026-07-14" },
+              { price: 8, date: "2026-07-15" },
+            ]),
+          }),
+        ],
+    );
+    const adapter = createLocalDbDataSourceAdapter(
+      db as unknown as D1Database,
+    );
+
+    await expect(adapter.getTrending()).resolves.toMatchObject([
+      {
+        card_ref: "200",
+        name: "Largest Mover",
+        finish: "Foil",
+        price_usd: 25,
+        previous_30d_price_usd: 20,
+        price_change_1d_percent: 60,
+      },
+      {
+        card_ref: "100",
+        name: "Small Mover",
+        price_usd: 11,
+        previous_30d_price_usd: 10,
+        price_change_1d_percent: 5,
+      },
+      {
+        card_ref: "400",
+        name: "Falling Card",
+        price_change_1d_percent: -20,
+      },
+    ]);
+    const trendingSql = db.preparedSql.find((sql) =>
+      sql.includes("FROM tcgplayer_skus AS sku"),
+    );
+    expect(trendingSql).toContain("NOT EXISTS");
+    expect(trendingSql).toContain(
+      "cards_all.product_id = sku.product_id",
+    );
+    expect(trendingSql).not.toContain("CAST(");
+  });
+
+  it("returns empty Trending without the ranking scan because an unfinished producer leaves increase_rate null", async () => {
+    const db = new FakeCardDatabase(
+      [card({ product_id: "100" })],
+      [sku({ product_id: 100, increase_rate: null })],
+    );
+    const adapter = createLocalDbDataSourceAdapter(
+      db as unknown as D1Database,
+    );
+
+    await expect(adapter.getTrending()).resolves.toEqual([]);
+    expect(db.preparedSql).toHaveLength(1);
+    expect(db.preparedSql[0]).toContain("idx_tcgplayer_skus_increase_rate");
+    expect(db.preparedSql[0]).not.toContain("WITH ranked_skus AS");
   });
 });
 
@@ -173,9 +728,11 @@ function card(overrides: Partial<CardRow>): CardRow {
     game: "Pokemon",
     set_name: "Base Set",
     set_code: "BS",
+    number: null,
     name: "Charizard",
     rarity: "Rare Holo",
     product_type_name: "Cards",
+    image_url: "https://img.example/100.jpg",
     ...overrides,
   };
 }
@@ -191,6 +748,7 @@ function sku(overrides: Partial<SkuRow>): SkuRow {
     variant_code: "N",
     variant_name: "Normal",
     price_history: "[]",
+    increase_rate: null,
     ...overrides,
   };
 }

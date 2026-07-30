@@ -4,6 +4,7 @@ import type {
   CardObjectType,
   CardSearchResult,
   DataSourceAdapter,
+  SetSearchResult,
 } from "./adapter";
 import {
   createCacheApiDataSourceAdapter,
@@ -11,16 +12,14 @@ import {
 } from "./cache-api";
 import { createKvCachedDataSourceAdapter } from "./kv-cache";
 import { createLocalDbDataSourceAdapter } from "./local-db-adapter";
+import {
+  ExchangeRateUnavailableError,
+  loadUsdExchangeRates,
+} from "./exchange-rates";
+import { cardImageUrl, type CardImageVariant } from "../card-image-url";
 
 type DataSourceRoutesOptions = {
   createAdapter?: (env: Env) => DataSourceAdapter;
-};
-
-type SetSearchItem = {
-  set_code: string;
-  set_name: string;
-  image_url: string | null;
-  card_count: number;
 };
 
 type CardOverrideRow = {
@@ -30,17 +29,15 @@ type CardOverrideRow = {
   is_missing_card: number;
 };
 
-type TrendingPinRow = {
-  card_ref: string;
-  rank: number;
-};
-
-type CardResponse = CardSearchResult & {
+export type CardResponse = CardSearchResult & {
   override_applied: boolean;
 };
 
-type TrendingCardResponse = CardResponse & {
-  pinned: boolean;
+type PriceSeriesBatchRequest = {
+  grader: string;
+  grade: number | null;
+  condition: string | null;
+  days: number;
 };
 
 const SELECT_CARD_OVERRIDE_SQL = `
@@ -48,13 +45,6 @@ SELECT card_ref, override_fields, image_url, is_missing_card
 FROM card_override
 WHERE card_ref = ?
 LIMIT 1
-`;
-
-const SELECT_ACTIVE_TRENDING_PINS_SQL = `
-SELECT card_ref, rank
-FROM trending_pin
-WHERE active = 1
-ORDER BY rank ASC
 `;
 
 const VALIDATION_ERROR_RESPONSE = {
@@ -73,12 +63,16 @@ const NOT_FOUND_RESPONSE = {
   },
 } as const;
 
-const MOCK_USD_RATES: Record<string, number> = {
-  USD: 1,
-  JPY: 155.32,
-  EUR: 0.91,
-  GBP: 0.79,
-};
+const SUPPORTED_CURRENCIES = new Set([
+  "USD",
+  "EUR",
+  "JPY",
+  "GBP",
+  "CAD",
+  "AUD",
+  "NZD",
+  "SGD",
+]);
 
 const SUPPORTED_OBJECT_TYPES = new Set<CardObjectType>([
   "tcg",
@@ -106,9 +100,11 @@ export function createDataSourceRoutes(
   const createAdapter = options.createAdapter ?? createDefaultAdapter;
 
   routes.get("/cards/search", async (c) => {
-    const query = requiredQuery(c.req.query("q"));
+    const query = c.req.query("q")?.trim() ?? "";
+    const game = nullableString(c.req.query("game")) ?? undefined;
+    const setCode = nullableString(c.req.query("set_code")) ?? undefined;
 
-    if (!query) {
+    if (!query && !game && !setCode) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
@@ -119,36 +115,59 @@ export function createDataSourceRoutes(
     }
 
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
-    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 100);
+    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 40, 100);
     const adapter = createAdapter(c.env);
     const items = await listOrEmpty(() =>
       adapter.searchCards(query, {
-        object_type: objectType,
+        object_type: "tcg",
+        game,
+        set_code: setCode,
         page,
         page_size: pageSize,
       }),
     );
 
+    const responseItems = items.map((item) =>
+      withCardImageUrl(item, "list"),
+    );
+
     return c.json({
       success: true,
-      data: { items, total: items.length, page, page_size: pageSize },
+      data: {
+        items: responseItems,
+        total: responseItems.length,
+        page,
+        page_size: pageSize,
+      },
     });
   });
 
-  routes.get("/sets/search", async (c) => {
-    const query = requiredQuery(c.req.query("q"));
+  routes.get("/games", async (c) => {
+    const result = await c.env.DB.prepare(
+      `SELECT CAST(game_id AS TEXT) AS id, name
+       FROM games
+       WHERE load = 1 AND trim(coalesce(name, '')) <> ''
+       ORDER BY search_sort ASC, game_id ASC`,
+    ).all<{ id: string; name: string }>();
 
-    if (!query) {
+    return c.json({ success: true, data: { items: result.results ?? [] } });
+  });
+
+  routes.get("/sets/search", async (c) => {
+    const query = c.req.query("q")?.trim() ?? "";
+    const game = nullableString(c.req.query("game")) ?? undefined;
+
+    if (!query && !game) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
-    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 100);
+    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 1000);
     const adapter = createAdapter(c.env);
-    const cards = await listOrEmpty(() =>
-      adapter.searchCards(query, { page, page_size: pageSize }),
+    const sets = await listOrEmpty(() =>
+      adapter.searchSets(query, { game, page, page_size: pageSize }),
     );
-    const items = setItemsFromCards(cards);
+    const items = sets.map(withCardSetImageUrl);
 
     return c.json({
       success: true,
@@ -157,30 +176,46 @@ export function createDataSourceRoutes(
   });
 
   routes.get("/cards/trending", async (c) => {
+    const page = positiveIntegerOrDefault(c.req.query("page"), 1);
+    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 10, 100);
     const adapter = createAdapter(c.env);
-    const pinnedItems = await listOrEmpty(() =>
-      findPinnedTrendingCards(c.env.DB, adapter),
+    const items = await adapter.getTrending({ page, page_size: pageSize });
+    const overrides = await findCardOverrides(
+      c.env.DB,
+      items.map((item) => item.card_ref),
     );
-    const pinnedRefs = new Set(pinnedItems.map((item) => item.card_ref));
-    const items = await listOrEmpty(() => adapter.getTrending());
-    const overriddenItems = await Promise.all(
-      items.filter((item) => !pinnedRefs.has(item.card_ref)).map(async (item) => {
-        const override = await findCardOverride(c.env.DB, item.card_ref);
-        const card = applyCardOverride(item, override, item.card_ref);
+    const overriddenItems = items.map((item) => {
+      const card = applyCardOverride(
+        item,
+        overrides.get(item.card_ref) ?? null,
+        item.card_ref,
+      );
 
-        return { ...(card ?? { ...item, override_applied: false }), pinned: false };
-      }),
-    );
+      return { ...(card ?? { ...item, override_applied: false }), pinned: false };
+    });
 
     return c.json({
       success: true,
       data: {
-        items: [...pinnedItems, ...overriddenItems],
+        items: overriddenItems.map((item) =>
+          withCardImageUrl(item, "list"),
+        ),
       },
     });
   });
 
+  routes.get("/cards/:card_ref/image", async (c) => {
+    const cardRef = cardRefParam(c.req.param("card_ref"));
+    const adapter = createAdapter(c.env);
+    const card = await resolveCard(c.env.DB, adapter, cardRef);
+    if (!card) {
+      return c.json(NOT_FOUND_RESPONSE, 404);
+    }
+    return c.redirect(cardImageUrl(cardRef, "master"), 302);
+  });
+
   routes.get("/cards/:card_ref/market-prices", async (c) => {
+    c.header("Cache-Control", "no-store");
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
     const prices = await listOrEmpty(() => adapter.getMarketPrices(cardRef));
@@ -196,6 +231,7 @@ export function createDataSourceRoutes(
   });
 
   routes.get("/cards/:card_ref/price-series", async (c) => {
+    c.header("Cache-Control", "no-store");
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const grader = c.req.query("grader")?.trim() || "Raw";
     const grade = nullableNumber(c.req.query("grade"));
@@ -212,7 +248,35 @@ export function createDataSourceRoutes(
     });
   });
 
+  routes.post("/cards/:card_ref/price-series/batch", async (c) => {
+    c.header("Cache-Control", "no-store");
+    const cardRef = cardRefParam(c.req.param("card_ref"));
+    const body = await c.req.json<unknown>().catch(() => null);
+    const requests = parsePriceSeriesBatch(body);
+    if (!requests) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const adapter = createAdapter(c.env);
+    const results = await Promise.all(
+      requests.map(async (request) => ({
+        ...request,
+        series: await listOrEmpty(() =>
+          adapter.getPriceSeries(
+            cardRef,
+            request.grader,
+            request.grade,
+            request.condition,
+            request.days,
+          ),
+        ),
+      })),
+    );
+
+    return c.json({ success: true, data: { card_ref: cardRef, results } });
+  });
+
   routes.get("/cards/:card_ref/sold-listings", async (c) => {
+    c.header("Cache-Control", "no-store");
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
     const items = await listOrEmpty(() => adapter.getSoldListings(cardRef));
@@ -228,60 +292,57 @@ export function createDataSourceRoutes(
   routes.get("/cards/:card_ref", async (c) => {
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
-    const override = await findCardOverride(c.env.DB, cardRef);
+    const card = await resolveCard(c.env.DB, adapter, cardRef);
 
-    if (override?.is_missing_card === 1) {
-      const card = applyCardOverride(null, override, cardRef);
-
-      if (card) {
-        return c.json({ success: true, data: card });
-      }
-    }
-
-    try {
-      const card = await adapter.getCard(cardRef);
-      const overriddenCard = applyCardOverride(card, override, cardRef);
-
-      if (!overriddenCard) {
-        return c.json(NOT_FOUND_RESPONSE, 404);
-      }
-
-      return c.json({
-        success: true,
-        data: overriddenCard,
-      });
-    } catch {
-      const card = applyCardOverride(null, override, cardRef);
-
-      return card
-        ? c.json({ success: true, data: card })
-        : c.json(NOT_FOUND_RESPONSE, 404);
-    }
+    return card
+      ? c.json({ success: true, data: withCardImageUrl(card, "detail") })
+      : c.json(NOT_FOUND_RESPONSE, 404);
   });
 
-  routes.get("/rates", (c) => {
+  routes.get("/rates", async (c) => {
     const base = (c.req.query("base") ?? "USD").trim().toUpperCase();
     const targets = targetCurrencies(c.req.query("targets"));
-    const rates: Record<string, number> = {};
-
-    for (const target of targets) {
-      const rate = base === "USD" ? MOCK_USD_RATES[target] : undefined;
-
-      if (typeof rate === "number") {
-        rates[target] = rate;
-      }
+    if (
+      base !== "USD" ||
+      targets.some((target) => !SUPPORTED_CURRENCIES.has(target))
+    ) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
-
-    return c.json({
-      success: true,
-      data: { base, rates, updated_at: new Date().toISOString() },
-    });
+    try {
+      const snapshot = await loadUsdExchangeRates(c.env.CACHE_KV);
+      const rates = Object.fromEntries(
+        targets.map((target) => [target, snapshot.rates[target]]),
+      );
+      return c.json({
+        success: true,
+        data: {
+          base,
+          rates,
+          updated_at: snapshot.updatedAt,
+          stale: snapshot.stale,
+        },
+      });
+    } catch (error) {
+      if (error instanceof ExchangeRateUnavailableError) {
+        return c.json(
+          {
+            success: false,
+            error: {
+              code: "UPSTREAM_ERROR",
+              message: "Exchange rates are unavailable.",
+            },
+          },
+          502,
+        );
+      }
+      throw error;
+    }
   });
 
   return routes;
 }
 
-function createDefaultAdapter(env: Env): DataSourceAdapter {
+export function createDefaultAdapter(env: Env): DataSourceAdapter {
   const kvCached = createKvCachedDataSourceAdapter(
     createLocalDbDataSourceAdapter(env.DB),
     env.CACHE_KV,
@@ -304,7 +365,8 @@ function runtimeDefaultCache(): DataSourceCache | null {
 async function listOrEmpty<T>(load: () => Promise<T[]>): Promise<T[]> {
   try {
     return await load();
-  } catch {
+  } catch (error) {
+    console.error("Data source list request failed.", error);
     return [];
   }
 }
@@ -323,26 +385,32 @@ async function findCardOverride(
   }
 }
 
-async function findPinnedTrendingCards(
+async function findCardOverrides(
   db: D1Database,
-  adapter: DataSourceAdapter,
-): Promise<TrendingCardResponse[]> {
-  const result = await db
-    .prepare(SELECT_ACTIVE_TRENDING_PINS_SQL)
-    .all<TrendingPinRow>();
-  const items: TrendingCardResponse[] = [];
+  cardRefs: string[],
+): Promise<Map<string, CardOverrideRow>> {
+  const overrides = new Map<string, CardOverrideRow>();
+  if (cardRefs.length === 0) return overrides;
 
-  for (const pin of result.results ?? []) {
-    const override = await findCardOverride(db, pin.card_ref);
-    const card = await getCardOrNull(adapter, pin.card_ref);
-    const overriddenCard = applyCardOverride(card, override, pin.card_ref);
+  try {
+    const placeholders = cardRefs.map(() => "?").join(", ");
+    const results = await db
+      .prepare(
+        `SELECT card_ref, override_fields, image_url, is_missing_card
+FROM card_override
+WHERE card_ref IN (${placeholders})`,
+      )
+      .bind(...cardRefs)
+      .all<CardOverrideRow>();
 
-    if (overriddenCard) {
-      items.push({ ...overriddenCard, pinned: true });
+    for (const override of results.results ?? []) {
+      overrides.set(override.card_ref, override);
     }
+  } catch {
+    // Overrides are optional corrections; catalog data remains usable without them.
   }
 
-  return items;
+  return overrides;
 }
 
 async function getCardOrNull(
@@ -354,6 +422,32 @@ async function getCardOrNull(
   } catch {
     return null;
   }
+}
+
+export async function resolveCard(
+  db: D1Database,
+  adapter: DataSourceAdapter,
+  cardRef: string,
+): Promise<CardResponse | null> {
+  const override = await findCardOverride(db, cardRef);
+
+  if (override?.is_missing_card === 1) {
+    const overriddenCard = applyCardOverride(null, override, cardRef);
+
+    if (overriddenCard) {
+      return overriddenCard;
+    }
+  }
+
+  const card = await getCardOrNull(adapter, cardRef);
+  return applyCardOverride(card, override, cardRef);
+}
+
+export function withCardImageUrl<T extends CardSearchResult>(
+  card: T,
+  variant: CardImageVariant,
+): T {
+  return { ...card, image_url: cardImageUrl(card.card_ref, variant) };
 }
 
 function applyCardOverride(
@@ -472,28 +566,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function setItemsFromCards(
-  cards: Awaited<ReturnType<DataSourceAdapter["searchCards"]>>,
-): SetSearchItem[] {
-  const itemsBySetCode = new Map<string, SetSearchItem>();
-
-  for (const card of cards) {
-    const existing = itemsBySetCode.get(card.set_code);
-
-    if (existing) {
-      existing.card_count += 1;
-      continue;
-    }
-
-    itemsBySetCode.set(card.set_code, {
-      set_code: card.set_code,
-      set_name: card.set_name,
-      image_url: card.image_url,
-      card_count: 1,
-    });
-  }
-
-  return Array.from(itemsBySetCode.values());
+function withCardSetImageUrl(
+  set: SetSearchResult,
+): Omit<SetSearchResult, "image_card_ref"> {
+  const { image_card_ref: imageCardRef, ...item } = set;
+  if (!imageCardRef) return { ...item, image_url: null };
+  return {
+    ...item,
+    image_url: cardImageUrl(imageCardRef, "list"),
+  };
 }
 
 function parseObjectType(value: string | undefined): CardObjectType | undefined | "invalid" {
@@ -506,12 +587,6 @@ function parseObjectType(value: string | undefined): CardObjectType | undefined 
   return SUPPORTED_OBJECT_TYPES.has(normalized as CardObjectType)
     ? (normalized as CardObjectType)
     : "invalid";
-}
-
-function requiredQuery(value: string | undefined): string | null {
-  const normalized = value?.trim() ?? "";
-
-  return normalized.length > 0 ? normalized : null;
 }
 
 function cardRefParam(value: string): string {
@@ -538,6 +613,42 @@ function positiveIntegerOrDefault(
   }
 
   return max ? Math.min(parsed, max) : parsed;
+}
+
+function parsePriceSeriesBatch(value: unknown): PriceSeriesBatchRequest[] | null {
+  if (!isRecord(value) || !Array.isArray(value.requests)) {
+    return null;
+  }
+  if (value.requests.length === 0 || value.requests.length > 100) {
+    return null;
+  }
+
+  const requests: PriceSeriesBatchRequest[] = [];
+  for (const item of value.requests) {
+    if (!isRecord(item)) return null;
+    const grader = typeof item.grader === "string" ? item.grader.trim() : "";
+    const grade = item.grade === null ? null : item.grade;
+    const condition = item.condition === null ? null : item.condition;
+    const days = item.days;
+    if (
+      !grader ||
+      (grade !== null && (typeof grade !== "number" || !Number.isFinite(grade))) ||
+      (condition !== null && typeof condition !== "string") ||
+      typeof days !== "number" ||
+      !Number.isInteger(days) ||
+      days < 1 ||
+      days > 3650
+    ) {
+      return null;
+    }
+    requests.push({
+      grader,
+      grade,
+      condition: typeof condition === "string" ? condition.trim() || null : null,
+      days,
+    });
+  }
+  return requests;
 }
 
 function nullableNumber(value: string | undefined): number | null {

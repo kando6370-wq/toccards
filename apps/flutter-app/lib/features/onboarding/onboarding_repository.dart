@@ -1,76 +1,50 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-final onboardingStorageProvider = Provider<InMemoryOnboardingStorage>((ref) {
-  return InMemoryOnboardingStorage();
+final onboardingStorageProvider = Provider<OnboardingStorage>((ref) {
+  return const PreferencesOnboardingStorage();
 });
 
 final onboardingRepositoryProvider = Provider<OnboardingRepository>((ref) {
   return LocalOnboardingRepository(ref.watch(onboardingStorageProvider));
 });
 
-class OnboardingSlide {
-  const OnboardingSlide({
-    required this.imageUrl,
-    required this.title,
-    required this.body,
-  });
-
-  final String imageUrl;
-  final String title;
-  final String body;
+abstract interface class OnboardingStorage {
+  Future<bool> readCompleted();
+  Future<void> writeCompleted();
 }
 
-class InMemoryOnboardingStorage {
-  bool _completed;
+class PreferencesOnboardingStorage implements OnboardingStorage {
+  const PreferencesOnboardingStorage();
 
-  InMemoryOnboardingStorage({bool completed = false}) : _completed = completed;
+  static const _completedKey = 'onboarding.completed';
 
-  bool readCompleted() => _completed;
+  @override
+  Future<bool> readCompleted() async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getBool(_completedKey) ?? false;
+  }
 
-  void writeCompleted() {
-    _completed = true;
+  @override
+  Future<void> writeCompleted() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(_completedKey, true);
   }
 }
 
-abstract class OnboardingRepository {
-  List<OnboardingSlide> loadSlides();
-  bool readCompleted();
-  void markCompleted();
+abstract interface class OnboardingRepository {
+  Future<bool> readCompleted();
+  Future<void> markCompleted();
 }
 
 class LocalOnboardingRepository implements OnboardingRepository {
-  LocalOnboardingRepository(this._storage, {List<OnboardingSlide>? slides})
-    : _slides = List.unmodifiable(slides ?? _defaultSlides);
+  const LocalOnboardingRepository(this._storage);
 
-  static const _defaultSlides = [
-    OnboardingSlide(
-      imageUrl: 'local://onboarding/collection',
-      title: 'Track your collection',
-      body: 'Keep your cards, folders, and wishlist organized in one place.',
-    ),
-    OnboardingSlide(
-      imageUrl: 'local://onboarding/market',
-      title: 'Follow market moves',
-      body: 'See portfolio value, price changes, and trending cards quickly.',
-    ),
-    OnboardingSlide(
-      imageUrl: 'local://onboarding/scan',
-      title: 'Scan and add cards',
-      body: 'Use the scan flow to move from card discovery to collection.',
-    ),
-  ];
-
-  final InMemoryOnboardingStorage _storage;
-  final List<OnboardingSlide> _slides;
+  final OnboardingStorage _storage;
 
   @override
-  List<OnboardingSlide> loadSlides() => _slides;
+  Future<bool> readCompleted() => _storage.readCompleted();
 
   @override
-  bool readCompleted() => _storage.readCompleted();
-
-  @override
-  void markCompleted() {
-    _storage.writeCompleted();
-  }
+  Future<void> markCompleted() => _storage.writeCompleted();
 }

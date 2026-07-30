@@ -65,7 +65,7 @@ tcg-card 的数据分为两层，本文档只定义写入 D1 的部分：
 
 ```sql
 CREATE TABLE user (
-    id            TEXT PRIMARY KEY,          -- ULID，生成后不变
+    id            TEXT PRIMARY KEY,          -- 至少 6 位的全局唯一纯数字 UID
     email         TEXT NOT NULL UNIQUE,      -- 登录邮箱
     password_hash TEXT,                      -- bcrypt hash；OAuth 注册可为 NULL
     display_name  TEXT,                      -- 展示名（可选）
@@ -76,7 +76,7 @@ CREATE TABLE user (
 ```
 
 说明：
-- `id` 使用 ULID（可排序的唯一 ID），后续 API 统一以此作为 `user_id`。
+- `id` 是从 `100000` 起单调分配的全局唯一纯数字 UID，后续 API 统一以此作为 `user_id`。
 - `password_hash` 在 OAuth 唯一注册时为 NULL；混合注册时非 NULL。
 - `deleted_at` 非 NULL 表示账号已被删除，Workers 层在读取时过滤此类账号，资产数据按隐私合规保留策略处理。
 
@@ -84,7 +84,7 @@ CREATE TABLE user (
 
 ```sql
 CREATE TABLE anonymous_account (
-    id               TEXT PRIMARY KEY,       -- ULID
+    id               TEXT PRIMARY KEY,       -- 与 user 共用全局数字 UID 空间
     device_id        TEXT NOT NULL,          -- 客户端设备标识（App 生成，首次启动上报）
     created_at       TEXT NOT NULL,
     upgraded_user_id TEXT                    -- 升级后回填 user.id；NULL = 仍为游客
@@ -94,7 +94,7 @@ CREATE TABLE anonymous_account (
 说明：
 - 用户首次启动 App 即在后端创建，绑定 `device_id`，资产实时同步到 D1（见 Spec §4.5）。
 - 匿名账号**无登录凭证**，不可跨设备恢复；换设备 = 新匿名账号。
-- **升级路径**：用户注册成功后，Workers 将当前 `anonymous_account` 的资产（`owner_type = 'anonymous'`、`owner_id = anonymous_account.id`）批量更新为 `owner_type = 'user'`、`owner_id = 新 user.id`，并回填 `upgraded_user_id`。原 `anonymous_account` 行保留，管理后台可追溯。
+- **升级路径**：用户注册成功后复用当前 `anonymous_account.id` 作为 `user.id`，UID 不变；Workers 将资产的 `owner_type` 从 `anonymous` 更新为 `user`，并回填 `upgraded_user_id`。原 `anonymous_account` 行保留，管理后台可追溯。
 - 登录已有账号**不迁移**匿名资产（见 Spec §4.5、PRD 全局补充事项 §十四）。
 
 ### 3.3 auth_identity（第三方登录绑定）
@@ -354,6 +354,7 @@ CREATE TABLE app_config (
 ```sql
 CREATE TABLE feedback_ticket (
     id         TEXT PRIMARY KEY,
+    uid        TEXT NOT NULL,                -- 提交反馈的账号 UID
     email      TEXT NOT NULL,                -- 用户提供的联系邮箱
     types      TEXT NOT NULL,                -- JSON 数组：'Bug Report'|'Feature Request'|'Improvement'|'Other'
     functions  TEXT NOT NULL,                -- JSON 数组：'Scan'|'Search'|'Collection'|'Portfolio'|'Wishlist'|'Account'|'Price Data'|'Other'
@@ -570,7 +571,8 @@ erDiagram
 
 | 类型 | 存储格式 |
 |---|---|
-| 主键 / 外键 ID | TEXT（ULID） |
+| 账号主键 / UID | TEXT（至少 6 位全局唯一纯数字） |
+| 其他主键 / 外键 ID | TEXT（ULID） |
 | 时间戳 | TEXT（ISO 8601 UTC，如 `2026-06-30T12:00:00Z`） |
 | 布尔值 | INTEGER（0 / 1） |
 | 金额 | REAL（原始货币原值） |

@@ -1,4 +1,5 @@
 import { createId } from "../id";
+import { reserveAccountUid } from "../account-uid";
 import {
   createGuestMigrationStatements,
   findVerifiedAnonymousAccount,
@@ -15,7 +16,7 @@ type UserRow = {
 
 type OAuthEmailUserRow = {
   id: string;
-  deleted_at: string | null;
+  status: "active" | "disabled";
 };
 
 type OAuthIdentityRow = {
@@ -44,14 +45,14 @@ const SELECT_OAUTH_IDENTITY_SQL = `
 const SELECT_LIVE_USER_BY_ID_SQL = `
   SELECT id
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `;
 
 const SELECT_USER_BY_EMAIL_FOR_OAUTH_SQL = `
-  SELECT id, deleted_at
+  SELECT id, status
   FROM user
-  WHERE email = ?
+  WHERE email = ? AND status <> 'deleted'
   LIMIT 1
 `;
 
@@ -103,14 +104,14 @@ const INSERT_USER_PREFERENCE_SQL = `
 
 const INSERT_USER_SESSION_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  VALUES (?, 'user', ?, ?, ?, ?, NULL)
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'user', ?, ?, ?, ?, ?, NULL)
 `;
 
 const INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, ?, ?, ?, ?, NULL
   WHERE EXISTS (
     SELECT 1
     FROM anonymous_account
@@ -186,7 +187,13 @@ async function completeOAuthAccountFlowOnce(
       throw new Error(OAUTH_AUTHORIZATION_FAILED_MESSAGE);
     }
 
-    return createSignInResult(db, existingIdentityUser.id, jwtSecret, now);
+    return createSignInResult(
+      db,
+      existingIdentityUser.id,
+      identity,
+      jwtSecret,
+      now,
+    );
   }
 
   const existingEmailUser = await db
@@ -195,7 +202,7 @@ async function completeOAuthAccountFlowOnce(
     .first<OAuthEmailUserRow>();
 
   if (existingEmailUser) {
-    if (existingEmailUser.deleted_at !== null) {
+    if (existingEmailUser.status !== "active") {
       throw new Error(OAUTH_AUTHORIZATION_FAILED_MESSAGE);
     }
 
@@ -231,6 +238,7 @@ function isOAuthUniqueConstraintError(error: unknown): boolean {
 async function createSignInResult(
   db: D1Database,
   userId: string,
+  identity: OAuthIdentity,
   jwtSecret: string,
   now: Date,
 ): Promise<OAuthAccountFlowResult> {
@@ -242,6 +250,7 @@ async function createSignInResult(
     .bind(
       session.sessionId,
       userId,
+      identity.provider,
       session.hashedRefreshToken,
       session.expiresAt,
       createdAt,
@@ -269,6 +278,7 @@ async function bindIdentityAndSignIn(
       .bind(
         session.sessionId,
         userId,
+        identity.provider,
         session.hashedRefreshToken,
         session.expiresAt,
         createdAt,
@@ -291,8 +301,6 @@ async function createOAuthUser(
   now: Date,
 ): Promise<OAuthAccountFlowResult> {
   const createdAt = now.toISOString();
-  const userId = createId();
-  const session = await createUserSessionValues(userId, jwtSecret, now);
   const anonymousAccount = await findVerifiedAnonymousAccount(
     db,
     anonymousId,
@@ -300,6 +308,9 @@ async function createOAuthUser(
     jwtSecret,
     now,
   );
+  const userId =
+    anonymousAccount?.id ?? await reserveAccountUid(db, createdAt);
+  const session = await createUserSessionValues(userId, jwtSecret, now);
 
   if (anonymousAccount) {
     const migrationStatements = createGuestMigrationStatements(
@@ -332,13 +343,16 @@ async function createOAuthUser(
         ),
       migrationStatements.portfolioFolders,
       migrationStatements.collectionItems,
+      migrationStatements.collectionItemEvents,
       migrationStatements.wishlistItems,
       migrationStatements.userPreference,
+      migrationStatements.scanRecords,
       db
         .prepare(INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL)
         .bind(
           session.sessionId,
           userId,
+          identity.provider,
           session.hashedRefreshToken,
           session.expiresAt,
           createdAt,
@@ -352,10 +366,10 @@ async function createOAuthUser(
     }
 
     if (
-      results.length !== 8 ||
+      results.length !== 10 ||
       results[1]?.meta.changes !== 1 ||
       results[2]?.meta.changes !== 1 ||
-      results[7]?.meta.changes !== 1
+      results[9]?.meta.changes !== 1
     ) {
       throw new Error("Failed to create migrated OAuth user.");
     }
@@ -384,6 +398,7 @@ async function createOAuthUser(
       .bind(
         session.sessionId,
         userId,
+        identity.provider,
         session.hashedRefreshToken,
         session.expiresAt,
         createdAt,

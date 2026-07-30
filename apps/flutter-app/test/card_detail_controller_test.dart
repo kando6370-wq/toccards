@@ -4,15 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
-import 'package:kando_app/features/auth/auth_repository.dart';
-import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
+import 'package:kando_app/features/collection/collection_controller.dart';
+import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+
+import 'support/in_memory_auth_storage.dart';
+import 'support/local_placeholder_auth_repository.dart';
+import 'support/mock_card_detail_repository.dart';
+import 'support/mock_collection_repository.dart';
+import 'support/mock_home_repository.dart';
+import 'support/mock_search_repository.dart';
 
 void main() {
   test(
@@ -29,14 +38,33 @@ void main() {
       ).loadDetail(_session, 'catalog:pikachu-025');
 
       expect(cardDataApi.cardRefs, ['catalog:pikachu-025']);
+      expect(
+        cardDataApi.maxConcurrentSeriesRequests,
+        10,
+        reason:
+            'Card Detail must not serialize every market qualifier and chart range into a network waterfall.',
+      );
+      expect(
+        cardDataApi.totalSeriesRequests,
+        10,
+        reason:
+            'Market prices must reuse the full chart load instead of requesting 7d and 30d series twice.',
+      );
+      expect(cardDataApi.priceSeriesBatchCalls, 1);
       expect(detail.id, 'catalog:pikachu-025');
       expect(detail.type, CardDetailType.tcg);
       expect(detail.name, 'Pikachu');
-      expect(detail.game, 'TCG');
+      expect(detail.game, 'Pokemon');
+      expect(
+        detail.imageUrl,
+        'https://image.tcgcard.fun/cards/catalog%3Apikachu-025.jpg',
+      );
       expect(detail.setName, 'Base Set');
       expect(detail.identityLine, 'Common #025');
       expect(detail.finish, 'Holofoil');
       expect(detail.language, 'English');
+      expect(detail.collectionLanguageOptions, ['English', 'Japanese']);
+      expect(detail.collectionFinishOptions, ['Holofoil', 'Normal']);
       expect(detail.marketPrices.map((price) => price.label), [
         'Raw Near Mint',
         'PSA 10',
@@ -58,6 +86,85 @@ void main() {
       expect(detail.soldListings.single.platform, 'eBay');
       expect(detail.isCollected, isFalse);
       expect(detail.isWishlisted, isFalse);
+    },
+  );
+
+  test(
+    'http detail repository isolates optional endpoint failures because the PRD keeps base card information available',
+    () async {
+      final failingOptionalApi = _FakeCardDataApi(
+        failMarketPrices: true,
+        failSoldListings: true,
+      );
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: failingOptionalApi,
+      );
+
+      final base = await repository.loadBaseDetail(
+        _session,
+        'catalog:pikachu-025',
+      );
+
+      expect(base.name, 'Pikachu');
+      await expectLater(
+        repository.loadMarketPrices('catalog:pikachu-025'),
+        throwsStateError,
+      );
+      await expectLater(
+        repository.loadSoldListings('catalog:pikachu-025'),
+        throwsStateError,
+      );
+
+      final failingSeriesRepository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: _FakeCardDataApi(failPriceSeries: true),
+      );
+      await expectLater(
+        failingSeriesRepository.loadPriceSeries('catalog:pikachu-025'),
+        throwsStateError,
+      );
+    },
+  );
+
+  test(
+    'core card renders before portfolio state because slow user data must not block detail navigation',
+    () async {
+      final portfolioApi = _BlockingPortfolioApiClient();
+      final repository = HttpCardDetailRepository(
+        api: portfolioApi,
+        cardDataApi: _FakeCardDataApi(),
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+
+      container.read(provider);
+      await portfolioApi.started.future;
+
+      final firstContent = container.read(provider);
+      expect(firstContent.loadStatus, KandoLoadStatus.content);
+      expect(firstContent.detail.name, 'Pikachu');
+      expect(firstContent.assetStateStatus, KandoLoadStatus.loading);
+
+      portfolioApi.release();
+      await container.read(provider.notifier).loadComplete;
+
+      final complete = container.read(provider);
+      expect(complete.assetStateStatus, KandoLoadStatus.content);
+      expect(complete.marketPricesStatus, KandoLoadStatus.content);
+      expect(complete.priceSeriesStatus, KandoLoadStatus.content);
+      expect(complete.soldListingsStatus, KandoLoadStatus.content);
+      expect(complete.detail.marketPrices.first.previous30dPriceUsd, 10);
     },
   );
 
@@ -86,7 +193,7 @@ void main() {
 
       final detail = await HttpCardDetailRepository(
         api: api,
-        presentationRepository: const MockCardDetailRepository(),
+        cardDataApi: _FakeCardDataApi(card: _squirtleCard),
       ).loadDetail(_session, 'squirtle');
 
       expect(detail.name, 'Squirtle');
@@ -97,6 +204,25 @@ void main() {
       expect(detail.collectionItems.single.portfolioName, 'Main');
       expect(detail.isWishlisted, isFalse);
       expect(detail.wishlistItemId, isNull);
+    },
+  );
+
+  test(
+    'price series falls back to single requests because mobile and Workers releases are not atomic',
+    () async {
+      final cardDataApi = _FakeCardDataApi(failPriceSeriesBatch: true);
+      final detail = await HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      ).loadDetail(_session, 'catalog:pikachu-025');
+
+      expect(cardDataApi.priceSeriesBatchCalls, 1);
+      expect(cardDataApi.totalSeriesRequests, 10);
+      expect(detail.priceSeriesByRange, isNotEmpty);
     },
   );
 
@@ -115,6 +241,7 @@ void main() {
             ),
           ],
         ),
+        cardDataApi: _FakeCardDataApi(card: _squirtleCard),
       ).loadDetail(_session, 'squirtle');
 
       expect(detail.isWishlisted, isTrue);
@@ -149,6 +276,7 @@ void main() {
 
       final saved = await HttpCardDetailRepository(
         api: api,
+        cardDataApi: _FakeCardDataApi(),
       ).quickCollect(_session, detail);
 
       expect(api.quickCollectCardRefs, ['squirtle']);
@@ -190,7 +318,9 @@ void main() {
         r'$32.13',
       );
 
-      container.read(selectedCurrencyProvider.notifier).select(AppCurrency.eur);
+      container
+          .read(selectedCurrencyProvider.notifier)
+          .select(AppCurrency.eur.withUsdRate(0.91));
       await container
           .read(cardDetailControllerProvider('squirtle').notifier)
           .loadComplete;
@@ -198,7 +328,9 @@ void main() {
 
       expect(
         state.marketPriceText,
-        CurrencyFormatter(currency: AppCurrency.eur).formatUsd(32.13),
+        CurrencyFormatter(
+          currency: AppCurrency.eur.withUsdRate(0.91),
+        ).formatUsd(32.13),
       );
       expect(state.changeText, '+4.76%');
     },
@@ -284,6 +416,41 @@ void main() {
       expect(repository.deletedWishlistItemIds, ['backend-wish-squirtle']);
       expect(container.read(provider).detail.isWishlisted, isFalse);
       expect(container.read(provider).detail.wishlistItemId, isNull);
+    },
+  );
+
+  test(
+    'asset mutation invalidates Home Collection and Search because portfolio state is shared across pages',
+    () async {
+      final container = _cardDetailContainer(includeAssetConsumers: true);
+      addTearDown(container.dispose);
+      final detailProvider = cardDetailControllerProvider('squirtle');
+      final detailController = container.read(detailProvider.notifier);
+      await _loadedState(container, 'squirtle');
+
+      final homeState = container.read(homeControllerProvider);
+      final collectionController = container.read(
+        collectionControllerProvider.notifier,
+      );
+      await collectionController.loadComplete;
+      final collectionState = container.read(collectionControllerProvider);
+      final searchController = container.read(
+        searchControllerProvider.notifier,
+      );
+      await searchController.loadComplete;
+      final searchState = container.read(searchControllerProvider);
+
+      await detailController.toggleWishlist();
+
+      expect(container.read(homeControllerProvider), isNot(same(homeState)));
+      expect(
+        container.read(collectionControllerProvider),
+        isNot(same(collectionState)),
+      );
+      expect(
+        container.read(searchControllerProvider),
+        isNot(same(searchState)),
+      );
     },
   );
 
@@ -438,12 +605,37 @@ void main() {
       expect(await controller.saveCollectionItemDraft(), isTrue);
 
       expect(repository.createdItems.single.folderId, 'folder-sealed-db');
-      expect(container.read(provider).collectionItemRows.single.portfolioName, 'Sealed');
+      expect(
+        container.read(provider).collectionItemRows.single.portfolioName,
+        'Sealed',
+      );
     },
   );
 
   test(
-    'new Collection Item draft follows PRD field defaults and condition list',
+    'new Collection Item uses the shared selected folder because Card Detail must continue the Collection and Search context',
+    () async {
+      final container = _cardDetailContainer(
+        repository: _FolderAwareCardDetailRepository(),
+      );
+      addTearDown(container.dispose);
+      container
+          .read(selectedPortfolioFolderProvider.notifier)
+          .select('folder-sealed-db');
+      final provider = cardDetailControllerProvider('squirtle');
+      await _loadedState(container, 'squirtle');
+
+      container.read(provider.notifier).startAddingCollectionItem();
+
+      expect(
+        container.read(provider).collectionItemDraft!.portfolioName,
+        'Sealed',
+      );
+    },
+  );
+
+  test(
+    'new Collection Item values the selected market condition times quantity',
     () async {
       final container = _cardDetailContainer();
       addTearDown(container.dispose);
@@ -464,7 +656,58 @@ void main() {
       expect(draft.portfolioName, 'Main');
       expect(draft.language, 'English');
       expect(draft.finish, 'Holofoil');
-      expect(draft.totalText, '--');
+      expect(container.read(provider).collectionItemDraftTotalText, r'$32.13');
+
+      container
+          .read(provider.notifier)
+          .updateCollectionItemDraft(quantityText: '3');
+      expect(container.read(provider).collectionItemDraftTotalText, r'$96.39');
+    },
+  );
+
+  test(
+    'new Collection Item keeps unknown qualifiers when no SKU options exist because the app must not invent variants',
+    () async {
+      final repository = _UnknownQualifierCardDetailRepository();
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('unknown-qualifiers');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'unknown-qualifiers');
+
+      controller.startAddingCollectionItem();
+      final draft = container.read(provider).collectionItemDraft!;
+      expect(draft.language, 'Unknown');
+      expect(draft.finish, 'Unknown');
+
+      expect(await controller.saveCollectionItemDraft(), isTrue);
+      expect(repository.createdItems.single.language, 'Unknown');
+      expect(repository.createdItems.single.finish, 'Unknown');
+    },
+  );
+
+  test(
+    'Purchase Price converts separately because total value remains market-based',
+    () async {
+      final repository = _RecordingCardDetailRepository();
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final currency = AppCurrency.eur.withUsdRate(0.91);
+      container.read(selectedCurrencyProvider.notifier).select(currency);
+      final provider = cardDetailControllerProvider('squirtle');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'squirtle');
+
+      controller.startAddingCollectionItem();
+      controller.updateCollectionItemDraft(purchasePriceText: '91');
+
+      expect(container.read(provider).collectionItemDraftTotalText, '€29.24');
+      expect(await controller.saveCollectionItemDraft(), isTrue);
+      expect(repository.createdItems.single.purchasePriceUsd, 100);
+      expect(
+        container.read(provider).collectionItemRows.single.purchasePriceText,
+        '€91.00',
+      );
     },
   );
 
@@ -579,9 +822,13 @@ void main() {
       ]);
       expect(state.selectedPriceChartMode, CardPriceChartMode.raw);
       expect(state.selectedPriceRange, CardPriceRange.oneMonth);
+      expect(
+        state.selectedMarketPriceCategory,
+        CardMarketPriceCategory.ungraded,
+      );
       expect(state.priceSeriesRows.last.dateLabel, 'Today');
       expect(state.priceSeriesRows.last.priceText, r'$215.00');
-      expect(state.priceTabMarketRows.first.label, 'PSA 10');
+      expect(state.priceTabMarketRows.first.label, 'Near Mint (NM)');
       expect(state.priceTabMarketRows.first.changeText, startsWith('+'));
       expect(state.soldListingRows.first.platform, 'eBay');
       expect(state.soldListingRows.first.priceText, r'$780.00');
@@ -602,13 +849,17 @@ void main() {
       container
           .read(provider.notifier)
           .selectPriceRange(CardPriceRange.threeMonths);
+      container
+          .read(provider.notifier)
+          .selectMarketPriceCategory(CardMarketPriceCategory.psa);
       final state = container.read(provider);
 
       expect(state.selectedPriceChartMode, CardPriceChartMode.graded);
       expect(state.selectedPriceRange, CardPriceRange.threeMonths);
       expect(state.priceSeriesRows.first.dateLabel, '90 days ago');
       expect(state.priceSeriesRows.last.priceText, r'$780.00');
-      expect(state.priceTabMarketRows.first.label, 'PSA 10');
+      expect(state.selectedMarketPriceCategory, CardMarketPriceCategory.psa);
+      expect(state.priceTabMarketRows.first.label, '10');
     },
   );
 
@@ -632,6 +883,87 @@ void main() {
     expect(restored.detail.name, 'Squirtle');
     expect(repository.calls, 2);
   });
+
+  test(
+    'sectioned detail load completes after base detail because optional endpoints render independently',
+    () async {
+      final repository = _BlockingOptionalSectionRepository();
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('charizard-ex');
+
+      await container.read(authControllerProvider.notifier).startupComplete;
+      final controller = container.read(provider.notifier);
+      await controller.loadComplete.timeout(const Duration(milliseconds: 100));
+
+      final baseLoaded = container.read(provider);
+      expect(baseLoaded.loadStatus, KandoLoadStatus.content);
+      expect(baseLoaded.detail.name, 'Charizard ex');
+      expect(baseLoaded.marketPricesStatus, KandoLoadStatus.loading);
+      expect(baseLoaded.priceSeriesStatus, KandoLoadStatus.loading);
+      expect(baseLoaded.soldListingsStatus, KandoLoadStatus.loading);
+
+      repository.completeOptionalSections();
+      await Future<void>.delayed(Duration.zero);
+
+      final sectionsLoaded = container.read(provider);
+      expect(sectionsLoaded.marketPricesStatus, KandoLoadStatus.content);
+      expect(sectionsLoaded.priceSeriesStatus, KandoLoadStatus.content);
+      expect(sectionsLoaded.soldListingsStatus, KandoLoadStatus.content);
+    },
+  );
+
+  test(
+    'optional detail sections recover independently because one endpoint must not replace the base card with a page failure',
+    () async {
+      final cardDataApi = _RecoveringSectionCardDataApi();
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+
+      final failedSections = await _loadedState(
+        container,
+        'catalog:pikachu-025',
+      );
+      await _drainSectionLoads();
+
+      expect(failedSections.loadStatus, KandoLoadStatus.content);
+      expect(failedSections.detail.name, 'Pikachu');
+      final failedSectionState = container.read(provider);
+      expect(failedSectionState.marketPricesStatus, KandoLoadStatus.failure);
+      expect(failedSectionState.priceSeriesStatus, KandoLoadStatus.failure);
+      expect(failedSectionState.soldListingsStatus, KandoLoadStatus.failure);
+
+      final controller = container.read(provider.notifier);
+      await controller.refreshMarketPrices();
+      expect(
+        container.read(provider).marketPricesStatus,
+        KandoLoadStatus.content,
+      );
+      expect(
+        container.read(provider).priceSeriesStatus,
+        KandoLoadStatus.failure,
+      );
+      await controller.refreshPriceSeries();
+      expect(
+        container.read(provider).priceSeriesStatus,
+        KandoLoadStatus.content,
+      );
+      await controller.refreshSoldListings();
+      expect(
+        container.read(provider).soldListingsStatus,
+        KandoLoadStatus.content,
+      );
+    },
+  );
 }
 
 class _FailingThenSuccessfulCardDetailRepository
@@ -700,6 +1032,69 @@ class _FailingThenSuccessfulCardDetailRepository
       session,
       wishlistItemId,
     );
+  }
+}
+
+class _BlockingOptionalSectionRepository extends _RecordingCardDetailRepository
+    implements CardDetailSectionRepository {
+  final _marketCompleter = Completer<CardDetailMarketData>();
+  final _seriesCompleter = Completer<CardDetailSeriesData>();
+  final _soldListingsCompleter = Completer<List<CardSoldListing>>();
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) {
+    return super.loadDetail(_session, cardId);
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(
+    AuthSession session,
+    CardDetail detail,
+  ) async {
+    return detail;
+  }
+
+  @override
+  Future<CardDetail> loadBaseDetail(AuthSession session, String cardId) {
+    return super.loadDetail(session, cardId);
+  }
+
+  @override
+  Future<CardDetailMarketData> loadMarketPrices(String cardId) {
+    return _marketCompleter.future;
+  }
+
+  @override
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, [
+    CardDetailMarketData? market,
+  ]) {
+    return _seriesCompleter.future;
+  }
+
+  @override
+  Future<List<CardSoldListing>> loadSoldListings(String cardId) {
+    return _soldListingsCompleter.future;
+  }
+
+  void completeOptionalSections() {
+    if (!_marketCompleter.isCompleted) {
+      _marketCompleter.complete(
+        const CardDetailMarketData(prices: [], marketPrices: []),
+      );
+    }
+    if (!_seriesCompleter.isCompleted) {
+      _seriesCompleter.complete(
+        const CardDetailSeriesData(
+          marketPrices: [],
+          rawSeriesByRange: {},
+          gradedSeriesByRange: {},
+        ),
+      );
+    }
+    if (!_soldListingsCompleter.isCompleted) {
+      _soldListingsCompleter.complete(const []);
+    }
   }
 }
 
@@ -789,6 +1184,37 @@ class _WishlistWithoutIdCardDetailRepository
   }
 }
 
+class _UnknownQualifierCardDetailRepository
+    extends _RecordingCardDetailRepository {
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    return const CardDetail(
+      id: 'unknown-qualifiers',
+      type: CardDetailType.tcg,
+      name: 'Oricorio ex',
+      game: 'Pokemon',
+      setName: 'Mega Evolution Promo',
+      identityLine: 'Promo #024',
+      finish: 'Unknown',
+      language: 'Unknown',
+      quantity: 0,
+      isWishlisted: false,
+      marketPrices: [
+        CardMarketPrice(
+          label: 'Raw Moderately Played',
+          grader: 'Raw',
+          condition: 'Moderately Played',
+          priceUsd: 11.23,
+          previous30dPriceUsd: null,
+        ),
+      ],
+      portfolioFolders: [
+        CardPortfolioFolder(id: 'main', name: 'Main', isDefault: true),
+      ],
+    );
+  }
+}
+
 class _BlockingQuickCollectCardDetailRepository
     extends _RecordingCardDetailRepository {
   final quickCollectStarted = Completer<void>();
@@ -832,7 +1258,11 @@ class _FolderAwareCardDetailRepository extends _RecordingCardDetailRepository {
     final detail = await super.loadDetail(session, cardId);
     return detail.copyWith(
       portfolioFolders: const [
-        CardPortfolioFolder(id: 'folder-main-db', name: 'Main', isDefault: true),
+        CardPortfolioFolder(
+          id: 'folder-main-db',
+          name: 'Main',
+          isDefault: true,
+        ),
         CardPortfolioFolder(id: 'folder-sealed-db', name: 'Sealed'),
       ],
     );
@@ -841,14 +1271,25 @@ class _FolderAwareCardDetailRepository extends _RecordingCardDetailRepository {
 
 ProviderContainer _cardDetailContainer({
   CardDetailRepository repository = const MockCardDetailRepository(),
+  bool includeAssetConsumers = false,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
     overrides: [
+      authStorageProvider.overrideWithValue(storage),
       authRepositoryProvider.overrideWithValue(
         LocalPlaceholderAuthRepository(storage),
       ),
       cardDetailRepositoryProvider.overrideWithValue(repository),
+      if (includeAssetConsumers) ...[
+        homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+        collectionRepositoryProvider.overrideWithValue(
+          const MockCollectionRepository(),
+        ),
+        searchRepositoryProvider.overrideWithValue(
+          const MockSearchRepository(),
+        ),
+      ],
     ],
   );
 }
@@ -862,6 +1303,12 @@ Future<CardDetailState> _loadedState(
       .read(cardDetailControllerProvider(cardId).notifier)
       .loadComplete;
   return container.read(cardDetailControllerProvider(cardId));
+}
+
+Future<void> _drainSectionLoads() async {
+  for (var i = 0; i < 5; i += 1) {
+    await Future<void>.delayed(Duration.zero);
+  }
 }
 
 class _FakePortfolioApiClient implements PortfolioApi {
@@ -883,6 +1330,12 @@ class _FakePortfolioApiClient implements PortfolioApi {
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
     return folders;
   }
+
+  @override
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+  }) async => const [];
 
   @override
   Future<List<PortfolioItemDto>> listCollectionItems(
@@ -952,16 +1405,71 @@ class _FakePortfolioApiClient implements PortfolioApi {
   Future<void> deleteWishlist(AuthSession session, String itemId) async {}
 }
 
-class _FakeCardDataApi implements CardDataApi {
-  final List<String> cardRefs = [];
+class _BlockingPortfolioApiClient extends _FakePortfolioApiClient {
+  _BlockingPortfolioApiClient()
+    : super(folders: const [], items: const [], wishlist: const []);
+
+  final started = Completer<void>();
+  final _release = Completer<void>();
+
+  void release() => _release.complete();
+
+  Future<void> _wait() async {
+    if (!started.isCompleted) started.complete();
+    await _release.future;
+  }
 
   @override
-  Future<List<CardDataCardDto>> searchCards(String query) async {
+  Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
+    await _wait();
+    return super.listFolders(session);
+  }
+
+  @override
+  Future<List<PortfolioItemDto>> listCollectionItems(
+    AuthSession session,
+  ) async {
+    await _wait();
+    return super.listCollectionItems(session);
+  }
+
+  @override
+  Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) async {
+    await _wait();
+    return super.listWishlistItems(session);
+  }
+}
+
+class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
+  _FakeCardDataApi({
+    this.card = _pikachuCard,
+    this.failMarketPrices = false,
+    this.failPriceSeries = false,
+    this.failPriceSeriesBatch = false,
+    this.failSoldListings = false,
+  });
+
+  final CardDataCardDto card;
+  final bool failMarketPrices;
+  final bool failPriceSeries;
+  final bool failPriceSeriesBatch;
+  final bool failSoldListings;
+  final List<String> cardRefs = [];
+  var activeSeriesRequests = 0;
+  var maxConcurrentSeriesRequests = 0;
+  var totalSeriesRequests = 0;
+  var priceSeriesBatchCalls = 0;
+
+  @override
+  Future<List<CardDataCardDto>> searchCards(
+    String query, {
+    String? game,
+  }) async {
     throw UnimplementedError();
   }
 
   @override
-  Future<List<CardDataSetDto>> searchSets(String query) async {
+  Future<List<CardDataSetDto>> searchSets(String query, {String? game}) async {
     throw UnimplementedError();
   }
 
@@ -973,22 +1481,14 @@ class _FakeCardDataApi implements CardDataApi {
   @override
   Future<CardDataCardDto> getCard(String cardRef) async {
     cardRefs.add(cardRef);
-    return const CardDataCardDto(
-      cardRef: 'catalog:pikachu-025',
-      name: 'Pikachu',
-      setName: 'Base Set',
-      setCode: 'BS',
-      cardNumber: '025',
-      finish: 'Holofoil',
-      language: 'English',
-      objectType: 'tcg',
-      imageUrl: 'https://img.example/pikachu.jpg',
-      rarity: 'Common',
-    );
+    return card;
   }
 
   @override
   Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+    if (failMarketPrices) {
+      throw StateError('market prices unavailable');
+    }
     return const [
       CardDataMarketPriceDto(
         grader: 'Raw',
@@ -1013,6 +1513,16 @@ class _FakeCardDataApi implements CardDataApi {
     double? grade,
     String? condition,
   }) async {
+    if (failPriceSeries) {
+      throw StateError('price series unavailable');
+    }
+    totalSeriesRequests += 1;
+    activeSeriesRequests += 1;
+    if (activeSeriesRequests > maxConcurrentSeriesRequests) {
+      maxConcurrentSeriesRequests = activeSeriesRequests;
+    }
+    await Future<void>.delayed(Duration.zero);
+    activeSeriesRequests -= 1;
     final current = grader == 'Raw' ? 15.0 : 70.0;
     final previous = switch ((grader, days)) {
       ('Raw', 7) => 14.0,
@@ -1029,7 +1539,32 @@ class _FakeCardDataApi implements CardDataApi {
   }
 
   @override
+  Future<List<List<CardDataPricePointDto>>> getPriceSeriesBatch(
+    String cardRef,
+    List<CardDataPriceSeriesQuery> requests,
+  ) {
+    priceSeriesBatchCalls += 1;
+    if (failPriceSeriesBatch) {
+      throw StateError('batch price series unavailable');
+    }
+    return Future.wait(
+      requests.map(
+        (request) => getPriceSeries(
+          cardRef,
+          days: request.days,
+          grader: request.grader,
+          grade: request.grade,
+          condition: request.condition,
+        ),
+      ),
+    );
+  }
+
+  @override
   Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef) async {
+    if (failSoldListings) {
+      throw StateError('sold listings unavailable');
+    }
     return const [
       CardDataSoldListingDto(
         date: '2026-07-09',
@@ -1040,6 +1575,81 @@ class _FakeCardDataApi implements CardDataApi {
     ];
   }
 }
+
+class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
+  var _marketFailuresRemaining = 1;
+  var _seriesFailuresRemaining = 1;
+  var _soldFailuresRemaining = 1;
+
+  @override
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) {
+    if (_marketFailuresRemaining > 0) {
+      _marketFailuresRemaining -= 1;
+      throw StateError('market prices unavailable');
+    }
+    return super.getMarketPrices(cardRef);
+  }
+
+  @override
+  Future<List<CardDataPricePointDto>> getPriceSeries(
+    String cardRef, {
+    required int days,
+    String grader = 'Raw',
+    double? grade,
+    String? condition,
+  }) {
+    if (_seriesFailuresRemaining > 0) {
+      _seriesFailuresRemaining -= 1;
+      throw StateError('price series unavailable');
+    }
+    return super.getPriceSeries(
+      cardRef,
+      days: days,
+      grader: grader,
+      grade: grade,
+      condition: condition,
+    );
+  }
+
+  @override
+  Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef) {
+    if (_soldFailuresRemaining > 0) {
+      _soldFailuresRemaining -= 1;
+      throw StateError('sold listings unavailable');
+    }
+    return super.getSoldListings(cardRef);
+  }
+}
+
+const _pikachuCard = CardDataCardDto(
+  cardRef: 'catalog:pikachu-025',
+  name: 'Pikachu',
+  setName: 'Base Set',
+  setCode: 'BS',
+  cardNumber: '025',
+  finish: 'Holofoil',
+  language: 'English',
+  availableLanguages: ['English', 'Japanese'],
+  availableFinishes: ['Holofoil', 'Normal'],
+  objectType: 'tcg',
+  game: 'Pokemon',
+  imageUrl: 'https://img.example/pikachu.jpg',
+  rarity: 'Common',
+);
+
+const _squirtleCard = CardDataCardDto(
+  cardRef: 'squirtle',
+  name: 'Squirtle',
+  setName: 'Mega Evolution Promos',
+  setCode: 'MEP',
+  cardNumber: '039',
+  finish: 'Holofoil',
+  language: 'English',
+  objectType: 'tcg',
+  game: 'Pokemon',
+  imageUrl: 'https://img.example/squirtle.jpg',
+  rarity: 'Promo',
+);
 
 PortfolioItemDto _portfolioItem({
   required String id,

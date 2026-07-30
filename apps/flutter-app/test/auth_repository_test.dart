@@ -6,7 +6,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
-import 'package:kando_app/features/auth/auth_storage.dart';
+
+import 'support/in_memory_auth_storage.dart';
 
 void main() {
   test(
@@ -53,6 +54,7 @@ void main() {
           'user_id': 'user-1',
           'anonymous_id': null,
           'email': 'person@example.com',
+          'login_method': 'google',
           'display_name': null,
           'created_at': '2026-07-09T00:00:00.000Z',
         }),
@@ -67,6 +69,7 @@ void main() {
       expect(session!.ownerType, OwnerType.user);
       expect(session.userId, 'user-1');
       expect(session.email, 'person@example.com');
+      expect(session.loginMethod, LoginMethod.google);
       expect(session.accessToken, 'stored-access');
       expect(adapter.requests.single.authorization, 'Bearer stored-access');
     },
@@ -111,12 +114,34 @@ void main() {
   );
 
   test(
+    'stored session validation reports network failure because offline startup must not discard identity',
+    () async {
+      const stored = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'stored-access',
+        refreshToken: 'stored-refresh',
+        userId: 'user-1',
+      );
+      final repository = HttpAuthRepository(
+        _dio(_FakeAuthAdapter({'GET /auth/me': _NetworkFailure()})),
+        InMemoryAuthStorage(),
+      );
+
+      await expectLater(
+        repository.validateStoredSession(stored),
+        throwsA(isA<AuthNetworkException>()),
+      );
+    },
+  );
+
+  test(
     'logs in through the backend because user sessions must be server-issued',
     () async {
       final adapter = _FakeAuthAdapter({
         'POST /auth/login': _ok({
           'user_id': 'user-1',
           'email': 'person@example.com',
+          'login_method': 'email',
           'access_token': 'user-access',
           'refresh_token': 'user-refresh',
           'expires_in': 900,
@@ -135,10 +160,171 @@ void main() {
       expect(session.ownerType, OwnerType.user);
       expect(session.userId, 'user-1');
       expect(session.email, 'person@example.com');
+      expect(session.loginMethod, LoginMethod.email);
       expect(adapter.requests.single.body, {
         'email': 'person@example.com',
         'password': 'password123',
       });
+    },
+  );
+
+  test(
+    'registration proves guest ownership because only that guest assets may migrate',
+    () async {
+      final storage = InMemoryAuthStorage();
+      await storage.writeSession(
+        const AuthSession(
+          ownerType: OwnerType.anonymous,
+          accessToken: 'anon-access',
+          refreshToken: 'anon-refresh',
+          anonymousId: 'anon-1',
+        ),
+      );
+      final adapter = _FakeAuthAdapter({
+        'POST /auth/register/verify': _ok({
+          'user_id': 'user-1',
+          'email': 'person@example.com',
+          'login_method': 'email',
+          'access_token': 'user-access',
+          'refresh_token': 'user-refresh',
+        }),
+      });
+      final repository = HttpAuthRepository(_dio(adapter), storage);
+
+      await repository.verifyRegister(
+        email: 'person@example.com',
+        code: '123456',
+        password: 'password123',
+        anonymousId: 'anon-1',
+      );
+
+      expect(adapter.requests.single.body, {
+        'email': 'person@example.com',
+        'code': '123456',
+        'password': 'password123',
+        'anonymous_id': 'anon-1',
+      });
+      expect(adapter.requests.single.authorization, 'Bearer anon-access');
+    },
+  );
+
+  test(
+    'google callback proves guest ownership because new OAuth users may migrate only their own assets',
+    () async {
+      final storage = InMemoryAuthStorage();
+      await storage.writeSession(
+        const AuthSession(
+          ownerType: OwnerType.anonymous,
+          accessToken: 'anon-access',
+          refreshToken: 'anon-refresh',
+          anonymousId: 'anon-1',
+        ),
+      );
+      final adapter = _FakeAuthAdapter({
+        'POST /auth/oauth/google/callback': _ok({
+          'user_id': 'user-1',
+          'email': 'person@example.com',
+          'login_method': 'google',
+          'access_token': 'user-access',
+          'refresh_token': 'user-refresh',
+        }),
+      });
+      final repository = HttpAuthRepository(_dio(adapter), storage);
+
+      final session = await repository.googleCallback(
+        idToken: 'google-id-token',
+        anonymousId: 'anon-1',
+      );
+
+      expect(adapter.requests.single.body, {
+        'id_token': 'google-id-token',
+        'anonymous_id': 'anon-1',
+      });
+      expect(adapter.requests.single.authorization, 'Bearer anon-access');
+      expect(session.loginMethod, LoginMethod.google);
+    },
+  );
+
+  test(
+    'logout keeps the stored user when the network fails because offline logout must not change account state',
+    () async {
+      final storage = InMemoryAuthStorage();
+      const user = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'user-access',
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      await storage.writeSession(user);
+      final repository = HttpAuthRepository(
+        _dio(_FakeAuthAdapter({'POST /auth/logout': _NetworkFailure()})),
+        storage,
+      );
+
+      await expectLater(
+        repository.clearUserSession(),
+        throwsA(isA<AuthNetworkException>()),
+      );
+
+      expect(await storage.readSession(), same(user));
+    },
+  );
+
+  test(
+    'deletes an anonymous account through the backend because guest cloud assets must be removed too',
+    () async {
+      final storage = InMemoryAuthStorage();
+      const guest = AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'anon-access',
+        refreshToken: 'anon-refresh',
+        anonymousId: 'anon-1',
+      );
+      await storage.writeSession(guest);
+      final adapter = _FakeAuthAdapter({
+        'DELETE /auth/account': _ok(<String, Object?>{}),
+      });
+      final repository = HttpAuthRepository(_dio(adapter), storage);
+
+      await repository.deleteCurrentAccount(guest);
+
+      expect(adapter.requests.single.authorization, 'Bearer anon-access');
+      expect(await storage.readSession(), isNull);
+    },
+  );
+
+  test(
+    'keeps an anonymous session when backend deletion fails because the user must be able to retry',
+    () async {
+      final storage = InMemoryAuthStorage();
+      const guest = AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'anon-access',
+        refreshToken: 'anon-refresh',
+        anonymousId: 'anon-1',
+      );
+      await storage.writeSession(guest);
+      final repository = HttpAuthRepository(
+        _dio(
+          _FakeAuthAdapter({
+            'DELETE /auth/account': _Response(500, {
+              'success': false,
+              'error': {
+                'code': 'INTERNAL_ERROR',
+                'message': 'Unable to complete this action.',
+              },
+            }),
+          }),
+        ),
+        storage,
+      );
+
+      await expectLater(
+        repository.deleteCurrentAccount(guest),
+        throwsA(isA<AuthApiException>()),
+      );
+
+      expect(await storage.readSession(), same(guest));
     },
   );
 }
@@ -156,7 +342,7 @@ _Response _ok(Map<String, Object?> data) {
 class _FakeAuthAdapter implements HttpClientAdapter {
   _FakeAuthAdapter(this.responses);
 
-  final Map<String, _Response> responses;
+  final Map<String, Object> responses;
   final List<_RecordedRequest> requests = [];
 
   @override
@@ -175,6 +361,12 @@ class _FakeAuthAdapter implements HttpClientAdapter {
       ),
     );
     final response = responses[key];
+    if (response is _NetworkFailure) {
+      throw DioException(
+        requestOptions: options,
+        type: DioExceptionType.connectionError,
+      );
+    }
     if (response == null) {
       return ResponseBody.fromString(
         jsonEncode({
@@ -189,7 +381,7 @@ class _FakeAuthAdapter implements HttpClientAdapter {
     }
 
     return ResponseBody.fromString(
-      jsonEncode(response.body),
+      jsonEncode((response as _Response).body),
       response.statusCode,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -216,6 +408,10 @@ class _Response {
 
   final int statusCode;
   final Map<String, Object?> body;
+}
+
+class _NetworkFailure {
+  const _NetworkFailure();
 }
 
 class _RecordedRequest {

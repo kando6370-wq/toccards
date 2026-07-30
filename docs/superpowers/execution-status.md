@@ -1,12 +1,12 @@
 # 执行状态文档
 
 ## 当前任务
-- 状态：本轮完成（验证通过）
-- 计划编号：M2-2
-- 最近开始：2026-07-09 15:02:59
-- 最近完成：2026-07-09 15:05:14
-- 最近验证：通过
-- 最近任务摘要：Implement D1 card catalog adapter from cards_basic_information DDL
+- 状态：本轮完成（本地验证通过，生产 API 未发布）
+- 计划编号：无（非 dev-plan 里程碑任务）
+- 最近开始：2026-07-28 11:09:00
+- 最近完成：2026-07-28 11:35:08
+- 最近验证：25 张真实样本裁剪测试、Flutter/Workers 单测与静态检查、Workers 27 项测试与 dry-run 构建、Debug APK v2 签名及 ADB 安装均通过
+- 最近任务摘要：优化相册与拍照扫描的卡面裁剪及同画面卡号消歧
 - 备注：`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。
 
 ## dev-plan 子任务状态
@@ -36,7 +36,7 @@
 
 ### M2 数据代理层
 - [M2-1] `DataSourceAdapter` 抽象层 — status: `completed` · updated: 2026-07-07 13:20:58
-- [M2-2] D1 卡牌基础数据适配实现 — status: `completed` · updated: 2026-07-09 15:05:14
+- [M2-2] D1 卡牌基础数据适配实现 — status: `completed` · updated: 2026-07-13 18:28:24
 - [M2-3] Workers KV 缓存层 — status: `completed` · updated: 2026-07-07 13:31:42
 - [M2-4] Cache API 缓存层 — status: `completed` · updated: 2026-07-07 13:35:02
 - [M2-5] 降级兜底逻辑 — status: `completed` · updated: 2026-07-07 13:44:52
@@ -124,6 +124,18 @@
 - 已完成：归一 execution-status 隐藏状态块
 
 ## 执行日志
+- 2026-07-28 10:18:27 | 完成（局部验证通过） | 开屏最短时长延长至 2 秒，并在认证后并行预加载 Home、Collection、Search，最长等待 8 秒；静态分析与启动相关测试通过；扩展 controller 测试仅有 1 个既有 Search 展示文案断言失败
+- 2026-07-28 10:12:52 | 开始 | 在开屏阶段并行预加载 Home、Collection、Search 数据，并延长最短开屏时间
+- 2026-07-28 09:52:59 | 完成（局部验证通过） | 修复认证状态切换后 Home 首次请求未被消费的问题；`flutter analyze` 与 Home 启动预加载/controller 测试通过；Home widget 全文件另有 2 个既有 golden 像素差及 1 个既有金额断言失败，可独立复现且本次未改 UI
+- 2026-07-28 09:47:16 | 开始 | 修复 Home 首次进入时不自动展示数据的问题
+- 2026-07-17 17:41:34 | 完成（局部验证通过） | 为顶部 Overlay Toast 增加两行省略和向上滑动关闭；`flutter test apps/flutter-app/test/toast_test.dart` 通过
+- 2026-07-17 17:39:00 | 完成（局部验证通过） | 新增顶部 Overlay Toast 公共组件，支持 failure/network/success/warning/info 类型；`flutter test apps/flutter-app/test/toast_test.dart` 通过
+- 2026-07-17 17:27:09 | 完成（局部验证通过） | 将 Delete Account 确认弹窗替换为共享 Figma danger modal；toast/modal 定向测试通过；iPhone 17 模拟器已启动 `com.kando.kandoApp`
+- 2026-07-17 17:16:59 | 完成（验证受限） | 为共享 toast/modal 组件补充中文使用场景 DartDoc 备注；已执行 `git diff --check`
+- 2026-07-17 17:15:02 | 完成（验证受限） | 为共享 toast/modal 组件补充使用场景 DartDoc 备注；已执行 `git diff --check`
+- 2026-07-17 17:12:27 | 完成（验证受限） | 按 Figma 弹窗规范新增共享 toast/modal 组件；`dart` / `flutter` 不在 PATH，已完成 `git diff --check` 与引用扫描
+- 2026-07-17 17:01:39 | 完成（文档变更，代码验证不适用） | 补充 Figma `736:13751` 弹窗 section 的 toast、确认弹窗、更新弹窗使用规范
+- 2026-07-17 16:59:03 | 完成（文档变更，代码验证不适用） | 基于 Figma `卡牌app` 生成 Vault & Vellum UI 设计系统硬规范，并加入 `docs/tcg-card/README.md` 与 `CLAUDE.md` 入口
 - 2026-07-06 00:00:00 | 开始 | 为仓库落地 Claude Code harness 规则：共享 settings、规则文档、执行状态文档与完成后自动验证
 - 2026-07-06 00:05:00 | 进展 | 已创建 `.claude/settings.json`、`.claude/hooks/task_status.py`、`.claude/hooks/task_complete_verify.sh`
 - 2026-07-06 00:10:00 | 进展 | 已补充 `CLAUDE.md` 的 harness 规则，并新增 `docs/superpowers/claude-harness-rules.md`
@@ -245,15 +257,17 @@
 - 2026-07-09 15:02:52 | 完成（验证通过） | [M6-6] Verify subscription surfaces hidden before M7 admin.
 - 2026-07-09 15:02:59 | 开始 | [M2-2] Implement D1 card catalog adapter from cards_basic_information DDL
 - 2026-07-09 15:05:14 | 完成（验证通过） | [M2-2] Implement D1 card catalog adapter from cards_basic_information DDL
+- 2026-07-13 18:21:42 | 开始 | [M2-2] D1 卡牌基础数据适配实现
+- 2026-07-13 18:23:08 | 完成（验证通过） | [M2-2] D1 卡牌基础数据适配实现
 
 <!-- task-status-state
 {
   "current": {
     "status": "本轮完成（验证通过）",
-    "started_at": "2026-07-09 15:02:59",
-    "finished_at": "2026-07-09 15:05:14",
+    "started_at": "2026-07-13 18:21:43",
+    "finished_at": "2026-07-13 18:28:24",
     "plan_ref": "M2-2",
-    "summary": "Implement D1 card catalog adapter from cards_basic_information DDL",
+    "summary": "D1 卡牌基础数据适配实现",
     "last_verification": "通过",
     "note": "`docs/tcg-card/05-plan/dev-plan.md` 是只读计划真源；本文件展示当前执行态与计划状态覆盖层。带 `[Mx-y]` / `[TBD Mx-A]` 前缀的任务会更新计划状态，无前缀任务只记录执行日志。"
   },
@@ -983,6 +997,18 @@
       "phase": "完成（验证通过）",
       "summary": "Implement D1 card catalog adapter from cards_basic_information DDL",
       "plan_ref": "M2-2"
+    },
+    {
+      "time": "2026-07-13 18:21:42",
+      "phase": "开始",
+      "summary": "D1 卡牌基础数据适配实现",
+      "plan_ref": "M2-2"
+    },
+    {
+      "time": "2026-07-13 18:23:08",
+      "phase": "完成（验证通过）",
+      "summary": "D1 卡牌基础数据适配实现",
+      "plan_ref": "M2-2"
     }
   ],
   "plan": {
@@ -1402,8 +1428,8 @@
       },
       "M2-2": {
         "status": "completed",
-        "updated_at": "2026-07-09 15:05:14",
-        "summary": "Implement D1 card catalog adapter from cards_basic_information DDL",
+        "updated_at": "2026-07-13 18:28:24",
+        "summary": "D1 卡牌基础数据适配实现",
         "title": "D1 卡牌基础数据适配实现",
         "milestone": "M2"
       }

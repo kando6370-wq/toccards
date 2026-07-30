@@ -1,16 +1,21 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'auth_models.dart';
 import 'oauth_authorizer.dart';
 import 'auth_repository.dart';
+import 'auth_session_interceptor.dart';
 import 'auth_storage.dart';
+import '../../shared/api/api_request_log.dart';
+import '../../shared/debug/app_debug_overlay.dart';
 
 const authAuthorizationFailedMessage = oauthAuthorizationFailedMessage;
 const authAccountActionFailedMessage =
     'Unable to complete this action. Please try again later.';
-const _googleRedirectUri = 'kando://auth/google';
+
+enum EmailAuthDestination { login, registerCode }
 
 class AuthActionException implements Exception {
   const AuthActionException(this.message);
@@ -21,12 +26,19 @@ class AuthActionException implements Exception {
   String toString() => message;
 }
 
-final authStorageProvider = Provider<InMemoryAuthStorage>((ref) {
-  return InMemoryAuthStorage();
+final authStorageProvider = Provider<AuthStorage>((ref) {
+  return const SecureAuthStorage();
 });
 
 final authDioProvider = Provider((ref) {
   final dio = createAuthDio();
+  dio.interceptors.add(
+    ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
+  );
+  addAppDebugHttpLogging(dio);
+  dio.interceptors.add(
+    AuthSessionInterceptor(dio: dio, storage: ref.watch(authStorageProvider)),
+  );
   ref.onDispose(dio.close);
   return dio;
 });
@@ -39,12 +51,10 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 final oauthAuthorizerProvider = Provider<OAuthAuthorizer>((ref) {
-  return const MockOAuthAuthorizer();
+  return PlatformOAuthAuthorizer.instance;
 });
 
-final authDeviceIdProvider = Provider<String>((ref) {
-  return 'local-device';
-});
+final authDeviceIdProvider = Provider<String?>((ref) => null);
 
 final authControllerProvider = NotifierProvider<AuthController, AuthState>(
   AuthController.new,
@@ -57,7 +67,7 @@ class AuthController extends Notifier<AuthState> {
 
   AuthRepository get _repository => ref.read(authRepositoryProvider);
   OAuthAuthorizer get _oauthAuthorizer => ref.read(oauthAuthorizerProvider);
-  String get _deviceId => ref.read(authDeviceIdProvider);
+  AuthStorage get _storage => ref.read(authStorageProvider);
 
   Future<void> get startupComplete {
     return _startupCompleter?.future ?? Future<void>.value();
@@ -65,6 +75,17 @@ class AuthController extends Notifier<AuthState> {
 
   @override
   AuthState build() {
+    _startSessionLoad();
+    return const AuthState.loading();
+  }
+
+  Future<void> retryStartup() {
+    state = const AuthState.loading();
+    _startSessionLoad();
+    return startupComplete;
+  }
+
+  void _startSessionLoad() {
     final completer = Completer<void>();
     final generation = ++_generation;
     _startupCompleter = completer;
@@ -74,10 +95,12 @@ class AuthController extends Notifier<AuthState> {
         Object error,
         StackTrace stackTrace,
       ) {
-        completer.completeError(error, stackTrace);
+        if (generation == _generation) {
+          state = const AuthState.failure();
+        }
+        completer.complete();
       }),
     );
-    return const AuthState.loading();
   }
 
   Future<void> logout() async {
@@ -129,6 +152,25 @@ class AuthController extends Notifier<AuthState> {
     return _repository.sendRegisterCode(email);
   }
 
+  Future<EmailAuthDestination> beginEmailAuth(String email) async {
+    try {
+      await _repository.sendRegisterCode(email);
+      return EmailAuthDestination.registerCode;
+    } on AuthApiException catch (error) {
+      if (error.code == 'CONFLICT') {
+        return EmailAuthDestination.login;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> verifyRegisterCode({
+    required String email,
+    required String code,
+  }) {
+    return _repository.verifyRegisterCode(email: email, code: code);
+  }
+
   Future<void> verifyRegister({
     required String email,
     required String code,
@@ -175,18 +217,16 @@ class AuthController extends Notifier<AuthState> {
   Future<void> _continueWithOAuth(OAuthProvider provider) async {
     final generation = _generation;
     final targetSession = state.session;
-
     final OAuthAuthorizationResult? authorization;
     try {
       authorization = await _oauthAuthorizer.authorize(provider);
-    } on Exception {
+    } catch (_) {
       throw const AuthActionException(authAuthorizationFailedMessage);
     }
     if (authorization == null) {
       return;
     }
     final authorizationResult = authorization;
-
     await _enqueueMutation(() async {
       if (generation != _generation ||
           !identical(state.session, targetSession)) {
@@ -200,8 +240,7 @@ class AuthController extends Notifier<AuthState> {
       try {
         session = switch (provider) {
           OAuthProvider.google => await _repository.googleCallback(
-            code: authorizationResult.code,
-            redirectUri: _googleRedirectUri,
+            idToken: authorizationResult.code,
             anonymousId: anonymousId,
           ),
           OAuthProvider.apple => await _repository.appleCallback(
@@ -220,9 +259,24 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> _loadInitialSession(int generation) async {
     final storedSession = await _repository.currentSessionFromStorage();
-    final validSession = storedSession == null
-        ? null
-        : await _repository.validateStoredSession(storedSession);
+    if (storedSession != null && _hasUsableAccessToken(storedSession)) {
+      if (generation == _generation) {
+        state = AuthState.ready(session: storedSession);
+      }
+      return;
+    }
+
+    AuthSession? validSession;
+    try {
+      validSession = storedSession == null
+          ? null
+          : await _repository.validateStoredSession(storedSession);
+    } on AuthNetworkException {
+      if (generation == _generation && storedSession != null) {
+        state = AuthState.ready(session: storedSession);
+      }
+      return;
+    }
 
     if (generation != _generation) {
       return;
@@ -236,9 +290,9 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> _replaceWithAnonymous({int? expectedGeneration}) async {
-    final anonymousSession = await _repository.createAnonymousSession(
-      _deviceId,
-    );
+    final deviceId =
+        ref.read(authDeviceIdProvider) ?? await _storage.readOrCreateDeviceId();
+    final anonymousSession = await _repository.createAnonymousSession(deviceId);
     if (!_isExpectedGeneration(expectedGeneration)) {
       return;
     }
@@ -271,5 +325,27 @@ class AuthController extends Notifier<AuthState> {
     final run = _mutationTail.then((_) => mutation());
     _mutationTail = run.catchError((Object _) {});
     return run;
+  }
+}
+
+bool _hasUsableAccessToken(AuthSession session, {DateTime? now}) {
+  final parts = session.accessToken.split('.');
+  if (parts.length != 3) return false;
+  try {
+    final payload = jsonDecode(
+      utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+    );
+    if (payload is! Map || payload['exp'] is! num) return false;
+    final expiresAt = DateTime.fromMillisecondsSinceEpoch(
+      (payload['exp'] as num).toInt() * 1000,
+      isUtc: true,
+    );
+    return expiresAt.isAfter(
+      (now ?? DateTime.now()).toUtc().add(const Duration(seconds: 30)),
+    );
+  } on FormatException {
+    return false;
+  } on RangeError {
+    return false;
   }
 }

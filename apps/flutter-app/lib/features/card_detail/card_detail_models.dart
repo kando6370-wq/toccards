@@ -24,18 +24,36 @@ enum CardPriceChartMode {
   final String label;
 }
 
+enum CardMarketPriceCategory {
+  ungraded('Raw', 'Ungraded'),
+  psa('PSA', 'PSA'),
+  ace('ACE', 'ACE'),
+  bgs('BGS', 'BGS');
+
+  const CardMarketPriceCategory(this.grader, this.label);
+
+  final String grader;
+  final String label;
+}
+
 class CardMarketPrice {
   const CardMarketPrice({
     required this.label,
     required this.priceUsd,
     required this.previous30dPriceUsd,
     this.previous7dPriceUsd,
+    this.grader = 'Raw',
+    this.grade,
+    this.condition,
   });
 
   final String label;
   final double? priceUsd;
   final double? previous30dPriceUsd;
   final double? previous7dPriceUsd;
+  final String grader;
+  final double? grade;
+  final String? condition;
 }
 
 class CardPricePoint {
@@ -51,12 +69,14 @@ class CardSoldListing {
     required this.title,
     required this.priceUsd,
     required this.platform,
+    this.url,
   });
 
   final String dateText;
   final String title;
   final double? priceUsd;
   final String platform;
+  final String? url;
 }
 
 class CardPortfolioFolder {
@@ -143,6 +163,7 @@ class CardCollectionItem {
 class CardDetail {
   const CardDetail({
     required this.id,
+    this.imageUrl,
     required this.type,
     required this.name,
     required this.game,
@@ -150,6 +171,8 @@ class CardDetail {
     required this.identityLine,
     required this.finish,
     required this.language,
+    this.availableFinishes = const [],
+    this.availableLanguages = const [],
     required this.quantity,
     required this.isWishlisted,
     this.wishlistItemId,
@@ -162,6 +185,7 @@ class CardDetail {
   });
 
   final String id;
+  final String? imageUrl;
   final CardDetailType type;
   final String name;
   final String game;
@@ -169,6 +193,8 @@ class CardDetail {
   final String identityLine;
   final String finish;
   final String language;
+  final List<String> availableFinishes;
+  final List<String> availableLanguages;
   final int quantity;
   final bool isWishlisted;
   final String? wishlistItemId;
@@ -181,15 +207,26 @@ class CardDetail {
 
   bool get isCollected => quantity > 0 || collectionItems.isNotEmpty;
 
+  List<String> get collectionFinishOptions =>
+      availableFinishes.isEmpty ? [finish] : availableFinishes;
+
+  List<String> get collectionLanguageOptions =>
+      availableLanguages.isEmpty ? [language] : availableLanguages;
+
   CardDetail copyWith({
     int? quantity,
     bool? isWishlisted,
     Object? wishlistItemId = _cardCollectionItemUnset,
+    List<CardMarketPrice>? marketPrices,
     List<CardPortfolioFolder>? portfolioFolders,
     List<CardCollectionItem>? collectionItems,
+    Map<CardPriceRange, List<CardPricePoint>>? priceSeriesByRange,
+    Map<CardPriceRange, List<CardPricePoint>>? gradedPriceSeriesByRange,
+    List<CardSoldListing>? soldListings,
   }) {
     return CardDetail(
       id: id,
+      imageUrl: imageUrl,
       type: type,
       name: name,
       game: game,
@@ -197,17 +234,20 @@ class CardDetail {
       identityLine: identityLine,
       finish: finish,
       language: language,
+      availableFinishes: availableFinishes,
+      availableLanguages: availableLanguages,
       quantity: quantity ?? this.quantity,
       isWishlisted: isWishlisted ?? this.isWishlisted,
       wishlistItemId: wishlistItemId == _cardCollectionItemUnset
           ? this.wishlistItemId
           : wishlistItemId as String?,
-      marketPrices: marketPrices,
+      marketPrices: marketPrices ?? this.marketPrices,
       portfolioFolders: portfolioFolders ?? this.portfolioFolders,
       collectionItems: collectionItems ?? this.collectionItems,
-      priceSeriesByRange: priceSeriesByRange,
-      gradedPriceSeriesByRange: gradedPriceSeriesByRange,
-      soldListings: soldListings,
+      priceSeriesByRange: priceSeriesByRange ?? this.priceSeriesByRange,
+      gradedPriceSeriesByRange:
+          gradedPriceSeriesByRange ?? this.gradedPriceSeriesByRange,
+      soldListings: soldListings ?? this.soldListings,
     );
   }
 }

@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/collection/collection_controller.dart';
+import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
@@ -24,7 +27,6 @@ final cardDetailControllerProvider =
       CardDetailController.new,
     );
 
-const cardCollectionPortfolioNames = ['Main', 'Sealed', 'Empty'];
 const cardCollectionGraders = ['Raw', 'PSA', 'BGS', 'SGC', 'CGC', 'TAG', 'AGS'];
 const cardCollectionConditions = [
   'Near Mint (NM)',
@@ -74,7 +76,6 @@ const cardCollectionGradeValues = [
   '1',
 ];
 
-const _defaultPortfolioName = 'Main';
 const _defaultCondition = 'Near Mint (NM)';
 const _defaultGrade = '10';
 const _quantityRequiredText = 'Please enter a quantity.';
@@ -85,6 +86,25 @@ const _notesTooLongText = 'Notes must be 500 characters or less.';
 const _priceSeriesFallbackText = 'No price data available.';
 const _soldListingsFallbackText = 'No sold listings available.';
 const _cardDetailStateUnset = Object();
+
+String _gradeText(double grade) {
+  return grade == grade.truncateToDouble()
+      ? grade.toInt().toString()
+      : grade.toString();
+}
+
+String _collectionOptionOrDefault(String value, List<String> options) {
+  return options.contains(value) ? value : options.first;
+}
+
+int _compareListingDates(String left, String right) {
+  final leftDate = DateTime.tryParse(left);
+  final rightDate = DateTime.tryParse(right);
+  if (leftDate != null && rightDate != null) {
+    return leftDate.compareTo(rightDate);
+  }
+  return left.compareTo(right);
+}
 
 List<String> cardCollectionGradeLabelsFor(String grader) {
   return cardCollectionGradeValues.map((grade) => '$grader $grade').toList();
@@ -114,17 +134,6 @@ class CardCollectionItemDraft {
   final String notes;
 
   bool get isRaw => grader == 'Raw';
-
-  String get totalText {
-    final quantity = int.tryParse(quantityText.trim());
-    final price = double.tryParse(purchasePriceText.trim());
-
-    if (quantity == null || quantity < 1 || price == null || price < 0) {
-      return '--';
-    }
-
-    return r'$' + (quantity * price).toStringAsFixed(2);
-  }
 
   CardCollectionItemDraft copyWith({
     String? quantityText,
@@ -200,12 +209,14 @@ class CardSoldListingRow {
     required this.title,
     required this.priceText,
     required this.platform,
+    required this.url,
   });
 
   final String dateText;
   final String title;
   final String priceText;
   final String platform;
+  final String? url;
 }
 
 class CardDetailState {
@@ -215,9 +226,15 @@ class CardDetailState {
     required this.currency,
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
+    this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
+    this.isSavingCollectionItemDraft = false,
+    this.assetStateStatus = KandoLoadStatus.content,
+    this.priceSeriesStatus = KandoLoadStatus.content,
+    this.marketPricesStatus = KandoLoadStatus.content,
+    this.soldListingsStatus = KandoLoadStatus.content,
   }) : _detail = detail,
        loadStatus = KandoLoadStatus.content;
 
@@ -226,32 +243,50 @@ class CardDetailState {
     required this.currency,
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
+    this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
+    this.isSavingCollectionItemDraft = false,
   }) : _detail = null,
-       loadStatus = KandoLoadStatus.failure;
+       loadStatus = KandoLoadStatus.failure,
+       assetStateStatus = KandoLoadStatus.failure,
+       priceSeriesStatus = KandoLoadStatus.failure,
+       marketPricesStatus = KandoLoadStatus.failure,
+       soldListingsStatus = KandoLoadStatus.failure;
 
   const CardDetailState.loading({
     required this.cardId,
     required this.currency,
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
+    this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
+    this.isSavingCollectionItemDraft = false,
   }) : _detail = null,
-       loadStatus = KandoLoadStatus.loading;
+       loadStatus = KandoLoadStatus.loading,
+       assetStateStatus = KandoLoadStatus.loading,
+       priceSeriesStatus = KandoLoadStatus.loading,
+       marketPricesStatus = KandoLoadStatus.loading,
+       soldListingsStatus = KandoLoadStatus.loading;
 
   final String cardId;
   final CardDetail? _detail;
   final AppCurrency currency;
   final CardPriceChartMode selectedPriceChartMode;
   final CardPriceRange selectedPriceRange;
+  final CardMarketPriceCategory selectedMarketPriceCategory;
   final CardCollectionItemDraft? collectionItemDraft;
   final String? editingCollectionItemId;
   final String? collectionItemFormError;
+  final bool isSavingCollectionItemDraft;
   final KandoLoadStatus loadStatus;
+  final KandoLoadStatus assetStateStatus;
+  final KandoLoadStatus priceSeriesStatus;
+  final KandoLoadStatus marketPricesStatus;
+  final KandoLoadStatus soldListingsStatus;
 
   bool get isUnavailable => loadStatus == KandoLoadStatus.failure;
   bool get isLoading => loadStatus == KandoLoadStatus.loading;
@@ -302,13 +337,37 @@ class CardDetailState {
     }).toList();
   }
 
-  List<CardPricePointRow> get priceSeriesRows {
+  String get collectionItemDraftTotalText {
+    final draft = collectionItemDraft;
+    if (draft == null) return _formatter.formatUsd(null);
+    final quantity = int.tryParse(draft.quantityText.trim());
+    if (quantity == null || quantity < 1) return _formatter.formatUsd(null);
+    final marketPrice = detail.marketPrices
+        .where((price) {
+          if (price.grader.toLowerCase() != draft.grader.toLowerCase()) {
+            return false;
+          }
+          if (draft.isRaw) {
+            return _normalizedCondition(price.condition) ==
+                _normalizedCondition(draft.condition);
+          }
+          final grade = double.tryParse(draft.grade);
+          return grade != null && price.grade == grade;
+        })
+        .firstOrNull
+        ?.priceUsd;
+    return _formatter.formatUsd(marketPrice, quantity: quantity);
+  }
+
+  List<CardPricePoint> get selectedPriceSeries {
     final seriesByRange = selectedPriceChartMode == CardPriceChartMode.raw
         ? detail.priceSeriesByRange
         : detail.gradedPriceSeriesByRange;
-    final points =
-        seriesByRange[selectedPriceRange] ?? const <CardPricePoint>[];
-    return points.map((point) {
+    return seriesByRange[selectedPriceRange] ?? const <CardPricePoint>[];
+  }
+
+  List<CardPricePointRow> get priceSeriesRows {
+    return selectedPriceSeries.map((point) {
       return CardPricePointRow(
         dateLabel: point.dateLabel,
         priceText: _formatter.formatUsd(point.priceUsd),
@@ -325,22 +384,40 @@ class CardDetailState {
   }
 
   List<CardMarketRow> get priceTabMarketRows {
-    return detail.marketPrices.map((price) {
-      return CardMarketRow(
-        label: price.label,
-        priceText: _formatter.formatUsd(price.priceUsd),
-        changeText: _marketChange7d(price).percentText,
-      );
-    }).toList();
+    return detail.marketPrices
+        .where(
+          (price) =>
+              price.grader.toLowerCase() ==
+              selectedMarketPriceCategory.grader.toLowerCase(),
+        )
+        .map((price) {
+          return CardMarketRow(
+            label:
+                selectedMarketPriceCategory == CardMarketPriceCategory.ungraded
+                ? price.condition ??
+                      price.label.replaceFirst(RegExp(r'^Raw\s*'), '')
+                : price.grade == null
+                ? price.label
+                : _gradeText(price.grade!),
+            priceText: _formatter.formatUsd(price.priceUsd),
+            changeText: _marketChange7d(price).percentText,
+          );
+        })
+        .toList();
   }
 
   List<CardSoldListingRow> get soldListingRows {
-    return detail.soldListings.map((listing) {
+    final listings = [...detail.soldListings]
+      ..sort(
+        (left, right) => _compareListingDates(right.dateText, left.dateText),
+      );
+    return listings.map((listing) {
       return CardSoldListingRow(
         dateText: listing.dateText,
         title: listing.title,
         priceText: _formatter.formatUsd(listing.priceUsd),
         platform: listing.platform,
+        url: listing.url,
       );
     }).toList();
   }
@@ -388,9 +465,15 @@ class CardDetailState {
     AppCurrency? currency,
     CardPriceChartMode? selectedPriceChartMode,
     CardPriceRange? selectedPriceRange,
+    CardMarketPriceCategory? selectedMarketPriceCategory,
     Object? collectionItemDraft = _cardDetailStateUnset,
     Object? editingCollectionItemId = _cardDetailStateUnset,
     Object? collectionItemFormError = _cardDetailStateUnset,
+    bool? isSavingCollectionItemDraft,
+    KandoLoadStatus? assetStateStatus,
+    KandoLoadStatus? priceSeriesStatus,
+    KandoLoadStatus? marketPricesStatus,
+    KandoLoadStatus? soldListingsStatus,
   }) {
     return CardDetailState(
       cardId: cardId,
@@ -399,6 +482,8 @@ class CardDetailState {
       selectedPriceChartMode:
           selectedPriceChartMode ?? this.selectedPriceChartMode,
       selectedPriceRange: selectedPriceRange ?? this.selectedPriceRange,
+      selectedMarketPriceCategory:
+          selectedMarketPriceCategory ?? this.selectedMarketPriceCategory,
       collectionItemDraft: collectionItemDraft == _cardDetailStateUnset
           ? this.collectionItemDraft
           : collectionItemDraft as CardCollectionItemDraft?,
@@ -408,6 +493,12 @@ class CardDetailState {
       collectionItemFormError: collectionItemFormError == _cardDetailStateUnset
           ? this.collectionItemFormError
           : collectionItemFormError as String?,
+      isSavingCollectionItemDraft:
+          isSavingCollectionItemDraft ?? this.isSavingCollectionItemDraft,
+      assetStateStatus: assetStateStatus ?? this.assetStateStatus,
+      priceSeriesStatus: priceSeriesStatus ?? this.priceSeriesStatus,
+      marketPricesStatus: marketPricesStatus ?? this.marketPricesStatus,
+      soldListingsStatus: soldListingsStatus ?? this.soldListingsStatus,
     );
   }
 }
@@ -431,7 +522,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       }
     });
 
-    final currency = ref.watch(selectedCurrencyProvider);
+    final currency = ref.read(selectedCurrencyProvider);
     final authState = ref.watch(authControllerProvider);
     final session = authState.session;
     if (authState.isLoading || session == null) {
@@ -454,6 +545,67 @@ class CardDetailController extends Notifier<CardDetailState> {
     state = CardDetailState.loading(cardId: cardId, currency: state.currency);
     _startLoad(session: session, currency: state.currency);
     return loadComplete;
+  }
+
+  Future<void> refreshPriceSeries() {
+    return _refreshSection(
+      status: (value) => state = state.copyWith(priceSeriesStatus: value),
+      load: (repository, isCurrent) async {
+        final data = await repository.loadPriceSeries(cardId);
+        if (!isCurrent()) return;
+        state = state.copyWith(
+          detail: state.detail.copyWith(
+            marketPrices: _resolvedMarketPrices(data.marketPrices),
+            priceSeriesByRange: data.rawSeriesByRange,
+            gradedPriceSeriesByRange: data.gradedSeriesByRange,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> refreshAssetState() {
+    final session = _session;
+    if (session == null) return Future<void>.value();
+    return _refreshSection(
+      status: (value) => state = state.copyWith(assetStateStatus: value),
+      load: (repository, isCurrent) async {
+        final detail = await repository.loadAssetState(session, state.detail);
+        if (isCurrent()) {
+          state = state.copyWith(
+            detail: _detailWithAssetState(state.detail, detail),
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> refreshMarketPrices() {
+    return _refreshSection(
+      status: (value) => state = state.copyWith(marketPricesStatus: value),
+      load: (repository, isCurrent) async {
+        final data = await repository.loadMarketPrices(cardId);
+        if (!isCurrent()) return;
+        state = state.copyWith(
+          detail: state.detail.copyWith(
+            marketPrices: _resolvedMarketPrices(data.marketPrices),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> refreshSoldListings() {
+    return _refreshSection(
+      status: (value) => state = state.copyWith(soldListingsStatus: value),
+      load: (repository, isCurrent) async {
+        final listings = await repository.loadSoldListings(cardId);
+        if (!isCurrent()) return;
+        state = state.copyWith(
+          detail: state.detail.copyWith(soldListings: listings),
+        );
+      },
+    );
   }
 
   Future<void> quickCollect() async {
@@ -487,6 +639,7 @@ class CardDetailController extends Notifier<CardDetailState> {
         wishlistItemId: null,
       ),
     );
+    _invalidateAssetConsumers();
   }
 
   Future<void> toggleWishlist() async {
@@ -520,6 +673,7 @@ class CardDetailController extends Notifier<CardDetailState> {
           wishlistItemId: null,
         ),
       );
+      _invalidateAssetConsumers();
       return;
     }
 
@@ -540,6 +694,7 @@ class CardDetailController extends Notifier<CardDetailState> {
         wishlistItemId: wishlistItemId,
       ),
     );
+    _invalidateAssetConsumers();
   }
 
   void selectPriceRange(CardPriceRange range) {
@@ -558,23 +713,46 @@ class CardDetailController extends Notifier<CardDetailState> {
     state = state.copyWith(selectedPriceChartMode: mode);
   }
 
+  void selectMarketPriceCategory(CardMarketPriceCategory category) {
+    if (state.isUnavailable || state.isLoading) return;
+    state = state.copyWith(selectedMarketPriceCategory: category);
+  }
+
   void startAddingCollectionItem() {
     if (state.isUnavailable || state.isLoading) {
       return;
     }
+    final defaultFolder = _initialPortfolioFolder(
+      state.detail,
+      ref.read(selectedPortfolioFolderProvider),
+    );
+    if (defaultFolder == null) {
+      return;
+    }
 
     state = state.copyWith(
-      collectionItemDraft: const CardCollectionItemDraft(
-        quantityText: '1',
-        portfolioName: _defaultPortfolioName,
-        grader: 'Raw',
-        condition: _defaultCondition,
-        grade: '',
-        language: '',
-        finish: '',
-        purchasePriceText: '',
-        notes: '',
-      ).copyWith(language: state.detail.language, finish: state.detail.finish),
+      collectionItemDraft:
+          const CardCollectionItemDraft(
+            quantityText: '1',
+            portfolioName: '',
+            grader: 'Raw',
+            condition: _defaultCondition,
+            grade: '',
+            language: '',
+            finish: '',
+            purchasePriceText: '',
+            notes: '',
+          ).copyWith(
+            portfolioName: defaultFolder.name,
+            language: _collectionOptionOrDefault(
+              state.detail.language,
+              state.detail.collectionLanguageOptions,
+            ),
+            finish: _collectionOptionOrDefault(
+              state.detail.finish,
+              state.detail.collectionFinishOptions,
+            ),
+          ),
       editingCollectionItemId: null,
       collectionItemFormError: null,
     );
@@ -597,14 +775,37 @@ class CardDetailController extends Notifier<CardDetailState> {
         grader: item.grader,
         condition: item.condition ?? _defaultCondition,
         grade: item.grade ?? _defaultGradeForGrader(item.grader),
-        language: item.language ?? state.detail.language,
-        finish: item.finish ?? state.detail.finish,
-        purchasePriceText: item.purchasePriceUsd?.toStringAsFixed(2) ?? '',
+        language: _collectionOptionOrDefault(
+          item.language ?? state.detail.language,
+          _optionsWithCurrent(
+            state.detail.collectionLanguageOptions,
+            item.language,
+          ),
+        ),
+        finish: _collectionOptionOrDefault(
+          item.finish ?? state.detail.finish,
+          _optionsWithCurrent(
+            state.detail.collectionFinishOptions,
+            item.finish,
+          ),
+        ),
+        purchasePriceText:
+            _currencyFormatter
+                .convertUsd(item.purchasePriceUsd)
+                ?.toStringAsFixed(2) ??
+            '',
         notes: item.notes,
       ),
       editingCollectionItemId: item.id,
       collectionItemFormError: null,
     );
+  }
+
+  List<String> _optionsWithCurrent(List<String> options, String? current) {
+    if (current == null || current.isEmpty || options.contains(current)) {
+      return options;
+    }
+    return [...options, current];
   }
 
   void updateCollectionItemDraft({
@@ -662,7 +863,10 @@ class CardDetailController extends Notifier<CardDetailState> {
 
   Future<bool> saveCollectionItemDraft() async {
     final draft = state.collectionItemDraft;
-    if (state.isUnavailable || state.isLoading || draft == null) {
+    if (state.isUnavailable ||
+        state.isLoading ||
+        state.isSavingCollectionItemDraft ||
+        draft == null) {
       return false;
     }
     final session = _session;
@@ -681,6 +885,11 @@ class CardDetailController extends Notifier<CardDetailState> {
       _setCollectionItemFormError(purchasePrice.error!);
       return false;
     }
+    final purchasePriceUsd = _currencyFormatter.toUsd(purchasePrice.value);
+    if (purchasePrice.value != null && purchasePriceUsd == null) {
+      _setCollectionItemFormError(_invalidPriceText);
+      return false;
+    }
 
     if (draft.notes.length > 500) {
       _setCollectionItemFormError(_notesTooLongText);
@@ -688,12 +897,20 @@ class CardDetailController extends Notifier<CardDetailState> {
     }
 
     final detail = state.detail;
+    final folderId = _folderIdForPortfolioName(
+      detail.portfolioFolders,
+      draft.portfolioName,
+    );
+    if (folderId == null) {
+      _setCollectionItemFormError('Please select a portfolio.');
+      return false;
+    }
     final editingItemId = state.editingCollectionItemId;
     final mutationGeneration = _loadGeneration;
     final draftItem = CardCollectionItem(
       id: editingItemId ?? '',
       cardRef: detail.id,
-      folderId: _folderIdForPortfolioName(draft.portfolioName),
+      folderId: folderId,
       portfolioName: draft.portfolioName,
       quantity: quantity.value!,
       grader: draft.grader,
@@ -701,20 +918,36 @@ class CardDetailController extends Notifier<CardDetailState> {
       grade: draft.isRaw ? null : draft.grade,
       language: draft.language,
       finish: draft.finish,
-      purchasePriceUsd: purchasePrice.value,
+      purchasePriceUsd: purchasePriceUsd,
       notes: draft.notes,
     );
-    final savedItem = editingItemId == null
-        ? await _repository.createCollectionItem(
-            session,
-            detail: detail,
-            item: draftItem,
-          )
-        : await _repository.updateCollectionItem(
-            session,
-            detail: detail,
-            item: draftItem,
-          );
+    state = state.copyWith(
+      isSavingCollectionItemDraft: true,
+      collectionItemFormError: null,
+    );
+
+    CardCollectionItem savedItem;
+    try {
+      savedItem = editingItemId == null
+          ? await _repository.createCollectionItem(
+              session,
+              detail: detail,
+              item: draftItem,
+            )
+          : await _repository.updateCollectionItem(
+              session,
+              detail: detail,
+              item: draftItem,
+            );
+    } catch (_) {
+      if (_canApplyMutation(session, mutationGeneration) &&
+          state.editingCollectionItemId == editingItemId &&
+          state.collectionItemDraft != null &&
+          state.detail.id == detail.id) {
+        state = state.copyWith(isSavingCollectionItemDraft: false);
+      }
+      rethrow;
+    }
 
     if (!_canApplyMutation(session, mutationGeneration) ||
         state.editingCollectionItemId != editingItemId ||
@@ -740,7 +973,9 @@ class CardDetailController extends Notifier<CardDetailState> {
       collectionItemDraft: null,
       editingCollectionItemId: null,
       collectionItemFormError: null,
+      isSavingCollectionItemDraft: false,
     );
+    _invalidateAssetConsumers();
     return true;
   }
 
@@ -774,10 +1009,15 @@ class CardDetailController extends Notifier<CardDetailState> {
       editingCollectionItemId: null,
       collectionItemFormError: null,
     );
+    _invalidateAssetConsumers();
   }
 
   CardDetailRepository get _repository =>
       ref.read(cardDetailRepositoryProvider);
+
+  CurrencyFormatter get _currencyFormatter {
+    return CurrencyFormatter(currency: state.currency);
+  }
 
   AuthSession? get _session => ref.read(authControllerProvider).session;
 
@@ -787,6 +1027,12 @@ class CardDetailController extends Notifier<CardDetailState> {
         !state.isUnavailable &&
         !state.isLoading &&
         state.detail.id == cardId;
+  }
+
+  void _invalidateAssetConsumers() {
+    ref.invalidate(homeControllerProvider);
+    ref.invalidate(collectionControllerProvider);
+    ref.invalidate(searchControllerProvider);
   }
 
   void _invalidateLoad() {
@@ -814,8 +1060,20 @@ class CardDetailController extends Notifier<CardDetailState> {
     int generation,
     Completer<void> completer,
   ) async {
+    final repository = _repository;
+    if (repository is CardDetailSectionRepository) {
+      final sectionRepository = repository as CardDetailSectionRepository;
+      await _loadSectionedDetail(
+        sectionRepository,
+        session,
+        currency,
+        generation,
+        completer,
+      );
+      return;
+    }
     try {
-      final detail = await _repository.loadDetail(session, cardId);
+      final detail = await repository.loadDetail(session, cardId);
       if (generation == _loadGeneration) {
         state = CardDetailState(
           cardId: cardId,
@@ -832,6 +1090,169 @@ class CardDetailController extends Notifier<CardDetailState> {
         completer.complete();
       }
     }
+  }
+
+  Future<void> _loadSectionedDetail(
+    CardDetailSectionRepository repository,
+    AuthSession session,
+    AppCurrency currency,
+    int generation,
+    Completer<void> completer,
+  ) async {
+    try {
+      final detail = await repository.loadCoreDetail(cardId);
+      if (generation != _loadGeneration) return;
+      state = CardDetailState(
+        cardId: cardId,
+        detail: detail,
+        currency: currency,
+        assetStateStatus: KandoLoadStatus.loading,
+        priceSeriesStatus: KandoLoadStatus.loading,
+        marketPricesStatus: KandoLoadStatus.loading,
+        soldListingsStatus: KandoLoadStatus.loading,
+      );
+      if (!completer.isCompleted) completer.complete();
+
+      final marketFuture = _loadMarketPrices(repository, generation);
+      await Future.wait([
+        _loadAssetState(repository, session, generation),
+        marketFuture.then(
+          (market) => _loadPriceSeries(repository, generation, market),
+        ),
+        _loadSoldListings(repository, generation),
+      ]);
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = CardDetailState.unavailable(cardId: cardId, currency: currency);
+      }
+    } finally {
+      if (!completer.isCompleted) completer.complete();
+    }
+  }
+
+  Future<void> _loadAssetState(
+    CardDetailSectionRepository repository,
+    AuthSession session,
+    int generation,
+  ) async {
+    try {
+      final detail = await repository.loadAssetState(session, state.detail);
+      if (generation == _loadGeneration) {
+        state = state.copyWith(
+          detail: _detailWithAssetState(state.detail, detail),
+          assetStateStatus: KandoLoadStatus.content,
+        );
+      }
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = state.copyWith(assetStateStatus: KandoLoadStatus.failure);
+      }
+    }
+  }
+
+  Future<CardDetailMarketData?> _loadMarketPrices(
+    CardDetailSectionRepository repository,
+    int generation,
+  ) async {
+    try {
+      final data = await repository.loadMarketPrices(cardId);
+      if (generation == _loadGeneration) {
+        state = state.copyWith(
+          detail: state.detail.copyWith(
+            marketPrices: _resolvedMarketPrices(data.marketPrices),
+          ),
+          marketPricesStatus: KandoLoadStatus.content,
+        );
+      }
+      return data;
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = state.copyWith(marketPricesStatus: KandoLoadStatus.failure);
+      }
+      return null;
+    }
+  }
+
+  Future<void> _loadPriceSeries(
+    CardDetailSectionRepository repository,
+    int generation,
+    CardDetailMarketData? market,
+  ) async {
+    try {
+      final data = await repository.loadPriceSeries(cardId, market);
+      if (generation == _loadGeneration) {
+        state = state.copyWith(
+          detail: state.detail.copyWith(
+            marketPrices: _resolvedMarketPrices(data.marketPrices),
+            priceSeriesByRange: data.rawSeriesByRange,
+            gradedPriceSeriesByRange: data.gradedSeriesByRange,
+          ),
+          priceSeriesStatus: KandoLoadStatus.content,
+        );
+      }
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = state.copyWith(priceSeriesStatus: KandoLoadStatus.failure);
+      }
+    }
+  }
+
+  Future<void> _loadSoldListings(
+    CardDetailSectionRepository repository,
+    int generation,
+  ) async {
+    try {
+      final listings = await repository.loadSoldListings(cardId);
+      if (generation == _loadGeneration) {
+        state = state.copyWith(
+          detail: state.detail.copyWith(soldListings: listings),
+          soldListingsStatus: KandoLoadStatus.content,
+        );
+      }
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = state.copyWith(soldListingsStatus: KandoLoadStatus.failure);
+      }
+    }
+  }
+
+  Future<void> _refreshSection({
+    required void Function(KandoLoadStatus status) status,
+    required Future<void> Function(
+      CardDetailSectionRepository repository,
+      bool Function() isCurrent,
+    )
+    load,
+  }) async {
+    if (state.isUnavailable || state.isLoading) return;
+    final repository = _repository;
+    if (repository is! CardDetailSectionRepository) return;
+    final sectionRepository = repository as CardDetailSectionRepository;
+    final generation = _loadGeneration;
+    bool isCurrent() => generation == _loadGeneration;
+    status(KandoLoadStatus.loading);
+    try {
+      await load(sectionRepository, isCurrent);
+      if (isCurrent()) status(KandoLoadStatus.content);
+    } catch (_) {
+      if (isCurrent()) status(KandoLoadStatus.failure);
+    }
+  }
+
+  List<CardMarketPrice> _resolvedMarketPrices(
+    List<CardMarketPrice> marketPrices,
+  ) {
+    return marketPrices.isEmpty ? state.detail.marketPrices : marketPrices;
+  }
+
+  CardDetail _detailWithAssetState(CardDetail current, CardDetail assetState) {
+    return current.copyWith(
+      quantity: assetState.quantity,
+      isWishlisted: assetState.isWishlisted,
+      wishlistItemId: assetState.wishlistItemId,
+      portfolioFolders: assetState.portfolioFolders,
+      collectionItems: assetState.collectionItems,
+    );
   }
 
   CardCollectionItem? _findCollectionItem(String itemId) {
@@ -901,12 +1322,40 @@ String _defaultGradeForGrader(String grader) {
       : _defaultGrade;
 }
 
-String _folderIdForPortfolioName(String portfolioName) {
-  return switch (portfolioName) {
-    'Sealed' => 'sealed',
-    'Empty' => 'empty',
-    _ => 'main',
-  };
+String _normalizedCondition(String? value) {
+  return (value ?? '').trim().toLowerCase().replaceFirst(
+    RegExp(r'\s*\([^)]*\)\s*$'),
+    '',
+  );
+}
+
+CardPortfolioFolder? _initialPortfolioFolder(
+  CardDetail detail,
+  String? selectedFolderId,
+) {
+  for (final folder in detail.portfolioFolders) {
+    if (folder.id == selectedFolderId) {
+      return folder;
+    }
+  }
+  for (final folder in detail.portfolioFolders) {
+    if (folder.isDefault) {
+      return folder;
+    }
+  }
+  return detail.portfolioFolders.firstOrNull;
+}
+
+String? _folderIdForPortfolioName(
+  List<CardPortfolioFolder> folders,
+  String portfolioName,
+) {
+  for (final folder in folders) {
+    if (folder.name == portfolioName) {
+      return folder.id;
+    }
+  }
+  return null;
 }
 
 class _QuantityParseResult {

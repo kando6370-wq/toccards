@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
@@ -15,10 +16,11 @@ Dio createPortfolioDio({String baseUrl = portfolioApiBaseUrl}) {
 }
 
 class PortfolioApiException implements Exception {
-  const PortfolioApiException(this.message, {this.code});
+  const PortfolioApiException(this.message, {this.code, this.statusCode});
 
   final String message;
   final String? code;
+  final int? statusCode;
 
   @override
   String toString() => message;
@@ -43,6 +45,130 @@ class PortfolioFolderDto {
       name: _requiredString(json['name']),
       isDefault: json['is_default'] == true,
       sortOrder: _requiredInt(json['sort_order']),
+    );
+  }
+}
+
+class UserPreferenceDto {
+  const UserPreferenceDto({
+    required this.currency,
+    required this.amountHidden,
+    required this.lastSelectedFolderId,
+  });
+
+  final String currency;
+  final bool amountHidden;
+  final String? lastSelectedFolderId;
+
+  factory UserPreferenceDto.fromJson(Map<String, Object?> json) {
+    return UserPreferenceDto(
+      currency: _requiredString(json['currency']),
+      amountHidden: json['amount_hidden'] == true,
+      lastSelectedFolderId: _nullableString(json['last_selected_folder_id']),
+    );
+  }
+}
+
+class CollectionDashboardItemDto {
+  const CollectionDashboardItemDto({
+    required this.id,
+    required this.cardRef,
+    required this.folderId,
+    required this.name,
+    required this.setName,
+    required this.cardNumber,
+    required this.game,
+    required this.language,
+    required this.finish,
+    required this.grader,
+    required this.condition,
+    required this.grade,
+    required this.quantity,
+    required this.marketPriceUsd,
+    required this.previous30dPriceUsd,
+    required this.folderJoinedAt,
+    required this.createdAt,
+    required this.imageUrl,
+  });
+
+  final String id;
+  final String cardRef;
+  final String? folderId;
+  final String name;
+  final String setName;
+  final String cardNumber;
+  final String game;
+  final String language;
+  final String finish;
+  final String grader;
+  final String? condition;
+  final double? grade;
+  final int quantity;
+  final double? marketPriceUsd;
+  final double? previous30dPriceUsd;
+  final DateTime folderJoinedAt;
+  final DateTime createdAt;
+  final String? imageUrl;
+
+  factory CollectionDashboardItemDto.fromJson(Map<String, Object?> json) {
+    return CollectionDashboardItemDto(
+      id: _requiredString(json['id']),
+      cardRef: _requiredString(json['card_ref']),
+      folderId: _nullableString(json['folder_id']),
+      name: _requiredString(json['name']),
+      setName: _requiredString(json['set_name']),
+      cardNumber: _stringOrEmpty(json['card_number']),
+      game: _requiredString(json['game']),
+      language:
+          _nullableString(json['language']) ??
+          _nullableString(json['market_language']) ??
+          'Unknown',
+      finish:
+          _nullableString(json['finish']) ??
+          _nullableString(json['market_finish']) ??
+          'Unknown',
+      grader: _nullableString(json['grader']) ?? 'Raw',
+      condition:
+          _nullableString(json['condition']) ??
+          _nullableString(json['market_condition']),
+      grade: _nullableDouble(json['grade']),
+      quantity: json['quantity'] is int ? json['quantity']! as int : 1,
+      marketPriceUsd: _nullableDouble(json['market_price_usd']),
+      previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
+      folderJoinedAt: _requiredDateTime(
+        json['folder_joined_at'] ?? json['created_at'],
+      ),
+      createdAt: _requiredDateTime(json['created_at']),
+      imageUrl: _nullableString(json['image_url']),
+    );
+  }
+}
+
+class CollectionDashboardDto {
+  const CollectionDashboardDto({
+    required this.folders,
+    required this.portfolioItems,
+    required this.wishlistItems,
+    required this.preference,
+  });
+
+  final List<PortfolioFolderDto> folders;
+  final List<CollectionDashboardItemDto> portfolioItems;
+  final List<CollectionDashboardItemDto> wishlistItems;
+  final UserPreferenceDto preference;
+
+  factory CollectionDashboardDto.fromJson(Map<String, Object?> json) {
+    return CollectionDashboardDto(
+      folders: _itemsFrom(
+        json['folders'],
+      ).map(PortfolioFolderDto.fromJson).toList(),
+      portfolioItems: _itemsFrom(
+        json['portfolio_items'],
+      ).map(CollectionDashboardItemDto.fromJson).toList(),
+      wishlistItems: _itemsFrom(
+        json['wishlist_items'],
+      ).map(CollectionDashboardItemDto.fromJson).toList(),
+      preference: UserPreferenceDto.fromJson(_mapItem(json['preference'])),
     );
   }
 }
@@ -99,6 +225,97 @@ class PortfolioItemDto {
       notes: _nullableString(json['notes']),
       createdAt: _requiredDateTime(json['created_at']),
       updatedAt: _requiredDateTime(json['updated_at']),
+    );
+  }
+}
+
+class PortfolioValuationPointDto {
+  const PortfolioValuationPointDto({
+    required this.date,
+    required this.valueUsd,
+  });
+
+  final String date;
+  final double valueUsd;
+
+  factory PortfolioValuationPointDto.fromJson(Map<String, Object?> json) {
+    return PortfolioValuationPointDto(
+      date: _requiredString(json['date']),
+      valueUsd: _requiredDouble(json['value_usd']),
+    );
+  }
+}
+
+class PortfolioMostValuableDto {
+  const PortfolioMostValuableDto({
+    required this.itemId,
+    required this.cardRef,
+    required this.name,
+    required this.setName,
+    required this.cardNumber,
+    required this.finish,
+    required this.imageUrl,
+    required this.priceUsd,
+    required this.previous30dPriceUsd,
+  });
+
+  final String itemId;
+  final String cardRef;
+  final String name;
+  final String setName;
+  final String cardNumber;
+  final String? finish;
+  final String? imageUrl;
+  final double priceUsd;
+  final double? previous30dPriceUsd;
+
+  factory PortfolioMostValuableDto.fromJson(Map<String, Object?> json) {
+    return PortfolioMostValuableDto(
+      itemId: _requiredString(json['item_id']),
+      cardRef: _requiredString(json['card_ref']),
+      name: _requiredString(json['name']),
+      setName: _requiredString(json['set_name']),
+      cardNumber: _stringOrEmpty(json['card_number']),
+      finish: _nullableString(json['finish']),
+      imageUrl: _nullableString(json['image_url']),
+      priceUsd: _requiredDouble(json['price_usd']),
+      previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
+    );
+  }
+}
+
+class PortfolioFolderValuationDto {
+  const PortfolioFolderValuationDto({
+    required this.folderId,
+    required this.currentValueUsd,
+    required this.series,
+    required this.mostValuable,
+  });
+
+  final String folderId;
+  final double currentValueUsd;
+  final List<PortfolioValuationPointDto> series;
+  final List<PortfolioMostValuableDto> mostValuable;
+
+  factory PortfolioFolderValuationDto.fromJson(Map<String, Object?> json) {
+    final series = json['series'];
+    final mostValuable = json['most_valuable'];
+    if (series is! List || mostValuable is! List) {
+      throw const PortfolioApiException(
+        'Something went wrong. Please try again.',
+      );
+    }
+    return PortfolioFolderValuationDto(
+      folderId: _requiredString(json['folder_id']),
+      currentValueUsd: _requiredDouble(json['current_value_usd']),
+      series: series
+          .map(_mapItem)
+          .map(PortfolioValuationPointDto.fromJson)
+          .toList(),
+      mostValuable: mostValuable
+          .map(_mapItem)
+          .map(PortfolioMostValuableDto.fromJson)
+          .toList(),
     );
   }
 }
@@ -171,6 +388,7 @@ class PortfolioItemDraftDto {
 
   Map<String, Object?> toUpdateJson() {
     return {
+      'folder_id': folderId,
       'grader': grader,
       'condition': condition,
       'grade': grade,
@@ -187,6 +405,10 @@ class PortfolioItemDraftDto {
 abstract interface class PortfolioApi {
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session);
   Future<List<PortfolioItemDto>> listCollectionItems(AuthSession session);
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+  });
   Future<List<WishlistItemDto>> listWishlistItems(AuthSession session);
   Future<PortfolioItemDto> quickCollect(
     AuthSession session, {
@@ -207,10 +429,45 @@ abstract interface class PortfolioApi {
   Future<void> deleteWishlist(AuthSession session, String itemId);
 }
 
-class PortfolioApiClient implements PortfolioApi {
+abstract interface class CollectionDashboardApi {
+  Future<CollectionDashboardDto> getCollectionDashboard(AuthSession session);
+}
+
+abstract interface class PortfolioManagementApi {
+  Future<PortfolioFolderDto> createFolder(AuthSession session, String name);
+  Future<PortfolioFolderDto> renameFolder(
+    AuthSession session,
+    String folderId,
+    String name,
+  );
+  Future<PortfolioFolderDto> setDefaultFolder(
+    AuthSession session,
+    String folderId,
+  );
+  Future<void> reorderFolders(AuthSession session, List<String> folderIds);
+  Future<void> deleteFolder(AuthSession session, String folderId);
+  Future<UserPreferenceDto> getPreferences(AuthSession session);
+  Future<UserPreferenceDto> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  });
+}
+
+class PortfolioApiClient
+    implements PortfolioApi, PortfolioManagementApi, CollectionDashboardApi {
   const PortfolioApiClient(this._dio);
 
   final Dio _dio;
+
+  @override
+  Future<CollectionDashboardDto> getCollectionDashboard(
+    AuthSession session,
+  ) async {
+    final data = await _requestData('GET', '/collection/dashboard', session);
+    return CollectionDashboardDto.fromJson(data);
+  }
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
@@ -219,27 +476,145 @@ class PortfolioApiClient implements PortfolioApi {
   }
 
   @override
+  Future<PortfolioFolderDto> createFolder(
+    AuthSession session,
+    String name,
+  ) async {
+    final data = await _requestData(
+      'POST',
+      '/portfolio/folders',
+      session,
+      body: {'name': name},
+    );
+    return PortfolioFolderDto.fromJson(data);
+  }
+
+  @override
+  Future<PortfolioFolderDto> renameFolder(
+    AuthSession session,
+    String folderId,
+    String name,
+  ) async {
+    final data = await _requestData(
+      'PATCH',
+      '/portfolio/folders/${Uri.encodeComponent(folderId)}',
+      session,
+      body: {'name': name},
+    );
+    return PortfolioFolderDto.fromJson(data);
+  }
+
+  @override
+  Future<PortfolioFolderDto> setDefaultFolder(
+    AuthSession session,
+    String folderId,
+  ) async {
+    final data = await _requestData(
+      'PATCH',
+      '/portfolio/folders/${Uri.encodeComponent(folderId)}/set-default',
+      session,
+    );
+    return PortfolioFolderDto.fromJson(data);
+  }
+
+  @override
+  Future<void> reorderFolders(
+    AuthSession session,
+    List<String> folderIds,
+  ) async {
+    await _requestData(
+      'PATCH',
+      '/portfolio/folders/reorder',
+      session,
+      body: {
+        'orders': [
+          for (var index = 0; index < folderIds.length; index++)
+            {'folder_id': folderIds[index], 'sort_order': (index + 1) * 100},
+        ],
+      },
+    );
+  }
+
+  @override
+  Future<void> deleteFolder(AuthSession session, String folderId) async {
+    await _requestData(
+      'DELETE',
+      '/portfolio/folders/${Uri.encodeComponent(folderId)}',
+      session,
+    );
+  }
+
+  @override
+  Future<UserPreferenceDto> getPreferences(AuthSession session) async {
+    final data = await _requestData('GET', '/preferences', session);
+    return UserPreferenceDto.fromJson(data);
+  }
+
+  @override
+  Future<UserPreferenceDto> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) async {
+    final data = await _requestData(
+      'PATCH',
+      '/preferences',
+      session,
+      body: {
+        if (currency != null) 'currency': currency,
+        if (amountHidden != null) 'amount_hidden': amountHidden,
+        if (lastSelectedFolderId != null)
+          'last_selected_folder_id': lastSelectedFolderId,
+      },
+    );
+    return UserPreferenceDto.fromJson(data);
+  }
+
+  @override
   Future<List<PortfolioItemDto>> listCollectionItems(
     AuthSession session,
   ) async {
+    final items = await _loadAllPages('/portfolio/items', session);
+    return items.map(PortfolioItemDto.fromJson).toList();
+  }
+
+  @override
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+  }) async {
     final data = await _requestData(
       'GET',
-      '/portfolio/items',
+      '/portfolio/valuation-history',
       session,
-      queryParameters: {'page_size': 100},
+      queryParameters: {'days': days},
     );
-    return _items(data).map(PortfolioItemDto.fromJson).toList();
+    return _items(data).map(PortfolioFolderValuationDto.fromJson).toList();
   }
 
   @override
   Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) async {
-    final data = await _requestData(
-      'GET',
-      '/wishlist',
-      session,
-      queryParameters: {'page_size': 100},
-    );
-    return _items(data).map(WishlistItemDto.fromJson).toList();
+    final items = await _loadAllPages('/wishlist', session);
+    return items.map(WishlistItemDto.fromJson).toList();
+  }
+
+  Future<List<Map<String, Object?>>> _loadAllPages(
+    String path,
+    AuthSession session,
+  ) async {
+    final result = <Map<String, Object?>>[];
+    for (var page = 1; ; page += 1) {
+      final data = await _requestData(
+        'GET',
+        path,
+        session,
+        queryParameters: {'page': page, 'page_size': kandoPageSize},
+      );
+      final pageItems = _items(data);
+      result.addAll(pageItems);
+      if (pageItems.length < kandoPageSize) return result;
+    }
   }
 
   @override
@@ -344,10 +719,10 @@ class PortfolioApiClient implements PortfolioApi {
       return <String, Object?>{};
     }
 
-    throw _apiException(envelope);
+    throw _apiException(envelope, statusCode: response.statusCode);
   }
 
-  PortfolioApiException _apiException(Object? envelope) {
+  PortfolioApiException _apiException(Object? envelope, {int? statusCode}) {
     if (envelope is Map) {
       final error = envelope['error'];
       if (error is Map) {
@@ -355,11 +730,13 @@ class PortfolioApiClient implements PortfolioApi {
           _nullableString(error['message']) ??
               'Something went wrong. Please try again.',
           code: _nullableString(error['code']),
+          statusCode: statusCode,
         );
       }
     }
-    return const PortfolioApiException(
+    return PortfolioApiException(
       'Something went wrong. Please try again.',
+      statusCode: statusCode,
     );
   }
 }
@@ -381,6 +758,15 @@ List<Map<String, Object?>> _items(Map<String, Object?> data) {
   }).toList();
 }
 
+List<Map<String, Object?>> _itemsFrom(Object? items) {
+  if (items is! List) {
+    throw const PortfolioApiException(
+      'Something went wrong. Please try again.',
+    );
+  }
+  return items.map(_mapItem).toList();
+}
+
 String _requiredString(Object? value) {
   final normalized = _nullableString(value);
   if (normalized == null) {
@@ -389,6 +775,12 @@ String _requiredString(Object? value) {
     );
   }
   return normalized;
+}
+
+String _stringOrEmpty(Object? value) {
+  if (value == null) return '';
+  if (value is String) return value.trim();
+  throw const PortfolioApiException('Something went wrong. Please try again.');
 }
 
 String? _nullableString(Object? value) {
@@ -407,6 +799,25 @@ double? _nullableDouble(Object? value) {
   if (value is int) return value.toDouble();
   if (value is double) return value;
   throw const PortfolioApiException('Something went wrong. Please try again.');
+}
+
+double _requiredDouble(Object? value) {
+  final parsed = _nullableDouble(value);
+  if (parsed == null) {
+    throw const PortfolioApiException(
+      'Something went wrong. Please try again.',
+    );
+  }
+  return parsed;
+}
+
+Map<String, Object?> _mapItem(Object? item) {
+  if (item is! Map) {
+    throw const PortfolioApiException(
+      'Something went wrong. Please try again.',
+    );
+  }
+  return Map<String, Object?>.from(item);
 }
 
 DateTime _requiredDateTime(Object? value) {

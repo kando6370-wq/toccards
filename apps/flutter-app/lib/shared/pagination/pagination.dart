@@ -1,0 +1,1 @@
+const kandoPageSize = 40;

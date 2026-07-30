@@ -5,6 +5,38 @@ import {
   verifyPassword,
 } from "@kando/auth-core";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../mail/verification-email", () => ({
+  sendVerificationEmail: vi.fn().mockResolvedValue("message-id"),
+}));
+
+vi.mock("./oauth-provider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./oauth-provider")>();
+  const resolveTestIdentity = (
+    value: string | null,
+    prefix: string,
+    provider: "google" | "apple",
+  ) => {
+    const parts = value?.split(":") ?? [];
+    if (
+      parts.length !== 3 ||
+      parts[0] !== prefix ||
+      !/^[A-Za-z0-9._-]{1,128}$/.test(parts[1]) ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parts[2])
+    ) {
+      return null;
+    }
+    return { provider, providerUid: parts[1], email: parts[2].toLowerCase() };
+  };
+  return {
+    ...actual,
+    resolveGoogleIdentity: async (input: { idToken: string | null }) =>
+      resolveTestIdentity(input.idToken, "mock-google", "google"),
+    resolveAppleIdentity: async (input: { idToken: string | null }) =>
+      resolveTestIdentity(input.idToken, "mock-apple", "apple"),
+  };
+});
+
 import app, { type Env as AppEnv } from "../index";
 import { migrateGuestAssetsToUser } from "./guest-migration";
 
@@ -47,6 +79,13 @@ type CollectionItemRow = {
   card_ref: string;
   updated_at: string;
 };
+type CollectionItemEventRow = {
+  id: string;
+  item_id: string;
+  owner_type: "anonymous" | "user";
+  owner_id: string;
+  folder_id: string;
+};
 
 type WishlistItemRow = {
   id: string;
@@ -59,6 +98,7 @@ type SessionRow = {
   id: string;
   owner_type: "anonymous" | "user";
   owner_id: string;
+  login_method?: "email" | "google" | "apple" | null;
   refresh_token: string;
   expires_at: string;
   created_at: string;
@@ -69,6 +109,7 @@ type SessionLookupRow = {
   id: string;
   owner_type: "anonymous" | "user";
   owner_id: string;
+  login_method?: "email" | "google" | "apple" | null;
   expires_at: string;
   revoked_at: string | null;
 };
@@ -80,8 +121,21 @@ type UserRow = {
   display_name: string | null;
   created_at: string;
   updated_at: string;
+  status?: "active" | "deleted" | "disabled";
   deleted_at: string | null;
 };
+
+function isActiveUser(row: UserRow): boolean {
+  return row.status !== undefined
+    ? row.status === "active"
+    : row.deleted_at === null;
+}
+
+function reservesEmail(row: UserRow): boolean {
+  return row.status !== undefined
+    ? row.status !== "deleted"
+    : row.deleted_at === null;
+}
 
 type AuthIdentityRow = {
   id: string;
@@ -126,6 +180,7 @@ type CurrentAccountSuccessResponse = {
     user_id: string | null;
     anonymous_id: string | null;
     email: string | null;
+    login_method: "email" | "google" | "apple" | null;
     display_name: string | null;
     created_at: string;
   };
@@ -153,6 +208,7 @@ type RegisterVerifySuccessResponse = {
   data: {
     user_id: string;
     email: string;
+    login_method: "email";
     access_token: string;
     refresh_token: string;
     expires_in: number;
@@ -165,6 +221,7 @@ type LoginSuccessResponse = {
   data: {
     user_id: string;
     email: string;
+    login_method: "email";
     access_token: string;
     refresh_token: string;
     expires_in: number;
@@ -176,6 +233,7 @@ type OAuthSuccessResponse = {
   data: {
     user_id: string;
     email: string;
+    login_method: "google" | "apple";
     access_token: string;
     refresh_token: string;
     expires_in: number;
@@ -229,12 +287,19 @@ class FakeD1 {
   portfolioFolders: PortfolioFolderRow[] = [];
   userPreferences: UserPreferenceRow[] = [];
   collectionItems: CollectionItemRow[] = [];
+  collectionItemEvents: CollectionItemEventRow[] = [];
   wishlistItems: WishlistItemRow[] = [];
   sessions: SessionRow[] = [];
   users: UserRow[] = [];
   authIdentities: AuthIdentityRow[] = [];
   verificationCodes: VerificationCodeRow[] = [];
+  scanRecords: Array<{
+    owner_type: "anonymous" | "user";
+    owner_id: string;
+    image_url: string | null;
+  }> = [];
   installationWrites: unknown[][] = [];
+  nextAccountUid = 100000;
   consumeNextRegisterCodeBeforeUpdate = false;
   failNextBatch = false;
   failNextFirst = false;
@@ -263,11 +328,13 @@ class FakeD1 {
       portfolioFolders: this.portfolioFolders.map((row) => ({ ...row })),
       userPreferences: this.userPreferences.map((row) => ({ ...row })),
       collectionItems: this.collectionItems.map((row) => ({ ...row })),
+      collectionItemEvents: this.collectionItemEvents.map((row) => ({ ...row })),
       wishlistItems: this.wishlistItems.map((row) => ({ ...row })),
       sessions: this.sessions.map((row) => ({ ...row })),
       users: this.users.map((row) => ({ ...row })),
       authIdentities: this.authIdentities.map((row) => ({ ...row })),
       verificationCodes: this.verificationCodes.map((row) => ({ ...row })),
+      scanRecords: this.scanRecords.map((row) => ({ ...row })),
     };
     const results: D1Result<T>[] = [];
 
@@ -292,6 +359,7 @@ class FakeD1 {
       this.portfolioFolders = snapshot.portfolioFolders;
       this.userPreferences = snapshot.userPreferences;
       this.collectionItems = snapshot.collectionItems;
+      this.collectionItemEvents = snapshot.collectionItemEvents;
       this.wishlistItems = snapshot.wishlistItems;
       this.sessions = snapshot.sessions;
       this.users = [...snapshot.users, ...concurrentUsers];
@@ -300,6 +368,7 @@ class FakeD1 {
         ...concurrentAuthIdentities,
       ];
       this.verificationCodes = snapshot.verificationCodes;
+      this.scanRecords = snapshot.scanRecords;
       throw error;
     }
 
@@ -313,6 +382,10 @@ class FakeD1 {
     }
 
     const normalizedSql = normalizeSql(sql);
+
+    if (normalizedSql.startsWith("INSERT INTO account_uid")) {
+      return { uid: this.nextAccountUid++ } as T;
+    }
 
     if (normalizedSql === SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL) {
       const [deviceId] = values as [string];
@@ -341,7 +414,7 @@ class FakeD1 {
     if (normalizedSql === SELECT_CURRENT_USER_SQL) {
       const [id] = values as [string];
       const user = this.users.find(
-        (row) => row.id === id && row.deleted_at === null,
+        (row) => row.id === id && isActiveUser(row),
       );
 
       return user
@@ -356,7 +429,9 @@ class FakeD1 {
 
     if (normalizedSql === SELECT_USER_BY_EMAIL_SQL) {
       const [email] = values as [string];
-      const user = this.users.find((row) => row.email === email);
+      const user = this.users.find(
+        (row) => row.email === email && reservesEmail(row),
+      );
 
       return user ? ({ id: user.id } as T) : null;
     }
@@ -366,7 +441,7 @@ class FakeD1 {
       const user = this.users.find(
         (row) =>
           row.email === email &&
-          row.deleted_at === null &&
+          isActiveUser(row) &&
           row.password_hash !== null,
       );
 
@@ -384,7 +459,7 @@ class FakeD1 {
       const user = this.users.find(
         (row) =>
           row.email === email &&
-          row.deleted_at === null &&
+          isActiveUser(row) &&
           row.password_hash !== null,
       );
 
@@ -403,7 +478,7 @@ class FakeD1 {
     if (normalizedSql === SELECT_LIVE_USER_BY_ID_SQL) {
       const [id] = values as [string];
       const user = this.users.find(
-        (row) => row.id === id && row.deleted_at === null,
+        (row) => row.id === id && isActiveUser(row),
       );
 
       return user ? ({ id: user.id } as T) : null;
@@ -411,10 +486,12 @@ class FakeD1 {
 
     if (normalizedSql === SELECT_USER_BY_EMAIL_FOR_OAUTH_SQL) {
       const [email] = values as [string];
-      const user = this.users.find((row) => row.email === email);
+      const user = this.users.find(
+        (row) => row.email === email && reservesEmail(row),
+      );
 
       return user
-        ? ({ id: user.id, deleted_at: user.deleted_at } as T)
+        ? ({ id: user.id, status: user.status ?? "active" } as T)
         : null;
     }
 
@@ -536,6 +613,24 @@ class FakeD1 {
       return row as T;
     }
 
+    if (normalizedSql === SELECT_CURRENT_SESSION_SQL) {
+      const [id] = values as [string];
+      const session = this.sessions.find((row) => row.id === id);
+
+      if (!session) {
+        return null;
+      }
+
+      return {
+        id: session.id,
+        owner_type: session.owner_type,
+        owner_id: session.owner_id,
+        login_method: session.login_method ?? null,
+        expires_at: session.expires_at,
+        revoked_at: session.revoked_at,
+      } as T;
+    }
+
     if (normalizedSql === SELECT_REFRESH_ANONYMOUS_OWNER_SQL) {
       const [id] = values as [string];
       const account = this.anonymousAccounts.find(
@@ -548,13 +643,25 @@ class FakeD1 {
     if (normalizedSql === SELECT_REFRESH_USER_OWNER_SQL) {
       const [id] = values as [string];
       const user = this.users.find(
-        (row) => row.id === id && row.deleted_at === null,
+        (row) => row.id === id && isActiveUser(row),
       );
 
       return user ? ({ id: user.id } as T) : null;
     }
 
     throw new Error(`Unsupported first() SQL: ${normalizedSql}`);
+  }
+
+  async all<T = unknown>(sql: string, values: unknown[]): Promise<D1Result<T>> {
+    const normalizedSql = normalizeSql(sql);
+    if (normalizedSql.startsWith("SELECT image_url FROM scan_record")) {
+      const [ownerType, ownerId] = values as ["anonymous" | "user", string];
+      const results = this.scanRecords.filter(
+          (row) => row.owner_type === ownerType && row.owner_id === ownerId && row.image_url,
+        ) as T[];
+      return { ...okResult<T>(), results };
+    }
+    throw new Error(`Unsupported all() SQL: ${normalizedSql}`);
   }
 
   async run<T = unknown>(sql: string, values: unknown[]): Promise<D1Result<T>> {
@@ -633,6 +740,7 @@ class FakeD1 {
         id,
         owner_type: "anonymous",
         owner_id: ownerId,
+        login_method: null,
         refresh_token: refreshToken,
         expires_at: expiresAt,
         created_at: createdAt,
@@ -642,13 +750,33 @@ class FakeD1 {
     }
 
     if (normalizedSql === INSERT_VERIFICATION_CODE_SQL) {
-      const [id, email, code, expiresAt, createdAt] = values as [
+      const [
+        id,
+        email,
+        code,
+        expiresAt,
+        createdAt,
+        guardedEmail,
+        resendWindowStartedAt,
+      ] = values as [
+        string,
+        string,
         string,
         string,
         string,
         string,
         string,
       ];
+      const hasRecentUnusedCode = this.verificationCodes.some(
+        (row) =>
+          row.email === guardedEmail &&
+          row.purpose === "register" &&
+          row.used_at === null &&
+          row.created_at > resendWindowStartedAt,
+      );
+      if (hasRecentUnusedCode) {
+        return okResult<T>(0);
+      }
       this.verificationCodes.push({
         id,
         email,
@@ -658,6 +786,46 @@ class FakeD1 {
         used_at: null,
         created_at: createdAt,
       });
+      return okResult<T>();
+    }
+
+    if (normalizedSql.startsWith("DELETE FROM scan_record")) {
+      const [ownerType, ownerId] = values as ["anonymous" | "user", string];
+      const before = this.scanRecords.length;
+      this.scanRecords = this.scanRecords.filter(
+        (row) => row.owner_type !== ownerType || row.owner_id !== ownerId,
+      );
+      return okResult<T>(before - this.scanRecords.length);
+    }
+
+    if (normalizedSql.startsWith("UPDATE scan_record SET owner_type = 'user'")) {
+      const [userId, anonymousId] = values as [string, string];
+      const accountUpgraded = this.hasUpgradedAnonymousAccount(
+        values.length === 6 ? String(values[4]) : String(values[2]),
+        values.length === 6 ? String(values[5]) : String(values[3]),
+      );
+      const guardSatisfied = values.length !== 6 || this.verificationCodes.some(
+        (row) => row.id === values[2] && row.used_at === values[3],
+      );
+      if (!accountUpgraded || !guardSatisfied) return okResult<T>(0);
+      var changes = 0;
+      for (const row of this.scanRecords) {
+        if (row.owner_type === "anonymous" && row.owner_id === anonymousId) {
+          row.owner_type = "user";
+          row.owner_id = userId;
+          changes += 1;
+        }
+      }
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql === DELETE_VERIFICATION_CODE_SQL) {
+      const [id] = values as [string];
+      const index = this.verificationCodes.findIndex(
+        (row) => row.id === id && row.used_at === null,
+      );
+      if (index < 0) return okResult<T>(0);
+      this.verificationCodes.splice(index, 1);
       return okResult<T>();
     }
 
@@ -733,7 +901,7 @@ class FakeD1 {
         });
       }
 
-      if (this.users.some((row) => row.email === email)) {
+      if (this.users.some((row) => row.email === email && reservesEmail(row))) {
         throw new Error("UNIQUE constraint failed: user.email");
       }
 
@@ -792,7 +960,7 @@ class FakeD1 {
         });
       }
 
-      if (this.users.some((row) => row.email === email)) {
+      if (this.users.some((row) => row.email === email && reservesEmail(row))) {
         throw new Error("UNIQUE constraint failed: user.email");
       }
 
@@ -882,6 +1050,7 @@ class FakeD1 {
         id,
         owner_type: "user",
         owner_id: ownerId,
+        login_method: "email",
         refresh_token: refreshToken,
         expires_at: expiresAt,
         created_at: createdAt,
@@ -924,6 +1093,7 @@ class FakeD1 {
         id,
         owner_type: "user",
         owner_id: ownerId,
+        login_method: "email",
         refresh_token: refreshToken,
         expires_at: expiresAt,
         created_at: createdAt,
@@ -953,7 +1123,7 @@ class FakeD1 {
         });
       }
 
-      if (this.users.some((row) => row.email === email)) {
+      if (this.users.some((row) => row.email === email && reservesEmail(row))) {
         throw new Error("UNIQUE constraint failed: user.email");
       }
 
@@ -1039,7 +1209,7 @@ class FakeD1 {
         });
       }
 
-      if (this.users.some((row) => row.email === email)) {
+      if (this.users.some((row) => row.email === email && reservesEmail(row))) {
         throw new Error("UNIQUE constraint failed: user.email");
       }
 
@@ -1168,16 +1338,50 @@ class FakeD1 {
       return okResult<T>();
     }
 
+    if (normalizedSql === INSERT_OAUTH_USER_SESSION_SQL) {
+      const [id, ownerId, loginMethod, refreshToken, expiresAt, createdAt] =
+        values as [
+          string,
+          string,
+          "google" | "apple",
+          string,
+          string,
+          string,
+        ];
+
+      this.sessions.push({
+        id,
+        owner_type: "user",
+        owner_id: ownerId,
+        login_method: loginMethod,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        created_at: createdAt,
+        revoked_at: null,
+      });
+      return okResult<T>();
+    }
+
     if (normalizedSql === INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL) {
       const [
         id,
         ownerId,
+        loginMethod,
         refreshToken,
         expiresAt,
         createdAt,
         anonymousId,
         upgradedUserId,
-      ] = values as [string, string, string, string, string, string, string];
+      ] = values as [
+        string,
+        string,
+        "google" | "apple",
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
 
       if (!this.hasUpgradedAnonymousAccount(anonymousId, upgradedUserId)) {
         return okResult<T>(0);
@@ -1187,6 +1391,7 @@ class FakeD1 {
         id,
         owner_type: "user",
         owner_id: ownerId,
+        login_method: loginMethod,
         refresh_token: refreshToken,
         expires_at: expiresAt,
         created_at: createdAt,
@@ -1249,7 +1454,7 @@ class FakeD1 {
       const user = this.users.find(
         (row) =>
           row.email === email &&
-          row.deleted_at === null &&
+          isActiveUser(row) &&
           row.password_hash !== null,
       );
 
@@ -1931,15 +2136,86 @@ class FakeD1 {
     if (normalizedSql === UPDATE_USER_DELETED_SQL) {
       const [deletedAt, updatedAt, id] = values as [string, string, string];
       const user = this.users.find(
-        (row) => row.id === id && row.deleted_at === null,
+        (row) => row.id === id && isActiveUser(row),
       );
 
       if (user) {
+        user.status = "deleted";
         user.deleted_at = deletedAt;
         user.updated_at = updatedAt;
       }
 
       return okResult<T>(user ? 1 : 0);
+    }
+
+    if (
+      normalizedSql.startsWith(
+        "UPDATE collection_item_event SET folder_id = COALESCE",
+      )
+    ) {
+      const [userId, anonymousId, targetOwnerId, ownerId, upgradedAnonymousId, upgradedUserId] =
+        values as [string, string, string, string, string, string];
+      if (
+        userId !== targetOwnerId ||
+        anonymousId !== ownerId ||
+        !this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)
+      ) {
+        return okResult<T>(0);
+      }
+      let changes = 0;
+      for (const event of this.collectionItemEvents) {
+        if (event.owner_type !== "anonymous" || event.owner_id !== anonymousId) {
+          continue;
+        }
+        const sourceFolder = this.portfolioFolders.find(
+          (folder) =>
+            folder.id === event.folder_id &&
+            folder.owner_type === "anonymous" &&
+            folder.owner_id === anonymousId,
+        );
+        const targetFolder = sourceFolder
+          ? this.portfolioFolders.find(
+              (folder) =>
+                folder.owner_type === "user" &&
+                folder.owner_id === userId &&
+                folder.name === sourceFolder.name,
+            )
+          : null;
+        event.folder_id = targetFolder?.id ?? event.folder_id;
+        event.owner_type = "user";
+        event.owner_id = userId;
+        changes += 1;
+      }
+      return okResult<T>(changes);
+    }
+
+    if (
+      normalizedSql.startsWith(
+        "UPDATE collection_item_event SET owner_type = 'user'",
+      )
+    ) {
+      const [userId, anonymousId] = values as [string, string];
+      const upgradedAnonymousId = values.at(-2) as string;
+      const upgradedUserId = values.at(-1) as string;
+      if (!this.hasUpgradedAnonymousAccount(upgradedAnonymousId, upgradedUserId)) {
+        return okResult<T>(0);
+      }
+      if (values.length === 6) {
+        const verificationCodeId = values[2] as string;
+        const verificationUsedAt = values[3] as string;
+        if (!this.hasConsumedRegisterCode(verificationCodeId, verificationUsedAt)) {
+          return okResult<T>(0);
+        }
+      }
+      let changes = 0;
+      for (const event of this.collectionItemEvents) {
+        if (event.owner_type === "anonymous" && event.owner_id === anonymousId) {
+          event.owner_type = "user";
+          event.owner_id = userId;
+          changes += 1;
+        }
+      }
+      return okResult<T>(changes);
     }
 
     if (normalizedSql === REVOKE_OWNER_SESSIONS_SQL) {
@@ -1982,6 +2258,19 @@ class FakeD1 {
       );
 
       return okResult<T>(before - this.collectionItems.length);
+    }
+
+    if (
+      normalizedSql.startsWith(
+        "DELETE FROM collection_item_event WHERE owner_type = 'anonymous'",
+      )
+    ) {
+      const [ownerId] = values as [string];
+      const before = this.collectionItemEvents.length;
+      this.collectionItemEvents = this.collectionItemEvents.filter(
+        (row) => row.owner_type !== "anonymous" || row.owner_id !== ownerId,
+      );
+      return okResult<T>(before - this.collectionItemEvents.length);
     }
 
     if (normalizedSql === DELETE_ANONYMOUS_WISHLIST_ITEMS_SQL) {
@@ -2043,6 +2332,7 @@ class FakeD1 {
         id,
         owner_type: "user",
         owner_id: ownerId,
+        login_method: "email",
         refresh_token: refreshToken,
         expires_at: expiresAt,
         created_at: createdAt,
@@ -2118,6 +2408,10 @@ class FakeD1Statement {
     return this.db.first<T>(this.sql, this.values);
   }
 
+  all<T = unknown>(): Promise<D1Result<T>> {
+    return this.db.all<T>(this.sql, this.values);
+  }
+
   run<T = unknown>(): Promise<D1Result<T>> {
     return this.db.run<T>(this.sql, this.values);
   }
@@ -2141,7 +2435,7 @@ const SELECT_CURRENT_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
 const SELECT_CURRENT_USER_SQL = normalizeSql(`
   SELECT id, email, display_name, created_at
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `);
 
@@ -2159,6 +2453,13 @@ const SELECT_SESSION_BY_ID_SQL = normalizeSql(`
   LIMIT 1
 `);
 
+const SELECT_CURRENT_SESSION_SQL = normalizeSql(`
+  SELECT id, owner_type, owner_id, login_method, expires_at, revoked_at
+  FROM session
+  WHERE id = ?
+  LIMIT 1
+`);
+
 const SELECT_REFRESH_ANONYMOUS_OWNER_SQL = normalizeSql(`
   SELECT id
   FROM anonymous_account
@@ -2169,28 +2470,28 @@ const SELECT_REFRESH_ANONYMOUS_OWNER_SQL = normalizeSql(`
 const SELECT_REFRESH_USER_OWNER_SQL = normalizeSql(`
   SELECT id
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `);
 
 const SELECT_USER_BY_EMAIL_SQL = normalizeSql(`
   SELECT id
   FROM user
-  WHERE email = ?
+  WHERE email = ? AND status <> 'deleted'
   LIMIT 1
 `);
 
 const SELECT_LOGIN_USER_BY_EMAIL_SQL = normalizeSql(`
   SELECT id, email, password_hash
   FROM user
-  WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL
+  WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
   LIMIT 1
 `);
 
 const SELECT_LIVE_EMAIL_PASSWORD_USER_SQL = normalizeSql(`
   SELECT id
   FROM user
-  WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL
+  WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
   LIMIT 1
 `);
 
@@ -2205,14 +2506,14 @@ const SELECT_OAUTH_IDENTITY_SQL = normalizeSql(`
 const SELECT_LIVE_USER_BY_ID_SQL = normalizeSql(`
   SELECT id
   FROM user
-  WHERE id = ? AND deleted_at IS NULL
+  WHERE id = ? AND status = 'active'
   LIMIT 1
 `);
 
 const SELECT_USER_BY_EMAIL_FOR_OAUTH_SQL = normalizeSql(`
-  SELECT id, deleted_at
+  SELECT id, status
   FROM user
-  WHERE email = ?
+  WHERE email = ? AND status <> 'deleted'
   LIMIT 1
 `);
 
@@ -2272,14 +2573,23 @@ const INSERT_USER_PREFERENCE_SQL = normalizeSql(`
 
 const INSERT_SESSION_SQL = normalizeSql(`
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  VALUES (?, 'anonymous', ?, ?, ?, ?, NULL)
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'anonymous', ?, NULL, ?, ?, ?, NULL)
 `);
 
 const INSERT_VERIFICATION_CODE_SQL = normalizeSql(`
   INSERT INTO verification_code
     (id, email, code, purpose, expires_at, used_at, created_at)
-  VALUES (?, ?, ?, 'register', ?, NULL, ?)
+  SELECT ?, ?, ?, 'register', ?, NULL, ?
+  WHERE NOT EXISTS (
+    SELECT 1 FROM verification_code
+    WHERE email = ? AND purpose = 'register' AND used_at IS NULL
+      AND created_at > ?
+  )
+`);
+
+const DELETE_VERIFICATION_CODE_SQL = normalizeSql(`
+  DELETE FROM verification_code WHERE id = ? AND used_at IS NULL
 `);
 
 const INSERT_RESET_CODE_SQL = normalizeSql(`
@@ -2370,8 +2680,8 @@ const INSERT_OAUTH_USER_PREFERENCE_SQL = normalizeSql(`
 
 const INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL = normalizeSql(`
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, ?, ?, ?, ?, NULL
   WHERE EXISTS (
     SELECT 1
     FROM anonymous_account
@@ -2403,8 +2713,8 @@ const INSERT_USER_USER_PREFERENCE_SQL = normalizeSql(`
 
 const INSERT_USER_SESSION_SQL = normalizeSql(`
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, 'email', ?, ?, ?, NULL
   WHERE EXISTS (
     SELECT 1
     FROM verification_code
@@ -2414,8 +2724,8 @@ const INSERT_USER_SESSION_SQL = normalizeSql(`
 
 const INSERT_MIGRATED_USER_SESSION_SQL = normalizeSql(`
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  SELECT ?, 'user', ?, 'email', ?, ?, ?, NULL
   WHERE EXISTS (
     SELECT 1
     FROM verification_code
@@ -2430,8 +2740,14 @@ const INSERT_MIGRATED_USER_SESSION_SQL = normalizeSql(`
 
 const INSERT_LOGIN_USER_SESSION_SQL = normalizeSql(`
   INSERT INTO session
-    (id, owner_type, owner_id, refresh_token, expires_at, created_at, revoked_at)
-  VALUES (?, 'user', ?, ?, ?, ?, NULL)
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'user', ?, 'email', ?, ?, ?, NULL)
+`);
+
+const INSERT_OAUTH_USER_SESSION_SQL = normalizeSql(`
+  INSERT INTO session
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
+  VALUES (?, 'user', ?, ?, ?, ?, ?, NULL)
 `);
 
 const UPDATE_REGISTER_CODE_USED_SQL = normalizeSql(`
@@ -2449,7 +2765,7 @@ const UPDATE_RESET_CODE_USED_SQL = normalizeSql(`
 const UPDATE_LIVE_EMAIL_PASSWORD_USER_SQL = normalizeSql(`
   UPDATE user
   SET password_hash = ?, updated_at = ?
-  WHERE email = ? AND deleted_at IS NULL AND password_hash IS NOT NULL
+  WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
     AND EXISTS (
       SELECT 1
       FROM verification_code
@@ -2751,8 +3067,8 @@ const UPDATE_NON_CONFLICTING_ANONYMOUS_USER_PREFERENCE_SQL = normalizeSql(`
 
 const UPDATE_USER_DELETED_SQL = normalizeSql(`
   UPDATE user
-  SET deleted_at = ?, updated_at = ?
-  WHERE id = ? AND deleted_at IS NULL
+  SET status = 'deleted', deleted_at = ?, updated_at = ?
+  WHERE id = ? AND status = 'active'
 `);
 
 const REVOKE_OWNER_SESSIONS_SQL = normalizeSql(`
@@ -2820,7 +3136,17 @@ function createTestEnv(): TestEnv {
     DB: createFakeD1(),
     CACHE_KV: {} as KVNamespace,
     JWT_SECRET: "test-secret-with-at-least-32-characters",
+    GOOGLE_CLIENT_ID: "test-google-client-id",
+    APPLE_CLIENT_ID: "test-apple-client-id",
   };
+}
+
+class FakeScanImages {
+  readonly keys = new Set<string>();
+
+  async delete(keys: string | string[]): Promise<void> {
+    for (const key of Array.isArray(keys) ? keys : [keys]) this.keys.delete(key);
+  }
 }
 
 function fakeD1(env: TestEnv): FakeD1 {
@@ -2863,6 +3189,10 @@ describe("migrateGuestAssetsToUser", () => {
     const db = createFakeD1();
     seedGuestMigrationRows(db, "anonymous-source");
     seedGuestMigrationRows(db, "anonymous-other");
+    db.scanRecords.push(
+      { owner_type: "anonymous", owner_id: "anonymous-source", image_url: "source.jpg" },
+      { owner_type: "anonymous", owner_id: "anonymous-other", image_url: "other.jpg" },
+    );
 
     const counts = await migrateGuestAssetsToUser(
       db,
@@ -2896,6 +3226,11 @@ describe("migrateGuestAssetsToUser", () => {
       ),
     ).toEqual(expect.objectContaining({ owner_type: "user", owner_id: "user-target" }));
     expect(
+      db.collectionItemEvents.find(
+        (row) => row.id === "event-anonymous-source",
+      ),
+    ).toEqual(expect.objectContaining({ owner_type: "user", owner_id: "user-target" }));
+    expect(
       db.wishlistItems.find((row) => row.id === "wishlist-anonymous-source"),
     ).toEqual(expect.objectContaining({ owner_type: "user", owner_id: "user-target" }));
     expect(
@@ -2922,6 +3257,18 @@ describe("migrateGuestAssetsToUser", () => {
         owner_id: "anonymous-other",
       }),
     );
+    expect(
+      db.collectionItemEvents.find((row) => row.id === "event-anonymous-other"),
+    ).toEqual(
+      expect.objectContaining({
+        owner_type: "anonymous",
+        owner_id: "anonymous-other",
+      }),
+    );
+    expect(db.scanRecords).toEqual([
+      expect.objectContaining({ owner_type: "user", owner_id: "user-target" }),
+      expect.objectContaining({ owner_type: "anonymous", owner_id: "anonymous-other" }),
+    ]);
   });
 
   it("fails migration for an already upgraded guest because claimed guest assets must not move to another user", async () => {
@@ -3027,6 +3374,13 @@ function seedGuestMigrationRows(
     card_ref: `card-${anonymousId}`,
     updated_at: "2026-07-06T00:00:00.000Z",
   });
+  db.collectionItemEvents.push({
+    id: `event-${anonymousId}`,
+    item_id: `collection-${anonymousId}`,
+    owner_type: "anonymous",
+    owner_id: anonymousId,
+    folder_id: `folder-${anonymousId}`,
+  });
   db.wishlistItems.push({
     id: `wishlist-${anonymousId}`,
     owner_type: "anonymous",
@@ -3041,8 +3395,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const db = fakeD1(env);
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:google-1:google.new@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:google-1:google.new@example.com",
     });
     const body = (await response.json()) as OAuthSuccessResponse;
 
@@ -3052,6 +3405,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
       data: {
         user_id: expect.any(String),
         email: "google.new@example.com",
+        login_method: "google",
         access_token: expect.any(String),
         refresh_token: expect.any(String),
         expires_in: 900,
@@ -3134,8 +3488,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const response = await requestGoogleOAuthCallbackWithAuthorization(
       env,
       {
-        code: "mock-google:google-existing:new-email@example.com",
-        redirect_uri: "kando://auth/google",
+        id_token: "mock-google:google-existing:new-email@example.com",
         anonymous_id: anonymousId,
       },
       `Bearer ${anonymousBody.data.access_token}`,
@@ -3212,8 +3565,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const response = await requestGoogleOAuthCallbackWithAuthorization(
       env,
       {
-        code: "mock-google:google-shared:shared@example.com",
-        redirect_uri: "kando://auth/google",
+        id_token: "mock-google:google-shared:shared@example.com",
         anonymous_id: anonymousId,
       },
       `Bearer ${anonymousBody.data.access_token}`,
@@ -3257,8 +3609,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     db.createConflictingUserBeforeNextUserInsert = true;
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:google-email-race:race@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:google-email-race:race@example.com",
     });
     const body = (await response.json()) as OAuthSuccessResponse;
 
@@ -3307,8 +3658,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     db.createConflictingIdentityBeforeNextAuthIdentityInsert = true;
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:google-identity-race:identity-race@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:google-identity-race:identity-race@example.com",
     });
     const body = (await response.json()) as OAuthSuccessResponse;
 
@@ -3353,6 +3703,13 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
       card_ref: `card-${anonymousBody.data.anonymous_id}`,
       updated_at: "2026-07-06T00:00:00.000Z",
     });
+    db.collectionItemEvents.push({
+      id: `event-${anonymousBody.data.anonymous_id}`,
+      item_id: `collection-${anonymousBody.data.anonymous_id}`,
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: `folder-${anonymousBody.data.anonymous_id}`,
+    });
     db.wishlistItems.push({
       id: `wishlist-${anonymousBody.data.anonymous_id}`,
       owner_type: "anonymous",
@@ -3363,8 +3720,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const response = await requestGoogleOAuthCallbackWithAuthorization(
       env,
       {
-        code: "mock-google:google-migrate:google.migrate@example.com",
-        redirect_uri: "kando://auth/google",
+        id_token: "mock-google:google-migrate:google.migrate@example.com",
         anonymous_id: anonymousBody.data.anonymous_id,
       },
       `Bearer ${anonymousBody.data.access_token}`,
@@ -3372,6 +3728,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const body = (await response.json()) as OAuthSuccessResponse;
 
     expect(response.status).toBe(200);
+    expect(body.data.user_id).toBe(anonymousBody.data.anonymous_id);
     expect(body.data).toEqual(
       expect.objectContaining({
         email: "google.migrate@example.com",
@@ -3392,6 +3749,13 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     expect(
       db.collectionItems.find(
         (row) => row.id === `collection-${anonymousBody.data.anonymous_id}`,
+      ),
+    ).toEqual(
+      expect.objectContaining({ owner_type: "user", owner_id: body.data.user_id }),
+    );
+    expect(
+      db.collectionItemEvents.find(
+        (row) => row.id === `event-${anonymousBody.data.anonymous_id}`,
       ),
     ).toEqual(
       expect.objectContaining({ owner_type: "user", owner_id: body.data.user_id }),
@@ -3442,8 +3806,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const response = await requestGoogleOAuthCallbackWithAuthorization(
       env,
       {
-        code: "mock-google:google-race:google.race@example.com",
-        redirect_uri: "kando://auth/google",
+        id_token: "mock-google:google-race:google.race@example.com",
         anonymous_id: anonymousId,
       },
       `Bearer ${anonymousBody.data.access_token}`,
@@ -3498,8 +3861,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     });
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:google-deleted:fresh@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:google-deleted:fresh@example.com",
     });
     const body = await response.json();
 
@@ -3516,7 +3878,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     expect(db.sessions).toHaveLength(0);
   });
 
-  it("google oauth rejects a soft-deleted provider email because user.email uniqueness must not become a server error", async () => {
+  it("google oauth creates a new user for a deleted provider email because inactive accounts do not reserve the address", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
     db.users.push({
@@ -3526,34 +3888,33 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
       display_name: null,
       created_at: "2026-07-06T00:00:00.000Z",
       updated_at: "2026-07-06T00:00:00.000Z",
+      status: "deleted",
       deleted_at: "2026-07-06T01:00:00.000Z",
     });
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:google-deleted-email:deleted-email@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:google-deleted-email:deleted-email@example.com",
     });
     const body = await response.json();
 
-    expect(response.status).toBe(422);
-    expect(body).toEqual({
-      success: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Authorization failed. Please try again.",
-      },
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      success: true,
+      data: { email: "deleted-email@example.com", login_method: "google" },
     });
-    expect(db.users).toHaveLength(1);
-    expect(db.authIdentities).toHaveLength(0);
-    expect(db.sessions).toHaveLength(0);
+    expect(db.users).toHaveLength(2);
+    expect(db.users.find((user) => isActiveUser(user))?.id).not.toBe(
+      "user-google-email-deleted",
+    );
+    expect(db.authIdentities).toHaveLength(1);
+    expect(db.sessions).toHaveLength(1);
   });
 
   it("google oauth rejects malformed mock authorization because failed provider proof must not create accounts", async () => {
     const env = createTestEnv();
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "bad-code",
-      redirect_uri: "kando://auth/google",
+      id_token: "bad-code",
     });
     const body = await response.json();
 
@@ -3573,8 +3934,7 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     const env = createTestEnv();
 
     const response = await requestGoogleOAuthCallback(env, {
-      code: "mock-google:bad uid:baduid@example.com",
-      redirect_uri: "kando://auth/google",
+      id_token: "mock-google:bad uid:baduid@example.com",
     });
     const body = await response.json();
 
@@ -3608,6 +3968,7 @@ describe("POST /api/v1/auth/oauth/apple/callback", () => {
       data: {
         user_id: expect.any(String),
         email: "apple.new@example.com",
+        login_method: "apple",
         access_token: expect.any(String),
         refresh_token: expect.any(String),
         expires_in: 900,
@@ -4100,6 +4461,21 @@ async function requestRegisterVerify(
   );
 }
 
+async function requestRegisterVerifyCode(
+  env: TestEnv,
+  body: unknown,
+): Promise<Response> {
+  return app.request(
+    "/api/v1/auth/register/verify-code",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
 async function requestLogin(
   env: TestEnv,
   body: unknown,
@@ -4308,6 +4684,35 @@ describe("POST /api/v1/auth/register/send-code", () => {
     );
   });
 
+  it("accepts only the newest resent code because an older email must stop proving inbox ownership", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const email = "owner@example.com";
+
+    expect((await requestRegisterSendCode(env, { email })).status).toBe(200);
+    const oldCode = db.verificationCodes[0];
+    if (!oldCode) throw new Error("Expected first register verification code.");
+    oldCode.created_at = new Date(Date.now() - 61_000).toISOString();
+    oldCode.expires_at = new Date(Date.now() + 600_000).toISOString();
+
+    expect((await requestRegisterSendCode(env, { email })).status).toBe(200);
+    const newCode = db.verificationCodes[1];
+    if (!newCode) throw new Error("Expected resent register verification code.");
+    if (newCode.code === oldCode.code) oldCode.code = "000000";
+
+    const oldResponse = await requestRegisterVerifyCode(env, {
+      email,
+      code: oldCode.code,
+    });
+    const newResponse = await requestRegisterVerifyCode(env, {
+      email,
+      code: newCode.code,
+    });
+
+    expect(oldResponse.status).toBe(422);
+    expect(newResponse.status).toBe(200);
+  });
+
   it.each([
     {
       name: "missing email",
@@ -4379,7 +4784,7 @@ describe("POST /api/v1/auth/register/send-code", () => {
     expect(db.verificationCodes).toHaveLength(0);
   });
 
-  it("returns 409 / CONFLICT without a code for a soft-deleted email because user.email is globally unique and later user creation would fail", async () => {
+  it("sends a code for a deleted email because a new account may reuse an inactive email", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
     db.users.push({
@@ -4389,6 +4794,7 @@ describe("POST /api/v1/auth/register/send-code", () => {
       display_name: "Deleted User",
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
+      status: "deleted",
       deleted_at: "2026-07-03T00:00:00.000Z",
     });
 
@@ -4397,12 +4803,10 @@ describe("POST /api/v1/auth/register/send-code", () => {
     });
     const body = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(body).toMatchObject({
-      success: false,
-      error: { code: "CONFLICT" },
-    });
-    expect(db.verificationCodes).toHaveLength(0);
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ success: true });
+    expect(db.verificationCodes).toHaveLength(1);
+    expect(db.verificationCodes[0]?.email).toBe("owner@example.com");
   });
 
   it("returns 500 / INTERNAL_ERROR when the existing-user lookup fails because D1 errors must keep the API error contract", async () => {
@@ -4493,11 +4897,13 @@ describe("POST /api/v1/auth/register/verify", () => {
     const body = (await response.json()) as RegisterVerifySuccessResponse;
 
     expect(response.status).toBe(200);
+    expect(body.data.user_id).toMatch(/^\d{6,}$/);
     expect(body).toEqual({
       success: true,
       data: {
         user_id: expect.any(String),
         email: "new.owner@example.com",
+        login_method: "email",
         access_token: expect.any(String),
         refresh_token: expect.any(String),
         expires_in: 900,
@@ -4571,6 +4977,7 @@ describe("POST /api/v1/auth/register/verify", () => {
         user_id: user.id,
         anonymous_id: null,
         email: "new.owner@example.com",
+        login_method: "email",
         display_name: null,
         created_at: user.created_at,
       },
@@ -4602,6 +5009,13 @@ describe("POST /api/v1/auth/register/verify", () => {
       folder_id: anonymousFolder.id,
       card_ref: "card-collection",
       updated_at: "2026-07-02T00:00:00.000Z",
+    });
+    db.collectionItemEvents.push({
+      id: "collection-guest-event",
+      item_id: "collection-guest",
+      owner_type: "anonymous",
+      owner_id: anonymousId,
+      folder_id: anonymousFolder.id,
     });
     db.wishlistItems.push({
       id: "wishlist-guest",
@@ -4635,6 +5049,7 @@ describe("POST /api/v1/auth/register/verify", () => {
 
     expect(response.status).toBe(200);
     expect(body.data.migrated).toBe(true);
+    expect(userId).toBe(anonymousId);
     expect(db.anonymousAccounts[0]?.upgraded_user_id).toBe(userId);
     expect(db.portfolioFolders).toHaveLength(1);
     expect(db.userPreferences).toHaveLength(1);
@@ -4651,6 +5066,13 @@ describe("POST /api/v1/auth/register/verify", () => {
       }),
     );
     expect(db.collectionItems[0]).toEqual(
+      expect.objectContaining({
+        owner_type: "user",
+        owner_id: userId,
+        folder_id: db.portfolioFolders[0]?.id,
+      }),
+    );
+    expect(db.collectionItemEvents[0]).toEqual(
       expect.objectContaining({
         owner_type: "user",
         owner_id: userId,
@@ -5187,7 +5609,7 @@ describe("POST /api/v1/auth/register/verify", () => {
       success: false,
       error: {
         code: "VALIDATION_ERROR",
-        message: "Incorrect verification code.",
+        message: "Code expired. Please request a new code.",
       },
     });
     expect(db.users).toHaveLength(0);
@@ -5393,7 +5815,7 @@ describe("POST /api/v1/auth/register/verify", () => {
     expect(code.used_at).toBeNull();
   });
 
-  it("returns 409 for a soft-deleted email during verify because user.email remains globally reserved", async () => {
+  it("creates a new user for a deleted email because account deletion must not reserve the address", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
     const sendResponse = await requestRegisterSendCode(env, {
@@ -5413,6 +5835,7 @@ describe("POST /api/v1/auth/register/verify", () => {
       display_name: "Deleted User",
       created_at: "2026-07-02T00:00:00.000Z",
       updated_at: "2026-07-02T00:00:00.000Z",
+      status: "deleted",
       deleted_at: "2026-07-03T00:00:00.000Z",
     });
 
@@ -5423,17 +5846,14 @@ describe("POST /api/v1/auth/register/verify", () => {
     });
     const body = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(body).toEqual({
-      success: false,
-      error: {
-        code: "CONFLICT",
-        message: "Email is already registered.",
-      },
-    });
-    expect(db.users).toHaveLength(1);
-    expect(db.sessions).toHaveLength(0);
-    expect(code.used_at).toBeNull();
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ success: true });
+    expect(db.users).toHaveLength(2);
+    expect(db.users.find((user) => isActiveUser(user))?.id).not.toBe(
+      "deleted-user",
+    );
+    expect(db.sessions).toHaveLength(1);
+    expect(code.used_at).not.toBeNull();
   });
 
   it("returns 409 when user insert hits an email unique race because conflict semantics must survive concurrent registration", async () => {
@@ -5516,6 +5936,7 @@ describe("POST /api/v1/auth/login", () => {
       data: {
         user_id: expect.any(String),
         email: "login.owner@example.com",
+        login_method: "email",
         access_token: expect.any(String),
         refresh_token: expect.any(String),
         expires_in: 900,
@@ -6192,11 +6613,13 @@ describe("POST /api/v1/auth/anonymous", () => {
     Object.defineProperty(request, "cf", { value: { country: "us" } });
 
     const response = await app.fetch(request, env);
+    const body = (await response.clone().json()) as AnonymousSuccessResponse;
 
     expect(response.status).toBe(200);
     expect(fakeD1(env).installationWrites).toEqual([
       [
         "device-country",
+        body.data.anonymous_id,
         "iOS",
         "US",
         expect.any(String),
@@ -6258,6 +6681,7 @@ describe("POST /api/v1/auth/anonymous", () => {
     const anonymousId = body.data.anonymous_id;
     const accessPayload = decodeJwtPayload(body.data.access_token);
 
+    expect(anonymousId).toMatch(/^\d{6,}$/);
     expect(accessPayload).toMatchObject({
       owner_type: "anonymous",
       owner_id: anonymousId,
@@ -6623,6 +7047,7 @@ describe("POST /api/v1/auth/token/refresh", () => {
         user_id: "user-refresh",
         anonymous_id: null,
         email: "refresh-user@example.com",
+        login_method: null,
         display_name: "Refresh User",
         created_at: "2026-07-02T00:00:00.000Z",
       },
@@ -6962,6 +7387,37 @@ describe("DELETE /api/v1/auth/account", () => {
     ]);
   });
 
+  it("delete account retains private scan images and records because product policy requires permanent scan audit media", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const accessToken = await seedLiveUserSession(
+      env,
+      "delete-scan-user",
+      "delete-scan-session",
+    );
+    const images = new FakeScanImages();
+    const key = "scans/user/delete-scan-user/2026/07/scan-1.jpg";
+    images.keys.add(key);
+    env.SCAN_IMAGES = images as unknown as R2Bucket;
+    db.scanRecords.push({
+      owner_type: "user",
+      owner_id: "delete-scan-user",
+      image_url: key,
+    });
+
+    const response = await requestDeleteAccount(env, `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(images.keys).toEqual(new Set([key]));
+    expect(db.scanRecords).toEqual([
+      {
+        owner_type: "user",
+        owner_id: "delete-scan-user",
+        image_url: key,
+      },
+    ]);
+  });
+
   it("delete account deletes anonymous guest assets because guest deletion must be irreversible", async () => {
     const env = createTestEnv();
     const anonymousResponse = await requestAnonymous(env, "device-delete-assets");
@@ -6975,6 +7431,13 @@ describe("DELETE /api/v1/auth/account", () => {
       folder_id: db.portfolioFolders[0]?.id ?? "missing-folder",
       card_ref: "delete-card",
       updated_at: "2026-07-06T00:00:00.000Z",
+    });
+    db.collectionItemEvents.push({
+      id: "delete-guest-event",
+      item_id: "delete-guest-collection",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: db.portfolioFolders[0]?.id ?? "missing-folder",
     });
     db.wishlistItems.push({
       id: "delete-guest-wishlist",
@@ -6998,6 +7461,13 @@ describe("DELETE /api/v1/auth/account", () => {
     ).toBe(false);
     expect(
       db.collectionItems.some(
+        (row) =>
+          row.owner_type === "anonymous" &&
+          row.owner_id === anonymousBody.data.anonymous_id,
+      ),
+    ).toBe(false);
+    expect(
+      db.collectionItemEvents.some(
         (row) =>
           row.owner_type === "anonymous" &&
           row.owner_id === anonymousBody.data.anonymous_id,
@@ -7300,6 +7770,13 @@ describe("POST /api/v1/auth/migrate-assets", () => {
       card_ref: "existing-card",
       updated_at: "2026-07-06T00:00:00.000Z",
     });
+    db.collectionItemEvents.push({
+      id: "migrate-existing-event",
+      item_id: "migrate-existing-collection",
+      owner_type: "anonymous",
+      owner_id: anonymousBody.data.anonymous_id,
+      folder_id: guestFolder.id,
+    });
     db.wishlistItems.push({
       id: "migrate-existing-wishlist",
       owner_type: "anonymous",
@@ -7355,6 +7832,14 @@ describe("POST /api/v1/auth/migrate-assets", () => {
         folder_id: "user-main-folder",
       }),
     );
+    expect(db.collectionItemEvents).toEqual([
+      expect.objectContaining({
+        id: "migrate-existing-event",
+        owner_type: "user",
+        owner_id: "migrate-existing-user",
+        folder_id: "user-main-folder",
+      }),
+    ]);
     expect(
       db.wishlistItems.find((item) => item.id === "user-existing-wishlist"),
     ).toEqual(
@@ -7968,6 +8453,7 @@ describe("GET /api/v1/auth/me", () => {
         user_id: null,
         anonymous_id: anonymousBody.data.anonymous_id,
         email: null,
+        login_method: null,
         display_name: null,
         created_at: account?.created_at,
       },
@@ -7990,6 +8476,7 @@ describe("GET /api/v1/auth/me", () => {
       id: "session-current",
       owner_type: "user",
       owner_id: "user-current",
+      login_method: "google",
       refresh_token: await hashRefreshToken("current-refresh"),
       expires_at: "2999-01-01T00:00:00.000Z",
       created_at: "2026-07-02T00:00:00.000Z",
@@ -8015,6 +8502,7 @@ describe("GET /api/v1/auth/me", () => {
         user_id: "user-current",
         anonymous_id: null,
         email: "owner@example.com",
+        login_method: "google",
         display_name: "Owner",
         created_at: "2026-07-02T00:00:00.000Z",
       },

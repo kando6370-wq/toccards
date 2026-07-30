@@ -1,0 +1,127 @@
+# iOS 上架就绪审计
+
+## 0. 审计结论
+
+- 审计日期：2026-07-17。
+- 目标：Card AI 1.0.0 首次 iPhone 上架，不包含 Android 和订阅。
+- 结论：`NO-GO`。应用代码已经具备无签名 iOS Release 构建条件，condition-specific Raw 价格同步程序也已部署，但生产缺少 `JUSTTCG_API_KEY`，价格仍仅覆盖 10/4066 个 product；App Store Connect 记录、签名、原生截图和 TestFlight 真机验收也尚未完成。
+- 完成口径：仅以代码、真实生产接口、CI、平台回执或真机结果为证据，不采信进度文档中的完成标记。
+
+## 1. 代码与生产已验证
+
+| 项目 | 当前结果 | 证据 |
+|---|---|---|
+| 名称与版本 | `Card AI`，`1.0.0+1` | `Info.plist`、`pubspec.yaml` |
+| Bundle ID | `com.kando.kandoApp` | Xcode Debug/Profile/Release 配置 |
+| 首发设备 | 仅 iPhone，竖屏，iOS 13.0+ | `TARGETED_DEVICE_FAMILY=1`、`Info.plist` |
+| 相机与相册权限 | 已提供用途说明 | `NSCameraUsageDescription`、`NSPhotoLibraryUsageDescription` |
+| Apple 登录 | entitlement、Xcode capability、Workers 受众均为真实配置 | `Runner.entitlements`、`project.pbxproj`、`APPLE_CLIENT_ID` |
+| Google 登录 | iOS Client ID、反向 URL Scheme 与 Workers 受众一致；接口使用 `id_token` | `Info.plist`、`oauth_authorizer.dart`、`POST /auth/oauth/google/callback` |
+| 出口合规 | 声明不使用非豁免加密 | `ITSAppUsesNonExemptEncryption=false` |
+| App Icon | 19 个声明槽位完整；实际尺寸匹配；1024 图标为 RGB 且无透明通道 | 像素检查、`Contents.json` |
+| Launch Screen | storyboard 与 1x/2x/3x 启动图片齐全 | `LaunchScreen.storyboard`、`LaunchImage.imageset` |
+| 隐私清单 | Flutter 引擎声明 Required Reason API；当前 iOS 插件自带隐私清单；App 未直接调用对应原生 API | Flutter 3.35.5 与已解析插件包 |
+| Ruby / CocoaPods | `Gemfile.lock` 与 `Podfile.lock` 已由 macOS CI 生成并固定；Bundler 4.0.15、CocoaPods 1.17.0；Debug/Release/Profile 均显式包含 Pods 配置 | GitHub Actions run `29549914398` |
+| App Review 材料 | 已准备无需 Demo 账号的审核说明；主分类 `Reference`、次分类 `Utilities`；旧截图自动上传已禁用 | `fastlane/metadata/review_information/notes.txt`、`Fastfile` |
+| Fastlane 元数据 | Name、Subtitle、Keywords、Description、Release Notes 均在 Apple 字段长度限制内 | 2026-07-17 确定性长度检查 |
+| 法律与支持页 | Terms、Privacy、Support 均为公开生产页面 | `https://api.tcgcard.fun/api/v1/legal/*` |
+| 扫描图片生命周期 | 产品已确认无固定到期时间，账号删除后仍保留；代码已移除每日清理，生产 R2 已无对象过期规则 | 生产生命周期仅保留 7 天未完成分片上传清理，不会删除已完成对象 |
+| 生产价格数据 | 4066 个目录 product 中仅 10 个有价格；61 条 SKU 价格历史的最新日期为 2026-07-08；5 条生产资产均为 Raw，无 Graded 样本 | 2026-07-17 生产 D1 只读聚合 |
+| 价格同步链路 | JustTCG v1 增量同步器、D1 游标/状态、5 分钟 Cron、Admin 状态与手动触发接口已部署；缺 Key 时显式 blocked，不写价格 | `4140f8b`、`712d32a`、D1 `price_sync_state` |
+| iOS 无签名构建 | Xcode 16.4 下 Ruby 依赖安装、`pod install`、两份 lockfile 无漂移检查与 `flutter build ios --release --no-codesign` 在当前 Flutter 提交 `1337abe` 全部成功 | GitHub Actions run `29566250750` |
+
+当前生产 `/app-config`：
+
+```json
+{
+  "upgrade_prompt": null,
+  "app_store_url": null,
+  "terms_url": "https://api.tcgcard.fun/api/v1/legal/terms",
+  "privacy_url": "https://api.tcgcard.fun/api/v1/legal/privacy"
+}
+```
+
+`app_store_url=null` 是真实上线阻断：Profile 分享必然失败，评分回退页与后续升级跳转不可用。
+
+## 2. 已修复的上线风险
+
+| 风险 | 处理结果 |
+|---|---|
+| Google ID Token 被伪装成授权码和无效 redirect URI | Flutter 与 Workers 已统一为 `id_token` 真实契约 |
+| iOS Client ID 同时被当作 Server Client ID | iOS SDK 只配置 iOS Client ID；Workers 验证同一受众 |
+| R2 扫描图片保留口径冲突 | 产品已确认无固定到期时间且账号删除后仍保留；代码、披露与生产 R2 生命周期规则已同步 |
+| Runner 自定义 xcconfig 未包含 CocoaPods 配置 | Debug/Release/Profile 分别包含对应 Pods 配置；CI 对警告和 lockfile 漂移设为失败 |
+| 商店描述声称只在设备端处理图片 | 已说明裁剪卡图上传、用途和无固定到期时间 |
+| Fastlane 会上传业务整改前的旧截图 | `metadata` lane 已设置 `skip_screenshots: true` |
+
+## 3. 上线前仍需完成
+
+| 优先级 | 项目 | 验收证据 |
+|---|---|---|
+| P0 | 购买至少 JustTCG Starter 配额并配置生产 `JUSTTCG_API_KEY`，跑完 Raw 回填；另行验证或接入真实 Graded 价格源 | `price_sync_state` 完成一轮、覆盖率与最近采集时间达到产品验收线；不得插入测试价格冒充生产数据；v2 Graded beta 未经真实 Key 验证前不算完成 |
+| P0 | 设置真实 `DEVELOPMENT_TEAM`，确认 Automatic Signing、证书、Provisioning Profile 和 Apple Sign In capability | Xcode Signing 页面无错误；Archive 签名成功 |
+| P0 | 执行带签名 Archive 并上传 App Store Connect | Organizer 上传回执或 TestFlight build |
+| P0 | 在 iOS Simulator/真机重拍商店截图 | 截图展示当前 HOME 真实历史曲线、当前 Collection/Profile/Scan，不含 Mock 或矛盾数值 |
+| P0 | TestFlight 真机验收 Apple/Google 登录、相机、相册、分享、评分、协议页和账号删除 | 每条流程的通过记录 |
+| P1 | 在 macOS 执行 `bundle exec fastlane ios metadata` 上传 | Fastlane 上传回执；当前缺少 App Store Connect 凭据 |
+
+仓库现有 `fastlane/screenshots/en-US` 五张截图不能直接提交。它们生成于 HOME、Collection 最终真实接口整改之前；HOME 图中 `$9.67` 组合总值与 `$45212` 曲线浮层明显矛盾，而且没有当前 Scan 画面。
+
+## 4. 需要平台权限完成
+
+| 优先级 | 平台事项 | 当前阻断 |
+|---|---|---|
+| P0 | 在 Apple Developer 注册 `com.kando.kandoApp` 并启用 Sign in with Apple | 仓库无法证明开发者后台状态 |
+| P0 | 在 App Store Connect 创建 Card AI 应用记录 | 尚无真实数字 App ID，因此不能生成 App Store URL |
+| P0 | 将真实 `https://apps.apple.com/app/id<APP_ID>` 写入 D1 `app_config.app_store_url` | 当前生产值为 `null` |
+| P0 | 完成 App Privacy、年龄分级、版权和审核联系人 | 分类与审核说明已准备；Fastlane 文件不能替代 App Store Connect 问卷 |
+| P0 | 确认 Google Cloud iOS OAuth 客户端绑定 `com.kando.kandoApp` | 代码只能验证 ID 一致，不能读取 Google Cloud 控制台的客户端类型与 Bundle 绑定 |
+| P1 | 配置 App Store Connect API Key 或受控 Apple ID/Team ID | `Appfile` 当前仅包含 Bundle ID |
+
+## 5. App Privacy 申报草案
+
+以下是根据真实代码与隐私政策得到的申报输入，提交前仍须由产品/法务在 App Store Connect 最终确认：
+
+| 数据类别 | 是否关联身份 | 用途 |
+|---|---|---|
+| Email Address | 是 | 账号、登录、客服 |
+| User ID / Device ID | 是 | 用户或游客所有权、会话和安全 |
+| Photos or Videos | 是 | 卡牌识别、扫描记录、客服和识别质量审计；图片无固定到期时间，账号删除后仍保留 |
+| Other User Content | 是 | Portfolio、Wishlist、评级、购买值、备注和反馈 |
+| Diagnostics / Other Data | 需最终确认 | 网络、安全事件与故障诊断 |
+
+- 不用于第三方广告。
+- 不出售个人信息。
+- 当前实现不做跨 App/网站跟踪，Tracking 应为 No。
+- 用户可在 App 内删除账号；扫描图片及扫描审计记录不随账号删除而删除。
+
+## 6. 验证记录
+
+2026-07-17 本轮验证：
+
+- Flutter：389 项通过，1 项明确跳过；跳过项为缺少平台 dartcv 动态库的原生 OpenCV 等价测试；machine reporter `success=true`、退出码 0，`flutter analyze` 无问题。
+- Workers：28 个测试文件、251 项通过；TypeScript 类型检查与 dry-run 构建通过。
+- GitHub macOS iOS CI：run `29558499213` 在提交 `20e8f15` 上成功，Pod 安装、`Gemfile.lock`/`Podfile.lock` 无漂移检查与无签名 Release 构建各步骤均成功；该 push 已包含 `edd8684` Card Detail Flutter 业务改动。
+- 当前 Flutter Search/Set 基线 `1337abe` 已由 GitHub macOS iOS CI run `29566250750` 验证成功，包含无签名 Release 构建。
+- Cloudflare：Google 无效 `id_token` 返回 `422 VALIDATION_ERROR`；30 天前仍带图片指针的生产记录计数为 0。
+- Cloudflare 当前生产 Worker 版本为 `496065fb-5954-4700-b971-039973f043a9`；`/app-config.app_store_url` 与 `/app-config.upgrade_prompt` 均为 null。
+- 卡图：生产 Cards、HOME、Collection、Search、Card Detail 与 Scan Review 已统一到 `image.tcgcard.fun` R2 变体；真实卡 `9359` 原图与缩略变体均返回 200 JPEG。
+- 390x844 真实 Web 渲染：Search 收藏 `9359` 后 HOME 从 `$0.00` 更新为 `$0.21`，Collection 显示 Qty 1，Profile 与 Scan 可继续进入；删除该收藏后 HOME/Collection 恢复 0，未留下本轮资产测试数据。
+- Search Set：生产 8 个启用游戏、4239 个 Set、50 个 R2 封面；TMC 封面返回 200 JPEG，FDN/ECL 二级页返回不同卡牌且缓存隔离。
+- Cloudflare R2 已回读确认没有已完成对象过期规则，仅保留 7 天未完成分片上传清理；扫描图片永久保留且账号删除后仍保留，需要按此口径完成 App Privacy 与审核披露。
+- Cloudflare D1 价格覆盖为 10/4066 个 product，最新价格日期为 2026-07-08；JustTCG Cron 已在生产运行并持久化 `blocked / 10 / 4066 / JUSTTCG_API_KEY is not configured`，未写测试价格；5 条生产资产均为 Raw，未形成 Graded 生产验收样本。
+- Apple 公开目录按 Bundle ID `com.kando.kandoApp` 查询 `resultCount=0`；App Store Connect 只读访问被重定向至 `authResult=FAILED` 登录页，当前浏览器无可用登录态；环境未配置 Fastlane/App Store Connect 凭据，仓库中也没有 `DEVELOPMENT_TEAM`。
+- 图标：全部 PNG 尺寸匹配资产声明，1024 图标无 alpha。
+- Fastlane 元数据：Name 7/30、Subtitle 26/30、Keywords 82/100、Description 1274/4000、Release Notes 119/4000；Terms、Privacy、Support 生产 URL 均返回 200。
+- 未执行：Xcode Archive、签名、TestFlight、真机 OAuth/评分/分享/权限、Fastlane 上传。
+
+## 7. 最短上架路径
+
+1. 配置至少 Starter 配额的生产 `JUSTTCG_API_KEY`，观察 Admin/D1 状态跑完首轮 Raw 回填；同时对 JustTCG v2 Graded beta 做真实响应和配额验收，不满足稳定性时另选 Graded 数据源。
+2. 在 Apple Developer 与 App Store Connect 创建并绑定 `com.kando.kandoApp`，取得数字 App ID。
+3. 立即写入并验证生产 `app_store_url`，再验证 Profile Score/Share。
+4. 在 Mac 设置 Team 与签名，确认 `pod install` 不改写 lockfile，完成 Archive 上传。
+5. 用目标 iPhone Simulator/真机基于当前生产数据重拍截图，并补齐 App Privacy、年龄分级、版权与审核联系人。
+6. TestFlight 真机完整跑通登录、Scan、Collection、Profile 和删除账号后再提交审核。
+
+在上述 P0 全部关闭前，不得宣称“iOS 已可上架”或“目标完成”。

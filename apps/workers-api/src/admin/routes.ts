@@ -10,6 +10,7 @@ import { Hono } from "hono";
 import type { Context, Next } from "hono";
 import type { Env } from "../env";
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
+import { cardImageUrl } from "../card-image-url";
 import { createId } from "../id";
 
 type AdminRole = "super_admin" | "operator";
@@ -45,6 +46,7 @@ type InstallationSourceRow = {
 
 type FeedbackTicketRow = {
   id: string;
+  uid: string;
   email: string;
   types: string;
   functions: string;
@@ -84,6 +86,8 @@ type AppVersionRecord = {
   platform: AppVersionPlatform;
   min_supported_version: string;
   recommended_version: string;
+  force_update: boolean;
+  store_url: string;
   recommended_update_message: string;
   forced_update_message: string;
   status: AppVersionStatus;
@@ -213,31 +217,56 @@ const REVOKE_SESSION_SQL = `
   WHERE id = ? AND revoked_at IS NULL
 `;
 
-const SELECT_ADMIN_USERS_SQL = `
-  SELECT 'user' AS account_type, id, email, NULL AS device_id, created_at,
-    CASE WHEN deleted_at IS NULL THEN 'active' ELSE 'disabled' END AS status
-  FROM user
-  WHERE (? IS NULL OR ? = 'user')
-    AND (? IS NULL OR lower(email) LIKE '%' || ? || '%')
-  UNION ALL
-  SELECT 'anonymous' AS account_type, id, NULL AS email, device_id, created_at,
-    CASE WHEN upgraded_user_id IS NULL THEN 'guest' ELSE 'upgraded' END AS status
-  FROM anonymous_account
-  WHERE (? IS NULL OR ? = 'anonymous')
-    AND (? IS NULL OR lower(device_id) LIKE '%' || ? || '%')
+const ADMIN_USERS_FILTERED_SQL = `
+  WITH accounts AS (
+    SELECT 'user' AS account_type, u.id, u.email, NULL AS device_id, u.created_at,
+      CASE WHEN u.status = 'active' THEN 'active' ELSE 'disabled' END AS status,
+      COALESCE((
+        SELECT ai.provider FROM auth_identity ai WHERE ai.user_id = u.id
+        ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END LIMIT 1
+      ), 'email') AS identity,
+      COALESCE((
+        SELECT sr.platform FROM scan_record sr
+        WHERE sr.owner_type = 'user' AND sr.owner_id = u.id
+        ORDER BY sr.created_at DESC LIMIT 1
+      ), 'Unknown') AS platform
+    FROM user u
+    UNION ALL
+    SELECT 'anonymous', a.id, NULL, a.device_id, a.created_at,
+      CASE WHEN a.upgraded_user_id IS NULL THEN 'guest' ELSE 'upgraded' END,
+      'anonymous',
+      COALESCE((
+        SELECT sr.platform FROM scan_record sr
+        WHERE sr.owner_type = 'anonymous' AND sr.owner_id = a.id
+        ORDER BY sr.created_at DESC LIMIT 1
+      ), 'Unknown')
+    FROM anonymous_account a
+  )
+  SELECT * FROM accounts
+  WHERE (? IS NULL OR account_type = ?)
+    AND (? IS NULL OR lower(id) LIKE '%' || ? || '%' OR lower(COALESCE(email, device_id, '')) LIKE '%' || ? || '%')
+    AND (? IS NULL OR identity = ?)
+    AND (? IS NULL OR lower(platform) = ?)
+    AND (? IS NULL OR created_at >= ?)
+    AND (? IS NULL OR created_at <= ?)
+`;
+
+const SELECT_ADMIN_USERS_SQL = `${ADMIN_USERS_FILTERED_SQL}
   ORDER BY created_at DESC
   LIMIT ? OFFSET ?
 `;
 
+const COUNT_ADMIN_USERS_SQL = `SELECT COUNT(*) AS total FROM (${ADMIN_USERS_FILTERED_SQL})`;
+
 const SELECT_INSTALLATION_SOURCES_SQL = `
-  SELECT 'anonymous' AS install_type, installation_id AS uid, platform,
+  SELECT 'anonymous' AS install_type, uid, platform,
     COALESCE(country_code, 'Unknown') AS country, first_seen_at AS created_at
   FROM app_installation
   ORDER BY first_seen_at ASC
 `;
 
 const SELECT_USER_DETAIL_SQL = `
-  SELECT id, email, display_name, created_at, updated_at, deleted_at
+  SELECT id, email, display_name, created_at, updated_at, status, deleted_at
   FROM user
   WHERE id = ?
   LIMIT 1
@@ -251,12 +280,12 @@ const SELECT_ANONYMOUS_DETAIL_SQL = `
 `;
 
 const DISABLE_USER_SQL = `
-  UPDATE user SET deleted_at = ?
-  WHERE id = ? AND deleted_at IS NULL
+  UPDATE user SET status = 'disabled', updated_at = ?
+  WHERE id = ? AND status = 'active'
 `;
 
 const SELECT_FEEDBACKS_SQL = `
-  SELECT id, email, types, functions, message, status, created_at, updated_at
+  SELECT id, uid, email, types, functions, message, status, created_at, updated_at
   FROM feedback_ticket
   WHERE (? IS NULL OR status = ?)
   ORDER BY created_at DESC
@@ -264,7 +293,7 @@ const SELECT_FEEDBACKS_SQL = `
 `;
 
 const SELECT_FEEDBACK_BY_ID_SQL = `
-  SELECT id, email, types, functions, message, status, created_at, updated_at
+  SELECT id, uid, email, types, functions, message, status, created_at, updated_at
   FROM feedback_ticket
   WHERE id = ?
   LIMIT 1
@@ -292,8 +321,23 @@ const SELECT_SCAN_RECORDS_SQL = `
     AND (? IS NULL OR recognition_status = ?)
     AND (? IS NULL OR user_confirmation_status = ?)
     AND (? IS NULL OR modified_result = ?)
+    AND (? IS NULL OR created_at >= ?)
+    AND (? IS NULL OR created_at <= ?)
   ORDER BY created_at DESC
   LIMIT ? OFFSET ?
+`;
+
+const COUNT_SCAN_RECORDS_SQL = `
+  SELECT COUNT(*) AS total
+  FROM scan_record
+  WHERE (? IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
+    AND (? IS NULL OR lower(platform) = ?)
+    AND (? IS NULL OR lower(app_version) = ?)
+    AND (? IS NULL OR recognition_status = ?)
+    AND (? IS NULL OR user_confirmation_status = ?)
+    AND (? IS NULL OR modified_result = ?)
+    AND (? IS NULL OR created_at >= ?)
+    AND (? IS NULL OR created_at <= ?)
 `;
 
 const SELECT_SCAN_RECORD_BY_ID_SQL = `
@@ -582,14 +626,30 @@ adminRoutes.get("/users", async (c) => {
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
   const type = readUserType(c.req.query("type"));
   const q = normalizeQuery(c.req.query("q"));
+  const identity = normalizeQuery(c.req.query("identity"));
+  const platform = normalizeQuery(c.req.query("platform"));
+  const dateFrom = readDateBoundary(c.req.query("date_from"), false);
+  const dateTo = readDateBoundary(c.req.query("date_to"), true);
+  if (dateFrom === "invalid" || dateTo === "invalid") {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
   const offset = (page - 1) * pageSize;
-  const { results = [] } = await c.env.DB.prepare(SELECT_ADMIN_USERS_SQL)
-    .bind(type, type, q, q, type, type, q, q, pageSize, offset)
-    .all();
+  const filterBindings = [
+    type, type, q, q, q, identity, identity, platform, platform,
+    dateFrom, dateFrom, dateTo, dateTo,
+  ] as const;
+  const [{ results = [] }, count] = await Promise.all([
+    c.env.DB.prepare(SELECT_ADMIN_USERS_SQL)
+      .bind(...filterBindings, pageSize, offset)
+      .all(),
+    c.env.DB.prepare(COUNT_ADMIN_USERS_SQL)
+      .bind(...filterBindings)
+      .first<{ total: number }>(),
+  ]);
 
   return c.json({
     success: true,
-    data: { items: results, page, page_size: pageSize },
+    data: { items: results, total: count?.total ?? 0, page, page_size: pageSize },
   });
 });
 
@@ -678,10 +738,14 @@ adminRoutes.get("/scans", async (c) => {
   const recognitionStatus = normalizeQuery(c.req.query("recognition_status"));
   const confirmationStatus = normalizeQuery(c.req.query("user_confirmation_status"));
   const modifiedResult = readBooleanQuery(c.req.query("modified_result"));
+  const dateFrom = readDateBoundary(c.req.query("date_from"), false);
+  const dateTo = readDateBoundary(c.req.query("date_to"), true);
+  if (dateFrom === "invalid" || dateTo === "invalid") {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
   const modifiedResultValue = modifiedResult === null ? null : modifiedResult ? 1 : 0;
   const offset = (page - 1) * pageSize;
-  const { results = [] } = await c.env.DB.prepare(SELECT_SCAN_RECORDS_SQL)
-    .bind(
+  const filterBindings = [
       uid,
       uid,
       platform,
@@ -694,16 +758,46 @@ adminRoutes.get("/scans", async (c) => {
       confirmationStatus,
       modifiedResultValue,
       modifiedResultValue,
+      dateFrom,
+      dateFrom,
+      dateTo,
+      dateTo,
+  ] as const;
+  const [{ results = [] }, count] = await Promise.all([
+    c.env.DB.prepare(SELECT_SCAN_RECORDS_SQL)
+      .bind(
+        ...filterBindings,
       pageSize,
       offset,
-    )
-    .all<ScanRecordRow>();
+      )
+      .all<ScanRecordRow>(),
+    c.env.DB.prepare(COUNT_SCAN_RECORDS_SQL)
+      .bind(...filterBindings)
+      .first<{ total: number }>(),
+  ]);
   const items = results.map(toScanListItem);
 
   return c.json({
     success: true,
-    data: { items, page, page_size: pageSize },
+    data: { items, page, page_size: pageSize, total: count?.total ?? 0 },
   });
+});
+
+adminRoutes.get("/scans/:scanId/image", async (c) => {
+  const bucket = c.env.SCAN_IMAGES;
+  if (!bucket) return c.json(INTERNAL_ERROR_RESPONSE, 503);
+  const row = await c.env.DB.prepare(SELECT_SCAN_RECORD_BY_ID_SQL)
+    .bind(c.req.param("scanId"))
+    .first<ScanRecordRow>();
+  if (!row?.image_url) return c.json(NOT_FOUND_RESPONSE, 404);
+  const object = await bucket.get(row.image_url);
+  if (!object) return c.json(NOT_FOUND_RESPONSE, 404);
+  const headers = new Headers({
+    "Cache-Control": "private, no-store",
+    "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
+    "X-Content-Type-Options": "nosniff",
+  });
+  return new Response(object.body, { headers });
 });
 
 adminRoutes.get("/scans/:scanId", async (c) => {
@@ -783,6 +877,8 @@ adminRoutes.patch("/app-versions/:platform", async (c) => {
   const input = await readJsonObject(c.req);
   const minSupportedVersion = readRequiredString(input.min_supported_version);
   const recommendedVersion = readRequiredString(input.recommended_version);
+  const forceUpdate = input.force_update === true;
+  const storeUrl = typeof input.store_url === "string" ? input.store_url.trim() : "";
   const status = readAppVersionStatus(input.status) ?? "enabled";
   if (
     !minSupportedVersion ||
@@ -798,6 +894,8 @@ adminRoutes.patch("/app-versions/:platform", async (c) => {
     platform,
     min_supported_version: minSupportedVersion,
     recommended_version: recommendedVersion,
+    force_update: forceUpdate,
+    store_url: storeUrl,
     recommended_update_message: typeof input.recommended_update_message === "string"
       ? input.recommended_update_message
       : "",
@@ -1160,6 +1258,7 @@ function buildInstallationTrend(
 
 function buildInstallationRows(installs: Array<ReturnType<typeof toInstallationRecord>>) {
   const groups = new Map<string, {
+    uid: string;
     date: string;
     country: string;
     platform: string;
@@ -1168,12 +1267,13 @@ function buildInstallationRows(installs: Array<ReturnType<typeof toInstallationR
   }>();
 
   for (const item of installs) {
-    const key = [item.date, item.country, item.platform, item.environment].join("|");
+    const key = [item.uid, item.date, item.country, item.platform, item.environment].join("|");
     const existing = groups.get(key);
     if (existing) {
       existing.installs += 1;
     } else {
       groups.set(key, {
+        uid: item.uid,
         date: item.date,
         country: item.country,
         platform: item.platform,
@@ -1211,7 +1311,7 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
     status: normalizeFeedbackStorageStatus(row.status),
     issue_type: types[0] ?? "其他",
     module: functions[0] ?? "App",
-    uid: row.id,
+    uid: row.uid,
     platform: "iOS",
     app_version: "1.9.0",
     device_model: "Unknown",
@@ -1223,7 +1323,9 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
 function toScanListItem(row: ScanRecordRow) {
   return {
     scan_id: row.id,
-    image_url: row.image_url ?? "",
+    image_url: row.image_url
+      ? `/scans/${encodeURIComponent(row.id)}/image`
+      : "",
     uid: row.owner_id,
     platform: row.platform,
     app_version: row.app_version,
@@ -1234,6 +1336,19 @@ function toScanListItem(row: ScanRecordRow) {
   };
 }
 
+function readDateBoundary(
+  value: string | undefined,
+  endOfDay: boolean,
+): string | null | "invalid" {
+  const normalized = value?.trim();
+  if (!normalized) return null;
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(normalized);
+  const date = new Date(dateOnly
+    ? `${normalized}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`
+    : normalized);
+  return Number.isNaN(date.getTime()) ? "invalid" : date.toISOString();
+}
+
 function toScanDetail(row: ScanRecordRow) {
   return {
     ...toScanListItem(row),
@@ -1241,7 +1356,14 @@ function toScanDetail(row: ScanRecordRow) {
     os_version: row.os_version ?? "Unknown",
     system_result: parseJsonObject(row.system_result),
     user_result: parseJsonObject(row.user_result),
-    candidates: parseJsonObjectArray(row.candidates),
+    candidates: parseJsonObjectArray(row.candidates).map((candidate) => {
+      const cardRef = typeof candidate.card_ref === "string"
+        ? candidate.card_ref.trim()
+        : "";
+      return cardRef
+        ? { ...candidate, image_url: cardImageUrl(cardRef, "thumbnail") }
+        : candidate;
+    }),
   };
 }
 
@@ -1293,9 +1415,11 @@ function defaultAppVersionRecord(platform: AppVersionPlatform): AppVersionRecord
     platform,
     min_supported_version: "1.0.0",
     recommended_version: "1.9.0",
+    force_update: false,
+    store_url: "",
     recommended_update_message: "优化首页加载速度",
     forced_update_message: "请更新至最新版本后继续使用。",
-    status: platform === "iOS" ? "disabled" : "enabled",
+    status: "disabled",
     updated_at: "2025-04-30T00:00:00.000Z",
   };
 }
@@ -1313,6 +1437,8 @@ function parseAppVersionRecord(value: string, updatedAt: string): AppVersionReco
       platform,
       min_supported_version: minSupportedVersion,
       recommended_version: recommendedVersion,
+      force_update: parsed.force_update === true,
+      store_url: typeof parsed.store_url === "string" ? parsed.store_url.trim() : "",
       recommended_update_message: typeof parsed.recommended_update_message === "string"
         ? parsed.recommended_update_message
         : "",

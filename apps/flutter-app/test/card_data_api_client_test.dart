@@ -8,12 +8,40 @@ import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 
 void main() {
   test(
+    'trendingCardPage sends unified pagination because View all must load beyond the Home preview',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/cards/trending');
+        expect(request.queryParameters, {'page': '2', 'page_size': '40'});
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [_cardJson(cardRef: 'trending-page-2')],
+          },
+        });
+      });
+
+      final cards = await CardDataApiClient(
+        _dio(adapter),
+      ).trendingCardPage(page: 2);
+
+      expect(cards.single.cardRef, 'trending-page-2');
+    },
+  );
+
+  test(
     'searchCards maps Workers catalog rows because Search must read the real card catalog',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'GET');
         expect(request.path, '/cards/search');
-        expect(request.queryParameters, {'q': 'pikachu', 'page_size': '40'});
+        expect(request.queryParameters, {
+          'q': 'pikachu',
+          'game': 'Pokemon',
+          'page': '1',
+          'page_size': '40',
+        });
         return _json(200, {
           'success': true,
           'data': {
@@ -24,12 +52,21 @@ void main() {
 
       final cards = await CardDataApiClient(
         _dio(adapter),
-      ).searchCards('pikachu');
+      ).searchCards('pikachu', game: 'Pokemon');
 
       expect(cards.single.cardRef, 'catalog:pikachu-025');
       expect(cards.single.name, 'Pikachu');
+      expect(cards.single.game, 'Pokemon');
       expect(cards.single.setName, 'Base Set');
       expect(cards.single.objectType, 'tcg');
+      expect(cards.single.priceUsd, 32.13);
+      expect(cards.single.previous30dPriceUsd, 30.67);
+      expect(cards.single.previous1dPriceUsd, 31.25);
+      expect(cards.single.priceChange1dPercent, 2.816);
+      expect(cards.single.priceAsOf, '2026-07-15');
+      expect(cards.single.previousPriceAsOf, '2026-07-14');
+      expect(cards.single.availableLanguages, ['English', 'Japanese']);
+      expect(cards.single.availableFinishes, ['Holofoil', 'Normal']);
     },
   );
 
@@ -40,6 +77,7 @@ void main() {
         expect(request.method, 'GET');
         expect(request.path, '/cards/catalog%3Apikachu-025/price-series');
         expect(request.queryParameters, {
+          'response_version': '2',
           'days': '30',
           'grader': 'Raw',
           'condition': 'Near Mint',
@@ -61,6 +99,200 @@ void main() {
 
       expect(series.first.date, '2026-06-10');
       expect(series.last.price, 15);
+    },
+  );
+
+  test(
+    'getPriceSeriesBatch sends one structured request because Card Detail must not fan out HTTP calls',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'POST');
+        expect(request.path, '/cards/catalog%3Apikachu-025/price-series/batch');
+        expect(request.queryParameters, {'response_version': '2'});
+        expect(request.data, {
+          'requests': [
+            {
+              'days': 30,
+              'grader': 'Raw',
+              'grade': null,
+              'condition': 'Near Mint',
+            },
+          ],
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'results': [
+              {
+                'series': [
+                  {'date': '2026-07-10', 'price': 15},
+                ],
+              },
+            ],
+          },
+        });
+      });
+
+      final results = await CardDataApiClient(_dio(adapter))
+          .getPriceSeriesBatch('catalog:pikachu-025', const [
+            CardDataPriceSeriesQuery(
+              days: 30,
+              grader: 'Raw',
+              condition: 'Near Mint',
+            ),
+          ]);
+
+      expect(results.single.single.price, 15);
+    },
+  );
+
+  test(
+    'searchSets maps game because Search must keep real sets visible under the selected game',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/sets/search');
+        expect(request.queryParameters, {
+          'q': '',
+          'game': 'Magic: The Gathering',
+          'page_size': '40',
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'set_code': 'ODY',
+                'set_name': 'Odyssey',
+                'game': 'Magic: The Gathering',
+                'image_url': null,
+                'card_count': 350,
+              },
+            ],
+          },
+        });
+      });
+
+      final sets = await CardDataApiClient(
+        _dio(adapter),
+      ).searchSets('', game: 'Magic: The Gathering');
+
+      expect(sets.single.setCode, 'ODY');
+      expect(sets.single.game, 'Magic: The Gathering');
+      expect(sets.single.cardCount, 350);
+    },
+  );
+
+  test(
+    'listGames reads the database catalog because Search filters must not be inferred from Trending cards',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/games');
+        expect(request.queryParameters, isEmpty);
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {'id': '1', 'name': 'Magic: The Gathering'},
+              {'id': '3', 'name': 'Pokemon'},
+            ],
+          },
+        });
+      });
+
+      final games = await CardDataApiClient(_dio(adapter)).listGames();
+
+      expect(games.map((game) => game.name), [
+        'Magic: The Gathering',
+        'Pokemon',
+      ]);
+    },
+  );
+
+  test(
+    'searchCatalogSets requests the complete selected game because the Sets tab has no hidden 40-row cutoff',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.path, '/sets/search');
+        expect(request.queryParameters, {
+          'q': '',
+          'game': 'Magic: The Gathering',
+          'page': '1',
+          'page_size': '40',
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'set_code': 'TMC',
+                'set_name': 'Commander: Teenage Mutant Ninja Turtles',
+                'game': 'Magic: The Gathering',
+                'image_url': 'https://image.tcgcard.fun/cards/679068.jpg',
+                'card_count': 277,
+              },
+            ],
+          },
+        });
+      });
+
+      final sets = await CardDataApiClient(
+        _dio(adapter),
+      ).searchCatalogSets('', game: 'Magic: The Gathering');
+
+      expect(sets.single.setCode, 'TMC');
+      expect(
+        sets.single.imageUrl,
+        'https://image.tcgcard.fun/cards/679068.jpg',
+      );
+    },
+  );
+
+  test(
+    'cardsForSet sends both game and set code because duplicate codes must not leak cards across games',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.path, '/cards/search');
+        expect(request.queryParameters, {
+          'game': 'Pokemon',
+          'set_code': 'BASE',
+          'page': '2',
+          'page_size': '40',
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [_cardJson(cardRef: 'catalog:base-2')],
+          },
+        });
+      });
+
+      final cards = await CardDataApiClient(
+        _dio(adapter),
+      ).cardsForSet('BASE', game: 'Pokemon', page: 2);
+
+      expect(cards.single.cardRef, 'catalog:base-2');
+    },
+  );
+
+  test(
+    'searchCards accepts an empty card number because the D1 catalog does not invent identifiers',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [_cardJson(cardRef: '9359', cardNumber: '')],
+          },
+        });
+      });
+
+      final cards = await CardDataApiClient(
+        _dio(adapter),
+      ).searchCards('escape');
+
+      expect(cards.single.cardNumber, isEmpty);
     },
   );
 
@@ -90,18 +322,30 @@ Dio _dio(_RecordingAdapter adapter) {
   return dio;
 }
 
-Map<String, Object?> _cardJson({required String cardRef}) {
+Map<String, Object?> _cardJson({
+  required String cardRef,
+  String cardNumber = '025',
+}) {
   return {
     'card_ref': cardRef,
     'name': 'Pikachu',
+    'game': 'Pokemon',
     'set_name': 'Base Set',
     'set_code': 'BS',
-    'card_number': '025',
+    'card_number': cardNumber,
     'finish': 'Holofoil',
     'language': 'English',
+    'available_languages': ['English', 'Japanese'],
+    'available_finishes': ['Holofoil', 'Normal'],
     'object_type': 'tcg',
     'image_url': 'https://img.example/pikachu.jpg',
     'rarity': 'Common',
+    'price_usd': 32.13,
+    'previous_30d_price_usd': 30.67,
+    'previous_1d_price_usd': 31.25,
+    'price_change_1d_percent': 2.816,
+    'price_as_of': '2026-07-15',
+    'previous_price_as_of': '2026-07-14',
   };
 }
 
@@ -130,6 +374,7 @@ class _RecordingAdapter implements HttpClientAdapter {
       _RecordedRequest(
         method: options.method,
         path: options.path,
+        data: options.data,
         queryParameters: options.queryParameters.map(
           (key, value) => MapEntry(key, value.toString()),
         ),
@@ -145,10 +390,12 @@ class _RecordedRequest {
   const _RecordedRequest({
     required this.method,
     required this.path,
+    required this.data,
     required this.queryParameters,
   });
 
   final String method;
   final String path;
+  final Object? data;
   final Map<String, String> queryParameters;
 }
