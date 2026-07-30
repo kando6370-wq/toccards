@@ -29,7 +29,7 @@ type CardOverrideRow = {
   is_missing_card: number;
 };
 
-type CardResponse = CardSearchResult & {
+export type CardResponse = CardSearchResult & {
   override_applied: boolean;
 };
 
@@ -337,7 +337,7 @@ export function createDataSourceRoutes(
   return routes;
 }
 
-function createDefaultAdapter(env: Env): DataSourceAdapter {
+export function createDefaultAdapter(env: Env): DataSourceAdapter {
   const kvCached = createKvCachedDataSourceAdapter(
     createLocalDbDataSourceAdapter(env.DB),
     env.CACHE_KV,
@@ -391,7 +391,7 @@ async function getCardOrNull(
   }
 }
 
-async function resolveCard(
+export async function resolveCard(
   db: D1Database,
   adapter: DataSourceAdapter,
   cardRef: string,
@@ -410,7 +410,7 @@ async function resolveCard(
   return applyCardOverride(card, override, cardRef);
 }
 
-function withCardImageUrl<T extends CardSearchResult>(
+export function withCardImageUrl<T extends CardSearchResult>(
   card: T,
   variant: CardImageVariant,
 ): T {

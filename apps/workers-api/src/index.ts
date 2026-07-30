@@ -9,6 +9,7 @@ import { createFeedbackRoutes } from "./feedback/routes";
 import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
 import { createScanRoutes } from "./scan/routes";
+import { createCardShareRoutes } from "./card-share/routes";
 
 export type { Env } from "./env";
 
@@ -30,6 +31,7 @@ app.use(
     maxAge: 86400,
   }),
 );
+app.route("/", createCardShareRoutes());
 const api = app.basePath("/api/v1");
 
 api.route("/admin", adminRoutes);

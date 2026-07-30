@@ -1,7 +1,7 @@
 INSERT INTO app_config (key, value, updated_by, updated_at)
 VALUES (
   'card_share_base_url',
-  'https://api-dev.tcgcard.fun/api/v1/cards',
+  'https://api-dev.tcgcard.fun/share/cards',
   NULL,
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
 )

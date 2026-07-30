@@ -1,7 +1,10 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../shared/card_image/card_image_url.dart';
 import '../app_upgrade/app_upgrade_repository.dart';
 
 final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
@@ -9,9 +12,24 @@ final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
 });
 
 typedef CardShareLauncher = Future<void> Function(ShareParams params);
+typedef CardShareThumbnailLoader = Future<XFile?> Function(String imageUrl);
 
 Future<void> _shareCard(ShareParams params) async {
   await SharePlus.instance.share(params);
+}
+
+Future<XFile?> _loadCardShareThumbnail(String imageUrl) async {
+  final response = await Dio().get<List<int>>(
+    imageUrl,
+    options: Options(responseType: ResponseType.bytes),
+  );
+  final bytes = response.data;
+  if (bytes == null || bytes.isEmpty) return null;
+  return XFile.fromData(
+    Uint8List.fromList(bytes),
+    mimeType: 'image/jpeg',
+    name: 'kando-card.jpg',
+  );
 }
 
 abstract interface class CardDetailActions {
@@ -31,13 +49,19 @@ abstract interface class CardDetailActions {
 }
 
 class PluginCardDetailActions implements CardDetailActions {
-  const PluginCardDetailActions(
+  PluginCardDetailActions(
     this._configRepository, {
     CardShareLauncher share = _shareCard,
-  }) : _share = share;
+    CardShareThumbnailLoader loadThumbnail = _loadCardShareThumbnail,
+    TargetPlatform? platform,
+  }) : _share = share,
+       _loadThumbnail = loadThumbnail,
+       _platform = platform ?? defaultTargetPlatform;
 
   final AppUpgradeRepository _configRepository;
   final CardShareLauncher _share;
+  final CardShareThumbnailLoader _loadThumbnail;
+  final TargetPlatform _platform;
 
   @override
   Future<void> shareCard({
@@ -57,11 +81,29 @@ class PluginCardDetailActions implements CardDetailActions {
         cardRef,
       ],
     );
+    if (_platform == TargetPlatform.iOS) {
+      await _share(
+        ShareParams(uri: cardUrl, title: 'Share $name', subject: name),
+      );
+      return;
+    }
+
+    XFile? thumbnail;
+    if (_platform == TargetPlatform.android) {
+      try {
+        thumbnail = await _loadThumbnail(
+          cardImageUrl(cardRef, CardImageVariant.preview),
+        );
+      } catch (_) {
+        // Sharing the link is still useful if the preview image cannot load.
+      }
+    }
     await _share(
       ShareParams(
         text: '$name\n$setName\nMarket price: $marketPrice\n$cardUrl',
         title: 'Share $name',
         subject: name,
+        previewThumbnail: thumbnail,
       ),
     );
   }
