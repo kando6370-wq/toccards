@@ -7,11 +7,13 @@ void main() {
     () {
       final config = AppUpgradeConfig.fromJson(const {
         'app_store_url': 'https://apps.apple.com/app/kando/id123',
+        'card_share_base_url': 'https://api.tcgcard.fun/api/v1/cards',
         'terms_url': 'https://www.tcgcard.fun/terms',
         'privacy_url': 'https://www.tcgcard.fun/privacy',
       });
 
       expect(config.appStoreUrl, 'https://apps.apple.com/app/kando/id123');
+      expect(config.cardShareBaseUrl, 'https://api.tcgcard.fun/api/v1/cards');
       expect(config.termsUrl, 'https://www.tcgcard.fun/terms');
       expect(config.privacyUrl, 'https://www.tcgcard.fun/privacy');
     },

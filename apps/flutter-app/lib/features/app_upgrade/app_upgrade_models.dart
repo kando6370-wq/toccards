@@ -2,12 +2,14 @@ class AppUpgradeConfig {
   const AppUpgradeConfig({
     this.upgradePrompt,
     this.appStoreUrl,
+    this.cardShareBaseUrl,
     this.termsUrl,
     this.privacyUrl,
   });
 
   final UpgradePrompt? upgradePrompt;
   final String? appStoreUrl;
+  final String? cardShareBaseUrl;
   final String? termsUrl;
   final String? privacyUrl;
 
@@ -19,6 +21,7 @@ class AppUpgradeConfig {
           ? UpgradePrompt.fromJson(promptJson)
           : null,
       appStoreUrl: _stringOrNull(json['app_store_url']),
+      cardShareBaseUrl: _stringOrNull(json['card_share_base_url']),
       termsUrl: _stringOrNull(json['terms_url']),
       privacyUrl: _stringOrNull(json['privacy_url']),
     );

@@ -34,6 +34,7 @@ void main() {
       expect(result.candidates, ['Bushi Tenderfoot', 'Devoted Retainer']);
       expect(result.candidateCardRefs, ['1', '2']);
       expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
+      expect(result.displayImageBytes, Uint8List.fromList([1, 2, 3]));
       expect(imageHasher.lastBytes, Uint8List.fromList([1, 2, 3]));
       expect(imageHasher.lastCrop, isNull);
       expect(api.lastHashes?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
@@ -64,15 +65,28 @@ void main() {
         viewportAspectRatio: 390 / 844,
       );
 
-      await source.recognize(
+      Uint8List? displayedBytes;
+      final result = await source.recognize(
         ScanImage(
           bytes: Uint8List.fromList([1, 2, 3]),
           fileName: 'camera.jpg',
           recognitionCrop: crop,
         ),
+        onDisplayImageReady: (bytes) => displayedBytes = bytes,
       );
 
       expect(imageHasher.lastCrop, same(crop));
+      expect(
+        result.imageBytes,
+        Uint8List.fromList([1, 2, 3]),
+        reason: 'Retry must retain the original camera file.',
+      );
+      expect(
+        result.displayImageBytes,
+        Uint8List.fromList([4, 5, 6]),
+        reason: 'Camera previews must use the processed viewfinder crop.',
+      );
+      expect(displayedBytes, Uint8List.fromList([4, 5, 6]));
     },
   );
 

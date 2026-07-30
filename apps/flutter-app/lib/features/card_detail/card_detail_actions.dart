@@ -2,10 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../shared/api/api_environment.dart';
+import '../app_upgrade/app_upgrade_repository.dart';
 
 final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
-  return const PluginCardDetailActions();
+  return PluginCardDetailActions(ref.watch(appUpgradeRepositoryProvider));
 });
 
 typedef CardShareLauncher = Future<void> Function(ShareParams params);
@@ -31,14 +31,13 @@ abstract interface class CardDetailActions {
 }
 
 class PluginCardDetailActions implements CardDetailActions {
-  const PluginCardDetailActions({
+  const PluginCardDetailActions(
+    this._configRepository, {
     CardShareLauncher share = _shareCard,
-    String apiBaseUrl = kandoApiBaseUrl,
-  }) : _share = share,
-       _apiBaseUrl = apiBaseUrl;
+  }) : _share = share;
 
+  final AppUpgradeRepository _configRepository;
   final CardShareLauncher _share;
-  final String _apiBaseUrl;
 
   @override
   Future<void> shareCard({
@@ -46,17 +45,35 @@ class PluginCardDetailActions implements CardDetailActions {
     required String name,
     required String setName,
     required String marketPrice,
-  }) {
-    final cardUrl = Uri.parse(
-      '$_apiBaseUrl/cards/${Uri.encodeComponent(cardRef)}',
+  }) async {
+    final config = await _configRepository.loadConfig();
+    final baseUrl = _webUri(config.cardShareBaseUrl);
+    if (baseUrl == null) {
+      throw StateError('Card share URL is not configured.');
+    }
+    final cardUrl = baseUrl.replace(
+      pathSegments: [
+        ...baseUrl.pathSegments.where((segment) => segment.isNotEmpty),
+        cardRef,
+      ],
     );
-    return _share(
+    await _share(
       ShareParams(
         text: '$name\n$setName\nMarket price: $marketPrice\n$cardUrl',
         title: 'Share $name',
         subject: name,
       ),
     );
+  }
+
+  Uri? _webUri(String? value) {
+    final uri = value == null ? null : Uri.tryParse(value);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) {
+      return null;
+    }
+    return uri;
   }
 
   @override

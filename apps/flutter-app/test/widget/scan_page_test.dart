@@ -237,15 +237,17 @@ void main() {
       addTearDown(tester.view.reset);
 
       final camera = _TestScanCameraSession();
+      final croppedBytes = Uint8List.fromList(_transparentPngBytes);
       final source = _TestScanResultSource(
         photoResult: Future.value(const ScanResolution.failed()),
         recognizeResult: Future.value(
-          const ScanResolution.matched(
+          ScanResolution.matched(
             scanId: 'live-scan',
             cardRef: 'live-card',
             matchName: 'Live camera card',
             candidates: ['Live camera card'],
             candidateCardRefs: ['live-card'],
+            displayImageBytes: croppedBytes,
           ),
         ),
       );
@@ -288,6 +290,10 @@ void main() {
         find.descendant(of: pendingItem, matching: find.byType(Image)),
         findsOneWidget,
       );
+      final pendingImage = tester.widget<Image>(
+        find.descendant(of: pendingItem, matching: find.byType(Image)),
+      );
+      expect((pendingImage.image as MemoryImage).bytes, same(croppedBytes));
       expect(
         find.byKey(const Key('scan-recognition-progress')),
         findsOneWidget,
@@ -1321,6 +1327,7 @@ void main() {
     (tester) async {
       final target = Completer<ScanReviewTarget>();
       final repository = _DelayedScanReviewRepository(target.future);
+      final croppedBytes = Uint8List.fromList(_transparentPngBytes);
       final source = _TestScanResultSource(
         photoResult: Future.value(
           ScanResolution.matched(
@@ -1329,6 +1336,7 @@ void main() {
             matchName: 'Mega Lucario ex',
             candidates: const ['Mega Lucario ex'],
             imageBytes: Uint8List.fromList(_transparentPngBytes),
+            displayImageBytes: croppedBytes,
           ),
         ),
       );
@@ -1363,6 +1371,7 @@ void main() {
         ),
       );
       expect(thumbnailImage.image, isA<MemoryImage>());
+      expect((thumbnailImage.image as MemoryImage).bytes, same(croppedBytes));
     },
   );
 
@@ -1727,14 +1736,12 @@ void main() {
     'Gallery shows the selected thumbnail immediately without shutter feedback because recognition must not hide the uploaded image',
     (tester) async {
       final pending = Completer<ScanResolution>();
+      final galleryBytes = Uint8List.fromList(_transparentPngBytes);
       final source = _TestScanResultSource(
         photoResult: Future.value(const ScanResolution.failed()),
         libraryResults: [pending.future],
         libraryImages: [
-          ScanImage(
-            bytes: Uint8List.fromList(_transparentPngBytes),
-            fileName: 'gallery-card.png',
-          ),
+          ScanImage(bytes: galleryBytes, fileName: 'gallery-card.png'),
         ],
       );
       await _pumpScanTestApp(tester, scanResultSource: source);
@@ -1746,6 +1753,14 @@ void main() {
       expect(
         find.descendant(of: item, matching: find.byType(Image)),
         findsOneWidget,
+      );
+      final galleryImage = tester.widget<Image>(
+        find.descendant(of: item, matching: find.byType(Image)),
+      );
+      expect(
+        (galleryImage.image as MemoryImage).bytes,
+        same(galleryBytes),
+        reason: 'Gallery previews must keep the selected original image.',
       );
       expect(
         find.byKey(const Key('scan-recognition-progress')),
@@ -2224,9 +2239,17 @@ class _TestScanResultSource implements ScanResultSource {
   }
 
   @override
-  Future<ScanResolution> recognize(ScanImage image) {
+  Future<ScanResolution> recognize(
+    ScanImage image, {
+    ValueChanged<Uint8List>? onDisplayImageReady,
+  }) async {
     recognizedImages.add(image);
-    return _recognizeResult;
+    final result = await _recognizeResult;
+    final displayImageBytes = result.displayImageBytes;
+    if (displayImageBytes != null) {
+      onDisplayImageReady?.call(displayImageBytes);
+    }
+    return result;
   }
 
   @override

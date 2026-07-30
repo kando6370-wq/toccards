@@ -94,6 +94,7 @@ class _ScanItem {
     required this.status,
     this.match,
     this.imageBytes,
+    this.displayImageBytes,
     this.imageFileName,
   });
 
@@ -102,12 +103,14 @@ class _ScanItem {
   final _ScanItemStatus status;
   final _ScanMatch? match;
   final Uint8List? imageBytes;
+  final Uint8List? displayImageBytes;
   final String? imageFileName;
 
   _ScanItem copyWith({
     _ScanItemStatus? status,
     _ScanMatch? match,
     Uint8List? imageBytes,
+    Uint8List? displayImageBytes,
     String? imageFileName,
   }) {
     return _ScanItem(
@@ -116,6 +119,7 @@ class _ScanItem {
       status: status ?? this.status,
       match: match ?? this.match,
       imageBytes: imageBytes ?? this.imageBytes,
+      displayImageBytes: displayImageBytes ?? this.displayImageBytes,
       imageFileName: imageFileName ?? this.imageFileName,
     );
   }
@@ -479,6 +483,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       camera,
       source,
       onCaptured: (image) => _attachScanImage(itemId, image),
+      onDisplayImageReady: (bytes) => _attachScanDisplayImage(itemId, bytes),
     );
     itemId = _addScan(result);
     unawaited(_finishPhotoRecognition(result));
@@ -488,6 +493,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     ScanCameraSession camera,
     ScanResultSource source, {
     required ValueChanged<ScanImage> onCaptured,
+    required ValueChanged<Uint8List> onDisplayImageReady,
   }) async {
     final recognitionCrop = _cameraRecognitionCrop(MediaQuery.sizeOf(context));
     try {
@@ -501,6 +507,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           fileName: image.fileName,
           recognitionCrop: recognitionCrop,
         ),
+        onDisplayImageReady: onDisplayImageReady,
       );
     } catch (_) {
       return const ScanResolution.failed();
@@ -546,6 +553,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 _addScan(
                   resolution,
                   imageBytes: image.bytes,
+                  displayImageBytes: image.bytes,
                   imageFileName: image.fileName,
                 );
               }
@@ -714,6 +722,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   int _addScan(
     Future<ScanResolution> resultFuture, {
     Uint8List? imageBytes,
+    Uint8List? displayImageBytes,
     String? imageFileName,
   }) {
     final id = _nextScanId;
@@ -728,6 +737,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           pictureLabel: 'Scan $id',
           status: _ScanItemStatus.scanning,
           imageBytes: imageBytes,
+          displayImageBytes: displayImageBytes,
           imageFileName: imageFileName,
         ),
       );
@@ -744,6 +754,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _replaceItem(
       item.copyWith(imageBytes: image.bytes, imageFileName: image.fileName),
     );
+  }
+
+  void _attachScanDisplayImage(int itemId, Uint8List bytes) {
+    final item = _items
+        .where((candidate) => candidate.id == itemId)
+        .firstOrNull;
+    if (item == null) return;
+    _replaceItem(item.copyWith(displayImageBytes: bytes));
   }
 
   void _startScanTimeline(int itemId, Future<ScanResolution> resultFuture) {
@@ -946,6 +964,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             status: status,
             match: match,
             imageBytes: resolution.imageBytes,
+            displayImageBytes: resolution.displayImageBytes,
             imageFileName: resolution.imageFileName,
           );
           break;
@@ -3040,7 +3059,7 @@ class _ScanResultThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bytes = item.imageBytes;
+    final bytes = item.displayImageBytes;
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
       child: Container(
@@ -3316,10 +3335,10 @@ class _ReviewImageComparison extends StatelessWidget {
           Expanded(
             child: _ReviewPicture(
               label: 'YOUR PICTURE',
-              child: item.imageBytes == null
+              child: item.displayImageBytes == null
                   ? const _ReviewImageUnavailable()
                   : Image.memory(
-                      item.imageBytes!,
+                      item.displayImageBytes!,
                       fit: BoxFit.cover,
                       gaplessPlayback: true,
                     ),

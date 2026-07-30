@@ -20,24 +20,31 @@ class ScanResolution {
     required this.candidates,
     this.candidateCardRefs = const [],
     this.imageBytes,
+    this.displayImageBytes,
     this.imageFileName,
   }) : kind = ScanResolutionKind.matched;
 
-  const ScanResolution.failed({this.imageBytes, this.imageFileName})
-    : kind = ScanResolutionKind.failed,
-      scanId = null,
-      cardRef = null,
-      matchName = null,
-      candidates = const [],
-      candidateCardRefs = const [];
+  const ScanResolution.failed({
+    this.imageBytes,
+    this.displayImageBytes,
+    this.imageFileName,
+  }) : kind = ScanResolutionKind.failed,
+       scanId = null,
+       cardRef = null,
+       matchName = null,
+       candidates = const [],
+       candidateCardRefs = const [];
 
-  const ScanResolution.noMatch({this.imageBytes, this.imageFileName})
-    : kind = ScanResolutionKind.noMatch,
-      scanId = null,
-      cardRef = null,
-      matchName = null,
-      candidates = const [],
-      candidateCardRefs = const [];
+  const ScanResolution.noMatch({
+    this.imageBytes,
+    this.displayImageBytes,
+    this.imageFileName,
+  }) : kind = ScanResolutionKind.noMatch,
+       scanId = null,
+       cardRef = null,
+       matchName = null,
+       candidates = const [],
+       candidateCardRefs = const [];
 
   const ScanResolution.cancelled()
     : kind = ScanResolutionKind.cancelled,
@@ -47,6 +54,7 @@ class ScanResolution {
       candidates = const [],
       candidateCardRefs = const [],
       imageBytes = null,
+      displayImageBytes = null,
       imageFileName = null;
 
   final ScanResolutionKind kind;
@@ -56,6 +64,7 @@ class ScanResolution {
   final List<String> candidates;
   final List<String> candidateCardRefs;
   final Uint8List? imageBytes;
+  final Uint8List? displayImageBytes;
   final String? imageFileName;
 }
 
@@ -65,7 +74,10 @@ abstract interface class ScanResultSource {
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
   });
-  Future<ScanResolution> recognize(ScanImage image);
+  Future<ScanResolution> recognize(
+    ScanImage image, {
+    ValueChanged<Uint8List>? onDisplayImageReady,
+  });
   Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName});
 }
 
@@ -212,13 +224,20 @@ class ApiScanResultSource implements ScanResultSource {
   }
 
   @override
-  Future<ScanResolution> recognize(ScanImage image) async {
+  Future<ScanResolution> recognize(
+    ScanImage image, {
+    ValueChanged<Uint8List>? onDisplayImageReady,
+  }) async {
+    Uint8List? displayImageBytes = image.recognitionCrop == null
+        ? image.bytes
+        : null;
     final ScanRecognitionDto recognition;
     try {
       final session = _session();
       if (session == null) {
         return ScanResolution.failed(
           imageBytes: image.bytes,
+          displayImageBytes: displayImageBytes,
           imageFileName: image.fileName,
         );
       }
@@ -232,6 +251,10 @@ class ApiScanResultSource implements ScanResultSource {
           'The corrected card image is unavailable.',
         );
       }
+      displayImageBytes = image.recognitionCrop == null
+          ? image.bytes
+          : hashes.cardImageBytes!;
+      onDisplayImageReady?.call(displayImageBytes);
       final cardNumber = await _cardNumberReader.read(hashes.cardImageBytes!);
       recognition = await _api.recognizeImage(
         session,
@@ -244,6 +267,7 @@ class ApiScanResultSource implements ScanResultSource {
     } catch (_) {
       return ScanResolution.failed(
         imageBytes: image.bytes,
+        displayImageBytes: displayImageBytes,
         imageFileName: image.fileName,
       );
     }
@@ -253,6 +277,7 @@ class ApiScanResultSource implements ScanResultSource {
     if (matchedResults.isEmpty) {
       return ScanResolution.noMatch(
         imageBytes: image.bytes,
+        displayImageBytes: displayImageBytes,
         imageFileName: image.fileName,
       );
     }
@@ -266,6 +291,7 @@ class ApiScanResultSource implements ScanResultSource {
           .map((candidate) => candidate.cardRef)
           .toList(),
       imageBytes: image.bytes,
+      displayImageBytes: displayImageBytes,
       imageFileName: image.fileName,
     );
   }

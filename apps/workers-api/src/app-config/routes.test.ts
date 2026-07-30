@@ -49,6 +49,10 @@ describe("public app config routes", () => {
         }),
       ),
       appConfigRow("app_store_url", "https://apps.apple.com/app/kando"),
+      appConfigRow(
+        "card_share_base_url",
+        "https://api.tcgcard.fun/api/v1/cards",
+      ),
       appConfigRow("terms_url", "https://www.tcgcard.fun/terms"),
       appConfigRow("privacy_url", "https://www.tcgcard.fun/privacy"),
       appConfigRow("announcement", "{\"title\":\"Ops only\"}"),
@@ -68,6 +72,7 @@ describe("public app config routes", () => {
           store_url: "https://apps.apple.com/app/kando",
         },
         app_store_url: "https://apps.apple.com/app/kando",
+        card_share_base_url: "https://api.tcgcard.fun/api/v1/cards",
         terms_url: "https://www.tcgcard.fun/terms",
         privacy_url: "https://www.tcgcard.fun/privacy",
         mixpanel_project_token: "public-project-token",
@@ -89,6 +94,7 @@ describe("public app config routes", () => {
       data: {
         upgrade_prompt: null,
         app_store_url: "https://apps.apple.com/app/kando",
+        card_share_base_url: null,
         terms_url: null,
         privacy_url: null,
         mixpanel_project_token: "public-project-token",

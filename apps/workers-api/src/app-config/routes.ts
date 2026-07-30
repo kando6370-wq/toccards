@@ -25,6 +25,7 @@ const SELECT_PUBLIC_APP_CONFIG_SQL = `
 const PUBLIC_APP_CONFIG_KEYS = new Set([
   "upgrade_prompt",
   "app_store_url",
+  "card_share_base_url",
   "terms_url",
   "privacy_url",
 ]);
@@ -49,6 +50,7 @@ export function createAppConfigRoutes(): Hono<{ Bindings: Env }> {
           : parseAdminUpgradePrompt(platformVersion),
         app_store_url:
           platformStoreUrl ?? stringOrNull(configs.get("app_store_url")),
+        card_share_base_url: stringOrNull(configs.get("card_share_base_url")),
         terms_url: stringOrNull(configs.get("terms_url")),
         privacy_url: stringOrNull(configs.get("privacy_url")),
         mixpanel_project_token: stringOrNull(c.env.MIXPANEL_PROJECT_TOKEN),
