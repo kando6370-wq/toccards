@@ -3432,50 +3432,10 @@ Future<void> _confirmRemoveWishlist(
   CardDetailController controller,
 ) {
   _trackFromContext(context, AnalyticsEvent.deleteClick);
-  return showDialog<void>(
+  return _showRemoveConfirmationSheet(
     context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: const Text('Remove from Wishlist'),
-        content: const Text('Remove this card from your Wishlist?'),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: KandoColors.mutedText),
-            onPressed: () {
-              _trackFromContext(dialogContext, AnalyticsEvent.cancelClick);
-              Navigator.of(dialogContext).pop();
-            },
-            child: const Text('Cancel'),
-          ),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFACC15),
-              foregroundColor: KandoColors.ink,
-              shape: const StadiumBorder(),
-            ),
-            onPressed: () async {
-              _trackFromContext(
-                dialogContext,
-                AnalyticsEvent.deleteConfirmClick,
-              );
-              try {
-                await controller.toggleWishlist();
-              } catch (_) {
-                if (dialogContext.mounted) {
-                  showKandoFailureToast(dialogContext);
-                }
-                return;
-              }
-              if (dialogContext.mounted) {
-                Navigator.of(dialogContext).pop();
-              }
-            },
-            icon: const _RemoveActionIcon(),
-            label: const Text('Remove'),
-          ),
-        ],
-      );
-    },
+    title: 'This card will be removed from your wishlist',
+    onRemove: controller.toggleWishlist,
   );
 }
 
@@ -3485,42 +3445,165 @@ Future<void> _confirmRemoveCollectionItem(
   String itemId,
 ) {
   _trackFromContext(context, AnalyticsEvent.deleteClick);
-  return showDialog<void>(
+  return _showRemoveConfirmationSheet(
     context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('Remove from Portfolio'),
-        content: const Text('Remove this Collection Item from your portfolio?'),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: KandoColors.mutedText),
-            onPressed: () {
-              _trackFromContext(context, AnalyticsEvent.cancelClick);
-              Navigator.of(context).pop();
-            },
-            child: const Text('Cancel'),
-          ),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: KandoColors.accent,
-              foregroundColor: KandoColors.ink,
-              shape: const StadiumBorder(),
-            ),
-            onPressed: () async {
-              _trackFromContext(context, AnalyticsEvent.deleteConfirmClick);
-              await controller.removeCollectionItem(itemId);
-              if (!context.mounted) {
-                return;
-              }
-              Navigator.of(context).pop();
-            },
-            icon: const _RemoveActionIcon(),
-            label: const Text('Remove'),
-          ),
-        ],
-      );
-    },
+    title: 'This card will be removed from your portfolio',
+    onRemove: () => controller.removeCollectionItem(itemId),
   );
+}
+
+Future<void> _showRemoveConfirmationSheet({
+  required BuildContext context,
+  required String title,
+  required Future<void> Function() onRemove,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.72),
+    builder: (sheetContext) => _RemoveConfirmationSheet(
+      title: title,
+      onCancel: () {
+        _trackFromContext(sheetContext, AnalyticsEvent.cancelClick);
+        Navigator.of(sheetContext).pop();
+      },
+      onRemove: () async {
+        _trackFromContext(sheetContext, AnalyticsEvent.deleteConfirmClick);
+        try {
+          await onRemove();
+        } catch (_) {
+          if (sheetContext.mounted) {
+            showKandoTopFailureToast(sheetContext);
+          }
+          return;
+        }
+        if (sheetContext.mounted) {
+          Navigator.of(sheetContext).pop();
+        }
+      },
+    ),
+  );
+}
+
+class _RemoveConfirmationSheet extends StatelessWidget {
+  const _RemoveConfirmationSheet({
+    required this.title,
+    required this.onCancel,
+    required this.onRemove,
+  });
+
+  final String title;
+  final VoidCallback onCancel;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('card-detail-remove-confirmation-sheet'),
+      color: const Color(0xFF222222),
+      clipBehavior: Clip.antiAlias,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Align(
+                child: Container(
+                  width: 48,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: const Color(0x66474836),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFFE4E3D3),
+                  fontFamily: 'Fraunces',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  height: 32 / 24,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: _RemoveConfirmationButton(
+                      key: const Key('card-detail-remove-confirmation-cancel'),
+                      label: 'CANCEL',
+                      backgroundColor: const Color(0xFF2A2B20),
+                      foregroundColor: const Color(0xFFE4E3D3),
+                      onPressed: onCancel,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _RemoveConfirmationButton(
+                      key: const Key('card-detail-remove-confirmation-submit'),
+                      label: 'REMOVE',
+                      backgroundColor: const Color(0xFFF0FE6F),
+                      foregroundColor: const Color(0xFF2C3400),
+                      onPressed: onRemove,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RemoveConfirmationButton extends StatelessWidget {
+  const _RemoveConfirmationButton({
+    super.key,
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.onPressed,
+  });
+
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: backgroundColor,
+          foregroundColor: foregroundColor,
+          side: const BorderSide(color: Color(0x14FFFFFF)),
+          padding: EdgeInsets.zero,
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            height: 24 / 16,
+            letterSpacing: 0,
+          ),
+        ),
+        onPressed: onPressed,
+        child: Text(label),
+      ),
+    );
+  }
 }
 
 void _trackFromContext(BuildContext context, String event) {

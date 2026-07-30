@@ -319,12 +319,46 @@ void main() {
       await tester.tap(find.byKey(const Key('card-detail-remove-wishlist')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Remove from Wishlist'), findsWidgets);
-      expect(find.text('Remove this card from your Wishlist?'), findsOneWidget);
-      await tester.tap(find.text('Remove'));
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        find.byKey(const Key('card-detail-remove-confirmation-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('This card will be removed from your wishlist'),
+        findsOneWidget,
+      );
+      expect(find.text('CANCEL'), findsOneWidget);
+      expect(find.text('REMOVE'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const Key('card-detail-remove-confirmation-cancel')),
+      );
       await tester.pumpAndSettle();
 
-      final container = ProviderScope.containerOf(
+      var container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      expect(
+        container
+            .read(cardDetailControllerProvider('one-piece-luffy'))
+            .detail
+            .isWishlisted,
+        isTrue,
+      );
+      expect(
+        find.byKey(const Key('card-detail-remove-confirmation-sheet')),
+        findsNothing,
+      );
+
+      await tester.tap(find.byKey(const Key('card-detail-remove-wishlist')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-remove-confirmation-submit')),
+      );
+      await tester.pumpAndSettle();
+
+      container = ProviderScope.containerOf(
         tester.element(find.byType(CardDetailPage)),
       );
       expect(
@@ -334,6 +368,49 @@ void main() {
             .isWishlisted,
         isFalse,
       );
+    },
+  );
+
+  testWidgets(
+    'failed removal shows the shared failure toast above the confirmation sheet',
+    (tester) async {
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'one-piece-luffy',
+          repository: _FailingRemovalCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-remove-wishlist')),
+        400,
+      );
+      await tester.tap(find.byKey(const Key('card-detail-remove-wishlist')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-remove-confirmation-submit')),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.text(genericFailureToastText), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-remove-confirmation-sheet')),
+        findsOneWidget,
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      expect(
+        container
+            .read(cardDetailControllerProvider('one-piece-luffy'))
+            .detail
+            .isWishlisted,
+        isTrue,
+      );
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
     },
   );
 
@@ -467,7 +544,7 @@ void main() {
       expect(find.byKey(const Key('kando-top-toast')), findsNothing);
       expect(find.text('Success'), findsOneWidget);
       expect(find.text(portfolioCardAddedToastText), findsOneWidget);
-      expect(tester.getSize(successToast), const Size(260, 210));
+      expect(tester.getSize(successToast), const Size(320, 212));
       final viewSize = tester.view.physicalSize / tester.view.devicePixelRatio;
       expect(
         tester.getCenter(successToast),
@@ -1038,7 +1115,36 @@ void main() {
       find.byKey(const Key('card-detail-remove-from-portfolio')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Remove'));
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      find.byKey(const Key('card-detail-remove-confirmation-sheet')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('This card will be removed from your portfolio'),
+      findsOneWidget,
+    );
+    expect(find.text('CANCEL'), findsOneWidget);
+    expect(find.text('REMOVE'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('card-detail-remove-confirmation-cancel')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Collection Item'), findsOneWidget);
+    expect(
+      find.byKey(const Key('card-detail-remove-confirmation-sheet')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('card-detail-remove-from-portfolio')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('card-detail-remove-confirmation-submit')),
+    );
     await tester.pumpAndSettle();
     await tester.drag(
       find.byKey(const Key('card-detail-scroll')),
@@ -1309,6 +1415,13 @@ class _DelayedCreateCardDetailRepository extends MockCardDetailRepository {
         notes: '',
       ),
     );
+  }
+}
+
+class _FailingRemovalCardDetailRepository extends MockCardDetailRepository {
+  @override
+  Future<void> deleteWishlist(AuthSession session, String wishlistItemId) {
+    throw StateError('wishlist removal unavailable');
   }
 }
 

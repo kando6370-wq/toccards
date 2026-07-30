@@ -23,6 +23,7 @@ import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
@@ -1063,7 +1064,19 @@ void main() {
       await tester.tap(find.byTooltip('Review scan result'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add this card'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('kando-centered-success-toast')),
+        findsOneWidget,
+      );
+      expect(find.text(portfolioCardAddedToastText), findsOneWidget);
+      expect(find.text('Review your matches'), findsOneWidget);
+
+      await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pumpAndSettle();
+      expect(find.text('Review your matches'), findsNothing);
 
       await tester.tap(find.byTooltip('Take Photo'));
       await _completeFigmaScan(tester);
@@ -1304,6 +1317,13 @@ void main() {
       );
 
       await tester.tap(find.text('Add this card'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text(portfolioCardAddedToastText), findsOneWidget);
+      expect(find.text('Review your matches'), findsOneWidget);
+
+      await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pumpAndSettle();
 
       expect(find.text('Added to Portfolio'), findsWidgets);
@@ -1458,6 +1478,13 @@ void main() {
       await tester.tap(find.byTooltip('Review completed scan'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add this card'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text(portfolioCardAddedToastText), findsOneWidget);
+      expect(find.text('Review your matches'), findsOneWidget);
+
+      await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pumpAndSettle();
 
       expect(find.text('Added to Portfolio'), findsWidgets);
@@ -1654,7 +1681,11 @@ void main() {
         find.text('Something went wrong. Please try again.'),
         findsOneWidget,
       );
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.byKey(const Key('kando-floating-toast')), findsNothing);
       expect(find.text('Added to Portfolio'), findsNothing);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
     },
   );
 
@@ -1678,6 +1709,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add this card'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text(portfolioCardAddedToastText), findsOneWidget);
+      expect(find.text('Review your matches'), findsOneWidget);
+
+      await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pumpAndSettle();
 
       expect(repository.confirmedItems.single.cardRef, 'card-lucario');
@@ -1910,7 +1948,6 @@ void main() {
 
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.pump();
-    expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
     expect(find.byTooltip('Take Photo'), findsOneWidget);
 
     await _completeFigmaScan(tester);
@@ -1986,7 +2023,19 @@ void main() {
     expect(find.text('ADD ALL CARDS'), findsOneWidget);
 
     await tester.tap(find.text('ADD ALL CARDS'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('kando-centered-success-toast')),
+      findsOneWidget,
+    );
+    expect(find.text(portfolioCardsAddedToastText(2)), findsOneWidget);
+    expect(find.text('Review your matches'), findsOneWidget);
+
+    await tester.pump(kandoCenteredSuccessToastDuration);
     await tester.pumpAndSettle();
+    expect(find.text('Review your matches'), findsNothing);
 
     expect(find.text('Added 2 cards to Portfolio'), findsOneWidget);
     expect(find.text('Mega Lucario ex'), findsWidgets);

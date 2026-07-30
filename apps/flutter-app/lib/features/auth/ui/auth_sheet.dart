@@ -541,6 +541,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
         return ref.read(authControllerProvider.notifier).continueWithGoogle();
       },
       isOAuth: true,
+      loadingMessage: 'Signing in with Google',
       successEvent: AnalyticsEvent.googleSuccess,
     );
   }
@@ -551,6 +552,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
         return ref.read(authControllerProvider.notifier).continueWithApple();
       },
       isOAuth: true,
+      loadingMessage: 'Signing in with Apple',
       successEvent: AnalyticsEvent.appleSuccess,
     );
   }
@@ -649,6 +651,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   Future<void> _run(
     Future<void> Function() action, {
     required bool isOAuth,
+    String? loadingMessage,
     String? successEvent,
   }) async {
     if (_loading) {
@@ -661,6 +664,9 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
       _showOAuthWarning = false;
     });
     widget.onOAuthWarningChanged(false);
+    final loadingOverlay = loadingMessage == null
+        ? null
+        : _showOAuthLoadingOverlay(loadingMessage);
     try {
       await action();
       if (!mounted) {
@@ -685,10 +691,19 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
         widget.onOAuthWarningChanged(isOAuth);
       }
     } finally {
+      loadingOverlay?.remove();
       if (mounted) {
         setState(() => _loading = false);
       }
     }
+  }
+
+  OverlayEntry _showOAuthLoadingOverlay(String message) {
+    final entry = OverlayEntry(
+      builder: (_) => _OAuthLoadingOverlay(message: message),
+    );
+    Overlay.of(context, rootOverlay: true).insert(entry);
+    return entry;
   }
 
   String _displayError(Exception error) {
@@ -741,6 +756,60 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
         showKandoToast(context, message: profileActionFailureText);
       }
     }
+  }
+}
+
+class _OAuthLoadingOverlay extends StatelessWidget {
+  const _OAuthLoadingOverlay({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('auth-oauth-loading-overlay'),
+      color: Colors.transparent,
+      child: SizedBox.expand(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: ColoredBox(color: Colors.black.withValues(alpha: 0.72)),
+              ),
+            ),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox.square(
+                    dimension: 32,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.6,
+                      color: KandoColors.accent,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    textScaler: TextScaler.noScaling,
+                    style: const TextStyle(
+                      color: KandoColors.text,
+                      fontFamily: 'Geist',
+                      fontSize: 16,
+                      height: 24 / 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -1108,22 +1108,29 @@ class _ScanPageState extends ConsumerState<ScanPage>
           .read(scanReviewRepositoryProvider)
           .addToPortfolio(scanId: item.match!.scanId, item: input);
       if (!mounted) return;
-      _completeSelectedItemAddition(item);
+      await _completeSelectedItemAddition(item);
     } on ScanApiException catch (error) {
       if (error.code == 'CONFLICT' &&
           error.message == 'Scan is already confirmed.') {
-        if (mounted) _completeSelectedItemAddition(item);
+        if (mounted) await _completeSelectedItemAddition(item);
       } else if (mounted) {
-        showKandoFailureToast(context);
+        showKandoTopFailureToast(context);
       }
     } on Exception {
-      if (mounted) showKandoFailureToast(context);
+      if (mounted) showKandoTopFailureToast(context);
     } finally {
       if (mounted) setState(() => _savingReview = false);
     }
   }
 
-  void _completeSelectedItemAddition(_ScanItem item) {
+  Future<void> _completeSelectedItemAddition(_ScanItem item) async {
+    showKandoCenteredSuccessToast(
+      context,
+      message: portfolioCardAddedToastText,
+    );
+    await Future<void>.delayed(kandoCenteredSuccessToastDuration);
+    if (!mounted) return;
+
     setState(() {
       _lastAddedCount = 1;
       _reviewing = false;
@@ -1171,6 +1178,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
 
     if (!mounted) return;
+    final allAdded = addedIds.length == matchedItems.length;
+    if (allAdded) {
+      _refreshPortfolioSurfaces();
+      showKandoCenteredSuccessToast(
+        context,
+        message: portfolioCardsAddedToastText(addedIds.length),
+      );
+      await Future<void>.delayed(kandoCenteredSuccessToastDuration);
+      if (!mounted) return;
+    }
+
     setState(() {
       _markItemsAdded(addedIds);
       for (final itemId in addedIds) {
@@ -1187,9 +1205,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewFormError = null;
       _savingReview = false;
     });
-    if (addedIds.isNotEmpty) _refreshPortfolioSurfaces();
+    if (addedIds.isNotEmpty && !allAdded) {
+      _refreshPortfolioSurfaces();
+      showKandoCenteredSuccessToast(
+        context,
+        message: portfolioCardsAddedToastText(addedIds.length),
+      );
+    }
     if (!_reviewing) unawaited(_openCamera());
-    if (failed) showKandoFailureToast(context);
+    if (failed) showKandoTopFailureToast(context);
   }
 
   void _selectReviewItem(_ScanItem item) {
