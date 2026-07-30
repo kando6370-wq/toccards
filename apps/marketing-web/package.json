@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "generate:legal": "node scripts/generate-legal-pages.mjs",
+    "predev": "pnpm generate:legal",
     "dev": "wrangler dev",
+    "predeploy": "pnpm generate:legal",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
