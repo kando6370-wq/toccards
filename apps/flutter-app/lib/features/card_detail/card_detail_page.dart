@@ -932,6 +932,7 @@ class _CollectionItemSummaryCard extends StatelessWidget {
     final status = _CollectionStatusParts.fromText(item.statusText);
 
     return Container(
+      key: Key('card-detail-collection-item-${item.id}'),
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
@@ -995,17 +996,23 @@ class _CollectionItemSummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
+          _CollectionDetailRow(label: 'FINISH', value: item.finishText),
+          const SizedBox(height: 12),
+          _CollectionDetailRow(label: 'LANGUAGE', value: item.languageText),
+          const SizedBox(height: 12),
           _CollectionDetailRow(label: 'GRADER', value: status.grader),
           const SizedBox(height: 12),
           _CollectionDetailRow(label: status.detailLabel, value: status.detail),
           const SizedBox(height: 12),
-          _CollectionDetailRow(label: 'LANGUAGE', value: item.languageText),
-          const SizedBox(height: 12),
-          _CollectionDetailRow(label: 'FINISH', value: item.finishText),
-          const SizedBox(height: 12),
           _CollectionDetailRow(
             label: 'PURCHASE PRICE',
             value: item.purchasePriceText,
+            accentValue: true,
+          ),
+          const SizedBox(height: 12),
+          _CollectionDetailRow(
+            label: 'CURRENT MARKET PRICE',
+            value: item.marketPriceText,
             accentValue: true,
           ),
           if (item.notes.isNotEmpty) ...[
@@ -1720,6 +1727,19 @@ class _CollectionItemForm extends StatelessWidget {
       );
     }
 
+    if (!isEditing && embedded) {
+      return _CollectionItemAddForm(
+        state: state,
+        controller: controller,
+        draft: draft,
+        languageValue: languageValue,
+        finishValue: finishValue,
+        languageOptions: languageOptions,
+        finishOptions: finishOptions,
+        gradeValue: gradeValue,
+      );
+    }
+
     final content = Theme(
       data: _formFieldTheme(context),
       child: Column(
@@ -1832,8 +1852,9 @@ class _CollectionItemForm extends StatelessWidget {
             label: 'Finish',
             value: finishValue,
             options: finishOptions,
-            onSelected: (value) {
+            onSelected: (value) async {
               controller.updateCollectionItemDraft(finish: value);
+              await controller.selectPriceFinish(value);
             },
           ),
           const SizedBox(height: 12),
@@ -1940,6 +1961,176 @@ class _CollectionItemForm extends StatelessWidget {
   }
 }
 
+class _CollectionItemAddForm extends StatelessWidget {
+  const _CollectionItemAddForm({
+    required this.state,
+    required this.controller,
+    required this.draft,
+    required this.languageValue,
+    required this.finishValue,
+    required this.languageOptions,
+    required this.finishOptions,
+    required this.gradeValue,
+  });
+
+  final CardDetailState state;
+  final CardDetailController controller;
+  final CardCollectionItemDraft draft;
+  final String languageValue;
+  final String finishValue;
+  final List<String> languageOptions;
+  final List<String> finishOptions;
+  final String gradeValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('OWNERSHIP SUMMARY', style: _kCollectionEditLabelStyle),
+        const SizedBox(height: 12),
+        _CollectionEditTextField(
+          key: const Key('card-detail-item-quantity'),
+          label: 'QUANTITY',
+          initialValue: draft.quantityText,
+          keyboardType: TextInputType.number,
+          onChanged: (value) {
+            controller.updateCollectionItemDraft(quantityText: value);
+          },
+        ),
+        const SizedBox(height: 28),
+        const Divider(height: 1, color: _kCollectionOutline),
+        const SizedBox(height: 20),
+        _CollectionPillGroup(
+          key: const Key('card-detail-item-finish'),
+          label: 'CARD VERSION  /  FINISH',
+          selected: finishValue,
+          options: finishOptions,
+          columns: 3,
+          onSelected: (value) async {
+            controller.updateCollectionItemDraft(finish: value);
+            await controller.selectPriceFinish(value);
+          },
+        ),
+        const SizedBox(height: 24),
+        _ChoiceField(
+          key: const Key('card-detail-item-language'),
+          label: 'LANGUAGE',
+          value: languageValue,
+          options: languageOptions,
+          onSelected: (value) {
+            controller.updateCollectionItemDraft(language: value);
+          },
+        ),
+        const SizedBox(height: 28),
+        const Divider(height: 1, color: _kCollectionOutline),
+        const SizedBox(height: 20),
+        _CollectionCardStateSelector(
+          isRaw: draft.isRaw,
+          onRawSelected: () {
+            controller.updateCollectionItemDraft(grader: 'Raw');
+          },
+          onGradedSelected: () {
+            controller.updateCollectionItemDraft(
+              grader: draft.isRaw ? 'PSA' : draft.grader,
+              grade: cardCollectionGradeValues.first,
+            );
+          },
+        ),
+        const SizedBox(height: 24),
+        if (draft.isRaw)
+          _CollectionPillGroup(
+            key: const Key('card-detail-item-condition'),
+            label: 'CONDITION',
+            selected: draft.condition,
+            options: _optionsWithSelected(
+              _kEditConditionOptions,
+              draft.condition,
+            ),
+            columns: 1,
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(condition: value);
+            },
+          )
+        else ...[
+          _CollectionPillGroup(
+            key: const Key('card-detail-item-grader'),
+            label: 'GRADER',
+            selected: draft.grader,
+            options: _optionsWithSelected(
+              _kEditGraderOptions.where((value) => value != 'Raw').toList(),
+              draft.grader,
+            ),
+            columns: 3,
+            onSelected: (value) async {
+              controller.updateCollectionItemDraft(grader: value);
+              final grade = await _showChoiceSheet(
+                context,
+                title: 'Grade',
+                selected: cardCollectionGradeValues.first,
+                options: cardCollectionGradeValues,
+              );
+              if (grade != null) {
+                controller.updateCollectionItemDraft(grade: grade);
+              }
+            },
+          ),
+          const SizedBox(height: 24),
+          _ChoiceField(
+            key: const Key('card-detail-item-grade'),
+            label: 'GRADE',
+            value: gradeValue,
+            options: cardCollectionGradeValues,
+            displayBuilder: (grade) => '${draft.grader} $grade',
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(grade: value);
+            },
+          ),
+        ],
+        const SizedBox(height: 28),
+        const Divider(height: 1, color: _kCollectionOutline),
+        const SizedBox(height: 20),
+        _CollectionSelectedCardSummary(
+          value: state.collectionItemDraftSelectionText,
+        ),
+        const SizedBox(height: 20),
+        _CollectionEditTextField(
+          key: const Key('card-detail-item-purchase-price'),
+          label: 'PURCHASE PRICE',
+          initialValue: draft.purchasePriceText,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          accentText: true,
+          onChanged: (value) {
+            controller.updateCollectionItemDraft(purchasePriceText: value);
+          },
+        ),
+        const SizedBox(height: 20),
+        _CollectionCurrentMarketPrice(
+          selection: state.collectionItemDraftSelectionText,
+          price: state.collectionItemDraftMarketPriceText,
+        ),
+        const SizedBox(height: 28),
+        const Text('NOTES', style: _kCollectionHeadlineStyle),
+        const SizedBox(height: 12),
+        _CollectionEditTextArea(
+          key: const Key('card-detail-item-notes'),
+          initialValue: draft.notes,
+          onChanged: (value) {
+            controller.updateCollectionItemDraft(notes: value);
+          },
+        ),
+        if (state.collectionItemFormError != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            state.collectionItemFormError!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _CollectionItemEditCard extends StatelessWidget {
   const _CollectionItemEditCard({
     required this.state,
@@ -1981,8 +2172,14 @@ class _CollectionItemEditCard extends StatelessWidget {
             children: [
               const Expanded(
                 child: Text(
-                  'OWNERSHIP\nSUMMARY',
-                  style: _kCollectionHeadlineStyle,
+                  'Edit collection item',
+                  style: TextStyle(
+                    fontFamily: 'Fraunces',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    height: 28 / 20,
+                    color: KandoColors.text,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1997,7 +2194,7 @@ class _CollectionItemEditCard extends StatelessWidget {
               const SizedBox(width: 8),
               _CollectionEditActionButton(
                 buttonKey: const Key('card-detail-item-submit'),
-                label: 'Save changes',
+                label: 'Save',
                 accent: true,
                 loading: state.isSavingCollectionItemDraft,
                 onPressed: () async {
@@ -2007,6 +2204,8 @@ class _CollectionItemEditCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
+          const Text('OWNERSHIP SUMMARY', style: _kCollectionEditLabelStyle),
+          const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2039,28 +2238,45 @@ class _CollectionItemEditCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 32),
+          const Divider(height: 1, thickness: 1, color: _kCollectionOutline),
+          const SizedBox(height: 24),
           _CollectionPillGroup(
-            key: const Key('card-detail-item-grader'),
-            label: 'GRADER',
-            selected: draft.grader,
-            options: _optionsWithSelected(_kEditGraderOptions, draft.grader),
+            key: const Key('card-detail-item-finish'),
+            label: 'CARD VERSION  /  FINISH',
+            selected: finishValue,
+            options: finishOptions,
             columns: 3,
-            onSelected: (value) async {
-              controller.updateCollectionItemDraft(grader: value);
-              if (value == 'Raw') return;
-
-              final grade = await _showChoiceSheet(
-                context,
-                title: 'GRADE',
-                selected: cardCollectionGradeValues.first,
-                options: cardCollectionGradeValues,
-              );
-              if (grade != null) {
-                controller.updateCollectionItemDraft(grade: grade);
-              }
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(finish: value);
+            },
+          ),
+          const SizedBox(height: 24),
+          _ChoiceField(
+            key: const Key('card-detail-item-language'),
+            label: 'LANGUAGE',
+            value: languageValue,
+            options: languageOptions,
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(language: value);
             },
           ),
           const SizedBox(height: 32),
+          const Divider(height: 1, thickness: 1, color: _kCollectionOutline),
+          const SizedBox(height: 24),
+          _CollectionCardStateSelector(
+            isRaw: draft.isRaw,
+            onRawSelected: () {
+              controller.updateCollectionItemDraft(grader: 'Raw');
+            },
+            onGradedSelected: () {
+              final grader = draft.isRaw ? 'PSA' : draft.grader;
+              controller.updateCollectionItemDraft(
+                grader: grader,
+                grade: cardCollectionGradeValues.first,
+              );
+            },
+          ),
+          const SizedBox(height: 24),
           if (draft.isRaw)
             _CollectionPillGroup(
               key: const Key('card-detail-item-condition'),
@@ -2076,37 +2292,53 @@ class _CollectionItemEditCard extends StatelessWidget {
               },
             )
           else
-            _ChoiceField(
-              key: const Key('card-detail-item-grade'),
-              label: 'GRADE',
-              value: gradeValue,
-              options: cardCollectionGradeValues,
-              displayBuilder: (grade) => '${draft.grader} $grade',
-              onSelected: (value) {
-                controller.updateCollectionItemDraft(grade: value);
-              },
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _CollectionPillGroup(
+                  key: const Key('card-detail-item-grader'),
+                  label: 'GRADER',
+                  selected: draft.grader,
+                  options: _optionsWithSelected(
+                    _kEditGraderOptions
+                        .where((value) => value != 'Raw')
+                        .toList(),
+                    draft.grader,
+                  ),
+                  columns: 3,
+                  onSelected: (value) async {
+                    controller.updateCollectionItemDraft(grader: value);
+                    final grade = await _showChoiceSheet(
+                      context,
+                      title: 'GRADE',
+                      selected: cardCollectionGradeValues.first,
+                      options: cardCollectionGradeValues,
+                    );
+                    if (grade != null) {
+                      controller.updateCollectionItemDraft(grade: grade);
+                    }
+                  },
+                ),
+                const SizedBox(height: 24),
+                _ChoiceField(
+                  key: const Key('card-detail-item-grade'),
+                  label: 'GRADE',
+                  value: gradeValue,
+                  options: cardCollectionGradeValues,
+                  displayBuilder: (grade) => '${draft.grader} $grade',
+                  onSelected: (value) {
+                    controller.updateCollectionItemDraft(grade: value);
+                  },
+                ),
+              ],
             ),
           const SizedBox(height: 32),
-          _ChoiceField(
-            key: const Key('card-detail-item-language'),
-            label: 'LANGUAGE',
-            value: languageValue,
-            options: languageOptions,
-            onSelected: (value) {
-              controller.updateCollectionItemDraft(language: value);
-            },
+          const Divider(height: 1, thickness: 1, color: _kCollectionOutline),
+          const SizedBox(height: 24),
+          _CollectionSelectedCardSummary(
+            value: state.collectionItemDraftSelectionText,
           ),
-          const SizedBox(height: 32),
-          _ChoiceField(
-            key: const Key('card-detail-item-finish'),
-            label: 'FINISH',
-            value: finishValue,
-            options: finishOptions,
-            onSelected: (value) {
-              controller.updateCollectionItemDraft(finish: value);
-            },
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
           _CollectionEditTextField(
             key: const Key('card-detail-item-purchase-price'),
             label: 'PURCHASE PRICE',
@@ -2117,9 +2349,12 @@ class _CollectionItemEditCard extends StatelessWidget {
               controller.updateCollectionItemDraft(purchasePriceText: value);
             },
           ),
-          const SizedBox(height: 28),
-          const Divider(height: 1, thickness: 1, color: _kCollectionOutline),
-          const SizedBox(height: 33),
+          const SizedBox(height: 20),
+          _CollectionCurrentMarketPrice(
+            selection: state.collectionItemDraftSelectionText,
+            price: state.collectionItemDraftMarketPriceText,
+          ),
+          const SizedBox(height: 32),
           const Text('NOTES', style: _kCollectionHeadlineStyle),
           const SizedBox(height: 12),
           _CollectionEditTextArea(
@@ -2136,6 +2371,118 @@ class _CollectionItemEditCard extends StatelessWidget {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionSelectedCardSummary extends StatelessWidget {
+  const _CollectionSelectedCardSummary({required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('card-detail-item-selected-card'),
+      padding: const EdgeInsets.only(bottom: 18),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _kCollectionOutline)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('SELECTED CARD', style: _kCollectionEditLabelStyle),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: KandoColors.accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 22 / 16,
+                    fontWeight: FontWeight.w600,
+                    color: KandoColors.text,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionCurrentMarketPrice extends StatelessWidget {
+  const _CollectionCurrentMarketPrice({
+    required this.selection,
+    required this.price,
+  });
+
+  final String selection;
+  final String price;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('card-detail-item-market-price'),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(color: _kCollectionOutline),
+          bottom: BorderSide(color: _kCollectionOutline),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Current Market Price',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: KandoColors.text,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  selection,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: _kCollectionEditLabelStyle,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            price,
+            maxLines: 1,
+            style: const TextStyle(
+              fontSize: 20,
+              height: 26 / 20,
+              fontWeight: FontWeight.w700,
+              color: KandoColors.text,
+            ),
+          ),
         ],
       ),
     );
@@ -2369,6 +2716,120 @@ class _CollectionPillGroup extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _CollectionCardStateSelector extends StatelessWidget {
+  const _CollectionCardStateSelector({
+    required this.isRaw,
+    required this.onRawSelected,
+    required this.onGradedSelected,
+  });
+
+  final bool isRaw;
+  final VoidCallback onRawSelected;
+  final VoidCallback onGradedSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const Key('card-detail-item-card-state'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('CARD STATE', style: _kCollectionEditLabelStyle),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _CollectionCardStateButton(
+                buttonKey: const Key('card-detail-item-state-raw'),
+                title: 'Raw',
+                subtitle: 'Unrated card',
+                selected: isRaw,
+                onPressed: onRawSelected,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _CollectionCardStateButton(
+                buttonKey: const Key('card-detail-item-state-graded'),
+                title: 'Graded',
+                subtitle: 'Certified card',
+                selected: !isRaw,
+                onPressed: onGradedSelected,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectionCardStateButton extends StatelessWidget {
+  const _CollectionCardStateButton({
+    required this.buttonKey,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final Key buttonKey;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: buttonKey,
+      color: selected
+          ? KandoColors.accent.withValues(alpha: 0.1)
+          : KandoColors.ink,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: selected ? KandoColors.accent : KandoColors.border,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onPressed,
+        child: SizedBox(
+          height: 58,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: selected
+                        ? KandoColors.accent
+                        : _kCollectionSecondaryText,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: _kCollectionSecondaryText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2688,7 +3149,7 @@ class _PriceOverview extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (state.priceFinishes.length > 1) ...[
+        if (state.priceFinishes.isNotEmpty) ...[
           _FinishTabs(
             finishes: state.priceFinishes,
             selected: state.priceFinish,

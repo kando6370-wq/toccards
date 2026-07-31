@@ -234,8 +234,15 @@ String _reviewTotalText(
 }
 
 double? _selectedReviewPrice(ScanReviewCard card, _ScanCollectionDraft draft) {
+  final hasFinishPrices = card.prices.any(
+    (candidate) => candidate.finish != null,
+  );
   return card.prices
       .where((candidate) {
+        if (hasFinishPrices &&
+            candidate.finish?.toLowerCase() != draft.finish.toLowerCase()) {
+          return false;
+        }
         if (candidate.grader.toLowerCase() != draft.grader.toLowerCase()) {
           return false;
         }
@@ -256,6 +263,10 @@ String _normalizedReviewCondition(String? value) {
     '',
   );
 }
+
+String _reviewSelectionText(_ScanCollectionDraft draft) => draft.isRaw
+    ? '${draft.finish} · Raw · ${draft.condition}'
+    : '${draft.finish} · ${draft.grader} ${draft.grade}';
 
 class _PendingScan {
   _PendingScan(this.token);
@@ -3277,6 +3288,7 @@ class _ReviewMatches extends StatelessWidget {
                           draft: draft,
                           formError: formError,
                           enabled: !saving,
+                          currency: currency,
                           onChanged: (next) => onUpdateDraft(selected.id, next),
                         ),
                       ),
@@ -3508,6 +3520,7 @@ class _ReviewCollectionItem extends StatelessWidget {
     required this.draft,
     required this.formError,
     required this.enabled,
+    required this.currency,
     required this.onChanged,
   });
 
@@ -3517,6 +3530,7 @@ class _ReviewCollectionItem extends StatelessWidget {
   final _ScanCollectionDraft draft;
   final String? formError;
   final bool enabled;
+  final AppCurrency currency;
   final ValueChanged<_ScanCollectionDraft> onChanged;
 
   @override
@@ -3653,87 +3667,123 @@ class _ReviewCollectionItem extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1, color: Color(0xFF464835)),
-              _ReviewTextRow(
-                fieldKey: Key('scan-review-quantity-$itemId'),
-                label: 'Quantity',
-                value: draft.quantityText,
-                enabled: enabled,
-                keyboardType: TextInputType.number,
-                onChanged: (value) =>
-                    onChanged(draft.copyWith(quantityText: value)),
-              ),
-              _ReviewDropdownRow(
-                fieldKey: Key('scan-review-grader-$itemId'),
-                label: 'Grader',
-                value: draft.grader,
-                options: cardCollectionGraders,
-                enabled: enabled,
-                onChanged: (value) => _updateGrader(context, value),
-              ),
-              if (draft.isRaw)
-                _ReviewDropdownRow(
-                  fieldKey: Key('scan-review-condition-$itemId'),
-                  label: 'Condition',
-                  value: draft.condition,
-                  options: cardCollectionConditions,
-                  enabled: enabled,
-                  onChanged: (value) =>
-                      onChanged(draft.copyWith(condition: value)),
-                )
-              else
-                _ReviewDropdownRow(
-                  fieldKey: Key('scan-review-grade-$itemId'),
-                  label: 'Grade',
-                  value: draft.grade,
-                  options: cardCollectionGradeValues,
-                  enabled: enabled,
-                  displayValue: (value) => '${draft.grader} $value',
-                  onChanged: (value) => onChanged(draft.copyWith(grade: value)),
-                ),
-              _ReviewDropdownRow(
-                fieldKey: Key('scan-review-language-$itemId'),
-                label: 'Language',
-                value: draft.language,
-                options: _optionsIncluding(
-                  card.collectionLanguageOptions,
-                  draft.language,
-                ),
-                enabled: enabled,
-                onChanged: (value) =>
-                    onChanged(draft.copyWith(language: value)),
-              ),
-              _ReviewDropdownRow(
-                fieldKey: Key('scan-review-finish-$itemId'),
-                label: 'Finish',
-                value: draft.finish,
-                options: _optionsIncluding(
-                  card.collectionFinishOptions,
-                  draft.finish,
-                ),
-                enabled: enabled,
-                onChanged: (value) => onChanged(draft.copyWith(finish: value)),
-              ),
-              _ReviewTextRow(
-                fieldKey: Key('scan-review-price-$itemId'),
-                label: 'Purchase Price',
-                value: draft.purchasePriceText,
-                enabled: enabled,
-                prefixText: r'US$',
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                onChanged: (value) =>
-                    onChanged(draft.copyWith(purchasePriceText: value)),
-              ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const _ReviewSectionLabel('OWNERSHIP SUMMARY'),
+                    const SizedBox(height: 12),
+                    _ReviewTextRow(
+                      fieldKey: Key('scan-review-quantity-$itemId'),
+                      label: 'QUANTITY',
+                      value: draft.quantityText,
+                      enabled: enabled,
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) =>
+                          onChanged(draft.copyWith(quantityText: value)),
+                    ),
+                    const SizedBox(height: 28),
+                    const Divider(color: Color(0xFF464835)),
+                    const SizedBox(height: 20),
+                    _ReviewPillGroup(
+                      fieldKey: Key('scan-review-finish-$itemId'),
+                      label: 'CARD VERSION  /  FINISH',
+                      selected: draft.finish,
+                      options: _optionsIncluding(
+                        card.collectionFinishOptions,
+                        draft.finish,
+                      ),
+                      enabled: enabled,
+                      onChanged: (value) =>
+                          onChanged(draft.copyWith(finish: value)),
+                    ),
+                    const SizedBox(height: 24),
+                    _ReviewDropdownRow(
+                      fieldKey: Key('scan-review-language-$itemId'),
+                      label: 'LANGUAGE',
+                      value: draft.language,
+                      options: _optionsIncluding(
+                        card.collectionLanguageOptions,
+                        draft.language,
+                      ),
+                      enabled: enabled,
+                      onChanged: (value) =>
+                          onChanged(draft.copyWith(language: value)),
+                    ),
+                    const SizedBox(height: 28),
+                    const Divider(color: Color(0xFF464835)),
+                    const SizedBox(height: 20),
+                    _ReviewCardState(
+                      rawKey: Key('scan-review-state-raw-$itemId'),
+                      gradedKey: Key('scan-review-state-graded-$itemId'),
+                      isRaw: draft.isRaw,
+                      enabled: enabled,
+                      onRaw: () => onChanged(draft.copyWith(grader: 'Raw')),
+                      onGraded: () => onChanged(draft.copyWith(grader: 'PSA')),
+                    ),
+                    const SizedBox(height: 24),
+                    if (draft.isRaw)
+                      _ReviewPillGroup(
+                        fieldKey: Key('scan-review-condition-$itemId'),
+                        label: 'CONDITION',
+                        selected: draft.condition,
+                        options: cardCollectionConditions,
+                        enabled: enabled,
+                        onChanged: (value) =>
+                            onChanged(draft.copyWith(condition: value)),
+                      )
+                    else ...[
+                      _ReviewPillGroup(
+                        fieldKey: Key('scan-review-grader-$itemId'),
+                        label: 'GRADER',
+                        selected: draft.grader,
+                        options: cardCollectionGraders
+                            .where((value) => value != 'Raw')
+                            .toList(),
+                        enabled: enabled,
+                        onChanged: (value) => _updateGrader(context, value),
+                      ),
+                      const SizedBox(height: 24),
+                      _ReviewDropdownRow(
+                        fieldKey: Key('scan-review-grade-$itemId'),
+                        label: 'GRADE',
+                        value: draft.grade,
+                        options: cardCollectionGradeValues,
+                        enabled: enabled,
+                        displayValue: (value) => '${draft.grader} $value',
+                        onChanged: (value) =>
+                            onChanged(draft.copyWith(grade: value)),
+                      ),
+                    ],
+                    const SizedBox(height: 28),
+                    const Divider(color: Color(0xFF464835)),
+                    const SizedBox(height: 20),
+                    _ReviewSelectedCard(draft: draft),
+                    const SizedBox(height: 20),
+                    _ReviewTextRow(
+                      fieldKey: Key('scan-review-price-$itemId'),
+                      label: 'PURCHASE PRICE',
+                      value: draft.purchasePriceText,
+                      enabled: enabled,
+                      prefixText: r'US$',
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (value) =>
+                          onChanged(draft.copyWith(purchasePriceText: value)),
+                    ),
+                    const SizedBox(height: 20),
+                    _ReviewMarketPrice(
+                      selection: _reviewSelectionText(draft),
+                      price: CurrencyFormatter(
+                        currency: currency,
+                      ).formatUsd(_selectedReviewPrice(card, draft)),
+                    ),
+                    const SizedBox(height: 28),
+                    _ReviewSectionLabel(
                       'NOTES',
                       key: Key('scan-review-notes-label-$itemId'),
-                      style: const TextStyle(color: Color(0xFFC7C8B0)),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -3831,38 +3881,29 @@ class _ReviewTextRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0x1A90927C))),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: Color(0xFFC7C8B0)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ReviewSectionLabel(label),
+        const SizedBox(height: 8),
+        TextFormField(
+          key: fieldKey,
+          initialValue: value,
+          enabled: enabled,
+          keyboardType: keyboardType,
+          onChanged: onChanged,
+          decoration: InputDecoration(
+            prefixText: prefixText,
+            filled: true,
+            fillColor: const Color(0xFF10110C),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
             ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(7)),
           ),
-          SizedBox(
-            width: 140,
-            child: TextFormField(
-              key: fieldKey,
-              initialValue: value,
-              enabled: enabled,
-              textAlign: TextAlign.end,
-              keyboardType: keyboardType,
-              onChanged: onChanged,
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                prefixText: prefixText,
-                isDense: true,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -3891,73 +3932,280 @@ class _ReviewDropdownRow extends StatelessWidget {
     final selected = options.contains(value) ? value : options.first;
     final displayText = displayValue?.call(selected) ?? selected;
 
-    return InkWell(
-      key: fieldKey,
-      onTap: enabled
-          ? () async {
-              FocusManager.instance.primaryFocus?.unfocus(
-                disposition: UnfocusDisposition.scope,
-              );
-              final next = await _showReviewChoiceSheet(
-                context,
-                title: label,
-                selected: selected,
-                options: options,
-                displayValue: displayValue,
-              );
-              FocusManager.instance.primaryFocus?.unfocus(
-                disposition: UnfocusDisposition.scope,
-              );
-              if (next != null) onChanged(next);
-            }
-          : null,
-      child: Container(
-        height: 58,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0x1A90927C))),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ReviewSectionLabel(label),
+        const SizedBox(height: 8),
+        InkWell(
+          key: fieldKey,
+          borderRadius: BorderRadius.circular(7),
+          onTap: enabled
+              ? () async {
+                  FocusManager.instance.primaryFocus?.unfocus(
+                    disposition: UnfocusDisposition.scope,
+                  );
+                  final next = await _showReviewChoiceSheet(
+                    context,
+                    title: label,
+                    selected: selected,
+                    options: options,
+                    displayValue: displayValue,
+                  );
+                  FocusManager.instance.primaryFocus?.unfocus(
+                    disposition: UnfocusDisposition.scope,
+                  );
+                  if (next != null) onChanged(next);
+                }
+              : null,
+          child: Container(
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10110C),
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: const Color(0xFF464835)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: enabled
+                          ? const Color(0xFFC7C8B0)
+                          : const Color(0xFFC7C8B0).withValues(alpha: 0.45),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    displayText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      color: enabled
+                          ? const Color(0xFFEEECD8)
+                          : const Color(0xFFEEECD8).withValues(alpha: 0.45),
+                      fontSize: 14,
+                      height: 20 / 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 20,
                   color: enabled
                       ? const Color(0xFFC7C8B0)
                       : const Color(0xFFC7C8B0).withValues(alpha: 0.45),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                displayText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: TextStyle(
-                  color: enabled
-                      ? const Color(0xFFEEECD8)
-                      : const Color(0xFFEEECD8).withValues(alpha: 0.45),
-                  fontSize: 14,
-                  height: 20 / 14,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 20,
-              color: enabled
-                  ? const Color(0xFFC7C8B0)
-                  : const Color(0xFFC7C8B0).withValues(alpha: 0.45),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
+}
+
+class _ReviewSectionLabel extends StatelessWidget {
+  const _ReviewSectionLabel(this.text, {super.key});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(color: Color(0xFF92927D), fontSize: 10),
+  );
+}
+
+class _ReviewPillGroup extends StatelessWidget {
+  const _ReviewPillGroup({
+    required this.fieldKey,
+    required this.label,
+    required this.selected,
+    required this.options,
+    required this.enabled,
+    required this.onChanged,
+  });
+  final Key fieldKey;
+  final String label;
+  final String selected;
+  final List<String> options;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    key: fieldKey,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _ReviewSectionLabel(label),
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final option in options)
+            SizedBox(
+              width: options.length == 1 ? double.infinity : 96,
+              height: 42,
+              child: OutlinedButton(
+                onPressed: enabled ? () => onChanged(option) : null,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: option == selected
+                      ? const Color(0xFFF0FE6F)
+                      : const Color(0xFFC7C8B0),
+                  backgroundColor: option == selected
+                      ? const Color(0xFF343718)
+                      : const Color(0xFF10110C),
+                  side: BorderSide(
+                    color: option == selected
+                        ? const Color(0xFFF0FE6F)
+                        : const Color(0xFF464835),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                ),
+                child: Text(option, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+        ],
+      ),
+    ],
+  );
+}
+
+class _ReviewCardState extends StatelessWidget {
+  const _ReviewCardState({
+    required this.rawKey,
+    required this.gradedKey,
+    required this.isRaw,
+    required this.enabled,
+    required this.onRaw,
+    required this.onGraded,
+  });
+  final Key rawKey;
+  final Key gradedKey;
+  final bool isRaw;
+  final bool enabled;
+  final VoidCallback onRaw;
+  final VoidCallback onGraded;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const _ReviewSectionLabel('CARD STATE'),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: _stateButton(rawKey, 'Raw', 'Unrated card', isRaw, onRaw),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _stateButton(
+              gradedKey,
+              'Graded',
+              'Certified card',
+              !isRaw,
+              onGraded,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  Widget _stateButton(
+    Key key,
+    String title,
+    String subtitle,
+    bool selected,
+    VoidCallback onPressed,
+  ) => OutlinedButton(
+    key: key,
+    onPressed: enabled ? onPressed : null,
+    style: OutlinedButton.styleFrom(
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      foregroundColor: selected
+          ? const Color(0xFFF0FE6F)
+          : const Color(0xFFC7C8B0),
+      backgroundColor: selected
+          ? const Color(0xFF343718)
+          : const Color(0xFF10110C),
+      side: BorderSide(
+        color: selected ? const Color(0xFFF0FE6F) : const Color(0xFF464835),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title),
+        Text(subtitle, style: const TextStyle(fontSize: 9)),
+      ],
+    ),
+  );
+}
+
+class _ReviewSelectedCard extends StatelessWidget {
+  const _ReviewSelectedCard({required this.draft});
+  final _ScanCollectionDraft draft;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const _ReviewSectionLabel('SELECTED CARD'),
+      const SizedBox(height: 8),
+      Text(_reviewSelectionText(draft), style: const TextStyle(fontSize: 15)),
+    ],
+  );
+}
+
+class _ReviewMarketPrice extends StatelessWidget {
+  const _ReviewMarketPrice({required this.selection, required this.price});
+  final String selection;
+  final String price;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const Key('scan-review-market-price'),
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    decoration: const BoxDecoration(
+      border: Border.symmetric(
+        horizontal: BorderSide(color: Color(0xFF464835)),
+      ),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Current Market Price'),
+              const SizedBox(height: 3),
+              Text(
+                selection,
+                style: const TextStyle(color: Color(0xFF92927D), fontSize: 10),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          price,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+      ],
+    ),
+  );
 }
 
 Future<String?> _showReviewChoiceSheet(

@@ -811,7 +811,7 @@ void main() {
       await tester.pump();
       expect(find.byKey(const Key('scan-figma-result-rail')), findsOneWidget);
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
-      expect(find.text(r'$25.00'), findsOneWidget);
+      expect(find.text(r'$25.00'), findsWidgets);
       expect(find.text(r'Total: $25.00'), findsOneWidget);
 
       ProviderScope.containerOf(tester.element(find.byType(ScanPage)))
@@ -1243,7 +1243,7 @@ void main() {
       expect(find.text('Top matched results:'), findsOneWidget);
       expect(find.text('Near Mint (NM)'), findsOneWidget);
       expect(find.byKey(const Key('scan-review-total')), findsOneWidget);
-      expect(find.text(r'$25.00'), findsOneWidget);
+      expect(find.text(r'$25.00'), findsWidgets);
 
       await tester.drag(
         find.byKey(const Key('scan-review-list')),
@@ -1272,36 +1272,16 @@ void main() {
         '2',
       );
       await tester.pump();
-      await tester.tap(find.byKey(const Key('scan-review-grader-1')));
+      final gradedState = find.byKey(const Key('scan-review-state-graded-1'));
+      await tester.ensureVisible(gradedState);
       await tester.pumpAndSettle();
-      expect(find.text('Grader'), findsWidgets);
-      expect(
-        find.byKey(const Key('scan-review-choice-sheet-handle')),
-        findsOneWidget,
-      );
-      await tester.tap(find.byKey(const Key('scan-review-choice-option-Raw')));
+      await tester.tap(gradedState);
       await tester.pumpAndSettle();
-      expect(
-        find.byKey(const Key('scan-review-choice-sheet-handle')),
-        findsNothing,
-      );
-      await tester.tap(find.byKey(const Key('scan-review-grader-1')));
+      final gradeField = find.byKey(const Key('scan-review-grade-1'));
+      await tester.ensureVisible(gradeField);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('scan-review-choice-option-PSA')));
+      await tester.tap(gradeField);
       await tester.pumpAndSettle();
-      expect(find.text('Grade'), findsWidgets);
-      expect(
-        find.byKey(const Key('scan-review-choice-sheet-handle')),
-        findsOneWidget,
-      );
-      await tester.tap(find.byKey(const Key('scan-review-choice-option-10')));
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const Key('scan-review-choice-sheet-handle')),
-        findsOneWidget,
-      );
-      expect(find.text('Grade'), findsWidgets);
-      expect(find.text('PSA 10'), findsWidgets);
       await tester.tap(find.byKey(const Key('scan-review-choice-option-10')));
       await tester.pumpAndSettle();
       expect(
@@ -1394,18 +1374,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('scan-review-finish-1')));
-      await tester.pumpAndSettle();
+      final finishGroup = find.byKey(const Key('scan-review-finish-1'));
       expect(
-        find.byKey(const Key('scan-review-choice-option-Holofoil')),
+        find.descendant(of: finishGroup, matching: find.text('Holofoil')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('scan-review-choice-option-Normal')),
+        find.descendant(of: finishGroup, matching: find.text('Normal')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('scan-review-choice-option-Foil')),
+        find.descendant(of: finishGroup, matching: find.text('Foil')),
         findsNothing,
       );
     },
@@ -1545,12 +1524,14 @@ void main() {
     await tester.pump();
     expect(tester.testTextInput.isVisible, isTrue);
 
-    final graderFinder = find.byKey(const Key('scan-review-grader-1'));
-    await tester.ensureVisible(graderFinder);
+    final gradedFinder = find.byKey(const Key('scan-review-state-graded-1'));
+    await tester.ensureVisible(gradedFinder);
     await tester.pumpAndSettle();
-    await tester.tap(graderFinder);
+    await tester.tap(gradedFinder);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('scan-review-choice-option-PSA')));
+    final gradeFinder = find.byKey(const Key('scan-review-grade-1'));
+    await tester.ensureVisible(gradeFinder);
+    await tester.tap(gradeFinder);
     await tester.pumpAndSettle();
 
     expect(tester.testTextInput.isVisible, isFalse);
@@ -1565,7 +1546,7 @@ void main() {
     expect(find.byKey(const Key('scan-review-grade-1')), findsOneWidget);
   });
 
-  testWidgets('Review grader selection immediately opens Grade or Condition', (
+  testWidgets('Review card state exposes the matching grade or condition', (
     tester,
   ) async {
     await _pumpScanTestApp(tester);
@@ -1575,35 +1556,28 @@ void main() {
     await tester.tap(find.byTooltip('Review completed scan'));
     await tester.pumpAndSettle();
 
-    final graderFinder = find.byKey(const Key('scan-review-grader-1'));
-    await tester.ensureVisible(graderFinder);
+    final gradedFinder = find.byKey(const Key('scan-review-state-graded-1'));
+    await tester.ensureVisible(gradedFinder);
     await tester.pumpAndSettle();
-    await tester.tap(graderFinder);
+    await tester.tap(gradedFinder);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('scan-review-choice-option-PSA')));
+    await tester.tap(find.byKey(const Key('scan-review-grade-1')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Grade'), findsWidgets);
+    expect(find.text('GRADE'), findsWidgets);
     await tester.tap(find.byKey(const Key('scan-review-choice-option-9')));
     await tester.pumpAndSettle();
     expect(find.text('PSA 9'), findsOneWidget);
 
-    await tester.tap(graderFinder);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('scan-review-choice-option-Raw')));
+    await tester.tap(find.byKey(const Key('scan-review-state-raw-1')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Condition'), findsWidgets);
-    await tester.tap(
-      find.byKey(const Key('scan-review-choice-option-Lightly Played (LP)')),
-    );
+    expect(find.text('CONDITION'), findsOneWidget);
+    await tester.tap(find.text('Lightly Played (LP)'));
     await tester.pumpAndSettle();
 
     expect(find.text('Lightly Played (LP)'), findsOneWidget);
-    expect(
-      find.byKey(const Key('scan-review-choice-sheet-handle')),
-      findsNothing,
-    );
+    expect(find.text('Lightly Played (LP)'), findsOneWidget);
   });
 
   testWidgets(
@@ -1639,8 +1613,10 @@ void main() {
           matching: find.byType(TextField),
         ),
       );
-      final notesLabel = tester.widget<Text>(notesLabelFinder);
-      final quantityLabel = tester.widget<Text>(find.text('Quantity'));
+      final notesLabel = tester.widget<Text>(
+        find.descendant(of: notesLabelFinder, matching: find.text('NOTES')),
+      );
+      final quantityLabel = tester.widget<Text>(find.text('QUANTITY'));
       expect(notesLabel.style, quantityLabel.style);
       expect(notesTextField.style, quantityTextField.style);
       expect(notesTextField.decoration?.labelText, isNull);

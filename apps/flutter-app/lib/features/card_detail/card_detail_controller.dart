@@ -181,6 +181,7 @@ class CardCollectionItemRow {
     required this.languageText,
     required this.finishText,
     required this.purchasePriceText,
+    required this.marketPriceText,
     required this.totalText,
     required this.notes,
   });
@@ -192,6 +193,7 @@ class CardCollectionItemRow {
   final String languageText;
   final String finishText;
   final String purchasePriceText;
+  final String marketPriceText;
   final String totalText;
   final String notes;
 }
@@ -307,7 +309,7 @@ class CardDetailState {
       selectedFinish ?? priceFinishes.firstOrNull ?? detail.finish;
 
   List<String> get priceFinishes {
-    final finishes = detail.availableFinishes;
+    final finishes = detail.collectionFinishOptions;
     if (!finishes.contains(detail.finish)) return finishes;
     return [
       detail.finish,
@@ -343,6 +345,14 @@ class CardDetailState {
         languageText: item.language ?? '-',
         finishText: item.finish ?? '-',
         purchasePriceText: _formatter.formatUsd(item.purchasePriceUsd),
+        marketPriceText: _formatter.formatUsd(
+          _matchingCollectionMarketPrice(
+            finish: item.finish,
+            grader: item.grader,
+            condition: item.condition,
+            grade: item.grade,
+          )?.priceUsd,
+        ),
         totalText: _formatter.formatUsd(
           item.purchasePriceUsd == null
               ? null
@@ -358,21 +368,58 @@ class CardDetailState {
     if (draft == null) return _formatter.formatUsd(null);
     final quantity = int.tryParse(draft.quantityText.trim());
     if (quantity == null || quantity < 1) return _formatter.formatUsd(null);
-    final marketPrice = detail.marketPrices
-        .where((price) {
-          if (price.grader.toLowerCase() != draft.grader.toLowerCase()) {
-            return false;
-          }
-          if (draft.isRaw) {
-            return _normalizedCondition(price.condition) ==
-                _normalizedCondition(draft.condition);
-          }
-          final grade = double.tryParse(draft.grade);
-          return grade != null && price.grade == grade;
-        })
-        .firstOrNull
-        ?.priceUsd;
-    return _formatter.formatUsd(marketPrice, quantity: quantity);
+    return _formatter.formatUsd(
+      _collectionItemDraftMarketPrice?.priceUsd,
+      quantity: quantity,
+    );
+  }
+
+  String get collectionItemDraftSelectionText {
+    final draft = collectionItemDraft;
+    if (draft == null) return '';
+    if (draft.isRaw) {
+      return '${draft.finish} · Raw · ${_displayCondition(draft.condition)}';
+    }
+    return '${draft.finish} · ${draft.grader} ${draft.grade}';
+  }
+
+  String get collectionItemDraftMarketPriceText {
+    return _formatter.formatUsd(_collectionItemDraftMarketPrice?.priceUsd);
+  }
+
+  CardMarketPrice? get _collectionItemDraftMarketPrice {
+    final draft = collectionItemDraft;
+    if (draft == null) return null;
+    return _matchingCollectionMarketPrice(
+      finish: draft.finish,
+      grader: draft.grader,
+      condition: draft.condition,
+      grade: draft.grade,
+    );
+  }
+
+  CardMarketPrice? _matchingCollectionMarketPrice({
+    required String? finish,
+    required String grader,
+    required String? condition,
+    required String? grade,
+  }) {
+    if (marketPricesStatus != KandoLoadStatus.content ||
+        (finish ?? '').trim().toLowerCase() !=
+            priceFinish.trim().toLowerCase()) {
+      return null;
+    }
+    return detail.marketPrices.where((price) {
+      if (price.grader.toLowerCase() != grader.toLowerCase()) {
+        return false;
+      }
+      if (grader.toLowerCase() == 'raw') {
+        return _normalizedCondition(price.condition) ==
+            _normalizedCondition(condition);
+      }
+      final gradeValue = double.tryParse(grade ?? '');
+      return gradeValue != null && price.grade == gradeValue;
+    }).firstOrNull;
   }
 
   List<CardPricePoint> get selectedPriceSeries {
@@ -1467,6 +1514,10 @@ String _normalizedCondition(String? value) {
     RegExp(r'\s*\([^)]*\)\s*$'),
     '',
   );
+}
+
+String _displayCondition(String value) {
+  return value.trim().replaceFirst(RegExp(r'\s*\([^)]*\)\s*$'), '').trim();
 }
 
 CardPortfolioFolder? _initialPortfolioFolder(

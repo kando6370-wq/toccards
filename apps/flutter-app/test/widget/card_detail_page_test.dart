@@ -45,6 +45,33 @@ void main() {
     },
   );
 
+  testWidgets('Wishlist CardDetail uses the global Finish tabs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const _CardDetailTestApp(cardId: 'one-piece-luffy'),
+    );
+    await tester.pumpAndSettle();
+
+    final removeWishlist = find.byKey(const Key('card-detail-remove-wishlist'));
+    await tester.scrollUntilVisible(removeWishlist, 400);
+    expect(removeWishlist, findsOneWidget);
+    expect(find.byKey(const Key('card-detail-finish-Normal')), findsOneWidget);
+  });
+
+  testWidgets(
+    'Price always shows its Finish tab when only one material exists',
+    (tester) async {
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'squirtle'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-finish-Holofoil')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets(
     'mobile CardDetail keeps the Figma hero size because the primary card must stay inspectable',
     (tester) async {
@@ -487,8 +514,20 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Adding to Sealed'), findsOneWidget);
       expect(find.byKey(const Key('card-detail-item-portfolio')), findsNothing);
-      expect(find.text('Language'), findsWidgets);
-      expect(find.text('Finish'), findsWidgets);
+      expect(find.text('LANGUAGE'), findsOneWidget);
+      expect(find.text('CARD VERSION  /  FINISH'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-item-state-raw')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-item-selected-card')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-item-market-price')),
+        findsOneWidget,
+      );
       expect(find.text('TOTAL VALUE'), findsOneWidget);
       expect(
         tester
@@ -521,10 +560,10 @@ void main() {
         tester.getTopLeft(find.byKey(const Key('card-detail-item-submit'))).dy,
         submitTopBeforeScroll.dy,
       );
-      await tester.tap(find.byKey(const Key('card-detail-item-condition')));
-      await tester.pumpAndSettle();
       expect(find.text('Lightly Played (LP)'), findsOneWidget);
       expect(find.text('Near Mint (NM)'), findsWidgets);
+      await tester.tap(find.text('Lightly Played (LP)'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Near Mint (NM)').last);
       await tester.pumpAndSettle();
 
@@ -662,7 +701,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('card-detail-item-grader')));
+      final gradedState = find.byKey(
+        const Key('card-detail-item-state-graded'),
+      );
+      await tester.ensureVisible(gradedState);
+      await tester.pumpAndSettle();
+      await tester.tap(gradedState);
+      await tester.pumpAndSettle();
+
+      final graderGroup = find.byKey(const Key('card-detail-item-grader'));
+      await tester.ensureVisible(graderGroup);
       await tester.pumpAndSettle();
       await tester.tap(find.text('BGS').last);
       await tester.pumpAndSettle();
@@ -694,9 +742,10 @@ void main() {
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('card-detail-item-grader')));
+      final rawState = find.byKey(const Key('card-detail-item-state-raw'));
+      await tester.ensureVisible(rawState);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Raw').last);
+      await tester.tap(rawState);
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(
@@ -740,6 +789,41 @@ void main() {
     expect(find.text('10'), findsOneWidget);
     expect(find.text('PURCHASE PRICE'), findsOneWidget);
     expect(find.text(r'$650.00'), findsWidgets);
+    final ownershipCard = find.byKey(
+      const Key('card-detail-collection-item-item-charizard'),
+    );
+    expect(
+      find.descendant(
+        of: ownershipCard,
+        matching: find.text('CURRENT MARKET PRICE'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: ownershipCard, matching: find.text(r'$780.00')),
+      findsOneWidget,
+    );
+    final orderedLabels = [
+      'FINISH',
+      'LANGUAGE',
+      'GRADER',
+      'GRADE',
+      'PURCHASE PRICE',
+      'CURRENT MARKET PRICE',
+    ];
+    final labelOffsets = [
+      for (final label in orderedLabels)
+        tester
+            .getTopLeft(
+              find.descendant(of: ownershipCard, matching: find.text(label)),
+            )
+            .dy,
+    ];
+    expect(
+      labelOffsets,
+      orderedEquals([...labelOffsets]..sort()),
+      reason: 'Read-only fields must follow the edit form order.',
+    );
     expect(find.text('LANGUAGE'), findsOneWidget);
     expect(find.text('English'), findsWidgets);
     expect(find.text('FINISH'), findsOneWidget);
@@ -801,7 +885,12 @@ void main() {
     expect(find.text('Ungraded'), findsOneWidget);
     expect(find.text(r'$215.00'), findsWidgets);
 
-    await tester.tap(find.byKey(const Key('card-detail-market-category-psa')));
+    final psaCategory = find.byKey(
+      const Key('card-detail-market-category-psa'),
+    );
+    await tester.ensureVisible(psaCategory);
+    await tester.pumpAndSettle();
+    await tester.tap(psaCategory);
     await tester.pumpAndSettle();
     expect(find.text('10'), findsOneWidget);
     expect(find.text(r'$780.00'), findsWidgets);
@@ -847,6 +936,11 @@ void main() {
   testWidgets('owned Collection Item can be edited from CardDetail', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
     await tester.pumpAndSettle();
 
@@ -860,8 +954,24 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('OWNERSHIP\nSUMMARY'), findsOneWidget);
+    expect(find.text('Edit collection item'), findsOneWidget);
+    expect(find.text('OWNERSHIP SUMMARY'), findsOneWidget);
     expect(find.byKey(const Key('card-detail-item-portfolio')), findsOneWidget);
+    expect(find.text('PURCHASE DETAILS'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('card-detail-item-selected-card')),
+        matching: find.text('Holofoil · PSA 10'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('card-detail-item-market-price')),
+        matching: find.text(r'$780.00'),
+      ),
+      findsOneWidget,
+    );
     await tester.enterText(
       find.byKey(const Key('card-detail-item-quantity')),
       '3',
@@ -870,11 +980,31 @@ void main() {
       find.byKey(const Key('card-detail-item-grader')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Raw').last);
+    await tester.ensureVisible(
+      find.byKey(const Key('card-detail-item-state-raw')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('card-detail-item-state-raw')));
     await tester.pumpAndSettle();
 
     expect(find.text('CONDITION'), findsOneWidget);
     expect(find.text('GRADE'), findsNothing);
+    expect(find.text('RAW DETAILS'), findsNothing);
+    expect(find.text('RAW CARD'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('card-detail-item-selected-card')),
+        matching: find.text('Holofoil · Raw · Near Mint'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('card-detail-item-market-price')),
+        matching: find.text(r'$215.00'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.ensureVisible(find.byKey(const Key('card-detail-item-notes')));
     await tester.pumpAndSettle();
@@ -893,7 +1023,7 @@ void main() {
     await tester.tap(find.byKey(const Key('card-detail-item-submit')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Save changes'), findsNothing);
+    expect(find.text('Save'), findsNothing);
     expect(find.text('QUANTITY'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('Raw'), findsOneWidget);
@@ -937,8 +1067,19 @@ void main() {
             ?.grade,
         '9.5',
       );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('card-detail-item-market-price')),
+          matching: find.text('--'),
+        ),
+        findsOneWidget,
+      );
 
-      await tester.tap(find.text('Raw').last);
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-item-state-raw')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('card-detail-item-state-raw')));
       await tester.pumpAndSettle();
 
       expect(find.byType(BottomSheet), findsNothing);
@@ -973,9 +1114,6 @@ void main() {
         find.byKey(const Key('card-detail-item-finish')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('card-detail-item-finish')));
-      await tester.pumpAndSettle();
-
       expect(find.text('Holofoil'), findsWidgets);
       expect(find.text('Normal'), findsNothing);
     },
@@ -993,7 +1131,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Edit item'));
       await tester.pumpAndSettle();
-      expect(find.text('Save changes'), findsOneWidget);
+      expect(find.text('Save'), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -1006,7 +1144,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Edit item'), findsOneWidget);
-      expect(find.text('Save changes'), findsNothing);
+      expect(find.text('Save'), findsNothing);
     },
   );
 
@@ -1088,7 +1226,7 @@ void main() {
     );
   });
 
-  testWidgets('owned Collection Item Save changes shows loading while saving', (
+  testWidgets('owned Collection Item Save shows loading while saving', (
     tester,
   ) async {
     final repository = _DelayedUpdateCardDetailRepository();
@@ -1122,7 +1260,7 @@ void main() {
     repository.completeUpdate();
     await tester.pumpAndSettle();
 
-    expect(find.text('Save changes'), findsNothing);
+    expect(find.text('Save'), findsNothing);
     expect(find.text('Edit item'), findsOneWidget);
   });
 
@@ -1157,7 +1295,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Quantity must be at least 1.'), findsOneWidget);
-    expect(find.text('OWNERSHIP\nSUMMARY'), findsOneWidget);
+    expect(find.text('OWNERSHIP SUMMARY'), findsOneWidget);
   });
 
   testWidgets('owned Collection Item can be removed after confirmation', (
@@ -1214,7 +1352,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.drag(
       find.byKey(const Key('card-detail-scroll')),
-      const Offset(0, 400),
+      const Offset(0, 800),
     );
     await tester.pumpAndSettle();
 
@@ -1311,7 +1449,7 @@ class _FinishTabCardDetailRepository extends MockCardDetailRepository
 
   @override
   Future<CardDetail> loadCoreDetail(String cardId) async {
-    return const CardDetail(
+    return CardDetail(
       id: '180865',
       type: CardDetailType.tcg,
       name: 'Test Card',

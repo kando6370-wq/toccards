@@ -40,12 +40,14 @@ class ScanReviewTarget {
 
 class ScanReviewPrice {
   const ScanReviewPrice({
+    this.finish,
     required this.grader,
     required this.grade,
     required this.condition,
     required this.price,
   });
 
+  final String? finish;
   final String grader;
   final double? grade;
   final String? condition;
@@ -154,12 +156,32 @@ class ApiScanReviewRepository implements ScanReviewRepository {
     } on Exception {
       return null;
     }
-    List<CardDataMarketPriceDto> prices;
-    try {
-      prices = await _cardDataApi.getMarketPrices(cardRef);
-    } on Exception {
-      prices = const [];
-    }
+    final finishes = card.availableFinishes.isEmpty
+        ? <String?>[card.finish]
+        : card.availableFinishes.cast<String?>();
+    final prices = await Future.wait(
+      finishes.map((finish) async {
+        try {
+          final rows = await _cardDataApi.getMarketPrices(
+            cardRef,
+            finish: finish,
+          );
+          return rows
+              .map(
+                (price) => ScanReviewPrice(
+                  finish: finish,
+                  grader: price.grader,
+                  grade: price.grade,
+                  condition: price.condition,
+                  price: price.price,
+                ),
+              )
+              .toList();
+        } on Exception {
+          return <ScanReviewPrice>[];
+        }
+      }),
+    ).then((groups) => groups.expand((group) => group).toList());
     return MapEntry(
       cardRef,
       ScanReviewCard(
@@ -173,16 +195,7 @@ class ApiScanReviewRepository implements ScanReviewRepository {
         finish: card.finish,
         availableLanguages: card.availableLanguages,
         availableFinishes: card.availableFinishes,
-        prices: prices
-            .map(
-              (price) => ScanReviewPrice(
-                grader: price.grader,
-                grade: price.grade,
-                condition: price.condition,
-                price: price.price,
-              ),
-            )
-            .toList(),
+        prices: prices,
       ),
     );
   }

@@ -518,6 +518,12 @@ void main() {
     expect(state.collectionItemRows.single.quantityText, 'Qty: 1');
     expect(state.collectionItemRows.single.statusText, 'PSA 10');
     expect(state.collectionItemRows.single.purchasePriceText, r'$650.00');
+    expect(
+      state.collectionItemRows.single.marketPriceText,
+      r'$780.00',
+      reason:
+          'Ownership summary must value the saved card state, not its cost.',
+    );
     expect(state.collectionItemRows.single.notes, contains('Obsidian Flames'));
   });
 
@@ -660,12 +666,29 @@ void main() {
       expect(draft.portfolioName, 'Main');
       expect(draft.language, 'English');
       expect(draft.finish, 'Holofoil');
+      expect(
+        container.read(provider).collectionItemDraftSelectionText,
+        'Holofoil · Raw · Near Mint',
+      );
+      expect(
+        container.read(provider).collectionItemDraftMarketPriceText,
+        r'$32.13',
+      );
       expect(container.read(provider).collectionItemDraftTotalText, r'$32.13');
 
       container
           .read(provider.notifier)
           .updateCollectionItemDraft(quantityText: '3');
       expect(container.read(provider).collectionItemDraftTotalText, r'$96.39');
+
+      container
+          .read(provider.notifier)
+          .updateCollectionItemDraft(finish: 'Normal');
+      expect(
+        container.read(provider).collectionItemDraftMarketPriceText,
+        '--',
+        reason: 'A selected Finish must never reuse another Finish price.',
+      );
     },
   );
 
