@@ -889,6 +889,49 @@ void main() {
   });
 
   test(
+    'switching finish replaces both Raw condition charts and market rows because materials must never share prices',
+    () async {
+      final cardDataApi = _FinishSwitchingCardDataApi();
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+
+      await _loadedState(container, 'catalog:pikachu-025');
+      await _drainSectionLoads();
+      expect(container.read(provider).priceFinish, 'Holofoil');
+
+      await container.read(provider.notifier).selectPriceFinish('Normal');
+      final normal = container.read(provider);
+
+      expect(normal.priceFinish, 'Normal');
+      expect(normal.detail.rawPriceSeries.map((series) => series.label), [
+        'Raw Near Mint',
+        'Raw Lightly Played',
+        'Raw Moderately Played',
+      ]);
+      expect(normal.priceTabMarketRows.map((row) => row.priceText), [
+        r'$25.00',
+        r'$20.00',
+        r'$15.00',
+      ]);
+      expect(normal.priceTabMarketRows.first.changeText, '+5.00%');
+      expect(cardDataApi.marketFinishes.last, 'Normal');
+      expect(
+        cardDataApi.seriesFinishes.whereType<String>().toSet(),
+        contains('Normal'),
+      );
+    },
+  );
+
+  test(
     'sectioned detail load completes after base detail because optional endpoints render independently',
     () async {
       final repository = _BlockingOptionalSectionRepository();
@@ -1064,15 +1107,19 @@ class _BlockingOptionalSectionRepository extends _RecordingCardDetailRepository
   }
 
   @override
-  Future<CardDetailMarketData> loadMarketPrices(String cardId) {
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+  }) {
     return _marketCompleter.future;
   }
 
   @override
   Future<CardDetailSeriesData> loadPriceSeries(
-    String cardId, [
+    String cardId, {
     CardDetailMarketData? market,
-  ]) {
+    String? finish,
+  }) {
     return _seriesCompleter.future;
   }
 
@@ -1489,7 +1536,10 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
   }
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) async {
     if (failMarketPrices) {
       throw StateError('market prices unavailable');
     }
@@ -1526,6 +1576,7 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
   }) async {
     if (failPriceSeries) {
       throw StateError('price series unavailable');
@@ -1569,6 +1620,7 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
           grader: request.grader,
           grade: request.grade,
           condition: request.condition,
+          finish: request.finish,
         ),
       ),
     );
@@ -1590,18 +1642,40 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
   }
 }
 
-class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
-  var _marketFailuresRemaining = 1;
-  var _seriesFailuresRemaining = 2;
-  var _soldFailuresRemaining = 1;
+class _FinishSwitchingCardDataApi extends _FakeCardDataApi {
+  final List<String?> marketFinishes = [];
+  final List<String?> seriesFinishes = [];
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) {
-    if (_marketFailuresRemaining > 0) {
-      _marketFailuresRemaining -= 1;
-      throw StateError('market prices unavailable');
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) async {
+    marketFinishes.add(finish);
+    if (finish != 'Normal') {
+      return super.getMarketPrices(cardRef, finish: finish);
     }
-    return super.getMarketPrices(cardRef);
+    return const [
+      CardDataMarketPriceDto(
+        grader: 'Raw',
+        grade: null,
+        condition: 'Near Mint',
+        price: 25,
+        increasePercent: 5,
+      ),
+      CardDataMarketPriceDto(
+        grader: 'Raw',
+        grade: null,
+        condition: 'Lightly Played',
+        price: 20,
+      ),
+      CardDataMarketPriceDto(
+        grader: 'Raw',
+        grade: null,
+        condition: 'Moderately Played',
+        price: 15,
+      ),
+    ];
   }
 
   @override
@@ -1611,6 +1685,47 @@ class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
+  }) async {
+    seriesFinishes.add(finish);
+    final current = switch (condition) {
+      'Near Mint' => 25.0,
+      'Lightly Played' => 20.0,
+      'Moderately Played' => 15.0,
+      _ => 10.0,
+    };
+    return [
+      CardDataPricePointDto(date: '2026-07-01', price: current - 1),
+      CardDataPricePointDto(date: '2026-07-30', price: current),
+    ];
+  }
+}
+
+class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
+  var _marketFailuresRemaining = 1;
+  var _seriesFailuresRemaining = 2;
+  var _soldFailuresRemaining = 1;
+
+  @override
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) {
+    if (_marketFailuresRemaining > 0) {
+      _marketFailuresRemaining -= 1;
+      throw StateError('market prices unavailable');
+    }
+    return super.getMarketPrices(cardRef, finish: finish);
+  }
+
+  @override
+  Future<List<CardDataPricePointDto>> getPriceSeries(
+    String cardRef, {
+    required int days,
+    String grader = 'Raw',
+    double? grade,
+    String? condition,
+    String? finish,
   }) {
     if (_seriesFailuresRemaining > 0) {
       _seriesFailuresRemaining -= 1;
@@ -1622,6 +1737,7 @@ class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
       grader: grader,
       grade: grade,
       condition: condition,
+      finish: finish,
     );
   }
 

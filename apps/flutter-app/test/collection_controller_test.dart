@@ -1035,7 +1035,10 @@ class _FakeCardDataApi implements CardDataApi {
   }
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) async {
     marketPriceRefs.add(cardRef);
     if (priceFailures.contains(cardRef)) {
       throw StateError('card-data prices unavailable');
@@ -1050,6 +1053,7 @@ class _FakeCardDataApi implements CardDataApi {
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
   }) async {
     final previous = previous30dPrices[cardRef];
     if (previous == null) {

@@ -81,6 +81,7 @@ void main() {
           'days': '30',
           'grader': 'Raw',
           'condition': 'Near Mint',
+          'finish': 'Normal',
         });
         return _json(200, {
           'success': true,
@@ -93,9 +94,12 @@ void main() {
         });
       });
 
-      final series = await CardDataApiClient(
-        _dio(adapter),
-      ).getPriceSeries('catalog:pikachu-025', days: 30, condition: 'Near Mint');
+      final series = await CardDataApiClient(_dio(adapter)).getPriceSeries(
+        'catalog:pikachu-025',
+        days: 30,
+        condition: 'Near Mint',
+        finish: 'Normal',
+      );
 
       expect(series.first.date, '2026-06-10');
       expect(series.last.price, 15);
@@ -116,6 +120,7 @@ void main() {
               'grader': 'Raw',
               'grade': null,
               'condition': 'Near Mint',
+              'finish': 'Normal',
             },
           ],
         });
@@ -139,6 +144,7 @@ void main() {
               days: 30,
               grader: 'Raw',
               condition: 'Near Mint',
+              finish: 'Normal',
             ),
           ]);
 
@@ -300,6 +306,7 @@ void main() {
     'getMarketPrices preserves graded identity and history because duplicate product subtypes are not unique',
     () async {
       final adapter = _RecordingAdapter((request) {
+        expect(request.queryParameters['finish'], 'Foil');
         return _json(200, {
           'success': true,
           'data': {
@@ -325,7 +332,7 @@ void main() {
 
       final price = (await CardDataApiClient(
         _dio(adapter),
-      ).getMarketPrices('100')).single;
+      ).getMarketPrices('100', finish: 'Foil')).single;
 
       expect(price.pricechartingId, 'pc-100-foil');
       expect(price.productSubType, 'Foil');
