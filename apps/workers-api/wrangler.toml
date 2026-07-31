@@ -19,7 +19,7 @@ routes = [{ pattern = "api.tcgcard.fun", custom_domain = true }]
 
 [env.prod.vars]
 GOOGLE_CLIENT_ID = "134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com"
-APPLE_CLIENT_ID = "com.kando.kandoApp.beta"
+APPLE_CLIENT_ID = "com.cardai.tcg"
 ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Card Ai"
@@ -46,7 +46,7 @@ routes = [{ pattern = "api-dev.tcgcard.fun", custom_domain = true }]
 
 [env.dev.vars]
 GOOGLE_CLIENT_ID = "134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com"
-APPLE_CLIENT_ID = "com.kando.kandoApp.beta"
+APPLE_CLIENT_ID = "com.cardai.tcg"
 ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Card Ai Dev"
