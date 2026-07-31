@@ -1,9 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/oauth_authorizer.dart';
+import 'package:kando_app/shared/api/api_environment.dart';
 
 void main() {
   test(
-    'uses the iOS client audience without misclassifying it as a server client',
+    'uses the environment iOS audience so Workers can verify the token',
     () async {
       String? configuredClientId;
       String? configuredServerClientId;
@@ -17,7 +18,12 @@ void main() {
 
       await authorizer.initialize();
 
-      expect(configuredClientId, googleIosClientId);
+      expect(
+        configuredClientId,
+        AppConfig.environment == AppEnvironment.production
+            ? '1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com'
+            : '490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n.apps.googleusercontent.com',
+      );
       expect(configuredServerClientId, isNull);
     },
   );
