@@ -932,6 +932,7 @@ class _CollectionItemSummaryCard extends StatelessWidget {
     final status = _CollectionStatusParts.fromText(item.statusText);
 
     return Container(
+      key: Key('card-detail-collection-item-${item.id}'),
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
@@ -995,17 +996,23 @@ class _CollectionItemSummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
+          _CollectionDetailRow(label: 'FINISH', value: item.finishText),
+          const SizedBox(height: 12),
+          _CollectionDetailRow(label: 'LANGUAGE', value: item.languageText),
+          const SizedBox(height: 12),
           _CollectionDetailRow(label: 'GRADER', value: status.grader),
           const SizedBox(height: 12),
           _CollectionDetailRow(label: status.detailLabel, value: status.detail),
           const SizedBox(height: 12),
-          _CollectionDetailRow(label: 'LANGUAGE', value: item.languageText),
-          const SizedBox(height: 12),
-          _CollectionDetailRow(label: 'FINISH', value: item.finishText),
-          const SizedBox(height: 12),
           _CollectionDetailRow(
             label: 'PURCHASE PRICE',
             value: item.purchasePriceText,
+            accentValue: true,
+          ),
+          const SizedBox(height: 12),
+          _CollectionDetailRow(
+            label: 'CURRENT MARKET PRICE',
+            value: item.marketPriceText,
             accentValue: true,
           ),
           if (item.notes.isNotEmpty) ...[
@@ -1336,7 +1343,10 @@ Future<void> _openAddCollectionItemSheet(
   );
 
   if (saved == true && context.mounted) {
-    showKandoTopSuccessToast(context);
+    showKandoCenteredSuccessToast(
+      context,
+      message: portfolioCardAddedToastText,
+    );
   }
 
   final current = container.read(provider);
@@ -1526,34 +1536,48 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                         key: const Key('card-detail-item-submit'),
                         style: FilledButton.styleFrom(
                           backgroundColor: KandoColors.accent,
+                          disabledBackgroundColor: KandoColors.accent,
                           foregroundColor: KandoColors.ink,
+                          disabledForegroundColor: KandoColors.ink,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: const StadiumBorder(),
                           textStyle: const TextStyle(fontSize: 16),
                         ),
-                        onPressed: () async {
-                          ref
-                              .read(analyticsProvider)
-                              .track(
-                                AnalyticsEvent.collectionItemAddClick,
-                                properties: {
-                                  AnalyticsProperty.ipType: analyticsIpType(
-                                    state.detail.game,
-                                  ),
-                                  AnalyticsProperty.gradeType:
-                                      draft.grader.toLowerCase() == 'raw'
-                                      ? AnalyticsValue.gradeNormal
-                                      : AnalyticsValue.gradeGraded,
-                                  AnalyticsProperty.entrySource: entrySource,
-                                },
-                              );
-                          final saved = await controller
-                              .saveCollectionItemDraft();
-                          if (saved && context.mounted) {
-                            Navigator.of(context).pop(true);
-                          }
-                        },
-                        icon: const Icon(Icons.add_circle_outline),
+                        onPressed: state.isSavingCollectionItemDraft
+                            ? null
+                            : () async {
+                                ref
+                                    .read(analyticsProvider)
+                                    .track(
+                                      AnalyticsEvent.collectionItemAddClick,
+                                      properties: {
+                                        AnalyticsProperty.ipType:
+                                            analyticsIpType(state.detail.game),
+                                        AnalyticsProperty.gradeType:
+                                            draft.grader.toLowerCase() == 'raw'
+                                            ? AnalyticsValue.gradeNormal
+                                            : AnalyticsValue.gradeGraded,
+                                        AnalyticsProperty.entrySource:
+                                            entrySource,
+                                      },
+                                    );
+                                final saved = await controller
+                                    .saveCollectionItemDraft();
+                                if (saved && context.mounted) {
+                                  Navigator.of(context).pop(true);
+                                }
+                              },
+                        icon: state.isSavingCollectionItemDraft
+                            ? const SizedBox(
+                                key: Key('card-detail-item-submit-loading'),
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: KandoColors.ink,
+                                ),
+                              )
+                            : const Icon(Icons.add_circle_outline),
                         label: const Text('Add this card'),
                       ),
                     ),
@@ -1703,6 +1727,19 @@ class _CollectionItemForm extends StatelessWidget {
       );
     }
 
+    if (!isEditing && embedded) {
+      return _CollectionItemAddForm(
+        state: state,
+        controller: controller,
+        draft: draft,
+        languageValue: languageValue,
+        finishValue: finishValue,
+        languageOptions: languageOptions,
+        finishOptions: finishOptions,
+        gradeValue: gradeValue,
+      );
+    }
+
     final content = Theme(
       data: _formFieldTheme(context),
       child: Column(
@@ -1815,8 +1852,9 @@ class _CollectionItemForm extends StatelessWidget {
             label: 'Finish',
             value: finishValue,
             options: finishOptions,
-            onSelected: (value) {
+            onSelected: (value) async {
               controller.updateCollectionItemDraft(finish: value);
+              await controller.selectPriceFinish(value);
             },
           ),
           const SizedBox(height: 12),
@@ -1923,6 +1961,176 @@ class _CollectionItemForm extends StatelessWidget {
   }
 }
 
+class _CollectionItemAddForm extends StatelessWidget {
+  const _CollectionItemAddForm({
+    required this.state,
+    required this.controller,
+    required this.draft,
+    required this.languageValue,
+    required this.finishValue,
+    required this.languageOptions,
+    required this.finishOptions,
+    required this.gradeValue,
+  });
+
+  final CardDetailState state;
+  final CardDetailController controller;
+  final CardCollectionItemDraft draft;
+  final String languageValue;
+  final String finishValue;
+  final List<String> languageOptions;
+  final List<String> finishOptions;
+  final String gradeValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('OWNERSHIP SUMMARY', style: _kCollectionEditLabelStyle),
+        const SizedBox(height: 12),
+        _CollectionEditTextField(
+          key: const Key('card-detail-item-quantity'),
+          label: 'QUANTITY',
+          initialValue: draft.quantityText,
+          keyboardType: TextInputType.number,
+          onChanged: (value) {
+            controller.updateCollectionItemDraft(quantityText: value);
+          },
+        ),
+        const SizedBox(height: 28),
+        const Divider(height: 1, color: _kCollectionOutline),
+        const SizedBox(height: 20),
+        _CollectionPillGroup(
+          key: const Key('card-detail-item-finish'),
+          label: 'CARD VERSION  /  FINISH',
+          selected: finishValue,
+          options: finishOptions,
+          columns: 3,
+          onSelected: (value) async {
+            controller.updateCollectionItemDraft(finish: value);
+            await controller.selectPriceFinish(value);
+          },
+        ),
+        const SizedBox(height: 24),
+        _ChoiceField(
+          key: const Key('card-detail-item-language'),
+          label: 'LANGUAGE',
+          value: languageValue,
+          options: languageOptions,
+          onSelected: (value) {
+            controller.updateCollectionItemDraft(language: value);
+          },
+        ),
+        const SizedBox(height: 28),
+        const Divider(height: 1, color: _kCollectionOutline),
+        const SizedBox(height: 20),
+        _CollectionCardStateSelector(
+          isRaw: draft.isRaw,
+          onRawSelected: () {
+            controller.updateCollectionItemDraft(grader: 'Raw');
+          },
+          onGradedSelected: () {
+            controller.updateCollectionItemDraft(
+              grader: draft.isRaw ? 'PSA' : draft.grader,
+              grade: cardCollectionGradeValues.first,
+            );
+          },
+        ),
+        const SizedBox(height: 24),
+        if (draft.isRaw)
+          _CollectionPillGroup(
+            key: const Key('card-detail-item-condition'),
+            label: 'CONDITION',
+            selected: draft.condition,
+            options: _optionsWithSelected(
+              _kEditConditionOptions,
+              draft.condition,
+            ),
+            columns: 1,
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(condition: value);
+            },
+          )
+        else ...[
+          _CollectionPillGroup(
+            key: const Key('card-detail-item-grader'),
+            label: 'GRADER',
+            selected: draft.grader,
+            options: _optionsWithSelected(
+              _kEditGraderOptions.where((value) => value != 'Raw').toList(),
+              draft.grader,
+            ),
+            columns: 3,
+            onSelected: (value) async {
+              controller.updateCollectionItemDraft(grader: value);
+              final grade = await _showChoiceSheet(
+                context,
+                title: 'Grade',
+                selected: cardCollectionGradeValues.first,
+                options: cardCollectionGradeValues,
+              );
+              if (grade != null) {
+                controller.updateCollectionItemDraft(grade: grade);
+              }
+            },
+          ),
+          const SizedBox(height: 24),
+          _ChoiceField(
+            key: const Key('card-detail-item-grade'),
+            label: 'GRADE',
+            value: gradeValue,
+            options: cardCollectionGradeValues,
+            displayBuilder: (grade) => '${draft.grader} $grade',
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(grade: value);
+            },
+          ),
+        ],
+        const SizedBox(height: 28),
+        const Divider(height: 1, color: _kCollectionOutline),
+        const SizedBox(height: 20),
+        _CollectionSelectedCardSummary(
+          value: state.collectionItemDraftSelectionText,
+        ),
+        const SizedBox(height: 20),
+        _CollectionEditTextField(
+          key: const Key('card-detail-item-purchase-price'),
+          label: 'PURCHASE PRICE',
+          initialValue: draft.purchasePriceText,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          accentText: true,
+          onChanged: (value) {
+            controller.updateCollectionItemDraft(purchasePriceText: value);
+          },
+        ),
+        const SizedBox(height: 20),
+        _CollectionCurrentMarketPrice(
+          selection: state.collectionItemDraftSelectionText,
+          price: state.collectionItemDraftMarketPriceText,
+        ),
+        const SizedBox(height: 28),
+        const Text('NOTES', style: _kCollectionHeadlineStyle),
+        const SizedBox(height: 12),
+        _CollectionEditTextArea(
+          key: const Key('card-detail-item-notes'),
+          initialValue: draft.notes,
+          onChanged: (value) {
+            controller.updateCollectionItemDraft(notes: value);
+          },
+        ),
+        if (state.collectionItemFormError != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            state.collectionItemFormError!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _CollectionItemEditCard extends StatelessWidget {
   const _CollectionItemEditCard({
     required this.state,
@@ -1964,8 +2172,14 @@ class _CollectionItemEditCard extends StatelessWidget {
             children: [
               const Expanded(
                 child: Text(
-                  'OWNERSHIP\nSUMMARY',
-                  style: _kCollectionHeadlineStyle,
+                  'Edit collection item',
+                  style: TextStyle(
+                    fontFamily: 'Fraunces',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    height: 28 / 20,
+                    color: KandoColors.text,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1980,7 +2194,7 @@ class _CollectionItemEditCard extends StatelessWidget {
               const SizedBox(width: 8),
               _CollectionEditActionButton(
                 buttonKey: const Key('card-detail-item-submit'),
-                label: 'Save changes',
+                label: 'Save',
                 accent: true,
                 loading: state.isSavingCollectionItemDraft,
                 onPressed: () async {
@@ -1990,6 +2204,8 @@ class _CollectionItemEditCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
+          const Text('OWNERSHIP SUMMARY', style: _kCollectionEditLabelStyle),
+          const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2022,28 +2238,45 @@ class _CollectionItemEditCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 32),
+          const Divider(height: 1, thickness: 1, color: _kCollectionOutline),
+          const SizedBox(height: 24),
           _CollectionPillGroup(
-            key: const Key('card-detail-item-grader'),
-            label: 'GRADER',
-            selected: draft.grader,
-            options: _optionsWithSelected(_kEditGraderOptions, draft.grader),
+            key: const Key('card-detail-item-finish'),
+            label: 'CARD VERSION  /  FINISH',
+            selected: finishValue,
+            options: finishOptions,
             columns: 3,
-            onSelected: (value) async {
-              controller.updateCollectionItemDraft(grader: value);
-              if (value == 'Raw') return;
-
-              final grade = await _showChoiceSheet(
-                context,
-                title: 'GRADE',
-                selected: cardCollectionGradeValues.first,
-                options: cardCollectionGradeValues,
-              );
-              if (grade != null) {
-                controller.updateCollectionItemDraft(grade: grade);
-              }
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(finish: value);
+            },
+          ),
+          const SizedBox(height: 24),
+          _ChoiceField(
+            key: const Key('card-detail-item-language'),
+            label: 'LANGUAGE',
+            value: languageValue,
+            options: languageOptions,
+            onSelected: (value) {
+              controller.updateCollectionItemDraft(language: value);
             },
           ),
           const SizedBox(height: 32),
+          const Divider(height: 1, thickness: 1, color: _kCollectionOutline),
+          const SizedBox(height: 24),
+          _CollectionCardStateSelector(
+            isRaw: draft.isRaw,
+            onRawSelected: () {
+              controller.updateCollectionItemDraft(grader: 'Raw');
+            },
+            onGradedSelected: () {
+              final grader = draft.isRaw ? 'PSA' : draft.grader;
+              controller.updateCollectionItemDraft(
+                grader: grader,
+                grade: cardCollectionGradeValues.first,
+              );
+            },
+          ),
+          const SizedBox(height: 24),
           if (draft.isRaw)
             _CollectionPillGroup(
               key: const Key('card-detail-item-condition'),
@@ -2059,37 +2292,53 @@ class _CollectionItemEditCard extends StatelessWidget {
               },
             )
           else
-            _ChoiceField(
-              key: const Key('card-detail-item-grade'),
-              label: 'GRADE',
-              value: gradeValue,
-              options: cardCollectionGradeValues,
-              displayBuilder: (grade) => '${draft.grader} $grade',
-              onSelected: (value) {
-                controller.updateCollectionItemDraft(grade: value);
-              },
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _CollectionPillGroup(
+                  key: const Key('card-detail-item-grader'),
+                  label: 'GRADER',
+                  selected: draft.grader,
+                  options: _optionsWithSelected(
+                    _kEditGraderOptions
+                        .where((value) => value != 'Raw')
+                        .toList(),
+                    draft.grader,
+                  ),
+                  columns: 3,
+                  onSelected: (value) async {
+                    controller.updateCollectionItemDraft(grader: value);
+                    final grade = await _showChoiceSheet(
+                      context,
+                      title: 'GRADE',
+                      selected: cardCollectionGradeValues.first,
+                      options: cardCollectionGradeValues,
+                    );
+                    if (grade != null) {
+                      controller.updateCollectionItemDraft(grade: grade);
+                    }
+                  },
+                ),
+                const SizedBox(height: 24),
+                _ChoiceField(
+                  key: const Key('card-detail-item-grade'),
+                  label: 'GRADE',
+                  value: gradeValue,
+                  options: cardCollectionGradeValues,
+                  displayBuilder: (grade) => '${draft.grader} $grade',
+                  onSelected: (value) {
+                    controller.updateCollectionItemDraft(grade: value);
+                  },
+                ),
+              ],
             ),
           const SizedBox(height: 32),
-          _ChoiceField(
-            key: const Key('card-detail-item-language'),
-            label: 'LANGUAGE',
-            value: languageValue,
-            options: languageOptions,
-            onSelected: (value) {
-              controller.updateCollectionItemDraft(language: value);
-            },
+          const Divider(height: 1, thickness: 1, color: _kCollectionOutline),
+          const SizedBox(height: 24),
+          _CollectionSelectedCardSummary(
+            value: state.collectionItemDraftSelectionText,
           ),
-          const SizedBox(height: 32),
-          _ChoiceField(
-            key: const Key('card-detail-item-finish'),
-            label: 'FINISH',
-            value: finishValue,
-            options: finishOptions,
-            onSelected: (value) {
-              controller.updateCollectionItemDraft(finish: value);
-            },
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
           _CollectionEditTextField(
             key: const Key('card-detail-item-purchase-price'),
             label: 'PURCHASE PRICE',
@@ -2100,9 +2349,12 @@ class _CollectionItemEditCard extends StatelessWidget {
               controller.updateCollectionItemDraft(purchasePriceText: value);
             },
           ),
-          const SizedBox(height: 28),
-          const Divider(height: 1, thickness: 1, color: _kCollectionOutline),
-          const SizedBox(height: 33),
+          const SizedBox(height: 20),
+          _CollectionCurrentMarketPrice(
+            selection: state.collectionItemDraftSelectionText,
+            price: state.collectionItemDraftMarketPriceText,
+          ),
+          const SizedBox(height: 32),
           const Text('NOTES', style: _kCollectionHeadlineStyle),
           const SizedBox(height: 12),
           _CollectionEditTextArea(
@@ -2119,6 +2371,118 @@ class _CollectionItemEditCard extends StatelessWidget {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionSelectedCardSummary extends StatelessWidget {
+  const _CollectionSelectedCardSummary({required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('card-detail-item-selected-card'),
+      padding: const EdgeInsets.only(bottom: 18),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _kCollectionOutline)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('SELECTED CARD', style: _kCollectionEditLabelStyle),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: KandoColors.accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 22 / 16,
+                    fontWeight: FontWeight.w600,
+                    color: KandoColors.text,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionCurrentMarketPrice extends StatelessWidget {
+  const _CollectionCurrentMarketPrice({
+    required this.selection,
+    required this.price,
+  });
+
+  final String selection;
+  final String price;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('card-detail-item-market-price'),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(color: _kCollectionOutline),
+          bottom: BorderSide(color: _kCollectionOutline),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Current Market Price',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: KandoColors.text,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  selection,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: _kCollectionEditLabelStyle,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            price,
+            maxLines: 1,
+            style: const TextStyle(
+              fontSize: 20,
+              height: 26 / 20,
+              fontWeight: FontWeight.w700,
+              color: KandoColors.text,
+            ),
+          ),
         ],
       ),
     );
@@ -2352,6 +2716,120 @@ class _CollectionPillGroup extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _CollectionCardStateSelector extends StatelessWidget {
+  const _CollectionCardStateSelector({
+    required this.isRaw,
+    required this.onRawSelected,
+    required this.onGradedSelected,
+  });
+
+  final bool isRaw;
+  final VoidCallback onRawSelected;
+  final VoidCallback onGradedSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const Key('card-detail-item-card-state'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('CARD STATE', style: _kCollectionEditLabelStyle),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _CollectionCardStateButton(
+                buttonKey: const Key('card-detail-item-state-raw'),
+                title: 'Raw',
+                subtitle: 'Unrated card',
+                selected: isRaw,
+                onPressed: onRawSelected,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _CollectionCardStateButton(
+                buttonKey: const Key('card-detail-item-state-graded'),
+                title: 'Graded',
+                subtitle: 'Certified card',
+                selected: !isRaw,
+                onPressed: onGradedSelected,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectionCardStateButton extends StatelessWidget {
+  const _CollectionCardStateButton({
+    required this.buttonKey,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final Key buttonKey;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: buttonKey,
+      color: selected
+          ? KandoColors.accent.withValues(alpha: 0.1)
+          : KandoColors.ink,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: selected ? KandoColors.accent : KandoColors.border,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onPressed,
+        child: SizedBox(
+          height: 58,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: selected
+                        ? KandoColors.accent
+                        : _kCollectionSecondaryText,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: _kCollectionSecondaryText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2652,17 +3130,33 @@ class _PriceOverview extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pricePoints = state.selectedPriceSeries;
-    final chartValues = pricePoints
-        .map((point) => point.priceUsd)
-        .whereType<double>()
-        .toList();
-    final chartPointDetails = pricePoints
-        .where((point) => point.priceUsd != null)
-        .toList();
+    final chartSeries = [
+      for (
+        var index = 0;
+        index < state.selectedPriceChartSeries.length;
+        index++
+      )
+        _DetailChartSeries(
+          label: state.selectedPriceChartSeries[index].label,
+          points:
+              state.selectedPriceChartSeries[index].seriesByRange[state
+                  .selectedPriceRange] ??
+              const [],
+          color: _kPriceChartColors[index % _kPriceChartColors.length],
+        ),
+    ].where((series) => series.points.length >= 2).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (state.priceFinishes.isNotEmpty) ...[
+          _FinishTabs(
+            finishes: state.priceFinishes,
+            selected: state.priceFinish,
+            onSelected: controller.selectPriceFinish,
+          ),
+          const SizedBox(height: 20),
+        ],
         const Text('Price', style: _kSectionTitleStyle),
         const SizedBox(height: 12),
         Container(
@@ -2696,6 +3190,10 @@ class _PriceOverview extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 20),
+              if (chartSeries.length > 1) ...[
+                _PriceChartLegend(series: chartSeries),
+                const SizedBox(height: 16),
+              ],
               SizedBox(
                 key: const Key('card-detail-price-chart'),
                 height: 192,
@@ -2709,17 +3207,14 @@ class _PriceOverview extends ConsumerWidget {
                         key: const Key('card-detail-price-chart-failure'),
                         onRefresh: controller.refreshPriceSeries,
                       )
-                    : chartValues.length < 2
+                    : chartSeries.isEmpty
                     ? Center(
                         child: Text(
                           state.priceSeriesFallbackText,
                           style: const TextStyle(color: KandoColors.mutedText),
                         ),
                       )
-                    : _InteractivePriceChart(
-                        values: chartValues,
-                        pointDetails: chartPointDetails,
-                      ),
+                    : _InteractivePriceChart(series: chartSeries),
               ),
               if (pricePoints.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -2765,6 +3260,7 @@ class _PriceOverview extends ConsumerWidget {
         const SizedBox(height: 12),
         _MarketPriceCategories(
           selected: state.selectedMarketPriceCategory,
+          categories: state.availableMarketPriceCategories,
           onSelected: controller.selectMarketPriceCategory,
         ),
         const SizedBox(height: 12),
@@ -2819,6 +3315,64 @@ class _PriceOverview extends ConsumerWidget {
             style: const TextStyle(color: KandoColors.mutedText),
           ),
       ],
+    );
+  }
+}
+
+class _FinishTabs extends StatelessWidget {
+  const _FinishTabs({
+    required this.finishes,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> finishes;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: KandoColors.surface,
+        border: Border.all(color: KandoColors.border.withValues(alpha: 0.7)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          for (final finish in finishes)
+            Expanded(
+              child: InkWell(
+                key: Key('card-detail-finish-$finish'),
+                borderRadius: BorderRadius.circular(6),
+                onTap: finish == selected ? null : () => onSelected(finish),
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: finish == selected
+                        ? KandoColors.accent
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    finish,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: finish == selected
+                          ? KandoColors.ink
+                          : KandoColors.mutedText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -2939,10 +3493,12 @@ class _MarketPricesTable extends StatelessWidget {
 class _MarketPriceCategories extends StatelessWidget {
   const _MarketPriceCategories({
     required this.selected,
+    required this.categories,
     required this.onSelected,
   });
 
   final CardMarketPriceCategory selected;
+  final List<CardMarketPriceCategory> categories;
   final ValueChanged<CardMarketPriceCategory> onSelected;
 
   @override
@@ -2951,7 +3507,7 @@ class _MarketPriceCategories extends StatelessWidget {
       spacing: 4,
       runSpacing: 8,
       children: [
-        for (final category in CardMarketPriceCategory.values)
+        for (final category in categories)
           InkWell(
             key: Key('card-detail-market-category-${category.name}'),
             borderRadius: BorderRadius.circular(999),
@@ -3139,14 +3695,69 @@ class _ShopTile extends StatelessWidget {
   }
 }
 
-class _InteractivePriceChart extends StatefulWidget {
-  const _InteractivePriceChart({
-    required this.values,
-    required this.pointDetails,
+const _kPriceChartColors = [
+  KandoColors.accent,
+  Color(0xFF53D8C4),
+  Color(0xFFFFB15A),
+  Color(0xFFC6A7FF),
+  Color(0xFF7DCB72),
+  Color(0xFFE782A9),
+];
+
+class _DetailChartSeries {
+  const _DetailChartSeries({
+    required this.label,
+    required this.points,
+    required this.color,
   });
 
-  final List<double> values;
-  final List<CardPricePoint> pointDetails;
+  final String label;
+  final List<CardPricePoint> points;
+  final Color color;
+}
+
+class _PriceChartLegend extends StatelessWidget {
+  const _PriceChartLegend({required this.series});
+
+  final List<_DetailChartSeries> series;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 14,
+      runSpacing: 10,
+      children: [
+        for (final item in series)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 10, height: 2, color: item.color),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: KandoColors.mutedText,
+                      fontSize: 9,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _InteractivePriceChart extends StatefulWidget {
+  const _InteractivePriceChart({required this.series});
+
+  final List<_DetailChartSeries> series;
 
   @override
   State<_InteractivePriceChart> createState() => _InteractivePriceChartState();
@@ -3156,29 +3767,44 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
   int? _selectedIndex;
 
   String get _semanticValue {
-    if (widget.values.isEmpty) return 'No chart data';
+    if (widget.series.isEmpty) return 'No chart data';
     final selectedIndex = _selectedIndex;
     if (selectedIndex == null) return 'No chart point selected';
-    final index = selectedIndex.clamp(0, widget.pointDetails.length - 1);
-    final point = widget.pointDetails[index];
-    return 'Date: ${point.dateLabel}, Price: ${_formatDetailChartPrice(point)}';
+    final primary = widget.series.first.points;
+    final index = selectedIndex.clamp(0, primary.length - 1);
+    final point = primary[index];
+    final values = widget.series
+        .map((series) {
+          final seriesIndex =
+              ((index / (primary.length - 1)) * (series.points.length - 1))
+                  .round();
+          final label = widget.series.length == 1 ? 'Price' : series.label;
+          return '$label: ${_formatDetailChartPrice(series.points[seriesIndex])}';
+        })
+        .join(', ');
+    return 'Date: ${point.dateLabel}, $values';
   }
 
   @override
   void didUpdateWidget(covariant _InteractivePriceChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.values != widget.values ||
-        oldWidget.pointDetails != widget.pointDetails) {
+    if (oldWidget.series != widget.series) {
       _selectedIndex = null;
     }
   }
 
   void _selectAt(double localX, double width) {
-    if (widget.values.length < 2 || width <= 0) return;
+    final pointCount = widget.series.first.points.length;
+    if (pointCount < 2 || width <= 0) return;
     final normalizedX = (localX / width).clamp(0.0, 1.0);
-    final index = (normalizedX * (widget.values.length - 1)).round();
+    final index = (normalizedX * (pointCount - 1)).round();
     if (index == _selectedIndex) return;
     setState(() => _selectedIndex = index);
+  }
+
+  void _clearSelection() {
+    if (_selectedIndex == null) return;
+    setState(() => _selectedIndex = null);
   }
 
   @override
@@ -3192,18 +3818,18 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
           value: _semanticValue,
           child: MouseRegion(
             onHover: (event) => _selectAt(event.localPosition.dx, width),
-            child: GestureDetector(
+            onExit: (_) => _clearSelection(),
+            child: Listener(
               behavior: HitTestBehavior.opaque,
-              onTapDown: (details) =>
-                  _selectAt(details.localPosition.dx, width),
-              onHorizontalDragStart: (details) =>
-                  _selectAt(details.localPosition.dx, width),
-              onHorizontalDragUpdate: (details) =>
-                  _selectAt(details.localPosition.dx, width),
+              onPointerDown: (event) =>
+                  _selectAt(event.localPosition.dx, width),
+              onPointerMove: (event) =>
+                  _selectAt(event.localPosition.dx, width),
+              onPointerUp: (_) => _clearSelection(),
+              onPointerCancel: (_) => _clearSelection(),
               child: CustomPaint(
                 painter: _PriceChartPainter(
-                  values: widget.values,
-                  pointDetails: widget.pointDetails,
+                  series: widget.series,
                   selectedIndex: _selectedIndex,
                 ),
                 child: const SizedBox.expand(),
@@ -3217,14 +3843,9 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
 }
 
 class _PriceChartPainter extends CustomPainter {
-  const _PriceChartPainter({
-    required this.values,
-    required this.pointDetails,
-    required this.selectedIndex,
-  });
+  const _PriceChartPainter({required this.series, required this.selectedIndex});
 
-  final List<double> values;
-  final List<CardPricePoint> pointDetails;
+  final List<_DetailChartSeries> series;
   final int? selectedIndex;
 
   @override
@@ -3237,83 +3858,113 @@ class _PriceChartPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
-    if (values.length < 2) return;
+    if (series.isEmpty) return;
+    final allValues = series
+        .expand((item) => item.points)
+        .map((point) => point.priceUsd)
+        .whereType<double>()
+        .toList();
+    if (allValues.length < 2) return;
 
-    final minValue = values.reduce(math.min);
-    final maxValue = values.reduce(math.max);
+    final minValue = allValues.reduce(math.min);
+    final maxValue = allValues.reduce(math.max);
     final range = maxValue - minValue;
     const topInset = 16.0;
     const bottomInset = 12.0;
-    final chartOffsets = <Offset>[];
-
-    for (var index = 0; index < values.length; index++) {
-      final x = size.width * index / (values.length - 1);
-      final normalized = range == 0 ? 0.5 : (values[index] - minValue) / range;
-      final y =
-          size.height -
-          bottomInset -
-          normalized * (size.height - topInset - bottomInset);
-      chartOffsets.add(Offset(x, y));
+    final offsetsBySeries = <List<Offset>>[];
+    for (final item in series) {
+      final offsets = <Offset>[];
+      for (var index = 0; index < item.points.length; index++) {
+        final value = item.points[index].priceUsd;
+        if (value == null) continue;
+        final x = size.width * index / (item.points.length - 1);
+        final normalized = range == 0 ? 0.5 : (value - minValue) / range;
+        final y =
+            size.height -
+            bottomInset -
+            normalized * (size.height - topInset - bottomInset);
+        offsets.add(Offset(x, y));
+      }
+      offsetsBySeries.add(offsets);
+      if (offsets.length < 2) continue;
+      final path = Path()..moveTo(offsets.first.dx, offsets.first.dy);
+      for (var index = 1; index < offsets.length; index++) {
+        path.lineTo(offsets[index].dx, offsets[index].dy);
+      }
+      if (series.length == 1) {
+        final area = Path.from(path)
+          ..lineTo(size.width, size.height)
+          ..lineTo(0, size.height)
+          ..close();
+        canvas.drawPath(
+          area,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                item.color.withValues(alpha: 0.16),
+                item.color.withValues(alpha: 0),
+              ],
+            ).createShader(Offset.zero & size),
+        );
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = item.color
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke,
+      );
     }
-
-    final path = Path()..moveTo(chartOffsets.first.dx, chartOffsets.first.dy);
-    for (var index = 1; index < chartOffsets.length; index++) {
-      path.lineTo(chartOffsets[index].dx, chartOffsets[index].dy);
-    }
-
-    final area = Path.from(path)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(
-      area,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            KandoColors.accent.withValues(alpha: 0.16),
-            KandoColors.accent.withValues(alpha: 0),
-          ],
-        ).createShader(Offset.zero & size),
-    );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = KandoColors.accent
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke,
-    );
 
     final selectedIndex = this.selectedIndex;
     if (selectedIndex == null) {
-      canvas.drawCircle(
-        chartOffsets.last,
-        3,
-        Paint()..color = KandoColors.accent,
-      );
+      for (var index = 0; index < series.length; index++) {
+        final offsets = offsetsBySeries[index];
+        if (offsets.isNotEmpty) {
+          canvas.drawCircle(
+            offsets.last,
+            3,
+            Paint()..color = series[index].color,
+          );
+        }
+      }
       return;
     }
-    final resolvedSelectedIndex = selectedIndex
-        .clamp(0, chartOffsets.length - 1)
-        .toInt();
-    final selected = pointDetails[resolvedSelectedIndex];
-    final selectedOffset = chartOffsets[resolvedSelectedIndex];
+    final primaryPoints = series.first.points;
+    final resolvedSelectedIndex = selectedIndex.clamp(
+      0,
+      primaryPoints.length - 1,
+    );
+    final selected = primaryPoints[resolvedSelectedIndex];
+    final selectedFraction = resolvedSelectedIndex / (primaryPoints.length - 1);
+    final selectedX = size.width * selectedFraction;
     final xAxisY = size.height - bottomInset;
     _drawPriceChartDashedLine(
       canvas,
-      Offset(selectedOffset.dx, 0),
-      Offset(selectedOffset.dx, xAxisY),
+      Offset(selectedX, 0),
+      Offset(selectedX, xAxisY),
       Paint()
         ..color = KandoColors.accent.withValues(alpha: 0.7)
         ..strokeWidth = 1,
     );
-    canvas.drawCircle(
-      selectedOffset,
-      6,
-      Paint()..color = KandoColors.accent.withValues(alpha: 0.2),
-    );
-    canvas.drawCircle(selectedOffset, 3, Paint()..color = KandoColors.accent);
+    final selectedPoints = <CardPricePoint>[];
+    for (var index = 0; index < series.length; index++) {
+      final pointIndex = (selectedFraction * (series[index].points.length - 1))
+          .round();
+      selectedPoints.add(series[index].points[pointIndex]);
+      final offsets = offsetsBySeries[index];
+      if (offsets.isEmpty) continue;
+      final offsetIndex = (selectedFraction * (offsets.length - 1)).round();
+      final offset = offsets[offsetIndex];
+      canvas.drawCircle(
+        offset,
+        6,
+        Paint()..color = series[index].color.withValues(alpha: 0.2),
+      );
+      canvas.drawCircle(offset, 3, Paint()..color = series[index].color);
+    }
 
     final datePainter = TextPainter(
       text: TextSpan(
@@ -3326,35 +3977,47 @@ class _PriceChartPainter extends CustomPainter {
         ),
       ),
       maxLines: 1,
+      ellipsis: '...',
       textDirection: TextDirection.ltr,
-    )..layout();
-    final pricePainter = TextPainter(
-      text: TextSpan(
-        text: 'Price: ${_formatDetailChartPrice(selected)}',
-        style: const TextStyle(
-          color: KandoColors.accent,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          height: 16 / 11,
-        ),
-      ),
-      maxLines: 1,
-      textDirection: TextDirection.ltr,
-    )..layout();
+    )..layout(maxWidth: math.max(0.0, size.width - 16));
+    final maxTooltipRows = math.max(1, ((size.height - 28) / 14).floor());
+    final tooltipSeriesCount = math.min(series.length, maxTooltipRows);
+    final pricePainters = [
+      for (var index = 0; index < tooltipSeriesCount; index++)
+        TextPainter(
+          text: TextSpan(
+            text:
+                '${series[index].label}: ${_formatDetailChartPrice(selectedPoints[index])}',
+            style: TextStyle(
+              color: series[index].color,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              height: 14 / 10,
+            ),
+          ),
+          maxLines: 1,
+          ellipsis: '...',
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: math.max(0.0, size.width - 16)),
+    ];
     final tooltipSize = Size(
-      math.max(datePainter.width, pricePainter.width) + 16,
-      52,
+      math.min(
+        size.width,
+        [
+              datePainter.width,
+              ...pricePainters.map((item) => item.width),
+            ].reduce(math.max) +
+            16,
+      ),
+      math.min(size.height, 28 + pricePainters.length * 14),
     );
-    final preferredLeft =
-        selectedOffset.dx + tooltipSize.width + 12 <= size.width
-        ? selectedOffset.dx + 12
-        : selectedOffset.dx - tooltipSize.width - 12;
+    final preferredLeft = selectedX + tooltipSize.width + 12 <= size.width
+        ? selectedX + 12
+        : selectedX - tooltipSize.width - 12;
     final tooltipLeft = preferredLeft
         .clamp(0.0, size.width - tooltipSize.width)
         .toDouble();
-    final preferredTop = selectedOffset.dy - tooltipSize.height - 8 >= 0
-        ? selectedOffset.dy - tooltipSize.height - 8
-        : selectedOffset.dy + 8;
+    const preferredTop = 4.0;
     final tooltipTop = preferredTop
         .clamp(0.0, size.height - tooltipSize.height)
         .toDouble();
@@ -3375,13 +4038,17 @@ class _PriceChartPainter extends CustomPainter {
         ..style = PaintingStyle.stroke,
     );
     datePainter.paint(canvas, tooltipRect.topLeft + const Offset(8, 8));
-    pricePainter.paint(canvas, tooltipRect.topLeft + const Offset(8, 28));
+    for (var index = 0; index < pricePainters.length; index++) {
+      pricePainters[index].paint(
+        canvas,
+        tooltipRect.topLeft + Offset(8, 24 + index * 14),
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _PriceChartPainter oldDelegate) {
-    return oldDelegate.values != values ||
-        oldDelegate.pointDetails != pointDetails ||
+    return oldDelegate.series != series ||
         oldDelegate.selectedIndex != selectedIndex;
   }
 }
@@ -3423,50 +4090,10 @@ Future<void> _confirmRemoveWishlist(
   CardDetailController controller,
 ) {
   _trackFromContext(context, AnalyticsEvent.deleteClick);
-  return showDialog<void>(
+  return _showRemoveConfirmationSheet(
     context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: const Text('Remove from Wishlist'),
-        content: const Text('Remove this card from your Wishlist?'),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: KandoColors.mutedText),
-            onPressed: () {
-              _trackFromContext(dialogContext, AnalyticsEvent.cancelClick);
-              Navigator.of(dialogContext).pop();
-            },
-            child: const Text('Cancel'),
-          ),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFACC15),
-              foregroundColor: KandoColors.ink,
-              shape: const StadiumBorder(),
-            ),
-            onPressed: () async {
-              _trackFromContext(
-                dialogContext,
-                AnalyticsEvent.deleteConfirmClick,
-              );
-              try {
-                await controller.toggleWishlist();
-              } catch (_) {
-                if (dialogContext.mounted) {
-                  showKandoFailureToast(dialogContext);
-                }
-                return;
-              }
-              if (dialogContext.mounted) {
-                Navigator.of(dialogContext).pop();
-              }
-            },
-            icon: const _RemoveActionIcon(),
-            label: const Text('Remove'),
-          ),
-        ],
-      );
-    },
+    title: 'This card will be removed from your wishlist',
+    onRemove: controller.toggleWishlist,
   );
 }
 
@@ -3476,42 +4103,165 @@ Future<void> _confirmRemoveCollectionItem(
   String itemId,
 ) {
   _trackFromContext(context, AnalyticsEvent.deleteClick);
-  return showDialog<void>(
+  return _showRemoveConfirmationSheet(
     context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('Remove from Portfolio'),
-        content: const Text('Remove this Collection Item from your portfolio?'),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: KandoColors.mutedText),
-            onPressed: () {
-              _trackFromContext(context, AnalyticsEvent.cancelClick);
-              Navigator.of(context).pop();
-            },
-            child: const Text('Cancel'),
-          ),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: KandoColors.accent,
-              foregroundColor: KandoColors.ink,
-              shape: const StadiumBorder(),
-            ),
-            onPressed: () async {
-              _trackFromContext(context, AnalyticsEvent.deleteConfirmClick);
-              await controller.removeCollectionItem(itemId);
-              if (!context.mounted) {
-                return;
-              }
-              Navigator.of(context).pop();
-            },
-            icon: const _RemoveActionIcon(),
-            label: const Text('Remove'),
-          ),
-        ],
-      );
-    },
+    title: 'This card will be removed from your portfolio',
+    onRemove: () => controller.removeCollectionItem(itemId),
   );
+}
+
+Future<void> _showRemoveConfirmationSheet({
+  required BuildContext context,
+  required String title,
+  required Future<void> Function() onRemove,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.72),
+    builder: (sheetContext) => _RemoveConfirmationSheet(
+      title: title,
+      onCancel: () {
+        _trackFromContext(sheetContext, AnalyticsEvent.cancelClick);
+        Navigator.of(sheetContext).pop();
+      },
+      onRemove: () async {
+        _trackFromContext(sheetContext, AnalyticsEvent.deleteConfirmClick);
+        try {
+          await onRemove();
+        } catch (_) {
+          if (sheetContext.mounted) {
+            showKandoTopFailureToast(sheetContext);
+          }
+          return;
+        }
+        if (sheetContext.mounted) {
+          Navigator.of(sheetContext).pop();
+        }
+      },
+    ),
+  );
+}
+
+class _RemoveConfirmationSheet extends StatelessWidget {
+  const _RemoveConfirmationSheet({
+    required this.title,
+    required this.onCancel,
+    required this.onRemove,
+  });
+
+  final String title;
+  final VoidCallback onCancel;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('card-detail-remove-confirmation-sheet'),
+      color: const Color(0xFF222222),
+      clipBehavior: Clip.antiAlias,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Align(
+                child: Container(
+                  width: 48,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: const Color(0x66474836),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFFE4E3D3),
+                  fontFamily: 'Fraunces',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  height: 32 / 24,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: _RemoveConfirmationButton(
+                      key: const Key('card-detail-remove-confirmation-cancel'),
+                      label: 'CANCEL',
+                      backgroundColor: const Color(0xFF2A2B20),
+                      foregroundColor: const Color(0xFFE4E3D3),
+                      onPressed: onCancel,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _RemoveConfirmationButton(
+                      key: const Key('card-detail-remove-confirmation-submit'),
+                      label: 'REMOVE',
+                      backgroundColor: const Color(0xFFF0FE6F),
+                      foregroundColor: const Color(0xFF2C3400),
+                      onPressed: onRemove,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RemoveConfirmationButton extends StatelessWidget {
+  const _RemoveConfirmationButton({
+    super.key,
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.onPressed,
+  });
+
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: backgroundColor,
+          foregroundColor: foregroundColor,
+          side: const BorderSide(color: Color(0x14FFFFFF)),
+          padding: EdgeInsets.zero,
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            height: 24 / 16,
+            letterSpacing: 0,
+          ),
+        ),
+        onPressed: onPressed,
+        child: Text(label),
+      ),
+    );
+  }
 }
 
 void _trackFromContext(BuildContext context, String event) {

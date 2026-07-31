@@ -40,12 +40,14 @@ class ScanReviewTarget {
 
 class ScanReviewPrice {
   const ScanReviewPrice({
+    this.finish,
     required this.grader,
     required this.grade,
     required this.condition,
     required this.price,
   });
 
+  final String? finish;
   final String grader;
   final double? grade;
   final String? condition;
@@ -62,6 +64,8 @@ class ScanReviewCard {
     required this.imageUrl,
     required this.language,
     required this.finish,
+    this.availableLanguages = const [],
+    this.availableFinishes = const [],
     required this.prices,
   });
 
@@ -73,7 +77,15 @@ class ScanReviewCard {
   final String? imageUrl;
   final String? language;
   final String? finish;
+  final List<String> availableLanguages;
+  final List<String> availableFinishes;
   final List<ScanReviewPrice> prices;
+
+  List<String> get collectionLanguageOptions =>
+      availableLanguages.isEmpty ? [language ?? 'Unknown'] : availableLanguages;
+
+  List<String> get collectionFinishOptions =>
+      availableFinishes.isEmpty ? [finish ?? 'Unknown'] : availableFinishes;
 }
 
 abstract interface class ScanReviewRepository {
@@ -144,12 +156,32 @@ class ApiScanReviewRepository implements ScanReviewRepository {
     } on Exception {
       return null;
     }
-    List<CardDataMarketPriceDto> prices;
-    try {
-      prices = await _cardDataApi.getMarketPrices(cardRef);
-    } on Exception {
-      prices = const [];
-    }
+    final finishes = card.availableFinishes.isEmpty
+        ? <String?>[card.finish]
+        : card.availableFinishes.cast<String?>();
+    final prices = await Future.wait(
+      finishes.map((finish) async {
+        try {
+          final rows = await _cardDataApi.getMarketPrices(
+            cardRef,
+            finish: finish,
+          );
+          return rows
+              .map(
+                (price) => ScanReviewPrice(
+                  finish: finish,
+                  grader: price.grader,
+                  grade: price.grade,
+                  condition: price.condition,
+                  price: price.price,
+                ),
+              )
+              .toList();
+        } on Exception {
+          return <ScanReviewPrice>[];
+        }
+      }),
+    ).then((groups) => groups.expand((group) => group).toList());
     return MapEntry(
       cardRef,
       ScanReviewCard(
@@ -161,16 +193,9 @@ class ApiScanReviewRepository implements ScanReviewRepository {
         imageUrl: cardImageUrl(card.cardRef, CardImageVariant.detail),
         language: card.language,
         finish: card.finish,
-        prices: prices
-            .map(
-              (price) => ScanReviewPrice(
-                grader: price.grader,
-                grade: price.grade,
-                condition: price.condition,
-                price: price.price,
-              ),
-            )
-            .toList(),
+        availableLanguages: card.availableLanguages,
+        availableFinishes: card.availableFinishes,
+        prices: prices,
       ),
     );
   }

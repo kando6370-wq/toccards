@@ -19,6 +19,8 @@ void main() {
 
       expect(cards.keys, ['valid-card']);
       expect(cards['valid-card']?.name, 'Goldkiss Rum');
+      expect(cards['valid-card']?.availableLanguages, ['English', 'Japanese']);
+      expect(cards['valid-card']?.availableFinishes, ['Normal']);
       expect(cards['valid-card']?.prices, isEmpty);
     },
   );
@@ -36,6 +38,8 @@ class _PartialCardDataApi implements CardDataApi {
       cardNumber: '001',
       finish: 'Normal',
       language: 'English',
+      availableLanguages: ['English', 'Japanese'],
+      availableFinishes: ['Normal'],
       objectType: 'tcg',
       game: 'Flesh and Blood TCG',
       imageUrl: null,
@@ -44,7 +48,10 @@ class _PartialCardDataApi implements CardDataApi {
   }
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) {
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) {
     throw Exception('prices unavailable');
   }
 

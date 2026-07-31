@@ -117,7 +117,7 @@ describe("Cache API data source adapter", () => {
     expect(first).toEqual(second);
     expect(source.marketPriceCalls).toBe(1);
     expect(cache.puts[0]?.requestUrl).toBe(
-      "https://data-source-cache.invalid/getMarketPrices:v2:mock%3Atcg%3Acharizard",
+      "https://data-source-cache.invalid/getMarketPrices:v3:mock%3Atcg%3Acharizard",
     );
     expect(cache.puts[0]?.response.headers.get("Cache-Control")).toBe(
       "public, max-age=1800",

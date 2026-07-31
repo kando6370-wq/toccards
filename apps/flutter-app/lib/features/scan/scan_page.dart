@@ -35,6 +35,8 @@ enum _ScanItemStatus {
   added,
 }
 
+enum _ScanReviewSaveAction { single, all }
+
 const _viewfinderTop = 163.0;
 const _viewfinderWidth = 280.0;
 const _viewfinderHeight = 400.0;
@@ -92,6 +94,7 @@ class _ScanItem {
     required this.id,
     required this.pictureLabel,
     required this.status,
+    required this.usesCameraFeedback,
     this.match,
     this.imageBytes,
     this.displayImageBytes,
@@ -101,6 +104,7 @@ class _ScanItem {
   final int id;
   final String pictureLabel;
   final _ScanItemStatus status;
+  final bool usesCameraFeedback;
   final _ScanMatch? match;
   final Uint8List? imageBytes;
   final Uint8List? displayImageBytes;
@@ -117,6 +121,7 @@ class _ScanItem {
       id: id,
       pictureLabel: pictureLabel,
       status: status ?? this.status,
+      usesCameraFeedback: usesCameraFeedback,
       match: match ?? this.match,
       imageBytes: imageBytes ?? this.imageBytes,
       displayImageBytes: displayImageBytes ?? this.displayImageBytes,
@@ -200,24 +205,18 @@ _ScanCollectionDraft _initialReviewDraft(
     grader: 'Raw',
     condition: cardCollectionConditions.first,
     grade: '',
-    language: _supportedValue(
+    language: _reviewOptionOrDefault(
       card.language,
-      cardCollectionLanguages,
-      'English',
+      card.collectionLanguageOptions,
     ),
-    finish: _supportedValue(card.finish, cardCollectionFinishes, 'Normal'),
+    finish: _reviewOptionOrDefault(card.finish, card.collectionFinishOptions),
     purchasePriceText: '',
     notes: '',
   );
 }
 
-String _supportedValue(String? value, List<String> options, String fallback) {
-  final normalized = value?.trim();
-  if (normalized == null || normalized.isEmpty) return fallback;
-  return options
-          .where((option) => option.toLowerCase() == normalized.toLowerCase())
-          .firstOrNull ??
-      normalized;
+String _reviewOptionOrDefault(String? value, List<String> options) {
+  return options.contains(value) ? value! : options.first;
 }
 
 List<String> _optionsIncluding(List<String> options, String current) {
@@ -238,8 +237,15 @@ String _reviewTotalText(
 }
 
 double? _selectedReviewPrice(ScanReviewCard card, _ScanCollectionDraft draft) {
+  final hasFinishPrices = card.prices.any(
+    (candidate) => candidate.finish != null,
+  );
   return card.prices
       .where((candidate) {
+        if (hasFinishPrices &&
+            candidate.finish?.toLowerCase() != draft.finish.toLowerCase()) {
+          return false;
+        }
         if (candidate.grader.toLowerCase() != draft.grader.toLowerCase()) {
           return false;
         }
@@ -260,6 +266,10 @@ String _normalizedReviewCondition(String? value) {
     '',
   );
 }
+
+String _reviewSelectionText(_ScanCollectionDraft draft) => draft.isRaw
+    ? '${draft.finish} · Raw · ${draft.condition}'
+    : '${draft.finish} · ${draft.grader} ${draft.grade}';
 
 class _PendingScan {
   _PendingScan(this.token);
@@ -297,7 +307,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _nextScanToken = 1;
   var _cameraGeneration = 0;
   var _openingCamera = false;
-  var _cameraPermissionDenied = false;
+  var _cameraPausedForLifecycle = false;
   var _permissionDialogVisible = false;
   var _appActive = true;
   var _openingReview = false;
@@ -311,15 +321,24 @@ class _ScanPageState extends ConsumerState<ScanPage>
   Map<String, ScanReviewCard> _reviewCards = const {};
   final Map<int, _ScanCollectionDraft> _reviewDrafts = {};
   String? _reviewFormError;
-  var _savingReview = false;
+  _ScanReviewSaveAction? _savingReviewAction;
+  var _finishingReview = false;
   int? _dismissedFeedbackItemId;
 
+  bool get _savingReview => _savingReviewAction != null || _finishingReview;
+
   bool get _isRecognizing {
-    return _items.any((item) => item.status == _ScanItemStatus.recognizing);
+    return _items.any(
+      (item) =>
+          item.usesCameraFeedback && item.status == _ScanItemStatus.recognizing,
+    );
   }
 
   bool get _isRevealing {
-    return _items.any((item) => item.status == _ScanItemStatus.revealing);
+    return _items.any(
+      (item) =>
+          item.usesCameraFeedback && item.status == _ScanItemStatus.revealing,
+    );
   }
 
   bool get _showRevealingFeedback {
@@ -342,7 +361,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Animation<double> get _revealAnimation {
     final revealingItem = _items
-        .where((item) => item.status == _ScanItemStatus.revealing)
+        .where(
+          (item) =>
+              item.usesCameraFeedback &&
+              item.status == _ScanItemStatus.revealing,
+        )
         .firstOrNull;
     return revealingItem == null
         ? const AlwaysStoppedAnimation(0)
@@ -369,12 +392,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _appActive = true;
-      unawaited(_openCamera());
+      unawaited(_resumeCameraForLifecycle());
       return;
     }
     if (state == AppLifecycleState.inactive) return;
     _appActive = false;
-    unawaited(_closeCamera());
+    unawaited(_pauseCameraForLifecycle());
   }
 
   @override
@@ -413,7 +436,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
       if (mounted) {
         setState(() {
           _openingCamera = false;
-          _cameraPermissionDenied = true;
         });
       }
       if (permission == ScanPermissionResult.permanentlyDenied) {
@@ -449,12 +471,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() {
       _cameraSession = session;
       _openingCamera = false;
-      _cameraPermissionDenied = false;
     });
   }
 
   Future<void> _closeCamera() async {
     _cameraGeneration += 1;
+    _cameraPausedForLifecycle = false;
     _photoRecognitionInFlight = false;
     final session = _cameraSession;
     if (session == null) return;
@@ -464,6 +486,41 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _cameraSession = null;
     }
     await session.dispose();
+  }
+
+  Future<void> _pauseCameraForLifecycle() async {
+    if (_cameraPausedForLifecycle) return;
+    _cameraPausedForLifecycle = true;
+    _photoRecognitionInFlight = false;
+    final session = _cameraSession;
+    if (session == null) return;
+    try {
+      if (session.flashEnabled) {
+        await session.toggleFlash();
+      }
+      await session.pausePreview();
+      if (mounted) setState(() {});
+    } catch (_) {
+      // The platform may already have interrupted the camera session.
+    }
+  }
+
+  Future<void> _resumeCameraForLifecycle() async {
+    _cameraPausedForLifecycle = false;
+    final session = _cameraSession;
+    if (session == null) {
+      await _openCamera();
+      return;
+    }
+    try {
+      await session.resumePreview();
+      if (mounted) setState(() {});
+    } catch (_) {
+      await _closeCamera();
+      if (mounted && _appActive) {
+        await _openCamera();
+      }
+    }
   }
 
   void _startPhotoScan() {
@@ -552,6 +609,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
               if (mounted) {
                 _addScan(
                   resolution,
+                  usesCameraFeedback: false,
                   imageBytes: image.bytes,
                   displayImageBytes: image.bytes,
                   imageFileName: image.fileName,
@@ -562,12 +620,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
       if (!mounted) return;
       if (selectedCount == 0) {
         for (final scan in scans) {
-          _addScan(scan);
+          _addScan(scan, usesCameraFeedback: false);
         }
       }
     } catch (_) {
       if (mounted) {
-        _addScan(Future.value(const ScanResolution.failed()));
+        _addScan(
+          Future.value(const ScanResolution.failed()),
+          usesCameraFeedback: false,
+        );
       }
     } finally {
       if (mounted) {
@@ -721,6 +782,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   int _addScan(
     Future<ScanResolution> resultFuture, {
+    bool usesCameraFeedback = true,
     Uint8List? imageBytes,
     Uint8List? displayImageBytes,
     String? imageFileName,
@@ -736,6 +798,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           id: id,
           pictureLabel: 'Scan $id',
           status: _ScanItemStatus.scanning,
+          usesCameraFeedback: usesCameraFeedback,
           imageBytes: imageBytes,
           displayImageBytes: displayImageBytes,
           imageFileName: imageFileName,
@@ -1108,28 +1171,39 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final input = _reviewInputFor(item);
     if (input == null) return;
 
-    setState(() => _savingReview = true);
+    setState(() => _savingReviewAction = _ScanReviewSaveAction.single);
     try {
       await ref
           .read(scanReviewRepositoryProvider)
           .addToPortfolio(scanId: item.match!.scanId, item: input);
       if (!mounted) return;
-      _completeSelectedItemAddition(item);
+      await _completeSelectedItemAddition(item);
     } on ScanApiException catch (error) {
       if (error.code == 'CONFLICT' &&
           error.message == 'Scan is already confirmed.') {
-        if (mounted) _completeSelectedItemAddition(item);
+        if (mounted) await _completeSelectedItemAddition(item);
       } else if (mounted) {
-        showKandoFailureToast(context);
+        showKandoTopFailureToast(context);
       }
     } on Exception {
-      if (mounted) showKandoFailureToast(context);
+      if (mounted) showKandoTopFailureToast(context);
     } finally {
-      if (mounted) setState(() => _savingReview = false);
+      if (mounted) setState(() => _savingReviewAction = null);
     }
   }
 
-  void _completeSelectedItemAddition(_ScanItem item) {
+  Future<void> _completeSelectedItemAddition(_ScanItem item) async {
+    setState(() {
+      _savingReviewAction = null;
+      _finishingReview = true;
+    });
+    showKandoCenteredSuccessToast(
+      context,
+      message: portfolioCardAddedToastText,
+    );
+    await Future<void>.delayed(kandoCenteredSuccessToastDuration);
+    if (!mounted) return;
+
     setState(() {
       _lastAddedCount = 1;
       _reviewing = false;
@@ -1139,6 +1213,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewCards = const {};
       _reviewDrafts.remove(item.id);
       _reviewFormError = null;
+      _finishingReview = false;
     });
     unawaited(_openCamera());
     _refreshPortfolioSurfaces();
@@ -1162,7 +1237,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       inputs[item.id] = input;
     }
 
-    setState(() => _savingReview = true);
+    setState(() => _savingReviewAction = _ScanReviewSaveAction.all);
     final addedIds = <int>{};
     var failed = false;
     for (final item in matchedItems) {
@@ -1177,6 +1252,21 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
 
     if (!mounted) return;
+    final allAdded = addedIds.length == matchedItems.length;
+    setState(() {
+      _savingReviewAction = null;
+      _finishingReview = allAdded;
+    });
+    if (allAdded) {
+      _refreshPortfolioSurfaces();
+      showKandoCenteredSuccessToast(
+        context,
+        message: portfolioCardsAddedToastText(addedIds.length),
+      );
+      await Future<void>.delayed(kandoCenteredSuccessToastDuration);
+      if (!mounted) return;
+    }
+
     setState(() {
       _markItemsAdded(addedIds);
       for (final itemId in addedIds) {
@@ -1191,11 +1281,18 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _reviewCards = const {};
       }
       _reviewFormError = null;
-      _savingReview = false;
+      _savingReviewAction = null;
+      _finishingReview = false;
     });
-    if (addedIds.isNotEmpty) _refreshPortfolioSurfaces();
+    if (addedIds.isNotEmpty && !allAdded) {
+      _refreshPortfolioSurfaces();
+      showKandoCenteredSuccessToast(
+        context,
+        message: portfolioCardsAddedToastText(addedIds.length),
+      );
+    }
     if (!_reviewing) unawaited(_openCamera());
-    if (failed) showKandoFailureToast(context);
+    if (failed) showKandoTopFailureToast(context);
   }
 
   void _selectReviewItem(_ScanItem item) {
@@ -1219,15 +1316,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
       final draft = _reviewDrafts[item.id];
       if (draft != null) {
         _reviewDrafts[item.id] = draft.copyWith(
-          language: _supportedValue(
+          language: _reviewOptionOrDefault(
             card.language,
-            cardCollectionLanguages,
-            'English',
+            card.collectionLanguageOptions,
           ),
-          finish: _supportedValue(
+          finish: _reviewOptionOrDefault(
             card.finish,
-            cardCollectionFinishes,
-            'Normal',
+            card.collectionFinishOptions,
           ),
         );
       }
@@ -1501,6 +1596,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                           drafts: _reviewDrafts,
                           formError: _reviewFormError,
                           saving: _savingReview,
+                          savingAction: _savingReviewAction,
                           keyboardVisible: keyboardVisible,
                           currency: currency,
                           onCollapse: _closeReview,
@@ -1532,8 +1628,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 children: [
                   _ScanCameraView(
                     cameraPreview: _cameraSession?.buildPreview(),
-                    cameraOpening: _openingCamera || _librarySelectionInFlight,
-                    cameraPermissionDenied: _cameraPermissionDenied,
                     flashEnabled: _cameraSession?.flashEnabled ?? false,
                     items: _items,
                     lastAddedCount: _lastAddedCount,
@@ -1578,8 +1672,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
 class _ScanCameraView extends StatelessWidget {
   const _ScanCameraView({
     required this.cameraPreview,
-    required this.cameraOpening,
-    required this.cameraPermissionDenied,
     required this.flashEnabled,
     required this.items,
     required this.lastAddedCount,
@@ -1606,8 +1698,6 @@ class _ScanCameraView extends StatelessWidget {
   });
 
   final Widget? cameraPreview;
-  final bool cameraOpening;
-  final bool cameraPermissionDenied;
   final bool flashEnabled;
   final List<_ScanItem> items;
   final int? lastAddedCount;
@@ -1643,55 +1733,6 @@ class _ScanCameraView extends StatelessWidget {
             child: KeyedSubtree(
               key: const Key('scan-live-camera-preview'),
               child: cameraPreview!,
-            ),
-          )
-        else if (cameraOpening)
-          const Positioned.fill(
-            child: ColoredBox(
-              key: Key('scan-camera-opening-background'),
-              color: Color(0xFF10100B),
-            ),
-          )
-        else if (cameraPermissionDenied)
-          const Positioned.fill(
-            child: ColoredBox(
-              key: Key('scan-camera-permission-denied-background'),
-              color: Color(0xFF10100B),
-            ),
-          )
-        else if (revealing)
-          Positioned(
-            left: -205,
-            top: -27,
-            width: 595,
-            height: 1348,
-            child: Image.asset(
-              'assets/scan/camera_before.png',
-              key: const Key('scan-figma-revealing-background'),
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.high,
-            ),
-          )
-        else
-          Positioned.fill(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return Align(
-                  alignment: Alignment.topCenter,
-                  child: SizedBox(
-                    width: constraints.maxWidth,
-                    height: constraints.maxHeight < 884
-                        ? 884
-                        : constraints.maxHeight,
-                    child: Image.asset(
-                      'assets/scan/camera_before.png',
-                      key: const Key('scan-figma-camera-background'),
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.high,
-                    ),
-                  ),
-                );
-              },
             ),
           ),
         if (recognizing)
@@ -2513,12 +2554,10 @@ class _ScanRevealingToast extends StatelessWidget {
   const _ScanRevealingToast({
     required super.key,
     required this.item,
-    required this.closeTooltip,
     required this.onClosePressed,
   });
 
   final _ScanItem item;
-  final String closeTooltip;
   final VoidCallback onClosePressed;
 
   @override
@@ -2583,18 +2622,11 @@ class _ScanRevealingToast extends StatelessWidget {
                               ),
                             ),
                             Positioned(
-                              right: 0,
-                              top: 0,
-                              child: Tooltip(
-                                message: closeTooltip,
-                                child: InkWell(
-                                  onTap: onClosePressed,
-                                  child: SvgPicture.asset(
-                                    'assets/scan/reveal_close.svg',
-                                    width: 10.5,
-                                    height: 10.5,
-                                  ),
-                                ),
+                              right: -8,
+                              top: -8,
+                              child: _ScanDeleteButton(
+                                itemId: item.id,
+                                onPressed: onClosePressed,
                               ),
                             ),
                             const Positioned(
@@ -2855,12 +2887,7 @@ class _ScanItemCard extends StatelessWidget {
       return _ScanRevealingToast(
         key: null,
         item: item,
-        closeTooltip: item.status == _ScanItemStatus.revealing
-            ? 'Dismiss scan feedback'
-            : 'Cancel scan',
-        onClosePressed: item.status == _ScanItemStatus.revealing
-            ? onDismissRevealing
-            : onDelete,
+        onClosePressed: onDelete,
       );
     }
 
@@ -2938,18 +2965,7 @@ class _ScanItemCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (!matched && !added)
-                          Tooltip(
-                            message: 'Delete scan result',
-                            child: InkWell(
-                              onTap: onDelete,
-                              child: SvgPicture.asset(
-                                'assets/scan/reveal_close.svg',
-                                width: 10.5,
-                                height: 10.5,
-                              ),
-                            ),
-                          ),
+                        _ScanDeleteButton(itemId: item.id, onPressed: onDelete),
                       ],
                     ),
                     if (matched || added)
@@ -3027,6 +3043,31 @@ class _ScanItemCard extends StatelessWidget {
   }
 }
 
+class _ScanDeleteButton extends StatelessWidget {
+  const _ScanDeleteButton({required this.itemId, required this.onPressed});
+
+  final int itemId;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 32,
+      child: IconButton(
+        key: Key('scan-delete-item-$itemId'),
+        tooltip: 'Delete scan result',
+        padding: EdgeInsets.zero,
+        onPressed: onPressed,
+        icon: SvgPicture.asset(
+          'assets/scan/reveal_close.svg',
+          width: 10.5,
+          height: 10.5,
+        ),
+      ),
+    );
+  }
+}
+
 _ScanCollectionDraft _previewDraft(ScanReviewCard card) {
   return _ScanCollectionDraft(
     folderId: '',
@@ -3094,6 +3135,7 @@ class _ReviewMatches extends StatelessWidget {
     required this.drafts,
     required this.formError,
     required this.saving,
+    required this.savingAction,
     required this.keyboardVisible,
     required this.currency,
     required this.onCollapse,
@@ -3113,6 +3155,7 @@ class _ReviewMatches extends StatelessWidget {
   final Map<int, _ScanCollectionDraft> drafts;
   final String? formError;
   final bool saving;
+  final _ScanReviewSaveAction? savingAction;
   final bool keyboardVisible;
   final AppCurrency currency;
   final VoidCallback onCollapse;
@@ -3263,6 +3306,7 @@ class _ReviewMatches extends StatelessWidget {
                           draft: draft,
                           formError: formError,
                           enabled: !saving,
+                          currency: currency,
                           onChanged: (next) => onUpdateDraft(selected.id, next),
                         ),
                       ),
@@ -3278,6 +3322,7 @@ class _ReviewMatches extends StatelessWidget {
             child: _ReviewFooter(
               totalText: _reviewTotalText(card, draft, currency),
               saving: saving,
+              savingAction: savingAction,
               onAddThisCard: onAddThisCard,
               onAddAllCards: onAddAllCards,
               onDeleteItem: () => onDeleteItem(selected),
@@ -3493,6 +3538,7 @@ class _ReviewCollectionItem extends StatelessWidget {
     required this.draft,
     required this.formError,
     required this.enabled,
+    required this.currency,
     required this.onChanged,
   });
 
@@ -3502,6 +3548,7 @@ class _ReviewCollectionItem extends StatelessWidget {
   final _ScanCollectionDraft draft;
   final String? formError;
   final bool enabled;
+  final AppCurrency currency;
   final ValueChanged<_ScanCollectionDraft> onChanged;
 
   @override
@@ -3638,87 +3685,123 @@ class _ReviewCollectionItem extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1, color: Color(0xFF464835)),
-              _ReviewTextRow(
-                fieldKey: Key('scan-review-quantity-$itemId'),
-                label: 'Quantity',
-                value: draft.quantityText,
-                enabled: enabled,
-                keyboardType: TextInputType.number,
-                onChanged: (value) =>
-                    onChanged(draft.copyWith(quantityText: value)),
-              ),
-              _ReviewDropdownRow(
-                fieldKey: Key('scan-review-grader-$itemId'),
-                label: 'Grader',
-                value: draft.grader,
-                options: cardCollectionGraders,
-                enabled: enabled,
-                onChanged: (value) => _updateGrader(context, value),
-              ),
-              if (draft.isRaw)
-                _ReviewDropdownRow(
-                  fieldKey: Key('scan-review-condition-$itemId'),
-                  label: 'Condition',
-                  value: draft.condition,
-                  options: cardCollectionConditions,
-                  enabled: enabled,
-                  onChanged: (value) =>
-                      onChanged(draft.copyWith(condition: value)),
-                )
-              else
-                _ReviewDropdownRow(
-                  fieldKey: Key('scan-review-grade-$itemId'),
-                  label: 'Grade',
-                  value: draft.grade,
-                  options: cardCollectionGradeValues,
-                  enabled: enabled,
-                  displayValue: (value) => '${draft.grader} $value',
-                  onChanged: (value) => onChanged(draft.copyWith(grade: value)),
-                ),
-              _ReviewDropdownRow(
-                fieldKey: Key('scan-review-language-$itemId'),
-                label: 'Language',
-                value: draft.language,
-                options: _optionsIncluding(
-                  cardCollectionLanguages,
-                  draft.language,
-                ),
-                enabled: enabled,
-                onChanged: (value) =>
-                    onChanged(draft.copyWith(language: value)),
-              ),
-              _ReviewDropdownRow(
-                fieldKey: Key('scan-review-finish-$itemId'),
-                label: 'Finish',
-                value: draft.finish,
-                options: _optionsIncluding(
-                  cardCollectionFinishes,
-                  draft.finish,
-                ),
-                enabled: enabled,
-                onChanged: (value) => onChanged(draft.copyWith(finish: value)),
-              ),
-              _ReviewTextRow(
-                fieldKey: Key('scan-review-price-$itemId'),
-                label: 'Purchase Price',
-                value: draft.purchasePriceText,
-                enabled: enabled,
-                prefixText: r'US$',
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                onChanged: (value) =>
-                    onChanged(draft.copyWith(purchasePriceText: value)),
-              ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const _ReviewSectionLabel('OWNERSHIP SUMMARY'),
+                    const SizedBox(height: 12),
+                    _ReviewTextRow(
+                      fieldKey: Key('scan-review-quantity-$itemId'),
+                      label: 'QUANTITY',
+                      value: draft.quantityText,
+                      enabled: enabled,
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) =>
+                          onChanged(draft.copyWith(quantityText: value)),
+                    ),
+                    const SizedBox(height: 28),
+                    const Divider(color: Color(0xFF464835)),
+                    const SizedBox(height: 20),
+                    _ReviewPillGroup(
+                      fieldKey: Key('scan-review-finish-$itemId'),
+                      label: 'CARD VERSION  /  FINISH',
+                      selected: draft.finish,
+                      options: _optionsIncluding(
+                        card.collectionFinishOptions,
+                        draft.finish,
+                      ),
+                      enabled: enabled,
+                      onChanged: (value) =>
+                          onChanged(draft.copyWith(finish: value)),
+                    ),
+                    const SizedBox(height: 24),
+                    _ReviewDropdownRow(
+                      fieldKey: Key('scan-review-language-$itemId'),
+                      label: 'LANGUAGE',
+                      value: draft.language,
+                      options: _optionsIncluding(
+                        card.collectionLanguageOptions,
+                        draft.language,
+                      ),
+                      enabled: enabled,
+                      onChanged: (value) =>
+                          onChanged(draft.copyWith(language: value)),
+                    ),
+                    const SizedBox(height: 28),
+                    const Divider(color: Color(0xFF464835)),
+                    const SizedBox(height: 20),
+                    _ReviewCardState(
+                      rawKey: Key('scan-review-state-raw-$itemId'),
+                      gradedKey: Key('scan-review-state-graded-$itemId'),
+                      isRaw: draft.isRaw,
+                      enabled: enabled,
+                      onRaw: () => onChanged(draft.copyWith(grader: 'Raw')),
+                      onGraded: () => onChanged(draft.copyWith(grader: 'PSA')),
+                    ),
+                    const SizedBox(height: 24),
+                    if (draft.isRaw)
+                      _ReviewPillGroup(
+                        fieldKey: Key('scan-review-condition-$itemId'),
+                        label: 'CONDITION',
+                        selected: draft.condition,
+                        options: cardCollectionConditions,
+                        enabled: enabled,
+                        onChanged: (value) =>
+                            onChanged(draft.copyWith(condition: value)),
+                      )
+                    else ...[
+                      _ReviewPillGroup(
+                        fieldKey: Key('scan-review-grader-$itemId'),
+                        label: 'GRADER',
+                        selected: draft.grader,
+                        options: cardCollectionGraders
+                            .where((value) => value != 'Raw')
+                            .toList(),
+                        enabled: enabled,
+                        onChanged: (value) => _updateGrader(context, value),
+                      ),
+                      const SizedBox(height: 24),
+                      _ReviewDropdownRow(
+                        fieldKey: Key('scan-review-grade-$itemId'),
+                        label: 'GRADE',
+                        value: draft.grade,
+                        options: cardCollectionGradeValues,
+                        enabled: enabled,
+                        displayValue: (value) => '${draft.grader} $value',
+                        onChanged: (value) =>
+                            onChanged(draft.copyWith(grade: value)),
+                      ),
+                    ],
+                    const SizedBox(height: 28),
+                    const Divider(color: Color(0xFF464835)),
+                    const SizedBox(height: 20),
+                    _ReviewSelectedCard(draft: draft),
+                    const SizedBox(height: 20),
+                    _ReviewTextRow(
+                      fieldKey: Key('scan-review-price-$itemId'),
+                      label: 'PURCHASE PRICE',
+                      value: draft.purchasePriceText,
+                      enabled: enabled,
+                      prefixText: r'US$',
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (value) =>
+                          onChanged(draft.copyWith(purchasePriceText: value)),
+                    ),
+                    const SizedBox(height: 20),
+                    _ReviewMarketPrice(
+                      selection: _reviewSelectionText(draft),
+                      price: CurrencyFormatter(
+                        currency: currency,
+                      ).formatUsd(_selectedReviewPrice(card, draft)),
+                    ),
+                    const SizedBox(height: 28),
+                    _ReviewSectionLabel(
                       'NOTES',
                       key: Key('scan-review-notes-label-$itemId'),
-                      style: const TextStyle(color: Color(0xFFC7C8B0)),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -3816,38 +3899,29 @@ class _ReviewTextRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0x1A90927C))),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: Color(0xFFC7C8B0)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ReviewSectionLabel(label),
+        const SizedBox(height: 8),
+        TextFormField(
+          key: fieldKey,
+          initialValue: value,
+          enabled: enabled,
+          keyboardType: keyboardType,
+          onChanged: onChanged,
+          decoration: InputDecoration(
+            prefixText: prefixText,
+            filled: true,
+            fillColor: const Color(0xFF10110C),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
             ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(7)),
           ),
-          SizedBox(
-            width: 140,
-            child: TextFormField(
-              key: fieldKey,
-              initialValue: value,
-              enabled: enabled,
-              textAlign: TextAlign.end,
-              keyboardType: keyboardType,
-              onChanged: onChanged,
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                prefixText: prefixText,
-                isDense: true,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -3876,73 +3950,280 @@ class _ReviewDropdownRow extends StatelessWidget {
     final selected = options.contains(value) ? value : options.first;
     final displayText = displayValue?.call(selected) ?? selected;
 
-    return InkWell(
-      key: fieldKey,
-      onTap: enabled
-          ? () async {
-              FocusManager.instance.primaryFocus?.unfocus(
-                disposition: UnfocusDisposition.scope,
-              );
-              final next = await _showReviewChoiceSheet(
-                context,
-                title: label,
-                selected: selected,
-                options: options,
-                displayValue: displayValue,
-              );
-              FocusManager.instance.primaryFocus?.unfocus(
-                disposition: UnfocusDisposition.scope,
-              );
-              if (next != null) onChanged(next);
-            }
-          : null,
-      child: Container(
-        height: 58,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0x1A90927C))),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ReviewSectionLabel(label),
+        const SizedBox(height: 8),
+        InkWell(
+          key: fieldKey,
+          borderRadius: BorderRadius.circular(7),
+          onTap: enabled
+              ? () async {
+                  FocusManager.instance.primaryFocus?.unfocus(
+                    disposition: UnfocusDisposition.scope,
+                  );
+                  final next = await _showReviewChoiceSheet(
+                    context,
+                    title: label,
+                    selected: selected,
+                    options: options,
+                    displayValue: displayValue,
+                  );
+                  FocusManager.instance.primaryFocus?.unfocus(
+                    disposition: UnfocusDisposition.scope,
+                  );
+                  if (next != null) onChanged(next);
+                }
+              : null,
+          child: Container(
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10110C),
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: const Color(0xFF464835)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: enabled
+                          ? const Color(0xFFC7C8B0)
+                          : const Color(0xFFC7C8B0).withValues(alpha: 0.45),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    displayText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      color: enabled
+                          ? const Color(0xFFEEECD8)
+                          : const Color(0xFFEEECD8).withValues(alpha: 0.45),
+                      fontSize: 14,
+                      height: 20 / 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 20,
                   color: enabled
                       ? const Color(0xFFC7C8B0)
                       : const Color(0xFFC7C8B0).withValues(alpha: 0.45),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                displayText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: TextStyle(
-                  color: enabled
-                      ? const Color(0xFFEEECD8)
-                      : const Color(0xFFEEECD8).withValues(alpha: 0.45),
-                  fontSize: 14,
-                  height: 20 / 14,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 20,
-              color: enabled
-                  ? const Color(0xFFC7C8B0)
-                  : const Color(0xFFC7C8B0).withValues(alpha: 0.45),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
+}
+
+class _ReviewSectionLabel extends StatelessWidget {
+  const _ReviewSectionLabel(this.text, {super.key});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(color: Color(0xFF92927D), fontSize: 10),
+  );
+}
+
+class _ReviewPillGroup extends StatelessWidget {
+  const _ReviewPillGroup({
+    required this.fieldKey,
+    required this.label,
+    required this.selected,
+    required this.options,
+    required this.enabled,
+    required this.onChanged,
+  });
+  final Key fieldKey;
+  final String label;
+  final String selected;
+  final List<String> options;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    key: fieldKey,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _ReviewSectionLabel(label),
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final option in options)
+            SizedBox(
+              width: options.length == 1 ? double.infinity : 96,
+              height: 42,
+              child: OutlinedButton(
+                onPressed: enabled ? () => onChanged(option) : null,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: option == selected
+                      ? const Color(0xFFF0FE6F)
+                      : const Color(0xFFC7C8B0),
+                  backgroundColor: option == selected
+                      ? const Color(0xFF343718)
+                      : const Color(0xFF10110C),
+                  side: BorderSide(
+                    color: option == selected
+                        ? const Color(0xFFF0FE6F)
+                        : const Color(0xFF464835),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                ),
+                child: Text(option, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+        ],
+      ),
+    ],
+  );
+}
+
+class _ReviewCardState extends StatelessWidget {
+  const _ReviewCardState({
+    required this.rawKey,
+    required this.gradedKey,
+    required this.isRaw,
+    required this.enabled,
+    required this.onRaw,
+    required this.onGraded,
+  });
+  final Key rawKey;
+  final Key gradedKey;
+  final bool isRaw;
+  final bool enabled;
+  final VoidCallback onRaw;
+  final VoidCallback onGraded;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const _ReviewSectionLabel('CARD STATE'),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: _stateButton(rawKey, 'Raw', 'Unrated card', isRaw, onRaw),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _stateButton(
+              gradedKey,
+              'Graded',
+              'Certified card',
+              !isRaw,
+              onGraded,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  Widget _stateButton(
+    Key key,
+    String title,
+    String subtitle,
+    bool selected,
+    VoidCallback onPressed,
+  ) => OutlinedButton(
+    key: key,
+    onPressed: enabled ? onPressed : null,
+    style: OutlinedButton.styleFrom(
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      foregroundColor: selected
+          ? const Color(0xFFF0FE6F)
+          : const Color(0xFFC7C8B0),
+      backgroundColor: selected
+          ? const Color(0xFF343718)
+          : const Color(0xFF10110C),
+      side: BorderSide(
+        color: selected ? const Color(0xFFF0FE6F) : const Color(0xFF464835),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title),
+        Text(subtitle, style: const TextStyle(fontSize: 9)),
+      ],
+    ),
+  );
+}
+
+class _ReviewSelectedCard extends StatelessWidget {
+  const _ReviewSelectedCard({required this.draft});
+  final _ScanCollectionDraft draft;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const _ReviewSectionLabel('SELECTED CARD'),
+      const SizedBox(height: 8),
+      Text(_reviewSelectionText(draft), style: const TextStyle(fontSize: 15)),
+    ],
+  );
+}
+
+class _ReviewMarketPrice extends StatelessWidget {
+  const _ReviewMarketPrice({required this.selection, required this.price});
+  final String selection;
+  final String price;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const Key('scan-review-market-price'),
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    decoration: const BoxDecoration(
+      border: Border.symmetric(
+        horizontal: BorderSide(color: Color(0xFF464835)),
+      ),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Current Market Price'),
+              const SizedBox(height: 3),
+              Text(
+                selection,
+                style: const TextStyle(color: Color(0xFF92927D), fontSize: 10),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          price,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+      ],
+    ),
+  );
 }
 
 Future<String?> _showReviewChoiceSheet(
@@ -4254,6 +4535,7 @@ class _ReviewFooter extends StatelessWidget {
   const _ReviewFooter({
     required this.totalText,
     required this.saving,
+    required this.savingAction,
     required this.onAddThisCard,
     required this.onAddAllCards,
     required this.onDeleteItem,
@@ -4262,6 +4544,7 @@ class _ReviewFooter extends StatelessWidget {
 
   final String totalText;
   final bool saving;
+  final _ScanReviewSaveAction? savingAction;
   final VoidCallback onAddThisCard;
   final VoidCallback onAddAllCards;
   final VoidCallback onDeleteItem;
@@ -4269,6 +4552,9 @@ class _ReviewFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final addingSingle = savingAction == _ScanReviewSaveAction.single;
+    final addingAll = savingAction == _ScanReviewSaveAction.all;
+
     return Material(
       color: const Color(0xFF10100B),
       child: SafeArea(
@@ -4304,11 +4590,20 @@ class _ReviewFooter extends StatelessWidget {
                       child: FilledButton.icon(
                         key: const Key('scan-review-add-one'),
                         onPressed: saving ? null : onAddThisCard,
-                        icon: const Text(
-                          '+',
-                          style: TextStyle(fontSize: 20, height: 1),
-                        ),
-                        label: Text(saving ? 'Adding...' : 'Add this card'),
+                        icon: addingSingle
+                            ? const SizedBox(
+                                key: Key('scan-review-add-one-loading'),
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                '+',
+                                style: TextStyle(fontSize: 20, height: 1),
+                              ),
+                        label: const Text('Add this card'),
                       ),
                     ),
                   ),
@@ -4339,8 +4634,16 @@ class _ReviewFooter extends StatelessWidget {
                 children: [
                   Expanded(
                     child: OutlinedButton(
+                      key: const Key('scan-review-add-all'),
                       onPressed: saving ? null : onAddAllCards,
-                      child: const Text('ADD ALL CARDS'),
+                      child: addingAll
+                          ? const SizedBox(
+                              key: Key('scan-review-add-all-loading'),
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('ADD ALL CARDS'),
                     ),
                   ),
                   const SizedBox(width: 10),

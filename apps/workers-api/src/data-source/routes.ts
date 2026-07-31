@@ -38,6 +38,7 @@ type PriceSeriesBatchRequest = {
   grade: number | null;
   condition: string | null;
   days: number;
+  finish: string | null;
 };
 
 const SELECT_CARD_OVERRIDE_SQL = `
@@ -218,7 +219,8 @@ export function createDataSourceRoutes(
     c.header("Cache-Control", "no-store");
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
-    const prices = await listOrEmpty(() => adapter.getMarketPrices(cardRef));
+    const finish = nullableString(c.req.query("finish"));
+    const prices = await listOrEmpty(() => adapter.getMarketPrices(cardRef, finish));
 
     return c.json({
       success: true,
@@ -237,14 +239,23 @@ export function createDataSourceRoutes(
     const grade = nullableNumber(c.req.query("grade"));
     const condition = nullableString(c.req.query("condition"));
     const days = positiveIntegerOrDefault(c.req.query("days"), 30);
+    const finish = nullableString(c.req.query("finish"));
     const adapter = createAdapter(c.env);
     const series = await listOrEmpty(() =>
-      adapter.getPriceSeries(cardRef, grader, grade, condition, days),
+      adapter.getPriceSeries(cardRef, grader, grade, condition, days, finish),
     );
 
     return c.json({
       success: true,
-      data: { card_ref: cardRef, grader, grade, condition, days, series },
+      data: {
+        card_ref: cardRef,
+        grader,
+        grade,
+        condition,
+        ...(finish ? { finish } : {}),
+        days,
+        series,
+      },
     });
   });
 
@@ -267,6 +278,7 @@ export function createDataSourceRoutes(
             request.grade,
             request.condition,
             request.days,
+            request.finish,
           ),
         ),
       })),
@@ -629,11 +641,13 @@ function parsePriceSeriesBatch(value: unknown): PriceSeriesBatchRequest[] | null
     const grader = typeof item.grader === "string" ? item.grader.trim() : "";
     const grade = item.grade === null ? null : item.grade;
     const condition = item.condition === null ? null : item.condition;
+    const finish = item.finish == null ? null : item.finish;
     const days = item.days;
     if (
       !grader ||
       (grade !== null && (typeof grade !== "number" || !Number.isFinite(grade))) ||
       (condition !== null && typeof condition !== "string") ||
+      (finish !== null && typeof finish !== "string") ||
       typeof days !== "number" ||
       !Number.isInteger(days) ||
       days < 1 ||
@@ -645,6 +659,7 @@ function parsePriceSeriesBatch(value: unknown): PriceSeriesBatchRequest[] | null
       grader,
       grade,
       condition: typeof condition === "string" ? condition.trim() || null : null,
+      finish: typeof finish === "string" ? finish.trim() || null : null,
       days,
     });
   }

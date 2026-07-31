@@ -40,23 +40,31 @@ class CardDetailSeriesData {
   const CardDetailSeriesData({
     required this.marketPrices,
     required this.rawSeriesByRange,
+    this.rawSeries = const [],
     required this.gradedSeriesByRange,
+    this.gradedSeries = const [],
   });
 
   final List<CardMarketPrice> marketPrices;
   final Map<CardPriceRange, List<CardPricePoint>> rawSeriesByRange;
+  final List<CardPriceChartSeries> rawSeries;
   final Map<CardPriceRange, List<CardPricePoint>> gradedSeriesByRange;
+  final List<CardPriceChartSeries> gradedSeries;
 }
 
 abstract interface class CardDetailSectionRepository {
   Future<CardDetail> loadCoreDetail(String cardId);
   Future<CardDetail> loadAssetState(AuthSession session, CardDetail detail);
   Future<CardDetail> loadBaseDetail(AuthSession session, String cardId);
-  Future<CardDetailMarketData> loadMarketPrices(String cardId);
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+  });
   Future<CardDetailSeriesData> loadPriceSeries(
-    String cardId, [
+    String cardId, {
     CardDetailMarketData? market,
-  ]);
+    String? finish,
+  });
   Future<List<CardSoldListing>> loadSoldListings(String cardId);
 }
 
@@ -77,7 +85,7 @@ class HttpCardDetailRepository
       loadBaseDetail(session, cardId),
       loadMarketPrices(
         cardId,
-      ).then((market) => loadPriceSeries(cardId, market)),
+      ).then((market) => loadPriceSeries(cardId, market: market)),
       loadSoldListings(cardId),
     ]);
     final detail = results[0] as CardDetail;
@@ -114,8 +122,11 @@ class HttpCardDetailRepository
   }
 
   @override
-  Future<CardDetailMarketData> loadMarketPrices(String cardId) async {
-    final prices = await _cardDataApi.getMarketPrices(cardId);
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+  }) async {
+    final prices = await _cardDataApi.getMarketPrices(cardId, finish: finish);
     return CardDetailMarketData(
       prices: prices,
       marketPrices: prices
@@ -131,35 +142,54 @@ class HttpCardDetailRepository
 
   @override
   Future<CardDetailSeriesData> loadPriceSeries(
-    String cardId, [
+    String cardId, {
     CardDetailMarketData? market,
-  ]) async {
-    final prices = market?.prices ?? await _cardDataApi.getMarketPrices(cardId);
-    final rawPrice = _firstWhereOrNull(
-      prices,
-      (price) => price.grader.toLowerCase() == 'raw',
-    );
-    final gradedPrice = _firstWhereOrNull(
-      prices,
-      (price) => price.grader.toLowerCase() != 'raw',
-    );
+    String? finish,
+  }) async {
+    final prices =
+        market?.prices ??
+        await _cardDataApi.getMarketPrices(cardId, finish: finish);
+    final rawPrices = prices
+        .where((price) => price.grader.toLowerCase() == 'raw')
+        .toList();
     final rangesByPrice = {
-      for (final price in prices)
-        price: identical(price, rawPrice) || identical(price, gradedPrice)
-            ? CardPriceRange.values
-            : const [CardPriceRange.sevenDays, CardPriceRange.oneMonth],
+      for (final price in rawPrices) price: CardPriceRange.values,
     };
-    final seriesByPrice = await _loadSeriesForPrices(cardId, rangesByPrice);
+    final seriesByPrice = await _loadSeriesForPrices(
+      cardId,
+      rangesByPrice,
+      finish: finish,
+    );
+    final rawSeries = rawPrices
+        .map(
+          (price) => CardPriceChartSeries(
+            label: _marketPriceLabel(price),
+            seriesByRange: seriesByPrice[price] ?? const {},
+          ),
+        )
+        .toList();
+    final gradedSeries = prices
+        .where(
+          (price) =>
+              price.grader.toLowerCase() != 'raw' && price.history.length >= 2,
+        )
+        .map(_gradedSeriesFromDto)
+        .toList();
     return CardDetailSeriesData(
       marketPrices: prices
-          .map((price) => _marketPriceFromDto(price, seriesByPrice[price]!))
+          .map(
+            (price) =>
+                _marketPriceFromDto(price, seriesByPrice[price] ?? const {}),
+          )
           .toList(),
-      rawSeriesByRange: rawPrice == null
+      rawSeriesByRange: rawSeries.isEmpty
           ? const <CardPriceRange, List<CardPricePoint>>{}
-          : seriesByPrice[rawPrice]!,
-      gradedSeriesByRange: gradedPrice == null
+          : rawSeries.first.seriesByRange,
+      rawSeries: rawSeries,
+      gradedSeriesByRange: gradedSeries.isEmpty
           ? const <CardPriceRange, List<CardPricePoint>>{}
-          : seriesByPrice[gradedPrice]!,
+          : gradedSeries.first.seriesByRange,
+      gradedSeries: gradedSeries,
     );
   }
 
@@ -256,6 +286,7 @@ class HttpCardDetailRepository
     String cardRef,
     CardDataMarketPriceDto price,
     CardPriceRange range,
+    String? finish,
   ) async {
     final series = await _cardDataApi.getPriceSeries(
       cardRef,
@@ -263,6 +294,7 @@ class HttpCardDetailRepository
       grader: price.grader,
       grade: price.grade,
       condition: price.condition,
+      finish: finish,
     );
     return series
         .map(
@@ -276,6 +308,7 @@ class HttpCardDetailRepository
     String cardRef,
     CardDataMarketPriceDto price, {
     required bool includeChartRanges,
+    String? finish,
   }) async {
     final ranges = includeChartRanges
         ? CardPriceRange.values
@@ -283,7 +316,10 @@ class HttpCardDetailRepository
     return Map.fromEntries(
       await Future.wait(
         ranges.map((range) async {
-          return MapEntry(range, await _loadSeries(cardRef, price, range));
+          return MapEntry(
+            range,
+            await _loadSeries(cardRef, price, range, finish),
+          );
         }),
       ),
     );
@@ -292,8 +328,9 @@ class HttpCardDetailRepository
   Future<Map<CardDataMarketPriceDto, Map<CardPriceRange, List<CardPricePoint>>>>
   _loadSeriesForPrices(
     String cardRef,
-    Map<CardDataMarketPriceDto, List<CardPriceRange>> rangesByPrice,
-  ) async {
+    Map<CardDataMarketPriceDto, List<CardPriceRange>> rangesByPrice, {
+    String? finish,
+  }) async {
     final api = _cardDataApi;
     if (api is BatchCardDataApi) {
       final batchApi = api as BatchCardDataApi;
@@ -309,6 +346,7 @@ class HttpCardDetailRepository
               grader: price.grader,
               grade: price.grade,
               condition: price.condition,
+              finish: finish,
             ),
         ]);
         final mapped = {
@@ -335,6 +373,7 @@ class HttpCardDetailRepository
               entry.key,
               includeChartRanges:
                   entry.value.length == CardPriceRange.values.length,
+              finish: finish,
             ),
           ),
         ),
@@ -404,7 +443,9 @@ CardDetail _mergeSections(
     portfolioFolders: detail.portfolioFolders,
     collectionItems: detail.collectionItems,
     priceSeriesByRange: series.rawSeriesByRange,
+    rawPriceSeries: series.rawSeries,
     gradedPriceSeriesByRange: series.gradedSeriesByRange,
+    gradedPriceSeries: series.gradedSeries,
     soldListings: soldListings,
   );
 }
@@ -417,11 +458,59 @@ CardMarketPrice _marketPriceFromDto(
     label: _marketPriceLabel(dto),
     grader: dto.grader,
     grade: dto.grade,
+    gradeLabel: dto.gradeLabel,
     condition: dto.condition,
+    pricechartingId: dto.pricechartingId,
+    productSubType: dto.productSubType,
+    increasePercent: dto.increasePercent,
+    history: _pricePointsFromDtos(dto.history),
     priceUsd: dto.price,
     previous30dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.oneMonth]),
     previous7dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.sevenDays]),
   );
+}
+
+CardPriceChartSeries _gradedSeriesFromDto(CardDataMarketPriceDto dto) {
+  final points = _pricePointsFromDtos(dto.history);
+  return CardPriceChartSeries(
+    label: _gradedSeriesLabel(dto),
+    seriesByRange: {
+      for (final range in CardPriceRange.values)
+        range: _filterPointsByDays(points, range.days),
+    },
+  );
+}
+
+String _gradedSeriesLabel(CardDataMarketPriceDto dto) {
+  final grade =
+      dto.gradeLabel ?? (dto.grade == null ? '' : _gradeText(dto.grade!));
+  final subtype = dto.productSubType?.trim();
+  return [
+    dto.grader,
+    if (grade.isNotEmpty) grade,
+    if (subtype?.isNotEmpty == true) subtype!,
+  ].join(' ');
+}
+
+List<CardPricePoint> _filterPointsByDays(
+  List<CardPricePoint> points,
+  int days,
+) {
+  if (points.isEmpty) return const [];
+  final sorted = [...points]
+    ..sort((left, right) => left.dateLabel.compareTo(right.dateLabel));
+  final latest = DateTime.tryParse(sorted.last.dateLabel);
+  if (latest == null) return sorted;
+  final cutoff = latest.subtract(Duration(days: days));
+  final inRange = sorted.where((point) {
+    final date = DateTime.tryParse(point.dateLabel);
+    return date != null && !date.isBefore(cutoff);
+  }).toList();
+  final baseline = sorted.where((point) {
+    final date = DateTime.tryParse(point.dateLabel);
+    return date != null && date.isBefore(cutoff);
+  }).lastOrNull;
+  return [if (baseline != null) baseline, ...inRange];
 }
 
 double? _previousPrice(List<CardPricePoint>? points) {
@@ -470,15 +559,6 @@ String _identityLine(CardDataCardDto card) {
     if (card.cardNumber.trim().isNotEmpty) '#${card.cardNumber}',
   ];
   return parts.isEmpty ? card.setCode : parts.join(' ');
-}
-
-T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T item) test) {
-  for (final item in items) {
-    if (test(item)) {
-      return item;
-    }
-  }
-  return null;
 }
 
 CardDetail _mergeAssetState(

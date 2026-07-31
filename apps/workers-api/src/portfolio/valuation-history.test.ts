@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadValuationHistory } from "./valuation-history";
+import { loadSkus, loadValuationHistory } from "./valuation-history";
 
 class FakeDb {
   constructor(
@@ -7,6 +7,8 @@ class FakeDb {
     readonly skus: Record<string, unknown>[],
     readonly cards: Record<string, unknown>[],
   ) {}
+  readonly bindings: Array<{ sql: string; values: unknown[] }> = [];
+
   prepare(sql: string) {
     const rows = sql.includes("collection_item_event")
       ? this.events
@@ -14,14 +16,27 @@ class FakeDb {
         ? this.cards
         : this.skus;
     return {
-      bind: (..._args: unknown[]) => ({
-        all: async <T>() => ({ results: rows as T[] }),
-      }),
+      bind: (...values: unknown[]) => {
+        this.bindings.push({ sql, values });
+        return {
+          all: async <T>() => ({ results: rows as T[] }),
+        };
+      },
     };
   }
 }
 
 describe("portfolio valuation history", () => {
+  it("binds SKU product IDs as strings because tcgplayer_skus.product_id is TEXT", async () => {
+    const db = new FakeDb([], [], []);
+
+    await loadSkus(db as unknown as D1Database, ["100", "200", "custom-card"]);
+
+    expect(db.bindings).toEqual([
+      expect.objectContaining({ values: ["100", "200"] }),
+    ]);
+  });
+
   it("keeps value before deletion and follows folder moves because history must not be rewritten from current holdings", async () => {
     const db = new FakeDb(
       [
@@ -31,8 +46,8 @@ describe("portfolio valuation history", () => {
         event("b1", "item-b", "main", "200", "upsert", "2026-07-03T00:00:00.000Z", 1),
       ],
       [
-        sku(100, 1, [{ date: "2026-06-01", price: 10 }, { date: "2026-07-06", price: 20 }]),
-        sku(200, 2, [{ date: "2026-06-01", price: 5 }]),
+        sku("100", 1, [{ date: "2026-06-01", price: 10 }, { date: "2026-07-06", price: 20 }]),
+        sku("200", 2, [{ date: "2026-06-01", price: 5 }]),
       ],
       [card("100", "High Card"), card("200", "Low Card")],
     );
@@ -72,8 +87,8 @@ describe("portfolio valuation history", () => {
         event("b", "bulk", "main", "200", "upsert", "2026-06-01T00:00:00.000Z", 100),
       ],
       [
-        sku(100, 1, [{ date: "2026-06-01", price: 20 }]),
-        sku(200, 2, [{ date: "2026-06-01", price: 5 }]),
+        sku("100", 1, [{ date: "2026-06-01", price: 20 }]),
+        sku("200", 2, [{ date: "2026-06-01", price: 5 }]),
       ],
       [card("100", "Expensive"), card("200", "Bulk")],
     );
@@ -114,7 +129,7 @@ function event(
   };
 }
 
-function sku(productId: number, skuId: number, history: unknown[]) {
+function sku(productId: string, skuId: number, history: unknown[]) {
   return {
     sku_id: skuId,
     product_id: productId,

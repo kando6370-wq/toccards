@@ -25,17 +25,17 @@ export function createCacheApiDataSourceAdapter(
       return source.getCard(card_ref);
     },
 
-    getPriceSeries(card_ref, grader, grade, condition, days) {
+    getPriceSeries(card_ref, grader, grade, condition, days, finish) {
       return readThroughCacheApi(
         cache,
-        priceSeriesCacheKey(card_ref, grader, grade, condition, days),
-        () => source.getPriceSeries(card_ref, grader, grade, condition, days),
+        priceSeriesCacheKey(card_ref, grader, grade, condition, days, finish),
+        () => source.getPriceSeries(card_ref, grader, grade, condition, days, finish),
       );
     },
 
-    getMarketPrices(card_ref) {
-      return readThroughCacheApi(cache, marketPricesCacheKey(card_ref), () =>
-        source.getMarketPrices(card_ref),
+    getMarketPrices(card_ref, finish) {
+      return readThroughCacheApi(cache, marketPricesCacheKey(card_ref, finish), () =>
+        source.getMarketPrices(card_ref, finish),
       );
     },
 
@@ -104,8 +104,9 @@ function cacheRequest(key: string): Request {
   return new Request(`${CACHE_ORIGIN}/${key}`);
 }
 
-function marketPricesCacheKey(card_ref: string): string {
-  return ["getMarketPrices", "v2", cacheKeyPart(card_ref)].join(":");
+function marketPricesCacheKey(card_ref: string, finish?: string | null): string {
+  if (!finish) return ["getMarketPrices", "v3", cacheKeyPart(card_ref)].join(":");
+  return ["getMarketPrices", "v4", cacheKeyPart(card_ref), cacheKeyPart(finish)].join(":");
 }
 
 function priceSeriesCacheKey(
@@ -114,8 +115,9 @@ function priceSeriesCacheKey(
   grade: number | null,
   condition: string | null,
   days: number,
+  finish?: string | null,
 ): string {
-  return [
+  const parts = [
     "getPriceSeries",
     "v2",
     cacheKeyPart(card_ref),
@@ -123,7 +125,9 @@ function priceSeriesCacheKey(
     nullableCacheKeyPart(grade),
     nullableCacheKeyPart(condition),
     String(days),
-  ].join(":");
+  ];
+  if (finish) parts.push(cacheKeyPart(finish));
+  return parts.join(":");
 }
 
 function soldListingsCacheKey(card_ref: string): string {

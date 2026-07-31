@@ -414,14 +414,31 @@ class CollectionController extends Notifier<CollectionState> {
     return loadComplete;
   }
 
+  Future<void> refreshPreservingContent() {
+    if (state.isLoading || state.isUnavailable) return refresh();
+    final session = ref.read(authControllerProvider).session;
+    if (session == null) return refresh();
+
+    final previousState = state;
+    _startLoad(
+      session: session,
+      currency: state.currency,
+      preserveState: previousState,
+    );
+    return loadComplete;
+  }
+
   void _startLoad({
     required AuthSession session,
     required AppCurrency currency,
+    CollectionState? preserveState,
   }) {
     final completer = Completer<void>();
     final generation = ++_loadGeneration;
     _loadCompleter = completer;
-    unawaited(_loadDashboard(session, currency, generation, completer));
+    unawaited(
+      _loadDashboard(session, currency, generation, completer, preserveState),
+    );
   }
 
   Future<void> _loadDashboard(
@@ -429,6 +446,7 @@ class CollectionController extends Notifier<CollectionState> {
     AppCurrency currency,
     int generation,
     Completer<void> completer,
+    CollectionState? preserveState,
   ) async {
     try {
       final repository = ref.read(collectionRepositoryProvider);
@@ -458,40 +476,51 @@ class CollectionController extends Notifier<CollectionState> {
         }
         if (generation != _loadGeneration) return;
         final sharedFolderId = ref.read(selectedPortfolioFolderProvider);
+        final preservedFolderId = preserveState?.selectedFolderId;
         final selectedFolderId =
-            dashboard.folders.any((folder) => folder.id == sharedFolderId)
+            dashboard.folders.any((folder) => folder.id == preservedFolderId)
+            ? preservedFolderId!
+            : dashboard.folders.any((folder) => folder.id == sharedFolderId)
             ? sharedFolderId!
             : dashboard.defaultFolder.id;
         final amountHidden =
             ref.read(portfolioAmountHiddenProvider) ?? dashboard.amountHidden;
-        final initialSort =
-            ref.read(collectionInitialSortProvider) ?? CollectionSort.newest;
+        final initialSort = preserveState == null
+            ? ref.read(collectionInitialSortProvider) ?? CollectionSort.newest
+            : null;
         ref.read(selectedCurrencyProvider.notifier).select(preferredCurrency);
         state = CollectionState(
           dashboard: dashboard,
-          selectedTab: CollectionTab.portfolio,
+          selectedTab: preserveState?.selectedTab ?? CollectionTab.portfolio,
           selectedFolderId: selectedFolderId,
           currency: preferredCurrency,
           amountHidden: amountHidden,
-          searchByTab: const {
-            CollectionTab.portfolio: '',
-            CollectionTab.wishlist: '',
-          },
-          sortByTab: {
-            CollectionTab.portfolio: initialSort,
-            CollectionTab.wishlist: CollectionSort.newest,
-          },
-          gamesByTab: const {
-            CollectionTab.portfolio: <String>{},
-            CollectionTab.wishlist: <String>{},
-          },
-          languagesByTab: const {
-            CollectionTab.portfolio: <String>{},
-            CollectionTab.wishlist: <String>{},
-          },
+          searchByTab:
+              preserveState?.searchByTab ??
+              const {CollectionTab.portfolio: '', CollectionTab.wishlist: ''},
+          sortByTab:
+              preserveState?.sortByTab ??
+              {
+                CollectionTab.portfolio: initialSort!,
+                CollectionTab.wishlist: CollectionSort.newest,
+              },
+          gamesByTab:
+              preserveState?.gamesByTab ??
+              const {
+                CollectionTab.portfolio: <String>{},
+                CollectionTab.wishlist: <String>{},
+              },
+          languagesByTab:
+              preserveState?.languagesByTab ??
+              const {
+                CollectionTab.portfolio: <String>{},
+                CollectionTab.wishlist: <String>{},
+              },
           gameOptions: gameOptions,
         );
-        ref.read(collectionInitialSortProvider.notifier).clear();
+        if (preserveState == null) {
+          ref.read(collectionInitialSortProvider.notifier).clear();
+        }
         if (sharedFolderId == null) {
           ref
               .read(selectedPortfolioFolderProvider.notifier)

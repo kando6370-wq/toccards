@@ -81,6 +81,7 @@ void main() {
           'days': '30',
           'grader': 'Raw',
           'condition': 'Near Mint',
+          'finish': 'Normal',
         });
         return _json(200, {
           'success': true,
@@ -93,9 +94,12 @@ void main() {
         });
       });
 
-      final series = await CardDataApiClient(
-        _dio(adapter),
-      ).getPriceSeries('catalog:pikachu-025', days: 30, condition: 'Near Mint');
+      final series = await CardDataApiClient(_dio(adapter)).getPriceSeries(
+        'catalog:pikachu-025',
+        days: 30,
+        condition: 'Near Mint',
+        finish: 'Normal',
+      );
 
       expect(series.first.date, '2026-06-10');
       expect(series.last.price, 15);
@@ -116,6 +120,7 @@ void main() {
               'grader': 'Raw',
               'grade': null,
               'condition': 'Near Mint',
+              'finish': 'Normal',
             },
           ],
         });
@@ -139,6 +144,7 @@ void main() {
               days: 30,
               grader: 'Raw',
               condition: 'Near Mint',
+              finish: 'Normal',
             ),
           ]);
 
@@ -293,6 +299,45 @@ void main() {
       ).searchCards('escape');
 
       expect(cards.single.cardNumber, isEmpty);
+    },
+  );
+
+  test(
+    'getMarketPrices preserves graded identity and history because duplicate product subtypes are not unique',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.queryParameters['finish'], 'Foil');
+        return _json(200, {
+          'success': true,
+          'data': {
+            'prices': [
+              {
+                'grader': 'PSA',
+                'grade': 10,
+                'grade_label': '10',
+                'condition': null,
+                'price': 360.0,
+                'pricecharting_id': 'pc-100-foil',
+                'product_sub_type': 'Foil',
+                'increase_percent': 20.0,
+                'history': [
+                  {'date': '2026-07-29', 'price': 300.0},
+                  {'date': '2026-07-30', 'price': 360.0},
+                ],
+              },
+            ],
+          },
+        });
+      });
+
+      final price = (await CardDataApiClient(
+        _dio(adapter),
+      ).getMarketPrices('100', finish: 'Foil')).single;
+
+      expect(price.pricechartingId, 'pc-100-foil');
+      expect(price.productSubType, 'Foil');
+      expect(price.increasePercent, 20);
+      expect(price.history.last.price, 360);
     },
   );
 

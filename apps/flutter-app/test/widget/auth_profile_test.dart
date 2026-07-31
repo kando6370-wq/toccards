@@ -194,6 +194,66 @@ void main() {
     expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
   });
 
+  testWidgets(
+    'google auth shows full-screen loading while callback is pending',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final authorizationCompleter = Completer<OAuthAuthorizationResult?>();
+      final callbackCompleter = Completer<AuthSession>();
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+        googleCallbackCompleter: callbackCompleter,
+      );
+      final authorizer = _WidgetOAuthAuthorizer(
+        resultFuture: authorizationCompleter.future,
+      );
+
+      await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      await _openAuthSheet(tester);
+      await tester.tap(find.text('Continue with Google'));
+      await tester.pump();
+
+      final loadingOverlay = find.byKey(
+        const Key('auth-oauth-loading-overlay'),
+      );
+      expect(authorizer.requests, [OAuthProvider.google]);
+      expect(loadingOverlay, findsNothing);
+      expect(repository.googleCallbackRequests, isEmpty);
+
+      authorizationCompleter.complete(
+        const OAuthAuthorizationResult.google(
+          code: 'mock-google:flutter-google-user:flutter.google@example.com',
+        ),
+      );
+      await tester.pump();
+
+      expect(loadingOverlay, findsOneWidget);
+      expect(tester.getSize(loadingOverlay), const Size(390, 844));
+      expect(find.text('Signing in with Google'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(repository.googleCallbackRequests, [
+        const _GoogleCallbackRequest(
+          idToken: 'mock-google:flutter-google-user:flutter.google@example.com',
+          anonymousId: 'anon-existing',
+        ),
+      ]);
+
+      callbackCompleter.complete(
+        _userSession(email: 'flutter.google@example.com'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(loadingOverlay, findsNothing);
+      expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
+    },
+  );
+
   testWidgets('apple auth returns home with the current guest migrated', (
     tester,
   ) async {
@@ -224,6 +284,68 @@ void main() {
     ]);
     expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
   });
+
+  testWidgets(
+    'apple auth shows full-screen loading while callback is pending',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final authorizationCompleter = Completer<OAuthAuthorizationResult?>();
+      final callbackCompleter = Completer<AuthSession>();
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+        appleCallbackCompleter: callbackCompleter,
+      );
+      final authorizer = _WidgetOAuthAuthorizer(
+        resultFuture: authorizationCompleter.future,
+      );
+
+      await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      await _openAuthSheet(tester);
+      await tester.tap(find.text('Continue with Apple'));
+      await tester.pump();
+
+      final loadingOverlay = find.byKey(
+        const Key('auth-oauth-loading-overlay'),
+      );
+      expect(authorizer.requests, [OAuthProvider.apple]);
+      expect(loadingOverlay, findsNothing);
+      expect(repository.appleCallbackRequests, isEmpty);
+
+      authorizationCompleter.complete(
+        const OAuthAuthorizationResult.apple(
+          code: 'apple-auth-code',
+          idToken: 'mock-apple:flutter-apple-user:flutter.apple@example.com',
+        ),
+      );
+      await tester.pump();
+
+      expect(loadingOverlay, findsOneWidget);
+      expect(tester.getSize(loadingOverlay), const Size(390, 844));
+      expect(find.text('Signing in with Apple'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(repository.appleCallbackRequests, [
+        const _AppleCallbackRequest(
+          code: 'apple-auth-code',
+          idToken: 'mock-apple:flutter-apple-user:flutter.apple@example.com',
+          anonymousId: 'anon-existing',
+        ),
+      ]);
+
+      callbackCompleter.complete(
+        _userSession(email: 'flutter.apple@example.com'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(loadingOverlay, findsNothing);
+      expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'auth sheet shows agreement links because every sign-in method must disclose legal terms',
@@ -1534,6 +1656,42 @@ void main() {
     }
   });
 
+  testWidgets('customer support keeps Submit fixed while form scrolls', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    final authRepository = _WidgetAuthRepository(
+      initialSession: _userSession(),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authRepositoryProvider.overrideWithValue(authRepository)],
+        child: MaterialApp(
+          theme: buildKandoTheme(),
+          home: const CustomerSupportPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final submit = find.byKey(const Key('feedback-submit-button'));
+    final contentList = find.byKey(const Key('customer-support-content-list'));
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(of: contentList, matching: find.byType(Scrollable)),
+    );
+    final submitBeforeScroll = tester.getRect(submit);
+    final scrollOffsetBefore = scrollable.position.pixels;
+
+    await tester.drag(contentList, const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(submit), submitBeforeScroll);
+    expect(scrollable.position.pixels, greaterThan(scrollOffsetBefore));
+  });
+
   testWidgets(
     'customer support submits signed-in feedback and returns to Profile',
     (tester) async {
@@ -2181,6 +2339,8 @@ class _WidgetAuthRepository implements AuthRepository {
     this.forgotCodeError,
     this.loginCompleter,
     this.googleCallbackError,
+    this.googleCallbackCompleter,
+    this.appleCallbackCompleter,
     this.logoutError,
     this.deleteError,
     this.emailRegistered = true,
@@ -2197,6 +2357,8 @@ class _WidgetAuthRepository implements AuthRepository {
   final Exception? forgotCodeError;
   final Completer<AuthSession>? loginCompleter;
   final Exception? googleCallbackError;
+  final Completer<AuthSession>? googleCallbackCompleter;
+  final Completer<AuthSession>? appleCallbackCompleter;
   final Exception? logoutError;
   final Exception? deleteError;
   final bool emailRegistered;
@@ -2350,6 +2512,10 @@ class _WidgetAuthRepository implements AuthRepository {
     if (error != null) {
       throw error;
     }
+    final completer = googleCallbackCompleter;
+    if (completer != null) {
+      return completer.future;
+    }
     return _userSession(email: 'flutter.google@example.com');
   }
 
@@ -2366,6 +2532,10 @@ class _WidgetAuthRepository implements AuthRepository {
         anonymousId: anonymousId,
       ),
     );
+    final completer = appleCallbackCompleter;
+    if (completer != null) {
+      return completer.future;
+    }
     return _userSession(email: 'flutter.apple@example.com');
   }
 
@@ -2398,9 +2568,10 @@ class _WidgetAuthRepository implements AuthRepository {
 }
 
 class _WidgetOAuthAuthorizer implements OAuthAuthorizer {
-  _WidgetOAuthAuthorizer({this.result, this.error});
+  _WidgetOAuthAuthorizer({this.result, this.resultFuture, this.error});
 
   final OAuthAuthorizationResult? result;
+  final Future<OAuthAuthorizationResult?>? resultFuture;
   final Exception? error;
   final List<OAuthProvider> requests = [];
 
@@ -2410,6 +2581,10 @@ class _WidgetOAuthAuthorizer implements OAuthAuthorizer {
     final error = this.error;
     if (error != null) {
       throw error;
+    }
+    final resultFuture = this.resultFuture;
+    if (resultFuture != null) {
+      return resultFuture;
     }
     return result;
   }

@@ -26,9 +26,11 @@ enum CardPriceChartMode {
 
 enum CardMarketPriceCategory {
   ungraded('Raw', 'Ungraded'),
+  grade('Grade', 'Grade'),
   psa('PSA', 'PSA'),
-  ace('ACE', 'ACE'),
-  bgs('BGS', 'BGS');
+  bgs('BGS', 'BGS'),
+  cgc('CGC', 'CGC'),
+  sgc('SGC', 'SGC');
 
   const CardMarketPriceCategory(this.grader, this.label);
 
@@ -44,7 +46,12 @@ class CardMarketPrice {
     this.previous7dPriceUsd,
     this.grader = 'Raw',
     this.grade,
+    this.gradeLabel,
     this.condition,
+    this.pricechartingId,
+    this.productSubType,
+    this.increasePercent,
+    this.history = const [],
   });
 
   final String label;
@@ -53,7 +60,12 @@ class CardMarketPrice {
   final double? previous7dPriceUsd;
   final String grader;
   final double? grade;
+  final String? gradeLabel;
   final String? condition;
+  final String? pricechartingId;
+  final String? productSubType;
+  final double? increasePercent;
+  final List<CardPricePoint> history;
 }
 
 class CardPricePoint {
@@ -61,6 +73,16 @@ class CardPricePoint {
 
   final String dateLabel;
   final double? priceUsd;
+}
+
+class CardPriceChartSeries {
+  const CardPriceChartSeries({
+    required this.label,
+    required this.seriesByRange,
+  });
+
+  final String label;
+  final Map<CardPriceRange, List<CardPricePoint>> seriesByRange;
 }
 
 class CardSoldListing {
@@ -180,7 +202,9 @@ class CardDetail {
     this.portfolioFolders = const [],
     this.collectionItems = const [],
     this.priceSeriesByRange = const {},
+    this.rawPriceSeries = const [],
     this.gradedPriceSeriesByRange = const {},
+    this.gradedPriceSeries = const [],
     this.soldListings = const [],
   });
 
@@ -202,7 +226,9 @@ class CardDetail {
   final List<CardPortfolioFolder> portfolioFolders;
   final List<CardCollectionItem> collectionItems;
   final Map<CardPriceRange, List<CardPricePoint>> priceSeriesByRange;
+  final List<CardPriceChartSeries> rawPriceSeries;
   final Map<CardPriceRange, List<CardPricePoint>> gradedPriceSeriesByRange;
+  final List<CardPriceChartSeries> gradedPriceSeries;
   final List<CardSoldListing> soldListings;
 
   bool get isCollected => quantity > 0 || collectionItems.isNotEmpty;
@@ -221,7 +247,9 @@ class CardDetail {
     List<CardPortfolioFolder>? portfolioFolders,
     List<CardCollectionItem>? collectionItems,
     Map<CardPriceRange, List<CardPricePoint>>? priceSeriesByRange,
+    List<CardPriceChartSeries>? rawPriceSeries,
     Map<CardPriceRange, List<CardPricePoint>>? gradedPriceSeriesByRange,
+    List<CardPriceChartSeries>? gradedPriceSeries,
     List<CardSoldListing>? soldListings,
   }) {
     return CardDetail(
@@ -245,8 +273,10 @@ class CardDetail {
       portfolioFolders: portfolioFolders ?? this.portfolioFolders,
       collectionItems: collectionItems ?? this.collectionItems,
       priceSeriesByRange: priceSeriesByRange ?? this.priceSeriesByRange,
+      rawPriceSeries: rawPriceSeries ?? this.rawPriceSeries,
       gradedPriceSeriesByRange:
           gradedPriceSeriesByRange ?? this.gradedPriceSeriesByRange,
+      gradedPriceSeries: gradedPriceSeries ?? this.gradedPriceSeries,
       soldListings: soldListings ?? this.soldListings,
     );
   }

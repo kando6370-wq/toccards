@@ -181,6 +181,7 @@ class CardCollectionItemRow {
     required this.languageText,
     required this.finishText,
     required this.purchasePriceText,
+    required this.marketPriceText,
     required this.totalText,
     required this.notes,
   });
@@ -192,6 +193,7 @@ class CardCollectionItemRow {
   final String languageText;
   final String finishText;
   final String purchasePriceText;
+  final String marketPriceText;
   final String totalText;
   final String notes;
 }
@@ -227,6 +229,7 @@ class CardDetailState {
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
     this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
+    this.selectedFinish,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -244,6 +247,7 @@ class CardDetailState {
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
     this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
+    this.selectedFinish,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -261,6 +265,7 @@ class CardDetailState {
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
     this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
+    this.selectedFinish,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -278,6 +283,7 @@ class CardDetailState {
   final CardPriceChartMode selectedPriceChartMode;
   final CardPriceRange selectedPriceRange;
   final CardMarketPriceCategory selectedMarketPriceCategory;
+  final String? selectedFinish;
   final CardCollectionItemDraft? collectionItemDraft;
   final String? editingCollectionItemId;
   final String? collectionItemFormError;
@@ -297,6 +303,18 @@ class CardDetailState {
       throw StateError('Card detail is unavailable.');
     }
     return detail;
+  }
+
+  String get priceFinish =>
+      selectedFinish ?? priceFinishes.firstOrNull ?? detail.finish;
+
+  List<String> get priceFinishes {
+    final finishes = detail.collectionFinishOptions;
+    if (!finishes.contains(detail.finish)) return finishes;
+    return [
+      detail.finish,
+      ...finishes.where((finish) => finish != detail.finish),
+    ];
   }
 
   String get marketPriceText {
@@ -327,6 +345,14 @@ class CardDetailState {
         languageText: item.language ?? '-',
         finishText: item.finish ?? '-',
         purchasePriceText: _formatter.formatUsd(item.purchasePriceUsd),
+        marketPriceText: _formatter.formatUsd(
+          _matchingCollectionMarketPrice(
+            finish: item.finish,
+            grader: item.grader,
+            condition: item.condition,
+            grade: item.grade,
+          )?.priceUsd,
+        ),
         totalText: _formatter.formatUsd(
           item.purchasePriceUsd == null
               ? null
@@ -342,28 +368,87 @@ class CardDetailState {
     if (draft == null) return _formatter.formatUsd(null);
     final quantity = int.tryParse(draft.quantityText.trim());
     if (quantity == null || quantity < 1) return _formatter.formatUsd(null);
-    final marketPrice = detail.marketPrices
-        .where((price) {
-          if (price.grader.toLowerCase() != draft.grader.toLowerCase()) {
-            return false;
-          }
-          if (draft.isRaw) {
-            return _normalizedCondition(price.condition) ==
-                _normalizedCondition(draft.condition);
-          }
-          final grade = double.tryParse(draft.grade);
-          return grade != null && price.grade == grade;
-        })
-        .firstOrNull
-        ?.priceUsd;
-    return _formatter.formatUsd(marketPrice, quantity: quantity);
+    return _formatter.formatUsd(
+      _collectionItemDraftMarketPrice?.priceUsd,
+      quantity: quantity,
+    );
+  }
+
+  String get collectionItemDraftSelectionText {
+    final draft = collectionItemDraft;
+    if (draft == null) return '';
+    if (draft.isRaw) {
+      return '${draft.finish} · Raw · ${_displayCondition(draft.condition)}';
+    }
+    return '${draft.finish} · ${draft.grader} ${draft.grade}';
+  }
+
+  String get collectionItemDraftMarketPriceText {
+    return _formatter.formatUsd(_collectionItemDraftMarketPrice?.priceUsd);
+  }
+
+  CardMarketPrice? get _collectionItemDraftMarketPrice {
+    final draft = collectionItemDraft;
+    if (draft == null) return null;
+    return _matchingCollectionMarketPrice(
+      finish: draft.finish,
+      grader: draft.grader,
+      condition: draft.condition,
+      grade: draft.grade,
+    );
+  }
+
+  CardMarketPrice? _matchingCollectionMarketPrice({
+    required String? finish,
+    required String grader,
+    required String? condition,
+    required String? grade,
+  }) {
+    if (marketPricesStatus != KandoLoadStatus.content ||
+        (finish ?? '').trim().toLowerCase() !=
+            priceFinish.trim().toLowerCase()) {
+      return null;
+    }
+    return detail.marketPrices.where((price) {
+      if (price.grader.toLowerCase() != grader.toLowerCase()) {
+        return false;
+      }
+      if (grader.toLowerCase() == 'raw') {
+        return _normalizedCondition(price.condition) ==
+            _normalizedCondition(condition);
+      }
+      final gradeValue = double.tryParse(grade ?? '');
+      return gradeValue != null && price.grade == gradeValue;
+    }).firstOrNull;
   }
 
   List<CardPricePoint> get selectedPriceSeries {
-    final seriesByRange = selectedPriceChartMode == CardPriceChartMode.raw
-        ? detail.priceSeriesByRange
-        : detail.gradedPriceSeriesByRange;
-    return seriesByRange[selectedPriceRange] ?? const <CardPricePoint>[];
+    return selectedPriceChartSeries
+            .firstOrNull
+            ?.seriesByRange[selectedPriceRange] ??
+        const <CardPricePoint>[];
+  }
+
+  List<CardPriceChartSeries> get selectedPriceChartSeries {
+    if (selectedPriceChartMode == CardPriceChartMode.raw) {
+      if (detail.rawPriceSeries.isNotEmpty) return detail.rawPriceSeries;
+      return [
+        CardPriceChartSeries(
+          label: 'Raw',
+          seriesByRange: detail.priceSeriesByRange,
+        ),
+      ];
+    }
+    if (detail.gradedPriceSeries.isNotEmpty) {
+      return detail.gradedPriceSeries;
+    }
+    if (detail.gradedPriceSeriesByRange.isEmpty) return const [];
+    return [
+      CardPriceChartSeries(
+        label: 'Graded',
+        seriesByRange: detail.gradedPriceSeriesByRange,
+      ),
+    ];
   }
 
   List<CardPricePointRow> get priceSeriesRows {
@@ -394,16 +479,24 @@ class CardDetailState {
           return CardMarketRow(
             label:
                 selectedMarketPriceCategory == CardMarketPriceCategory.ungraded
-                ? price.condition ??
-                      price.label.replaceFirst(RegExp(r'^Raw\s*'), '')
-                : price.grade == null
-                ? price.label
-                : _gradeText(price.grade!),
+                ? _rawMarketRowLabel(price)
+                : _gradedMarketRowLabel(price),
             priceText: _formatter.formatUsd(price.priceUsd),
             changeText: _marketChange7d(price).percentText,
           );
         })
         .toList();
+  }
+
+  List<CardMarketPriceCategory> get availableMarketPriceCategories {
+    final available = CardMarketPriceCategory.values.where((category) {
+      return detail.marketPrices.any(
+        (price) => price.grader.toLowerCase() == category.grader.toLowerCase(),
+      );
+    }).toList();
+    return available.isEmpty
+        ? const [CardMarketPriceCategory.ungraded]
+        : available;
   }
 
   List<CardSoldListingRow> get soldListingRows {
@@ -446,10 +539,28 @@ class CardDetailState {
   }
 
   MarketChange _marketChange7d(CardMarketPrice price) {
+    if (price.increasePercent != null) {
+      return MarketChange.fromPercent(price.increasePercent);
+    }
     return MarketChange.fromPrices(
       current: price.priceUsd,
       previous: price.previous7dPriceUsd,
     );
+  }
+
+  String _gradedMarketRowLabel(CardMarketPrice price) {
+    final grade =
+        price.gradeLabel ??
+        (price.grade == null ? price.label : _gradeText(price.grade!));
+    final subtype = price.productSubType?.trim();
+    return subtype?.isNotEmpty == true ? '$grade · $subtype' : grade;
+  }
+
+  String _rawMarketRowLabel(CardMarketPrice price) {
+    final label =
+        price.condition ??
+        price.label.replaceFirst(RegExp(r'^Raw\s*'), '').trim();
+    return label.isEmpty ? 'Raw' : label;
   }
 
   String _collectionStatusText(CardCollectionItem item) {
@@ -466,6 +577,7 @@ class CardDetailState {
     CardPriceChartMode? selectedPriceChartMode,
     CardPriceRange? selectedPriceRange,
     CardMarketPriceCategory? selectedMarketPriceCategory,
+    String? selectedFinish,
     Object? collectionItemDraft = _cardDetailStateUnset,
     Object? editingCollectionItemId = _cardDetailStateUnset,
     Object? collectionItemFormError = _cardDetailStateUnset,
@@ -484,6 +596,7 @@ class CardDetailState {
       selectedPriceRange: selectedPriceRange ?? this.selectedPriceRange,
       selectedMarketPriceCategory:
           selectedMarketPriceCategory ?? this.selectedMarketPriceCategory,
+      selectedFinish: selectedFinish ?? this.selectedFinish,
       collectionItemDraft: collectionItemDraft == _cardDetailStateUnset
           ? this.collectionItemDraft
           : collectionItemDraft as CardCollectionItemDraft?,
@@ -509,6 +622,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   final String cardId;
   Completer<void>? _loadCompleter;
   var _loadGeneration = 0;
+  var _priceLoadGeneration = 0;
 
   Future<void> get loadComplete {
     return _loadCompleter?.future ?? Future<void>.value();
@@ -551,13 +665,18 @@ class CardDetailController extends Notifier<CardDetailState> {
     return _refreshSection(
       status: (value) => state = state.copyWith(priceSeriesStatus: value),
       load: (repository, isCurrent) async {
-        final data = await repository.loadPriceSeries(cardId);
+        final data = await repository.loadPriceSeries(
+          cardId,
+          finish: state.priceFinish,
+        );
         if (!isCurrent()) return;
         state = state.copyWith(
           detail: state.detail.copyWith(
             marketPrices: _resolvedMarketPrices(data.marketPrices),
             priceSeriesByRange: data.rawSeriesByRange,
+            rawPriceSeries: data.rawSeries,
             gradedPriceSeriesByRange: data.gradedSeriesByRange,
+            gradedPriceSeries: data.gradedSeries,
           ),
         );
       },
@@ -584,7 +703,10 @@ class CardDetailController extends Notifier<CardDetailState> {
     return _refreshSection(
       status: (value) => state = state.copyWith(marketPricesStatus: value),
       load: (repository, isCurrent) async {
-        final data = await repository.loadMarketPrices(cardId);
+        final data = await repository.loadMarketPrices(
+          cardId,
+          finish: state.priceFinish,
+        );
         if (!isCurrent()) return;
         state = state.copyWith(
           detail: state.detail.copyWith(
@@ -716,6 +838,54 @@ class CardDetailController extends Notifier<CardDetailState> {
   void selectMarketPriceCategory(CardMarketPriceCategory category) {
     if (state.isUnavailable || state.isLoading) return;
     state = state.copyWith(selectedMarketPriceCategory: category);
+  }
+
+  Future<void> selectPriceFinish(String finish) async {
+    if (state.isLoading || state.isUnavailable || finish == state.priceFinish) {
+      return;
+    }
+    final repository = _repository;
+    if (repository is! CardDetailSectionRepository) return;
+    final sectionRepository = repository as CardDetailSectionRepository;
+    final generation = ++_priceLoadGeneration;
+    state = state.copyWith(
+      selectedFinish: finish,
+      priceSeriesStatus: KandoLoadStatus.loading,
+      marketPricesStatus: KandoLoadStatus.loading,
+    );
+    try {
+      final market = await sectionRepository.loadMarketPrices(
+        cardId,
+        finish: finish,
+      );
+      final series = await sectionRepository.loadPriceSeries(
+        cardId,
+        market: market,
+        finish: finish,
+      );
+      if (generation != _priceLoadGeneration || finish != state.priceFinish) {
+        return;
+      }
+      state = state.copyWith(
+        detail: state.detail.copyWith(
+          marketPrices: _resolvedMarketPrices(series.marketPrices),
+          priceSeriesByRange: series.rawSeriesByRange,
+          rawPriceSeries: series.rawSeries,
+          gradedPriceSeriesByRange: series.gradedSeriesByRange,
+          gradedPriceSeries: series.gradedSeries,
+        ),
+        priceSeriesStatus: KandoLoadStatus.content,
+        marketPricesStatus: KandoLoadStatus.content,
+      );
+    } catch (_) {
+      if (generation != _priceLoadGeneration || finish != state.priceFinish) {
+        return;
+      }
+      state = state.copyWith(
+        priceSeriesStatus: KandoLoadStatus.failure,
+        marketPricesStatus: KandoLoadStatus.failure,
+      );
+    }
   }
 
   void startAddingCollectionItem() {
@@ -1155,7 +1325,10 @@ class CardDetailController extends Notifier<CardDetailState> {
     int generation,
   ) async {
     try {
-      final data = await repository.loadMarketPrices(cardId);
+      final data = await repository.loadMarketPrices(
+        cardId,
+        finish: state.priceFinish,
+      );
       if (generation == _loadGeneration) {
         state = state.copyWith(
           detail: state.detail.copyWith(
@@ -1179,13 +1352,19 @@ class CardDetailController extends Notifier<CardDetailState> {
     CardDetailMarketData? market,
   ) async {
     try {
-      final data = await repository.loadPriceSeries(cardId, market);
+      final data = await repository.loadPriceSeries(
+        cardId,
+        market: market,
+        finish: state.priceFinish,
+      );
       if (generation == _loadGeneration) {
         state = state.copyWith(
           detail: state.detail.copyWith(
             marketPrices: _resolvedMarketPrices(data.marketPrices),
             priceSeriesByRange: data.rawSeriesByRange,
+            rawPriceSeries: data.rawSeries,
             gradedPriceSeriesByRange: data.gradedSeriesByRange,
+            gradedPriceSeries: data.gradedSeries,
           ),
           priceSeriesStatus: KandoLoadStatus.content,
         );
@@ -1242,7 +1421,15 @@ class CardDetailController extends Notifier<CardDetailState> {
   List<CardMarketPrice> _resolvedMarketPrices(
     List<CardMarketPrice> marketPrices,
   ) {
-    return marketPrices.isEmpty ? state.detail.marketPrices : marketPrices;
+    return marketPrices.isEmpty
+        ? const [
+            CardMarketPrice(
+              label: 'Raw',
+              priceUsd: null,
+              previous30dPriceUsd: null,
+            ),
+          ]
+        : marketPrices;
   }
 
   CardDetail _detailWithAssetState(CardDetail current, CardDetail assetState) {
@@ -1327,6 +1514,10 @@ String _normalizedCondition(String? value) {
     RegExp(r'\s*\([^)]*\)\s*$'),
     '',
   );
+}
+
+String _displayCondition(String value) {
+  return value.trim().replaceFirst(RegExp(r'\s*\([^)]*\)\s*$'), '').trim();
 }
 
 CardPortfolioFolder? _initialPortfolioFolder(

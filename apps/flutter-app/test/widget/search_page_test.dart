@@ -21,7 +21,6 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
-import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -62,9 +61,7 @@ void main() {
       tester.getRect(find.byKey(const Key('search-results-grid'))).right,
       tester.getRect(find.byKey(const Key('search-field'))).right,
     );
-    final squirtlePriceRow = find.byKey(
-      const Key('search-price-row-squirtle'),
-    );
+    final squirtlePriceRow = find.byKey(const Key('search-price-row-squirtle'));
     final squirtlePrice = find.descendant(
       of: squirtlePriceRow,
       matching: find.text(r'$32.13'),
@@ -100,6 +97,36 @@ void main() {
 
     expect(find.text('€29.24'), findsOneWidget);
     expect(find.text(r'$32.13'), findsNothing);
+  });
+
+  testWidgets('pull refresh keeps Search content and shows one spinner', (
+    tester,
+  ) async {
+    final repository = _BlockingRefreshSearchRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final indicator = find.byKey(const Key('search-pull-to-refresh'));
+    final refresh = tester.state<RefreshIndicatorState>(indicator).show();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(repository.calls, 2);
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    expect(find.byType(KandoLoadingBlock), findsNothing);
+    expect(find.text('Squirtle'), findsOneWidget);
+
+    await repository.completeRefresh();
+    await refresh;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RefreshProgressIndicator), findsNothing);
+    expect(find.text('Squirtle'), findsOneWidget);
   });
 
   testWidgets(
@@ -458,15 +485,11 @@ void main() {
     );
     expect((sheet.decoration! as BoxDecoration).color, KandoColors.surface);
     expect(
-      tester
-          .getRect(find.byKey(const Key('search-game-filter-sheet')))
-          .bottom,
+      tester.getRect(find.byKey(const Key('search-game-filter-sheet'))).bottom,
       844,
     );
     expect(
-      tester
-          .getRect(find.byKey(const Key('search-game-apply-filter')))
-          .bottom,
+      tester.getRect(find.byKey(const Key('search-game-apply-filter'))).bottom,
       lessThanOrEqualTo(844 - 34),
     );
     expect(find.text('GAME / IP'), findsOneWidget);
@@ -532,6 +555,7 @@ void main() {
       find.byKey(const ValueKey('assets/search/wishlist_on.svg')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
 
     final collectButton = find.byKey(const Key('search-collect-squirtle'));
     await tester.ensureVisible(collectButton);
@@ -566,8 +590,7 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pump();
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
   });
 
   testWidgets('Search card action buttons do not open CardDetail', (
@@ -597,49 +620,11 @@ void main() {
     expect(find.byType(SearchPage), findsOneWidget);
     expect(find.byKey(const Key('card-detail-hero')), findsNothing);
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pump();
   });
 
-  testWidgets('Search card add and remove actions use the success top toast', (
+  testWidgets('Search card action failures do not show a toast', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: _searchOverrides(),
-        child: const _SearchTestApp(),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    Future<void> expectSuccessToast() async {
-      await tester.pump();
-      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
-      expect(find.text(changesSavedToastText), findsOneWidget);
-      expect(
-        tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
-        KandoTopToastType.success,
-      );
-      await tester.tap(find.byTooltip('Close'));
-      await tester.pump();
-    }
-
-    final wishlistButton = find.byKey(const Key('search-wishlist-squirtle'));
-    await tester.tap(wishlistButton);
-    await expectSuccessToast();
-
-    await tester.tap(wishlistButton);
-    await expectSuccessToast();
-
-    final collectButton = find.byKey(const Key('search-collect-squirtle'));
-    await tester.tap(collectButton);
-    await expectSuccessToast();
-
-    await tester.tap(collectButton);
-    await expectSuccessToast();
-  });
-
-  testWidgets('Search card action failures use the top toast', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -654,24 +639,16 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('search-wishlist-squirtle')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
     expect(find.byKey(const Key('kando-floating-toast')), findsNothing);
-    expect(find.text(genericFailureToastText), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pump();
 
     await tester.tap(find.byKey(const Key('search-collect-squirtle')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
     expect(find.byKey(const Key('kando-floating-toast')), findsNothing);
-    expect(find.text(genericFailureToastText), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pump();
   });
 
   testWidgets('no matching results state is shown', (tester) async {
@@ -977,6 +954,32 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
   @override
   Future<List<SearchSet>> searchSets(String query, {String? game}) {
     return const MockSearchRepository().searchSets(query);
+  }
+}
+
+class _BlockingRefreshSearchRepository implements SearchRepository {
+  final _refresh = Completer<SearchCatalog>();
+  var calls = 0;
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    calls += 1;
+    if (calls == 1) return const MockSearchRepository().loadCatalog();
+    return _refresh.future;
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
+    return const MockSearchRepository().searchCards(query, game: game);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
+  }
+
+  Future<void> completeRefresh() async {
+    _refresh.complete(await const MockSearchRepository().loadCatalog());
   }
 }
 

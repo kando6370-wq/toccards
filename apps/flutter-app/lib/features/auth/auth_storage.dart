@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'auth_models.dart';
 
@@ -22,8 +23,28 @@ class SecureAuthStorage implements AuthStorage {
   static const _sessionKey = 'auth.session';
   static const _previousAnonymousSessionKey = 'auth.previous_anonymous_session';
   static const _deviceIdKey = 'auth.device_id';
+  static const _installationMarkerKey = 'auth.installation_initialized';
 
   final FlutterSecureStorage _storage;
+
+  Future<void> prepareForCurrentInstallation() async {
+    final preferences = await SharedPreferences.getInstance();
+    if (preferences.getBool(_installationMarkerKey) == true) return;
+
+    // Existing preferences identify an in-place upgrade from a version that
+    // predates the marker. An empty preferences store identifies a fresh app
+    // sandbox, while iOS Keychain values may still remain after uninstall.
+    final isExistingInstallation = preferences.getKeys().isNotEmpty;
+    if (!isExistingInstallation) {
+      await Future.wait([
+        _storage.delete(key: _sessionKey),
+        _storage.delete(key: _previousAnonymousSessionKey),
+        _storage.delete(key: _deviceIdKey),
+      ]);
+    }
+
+    await preferences.setBool(_installationMarkerKey, true);
+  }
 
   @override
   Future<AuthSession?> readSession() => _readSession(_sessionKey);

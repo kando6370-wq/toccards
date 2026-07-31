@@ -9,6 +9,8 @@ void main() {
       networkFailureToastText,
       'No internet connection. Please check your network and try again.',
     );
+    expect(portfolioCardsAddedToastText(1), portfolioCardAddedToastText);
+    expect(portfolioCardsAddedToastText(3), '3 cards added to your portfolio');
   });
 
   test('Toast builder uses the Figma floating toast shell', () {
@@ -186,4 +188,65 @@ void main() {
 
     expect(find.byKey(const Key('kando-top-toast')), findsNothing);
   });
+
+  testWidgets(
+    'centered success Toast scales only its Figma frame on compact screens',
+    (tester) async {
+      tester.view.physicalSize = const Size(300, 480);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showKandoCenteredSuccessToast(
+                  context,
+                  message: portfolioCardAddedToastText,
+                ),
+                child: const Text('Show centered success'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show centered success'));
+      await tester.pump();
+
+      final toast = find.byKey(const Key('kando-centered-success-toast'));
+      expect(tester.getSize(toast), const Size(260, 172.25));
+      expect(tester.getCenter(toast), const Offset(150, 240));
+      final surface = tester.widget<DecoratedBox>(
+        find.byKey(const Key('kando-centered-success-surface')),
+      );
+      expect((surface.decoration as BoxDecoration).border, isNull);
+      expect(
+        find.byKey(const Key('kando-centered-success-background')),
+        findsOneWidget,
+      );
+      final icon = find.byKey(const Key('kando-centered-success-icon'));
+      final title = find.byKey(const Key('kando-centered-success-title'));
+      expect(tester.getSize(icon), const Size.square(56));
+      expect(tester.widget<Text>(title).style?.fontSize, 24);
+      expect(tester.getTopLeft(title).dy - tester.getBottomLeft(icon).dy, 24);
+      final message = tester.widget<Text>(
+        find.text(portfolioCardAddedToastText),
+      );
+      expect(message.textAlign, TextAlign.center);
+      expect(message.maxLines, 2);
+      expect(message.softWrap, isTrue);
+      expect(message.style?.fontSize, 15);
+      expect(
+        tester.getTopLeft(find.text(portfolioCardAddedToastText)).dy -
+            tester.getBottomLeft(title).dy,
+        12,
+      );
+
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pump();
+    },
+  );
 }

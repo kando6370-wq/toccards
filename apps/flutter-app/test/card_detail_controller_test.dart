@@ -40,13 +40,13 @@ void main() {
       expect(cardDataApi.cardRefs, ['catalog:pikachu-025']);
       expect(
         cardDataApi.maxConcurrentSeriesRequests,
-        10,
+        5,
         reason:
             'Card Detail must not serialize every market qualifier and chart range into a network waterfall.',
       );
       expect(
         cardDataApi.totalSeriesRequests,
-        10,
+        5,
         reason:
             'Market prices must reuse the full chart load instead of requesting 7d and 30d series twice.',
       );
@@ -147,9 +147,12 @@ void main() {
       addTearDown(container.dispose);
       await container.read(authControllerProvider.notifier).startupComplete;
       final provider = cardDetailControllerProvider('catalog:pikachu-025');
+      final subscription = container.listen(provider, (_, _) {});
+      addTearDown(subscription.close);
 
-      container.read(provider);
+      subscription.read();
       await portfolioApi.started.future;
+      await Future<void>.delayed(Duration.zero);
 
       final firstContent = container.read(provider);
       expect(firstContent.loadStatus, KandoLoadStatus.content);
@@ -158,6 +161,7 @@ void main() {
 
       portfolioApi.release();
       await container.read(provider.notifier).loadComplete;
+      await _drainSectionLoads();
 
       final complete = container.read(provider);
       expect(complete.assetStateStatus, KandoLoadStatus.content);
@@ -221,7 +225,7 @@ void main() {
       ).loadDetail(_session, 'catalog:pikachu-025');
 
       expect(cardDataApi.priceSeriesBatchCalls, 1);
-      expect(cardDataApi.totalSeriesRequests, 10);
+      expect(cardDataApi.totalSeriesRequests, 5);
       expect(detail.priceSeriesByRange, isNotEmpty);
     },
   );
@@ -514,6 +518,12 @@ void main() {
     expect(state.collectionItemRows.single.quantityText, 'Qty: 1');
     expect(state.collectionItemRows.single.statusText, 'PSA 10');
     expect(state.collectionItemRows.single.purchasePriceText, r'$650.00');
+    expect(
+      state.collectionItemRows.single.marketPriceText,
+      r'$780.00',
+      reason:
+          'Ownership summary must value the saved card state, not its cost.',
+    );
     expect(state.collectionItemRows.single.notes, contains('Obsidian Flames'));
   });
 
@@ -656,12 +666,29 @@ void main() {
       expect(draft.portfolioName, 'Main');
       expect(draft.language, 'English');
       expect(draft.finish, 'Holofoil');
+      expect(
+        container.read(provider).collectionItemDraftSelectionText,
+        'Holofoil · Raw · Near Mint',
+      );
+      expect(
+        container.read(provider).collectionItemDraftMarketPriceText,
+        r'$32.13',
+      );
       expect(container.read(provider).collectionItemDraftTotalText, r'$32.13');
 
       container
           .read(provider.notifier)
           .updateCollectionItemDraft(quantityText: '3');
       expect(container.read(provider).collectionItemDraftTotalText, r'$96.39');
+
+      container
+          .read(provider.notifier)
+          .updateCollectionItemDraft(finish: 'Normal');
+      expect(
+        container.read(provider).collectionItemDraftMarketPriceText,
+        '--',
+        reason: 'A selected Finish must never reuse another Finish price.',
+      );
     },
   );
 
@@ -885,6 +912,49 @@ void main() {
   });
 
   test(
+    'switching finish replaces both Raw condition charts and market rows because materials must never share prices',
+    () async {
+      final cardDataApi = _FinishSwitchingCardDataApi();
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+
+      await _loadedState(container, 'catalog:pikachu-025');
+      await _drainSectionLoads();
+      expect(container.read(provider).priceFinish, 'Holofoil');
+
+      await container.read(provider.notifier).selectPriceFinish('Normal');
+      final normal = container.read(provider);
+
+      expect(normal.priceFinish, 'Normal');
+      expect(normal.detail.rawPriceSeries.map((series) => series.label), [
+        'Raw Near Mint',
+        'Raw Lightly Played',
+        'Raw Moderately Played',
+      ]);
+      expect(normal.priceTabMarketRows.map((row) => row.priceText), [
+        r'$25.00',
+        r'$20.00',
+        r'$15.00',
+      ]);
+      expect(normal.priceTabMarketRows.first.changeText, '+5.00%');
+      expect(cardDataApi.marketFinishes.last, 'Normal');
+      expect(
+        cardDataApi.seriesFinishes.whereType<String>().toSet(),
+        contains('Normal'),
+      );
+    },
+  );
+
+  test(
     'sectioned detail load completes after base detail because optional endpoints render independently',
     () async {
       final repository = _BlockingOptionalSectionRepository();
@@ -1060,15 +1130,19 @@ class _BlockingOptionalSectionRepository extends _RecordingCardDetailRepository
   }
 
   @override
-  Future<CardDetailMarketData> loadMarketPrices(String cardId) {
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+  }) {
     return _marketCompleter.future;
   }
 
   @override
   Future<CardDetailSeriesData> loadPriceSeries(
-    String cardId, [
+    String cardId, {
     CardDetailMarketData? market,
-  ]) {
+    String? finish,
+  }) {
     return _seriesCompleter.future;
   }
 
@@ -1485,7 +1559,10 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
   }
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) async {
     if (failMarketPrices) {
       throw StateError('market prices unavailable');
     }
@@ -1499,8 +1576,18 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
       CardDataMarketPriceDto(
         grader: 'PSA',
         grade: 10,
+        gradeLabel: '10',
         condition: null,
         price: 70,
+        pricechartingId: 'pc-pikachu-psa-10',
+        productSubType: 'Holofoil',
+        increasePercent: 7.69,
+        history: [
+          CardDataPricePointDto(date: '2026-04-10', price: 40),
+          CardDataPricePointDto(date: '2026-06-10', price: 50),
+          CardDataPricePointDto(date: '2026-07-03', price: 65),
+          CardDataPricePointDto(date: '2026-07-10', price: 70),
+        ],
       ),
     ];
   }
@@ -1512,6 +1599,7 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
   }) async {
     if (failPriceSeries) {
       throw StateError('price series unavailable');
@@ -1555,6 +1643,7 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
           grader: request.grader,
           grade: request.grade,
           condition: request.condition,
+          finish: request.finish,
         ),
       ),
     );
@@ -1576,18 +1665,40 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
   }
 }
 
-class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
-  var _marketFailuresRemaining = 1;
-  var _seriesFailuresRemaining = 1;
-  var _soldFailuresRemaining = 1;
+class _FinishSwitchingCardDataApi extends _FakeCardDataApi {
+  final List<String?> marketFinishes = [];
+  final List<String?> seriesFinishes = [];
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) {
-    if (_marketFailuresRemaining > 0) {
-      _marketFailuresRemaining -= 1;
-      throw StateError('market prices unavailable');
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) async {
+    marketFinishes.add(finish);
+    if (finish != 'Normal') {
+      return super.getMarketPrices(cardRef, finish: finish);
     }
-    return super.getMarketPrices(cardRef);
+    return const [
+      CardDataMarketPriceDto(
+        grader: 'Raw',
+        grade: null,
+        condition: 'Near Mint',
+        price: 25,
+        increasePercent: 5,
+      ),
+      CardDataMarketPriceDto(
+        grader: 'Raw',
+        grade: null,
+        condition: 'Lightly Played',
+        price: 20,
+      ),
+      CardDataMarketPriceDto(
+        grader: 'Raw',
+        grade: null,
+        condition: 'Moderately Played',
+        price: 15,
+      ),
+    ];
   }
 
   @override
@@ -1597,6 +1708,47 @@ class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
+  }) async {
+    seriesFinishes.add(finish);
+    final current = switch (condition) {
+      'Near Mint' => 25.0,
+      'Lightly Played' => 20.0,
+      'Moderately Played' => 15.0,
+      _ => 10.0,
+    };
+    return [
+      CardDataPricePointDto(date: '2026-07-01', price: current - 1),
+      CardDataPricePointDto(date: '2026-07-30', price: current),
+    ];
+  }
+}
+
+class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
+  var _marketFailuresRemaining = 1;
+  var _seriesFailuresRemaining = 2;
+  var _soldFailuresRemaining = 1;
+
+  @override
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) {
+    if (_marketFailuresRemaining > 0) {
+      _marketFailuresRemaining -= 1;
+      throw StateError('market prices unavailable');
+    }
+    return super.getMarketPrices(cardRef, finish: finish);
+  }
+
+  @override
+  Future<List<CardDataPricePointDto>> getPriceSeries(
+    String cardRef, {
+    required int days,
+    String grader = 'Raw',
+    double? grade,
+    String? condition,
+    String? finish,
   }) {
     if (_seriesFailuresRemaining > 0) {
       _seriesFailuresRemaining -= 1;
@@ -1608,6 +1760,7 @@ class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
       grader: grader,
       grade: grade,
       condition: condition,
+      finish: finish,
     );
   }
 

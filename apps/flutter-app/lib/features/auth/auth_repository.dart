@@ -486,15 +486,3 @@ String _installationPlatform() {
     TargetPlatform.fuchsia => 'Unknown',
   };
 }
-
-String _installationPlatform() {
-  if (kIsWeb) return 'Web';
-  return switch (defaultTargetPlatform) {
-    TargetPlatform.iOS => 'iOS',
-    TargetPlatform.android => 'Android',
-    TargetPlatform.macOS => 'macOS',
-    TargetPlatform.windows => 'Windows',
-    TargetPlatform.linux => 'Linux',
-    TargetPlatform.fuchsia => 'Unknown',
-  };
-}

@@ -148,21 +148,36 @@ class CardDataMarketPriceDto {
   const CardDataMarketPriceDto({
     required this.grader,
     required this.grade,
+    this.gradeLabel,
     required this.condition,
     required this.price,
+    this.pricechartingId,
+    this.productSubType,
+    this.increasePercent,
+    this.history = const [],
   });
 
   final String grader;
   final double? grade;
+  final String? gradeLabel;
   final String? condition;
   final double? price;
+  final String? pricechartingId;
+  final String? productSubType;
+  final double? increasePercent;
+  final List<CardDataPricePointDto> history;
 
   factory CardDataMarketPriceDto.fromJson(Map<String, Object?> json) {
     return CardDataMarketPriceDto(
       grader: _requiredString(json['grader']),
       grade: _nullableDouble(json['grade']),
+      gradeLabel: _nullableString(json['grade_label']),
       condition: _nullableString(json['condition']),
       price: _nullableDouble(json['price']),
+      pricechartingId: _nullableString(json['pricecharting_id']),
+      productSubType: _nullableString(json['product_sub_type']),
+      increasePercent: _nullableDouble(json['increase_percent']),
+      history: _optionalPriceHistory(json['history']),
     );
   }
 }
@@ -187,18 +202,21 @@ class CardDataPriceSeriesQuery {
     required this.grader,
     this.grade,
     this.condition,
+    this.finish,
   });
 
   final int days;
   final String grader;
   final double? grade;
   final String? condition;
+  final String? finish;
 
   Map<String, Object?> toJson() => {
     'days': days,
     'grader': grader,
     'grade': grade,
     'condition': condition,
+    if (finish != null) 'finish': finish,
   };
 }
 
@@ -233,13 +251,17 @@ abstract interface class CardDataApi {
   Future<List<CardDataSetDto>> searchSets(String query, {String? game});
   Future<List<CardDataCardDto>> trendingCards();
   Future<CardDataCardDto> getCard(String cardRef);
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef);
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  });
   Future<List<CardDataPricePointDto>> getPriceSeries(
     String cardRef, {
     required int days,
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
   });
   Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef);
 }
@@ -386,11 +408,17 @@ class CardDataApiClient
   }
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) async {
     final data = await _requestData(
       'GET',
       '/cards/${Uri.encodeComponent(cardRef)}/market-prices',
-      queryParameters: {'response_version': cardDataResponseVersion},
+      queryParameters: {
+        'response_version': cardDataResponseVersion,
+        if (finish != null) 'finish': finish,
+      },
     );
     final prices = data['prices'];
     if (prices is! List) {
@@ -408,6 +436,7 @@ class CardDataApiClient
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
   }) async {
     final data = await _requestData(
       'GET',
@@ -418,6 +447,7 @@ class CardDataApiClient
         'grader': grader,
         if (grade != null) 'grade': grade,
         if (condition != null) 'condition': condition,
+        if (finish != null) 'finish': finish,
       },
     );
     final series = data['series'];
@@ -573,4 +603,12 @@ double? _nullableDouble(Object? value) {
   if (value is int) return value.toDouble();
   if (value is double) return value;
   throw const CardDataApiException('Something went wrong. Please try again.');
+}
+
+List<CardDataPricePointDto> _optionalPriceHistory(Object? value) {
+  if (value == null) return const [];
+  if (value is! List) {
+    throw const CardDataApiException('Something went wrong. Please try again.');
+  }
+  return value.map(_mapItem).map(CardDataPricePointDto.fromJson).toList();
 }

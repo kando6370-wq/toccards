@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
-import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import 'search_controller.dart';
@@ -146,16 +145,6 @@ class SearchCardTile extends ConsumerWidget {
                                                   ),
                                                 );
                                               }
-                                            } else if (action ==
-                                                    SearchCollectAction
-                                                        .updated &&
-                                                context.mounted) {
-                                              showKandoTopSuccessToast(context);
-                                            } else if (action ==
-                                                    SearchCollectAction
-                                                        .ignored &&
-                                                context.mounted) {
-                                              showKandoTopFailureToast(context);
                                             }
                                           },
                                   ),
@@ -172,23 +161,12 @@ class SearchCardTile extends ConsumerWidget {
                                       onPressed: !actionsEnabled
                                           ? null
                                           : () async {
-                                              final succeeded = await ref
+                                              await ref
                                                   .read(
                                                     searchControllerProvider
                                                         .notifier,
                                                   )
                                                   .toggleWishlistCard(card);
-                                              if (context.mounted) {
-                                                if (succeeded) {
-                                                  showKandoTopSuccessToast(
-                                                    context,
-                                                  );
-                                                } else {
-                                                  showKandoTopFailureToast(
-                                                    context,
-                                                  );
-                                                }
-                                              }
                                             },
                                     ),
                                   ],

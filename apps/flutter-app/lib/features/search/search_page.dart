@@ -48,7 +48,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             key: const Key('search-pull-to-refresh'),
             onRefresh: () {
               ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-              return controller.refresh();
+              return controller.refreshPreservingContent();
             },
             child: state.isLoading || state.isUnavailable
                 ? ListView(

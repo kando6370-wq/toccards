@@ -1150,7 +1150,10 @@ class _FakeCardDataApi implements CardDataApi {
   }
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) async {
     throw UnimplementedError();
   }
 
@@ -1161,6 +1164,7 @@ class _FakeCardDataApi implements CardDataApi {
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
   }) async {
     throw UnimplementedError();
   }

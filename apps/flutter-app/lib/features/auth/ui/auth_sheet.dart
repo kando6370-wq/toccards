@@ -536,9 +536,24 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   }
 
   Future<void> _continueWithGoogle() {
+    OverlayEntry? loadingOverlay;
     return _run(
-      () {
-        return ref.read(authControllerProvider.notifier).continueWithGoogle();
+      () async {
+        try {
+          await ref
+              .read(authControllerProvider.notifier)
+              .continueWithGoogle(
+                onCallbackStart: () {
+                  if (mounted) {
+                    loadingOverlay ??= _showOAuthLoadingOverlay(
+                      'Signing in with Google',
+                    );
+                  }
+                },
+              );
+        } finally {
+          loadingOverlay?.remove();
+        }
       },
       isOAuth: true,
       successEvent: AnalyticsEvent.googleSuccess,
@@ -546,9 +561,24 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   }
 
   Future<void> _continueWithApple() {
+    OverlayEntry? loadingOverlay;
     return _run(
-      () {
-        return ref.read(authControllerProvider.notifier).continueWithApple();
+      () async {
+        try {
+          await ref
+              .read(authControllerProvider.notifier)
+              .continueWithApple(
+                onCallbackStart: () {
+                  if (mounted) {
+                    loadingOverlay ??= _showOAuthLoadingOverlay(
+                      'Signing in with Apple',
+                    );
+                  }
+                },
+              );
+        } finally {
+          loadingOverlay?.remove();
+        }
       },
       isOAuth: true,
       successEvent: AnalyticsEvent.appleSuccess,
@@ -691,6 +721,14 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
     }
   }
 
+  OverlayEntry _showOAuthLoadingOverlay(String message) {
+    final entry = OverlayEntry(
+      builder: (_) => _OAuthLoadingOverlay(message: message),
+    );
+    Overlay.of(context, rootOverlay: true).insert(entry);
+    return entry;
+  }
+
   String _displayError(Exception error) {
     return error.toString().replaceFirst('Exception: ', '');
   }
@@ -741,6 +779,60 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
         showKandoToast(context, message: profileActionFailureText);
       }
     }
+  }
+}
+
+class _OAuthLoadingOverlay extends StatelessWidget {
+  const _OAuthLoadingOverlay({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('auth-oauth-loading-overlay'),
+      color: Colors.transparent,
+      child: SizedBox.expand(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: ColoredBox(color: Colors.black.withValues(alpha: 0.72)),
+              ),
+            ),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox.square(
+                    dimension: 32,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.6,
+                      color: KandoColors.accent,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    textScaler: TextScaler.noScaling,
+                    style: const TextStyle(
+                      color: KandoColors.text,
+                      fontFamily: 'Geist',
+                      fontSize: 16,
+                      height: 24 / 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

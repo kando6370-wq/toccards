@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -7,13 +10,23 @@ import 'kando_style.dart';
 const genericFailureToastText = 'Something went wrong. Please try again.';
 const networkFailureToastText =
     'No internet connection. Please check your network and try again.';
-const changesSavedToastText = 'Success! Your changes have been saved';
+const portfolioCardAddedToastText = '1 card added to your portfolio';
+
+String portfolioCardsAddedToastText(int count) {
+  return count == 1
+      ? portfolioCardAddedToastText
+      : '$count cards added to your portfolio';
+}
+
 const kandoToastDuration = Duration(seconds: 2);
 const kandoTopToastDuration = Duration(seconds: 3);
+const kandoCenteredSuccessToastDuration = Duration(milliseconds: 1500);
 const kandoTopToastTopGap = 28.0;
 
 OverlayEntry? _kandoTopToastEntry;
 Timer? _kandoTopToastTimer;
+OverlayEntry? _kandoCenteredSuccessToastEntry;
+Timer? _kandoCenteredSuccessToastTimer;
 
 /// Visual/semantic variants for top overlay toasts.
 ///
@@ -148,14 +161,32 @@ void showKandoTopNetworkToast(BuildContext context) {
   );
 }
 
-/// Shows the generic saved-success message as a top toast.
+/// Shows the Figma centered success toast and replaces any current instance.
 ///
-/// 中文：以顶部提示框展示通用的修改已保存文案。
-void showKandoTopSuccessToast(BuildContext context) {
-  showKandoTopToast(
-    context,
-    message: changesSavedToastText,
-    type: KandoTopToastType.success,
+/// 中文：显示 Figma 居中成功提示，并替换当前已显示的同类提示。
+void showKandoCenteredSuccessToast(
+  BuildContext context, {
+  String title = 'Success',
+  required String message,
+  Duration duration = kandoCenteredSuccessToastDuration,
+}) {
+  final overlay = Overlay.of(context, rootOverlay: true);
+  _removeKandoCenteredSuccessToast();
+
+  final entry = OverlayEntry(
+    builder: (_) => Positioned.fill(
+      child: IgnorePointer(
+        child: Center(
+          child: KandoCenteredSuccessToast(title: title, message: message),
+        ),
+      ),
+    ),
+  );
+  _kandoCenteredSuccessToastEntry = entry;
+  overlay.insert(entry);
+  _kandoCenteredSuccessToastTimer = Timer(
+    duration,
+    _removeKandoCenteredSuccessToast,
   );
 }
 
@@ -164,6 +195,256 @@ void _removeKandoTopToast() {
   _kandoTopToastTimer = null;
   _kandoTopToastEntry?.remove();
   _kandoTopToastEntry = null;
+}
+
+void _removeKandoCenteredSuccessToast() {
+  _kandoCenteredSuccessToastTimer?.cancel();
+  _kandoCenteredSuccessToastTimer = null;
+  _kandoCenteredSuccessToastEntry?.remove();
+  _kandoCenteredSuccessToastEntry = null;
+}
+
+/// Figma centered success toast from node 183:10881.
+class KandoCenteredSuccessToast extends StatelessWidget {
+  const KandoCenteredSuccessToast({
+    super.key,
+    this.title = 'Success',
+    required this.message,
+  });
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    const designWidth = 320.0;
+    const designHeight = 212.0;
+    const viewportInset = 20.0;
+    final availableWidth = math.max(0.0, viewport.width - viewportInset * 2);
+    final availableHeight = math.max(0.0, viewport.height - viewportInset * 2);
+    final frameScale = math.min(
+      1.0,
+      math.min(availableWidth / designWidth, availableHeight / designHeight),
+    );
+    final width = designWidth * frameScale;
+    final height = designHeight * frameScale;
+    const horizontalPadding = 20.0;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        key: const Key('kando-centered-success-toast'),
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x40000000),
+              offset: Offset(0, 25),
+              blurRadius: 50,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: DecoratedBox(
+              key: const Key('kando-centered-success-surface'),
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.all(Radius.circular(16)),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const CustomPaint(
+                    key: Key('kando-centered-success-background'),
+                    painter: _KandoCenteredSuccessBackgroundPainter(),
+                    child: SizedBox.expand(),
+                  ),
+                  Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _KandoCenteredSuccessIcon(),
+                          SizedBox(height: 24),
+                          Text(
+                            title,
+                            key: const Key('kando-centered-success-title'),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            textScaler: TextScaler.noScaling,
+                            style: const TextStyle(
+                              color: Color(0xFFF1FE70),
+                              fontFamily: 'Fraunces',
+                              fontSize: 24,
+                              height: 32 / 24,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            message,
+                            key: const Key('kando-centered-success-message'),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            softWrap: true,
+                            textScaler: TextScaler.noScaling,
+                            style: const TextStyle(
+                              color: Color(0xFFE3E3D6),
+                              fontSize: 15,
+                              height: 22 / 15,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _KandoCenteredSuccessBackgroundPainter extends CustomPainter {
+  const _KandoCenteredSuccessBackgroundPainter();
+
+  static const _designSize = Size(320, 212);
+  static const _figmaAngle = 111.108253161755;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0x0FFFFFFF),
+    );
+    _paintLinearLayer(canvas, size, const [
+      Color(0xE6393D2D),
+      Color(0xE612140E),
+    ]);
+    _paintLinearLayer(canvas, size, const [
+      Color(0xE61C1E15),
+      Color(0xE612140E),
+    ]);
+    _paintFigmaOverlay(canvas, size);
+  }
+
+  void _paintLinearLayer(Canvas canvas, Size size, List<Color> colors) {
+    final radians = _figmaAngle * math.pi / 180;
+    final direction = Offset(math.sin(radians), -math.cos(radians));
+    final extent =
+        size.width * direction.dx.abs() + size.height * direction.dy.abs();
+    final center = size.center(Offset.zero);
+    final halfVector = direction * (extent / 2);
+    final paint = Paint()
+      ..shader = ui.Gradient.linear(
+        center - halfVector,
+        center + halfVector,
+        colors,
+      );
+    canvas.drawRect(Offset.zero & size, paint);
+  }
+
+  void _paintFigmaOverlay(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..shader = ui.Gradient.linear(
+        Offset.zero,
+        const Offset(5, 5),
+        const [
+          Color(0x3DF0FE70),
+          Color(0x3DB8C257),
+          Color(0x3D9CA54A),
+          Color(0x3D80873E),
+          Color(0x3D646931),
+          Color(0x3D484B24),
+          Color(0x3D2C2D18),
+          Color(0x3D1E1F11),
+          Color(0x3D10100B),
+        ],
+        const [
+          0,
+          0.16686,
+          0.25029,
+          0.33372,
+          0.41715,
+          0.50058,
+          0.58402,
+          0.62573,
+          0.66745,
+        ],
+      );
+
+    canvas.save();
+    canvas.scale(
+      size.width / _designSize.width,
+      size.height / _designSize.height,
+    );
+    canvas.transform(
+      Float64List.fromList(const [
+        37.477,
+        36.818,
+        0,
+        0,
+        -64.648,
+        55.241,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -118.77,
+        -121.79,
+        0,
+        1,
+      ]),
+    );
+    for (final scaleX in const [-1.0, 1.0]) {
+      for (final scaleY in const [-1.0, 1.0]) {
+        canvas.save();
+        canvas.scale(scaleX, scaleY);
+        canvas.drawRect(const Rect.fromLTWH(0, 0, 73.758, 26.43), paint);
+        canvas.restore();
+      }
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_KandoCenteredSuccessBackgroundPainter oldDelegate) {
+    return false;
+  }
+}
+
+class _KandoCenteredSuccessIcon extends StatelessWidget {
+  const _KandoCenteredSuccessIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('kando-centered-success-icon'),
+      width: 56,
+      height: 56,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Color(0x1FF1FE70),
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0x1AFFFFFF), width: 1.4),
+      ),
+      child: const Icon(Icons.check_circle, size: 26, color: Color(0xFFF1FE70)),
+    );
+  }
 }
 
 /// Figma floating toast content.

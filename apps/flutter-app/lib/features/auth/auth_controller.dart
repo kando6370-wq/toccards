@@ -140,12 +140,18 @@ class AuthController extends Notifier<AuthState> {
     });
   }
 
-  Future<void> continueWithGoogle() {
-    return _continueWithOAuth(OAuthProvider.google);
+  Future<void> continueWithGoogle({void Function()? onCallbackStart}) {
+    return _continueWithOAuth(
+      OAuthProvider.google,
+      onCallbackStart: onCallbackStart,
+    );
   }
 
-  Future<void> continueWithApple() {
-    return _continueWithOAuth(OAuthProvider.apple);
+  Future<void> continueWithApple({void Function()? onCallbackStart}) {
+    return _continueWithOAuth(
+      OAuthProvider.apple,
+      onCallbackStart: onCallbackStart,
+    );
   }
 
   Future<void> sendRegisterCode(String email) {
@@ -214,7 +220,10 @@ class AuthController extends Notifier<AuthState> {
     );
   }
 
-  Future<void> _continueWithOAuth(OAuthProvider provider) async {
+  Future<void> _continueWithOAuth(
+    OAuthProvider provider, {
+    void Function()? onCallbackStart,
+  }) async {
     final generation = _generation;
     final targetSession = state.session;
     final OAuthAuthorizationResult? authorization;
@@ -238,6 +247,7 @@ class AuthController extends Notifier<AuthState> {
           : null;
       final AuthSession session;
       try {
+        onCallbackStart?.call();
         session = switch (provider) {
           OAuthProvider.google => await _repository.googleCallback(
             idToken: authorizationResult.code,

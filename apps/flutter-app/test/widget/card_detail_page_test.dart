@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,7 @@ import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
@@ -20,6 +22,56 @@ import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_card_detail_repository.dart';
 
 void main() {
+  testWidgets(
+    'product 180865 shows Normal and Foil tabs and switching refreshes material prices',
+    (tester) async {
+      final repository = _FinishTabCardDetailRepository();
+      await tester.pumpWidget(
+        _CardDetailTestApp(cardId: '180865', repository: repository),
+      );
+      await tester.pumpAndSettle();
+
+      final normalTab = find.byKey(const Key('card-detail-finish-Normal'));
+      final foilTab = find.byKey(const Key('card-detail-finish-Foil'));
+      await tester.scrollUntilVisible(normalTab, 400);
+      expect(normalTab, findsOneWidget);
+      expect(foilTab, findsOneWidget);
+
+      await tester.tap(foilTab);
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedFinishes.last, 'Foil');
+      expect(find.text(r'$20.00'), findsWidgets);
+    },
+  );
+
+  testWidgets('Wishlist CardDetail uses the global Finish tabs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const _CardDetailTestApp(cardId: 'one-piece-luffy'),
+    );
+    await tester.pumpAndSettle();
+
+    final removeWishlist = find.byKey(const Key('card-detail-remove-wishlist'));
+    await tester.scrollUntilVisible(removeWishlist, 400);
+    expect(removeWishlist, findsOneWidget);
+    expect(find.byKey(const Key('card-detail-finish-Normal')), findsOneWidget);
+  });
+
+  testWidgets(
+    'Price always shows its Finish tab when only one material exists',
+    (tester) async {
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'squirtle'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-finish-Holofoil')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets(
     'mobile CardDetail keeps the Figma hero size because the primary card must stay inspectable',
     (tester) async {
@@ -115,8 +167,8 @@ void main() {
     expect(find.text('Shop'), findsOneWidget);
     expect(find.text('Ungraded'), findsOneWidget);
     expect(find.text('PSA'), findsOneWidget);
-    expect(find.text('ACE'), findsOneWidget);
-    expect(find.text('BGS'), findsOneWidget);
+    expect(find.text('ACE'), findsNothing);
+    expect(find.text('BGS'), findsNothing);
     expect(find.text('Near Mint (NM)'), findsOneWidget);
     expect(find.text(r'$32.13'), findsWidgets);
     expect(find.text('+2.19%'), findsOneWidget);
@@ -174,23 +226,52 @@ void main() {
         'No chart point selected',
       );
 
-      final chartRect = tester.getRect(chart);
-      await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));
+      var chartRect = tester.getRect(chart);
+      final touch = await tester.startGesture(
+        Offset(chartRect.left + 1, chartRect.center.dy),
+      );
       await tester.pump();
       expect(
         tester.widget<Semantics>(chart).properties.value,
         r'Date: 30 days ago, Price: $30.67',
       );
 
-      await tester.dragFrom(
-        Offset(chartRect.left + 1, chartRect.center.dy),
-        Offset(chartRect.width - 2, 0),
-      );
+      await touch.moveTo(Offset(chartRect.right - 1, chartRect.center.dy));
       await tester.pump();
       expect(
         tester.widget<Semantics>(chart).properties.value,
         r'Date: Today, Price: $32.13',
       );
+
+      await touch.up();
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+
+      chartRect = tester.getRect(chart);
+      final mouse = await tester.createGesture(
+        kind: ui.PointerDeviceKind.mouse,
+      );
+      await mouse.addPointer(
+        location: Offset(chartRect.right + 20, chartRect.center.dy),
+      );
+      await tester.pump();
+      await mouse.moveTo(chartRect.center);
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        isNot('No chart point selected'),
+      );
+
+      await mouse.moveTo(Offset(chartRect.right + 20, chartRect.center.dy));
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+      await mouse.removePointer();
     },
   );
 
@@ -289,12 +370,46 @@ void main() {
       await tester.tap(find.byKey(const Key('card-detail-remove-wishlist')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Remove from Wishlist'), findsWidgets);
-      expect(find.text('Remove this card from your Wishlist?'), findsOneWidget);
-      await tester.tap(find.text('Remove'));
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        find.byKey(const Key('card-detail-remove-confirmation-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('This card will be removed from your wishlist'),
+        findsOneWidget,
+      );
+      expect(find.text('CANCEL'), findsOneWidget);
+      expect(find.text('REMOVE'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const Key('card-detail-remove-confirmation-cancel')),
+      );
       await tester.pumpAndSettle();
 
-      final container = ProviderScope.containerOf(
+      var container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      expect(
+        container
+            .read(cardDetailControllerProvider('one-piece-luffy'))
+            .detail
+            .isWishlisted,
+        isTrue,
+      );
+      expect(
+        find.byKey(const Key('card-detail-remove-confirmation-sheet')),
+        findsNothing,
+      );
+
+      await tester.tap(find.byKey(const Key('card-detail-remove-wishlist')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-remove-confirmation-submit')),
+      );
+      await tester.pumpAndSettle();
+
+      container = ProviderScope.containerOf(
         tester.element(find.byType(CardDetailPage)),
       );
       expect(
@@ -304,6 +419,49 @@ void main() {
             .isWishlisted,
         isFalse,
       );
+    },
+  );
+
+  testWidgets(
+    'failed removal shows the shared failure toast above the confirmation sheet',
+    (tester) async {
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'one-piece-luffy',
+          repository: _FailingRemovalCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-remove-wishlist')),
+        400,
+      );
+      await tester.tap(find.byKey(const Key('card-detail-remove-wishlist')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-remove-confirmation-submit')),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.text(genericFailureToastText), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-remove-confirmation-sheet')),
+        findsOneWidget,
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      expect(
+        container
+            .read(cardDetailControllerProvider('one-piece-luffy'))
+            .detail
+            .isWishlisted,
+        isTrue,
+      );
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
     },
   );
 
@@ -356,8 +514,20 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Adding to Sealed'), findsOneWidget);
       expect(find.byKey(const Key('card-detail-item-portfolio')), findsNothing);
-      expect(find.text('Language'), findsWidgets);
-      expect(find.text('Finish'), findsWidgets);
+      expect(find.text('LANGUAGE'), findsOneWidget);
+      expect(find.text('CARD VERSION  /  FINISH'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-item-state-raw')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-item-selected-card')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-item-market-price')),
+        findsOneWidget,
+      );
       expect(find.text('TOTAL VALUE'), findsOneWidget);
       expect(
         tester
@@ -390,10 +560,10 @@ void main() {
         tester.getTopLeft(find.byKey(const Key('card-detail-item-submit'))).dy,
         submitTopBeforeScroll.dy,
       );
-      await tester.tap(find.byKey(const Key('card-detail-item-condition')));
-      await tester.pumpAndSettle();
       expect(find.text('Lightly Played (LP)'), findsOneWidget);
       expect(find.text('Near Mint (NM)'), findsWidgets);
+      await tester.tap(find.text('Lightly Played (LP)'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Near Mint (NM)').last);
       await tester.pumpAndSettle();
 
@@ -430,14 +600,26 @@ void main() {
         'Raw / Near Mint (NM)',
       );
       expect(savedState.collectionItemRows.single.purchasePriceText, '--');
-      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
-      expect(find.text(changesSavedToastText), findsOneWidget);
-      expect(
-        tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
-        KandoTopToastType.success,
+      final successToast = find.byKey(
+        const Key('kando-centered-success-toast'),
       );
-      await tester.tap(find.byTooltip('Close'));
+      expect(successToast, findsOneWidget);
+      expect(find.byKey(const Key('kando-top-toast')), findsNothing);
+      expect(find.text('Success'), findsOneWidget);
+      expect(find.text(portfolioCardAddedToastText), findsOneWidget);
+      expect(tester.getSize(successToast), const Size(320, 212));
+      final viewSize = tester.view.physicalSize / tester.view.devicePixelRatio;
+      expect(
+        tester.getCenter(successToast),
+        Offset(viewSize.width / 2, viewSize.height / 2),
+      );
+      final title = tester.widget<Text>(find.text('Success'));
+      expect(title.style?.fontFamily, 'Fraunces');
+      expect(title.style?.fontSize, 24);
+      expect(title.style?.fontWeight, FontWeight.w600);
+      await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pump();
+      expect(successToast, findsNothing);
     },
   );
 
@@ -459,15 +641,46 @@ void main() {
 
     expect(repository.pendingCreate, isNotNull);
     expect(find.byKey(const Key('card-detail-add-item-sheet')), findsOneWidget);
+    expect(
+      find.byKey(const Key('card-detail-item-submit-loading')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const Key('card-detail-item-submit')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(find.byIcon(Icons.add_circle_outline), findsNothing);
+    expect(find.text('Add this card'), findsOneWidget);
     expect(find.byKey(const Key('kando-top-toast')), findsNothing);
 
     repository.completeCreate();
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
-    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
-    expect(find.text(changesSavedToastText), findsOneWidget);
-    await tester.tap(find.byTooltip('Close'));
+    expect(
+      find.byKey(const Key('card-detail-item-submit-loading')),
+      findsNothing,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CardDetailPage)),
+    );
+    expect(
+      container
+          .read(cardDetailControllerProvider('one-piece-luffy'))
+          .isSavingCollectionItemDraft,
+      isFalse,
+    );
+    expect(
+      find.byKey(const Key('kando-centered-success-toast')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
+    expect(find.text(portfolioCardAddedToastText), findsOneWidget);
+    await tester.pump(kandoCenteredSuccessToastDuration);
     await tester.pump();
   });
 
@@ -488,7 +701,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('card-detail-item-grader')));
+      final gradedState = find.byKey(
+        const Key('card-detail-item-state-graded'),
+      );
+      await tester.ensureVisible(gradedState);
+      await tester.pumpAndSettle();
+      await tester.tap(gradedState);
+      await tester.pumpAndSettle();
+
+      final graderGroup = find.byKey(const Key('card-detail-item-grader'));
+      await tester.ensureVisible(graderGroup);
       await tester.pumpAndSettle();
       await tester.tap(find.text('BGS').last);
       await tester.pumpAndSettle();
@@ -520,9 +742,10 @@ void main() {
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('card-detail-item-grader')));
+      final rawState = find.byKey(const Key('card-detail-item-state-raw'));
+      await tester.ensureVisible(rawState);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Raw').last);
+      await tester.tap(rawState);
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(
@@ -566,6 +789,41 @@ void main() {
     expect(find.text('10'), findsOneWidget);
     expect(find.text('PURCHASE PRICE'), findsOneWidget);
     expect(find.text(r'$650.00'), findsWidgets);
+    final ownershipCard = find.byKey(
+      const Key('card-detail-collection-item-item-charizard'),
+    );
+    expect(
+      find.descendant(
+        of: ownershipCard,
+        matching: find.text('CURRENT MARKET PRICE'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: ownershipCard, matching: find.text(r'$780.00')),
+      findsOneWidget,
+    );
+    final orderedLabels = [
+      'FINISH',
+      'LANGUAGE',
+      'GRADER',
+      'GRADE',
+      'PURCHASE PRICE',
+      'CURRENT MARKET PRICE',
+    ];
+    final labelOffsets = [
+      for (final label in orderedLabels)
+        tester
+            .getTopLeft(
+              find.descendant(of: ownershipCard, matching: find.text(label)),
+            )
+            .dy,
+    ];
+    expect(
+      labelOffsets,
+      orderedEquals([...labelOffsets]..sort()),
+      reason: 'Read-only fields must follow the edit form order.',
+    );
     expect(find.text('LANGUAGE'), findsOneWidget);
     expect(find.text('English'), findsWidgets);
     expect(find.text('FINISH'), findsOneWidget);
@@ -627,7 +885,12 @@ void main() {
     expect(find.text('Ungraded'), findsOneWidget);
     expect(find.text(r'$215.00'), findsWidgets);
 
-    await tester.tap(find.byKey(const Key('card-detail-market-category-psa')));
+    final psaCategory = find.byKey(
+      const Key('card-detail-market-category-psa'),
+    );
+    await tester.ensureVisible(psaCategory);
+    await tester.pumpAndSettle();
+    await tester.tap(psaCategory);
     await tester.pumpAndSettle();
     expect(find.text('10'), findsOneWidget);
     expect(find.text(r'$780.00'), findsWidgets);
@@ -644,6 +907,21 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('GRADED'));
     await tester.pumpAndSettle();
+    expect(find.text('PSA 10 Holofoil'), findsOneWidget);
+    expect(find.text('BGS 10 Holofoil'), findsOneWidget);
+    final chart = find.byKey(const Key('card-detail-price-chart-interactive'));
+    await tester.ensureVisible(chart);
+    await tester.pumpAndSettle();
+    final chartRect = tester.getRect(chart);
+    final touch = await tester.startGesture(
+      Offset(chartRect.left + 1, chartRect.center.dy),
+    );
+    await tester.pump();
+    final chartSemantics = tester.widget<Semantics>(chart);
+    expect(chartSemantics.properties.value, contains('PSA 10 Holofoil'));
+    expect(chartSemantics.properties.value, contains('BGS 10 Holofoil'));
+    await touch.up();
+    await tester.pump();
     await tester.ensureVisible(find.text('3M'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('3M'));
@@ -658,6 +936,11 @@ void main() {
   testWidgets('owned Collection Item can be edited from CardDetail', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
     await tester.pumpAndSettle();
 
@@ -671,8 +954,24 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('OWNERSHIP\nSUMMARY'), findsOneWidget);
+    expect(find.text('Edit collection item'), findsOneWidget);
+    expect(find.text('OWNERSHIP SUMMARY'), findsOneWidget);
     expect(find.byKey(const Key('card-detail-item-portfolio')), findsOneWidget);
+    expect(find.text('PURCHASE DETAILS'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('card-detail-item-selected-card')),
+        matching: find.text('Holofoil · PSA 10'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('card-detail-item-market-price')),
+        matching: find.text(r'$780.00'),
+      ),
+      findsOneWidget,
+    );
     await tester.enterText(
       find.byKey(const Key('card-detail-item-quantity')),
       '3',
@@ -681,11 +980,31 @@ void main() {
       find.byKey(const Key('card-detail-item-grader')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Raw').last);
+    await tester.ensureVisible(
+      find.byKey(const Key('card-detail-item-state-raw')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('card-detail-item-state-raw')));
     await tester.pumpAndSettle();
 
     expect(find.text('CONDITION'), findsOneWidget);
     expect(find.text('GRADE'), findsNothing);
+    expect(find.text('RAW DETAILS'), findsNothing);
+    expect(find.text('RAW CARD'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('card-detail-item-selected-card')),
+        matching: find.text('Holofoil · Raw · Near Mint'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('card-detail-item-market-price')),
+        matching: find.text(r'$215.00'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.ensureVisible(find.byKey(const Key('card-detail-item-notes')));
     await tester.pumpAndSettle();
@@ -704,7 +1023,7 @@ void main() {
     await tester.tap(find.byKey(const Key('card-detail-item-submit')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Save changes'), findsNothing);
+    expect(find.text('Save'), findsNothing);
     expect(find.text('QUANTITY'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('Raw'), findsOneWidget);
@@ -748,8 +1067,19 @@ void main() {
             ?.grade,
         '9.5',
       );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('card-detail-item-market-price')),
+          matching: find.text('--'),
+        ),
+        findsOneWidget,
+      );
 
-      await tester.tap(find.text('Raw').last);
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-item-state-raw')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('card-detail-item-state-raw')));
       await tester.pumpAndSettle();
 
       expect(find.byType(BottomSheet), findsNothing);
@@ -784,9 +1114,6 @@ void main() {
         find.byKey(const Key('card-detail-item-finish')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('card-detail-item-finish')));
-      await tester.pumpAndSettle();
-
       expect(find.text('Holofoil'), findsWidgets);
       expect(find.text('Normal'), findsNothing);
     },
@@ -804,7 +1131,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Edit item'));
       await tester.pumpAndSettle();
-      expect(find.text('Save changes'), findsOneWidget);
+      expect(find.text('Save'), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -817,7 +1144,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Edit item'), findsOneWidget);
-      expect(find.text('Save changes'), findsNothing);
+      expect(find.text('Save'), findsNothing);
     },
   );
 
@@ -899,7 +1226,7 @@ void main() {
     );
   });
 
-  testWidgets('owned Collection Item Save changes shows loading while saving', (
+  testWidgets('owned Collection Item Save shows loading while saving', (
     tester,
   ) async {
     final repository = _DelayedUpdateCardDetailRepository();
@@ -933,7 +1260,7 @@ void main() {
     repository.completeUpdate();
     await tester.pumpAndSettle();
 
-    expect(find.text('Save changes'), findsNothing);
+    expect(find.text('Save'), findsNothing);
     expect(find.text('Edit item'), findsOneWidget);
   });
 
@@ -968,7 +1295,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Quantity must be at least 1.'), findsOneWidget);
-    expect(find.text('OWNERSHIP\nSUMMARY'), findsOneWidget);
+    expect(find.text('OWNERSHIP SUMMARY'), findsOneWidget);
   });
 
   testWidgets('owned Collection Item can be removed after confirmation', (
@@ -992,11 +1319,40 @@ void main() {
       find.byKey(const Key('card-detail-remove-from-portfolio')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Remove'));
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      find.byKey(const Key('card-detail-remove-confirmation-sheet')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('This card will be removed from your portfolio'),
+      findsOneWidget,
+    );
+    expect(find.text('CANCEL'), findsOneWidget);
+    expect(find.text('REMOVE'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('card-detail-remove-confirmation-cancel')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Collection Item'), findsOneWidget);
+    expect(
+      find.byKey(const Key('card-detail-remove-confirmation-sheet')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('card-detail-remove-from-portfolio')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('card-detail-remove-confirmation-submit')),
+    );
     await tester.pumpAndSettle();
     await tester.drag(
       find.byKey(const Key('card-detail-scroll')),
-      const Offset(0, 400),
+      const Offset(0, 800),
     );
     await tester.pumpAndSettle();
 
@@ -1085,6 +1441,102 @@ class _CardDetailTestApp extends StatelessWidget {
       child: MaterialApp(home: CardDetailPage(cardId: cardId)),
     );
   }
+}
+
+class _FinishTabCardDetailRepository extends MockCardDetailRepository
+    implements CardDetailSectionRepository {
+  final List<String?> requestedFinishes = [];
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) async {
+    return CardDetail(
+      id: '180865',
+      type: CardDetailType.tcg,
+      name: 'Test Card',
+      game: 'Pokemon',
+      setName: 'Test Set',
+      identityLine: '#180865',
+      finish: 'Normal',
+      language: 'English',
+      availableFinishes: ['Normal', 'Foil'],
+      quantity: 0,
+      isWishlisted: false,
+      marketPrices: [
+        CardMarketPrice(
+          label: 'Raw Near Mint',
+          priceUsd: 10,
+          previous30dPriceUsd: null,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<CardDetail> loadBaseDetail(AuthSession session, String cardId) {
+    return loadCoreDetail(cardId);
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(
+    AuthSession session,
+    CardDetail detail,
+  ) async {
+    return detail;
+  }
+
+  @override
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+  }) async {
+    requestedFinishes.add(finish);
+    final price = finish == 'Foil' ? 20.0 : 10.0;
+    final dto = CardDataMarketPriceDto(
+      grader: 'Raw',
+      grade: null,
+      condition: 'Near Mint',
+      price: price,
+    );
+    return CardDetailMarketData(
+      prices: [dto],
+      marketPrices: [
+        CardMarketPrice(
+          label: 'Raw Near Mint',
+          condition: 'Near Mint',
+          priceUsd: price,
+          previous30dPriceUsd: null,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, {
+    CardDetailMarketData? market,
+    String? finish,
+  }) async {
+    final price = finish == 'Foil' ? 20.0 : 10.0;
+    final points = [
+      CardPricePoint(dateLabel: '2026-07-01', priceUsd: price - 1),
+      CardPricePoint(dateLabel: '2026-07-30', priceUsd: price),
+    ];
+    return CardDetailSeriesData(
+      marketPrices: market?.marketPrices ?? const [],
+      rawSeriesByRange: {CardPriceRange.oneMonth: points},
+      rawSeries: [
+        CardPriceChartSeries(
+          label: 'Raw Near Mint',
+          seriesByRange: {CardPriceRange.oneMonth: points},
+        ),
+      ],
+      gradedSeriesByRange: const {},
+    );
+  }
+
+  @override
+  Future<List<CardSoldListing>> loadSoldListings(String cardId) async =>
+      const [];
 }
 
 class _CardDetailRouteApp extends StatelessWidget {
@@ -1266,6 +1718,13 @@ class _DelayedCreateCardDetailRepository extends MockCardDetailRepository {
   }
 }
 
+class _FailingRemovalCardDetailRepository extends MockCardDetailRepository {
+  @override
+  Future<void> deleteWishlist(AuthSession session, String wishlistItemId) {
+    throw StateError('wishlist removal unavailable');
+  }
+}
+
 class _MultiItemCardDetailRepository extends MockCardDetailRepository {
   const _MultiItemCardDetailRepository();
 
@@ -1320,15 +1779,19 @@ class _FailingSectionCardDetailRepository extends MockCardDetailRepository
   }
 
   @override
-  Future<CardDetailMarketData> loadMarketPrices(String cardId) {
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+  }) {
     throw StateError('market prices unavailable');
   }
 
   @override
   Future<CardDetailSeriesData> loadPriceSeries(
-    String cardId, [
+    String cardId, {
     CardDetailMarketData? market,
-  ]) {
+    String? finish,
+  }) {
     throw StateError('price series unavailable');
   }
 

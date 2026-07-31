@@ -24,7 +24,7 @@ type SetRow = {
 
 type SkuRow = {
   sku_id: number;
-  product_id: string | number;
+  product_id: string;
   condition_code: string | null;
   condition_name: string | null;
   language_code: string | null;
@@ -35,12 +35,19 @@ type SkuRow = {
   increase_rate: number | null;
 };
 
+type PriceHistoryRow = Record<string, string | number | null> & {
+  pricecharting_id: string;
+  product_id: string;
+  product_sub_type: string | null;
+};
+
 class FakeCardDatabase {
   constructor(
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
     private readonly sets: SetRow[] = [],
     private readonly hasNumberColumn = true,
+    private readonly priceHistories: PriceHistoryRow[] = [],
   ) {}
 
   readonly preparedSql: string[] = [];
@@ -50,7 +57,13 @@ class FakeCardDatabase {
     if (!this.hasNumberColumn && sql.includes("coalesce(number")) {
       throw new Error("no such column: number");
     }
-    return new FakeStatement(sql, this.cards, this.skus, this.sets);
+    return new FakeStatement(
+      sql,
+      this.cards,
+      this.skus,
+      this.sets,
+      this.priceHistories,
+    );
   }
 }
 
@@ -60,14 +73,29 @@ class FakeStatement {
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
     private readonly sets: SetRow[],
+    private readonly priceHistories: PriceHistoryRow[],
   ) {}
 
   bind(...values: unknown[]): FakeBoundStatement {
-    return new FakeBoundStatement(this.sql, this.cards, this.skus, this.sets, values);
+    return new FakeBoundStatement(
+      this.sql,
+      this.cards,
+      this.skus,
+      this.sets,
+      this.priceHistories,
+      values,
+    );
   }
 
   all<T>(): Promise<{ results: T[] }> {
-    return new FakeBoundStatement(this.sql, this.cards, this.skus, this.sets, []).all<T>();
+    return new FakeBoundStatement(
+      this.sql,
+      this.cards,
+      this.skus,
+      this.sets,
+      this.priceHistories,
+      [],
+    ).all<T>();
   }
 }
 
@@ -77,10 +105,19 @@ class FakeBoundStatement {
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
     private readonly sets: SetRow[],
+    private readonly priceHistories: PriceHistoryRow[],
     private readonly values: unknown[],
   ) {}
 
   async all<T>(): Promise<{ results: T[] }> {
+    if (this.sql.includes("FROM tcg_price_history")) {
+      const productId = String(this.values[0]);
+      return {
+        results: this.priceHistories.filter(
+          (row) => row.product_id === productId,
+        ) as T[],
+      };
+    }
     if (this.sql.includes("SELECT 1 AS has_trending")) {
       const results = this.skus.some((row) => row.increase_rate !== null)
         ? [{ has_trending: 1 }]
@@ -311,7 +348,7 @@ describe("local D1 card data source adapter", () => {
 
     await expect(adapter.getCard("100")).resolves.toMatchObject({
       available_languages: ["English", "FR", "Japanese"],
-      available_finishes: ["Foil", "Holofoil", "Normal"],
+      available_finishes: ["Holofoil", "Normal"],
     });
   });
 
@@ -321,7 +358,7 @@ describe("local D1 card data source adapter", () => {
         [card({ product_id: "100", name: "Charizard" })],
         [
           sku({
-            product_id: 100,
+            product_id: "100",
             condition_name: "Near Mint",
             price_history: JSON.stringify([
               { price: "12.50", date: "2026-07-01" },
@@ -347,6 +384,43 @@ describe("local D1 card data source adapter", () => {
       { date: "2026-07-01", price: 12.5 },
       { date: "2026-07-08", price: 15.75 },
     ]);
+  });
+
+  it("adds only real graded history while raw pricing stays on tcgplayer_skus", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            product_id: "100",
+            price_history: JSON.stringify([
+              { price: "12.50", date: "2026-07-29" },
+              { price: "15.75", date: "2026-07-30" },
+            ]),
+          }),
+        ],
+        [],
+        true,
+        [gradedPriceHistory()],
+      ) as unknown as D1Database,
+    );
+
+    const prices = await adapter.getMarketPrices("100");
+
+    expect(prices[0]).toMatchObject({ grader: "Raw", price: 15.75 });
+    expect(prices).toContainEqual(
+      expect.objectContaining({
+        grader: "PSA",
+        grade: 10,
+        grade_label: "10",
+        price: 360,
+        pricecharting_id: "pc-100-foil",
+        product_sub_type: "Foil",
+        increase_percent: 20,
+      }),
+    );
+    expect(prices.some((price) => price.grader === "ACE")).toBe(false);
+    expect(prices.some((price) => price.price === 9999)).toBe(false);
   });
 
   it("searches by card name and number together because collectors use the number to identify an exact printing", async () => {
@@ -407,14 +481,14 @@ describe("local D1 card data source adapter", () => {
         [
           sku({
             sku_id: 1,
-            product_id: 100,
+            product_id: "100",
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-08" },
             ]),
           }),
           sku({
             sku_id: 2,
-            product_id: 100,
+            product_id: "100",
             price_history: JSON.stringify([
               { price: 12, date: "2026-07-16" },
               { price: 13, date: "2026-07-17" },
@@ -561,6 +635,58 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
+  it("filters raw prices by finish because switching material must not mix Normal and Foil histories", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "180865" })],
+        [
+          sku({ product_id: "180865", variant_name: "Normal", price_history: JSON.stringify([{ price: 12, date: "2026-07-30" }]) }),
+          sku({ product_id: "180865", sku_id: 2, variant_code: "F", variant_name: "Foil", price_history: JSON.stringify([{ price: 24, date: "2026-07-30" }]) }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getMarketPrices("180865", "Foil")).resolves.toEqual([
+      { grader: "Raw", grade: null, condition: "Near Mint", price: 24 },
+    ]);
+    await expect(
+      adapter.getPriceSeries("180865", "Raw", null, "Near Mint", 30, "Normal"),
+    ).resolves.toEqual([{ date: "2026-07-30", price: 12 }]);
+  });
+
+  it("falls back to Ungraded for the same product subtype only when that finish has no SKU history", async () => {
+    const normalHistory = {
+      ...gradedPriceHistory(),
+      pricecharting_id: "pc-180865-normal",
+      product_id: "180865",
+      product_sub_type: "Normal",
+      price_Ungraded: JSON.stringify([{ price: 30, date: "2026-07-30" }]),
+      increase_Ungraded: 5,
+      price_PSA_10: "[]",
+    };
+    const foilHistory = {
+      ...gradedPriceHistory(),
+      product_id: "180865",
+      price_Ungraded: JSON.stringify([{ price: 60, date: "2026-07-30" }]),
+    };
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "180865" })],
+        [sku({ product_id: "180865", price_history: "[]" })],
+        [],
+        true,
+        [normalHistory, foilHistory],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getMarketPrices("180865", "Normal")).resolves.toMatchObject([
+      { grader: "Raw", condition: "Ungraded", price: 30, product_sub_type: "Normal", increase_percent: 5 },
+    ]);
+    await expect(
+      adapter.getPriceSeries("180865", "Raw", null, "Ungraded", 30, "Normal"),
+    ).resolves.toEqual([{ date: "2026-07-30", price: 30 }]);
+  });
+
   it("builds Shop rows from real SKU history because Card Detail must not rely on mock marketplace data", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
@@ -623,7 +749,7 @@ describe("local D1 card data source adapter", () => {
         ],
         [
           sku({
-            product_id: 100,
+            product_id: "100",
             increase_rate: 5,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-14" },
@@ -632,7 +758,7 @@ describe("local D1 card data source adapter", () => {
           }),
           sku({
             sku_id: 2,
-            product_id: 200,
+            product_id: "200",
             increase_rate: 40,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-12" },
@@ -641,7 +767,7 @@ describe("local D1 card data source adapter", () => {
           }),
           sku({
             sku_id: 3,
-            product_id: 200,
+            product_id: "200",
             variant_code: "F",
             variant_name: "Foil",
             increase_rate: 60,
@@ -652,7 +778,7 @@ describe("local D1 card data source adapter", () => {
           }),
           sku({
             sku_id: 4,
-            product_id: 300,
+            product_id: "300",
             increase_rate: null,
             price_history: JSON.stringify([
               { price: 7, date: "2026-07-15" },
@@ -660,7 +786,7 @@ describe("local D1 card data source adapter", () => {
           }),
           sku({
             sku_id: 5,
-            product_id: 400,
+            product_id: "400",
             increase_rate: -20,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-14" },
@@ -708,7 +834,7 @@ describe("local D1 card data source adapter", () => {
   it("returns empty Trending without the ranking scan because an unfinished producer leaves increase_rate null", async () => {
     const db = new FakeCardDatabase(
       [card({ product_id: "100" })],
-      [sku({ product_id: 100, increase_rate: null })],
+      [sku({ product_id: "100", increase_rate: null })],
     );
     const adapter = createLocalDbDataSourceAdapter(
       db as unknown as D1Database,
@@ -740,7 +866,7 @@ function card(overrides: Partial<CardRow>): CardRow {
 function sku(overrides: Partial<SkuRow>): SkuRow {
   return {
     sku_id: 1,
-    product_id: 100,
+    product_id: "100",
     condition_code: "NM",
     condition_name: "Near Mint",
     language_code: "EN",
@@ -750,6 +876,37 @@ function sku(overrides: Partial<SkuRow>): SkuRow {
     price_history: "[]",
     increase_rate: null,
     ...overrides,
+  };
+}
+
+function gradedPriceHistory(): PriceHistoryRow {
+  return {
+    pricecharting_id: "pc-100-foil",
+    product_id: "100",
+    product_sub_type: "Foil",
+    price_Ungraded: JSON.stringify([
+      { price: "9999", date: "2026-07-30" },
+    ]),
+    increase_Ungraded: 999,
+    price_Grade_7: "[]",
+    price_Grade_8: "[]",
+    price_Grade_9: "[]",
+    price_Grade_9_5: "[]",
+    price_PSA_10: JSON.stringify([
+      { price: "360", date: "2026-07-30" },
+      { price: "300", date: "2026-07-29" },
+    ]),
+    price_BGS_10: "[]",
+    price_CGC_10: "[]",
+    price_SGC_10: "[]",
+    increase_Grade_7: 0,
+    increase_Grade_8: 0,
+    increase_Grade_9: 0,
+    increase_Grade_9_5: 0,
+    increase_PSA_10: 20,
+    increase_BGS_10: 0,
+    increase_CGC_10: 0,
+    increase_SGC_10: 0,
   };
 }
 

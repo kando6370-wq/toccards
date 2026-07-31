@@ -51,6 +51,7 @@ type InstallationRow = {
   platform: string;
   country_code: string | null;
   first_seen_at: string;
+  last_seen_at: string;
 };
 
 type FeedbackTicketRow = {
@@ -553,6 +554,24 @@ describe("admin routes", () => {
       created_at: "2026-07-07T00:00:00.000Z",
       upgraded_user_id: null,
     });
+    env.DB.installations.push(
+      {
+        installation_id: "user-device-1",
+        uid: "user-1",
+        platform: "Android",
+        country_code: "CA",
+        first_seen_at: "2026-07-07T00:00:00.000Z",
+        last_seen_at: "2026-07-08T00:00:00.000Z",
+      },
+      {
+        installation_id: "ios-device-1",
+        uid: "anon-1",
+        platform: "iOS",
+        country_code: "US",
+        first_seen_at: "2026-07-07T00:00:00.000Z",
+        last_seen_at: "2026-07-07T00:00:00.000Z",
+      },
+    );
     const login = await loginAdmin(env, "support@example.com", "correct-password");
 
     const response = await requestAdmin(env, "/users", "GET", undefined, login.data.access_token);
@@ -563,8 +582,8 @@ describe("admin routes", () => {
       success: true,
       data: {
         items: [
-          expect.objectContaining({ account_type: "user", id: "user-1", status: "active" }),
-          expect.objectContaining({ account_type: "anonymous", id: "anon-1", status: "guest" }),
+          expect.objectContaining({ account_type: "user", id: "user-1", status: "active", country: "CA" }),
+          expect.objectContaining({ account_type: "anonymous", id: "anon-1", status: "guest", country: "US" }),
         ],
         total: 2,
         page: 1,
@@ -708,6 +727,7 @@ describe("admin routes", () => {
       platform: "iOS",
       country_code: "US",
       first_seen_at: "2026-07-08T08:00:00.000Z",
+      last_seen_at: "2026-07-08T08:00:00.000Z",
     });
     const login = await loginAdmin(env, "install@example.com", "correct-password");
 
@@ -1058,6 +1078,10 @@ function adminUserResults(db: FakeD1, values: unknown[]) {
     [...db.scanRecords]
       .filter((row) => row.owner_type === accountType && row.owner_id === id)
       .sort((left, right) => right.created_at.localeCompare(left.created_at))[0]?.platform ?? "Unknown";
+  const latestCountry = (id: string) =>
+    [...db.installations]
+      .filter((row) => row.uid === id && row.country_code?.trim())
+      .sort((left, right) => right.last_seen_at.localeCompare(left.last_seen_at))[0]?.country_code ?? "Unknown";
   const formalUsers = db.users.map((row) => ({
     account_type: "user" as const,
     id: row.id,
@@ -1069,6 +1093,7 @@ function adminUserResults(db: FakeD1, values: unknown[]) {
       ? "google"
       : db.authIdentities.some((item) => item.user_id === row.id && item.provider === "apple") ? "apple" : "email",
     platform: latestPlatform("user", row.id),
+    country: latestCountry(row.id),
   }));
   const anonymousUsers = db.anonymousAccounts.map((row) => ({
     account_type: "anonymous" as const,
@@ -1079,6 +1104,7 @@ function adminUserResults(db: FakeD1, values: unknown[]) {
     status: row.upgraded_user_id ? "upgraded" : "guest",
     identity: "anonymous",
     platform: latestPlatform("anonymous", row.id),
+    country: latestCountry(row.id),
   }));
   return [...formalUsers, ...anonymousUsers]
     .filter((row) => !type || row.account_type === type)

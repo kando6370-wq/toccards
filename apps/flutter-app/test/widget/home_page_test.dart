@@ -228,20 +228,52 @@ void main() {
         'No chart point selected',
       );
 
-      final chartRect = tester.getRect(chart);
-      await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));
+      var chartRect = tester.getRect(chart);
+      final touch = await tester.startGesture(
+        Offset(chartRect.left + 1, chartRect.center.dy),
+      );
       await tester.pump();
       expect(
         tester.widget<Semantics>(chart).properties.value,
         contains('Date: Feb 12, 2025'),
       );
 
-      await tester.tapAt(Offset(chartRect.right - 1, chartRect.center.dy));
+      await touch.moveTo(Offset(chartRect.right - 1, chartRect.center.dy));
       await tester.pump();
       expect(
         tester.widget<Semantics>(chart).properties.value,
         contains('Date: Feb 21, 2025'),
       );
+
+      await touch.up();
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+
+      chartRect = tester.getRect(chart);
+      final mouse = await tester.createGesture(
+        kind: ui.PointerDeviceKind.mouse,
+      );
+      await mouse.addPointer(
+        location: Offset(chartRect.right + 20, chartRect.center.dy),
+      );
+      await tester.pump();
+      await mouse.moveTo(chartRect.center);
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        isNot('No chart point selected'),
+      );
+
+      await mouse.moveTo(Offset(chartRect.right + 20, chartRect.center.dy));
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+      await mouse.removePointer();
     },
   );
 

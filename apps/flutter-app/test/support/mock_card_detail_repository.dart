@@ -180,6 +180,14 @@ CardDetail _mockDetail(String cardId) {
           previous7dPriceUsd: 760,
         ),
         CardMarketPrice(
+          label: 'BGS 10',
+          grader: 'BGS',
+          grade: 10,
+          priceUsd: 745,
+          previous30dPriceUsd: 700,
+          previous7dPriceUsd: 730,
+        ),
+        CardMarketPrice(
           label: 'Raw Near Mint (NM)',
           condition: 'Near Mint (NM)',
           priceUsd: 215,
@@ -249,6 +257,58 @@ CardDetail _mockDetail(String cardId) {
           CardPricePoint(dateLabel: 'Today', priceUsd: 780),
         ],
       },
+      gradedPriceSeries: [
+        CardPriceChartSeries(
+          label: 'PSA 10 Holofoil',
+          seriesByRange: {
+            CardPriceRange.oneDay: [
+              CardPricePoint(dateLabel: 'Yesterday', priceUsd: 770),
+              CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+            ],
+            CardPriceRange.sevenDays: [
+              CardPricePoint(dateLabel: '7 days ago', priceUsd: 760),
+              CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+            ],
+            CardPriceRange.fifteenDays: [
+              CardPricePoint(dateLabel: '15 days ago', priceUsd: 744),
+              CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+            ],
+            CardPriceRange.oneMonth: [
+              CardPricePoint(dateLabel: '30 days ago', priceUsd: 721.58),
+              CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+            ],
+            CardPriceRange.threeMonths: [
+              CardPricePoint(dateLabel: '90 days ago', priceUsd: 690),
+              CardPricePoint(dateLabel: 'Today', priceUsd: 780),
+            ],
+          },
+        ),
+        CardPriceChartSeries(
+          label: 'BGS 10 Holofoil',
+          seriesByRange: {
+            CardPriceRange.oneDay: [
+              CardPricePoint(dateLabel: 'Yesterday', priceUsd: 738),
+              CardPricePoint(dateLabel: 'Today', priceUsd: 745),
+            ],
+            CardPriceRange.sevenDays: [
+              CardPricePoint(dateLabel: '7 days ago', priceUsd: 730),
+              CardPricePoint(dateLabel: 'Today', priceUsd: 745),
+            ],
+            CardPriceRange.fifteenDays: [
+              CardPricePoint(dateLabel: '15 days ago', priceUsd: 720),
+              CardPricePoint(dateLabel: 'Today', priceUsd: 745),
+            ],
+            CardPriceRange.oneMonth: [
+              CardPricePoint(dateLabel: '30 days ago', priceUsd: 700),
+              CardPricePoint(dateLabel: 'Today', priceUsd: 745),
+            ],
+            CardPriceRange.threeMonths: [
+              CardPricePoint(dateLabel: '90 days ago', priceUsd: 660),
+              CardPricePoint(dateLabel: 'Today', priceUsd: 745),
+            ],
+          },
+        ),
+      ],
       soldListings: [
         CardSoldListing(
           dateText: '2026-06-28',

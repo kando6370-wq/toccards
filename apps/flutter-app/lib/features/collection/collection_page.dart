@@ -42,7 +42,7 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
 
             return RefreshIndicator(
               key: const Key('collection-pull-to-refresh'),
-              onRefresh: () => _refresh(controller),
+              onRefresh: () => _refresh(controller, preserveContent: true),
               child: ListView(
                 key: const Key('collection-content-list'),
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -121,9 +121,14 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
     });
   }
 
-  Future<void> _refresh(CollectionController controller) {
+  Future<void> _refresh(
+    CollectionController controller, {
+    bool preserveContent = false,
+  }) {
     ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-    return controller.refresh();
+    return preserveContent
+        ? controller.refreshPreservingContent()
+        : controller.refresh();
   }
 }
 
@@ -1428,129 +1433,138 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
               ),
               child: SafeArea(
                 top: false,
-                child: ListView(
-                  key: const Key('collection-filter-sheet'),
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                child: Column(
                   children: [
-                    Center(
-                      child: Container(
-                        width: 48,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6C6945),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Filter',
-                            style: TextStyle(
-                              fontFamily: 'Fraunces',
-                              fontSize: 32,
-                              height: 40 / 32,
-                              fontWeight: FontWeight.w600,
-                              color: KandoColors.text,
+                    Expanded(
+                      child: ListView(
+                        key: const Key('collection-filter-sheet'),
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 48,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF6C6945),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
                             ),
                           ),
-                        ),
-                        TextButton(
-                          key: const Key('collection-filter-clear'),
-                          onPressed: () {
-                            setModalState(() {
-                              sort = CollectionSort.valueDesc;
-                              games.clear();
-                              languages.clear();
-                            });
-                          },
-                          child: const Text(
-                            'CLEAR',
-                            style: TextStyle(
-                              color: KandoColors.accent,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const _FilterSectionLabel('SORT'),
-                    for (final option in const [
-                      CollectionSort.valueDesc,
-                      CollectionSort.valueAsc,
-                    ])
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _FilterSortOption(
-                          label: _sortLabel(option),
-                          selected: sort == option,
-                          onTap: () => setModalState(() => sort = option),
-                        ),
-                      ),
-                    const _FilterSectionLabel('LANGUAGE'),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        for (final language in languageOptions)
-                          _FilterChip(
-                            label: language,
-                            selected: languages.contains(language),
-                            onTap: () => toggle(languages, language),
-                          ),
-                      ],
-                    ),
-                    const _FilterSectionLabel('GAME / IP'),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        const gap = 10.0;
-                        final width = (constraints.maxWidth - gap) / 2;
-                        return Wrap(
-                          spacing: gap,
-                          runSpacing: 10,
-                          children: [
-                            for (final game in gameOptions)
-                              SizedBox(
-                                width: width,
-                                child: _FilterChip(
-                                  label: game,
-                                  selected: games.contains(game),
-                                  onTap: () => toggle(games, game),
-                                  expanded: true,
+                          const SizedBox(height: 18),
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Filter',
+                                  style: TextStyle(
+                                    fontFamily: 'Fraunces',
+                                    fontSize: 32,
+                                    height: 40 / 32,
+                                    fontWeight: FontWeight.w600,
+                                    color: KandoColors.text,
+                                  ),
                                 ),
                               ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: FilledButton(
-                        key: const Key('collection-filter-apply'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: KandoColors.accent,
-                          foregroundColor: KandoColors.ink,
-                          shape: const StadiumBorder(),
-                        ),
-                        onPressed: () {
-                          ref
-                              .read(collectionControllerProvider.notifier)
-                              .applySortAndFilters(
-                                sort: sort,
-                                games: games,
-                                languages: languages,
+                              TextButton(
+                                key: const Key('collection-filter-clear'),
+                                onPressed: () {
+                                  setModalState(() {
+                                    sort = CollectionSort.valueDesc;
+                                    games.clear();
+                                    languages.clear();
+                                  });
+                                },
+                                child: const Text(
+                                  'CLEAR',
+                                  style: TextStyle(
+                                    color: KandoColors.accent,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const _FilterSectionLabel('SORT'),
+                          for (final option in const [
+                            CollectionSort.valueDesc,
+                            CollectionSort.valueAsc,
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _FilterSortOption(
+                                label: _sortLabel(option),
+                                selected: sort == option,
+                                onTap: () => setModalState(() => sort = option),
+                              ),
+                            ),
+                          const _FilterSectionLabel('LANGUAGE'),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              for (final language in languageOptions)
+                                _FilterChip(
+                                  label: language,
+                                  selected: languages.contains(language),
+                                  onTap: () => toggle(languages, language),
+                                ),
+                            ],
+                          ),
+                          const _FilterSectionLabel('GAME / IP'),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              const gap = 10.0;
+                              final width = (constraints.maxWidth - gap) / 2;
+                              return Wrap(
+                                spacing: gap,
+                                runSpacing: 10,
+                                children: [
+                                  for (final game in gameOptions)
+                                    SizedBox(
+                                      width: width,
+                                      child: _FilterChip(
+                                        label: game,
+                                        selected: games.contains(game),
+                                        onTap: () => toggle(games, game),
+                                        expanded: true,
+                                      ),
+                                    ),
+                                ],
                               );
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text(
-                          'APPLY FILTERS',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            },
+                          ),
+                          const SizedBox(height: 18),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: FilledButton(
+                          key: const Key('collection-filter-apply'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: KandoColors.accent,
+                            foregroundColor: KandoColors.ink,
+                            shape: const StadiumBorder(),
+                          ),
+                          onPressed: () {
+                            ref
+                                .read(collectionControllerProvider.notifier)
+                                .applySortAndFilters(
+                                  sort: sort,
+                                  games: games,
+                                  languages: languages,
+                                );
+                            Navigator.of(context).pop();
+                          },
+                          child: const Text(
+                            'APPLY FILTERS',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ),
