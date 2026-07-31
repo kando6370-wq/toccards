@@ -850,6 +850,60 @@ void main() {
   );
 
   testWidgets(
+    'Single matched card hides bulk actions because only one card can be saved',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add this card'), findsOneWidget);
+      expect(find.byKey(const Key('scan-review-delete-one')), findsOneWidget);
+      expect(find.text('ADD ALL CARDS'), findsNothing);
+      expect(find.text('DELETE ALL CARDS'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Multiple matched cards keep bulk actions because the batch applies to more than one card',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-one',
+            cardRef: 'card-mega',
+            matchName: 'Mega Lucario ex',
+            candidates: ['Mega Lucario ex'],
+          ),
+        ),
+        subsequentPhotoResults: [
+          Future.value(
+            const ScanResolution.matched(
+              scanId: 'scan-two',
+              cardRef: 'card-charizard',
+              matchName: 'Charizard ex',
+              candidates: ['Charizard ex'],
+            ),
+          ),
+        ],
+      );
+      await _pumpScanTestApp(tester, scanResultSource: source);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.text('DONE'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ADD ALL CARDS'), findsOneWidget);
+      expect(find.text('DELETE ALL CARDS'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'Each scan shows its complete market price because the total must equal the visible item prices',
     (tester) async {
       final source = _TestScanResultSource(

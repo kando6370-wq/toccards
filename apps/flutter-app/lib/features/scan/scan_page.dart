@@ -3321,6 +3321,7 @@ class _ReviewMatches extends StatelessWidget {
             alignment: Alignment.bottomCenter,
             child: _ReviewFooter(
               totalText: _reviewTotalText(card, draft, currency),
+              showBulkActions: items.length > 1,
               saving: saving,
               savingAction: savingAction,
               onAddThisCard: onAddThisCard,
@@ -4534,6 +4535,7 @@ Future<ScanReviewFolder?> _showScanFolderSheet(
 class _ReviewFooter extends StatelessWidget {
   const _ReviewFooter({
     required this.totalText,
+    required this.showBulkActions,
     required this.saving,
     required this.savingAction,
     required this.onAddThisCard,
@@ -4543,6 +4545,7 @@ class _ReviewFooter extends StatelessWidget {
   });
 
   final String totalText;
+  final bool showBulkActions;
   final bool saving;
   final _ScanReviewSaveAction? savingAction;
   final VoidCallback onAddThisCard;
@@ -4629,32 +4632,36 @@ class _ReviewFooter extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      key: const Key('scan-review-add-all'),
-                      onPressed: saving ? null : onAddAllCards,
-                      child: addingAll
-                          ? const SizedBox(
-                              key: Key('scan-review-add-all-loading'),
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('ADD ALL CARDS'),
+              if (showBulkActions) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const Key('scan-review-add-all'),
+                        onPressed: saving ? null : onAddAllCards,
+                        child: addingAll
+                            ? const SizedBox(
+                                key: Key('scan-review-add-all-loading'),
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('ADD ALL CARDS'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: saving ? null : onDeleteAll,
-                      child: const Text('DELETE ALL CARDS'),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: saving ? null : onDeleteAll,
+                        child: const Text('DELETE ALL CARDS'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
