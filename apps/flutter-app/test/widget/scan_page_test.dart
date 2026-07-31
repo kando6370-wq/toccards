@@ -652,7 +652,7 @@ void main() {
 
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Scanning...'), findsOneWidget);
-      expect(find.byTooltip('Dismiss scan feedback'), findsOneWidget);
+      expect(find.byKey(const Key('scan-delete-item-1')), findsOneWidget);
       expect(find.text('ALIGN CARD HERE'), findsOneWidget);
       expect(find.byTooltip('Take Photo'), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
@@ -702,42 +702,41 @@ void main() {
     );
   });
 
-  testWidgets(
-    'Dismissing Figma scan feedback does not discard its pending result',
-    (tester) async {
-      final result = Completer<ScanResolution>();
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      addTearDown(tester.view.reset);
+  testWidgets('Deleting revealing scan feedback discards its pending result', (
+    tester,
+  ) async {
+    final result = Completer<ScanResolution>();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
 
-      await _pumpScanTestApp(
-        tester,
-        scanResultSource: _TestScanResultSource(photoResult: result.future),
-      );
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(photoResult: result.future),
+    );
 
-      await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pump(const Duration(milliseconds: 800));
-      await tester.tap(find.byTooltip('Dismiss scan feedback'));
-      await tester.pump();
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.tap(find.byKey(const Key('scan-delete-item-1')));
+    await tester.pump();
 
-      expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
-      expect(find.text('Matched'), findsNothing);
+    expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
+    expect(find.text('Matched'), findsNothing);
 
-      result.complete(
-        const ScanResolution.matched(
-          scanId: 'scan-mega',
-          cardRef: 'card-mega',
-          matchName: 'Mega Lucario ex',
-          candidates: ['Mega Lucario ex'],
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 800));
-      await tester.pump();
-      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
-    },
-  );
+    result.complete(
+      const ScanResolution.matched(
+        scanId: 'scan-mega',
+        cardRef: 'card-mega',
+        matchName: 'Mega Lucario ex',
+        candidates: ['Mega Lucario ex'],
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pump();
+    expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
+  });
 
   testWidgets(
     'Figma scan waits for its reveal animation before showing a completed recognition',
@@ -1005,6 +1004,10 @@ void main() {
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Failed'), findsOneWidget);
       expect(find.text('Tap to retry'), findsOneWidget);
+      expect(find.byKey(const Key('scan-delete-item-1')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('scan-delete-item-1')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
     },
   );
 
@@ -1106,7 +1109,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.pump();
-    await tester.tap(find.byTooltip('Cancel scan'));
+    await tester.tap(find.byKey(const Key('scan-delete-item-1')));
     await tester.pump();
 
     result.complete(
@@ -1821,7 +1824,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.pump();
-    await tester.tap(find.byTooltip('Cancel scan'));
+    await tester.tap(find.byKey(const Key('scan-delete-item-1')));
     await tester.pump();
 
     expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
@@ -1960,17 +1963,81 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.byTooltip('Cancel scan'),
-        findsNothing,
-        reason: 'A scan in progress must not show a delete control.',
+        find.byKey(const Key('scan-delete-item-1')),
+        findsOneWidget,
+        reason: 'Every scan state must retain its delete control.',
       );
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
+      expect(
+        find.byKey(const Key('scan-figma-camera-overlay')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(
+        find.byKey(const Key('scan-figma-recognizing-overlay')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('scan-figma-camera-overlay')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(
+        find.byKey(const Key('scan-figma-revealing-overlay')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('scan-figma-camera-overlay')),
+        findsOneWidget,
+      );
       expect(
         tester.getRect(find.byKey(const Key('scan-figma-result-rail'))).bottom,
         lessThanOrEqualTo(tester.getRect(find.byTooltip('Take Photo')).top),
       );
     },
   );
+
+  testWidgets('Deleting a matched scan removes it without opening Review', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(tester);
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+
+    expect(find.byTooltip('Review scan result'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('scan-delete-item-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
+    expect(find.text('Review your matches'), findsNothing);
+  });
+
+  testWidgets('Deleting a no-match scan removes it without opening Search', (
+    tester,
+  ) async {
+    final analytics = _AnalyticsRecorder();
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      ),
+      analytics: analytics.client,
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+
+    expect(find.text('No Match Found'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('scan-delete-item-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
+    expect(find.text('Search cards, sets, or characters'), findsNothing);
+    expect(analytics.count(AnalyticsEvent.deleteClick), 1);
+  });
 
   testWidgets(
     'No Match scan offers Search Manually because unmatched cards cannot enter review',

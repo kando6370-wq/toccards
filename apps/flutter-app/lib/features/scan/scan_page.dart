@@ -94,6 +94,7 @@ class _ScanItem {
     required this.id,
     required this.pictureLabel,
     required this.status,
+    required this.usesCameraFeedback,
     this.match,
     this.imageBytes,
     this.displayImageBytes,
@@ -103,6 +104,7 @@ class _ScanItem {
   final int id;
   final String pictureLabel;
   final _ScanItemStatus status;
+  final bool usesCameraFeedback;
   final _ScanMatch? match;
   final Uint8List? imageBytes;
   final Uint8List? displayImageBytes;
@@ -119,6 +121,7 @@ class _ScanItem {
       id: id,
       pictureLabel: pictureLabel,
       status: status ?? this.status,
+      usesCameraFeedback: usesCameraFeedback,
       match: match ?? this.match,
       imageBytes: imageBytes ?? this.imageBytes,
       displayImageBytes: displayImageBytes ?? this.displayImageBytes,
@@ -325,11 +328,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
   bool get _savingReview => _savingReviewAction != null || _finishingReview;
 
   bool get _isRecognizing {
-    return _items.any((item) => item.status == _ScanItemStatus.recognizing);
+    return _items.any(
+      (item) =>
+          item.usesCameraFeedback && item.status == _ScanItemStatus.recognizing,
+    );
   }
 
   bool get _isRevealing {
-    return _items.any((item) => item.status == _ScanItemStatus.revealing);
+    return _items.any(
+      (item) =>
+          item.usesCameraFeedback && item.status == _ScanItemStatus.revealing,
+    );
   }
 
   bool get _showRevealingFeedback {
@@ -352,7 +361,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Animation<double> get _revealAnimation {
     final revealingItem = _items
-        .where((item) => item.status == _ScanItemStatus.revealing)
+        .where(
+          (item) =>
+              item.usesCameraFeedback &&
+              item.status == _ScanItemStatus.revealing,
+        )
         .firstOrNull;
     return revealingItem == null
         ? const AlwaysStoppedAnimation(0)
@@ -596,6 +609,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
               if (mounted) {
                 _addScan(
                   resolution,
+                  usesCameraFeedback: false,
                   imageBytes: image.bytes,
                   displayImageBytes: image.bytes,
                   imageFileName: image.fileName,
@@ -606,12 +620,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
       if (!mounted) return;
       if (selectedCount == 0) {
         for (final scan in scans) {
-          _addScan(scan);
+          _addScan(scan, usesCameraFeedback: false);
         }
       }
     } catch (_) {
       if (mounted) {
-        _addScan(Future.value(const ScanResolution.failed()));
+        _addScan(
+          Future.value(const ScanResolution.failed()),
+          usesCameraFeedback: false,
+        );
       }
     } finally {
       if (mounted) {
@@ -765,6 +782,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   int _addScan(
     Future<ScanResolution> resultFuture, {
+    bool usesCameraFeedback = true,
     Uint8List? imageBytes,
     Uint8List? displayImageBytes,
     String? imageFileName,
@@ -780,6 +798,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           id: id,
           pictureLabel: 'Scan $id',
           status: _ScanItemStatus.scanning,
+          usesCameraFeedback: usesCameraFeedback,
           imageBytes: imageBytes,
           displayImageBytes: displayImageBytes,
           imageFileName: imageFileName,
@@ -2535,12 +2554,10 @@ class _ScanRevealingToast extends StatelessWidget {
   const _ScanRevealingToast({
     required super.key,
     required this.item,
-    required this.closeTooltip,
     required this.onClosePressed,
   });
 
   final _ScanItem item;
-  final String closeTooltip;
   final VoidCallback onClosePressed;
 
   @override
@@ -2604,22 +2621,14 @@ class _ScanRevealingToast extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (item.status == _ScanItemStatus.revealing)
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Tooltip(
-                                  message: closeTooltip,
-                                  child: InkWell(
-                                    onTap: onClosePressed,
-                                    child: SvgPicture.asset(
-                                      'assets/scan/reveal_close.svg',
-                                      width: 10.5,
-                                      height: 10.5,
-                                    ),
-                                  ),
-                                ),
+                            Positioned(
+                              right: -8,
+                              top: -8,
+                              child: _ScanDeleteButton(
+                                itemId: item.id,
+                                onPressed: onClosePressed,
                               ),
+                            ),
                             const Positioned(
                               left: 0,
                               bottom: 0,
@@ -2878,12 +2887,7 @@ class _ScanItemCard extends StatelessWidget {
       return _ScanRevealingToast(
         key: null,
         item: item,
-        closeTooltip: item.status == _ScanItemStatus.revealing
-            ? 'Dismiss scan feedback'
-            : 'Cancel scan',
-        onClosePressed: item.status == _ScanItemStatus.revealing
-            ? onDismissRevealing
-            : onDelete,
+        onClosePressed: onDelete,
       );
     }
 
@@ -2961,18 +2965,7 @@ class _ScanItemCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (!matched && !added)
-                          Tooltip(
-                            message: 'Delete scan result',
-                            child: InkWell(
-                              onTap: onDelete,
-                              child: SvgPicture.asset(
-                                'assets/scan/reveal_close.svg',
-                                width: 10.5,
-                                height: 10.5,
-                              ),
-                            ),
-                          ),
+                        _ScanDeleteButton(itemId: item.id, onPressed: onDelete),
                       ],
                     ),
                     if (matched || added)
@@ -3044,6 +3037,31 @@ class _ScanItemCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScanDeleteButton extends StatelessWidget {
+  const _ScanDeleteButton({required this.itemId, required this.onPressed});
+
+  final int itemId;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 32,
+      child: IconButton(
+        key: Key('scan-delete-item-$itemId'),
+        tooltip: 'Delete scan result',
+        padding: EdgeInsets.zero,
+        onPressed: onPressed,
+        icon: SvgPicture.asset(
+          'assets/scan/reveal_close.svg',
+          width: 10.5,
+          height: 10.5,
         ),
       ),
     );
