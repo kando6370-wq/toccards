@@ -1381,6 +1381,8 @@ void main() {
     expect(actions.cardRef, 'charizard-ex');
     expect(actions.setName, 'Obsidian Flames');
     expect(actions.marketPrice, r'$780.00');
+    expect(actions.sharePositionOrigin, isNotNull);
+    expect(actions.sharePositionOrigin?.isEmpty, isFalse);
   });
 
   testWidgets('unknown CardDetail shows shared failure copy', (tester) async {
@@ -1615,6 +1617,7 @@ class _RecordingCardDetailActions implements CardDetailActions {
   String? marketplaceUrl;
   String? soldListingsName;
   String? soldListingsSetName;
+  Rect? sharePositionOrigin;
 
   @override
   Future<void> openMarketplaceListing(String url) async {
@@ -1636,11 +1639,13 @@ class _RecordingCardDetailActions implements CardDetailActions {
     required String name,
     required String setName,
     required String marketPrice,
+    Rect? sharePositionOrigin,
   }) async {
     this.cardRef = cardRef;
     this.name = name;
     this.setName = setName;
     this.marketPrice = marketPrice;
+    this.sharePositionOrigin = sharePositionOrigin;
   }
 }
 

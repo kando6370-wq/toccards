@@ -388,34 +388,38 @@ class _CardHero extends ConsumerWidget {
                           icon: const Icon(Icons.arrow_back, size: 22),
                         ),
                         if (detail.isCollected)
-                          IconButton(
-                            key: Key('card-detail-share-${detail.id}'),
-                            tooltip: 'Share',
-                            onPressed: () async {
-                              ref
-                                  .read(analyticsProvider)
-                                  .track(AnalyticsEvent.shareCardClick);
-                              try {
-                                await ref
-                                    .read(cardDetailActionsProvider)
-                                    .shareCard(
-                                      cardRef: detail.id,
-                                      name: detail.name,
-                                      setName: detail.setName,
-                                      marketPrice: state.marketPriceText,
-                                    );
-                              } catch (_) {
-                                if (context.mounted) {
-                                  showKandoFailureToast(context);
+                          Builder(
+                            builder: (shareContext) => IconButton(
+                              key: Key('card-detail-share-${detail.id}'),
+                              tooltip: 'Share',
+                              onPressed: () async {
+                                ref
+                                    .read(analyticsProvider)
+                                    .track(AnalyticsEvent.shareCardClick);
+                                try {
+                                  await ref
+                                      .read(cardDetailActionsProvider)
+                                      .shareCard(
+                                        cardRef: detail.id,
+                                        name: detail.name,
+                                        setName: detail.setName,
+                                        marketPrice: state.marketPriceText,
+                                        sharePositionOrigin:
+                                            _sharePositionOrigin(shareContext),
+                                      );
+                                } catch (_) {
+                                  if (context.mounted) {
+                                    showKandoFailureToast(context);
+                                  }
                                 }
-                              }
-                            },
-                            style: iconButtonStyle,
-                            icon: SvgPicture.asset(
-                              'assets/collection/share.svg',
-                              key: const Key('card-detail-share-icon'),
-                              width: 24,
-                              height: 24,
+                              },
+                              style: iconButtonStyle,
+                              icon: SvgPicture.asset(
+                                'assets/collection/share.svg',
+                                key: const Key('card-detail-share-icon'),
+                                width: 24,
+                                height: 24,
+                              ),
                             ),
                           )
                         else
@@ -524,6 +528,12 @@ class _HeroChip extends StatelessWidget {
       ),
     );
   }
+}
+
+Rect? _sharePositionOrigin(BuildContext context) {
+  final renderObject = context.findRenderObject();
+  if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+  return renderObject.localToGlobal(Offset.zero) & renderObject.size;
 }
 
 class _PrimaryActions extends ConsumerWidget {

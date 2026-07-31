@@ -147,19 +147,26 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                       () => ref.read(profileActionsProvider).requestScore(),
                     ),
                   ),
-                  _MenuRow(
-                    icon: Icons.share_outlined,
-                    label: 'Share With Friends',
-                    onTap: () {
-                      ref
-                          .read(analyticsProvider)
-                          .track(AnalyticsEvent.shareAppClick);
-                      _runProfileAction(
-                        context,
-                        () =>
-                            ref.read(profileActionsProvider).shareWithFriends(),
-                      );
-                    },
+                  Builder(
+                    builder: (shareContext) => _MenuRow(
+                      icon: Icons.share_outlined,
+                      label: 'Share With Friends',
+                      onTap: () {
+                        ref
+                            .read(analyticsProvider)
+                            .track(AnalyticsEvent.shareAppClick);
+                        _runProfileAction(
+                          context,
+                          () => ref
+                              .read(profileActionsProvider)
+                              .shareWithFriends(
+                                sharePositionOrigin: _sharePositionOrigin(
+                                  shareContext,
+                                ),
+                              ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -384,6 +391,12 @@ class _ApiLogPasscodeDialogState extends State<_ApiLogPasscodeDialog> {
   void _submit(BuildContext context) {
     Navigator.of(context).pop(_controller.text == widget.passcode);
   }
+}
+
+Rect? _sharePositionOrigin(BuildContext context) {
+  final renderObject = context.findRenderObject();
+  if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+  return renderObject.localToGlobal(Offset.zero) & renderObject.size;
 }
 
 class _SectionLabel extends StatelessWidget {
