@@ -306,7 +306,10 @@ class _CardDataApi implements CardDataApi {
   Future<List<CardDataCardDto>> trendingCards() async => [_card('trending')];
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) async {
     throw StateError('Home must use batch Most Valuable prices');
   }
 
@@ -317,6 +320,7 @@ class _CardDataApi implements CardDataApi {
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
   }) async {
     throw StateError('Home must not make per-card series requests');
   }

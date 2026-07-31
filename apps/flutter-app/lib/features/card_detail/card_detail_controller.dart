@@ -227,6 +227,7 @@ class CardDetailState {
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
     this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
+    this.selectedFinish,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -244,6 +245,7 @@ class CardDetailState {
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
     this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
+    this.selectedFinish,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -261,6 +263,7 @@ class CardDetailState {
     this.selectedPriceChartMode = CardPriceChartMode.raw,
     this.selectedPriceRange = CardPriceRange.oneMonth,
     this.selectedMarketPriceCategory = CardMarketPriceCategory.ungraded,
+    this.selectedFinish,
     this.collectionItemDraft,
     this.editingCollectionItemId,
     this.collectionItemFormError,
@@ -278,6 +281,7 @@ class CardDetailState {
   final CardPriceChartMode selectedPriceChartMode;
   final CardPriceRange selectedPriceRange;
   final CardMarketPriceCategory selectedMarketPriceCategory;
+  final String? selectedFinish;
   final CardCollectionItemDraft? collectionItemDraft;
   final String? editingCollectionItemId;
   final String? collectionItemFormError;
@@ -297,6 +301,18 @@ class CardDetailState {
       throw StateError('Card detail is unavailable.');
     }
     return detail;
+  }
+
+  String get priceFinish =>
+      selectedFinish ?? priceFinishes.firstOrNull ?? detail.finish;
+
+  List<String> get priceFinishes {
+    final finishes = detail.availableFinishes;
+    if (!finishes.contains(detail.finish)) return finishes;
+    return [
+      detail.finish,
+      ...finishes.where((finish) => finish != detail.finish),
+    ];
   }
 
   String get marketPriceText {
@@ -368,6 +384,7 @@ class CardDetailState {
 
   List<CardPriceChartSeries> get selectedPriceChartSeries {
     if (selectedPriceChartMode == CardPriceChartMode.raw) {
+      if (detail.rawPriceSeries.isNotEmpty) return detail.rawPriceSeries;
       return [
         CardPriceChartSeries(
           label: 'Raw',
@@ -475,9 +492,8 @@ class CardDetailState {
   }
 
   MarketChange _marketChange7d(CardMarketPrice price) {
-    if (price.grader.toLowerCase() != 'raw' && price.increasePercent != null) {
-      final increase = price.increasePercent!;
-      return MarketChange.fromPercent(increase > 0 ? increase : null);
+    if (price.increasePercent != null) {
+      return MarketChange.fromPercent(price.increasePercent);
     }
     return MarketChange.fromPrices(
       current: price.priceUsd,
@@ -514,6 +530,7 @@ class CardDetailState {
     CardPriceChartMode? selectedPriceChartMode,
     CardPriceRange? selectedPriceRange,
     CardMarketPriceCategory? selectedMarketPriceCategory,
+    String? selectedFinish,
     Object? collectionItemDraft = _cardDetailStateUnset,
     Object? editingCollectionItemId = _cardDetailStateUnset,
     Object? collectionItemFormError = _cardDetailStateUnset,
@@ -532,6 +549,7 @@ class CardDetailState {
       selectedPriceRange: selectedPriceRange ?? this.selectedPriceRange,
       selectedMarketPriceCategory:
           selectedMarketPriceCategory ?? this.selectedMarketPriceCategory,
+      selectedFinish: selectedFinish ?? this.selectedFinish,
       collectionItemDraft: collectionItemDraft == _cardDetailStateUnset
           ? this.collectionItemDraft
           : collectionItemDraft as CardCollectionItemDraft?,
@@ -557,6 +575,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   final String cardId;
   Completer<void>? _loadCompleter;
   var _loadGeneration = 0;
+  var _priceLoadGeneration = 0;
 
   Future<void> get loadComplete {
     return _loadCompleter?.future ?? Future<void>.value();
@@ -599,12 +618,16 @@ class CardDetailController extends Notifier<CardDetailState> {
     return _refreshSection(
       status: (value) => state = state.copyWith(priceSeriesStatus: value),
       load: (repository, isCurrent) async {
-        final data = await repository.loadPriceSeries(cardId);
+        final data = await repository.loadPriceSeries(
+          cardId,
+          finish: state.priceFinish,
+        );
         if (!isCurrent()) return;
         state = state.copyWith(
           detail: state.detail.copyWith(
             marketPrices: _resolvedMarketPrices(data.marketPrices),
             priceSeriesByRange: data.rawSeriesByRange,
+            rawPriceSeries: data.rawSeries,
             gradedPriceSeriesByRange: data.gradedSeriesByRange,
             gradedPriceSeries: data.gradedSeries,
           ),
@@ -633,7 +656,10 @@ class CardDetailController extends Notifier<CardDetailState> {
     return _refreshSection(
       status: (value) => state = state.copyWith(marketPricesStatus: value),
       load: (repository, isCurrent) async {
-        final data = await repository.loadMarketPrices(cardId);
+        final data = await repository.loadMarketPrices(
+          cardId,
+          finish: state.priceFinish,
+        );
         if (!isCurrent()) return;
         state = state.copyWith(
           detail: state.detail.copyWith(
@@ -765,6 +791,54 @@ class CardDetailController extends Notifier<CardDetailState> {
   void selectMarketPriceCategory(CardMarketPriceCategory category) {
     if (state.isUnavailable || state.isLoading) return;
     state = state.copyWith(selectedMarketPriceCategory: category);
+  }
+
+  Future<void> selectPriceFinish(String finish) async {
+    if (state.isLoading || state.isUnavailable || finish == state.priceFinish) {
+      return;
+    }
+    final repository = _repository;
+    if (repository is! CardDetailSectionRepository) return;
+    final sectionRepository = repository as CardDetailSectionRepository;
+    final generation = ++_priceLoadGeneration;
+    state = state.copyWith(
+      selectedFinish: finish,
+      priceSeriesStatus: KandoLoadStatus.loading,
+      marketPricesStatus: KandoLoadStatus.loading,
+    );
+    try {
+      final market = await sectionRepository.loadMarketPrices(
+        cardId,
+        finish: finish,
+      );
+      final series = await sectionRepository.loadPriceSeries(
+        cardId,
+        market: market,
+        finish: finish,
+      );
+      if (generation != _priceLoadGeneration || finish != state.priceFinish) {
+        return;
+      }
+      state = state.copyWith(
+        detail: state.detail.copyWith(
+          marketPrices: _resolvedMarketPrices(series.marketPrices),
+          priceSeriesByRange: series.rawSeriesByRange,
+          rawPriceSeries: series.rawSeries,
+          gradedPriceSeriesByRange: series.gradedSeriesByRange,
+          gradedPriceSeries: series.gradedSeries,
+        ),
+        priceSeriesStatus: KandoLoadStatus.content,
+        marketPricesStatus: KandoLoadStatus.content,
+      );
+    } catch (_) {
+      if (generation != _priceLoadGeneration || finish != state.priceFinish) {
+        return;
+      }
+      state = state.copyWith(
+        priceSeriesStatus: KandoLoadStatus.failure,
+        marketPricesStatus: KandoLoadStatus.failure,
+      );
+    }
   }
 
   void startAddingCollectionItem() {
@@ -1204,7 +1278,10 @@ class CardDetailController extends Notifier<CardDetailState> {
     int generation,
   ) async {
     try {
-      final data = await repository.loadMarketPrices(cardId);
+      final data = await repository.loadMarketPrices(
+        cardId,
+        finish: state.priceFinish,
+      );
       if (generation == _loadGeneration) {
         state = state.copyWith(
           detail: state.detail.copyWith(
@@ -1228,12 +1305,17 @@ class CardDetailController extends Notifier<CardDetailState> {
     CardDetailMarketData? market,
   ) async {
     try {
-      final data = await repository.loadPriceSeries(cardId, market);
+      final data = await repository.loadPriceSeries(
+        cardId,
+        market: market,
+        finish: state.priceFinish,
+      );
       if (generation == _loadGeneration) {
         state = state.copyWith(
           detail: state.detail.copyWith(
             marketPrices: _resolvedMarketPrices(data.marketPrices),
             priceSeriesByRange: data.rawSeriesByRange,
+            rawPriceSeries: data.rawSeries,
             gradedPriceSeriesByRange: data.gradedSeriesByRange,
             gradedPriceSeries: data.gradedSeries,
           ),
@@ -1292,7 +1374,15 @@ class CardDetailController extends Notifier<CardDetailState> {
   List<CardMarketPrice> _resolvedMarketPrices(
     List<CardMarketPrice> marketPrices,
   ) {
-    return marketPrices.isEmpty ? state.detail.marketPrices : marketPrices;
+    return marketPrices.isEmpty
+        ? const [
+            CardMarketPrice(
+              label: 'Raw',
+              priceUsd: null,
+              previous30dPriceUsd: null,
+            ),
+          ]
+        : marketPrices;
   }
 
   CardDetail _detailWithAssetState(CardDetail current, CardDetail assetState) {

@@ -2688,6 +2688,14 @@ class _PriceOverview extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (state.priceFinishes.length > 1) ...[
+          _FinishTabs(
+            finishes: state.priceFinishes,
+            selected: state.priceFinish,
+            onSelected: controller.selectPriceFinish,
+          ),
+          const SizedBox(height: 20),
+        ],
         const Text('Price', style: _kSectionTitleStyle),
         const SizedBox(height: 12),
         Container(
@@ -2721,8 +2729,7 @@ class _PriceOverview extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 20),
-              if (state.selectedPriceChartMode == CardPriceChartMode.graded &&
-                  chartSeries.isNotEmpty) ...[
+              if (chartSeries.length > 1) ...[
                 _PriceChartLegend(series: chartSeries),
                 const SizedBox(height: 16),
               ],
@@ -2847,6 +2854,64 @@ class _PriceOverview extends ConsumerWidget {
             style: const TextStyle(color: KandoColors.mutedText),
           ),
       ],
+    );
+  }
+}
+
+class _FinishTabs extends StatelessWidget {
+  const _FinishTabs({
+    required this.finishes,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> finishes;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: KandoColors.surface,
+        border: Border.all(color: KandoColors.border.withValues(alpha: 0.7)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          for (final finish in finishes)
+            Expanded(
+              child: InkWell(
+                key: Key('card-detail-finish-$finish'),
+                borderRadius: BorderRadius.circular(6),
+                onTap: finish == selected ? null : () => onSelected(finish),
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: finish == selected
+                        ? KandoColors.accent
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    finish,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: finish == selected
+                          ? KandoColors.ink
+                          : KandoColors.mutedText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

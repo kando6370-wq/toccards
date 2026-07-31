@@ -202,6 +202,7 @@ class CardDetail {
     this.portfolioFolders = const [],
     this.collectionItems = const [],
     this.priceSeriesByRange = const {},
+    this.rawPriceSeries = const [],
     this.gradedPriceSeriesByRange = const {},
     this.gradedPriceSeries = const [],
     this.soldListings = const [],
@@ -225,6 +226,7 @@ class CardDetail {
   final List<CardPortfolioFolder> portfolioFolders;
   final List<CardCollectionItem> collectionItems;
   final Map<CardPriceRange, List<CardPricePoint>> priceSeriesByRange;
+  final List<CardPriceChartSeries> rawPriceSeries;
   final Map<CardPriceRange, List<CardPricePoint>> gradedPriceSeriesByRange;
   final List<CardPriceChartSeries> gradedPriceSeries;
   final List<CardSoldListing> soldListings;
@@ -245,6 +247,7 @@ class CardDetail {
     List<CardPortfolioFolder>? portfolioFolders,
     List<CardCollectionItem>? collectionItems,
     Map<CardPriceRange, List<CardPricePoint>>? priceSeriesByRange,
+    List<CardPriceChartSeries>? rawPriceSeries,
     Map<CardPriceRange, List<CardPricePoint>>? gradedPriceSeriesByRange,
     List<CardPriceChartSeries>? gradedPriceSeries,
     List<CardSoldListing>? soldListings,
@@ -270,6 +273,7 @@ class CardDetail {
       portfolioFolders: portfolioFolders ?? this.portfolioFolders,
       collectionItems: collectionItems ?? this.collectionItems,
       priceSeriesByRange: priceSeriesByRange ?? this.priceSeriesByRange,
+      rawPriceSeries: rawPriceSeries ?? this.rawPriceSeries,
       gradedPriceSeriesByRange:
           gradedPriceSeriesByRange ?? this.gradedPriceSeriesByRange,
       gradedPriceSeries: gradedPriceSeries ?? this.gradedPriceSeries,

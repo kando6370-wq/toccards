@@ -348,7 +348,7 @@ describe("local D1 card data source adapter", () => {
 
     await expect(adapter.getCard("100")).resolves.toMatchObject({
       available_languages: ["English", "FR", "Japanese"],
-      available_finishes: ["Foil", "Holofoil", "Normal"],
+      available_finishes: ["Holofoil", "Normal"],
     });
   });
 
@@ -633,6 +633,58 @@ describe("local D1 card data source adapter", () => {
       { date: "2026-07-01", price: 10 },
       { date: "2026-07-08", price: 12 },
     ]);
+  });
+
+  it("filters raw prices by finish because switching material must not mix Normal and Foil histories", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "180865" })],
+        [
+          sku({ product_id: "180865", variant_name: "Normal", price_history: JSON.stringify([{ price: 12, date: "2026-07-30" }]) }),
+          sku({ product_id: "180865", sku_id: 2, variant_code: "F", variant_name: "Foil", price_history: JSON.stringify([{ price: 24, date: "2026-07-30" }]) }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getMarketPrices("180865", "Foil")).resolves.toEqual([
+      { grader: "Raw", grade: null, condition: "Near Mint", price: 24 },
+    ]);
+    await expect(
+      adapter.getPriceSeries("180865", "Raw", null, "Near Mint", 30, "Normal"),
+    ).resolves.toEqual([{ date: "2026-07-30", price: 12 }]);
+  });
+
+  it("falls back to Ungraded for the same product subtype only when that finish has no SKU history", async () => {
+    const normalHistory = {
+      ...gradedPriceHistory(),
+      pricecharting_id: "pc-180865-normal",
+      product_id: "180865",
+      product_sub_type: "Normal",
+      price_Ungraded: JSON.stringify([{ price: 30, date: "2026-07-30" }]),
+      increase_Ungraded: 5,
+      price_PSA_10: "[]",
+    };
+    const foilHistory = {
+      ...gradedPriceHistory(),
+      product_id: "180865",
+      price_Ungraded: JSON.stringify([{ price: 60, date: "2026-07-30" }]),
+    };
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "180865" })],
+        [sku({ product_id: "180865", price_history: "[]" })],
+        [],
+        true,
+        [normalHistory, foilHistory],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getMarketPrices("180865", "Normal")).resolves.toMatchObject([
+      { grader: "Raw", condition: "Ungraded", price: 30, product_sub_type: "Normal", increase_percent: 5 },
+    ]);
+    await expect(
+      adapter.getPriceSeries("180865", "Raw", null, "Ungraded", 30, "Normal"),
+    ).resolves.toEqual([{ date: "2026-07-30", price: 30 }]);
   });
 
   it("builds Shop rows from real SKU history because Card Detail must not rely on mock marketplace data", async () => {

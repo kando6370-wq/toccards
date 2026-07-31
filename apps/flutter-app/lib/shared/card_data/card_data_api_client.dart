@@ -202,18 +202,21 @@ class CardDataPriceSeriesQuery {
     required this.grader,
     this.grade,
     this.condition,
+    this.finish,
   });
 
   final int days;
   final String grader;
   final double? grade;
   final String? condition;
+  final String? finish;
 
   Map<String, Object?> toJson() => {
     'days': days,
     'grader': grader,
     'grade': grade,
     'condition': condition,
+    if (finish != null) 'finish': finish,
   };
 }
 
@@ -248,13 +251,17 @@ abstract interface class CardDataApi {
   Future<List<CardDataSetDto>> searchSets(String query, {String? game});
   Future<List<CardDataCardDto>> trendingCards();
   Future<CardDataCardDto> getCard(String cardRef);
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef);
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  });
   Future<List<CardDataPricePointDto>> getPriceSeries(
     String cardRef, {
     required int days,
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
   });
   Future<List<CardDataSoldListingDto>> getSoldListings(String cardRef);
 }
@@ -401,11 +408,17 @@ class CardDataApiClient
   }
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) async {
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) async {
     final data = await _requestData(
       'GET',
       '/cards/${Uri.encodeComponent(cardRef)}/market-prices',
-      queryParameters: {'response_version': cardDataResponseVersion},
+      queryParameters: {
+        'response_version': cardDataResponseVersion,
+        if (finish != null) 'finish': finish,
+      },
     );
     final prices = data['prices'];
     if (prices is! List) {
@@ -423,6 +436,7 @@ class CardDataApiClient
     String grader = 'Raw',
     double? grade,
     String? condition,
+    String? finish,
   }) async {
     final data = await _requestData(
       'GET',
@@ -433,6 +447,7 @@ class CardDataApiClient
         'grader': grader,
         if (grade != null) 'grade': grade,
         if (condition != null) 'condition': condition,
+        if (finish != null) 'finish': finish,
       },
     );
     final series = data['series'];

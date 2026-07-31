@@ -13,6 +13,7 @@ import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
@@ -21,6 +22,29 @@ import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_card_detail_repository.dart';
 
 void main() {
+  testWidgets(
+    'product 180865 shows Normal and Foil tabs and switching refreshes material prices',
+    (tester) async {
+      final repository = _FinishTabCardDetailRepository();
+      await tester.pumpWidget(
+        _CardDetailTestApp(cardId: '180865', repository: repository),
+      );
+      await tester.pumpAndSettle();
+
+      final normalTab = find.byKey(const Key('card-detail-finish-Normal'));
+      final foilTab = find.byKey(const Key('card-detail-finish-Foil'));
+      await tester.scrollUntilVisible(normalTab, 400);
+      expect(normalTab, findsOneWidget);
+      expect(foilTab, findsOneWidget);
+
+      await tester.tap(foilTab);
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedFinishes.last, 'Foil');
+      expect(find.text(r'$20.00'), findsWidgets);
+    },
+  );
+
   testWidgets(
     'mobile CardDetail keeps the Figma hero size because the primary card must stay inspectable',
     (tester) async {
@@ -1281,6 +1305,102 @@ class _CardDetailTestApp extends StatelessWidget {
   }
 }
 
+class _FinishTabCardDetailRepository extends MockCardDetailRepository
+    implements CardDetailSectionRepository {
+  final List<String?> requestedFinishes = [];
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) async {
+    return const CardDetail(
+      id: '180865',
+      type: CardDetailType.tcg,
+      name: 'Test Card',
+      game: 'Pokemon',
+      setName: 'Test Set',
+      identityLine: '#180865',
+      finish: 'Normal',
+      language: 'English',
+      availableFinishes: ['Normal', 'Foil'],
+      quantity: 0,
+      isWishlisted: false,
+      marketPrices: [
+        CardMarketPrice(
+          label: 'Raw Near Mint',
+          priceUsd: 10,
+          previous30dPriceUsd: null,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<CardDetail> loadBaseDetail(AuthSession session, String cardId) {
+    return loadCoreDetail(cardId);
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(
+    AuthSession session,
+    CardDetail detail,
+  ) async {
+    return detail;
+  }
+
+  @override
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+  }) async {
+    requestedFinishes.add(finish);
+    final price = finish == 'Foil' ? 20.0 : 10.0;
+    final dto = CardDataMarketPriceDto(
+      grader: 'Raw',
+      grade: null,
+      condition: 'Near Mint',
+      price: price,
+    );
+    return CardDetailMarketData(
+      prices: [dto],
+      marketPrices: [
+        CardMarketPrice(
+          label: 'Raw Near Mint',
+          condition: 'Near Mint',
+          priceUsd: price,
+          previous30dPriceUsd: null,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, {
+    CardDetailMarketData? market,
+    String? finish,
+  }) async {
+    final price = finish == 'Foil' ? 20.0 : 10.0;
+    final points = [
+      CardPricePoint(dateLabel: '2026-07-01', priceUsd: price - 1),
+      CardPricePoint(dateLabel: '2026-07-30', priceUsd: price),
+    ];
+    return CardDetailSeriesData(
+      marketPrices: market?.marketPrices ?? const [],
+      rawSeriesByRange: {CardPriceRange.oneMonth: points},
+      rawSeries: [
+        CardPriceChartSeries(
+          label: 'Raw Near Mint',
+          seriesByRange: {CardPriceRange.oneMonth: points},
+        ),
+      ],
+      gradedSeriesByRange: const {},
+    );
+  }
+
+  @override
+  Future<List<CardSoldListing>> loadSoldListings(String cardId) async =>
+      const [];
+}
+
 class _CardDetailRouteApp extends StatelessWidget {
   const _CardDetailRouteApp();
 
@@ -1521,15 +1641,19 @@ class _FailingSectionCardDetailRepository extends MockCardDetailRepository
   }
 
   @override
-  Future<CardDetailMarketData> loadMarketPrices(String cardId) {
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+  }) {
     throw StateError('market prices unavailable');
   }
 
   @override
   Future<CardDetailSeriesData> loadPriceSeries(
-    String cardId, [
+    String cardId, {
     CardDetailMarketData? market,
-  ]) {
+    String? finish,
+  }) {
     throw StateError('price series unavailable');
   }
 

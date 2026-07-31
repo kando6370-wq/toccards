@@ -48,7 +48,10 @@ class _PartialCardDataApi implements CardDataApi {
   }
 
   @override
-  Future<List<CardDataMarketPriceDto>> getMarketPrices(String cardRef) {
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+  }) {
     throw Exception('prices unavailable');
   }
 
