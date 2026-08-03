@@ -70,6 +70,28 @@ void main() {
     },
   );
 
+  for (final testCase in <(String, String?)>[
+    ('an empty string', ''),
+    ('null', null),
+  ]) {
+    test(
+      'getCard accepts ${testCase.$1} set code because catalog cards may not have one',
+      () async {
+        final adapter = _RecordingAdapter((request) {
+          expect(request.method, 'GET');
+          expect(request.path, '/cards/592463');
+          final card = _cardJson(cardRef: '592463');
+          card['set_code'] = testCase.$2;
+          return _json(200, {'success': true, 'data': card});
+        });
+
+        final card = await CardDataApiClient(_dio(adapter)).getCard('592463');
+
+        expect(card.setCode, isEmpty);
+      },
+    );
+  }
+
   test(
     'getPriceSeries sends market qualifiers because Card Detail charts are condition specific',
     () async {
