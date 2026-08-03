@@ -1500,6 +1500,40 @@ void main() {
   );
 
   testWidgets(
+    'Review clears loading and keeps the scan when current card data is missing',
+    (tester) async {
+      final repository = _MissingCurrentScanReviewRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: repository);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.loadTargetCount, 1);
+      expect(find.byKey(const Key('scan-review-loading')), findsNothing);
+      expect(find.text('Review your matches'), findsNothing);
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.byKey(const Key('kando-floating-toast')), findsNothing);
+
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pump();
+      await tester.pump();
+      expect(repository.loadTargetCount, 2);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('kando-top-toast')),
+          matching: find.byTooltip('Close'),
+        ),
+      );
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
     'Review treats an already confirmed scan as added because confirmation is idempotent',
     (tester) async {
       await _pumpScanTestApp(
@@ -2532,6 +2566,21 @@ class _DelayedScanReviewRepository extends _FakeScanReviewRepository {
   Future<ScanReviewTarget> loadTarget({String? preferredFolderId}) {
     loadTargetCount += 1;
     return targetFuture;
+  }
+}
+
+class _MissingCurrentScanReviewRepository extends _FakeScanReviewRepository {
+  var loadTargetCount = 0;
+
+  @override
+  Future<ScanReviewTarget> loadTarget({String? preferredFolderId}) async {
+    loadTargetCount += 1;
+    return super.loadTarget(preferredFolderId: preferredFolderId);
+  }
+
+  @override
+  Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) async {
+    return const {};
   }
 }
 

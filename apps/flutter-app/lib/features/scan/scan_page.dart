@@ -37,6 +37,10 @@ enum _ScanItemStatus {
 
 enum _ScanReviewSaveAction { single, all }
 
+class _ScanReviewLoadException implements Exception {
+  const _ScanReviewLoadException();
+}
+
 const _viewfinderTop = 163.0;
 const _viewfinderWidth = 280.0;
 const _viewfinderHeight = 400.0;
@@ -1091,22 +1095,30 @@ class _ScanPageState extends ConsumerState<ScanPage>
         ...cachedCards,
         ...results[1] as Map<String, ScanReviewCard>,
       };
+      final selectedReviewItemId = itemId ?? items.firstOrNull?.id;
+      if (selectedReviewItemId == null) {
+        throw const _ScanReviewLoadException();
+      }
+      final drafts = <int, _ScanCollectionDraft>{};
+      for (final item in items) {
+        final cardRef = item.match?.cardRef;
+        final card = cardRef == null ? null : cards[cardRef];
+        if (card == null) {
+          throw const _ScanReviewLoadException();
+        }
+        drafts[item.id] = _initialReviewDraft(target, card);
+      }
       if (mounted && _openingReview) {
         setState(() {
           _openingReview = false;
           _reviewing = true;
-          _selectedReviewItemId = itemId ?? items.first.id;
+          _selectedReviewItemId = selectedReviewItemId;
           _reviewTarget = target;
           _reviewCards = cards;
           _reviewFormError = null;
           _reviewDrafts
             ..clear()
-            ..addEntries(
-              items.map((item) {
-                final card = cards[item.match!.cardRef]!;
-                return MapEntry(item.id, _initialReviewDraft(target, card));
-              }),
-            );
+            ..addAll(drafts);
         });
         unawaited(_closeCamera());
         final selected = items
@@ -1126,8 +1138,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
               },
             );
       }
-    } on Exception {
+    } catch (_) {
       _failReviewLoad();
+    } finally {
+      if (mounted && _openingReview) {
+        setState(() => _openingReview = false);
+      }
     }
   }
 
@@ -1150,7 +1166,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewDrafts.clear();
       _reviewFormError = null;
     });
-    showKandoFailureToast(context);
+    showKandoTopFailureToast(context);
   }
 
   Future<void> _addSelectedItem() async {

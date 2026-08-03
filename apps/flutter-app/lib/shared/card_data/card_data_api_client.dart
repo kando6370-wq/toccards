@@ -74,7 +74,7 @@ class CardDataCardDto {
       cardRef: _requiredString(json['card_ref']),
       name: _requiredString(json['name']),
       setName: _requiredString(json['set_name']),
-      setCode: _requiredString(json['set_code']),
+      setCode: _stringOrEmpty(json['set_code']),
       cardNumber: _stringOrEmpty(json['card_number']),
       finish: _nullableString(json['finish']),
       language: _nullableString(json['language']),
