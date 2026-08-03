@@ -680,13 +680,12 @@ class _CollectionGrid extends StatelessWidget {
                 for (final item in items)
                   SizedBox(
                     width: tileWidth,
-                    height: 328,
+                    height: 378,
                     child: SearchCardTile(
                       card: _asSearchCard(item, showQuantity: showQuantity),
                       actionsEnabled: false,
                       showActions: false,
                       showSearchMetadata: true,
-                      showCollectionMetadata: true,
                       showQuantity: showQuantity,
                       entrySource: AnalyticsValue.sourceEdit,
                     ),
@@ -718,16 +717,32 @@ SearchCard _asSearchCard(
         ? null
         : source.previous30dPriceUsd! * quantityMultiplier,
     setName: source.setName,
-    metadataLine: '${source.rarity} · ${source.number}',
+    metadataLine: '${source.rarity} ${source.number}',
     variantLine: source.finish,
     quantity: source.quantity,
     isWishlisted: !showQuantity,
     collectionItemCount: showQuantity ? source.quantity : 0,
-    collectionInfo: source.statusText,
+    collectionInfo: showQuantity ? _searchCollectionInfo(source) : null,
     language: source.language,
     finish: source.finish,
     imageUrl: source.imageUrl,
   );
+}
+
+String? _searchCollectionInfo(CollectionItem item) {
+  if (!item.isGraded) {
+    final condition = item.condition?.trim();
+    return condition == null || condition.isEmpty ? null : condition;
+  }
+
+  final grader = item.grader.trim();
+  if (grader.isEmpty) return null;
+  final grade = item.grade;
+  if (grade == null) return grader;
+  final gradeText = grade == grade.truncateToDouble()
+      ? grade.toInt().toString()
+      : grade.toString();
+  return '$grader $gradeText';
 }
 
 class _FilterSectionLabel extends StatelessWidget {
