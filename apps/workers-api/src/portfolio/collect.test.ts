@@ -124,11 +124,10 @@ class FakeD1Statement {
     }
 
     if (this.sql.includes("FROM collection_item") && this.sql.includes("folder_id = ?")) {
-      const [ownerType, ownerId, folderId, cardRef, objectType, grader, condition, grade, language, finish] = this.args;
+      const [ownerType, ownerId, folderId, cardRef, language, finish] = this.args;
       return (this.db.items.find((row) =>
         row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
-        row.card_ref === cardRef && row.object_type === objectType && row.grader === grader &&
-        row.condition === condition && row.grade === grade && row.language === language && row.finish === finish
+        row.card_ref === cardRef && row.language === language && row.finish === finish
       ) ?? null) as T | null;
     }
 
@@ -321,7 +320,7 @@ describe("collect shortcut route", () => {
     });
   });
 
-  it("rejects an identical SKU but accepts another finish because quantity owns exact duplicates", async () => {
+  it("rejects the same card, finish, and language despite different grading", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main", is_default: 1 }));
     db.items.push({
@@ -339,12 +338,13 @@ describe("collect shortcut route", () => {
 
     const duplicate = await app.request("/api/v1/cards/card-a/collect", {
       method: "POST", headers,
-      body: JSON.stringify({ folder_id: "main", object_type: "tcg", grader: "Raw", condition: "Near Mint (NM)", grade: null, language: "English", finish: "Holofoil", quantity: 1 }),
+      body: JSON.stringify({ folder_id: "main", object_type: "tcg", grader: "PSA", condition: null, grade: 10, language: "English", finish: "Holofoil", quantity: 1 }),
     }, createTestEnv(db));
     expect(db.items).toHaveLength(1);
     const distinct = await request("Reverse Holofoil");
 
     expect(duplicate.status).toBe(409);
+    expect(await duplicate.json()).toMatchObject({ error: { code: "DUPLICATE_COLLECTION_ITEM" } });
     expect(distinct.status).toBe(201);
   });
 

@@ -4,6 +4,9 @@ import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
 const portfolioApiBaseUrl = authApiBaseUrl;
+const duplicateCollectionItemErrorCode = 'DUPLICATE_COLLECTION_ITEM';
+const duplicateCollectionItemMessage =
+    'This card with the same finish and language is already in this portfolio.';
 
 Dio createPortfolioDio({String baseUrl = portfolioApiBaseUrl}) {
   return Dio(

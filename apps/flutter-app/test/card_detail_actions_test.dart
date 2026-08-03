@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
@@ -83,6 +85,7 @@ void main() {
     'iOS shares only the card URI because the system fetches web metadata',
     () async {
       ShareParams? shared;
+      const origin = Rect.fromLTWH(12, 24, 44, 44);
       var thumbnailLoaded = false;
       final actions = PluginCardDetailActions(
         _FakeAppUpgradeRepository(
@@ -103,6 +106,7 @@ void main() {
         name: 'Switch',
         setName: 'Deck Exclusives',
         marketPrice: r'$0.27',
+        sharePositionOrigin: origin,
       );
 
       expect(
@@ -111,30 +115,32 @@ void main() {
       );
       expect(shared?.text, isNull);
       expect(shared?.previewThumbnail, isNull);
+      expect(shared?.sharePositionOrigin, origin);
       expect(thumbnailLoaded, isFalse);
     },
   );
 
   test(
-    'card share fails before opening the system sheet when config is absent',
+    'card share uses the environment fallback when config is absent',
     () async {
-      var shared = false;
+      ShareParams? shared;
       final actions = PluginCardDetailActions(
         _FakeAppUpgradeRepository(const AppUpgradeConfig()),
-        share: (_) async => shared = true,
-        platform: TargetPlatform.android,
+        share: (params) async => shared = params,
+        platform: TargetPlatform.iOS,
       );
 
-      await expectLater(
-        actions.shareCard(
-          cardRef: 'pokemon:sv3:125',
-          name: 'Charizard ex',
-          setName: 'Obsidian Flames',
-          marketPrice: r'$780.00',
-        ),
-        throwsStateError,
+      await actions.shareCard(
+        cardRef: 'pokemon:sv3:125',
+        name: 'Charizard ex',
+        setName: 'Obsidian Flames',
+        marketPrice: r'$780.00',
       );
-      expect(shared, isFalse);
+
+      expect(
+        shared?.uri.toString(),
+        '$cardShareFallbackBaseUrl/pokemon:sv3:125',
+      );
     },
   );
 }

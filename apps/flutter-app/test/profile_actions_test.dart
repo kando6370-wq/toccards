@@ -1,11 +1,15 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
+import 'package:share_plus/share_plus.dart';
 
 void main() {
   test('share uses the platform store URL from App Config', () async {
-    final shared = <Uri>[];
+    ShareParams? shared;
+    const origin = Rect.fromLTWH(10, 20, 120, 44);
     final actions = PluginProfileActions(
       _FakeAppUpgradeRepository(
         const AppUpgradeConfig(
@@ -13,28 +17,32 @@ void main() {
               'https://play.google.com/store/apps/details?id=com.kando',
         ),
       ),
-      shareUri: (uri) async => shared.add(uri),
+      share: (params) async => shared = params,
     );
 
-    await actions.shareWithFriends();
+    await actions.shareWithFriends(sharePositionOrigin: origin);
 
     expect(
-      shared.single.toString(),
+      shared?.uri.toString(),
       'https://play.google.com/store/apps/details?id=com.kando',
     );
+    expect(shared?.sharePositionOrigin, origin);
   });
 
-  test('share fails loudly when no configurable store URL exists', () async {
-    final shared = <Uri>[];
-    final actions = PluginProfileActions(
-      _FakeAppUpgradeRepository(const AppUpgradeConfig()),
-      shareUri: (uri) async => shared.add(uri),
-    );
+  test(
+    'share falls back to the public site when store URL is absent',
+    () async {
+      ShareParams? shared;
+      final actions = PluginProfileActions(
+        _FakeAppUpgradeRepository(const AppUpgradeConfig()),
+        share: (params) async => shared = params,
+      );
 
-    await expectLater(actions.shareWithFriends(), throwsStateError);
+      await actions.shareWithFriends();
 
-    expect(shared, isEmpty);
-  });
+      expect(shared?.uri, Uri.parse(profileShareFallbackUrl));
+    },
+  );
 
   test('legal actions prefer valid App Config URLs', () async {
     final opened = <Uri>[];

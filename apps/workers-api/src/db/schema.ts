@@ -286,6 +286,14 @@ export const collectionItem = sqliteTable(
     index("idx_collection_item_owner").on(t.ownerType, t.ownerId, t.cardRef),
     index("idx_collection_item_folder").on(t.folderId),
     index("idx_collection_item_card").on(t.cardRef),
+    uniqueIndex("uq_collection_item_folder_card_finish_language").on(
+      t.ownerType,
+      t.ownerId,
+      t.folderId,
+      t.cardRef,
+      sql`COALESCE(${t.finish}, '')`,
+      sql`COALESCE(${t.language}, '')`,
+    ),
     check("ck_collection_item_quantity", sql`${t.quantity} >= 1`),
   ],
 );

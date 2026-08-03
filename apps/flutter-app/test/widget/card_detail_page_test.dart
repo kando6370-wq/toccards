@@ -36,7 +36,16 @@ void main() {
       await tester.scrollUntilVisible(normalTab, 400);
       expect(normalTab, findsOneWidget);
       expect(foilTab, findsOneWidget);
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('card-detail-price-heading')))
+            .dy,
+        lessThan(tester.getTopLeft(normalTab).dy),
+        reason: 'Figma defines Finish as a control within the Price section.',
+      );
 
+      await tester.ensureVisible(foilTab);
+      await tester.pumpAndSettle();
       await tester.tap(foilTab);
       await tester.pumpAndSettle();
 
@@ -466,7 +475,7 @@ void main() {
   );
 
   testWidgets(
-    'top portfolio icon opens the Figma item sheet because creation is a focused workflow',
+    'Search add sheet switches portfolio only from the header because the form stays focused',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -508,25 +517,28 @@ void main() {
       expect(find.text('Adding to Main'), findsOneWidget);
       await tester.tap(find.byKey(const Key('card-detail-add-item-portfolio')));
       await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsNWidgets(2));
       expect(find.text('Portfolio'), findsOneWidget);
       await tester.tap(find.text('Sealed').last);
       await tester.pumpAndSettle();
       expect(find.text('Adding to Sealed'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-add-item-portfolio')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('card-detail-item-portfolio')), findsNothing);
       expect(find.text('LANGUAGE'), findsOneWidget);
-      expect(find.text('CARD VERSION  /  FINISH'), findsOneWidget);
+      expect(find.text('FINISH'), findsOneWidget);
       expect(
         find.byKey(const Key('card-detail-item-state-raw')),
         findsOneWidget,
       );
       expect(
         find.byKey(const Key('card-detail-item-selected-card')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const Key('card-detail-item-market-price')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.text('TOTAL VALUE'), findsOneWidget);
       expect(
@@ -685,7 +697,7 @@ void main() {
   });
 
   testWidgets(
-    'add item links graded graders to the styled grade sheet because grade is a dependent choice',
+    'add item keeps graded grader and grade choices inline because they share one Figma state',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -715,32 +727,23 @@ void main() {
       await tester.tap(find.text('BGS').last);
       await tester.pumpAndSettle();
 
-      expect(find.byType(BottomSheet), findsNWidgets(2));
-      expect(find.text('Grade'), findsWidgets);
-      expect(find.text('BGS 10'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text('GRADING DETAILS'), findsOneWidget);
       expect(find.byType(DropdownButtonFormField<String>), findsNothing);
-      expect(
-        tester
-            .getBottomRight(find.byKey(const Key('card-detail-choice-sheet')))
-            .dy,
-        844,
-      );
-      expect(
-        tester
-            .widget<Material>(find.byKey(const Key('card-detail-choice-sheet')))
-            .borderRadius,
-        const BorderRadius.vertical(top: Radius.circular(24)),
-      );
-
+      await tester.ensureVisible(find.text('9.5'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('9.5'));
       await tester.pumpAndSettle();
-      expect(find.text('BGS 9.5'), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('card-detail-item-grade')));
-      await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
-      await tester.tap(find.byTooltip('Close'));
-      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      expect(
+        container
+            .read(cardDetailControllerProvider('one-piece-luffy'))
+            .collectionItemDraft
+            ?.grade,
+        '9.5',
+      );
 
       final rawState = find.byKey(const Key('card-detail-item-state-raw'));
       await tester.ensureVisible(rawState);
@@ -748,6 +751,7 @@ void main() {
       await tester.tap(rawState);
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text('RAW DETAILS'), findsOneWidget);
       expect(
         find.byKey(const Key('card-detail-item-condition')),
         findsOneWidget,
@@ -797,19 +801,18 @@ void main() {
         of: ownershipCard,
         matching: find.text('CURRENT MARKET PRICE'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.descendant(of: ownershipCard, matching: find.text(r'$780.00')),
-      findsOneWidget,
+      findsNothing,
     );
     final orderedLabels = [
-      'FINISH',
-      'LANGUAGE',
       'GRADER',
       'GRADE',
+      'LANGUAGE',
+      'FINISH',
       'PURCHASE PRICE',
-      'CURRENT MARKET PRICE',
     ];
     final labelOffsets = [
       for (final label in orderedLabels)
@@ -954,23 +957,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Edit collection item'), findsOneWidget);
+    expect(find.text('Edit collection item'), findsNothing);
     expect(find.text('OWNERSHIP SUMMARY'), findsOneWidget);
     expect(find.byKey(const Key('card-detail-item-portfolio')), findsOneWidget);
-    expect(find.text('PURCHASE DETAILS'), findsNothing);
     expect(
-      find.descendant(
-        of: find.byKey(const Key('card-detail-item-selected-card')),
-        matching: find.text('Holofoil · PSA 10'),
-      ),
+      find.byKey(const Key('card-detail-item-edit-footer')),
       findsOneWidget,
     );
+    expect(find.text('SAVE CHANGES'), findsOneWidget);
+    expect(find.text('PURCHASE DETAILS'), findsNothing);
     expect(
-      find.descendant(
-        of: find.byKey(const Key('card-detail-item-market-price')),
-        matching: find.text(r'$780.00'),
-      ),
-      findsOneWidget,
+      find.byKey(const Key('card-detail-item-selected-card')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('card-detail-item-market-price')),
+      findsNothing,
     );
     await tester.enterText(
       find.byKey(const Key('card-detail-item-quantity')),
@@ -989,22 +991,9 @@ void main() {
 
     expect(find.text('CONDITION'), findsOneWidget);
     expect(find.text('GRADE'), findsNothing);
-    expect(find.text('RAW DETAILS'), findsNothing);
+    expect(find.text('RAW DETAILS'), findsOneWidget);
+    expect(find.text('GRADING DETAILS'), findsNothing);
     expect(find.text('RAW CARD'), findsNothing);
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('card-detail-item-selected-card')),
-        matching: find.text('Holofoil · Raw · Near Mint'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('card-detail-item-market-price')),
-        matching: find.text(r'$215.00'),
-      ),
-      findsOneWidget,
-    );
 
     await tester.ensureVisible(find.byKey(const Key('card-detail-item-notes')));
     await tester.pumpAndSettle();
@@ -1014,16 +1003,10 @@ void main() {
     );
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('card-detail-item-submit')),
-      -400,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('card-detail-item-submit')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Save'), findsNothing);
+    expect(find.text('SAVE CHANGES'), findsNothing);
     expect(find.text('QUANTITY'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('Raw'), findsOneWidget);
@@ -1032,7 +1015,7 @@ void main() {
   });
 
   testWidgets(
-    'choosing a graded grader opens grade choices so its dependent grade can be completed immediately',
+    'graded edit keeps grader and grade choices inline because both belong to one Figma state',
     (tester) async {
       await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
       await tester.pumpAndSettle();
@@ -1050,10 +1033,10 @@ void main() {
       await tester.tap(find.text('BGS').last);
       await tester.pumpAndSettle();
 
-      expect(find.byType(BottomSheet), findsOneWidget);
-      expect(find.text('GRADE'), findsNWidgets(2));
-      expect(find.text('BGS 10'), findsOneWidget);
-
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text('GRADING DETAILS'), findsOneWidget);
+      await tester.ensureVisible(find.text('9.5'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('9.5'));
       await tester.pumpAndSettle();
 
@@ -1067,14 +1050,6 @@ void main() {
             ?.grade,
         '9.5',
       );
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('card-detail-item-market-price')),
-          matching: find.text('--'),
-        ),
-        findsOneWidget,
-      );
-
       await tester.ensureVisible(
         find.byKey(const Key('card-detail-item-state-raw')),
       );
@@ -1131,7 +1106,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Edit item'));
       await tester.pumpAndSettle();
-      expect(find.text('Save'), findsOneWidget);
+      expect(find.text('SAVE CHANGES'), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -1144,7 +1119,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Edit item'), findsOneWidget);
-      expect(find.text('Save'), findsNothing);
+      expect(find.text('SAVE CHANGES'), findsNothing);
     },
   );
 
@@ -1260,7 +1235,7 @@ void main() {
     repository.completeUpdate();
     await tester.pumpAndSettle();
 
-    expect(find.text('Save'), findsNothing);
+    expect(find.text('SAVE CHANGES'), findsNothing);
     expect(find.text('Edit item'), findsOneWidget);
   });
 
@@ -1381,6 +1356,8 @@ void main() {
     expect(actions.cardRef, 'charizard-ex');
     expect(actions.setName, 'Obsidian Flames');
     expect(actions.marketPrice, r'$780.00');
+    expect(actions.sharePositionOrigin, isNotNull);
+    expect(actions.sharePositionOrigin?.isEmpty, isFalse);
   });
 
   testWidgets('unknown CardDetail shows shared failure copy', (tester) async {
@@ -1615,6 +1592,7 @@ class _RecordingCardDetailActions implements CardDetailActions {
   String? marketplaceUrl;
   String? soldListingsName;
   String? soldListingsSetName;
+  Rect? sharePositionOrigin;
 
   @override
   Future<void> openMarketplaceListing(String url) async {
@@ -1636,11 +1614,13 @@ class _RecordingCardDetailActions implements CardDetailActions {
     required String name,
     required String setName,
     required String marketPrice,
+    Rect? sharePositionOrigin,
   }) async {
     this.cardRef = cardRef;
     this.name = name;
     this.setName = setName;
     this.marketPrice = marketPrice;
+    this.sharePositionOrigin = sharePositionOrigin;
   }
 }
 

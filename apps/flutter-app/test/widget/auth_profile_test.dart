@@ -1554,6 +1554,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(profileActions.calls, ['score', 'share', 'terms', 'privacy']);
+      expect(profileActions.sharePositionOrigin, isNotNull);
+      expect(profileActions.sharePositionOrigin?.isEmpty, isFalse);
     },
   );
 
@@ -2622,6 +2624,7 @@ class _WidgetProfileActions implements ProfileActions {
 
   final Exception? failure;
   final List<String> calls = [];
+  Rect? sharePositionOrigin;
 
   @override
   Future<void> openPrivacy() => _record('privacy');
@@ -2633,7 +2636,10 @@ class _WidgetProfileActions implements ProfileActions {
   Future<void> requestScore() => _record('score');
 
   @override
-  Future<void> shareWithFriends() => _record('share');
+  Future<void> shareWithFriends({Rect? sharePositionOrigin}) {
+    this.sharePositionOrigin = sharePositionOrigin;
+    return _record('share');
+  }
 
   Future<void> _record(String call) async {
     calls.add(call);

@@ -8,6 +8,7 @@ import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -31,7 +32,7 @@ final searchControllerProvider =
 
 const searchDebounceDuration = Duration(milliseconds: 300);
 
-enum SearchCollectAction { updated, openDetail, ignored }
+enum SearchCollectAction { updated, openDetail, duplicate, ignored }
 
 class SearchState {
   const SearchState({
@@ -554,12 +555,23 @@ class SearchController extends Notifier<SearchState> {
         _resetAssets();
         _invalidateAssetConsumers(card.id);
         return SearchCollectAction.updated;
-      } catch (_) {
+      } catch (error) {
+        final isDuplicate =
+            error is PortfolioApiException &&
+            error.code == duplicateCollectionItemErrorCode;
         _resetAssets();
         final synced = await _reloadAssetsAfterMutation(
           card.id,
           fallback: card,
         );
+        if (isDuplicate) {
+          if (synced?.isCollected ?? false) {
+            _invalidateAssetConsumers(card.id);
+          } else {
+            _replaceCard(card);
+          }
+          return SearchCollectAction.duplicate;
+        }
         if (synced?.isCollected ?? false) {
           _invalidateAssetConsumers(card.id);
           return SearchCollectAction.updated;

@@ -2,8 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
-const googleIosClientId =
-    '134647928937-abbkvdc4ntfsui9utm828bc1vhgabdmo.apps.googleusercontent.com';
+import '../../shared/api/api_environment.dart';
+
+const googleIosClientId = AppConfig.environment == AppEnvironment.production
+    ? '1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com'
+    : '490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n.apps.googleusercontent.com';
 
 typedef GoogleSignInInitializer =
     Future<void> Function({String? clientId, String? serverClientId});

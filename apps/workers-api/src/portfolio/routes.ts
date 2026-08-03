@@ -90,6 +90,14 @@ const CONFLICT_RESPONSE = {
   error: { code: "CONFLICT", message: "Conflict." },
 } as const;
 
+const DUPLICATE_COLLECTION_ITEM_RESPONSE = {
+  success: false,
+  error: {
+    code: "DUPLICATE_COLLECTION_ITEM",
+    message: "This card with the same finish and language is already in this portfolio.",
+  },
+} as const;
+
 const INTERNAL_ERROR_RESPONSE = {
   success: false,
   error: {
@@ -205,7 +213,6 @@ const SELECT_COLLECTION_ITEM_BY_SKU_SQL = `
 SELECT id
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND folder_id = ? AND card_ref = ?
-  AND object_type = ? AND grader = ? AND condition IS ? AND grade IS ?
   AND language IS ? AND finish IS ?
 LIMIT 1
 `;
@@ -383,13 +390,14 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
     }
 
     if (await findCollectionItemBySku(c.env.DB, auth.owner, draft)) {
-      return c.json(CONFLICT_RESPONSE, 409);
+      return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
     }
 
     const now = new Date().toISOString();
     const itemId = createId();
 
-    await c.env.DB.batch([
+    try {
+      await c.env.DB.batch([
       c.env.DB.prepare(INSERT_COLLECTION_ITEM_SQL).bind(
         itemId,
         auth.owner.owner_type,
@@ -420,7 +428,13 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         auth.owner.owner_id,
         draft.card_ref,
       ),
-    ]);
+      ]);
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
+      }
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
 
     const item = await findCollectionItem(c.env.DB, auth.owner, itemId);
 
@@ -678,13 +692,14 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
     }
 
     if (await findCollectionItemBySku(c.env.DB, auth.owner, draft)) {
-      return c.json(CONFLICT_RESPONSE, 409);
+      return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
     }
 
     const now = new Date().toISOString();
     const itemId = createId();
 
-    await c.env.DB.batch([
+    try {
+      await c.env.DB.batch([
       c.env.DB.prepare(INSERT_COLLECTION_ITEM_SQL).bind(
         itemId,
         auth.owner.owner_type,
@@ -715,7 +730,13 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         auth.owner.owner_id,
         draft.card_ref,
       ),
-    ]);
+      ]);
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
+      }
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
 
     const item = await findCollectionItem(c.env.DB, auth.owner, itemId);
 
@@ -1342,10 +1363,6 @@ async function findCollectionItemBySku(
       owner.owner_id,
       draft.folder_id,
       draft.card_ref,
-      draft.object_type,
-      draft.grader,
-      draft.condition,
-      draft.grade,
       draft.language,
       draft.finish,
     )

@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:kando_app/shared/ui/toast.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import 'search_controller.dart';
@@ -143,6 +145,17 @@ class SearchCardTile extends ConsumerWidget {
                                                     card,
                                                     entrySource,
                                                   ),
+                                                );
+                                              }
+                                            } else if (action ==
+                                                SearchCollectAction.duplicate) {
+                                              if (context.mounted) {
+                                                showKandoTopToast(
+                                                  context,
+                                                  message:
+                                                      duplicateCollectionItemMessage,
+                                                  type:
+                                                      KandoTopToastType.failure,
                                                 );
                                               }
                                             }

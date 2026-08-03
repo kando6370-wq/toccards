@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:share_plus/share_plus.dart';
@@ -10,16 +12,17 @@ const profileActionFailureText =
     'Unable to open this page. Please try again later.';
 const profileTermsUrl = 'https://tcgcard.fun/terms';
 const profilePrivacyUrl = 'https://tcgcard.fun/privacy';
+const profileShareFallbackUrl = 'https://tcgcard.fun';
 
 typedef ProfileUrlLauncher = Future<bool> Function(Uri uri);
-typedef ProfileShareLauncher = Future<void> Function(Uri uri);
+typedef ProfileShareLauncher = Future<void> Function(ShareParams params);
 
 Future<bool> _launchProfileUrl(Uri uri) {
   return launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
-Future<void> _shareProfileUri(Uri uri) async {
-  await SharePlus.instance.share(ShareParams(uri: uri));
+Future<void> _shareProfile(ShareParams params) async {
+  await SharePlus.instance.share(params);
 }
 
 final profileActionsProvider = Provider<ProfileActions>((ref) {
@@ -28,7 +31,7 @@ final profileActionsProvider = Provider<ProfileActions>((ref) {
 
 abstract interface class ProfileActions {
   Future<void> requestScore();
-  Future<void> shareWithFriends();
+  Future<void> shareWithFriends({Rect? sharePositionOrigin});
   Future<void> openTerms();
   Future<void> openPrivacy();
 }
@@ -37,13 +40,13 @@ class PluginProfileActions implements ProfileActions {
   const PluginProfileActions(
     this._configRepository, {
     ProfileUrlLauncher launchExternal = _launchProfileUrl,
-    ProfileShareLauncher shareUri = _shareProfileUri,
+    ProfileShareLauncher share = _shareProfile,
   }) : _launchExternalUrl = launchExternal,
-       _shareUri = shareUri;
+       _share = share;
 
   final AppUpgradeRepository _configRepository;
   final ProfileUrlLauncher _launchExternalUrl;
-  final ProfileShareLauncher _shareUri;
+  final ProfileShareLauncher _share;
 
   @override
   Future<void> requestScore() async {
@@ -65,8 +68,19 @@ class PluginProfileActions implements ProfileActions {
   }
 
   @override
-  Future<void> shareWithFriends() async {
-    await _shareUri(await _configuredUri((config) => config.appStoreUrl));
+  Future<void> shareWithFriends({Rect? sharePositionOrigin}) async {
+    final uri = await _configuredUri(
+      (config) => config.appStoreUrl,
+      fallback: profileShareFallbackUrl,
+    );
+    await _share(
+      ShareParams(
+        uri: uri,
+        title: 'Share Card AI',
+        subject: 'Card AI',
+        sharePositionOrigin: sharePositionOrigin,
+      ),
+    );
   }
 
   @override

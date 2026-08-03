@@ -1,9 +1,12 @@
+import 'dart:ui';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../shared/api/api_environment.dart';
 import '../../shared/card_image/card_image_url.dart';
 import '../app_upgrade/app_upgrade_repository.dart';
 
@@ -13,6 +16,11 @@ final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
 
 typedef CardShareLauncher = Future<void> Function(ShareParams params);
 typedef CardShareThumbnailLoader = Future<XFile?> Function(String imageUrl);
+
+const cardShareFallbackBaseUrl =
+    AppConfig.environment == AppEnvironment.production
+    ? 'https://api.tcgcard.fun/share/cards'
+    : 'https://api-dev.tcgcard.fun/share/cards';
 
 Future<void> _shareCard(ShareParams params) async {
   await SharePlus.instance.share(params);
@@ -38,6 +46,7 @@ abstract interface class CardDetailActions {
     required String name,
     required String setName,
     required String marketPrice,
+    Rect? sharePositionOrigin,
   });
 
   Future<void> openSoldListings({
@@ -69,12 +78,11 @@ class PluginCardDetailActions implements CardDetailActions {
     required String name,
     required String setName,
     required String marketPrice,
+    Rect? sharePositionOrigin,
   }) async {
     final config = await _configRepository.loadConfig();
-    final baseUrl = _webUri(config.cardShareBaseUrl);
-    if (baseUrl == null) {
-      throw StateError('Card share URL is not configured.');
-    }
+    final baseUrl =
+        _webUri(config.cardShareBaseUrl) ?? Uri.parse(cardShareFallbackBaseUrl);
     final cardUrl = baseUrl.replace(
       pathSegments: [
         ...baseUrl.pathSegments.where((segment) => segment.isNotEmpty),
@@ -83,7 +91,12 @@ class PluginCardDetailActions implements CardDetailActions {
     );
     if (_platform == TargetPlatform.iOS) {
       await _share(
-        ShareParams(uri: cardUrl, title: 'Share $name', subject: name),
+        ShareParams(
+          uri: cardUrl,
+          title: 'Share $name',
+          subject: name,
+          sharePositionOrigin: sharePositionOrigin,
+        ),
       );
       return;
     }
@@ -104,6 +117,7 @@ class PluginCardDetailActions implements CardDetailActions {
         title: 'Share $name',
         subject: name,
         previewThumbnail: thumbnail,
+        sharePositionOrigin: sharePositionOrigin,
       ),
     );
   }
