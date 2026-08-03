@@ -1337,10 +1337,6 @@ void main() {
       final gradeField = find.byKey(const Key('scan-review-grade-1'));
       await tester.ensureVisible(gradeField);
       await tester.pumpAndSettle();
-      await tester.tap(gradeField);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('scan-review-choice-option-10')));
-      await tester.pumpAndSettle();
       expect(
         find.byKey(const Key('scan-review-choice-sheet-handle')),
         findsNothing,
@@ -1412,7 +1408,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('scan-review-language-1')));
+      final languageField = find.byKey(const Key('scan-review-language-1'));
+      await tester.ensureVisible(languageField);
+      await tester.pumpAndSettle();
+      await tester.tap(languageField);
       await tester.pumpAndSettle();
       expect(
         find.byKey(const Key('scan-review-choice-option-English')),
@@ -1560,7 +1559,7 @@ void main() {
     },
   );
 
-  testWidgets('Review dropdown selection does not restore focus to Quantity', (
+  testWidgets('Review inline selection does not restore focus to Quantity', (
     tester,
   ) async {
     await _pumpScanTestApp(tester);
@@ -1588,18 +1587,16 @@ void main() {
     await tester.pumpAndSettle();
     final gradeFinder = find.byKey(const Key('scan-review-grade-1'));
     await tester.ensureVisible(gradeFinder);
-    await tester.tap(gradeFinder);
+    await tester.tap(
+      find.descendant(of: gradeFinder, matching: find.text('10')),
+    );
     await tester.pumpAndSettle();
 
     expect(tester.testTextInput.isVisible, isFalse);
     expect(
       find.byKey(const Key('scan-review-choice-sheet-handle')),
-      findsOneWidget,
+      findsNothing,
     );
-    await tester.tap(find.byKey(const Key('scan-review-choice-option-10')));
-    await tester.pumpAndSettle();
-
-    expect(tester.testTextInput.isVisible, isFalse);
     expect(find.byKey(const Key('scan-review-grade-1')), findsOneWidget);
   });
 
@@ -1618,15 +1615,30 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(gradedFinder);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('scan-review-grade-1')));
-    await tester.pumpAndSettle();
 
     expect(find.text('GRADE'), findsWidgets);
-    await tester.tap(find.byKey(const Key('scan-review-choice-option-9')));
+    final gradeGroup = find.byKey(const Key('scan-review-grade-1'));
+    await tester.ensureVisible(gradeGroup);
     await tester.pumpAndSettle();
-    expect(find.text('PSA 9'), findsOneWidget);
+    final gradeNine = find.descendant(of: gradeGroup, matching: find.text('9'));
+    await tester.tap(gradeNine);
+    await tester.pumpAndSettle();
+    final selectedGrade = tester.widget<OutlinedButton>(
+      find.ancestor(of: gradeNine, matching: find.byType(OutlinedButton)).first,
+    );
+    expect(
+      selectedGrade.style?.foregroundColor?.resolve(const {}),
+      const Color(0xFFF0FE6F),
+    );
+    expect(
+      find.byKey(const Key('scan-review-choice-sheet-handle')),
+      findsNothing,
+    );
 
-    await tester.tap(find.byKey(const Key('scan-review-state-raw-1')));
+    final rawState = find.byKey(const Key('scan-review-state-raw-1'));
+    await tester.ensureVisible(rawState);
+    await tester.pumpAndSettle();
+    await tester.tap(rawState);
     await tester.pumpAndSettle();
 
     expect(find.text('CONDITION'), findsOneWidget);
@@ -1636,6 +1648,27 @@ void main() {
     expect(find.text('Lightly Played (LP)'), findsOneWidget);
     expect(find.text('Lightly Played (LP)'), findsOneWidget);
   });
+
+  testWidgets(
+    'Scan review keeps its target and does not offer a portfolio choice',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adding to Main'), findsOneWidget);
+      expect(find.text('PORTFOLIO'), findsNothing);
+      expect(find.byKey(const Key('scan-review-quantity-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-review-finish-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-review-state-raw-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-review-language-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-review-price-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-review-notes-1')), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Review Notes matches the reference and stays above the keyboard',
@@ -1664,21 +1697,17 @@ void main() {
         matching: find.byType(TextField),
       );
       final notesTextField = tester.widget<TextField>(notesTextFieldFinder);
-      final quantityTextField = tester.widget<TextField>(
-        find.descendant(
-          of: find.byKey(const Key('scan-review-quantity-1')),
-          matching: find.byType(TextField),
-        ),
-      );
-      final notesLabel = tester.widget<Text>(
-        find.descendant(of: notesLabelFinder, matching: find.text('NOTES')),
-      );
-      final quantityLabel = tester.widget<Text>(find.text('QUANTITY'));
-      expect(notesLabel.style, quantityLabel.style);
-      expect(notesTextField.style, quantityTextField.style);
+      final notesLabel = tester.widget<Text>(notesLabelFinder);
+      final notesBorder =
+          notesTextField.decoration?.enabledBorder as OutlineInputBorder?;
+      expect(notesLabel.style?.fontFamily, 'Fraunces');
+      expect(notesLabel.style?.fontSize, 14);
       expect(notesTextField.decoration?.labelText, isNull);
-      expect(notesTextField.decoration?.fillColor, const Color(0xFF2A2B20));
+      expect(notesTextField.decoration?.fillColor, const Color(0xFF10110C));
+      expect(notesBorder?.borderSide.color, const Color(0xFF464835));
       expect(notesTextField.decoration?.counterText, '');
+      expect(notesTextField.minLines, 5);
+      expect(notesTextField.maxLines, 8);
       expect(
         tester.getBottomLeft(notesLabelFinder).dy,
         lessThan(tester.getTopLeft(notesFinder).dy),

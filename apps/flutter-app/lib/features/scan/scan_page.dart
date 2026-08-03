@@ -267,10 +267,6 @@ String _normalizedReviewCondition(String? value) {
   );
 }
 
-String _reviewSelectionText(_ScanCollectionDraft draft) => draft.isRaw
-    ? '${draft.finish} · Raw · ${draft.condition}'
-    : '${draft.finish} · ${draft.grader} ${draft.grade}';
-
 class _PendingScan {
   _PendingScan(this.token);
 
@@ -3306,7 +3302,6 @@ class _ReviewMatches extends StatelessWidget {
                           draft: draft,
                           formError: formError,
                           enabled: !saving,
-                          currency: currency,
                           onChanged: (next) => onUpdateDraft(selected.id, next),
                         ),
                       ),
@@ -3539,7 +3534,6 @@ class _ReviewCollectionItem extends StatelessWidget {
     required this.draft,
     required this.formError,
     required this.enabled,
-    required this.currency,
     required this.onChanged,
   });
 
@@ -3549,7 +3543,6 @@ class _ReviewCollectionItem extends StatelessWidget {
   final _ScanCollectionDraft draft;
   final String? formError;
   final bool enabled;
-  final AppCurrency currency;
   final ValueChanged<_ScanCollectionDraft> onChanged;
 
   @override
@@ -3702,12 +3695,10 @@ class _ReviewCollectionItem extends StatelessWidget {
                       onChanged: (value) =>
                           onChanged(draft.copyWith(quantityText: value)),
                     ),
-                    const SizedBox(height: 28),
-                    const Divider(color: Color(0xFF464835)),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     _ReviewPillGroup(
                       fieldKey: Key('scan-review-finish-$itemId'),
-                      label: 'CARD VERSION  /  FINISH',
+                      label: 'FINISH',
                       selected: draft.finish,
                       options: _optionsIncluding(
                         card.collectionFinishOptions,
@@ -3718,21 +3709,6 @@ class _ReviewCollectionItem extends StatelessWidget {
                           onChanged(draft.copyWith(finish: value)),
                     ),
                     const SizedBox(height: 24),
-                    _ReviewDropdownRow(
-                      fieldKey: Key('scan-review-language-$itemId'),
-                      label: 'LANGUAGE',
-                      value: draft.language,
-                      options: _optionsIncluding(
-                        card.collectionLanguageOptions,
-                        draft.language,
-                      ),
-                      enabled: enabled,
-                      onChanged: (value) =>
-                          onChanged(draft.copyWith(language: value)),
-                    ),
-                    const SizedBox(height: 28),
-                    const Divider(color: Color(0xFF464835)),
-                    const SizedBox(height: 20),
                     _ReviewCardState(
                       rawKey: Key('scan-review-state-raw-$itemId'),
                       gradedKey: Key('scan-review-state-graded-$itemId'),
@@ -3741,6 +3717,10 @@ class _ReviewCollectionItem extends StatelessWidget {
                       onRaw: () => onChanged(draft.copyWith(grader: 'Raw')),
                       onGraded: () => onChanged(draft.copyWith(grader: 'PSA')),
                     ),
+                    const SizedBox(height: 32),
+                    const Divider(color: Color(0xFF464835)),
+                    const SizedBox(height: 24),
+                    _ReviewDetailsHeading(isRaw: draft.isRaw),
                     const SizedBox(height: 24),
                     if (draft.isRaw)
                       _ReviewPillGroup(
@@ -3748,6 +3728,7 @@ class _ReviewCollectionItem extends StatelessWidget {
                         label: 'CONDITION',
                         selected: draft.condition,
                         options: cardCollectionConditions,
+                        columns: 1,
                         enabled: enabled,
                         onChanged: (value) =>
                             onChanged(draft.copyWith(condition: value)),
@@ -3761,75 +3742,102 @@ class _ReviewCollectionItem extends StatelessWidget {
                             .where((value) => value != 'Raw')
                             .toList(),
                         enabled: enabled,
-                        onChanged: (value) => _updateGrader(context, value),
+                        onChanged: (value) =>
+                            onChanged(draft.copyWith(grader: value)),
                       ),
                       const SizedBox(height: 24),
-                      _ReviewDropdownRow(
+                      _ReviewPillGroup(
                         fieldKey: Key('scan-review-grade-$itemId'),
                         label: 'GRADE',
-                        value: draft.grade,
+                        selected: draft.grade,
                         options: cardCollectionGradeValues,
                         enabled: enabled,
-                        displayValue: (value) => '${draft.grader} $value',
                         onChanged: (value) =>
                             onChanged(draft.copyWith(grade: value)),
                       ),
                     ],
-                    const SizedBox(height: 28),
-                    const Divider(color: Color(0xFF464835)),
-                    const SizedBox(height: 20),
-                    _ReviewSelectedCard(draft: draft),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
+                    _ReviewDropdownRow(
+                      fieldKey: Key('scan-review-language-$itemId'),
+                      label: 'LANGUAGE',
+                      value: draft.language,
+                      options: _optionsIncluding(
+                        card.collectionLanguageOptions,
+                        draft.language,
+                      ),
+                      enabled: enabled,
+                      onChanged: (value) =>
+                          onChanged(draft.copyWith(language: value)),
+                    ),
+                    const SizedBox(height: 24),
                     _ReviewTextRow(
                       fieldKey: Key('scan-review-price-$itemId'),
                       label: 'PURCHASE PRICE',
                       value: draft.purchasePriceText,
                       enabled: enabled,
                       prefixText: r'US$',
+                      accentText: true,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
                       onChanged: (value) =>
                           onChanged(draft.copyWith(purchasePriceText: value)),
                     ),
-                    const SizedBox(height: 20),
-                    _ReviewMarketPrice(
-                      selection: _reviewSelectionText(draft),
-                      price: CurrencyFormatter(
-                        currency: currency,
-                      ).formatUsd(_selectedReviewPrice(card, draft)),
-                    ),
-                    const SizedBox(height: 28),
-                    _ReviewSectionLabel(
+                    const SizedBox(height: 32),
+                    const Divider(color: Color(0xFF464835)),
+                    const SizedBox(height: 32),
+                    Text(
                       'NOTES',
                       key: Key('scan-review-notes-label-$itemId'),
+                      style: const TextStyle(
+                        color: Color(0xFFEEECD8),
+                        fontFamily: 'Fraunces',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 20 / 14,
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     TextFormField(
                       key: Key('scan-review-notes-$itemId'),
                       initialValue: draft.notes,
                       enabled: enabled,
                       minLines: 5,
-                      maxLines: 5,
+                      maxLines: 8,
                       maxLength: 500,
                       scrollPadding: const EdgeInsets.only(bottom: 190),
+                      cursorColor: const Color(0xFFF0FE6F),
+                      style: const TextStyle(
+                        color: Color(0xFFEEECD8),
+                        fontSize: 14,
+                        height: 20 / 14,
+                      ),
                       onChanged: (value) =>
                           onChanged(draft.copyWith(notes: value)),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: const Color(0xFF2A2B20),
+                        fillColor: const Color(0xFF10110C),
                         counterText: '',
-                        contentPadding: const EdgeInsets.all(20),
+                        contentPadding: const EdgeInsets.fromLTRB(
+                          17,
+                          16,
+                          17,
+                          17,
+                        ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(22),
-                          borderSide: BorderSide.none,
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF464835),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(22),
-                          borderSide: BorderSide.none,
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF464835),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(16),
                           borderSide: const BorderSide(
                             color: Color(0xFFF0FE6F),
                           ),
@@ -3853,30 +3861,6 @@ class _ReviewCollectionItem extends StatelessWidget {
       ],
     );
   }
-
-  Future<void> _updateGrader(BuildContext context, String grader) async {
-    if (grader == draft.grader) return;
-
-    final nextDraft = draft.copyWith(grader: grader);
-    onChanged(nextDraft);
-
-    final next = await _showReviewChoiceSheet(
-      context,
-      title: nextDraft.isRaw ? 'Condition' : 'Grade',
-      selected: nextDraft.isRaw ? nextDraft.condition : nextDraft.grade,
-      options: nextDraft.isRaw
-          ? cardCollectionConditions
-          : cardCollectionGradeValues,
-      displayValue: nextDraft.isRaw ? null : (value) => '$grader $value',
-    );
-    if (next == null) return;
-
-    onChanged(
-      nextDraft.isRaw
-          ? nextDraft.copyWith(condition: next)
-          : nextDraft.copyWith(grade: next),
-    );
-  }
 }
 
 class _ReviewTextRow extends StatelessWidget {
@@ -3888,6 +3872,7 @@ class _ReviewTextRow extends StatelessWidget {
     required this.keyboardType,
     required this.onChanged,
     this.prefixText,
+    this.accentText = false,
   });
 
   final Key fieldKey;
@@ -3897,6 +3882,7 @@ class _ReviewTextRow extends StatelessWidget {
   final TextInputType keyboardType;
   final ValueChanged<String> onChanged;
   final String? prefixText;
+  final bool accentText;
 
   @override
   Widget build(BuildContext context) {
@@ -3910,16 +3896,44 @@ class _ReviewTextRow extends StatelessWidget {
           initialValue: value,
           enabled: enabled,
           keyboardType: keyboardType,
+          cursorColor: const Color(0xFFF0FE6F),
+          style: TextStyle(
+            color: accentText
+                ? const Color(0xFFF0FE6F)
+                : const Color(0xFFEEECD8),
+            fontSize: 16,
+            fontWeight: accentText ? FontWeight.w600 : FontWeight.w400,
+            height: 24 / 16,
+          ),
           onChanged: onChanged,
           decoration: InputDecoration(
             prefixText: prefixText,
+            prefixStyle: TextStyle(
+              color: accentText
+                  ? const Color(0xFFF0FE6F)
+                  : const Color(0xFFEEECD8),
+              fontSize: 16,
+              fontWeight: accentText ? FontWeight.w600 : FontWeight.w400,
+              height: 24 / 16,
+            ),
             filled: true,
             fillColor: const Color(0xFF10110C),
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
+              horizontal: 17,
+              vertical: 13,
             ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(7)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFF464835)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFF464835)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFF0FE6F)),
+            ),
           ),
         ),
       ],
@@ -3935,7 +3949,6 @@ class _ReviewDropdownRow extends StatelessWidget {
     required this.options,
     required this.enabled,
     required this.onChanged,
-    this.displayValue,
   });
 
   final Key fieldKey;
@@ -3944,12 +3957,11 @@ class _ReviewDropdownRow extends StatelessWidget {
   final List<String> options;
   final bool enabled;
   final ValueChanged<String> onChanged;
-  final String Function(String value)? displayValue;
 
   @override
   Widget build(BuildContext context) {
     final selected = options.contains(value) ? value : options.first;
-    final displayText = displayValue?.call(selected) ?? selected;
+    final displayText = selected;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3958,7 +3970,7 @@ class _ReviewDropdownRow extends StatelessWidget {
         const SizedBox(height: 8),
         InkWell(
           key: fieldKey,
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(8),
           onTap: enabled
               ? () async {
                   FocusManager.instance.primaryFocus?.unfocus(
@@ -3969,7 +3981,6 @@ class _ReviewDropdownRow extends StatelessWidget {
                     title: label,
                     selected: selected,
                     options: options,
-                    displayValue: displayValue,
                   );
                   FocusManager.instance.primaryFocus?.unfocus(
                     disposition: UnfocusDisposition.scope,
@@ -3978,38 +3989,26 @@ class _ReviewDropdownRow extends StatelessWidget {
                 }
               : null,
           child: Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 17),
             decoration: BoxDecoration(
               color: const Color(0xFF10110C),
-              borderRadius: BorderRadius.circular(7),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFF464835)),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
-                    label,
-                    style: TextStyle(
-                      color: enabled
-                          ? const Color(0xFFC7C8B0)
-                          : const Color(0xFFC7C8B0).withValues(alpha: 0.45),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
                     displayText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
                     style: TextStyle(
                       color: enabled
                           ? const Color(0xFFEEECD8)
                           : const Color(0xFFEEECD8).withValues(alpha: 0.45),
-                      fontSize: 14,
-                      height: 20 / 14,
+                      fontSize: 16,
+                      height: 24 / 16,
                     ),
                   ),
                 ),
@@ -4031,13 +4030,17 @@ class _ReviewDropdownRow extends StatelessWidget {
 }
 
 class _ReviewSectionLabel extends StatelessWidget {
-  const _ReviewSectionLabel(this.text, {super.key});
+  const _ReviewSectionLabel(this.text);
   final String text;
 
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(color: Color(0xFF92927D), fontSize: 10),
+    style: const TextStyle(
+      color: Color(0xFF92927D),
+      fontSize: 11,
+      height: 18 / 11,
+    ),
   );
 }
 
@@ -4049,6 +4052,7 @@ class _ReviewPillGroup extends StatelessWidget {
     required this.options,
     required this.enabled,
     required this.onChanged,
+    this.columns = 3,
   });
   final Key fieldKey;
   final String label;
@@ -4056,6 +4060,7 @@ class _ReviewPillGroup extends StatelessWidget {
   final List<String> options;
   final bool enabled;
   final ValueChanged<String> onChanged;
+  final int columns;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -4063,37 +4068,90 @@ class _ReviewPillGroup extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _ReviewSectionLabel(label),
-      const SizedBox(height: 10),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final option in options)
-            SizedBox(
-              width: options.length == 1 ? double.infinity : 96,
-              height: 42,
-              child: OutlinedButton(
-                onPressed: enabled ? () => onChanged(option) : null,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: option == selected
-                      ? const Color(0xFFF0FE6F)
-                      : const Color(0xFFC7C8B0),
-                  backgroundColor: option == selected
-                      ? const Color(0xFF343718)
-                      : const Color(0xFF10110C),
-                  side: BorderSide(
-                    color: option == selected
-                        ? const Color(0xFFF0FE6F)
-                        : const Color(0xFF464835),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(7),
+      const SizedBox(height: 12),
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final gap = columns == 1 ? 0.0 : 8.0;
+          final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+          return Wrap(
+            spacing: gap,
+            runSpacing: 8,
+            children: [
+              for (final option in options)
+                SizedBox(
+                  width: width,
+                  height: 44,
+                  child: OutlinedButton(
+                    onPressed: enabled ? () => onChanged(option) : null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: option == selected
+                          ? const Color(0xFFF0FE6F)
+                          : const Color(0xFFC7C8B0),
+                      backgroundColor: option == selected
+                          ? const Color(0xFF343718)
+                          : const Color(0xFF10110C),
+                      side: BorderSide(
+                        color: option == selected
+                            ? const Color(0xFFF0FE6F)
+                            : const Color(0xFF464835),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: columns == 1
+                          ? Alignment.centerLeft
+                          : Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                    ),
+                    child: Text(
+                      option,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 16, height: 24 / 16),
+                    ),
                   ),
                 ),
-                child: Text(option, overflow: TextOverflow.ellipsis),
-              ),
-            ),
-        ],
+            ],
+          );
+        },
+      ),
+    ],
+  );
+}
+
+class _ReviewDetailsHeading extends StatelessWidget {
+  const _ReviewDetailsHeading({required this.isRaw});
+
+  final bool isRaw;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          isRaw ? 'RAW DETAILS' : 'GRADING DETAILS',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Color(0xFFEEECD8),
+            fontFamily: 'Fraunces',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            height: 20 / 14,
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0x1AF0FE6F),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          isRaw ? 'Raw details' : 'Third-party graded',
+          style: const TextStyle(color: Color(0xFF92927D), fontSize: 10),
+        ),
       ),
     ],
   );
@@ -4120,7 +4178,7 @@ class _ReviewCardState extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const _ReviewSectionLabel('CARD STATE'),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       Row(
         children: [
           Expanded(
@@ -4147,82 +4205,41 @@ class _ReviewCardState extends StatelessWidget {
     String subtitle,
     bool selected,
     VoidCallback onPressed,
-  ) => OutlinedButton(
-    key: key,
-    onPressed: enabled ? onPressed : null,
-    style: OutlinedButton.styleFrom(
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      foregroundColor: selected
-          ? const Color(0xFFF0FE6F)
-          : const Color(0xFFC7C8B0),
-      backgroundColor: selected
-          ? const Color(0xFF343718)
-          : const Color(0xFF10110C),
-      side: BorderSide(
-        color: selected ? const Color(0xFFF0FE6F) : const Color(0xFF464835),
+  ) => SizedBox(
+    height: 58,
+    child: OutlinedButton(
+      key: key,
+      onPressed: enabled ? onPressed : null,
+      style: OutlinedButton.styleFrom(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        foregroundColor: selected
+            ? const Color(0xFFF0FE6F)
+            : const Color(0xFFC7C8B0),
+        backgroundColor: selected
+            ? const Color(0xFF343718)
+            : const Color(0xFF10110C),
+        side: BorderSide(
+          color: selected ? const Color(0xFFF0FE6F) : const Color(0xFF464835),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title),
-        Text(subtitle, style: const TextStyle(fontSize: 9)),
-      ],
-    ),
-  );
-}
-
-class _ReviewSelectedCard extends StatelessWidget {
-  const _ReviewSelectedCard({required this.draft});
-  final _ScanCollectionDraft draft;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const _ReviewSectionLabel('SELECTED CARD'),
-      const SizedBox(height: 8),
-      Text(_reviewSelectionText(draft), style: const TextStyle(fontSize: 15)),
-    ],
-  );
-}
-
-class _ReviewMarketPrice extends StatelessWidget {
-  const _ReviewMarketPrice({required this.selection, required this.price});
-  final String selection;
-  final String price;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    key: const Key('scan-review-market-price'),
-    padding: const EdgeInsets.symmetric(vertical: 14),
-    decoration: const BoxDecoration(
-      border: Border.symmetric(
-        horizontal: BorderSide(color: Color(0xFF464835)),
-      ),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Current Market Price'),
-              const SizedBox(height: 3),
-              Text(
-                selection,
-                style: const TextStyle(color: Color(0xFF92927D), fontSize: 10),
-              ),
-            ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
-        ),
-        Text(
-          price,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-        ),
-      ],
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 10),
+          ),
+        ],
+      ),
     ),
   );
 }
