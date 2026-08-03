@@ -58,6 +58,35 @@ void main() {
       expect(storage.session?.accessToken, 'expired-access');
     },
   );
+
+  test(
+    'keeps the request session when storage changed because owner-scoped data must not be sent with another account token',
+    () async {
+      final storage = _MemoryAuthStorage(
+        _session(
+          'new-owner-access',
+          refreshToken: 'new-owner-refresh',
+          anonymousId: 'anon-2',
+        ),
+      );
+      final adapter = _AuthRetryAdapter(refreshSucceeds: true);
+      final dio = _dio(adapter, storage);
+
+      final response = await dio.post<Object?>(
+        '/cards/663187/collect',
+        data: {'folder_id': 'old-owner-folder'},
+        options: Options(
+          headers: {'Authorization': 'Bearer old-owner-access'},
+          validateStatus: (_) => true,
+        ),
+      );
+
+      expect(response.statusCode, 401);
+      expect(adapter.paths, ['/api/v1/cards/663187/collect']);
+      expect(adapter.authorizationHeaders, ['Bearer old-owner-access']);
+      expect(storage.session?.accessToken, 'new-owner-access');
+    },
+  );
 }
 
 Dio _dio(_AuthRetryAdapter adapter, AuthStorage storage) {
@@ -67,12 +96,16 @@ Dio _dio(_AuthRetryAdapter adapter, AuthStorage storage) {
   return dio;
 }
 
-AuthSession _session(String accessToken) {
+AuthSession _session(
+  String accessToken, {
+  String refreshToken = 'refresh-token',
+  String anonymousId = 'anon-1',
+}) {
   return AuthSession(
     ownerType: OwnerType.anonymous,
     accessToken: accessToken,
-    refreshToken: 'refresh-token',
-    anonymousId: 'anon-1',
+    refreshToken: refreshToken,
+    anonymousId: anonymousId,
   );
 }
 
