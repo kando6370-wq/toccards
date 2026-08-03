@@ -160,11 +160,10 @@ class FakeD1Statement {
       ) ?? null) as T | null;
     }
     if (sql.includes("FROM collection_item") && sql.includes("folder_id = ?")) {
-      const [ownerType, ownerId, folderId, cardRef, objectType, grader, condition, grade, language, finish] = this.values;
+      const [ownerType, ownerId, folderId, cardRef, language, finish] = this.values;
       return (this.db.collectionItems.find((row) =>
         row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
-        row.card_ref === cardRef && row.object_type === objectType && row.grader === grader &&
-        row.condition === condition && row.grade === grade && row.language === language && row.finish === finish
+        row.card_ref === cardRef && row.language === language && row.finish === finish
       ) ?? null) as T | null;
     }
     return null;
@@ -915,7 +914,7 @@ describe("scan routes", () => {
     expect(env.DB.collectionItems).toHaveLength(1);
   });
 
-  it("rejects a scanned SKU already owned in the target folder because Scan must not create an identical copy", async () => {
+  it("rejects the same scanned card, finish, and language despite different grading", async () => {
     const env = createConfirmEnv();
     env.DB.collectionItems.push({
       id: "owned", owner_type: "anonymous", owner_id: "anon-1", folder_id: "main",
@@ -926,12 +925,13 @@ describe("scan routes", () => {
     });
 
     const response = await confirmScan(env, await confirmToken(env), {
-      folder_id: "main", card_ref: "11958", quantity: 1, grader: "Raw",
-      condition: "Near Mint (NM)", grade: null, language: "English",
+      folder_id: "main", card_ref: "11958", quantity: 1, grader: "PSA",
+      condition: null, grade: 10, language: "English",
       finish: "Holofoil", purchase_price: null, purchase_currency: null, notes: null,
     });
 
     expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: { code: "DUPLICATE_COLLECTION_ITEM" } });
     expect(env.DB.collectionItems).toHaveLength(1);
     expect(env.DB.scanRecords[0]?.user_confirmation_status).toBe("pending");
   });

@@ -623,6 +623,26 @@ void main() {
   );
 
   test(
+    'duplicate card finish and language keeps the draft open with a clear error',
+    () async {
+      final container = _cardDetailContainer(
+        repository: _DuplicateCollectionItemRepository(),
+      );
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('squirtle');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'squirtle');
+
+      controller.startAddingCollectionItem();
+
+      expect(await controller.saveCollectionItemDraft(), isFalse);
+      final state = container.read(provider);
+      expect(state.collectionItemDraft, isNotNull);
+      expect(state.collectionItemFormError, duplicateCollectionItemMessage);
+    },
+  );
+
+  test(
     'new Collection Item uses the shared selected folder because Card Detail must continue the Collection and Search context',
     () async {
       final container = _cardDetailContainer(
@@ -1246,6 +1266,22 @@ class _RecordingCardDetailRepository implements CardDetailRepository {
     String wishlistItemId,
   ) async {
     deletedWishlistItemIds.add(wishlistItemId);
+  }
+}
+
+class _DuplicateCollectionItemRepository
+    extends _RecordingCardDetailRepository {
+  @override
+  Future<CardCollectionItem> createCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+  }) {
+    throw const PortfolioApiException(
+      duplicateCollectionItemMessage,
+      code: duplicateCollectionItemErrorCode,
+      statusCode: 409,
+    );
   }
 }
 

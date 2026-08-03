@@ -14,6 +14,7 @@ import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
 import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
+import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/ui/toast.dart';
@@ -1195,7 +1196,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
           error.message == 'Scan is already confirmed.') {
         if (mounted) await _completeSelectedItemAddition(item);
       } else if (mounted) {
-        showKandoTopFailureToast(context);
+        showKandoTopToast(
+          context,
+          message: error.code == duplicateCollectionItemErrorCode
+              ? duplicateCollectionItemMessage
+              : error.message,
+          type: KandoTopToastType.failure,
+        );
       }
     } on Exception {
       if (mounted) showKandoTopFailureToast(context);
@@ -1252,12 +1259,16 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() => _savingReviewAction = _ScanReviewSaveAction.all);
     final addedIds = <int>{};
     var failed = false;
+    var duplicate = false;
     for (final item in matchedItems) {
       try {
         await ref
             .read(scanReviewRepositoryProvider)
             .addToPortfolio(scanId: item.match!.scanId, item: inputs[item.id]!);
         addedIds.add(item.id);
+      } on ScanApiException catch (error) {
+        duplicate = duplicate || error.code == duplicateCollectionItemErrorCode;
+        failed = true;
       } on Exception {
         failed = true;
       }
@@ -1304,7 +1315,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
       );
     }
     if (!_reviewing) unawaited(_openCamera());
-    if (failed) showKandoTopFailureToast(context);
+    if (failed) {
+      if (duplicate) {
+        showKandoTopToast(
+          context,
+          message: duplicateCollectionItemMessage,
+          type: KandoTopToastType.failure,
+        );
+      } else {
+        showKandoTopFailureToast(context);
+      }
+    }
   }
 
   void _selectReviewItem(_ScanItem item) {

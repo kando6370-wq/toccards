@@ -10,6 +10,7 @@ import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'card_detail_models.dart';
@@ -1109,6 +1110,21 @@ class CardDetailController extends Notifier<CardDetailState> {
               detail: detail,
               item: draftItem,
             );
+    } on PortfolioApiException catch (error) {
+      if (_canApplyMutation(session, mutationGeneration) &&
+          state.editingCollectionItemId == editingItemId &&
+          state.collectionItemDraft != null &&
+          state.detail.id == detail.id) {
+        state = state.copyWith(
+          isSavingCollectionItemDraft: false,
+          collectionItemFormError:
+              error.code == duplicateCollectionItemErrorCode
+              ? duplicateCollectionItemMessage
+              : state.collectionItemFormError,
+        );
+      }
+      if (error.code == duplicateCollectionItemErrorCode) return false;
+      rethrow;
     } catch (_) {
       if (_canApplyMutation(session, mutationGeneration) &&
           state.editingCollectionItemId == editingItemId &&

@@ -76,6 +76,14 @@ const CONFLICT_RESPONSE = {
   error: { code: "CONFLICT", message: "Scan is already confirmed." },
 } as const;
 
+const DUPLICATE_COLLECTION_ITEM_RESPONSE = {
+  success: false,
+  error: {
+    code: "DUPLICATE_COLLECTION_ITEM",
+    message: "This card with the same finish and language is already in this portfolio.",
+  },
+} as const;
+
 const INSERT_SCAN_RECORD_SQL = `
 INSERT INTO scan_record
   (id, owner_type, owner_id, image_url, filename, platform, app_version,
@@ -115,7 +123,6 @@ const SELECT_COLLECTION_ITEM_BY_SKU_SQL = `
 SELECT id
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND folder_id = ? AND card_ref = ?
-  AND object_type = ? AND grader = ? AND condition IS ? AND grade IS ?
   AND language IS ? AND finish IS ?
 LIMIT 1
 `;
@@ -355,15 +362,11 @@ export function createScanRoutes() {
         auth.owner.owner_id,
         draft.folder_id,
         draft.card_ref,
-        draft.object_type,
-        draft.grader,
-        draft.condition,
-        draft.grade,
         draft.language,
         draft.finish,
       )
       .first<{ id: string }>();
-    if (duplicate) return c.json(CONFLICT_RESPONSE, 409);
+    if (duplicate) return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
 
     const itemId = createId();
     const now = new Date().toISOString();
@@ -375,8 +378,10 @@ export function createScanRoutes() {
       collection_item_id: itemId,
       added_to_wishlist: false,
     });
-    const results = await c.env.DB.batch([
-      c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_SQL).bind(
+    let results: D1Result<unknown>[];
+    try {
+      results = await c.env.DB.batch([
+        c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_SQL).bind(
         itemId,
         auth.owner.owner_type,
         auth.owner.owner_id,
@@ -418,7 +423,13 @@ export function createScanRoutes() {
         auth.owner.owner_type,
         auth.owner.owner_id,
       ),
-    ]);
+      ]);
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
+      }
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
 
     if (
       results[0]?.meta.changes !== 1 ||
@@ -667,6 +678,11 @@ async function deleteUploadedImage(bucket: R2Bucket, key: string): Promise<void>
   } catch (error) {
     console.error("Failed to compensate scan image upload.", { key, error });
   }
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Error &&
+    error.message.toLowerCase().includes("unique constraint");
 }
 
 function normalizeBaseUrl(value: string | undefined): string | null {

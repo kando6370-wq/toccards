@@ -475,7 +475,7 @@ void main() {
   );
 
   testWidgets(
-    'top portfolio icon opens the Figma item sheet because creation is a focused workflow',
+    'Search add sheet switches portfolio only from the header because the form stays focused',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -517,15 +517,15 @@ void main() {
       expect(find.text('Adding to Main'), findsOneWidget);
       await tester.tap(find.byKey(const Key('card-detail-add-item-portfolio')));
       await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsNWidgets(2));
       expect(find.text('Portfolio'), findsOneWidget);
       await tester.tap(find.text('Sealed').last);
       await tester.pumpAndSettle();
       expect(find.text('Adding to Sealed'), findsOneWidget);
       expect(
-        find.byKey(const Key('card-detail-item-portfolio')),
+        find.byKey(const Key('card-detail-add-item-portfolio')),
         findsOneWidget,
       );
+      expect(find.byKey(const Key('card-detail-item-portfolio')), findsNothing);
       expect(find.text('LANGUAGE'), findsOneWidget);
       expect(find.text('FINISH'), findsOneWidget);
       expect(

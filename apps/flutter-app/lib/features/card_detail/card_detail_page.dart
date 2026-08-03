@@ -1386,6 +1386,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     final draft = state.collectionItemDraft!;
+    final hidesPortfolioSelector = entrySource == AnalyticsValue.sourceSearch;
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
@@ -1503,6 +1504,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                             showHeader: false,
                             showTotal: false,
                             showActions: false,
+                            showPortfolioSelector: !hidesPortfolioSelector,
                           ),
                         ),
                       ],
@@ -1688,6 +1690,7 @@ class _CollectionItemForm extends StatelessWidget {
     this.showHeader = true,
     this.showTotal = true,
     this.showActions = true,
+    this.showPortfolioSelector = true,
   });
 
   final CardDetailState state;
@@ -1696,6 +1699,7 @@ class _CollectionItemForm extends StatelessWidget {
   final bool showHeader;
   final bool showTotal;
   final bool showActions;
+  final bool showPortfolioSelector;
 
   @override
   Widget build(BuildContext context) {
@@ -1747,6 +1751,7 @@ class _CollectionItemForm extends StatelessWidget {
         languageOptions: languageOptions,
         finishOptions: finishOptions,
         gradeValue: gradeValue,
+        showPortfolioSelector: showPortfolioSelector,
       );
     }
 
@@ -1981,6 +1986,7 @@ class _CollectionItemAddForm extends StatelessWidget {
     required this.languageOptions,
     required this.finishOptions,
     required this.gradeValue,
+    required this.showPortfolioSelector,
   });
 
   final CardDetailState state;
@@ -1991,6 +1997,7 @@ class _CollectionItemAddForm extends StatelessWidget {
   final List<String> languageOptions;
   final List<String> finishOptions;
   final String gradeValue;
+  final bool showPortfolioSelector;
 
   @override
   Widget build(BuildContext context) {
@@ -2013,21 +2020,23 @@ class _CollectionItemAddForm extends StatelessWidget {
                 },
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _ChoiceField(
-                key: const Key('card-detail-item-portfolio'),
-                label: 'PORTFOLIO',
-                value: draft.portfolioName,
-                options: [
-                  for (final folder in state.detail.portfolioFolders)
-                    folder.name,
-                ],
-                onSelected: (value) {
-                  controller.updateCollectionItemDraft(portfolioName: value);
-                },
+            if (showPortfolioSelector) ...[
+              const SizedBox(width: 16),
+              Expanded(
+                child: _ChoiceField(
+                  key: const Key('card-detail-item-portfolio'),
+                  label: 'PORTFOLIO',
+                  value: draft.portfolioName,
+                  options: [
+                    for (final folder in state.detail.portfolioFolders)
+                      folder.name,
+                  ],
+                  onSelected: (value) {
+                    controller.updateCollectionItemDraft(portfolioName: value);
+                  },
+                ),
               ),
-            ),
+            ],
           ],
         ),
         const SizedBox(height: 24),
