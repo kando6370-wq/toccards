@@ -80,6 +80,7 @@ class CollectionDashboardItemDto {
     required this.name,
     required this.setName,
     required this.cardNumber,
+    required this.rarity,
     required this.game,
     required this.language,
     required this.finish,
@@ -100,6 +101,7 @@ class CollectionDashboardItemDto {
   final String name;
   final String setName;
   final String cardNumber;
+  final String rarity;
   final String game;
   final String language;
   final String finish;
@@ -121,6 +123,7 @@ class CollectionDashboardItemDto {
       name: _requiredString(json['name']),
       setName: _requiredString(json['set_name']),
       cardNumber: _stringOrEmpty(json['card_number']),
+      rarity: _stringOrEmpty(json['rarity']),
       game: _requiredString(json['game']),
       language:
           _nullableString(json['language']) ??

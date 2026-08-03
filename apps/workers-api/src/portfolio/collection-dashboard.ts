@@ -4,6 +4,7 @@ import {
   loadSkus,
   matchingSku,
   priceOnDate,
+  type CardRow,
   type SkuRow,
 } from "./valuation-history";
 import { cardImageUrl } from "../card-image-url";
@@ -62,7 +63,7 @@ export async function enrichCollectionDashboard(
 
 function presentation(
   item: DashboardPortfolioRow | DashboardWishlistRow,
-  card: { product_id: string; game: string | null; name: string | null; set_name: string | null } | undefined,
+  card: CardRow | undefined,
   sku: SkuRow | null,
   currentDate: string,
   baselineDate: string,
@@ -71,7 +72,8 @@ function presentation(
     ...item,
     name: card?.name ?? item.card_ref,
     set_name: card?.set_name ?? "Card data unavailable",
-    card_number: "",
+    card_number: card?.number ?? "",
+    rarity: card?.rarity ?? "",
     game: card?.game ?? "Unknown",
     image_url: cardImageUrl(item.card_ref, "thumbnail"),
     market_price_usd: sku ? priceOnDate(sku.price_history, currentDate) : null,

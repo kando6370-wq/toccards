@@ -615,7 +615,9 @@ _CardCandidate? _recoverSlabCard(
 ) {
   if (best.area / imageArea < 0.75) return null;
   final frames = candidates.where((candidate) {
-    if (candidate.sourceImage || candidate.area / imageArea < 0.75) {
+    if (candidate.sourceImage ||
+        _quadSimilarity(candidate.points, best.points) > 0.98 ||
+        candidate.area / imageArea < 0.75) {
       return false;
     }
     final aspect = _observedAspect(candidate.points);

@@ -115,14 +115,24 @@ void main() {
     expect(find.text('4 cards'), findsOneWidget);
     expect(find.text('2 graded'), findsOneWidget);
     expect(find.text('Charizard ex'), findsOneWidget);
+    expect(find.text('Pokemon · Obsidian Flames'), findsOneWidget);
+    expect(find.text('Special Illustration Rare · 223'), findsOneWidget);
+    expect(find.text('PSA 10 · Holofoil'), findsOneWidget);
     expect(find.text(r'$780.00'), findsOneWidget);
     expect(find.text('Qty: 1'), findsWidgets);
+    _expectTextOrder(tester, const [
+      'Charizard ex',
+      'Pokemon · Obsidian Flames',
+      'Special Illustration Rare · 223',
+      'PSA 10 · Holofoil',
+      r'$780.00',
+    ]);
     _expectCollectionCardRowMatchesSearchField(
       tester,
       leftCardId: 'charizard-ex',
       rightCardId: 'umbreon-vmax',
     );
-    expect(find.text('Pokemon · Obsidian Flames'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('pull refresh keeps Collection content and shows one spinner', (
@@ -221,10 +231,10 @@ void main() {
 
     await tester.tap(find.text('Main'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sealed').last);
+    await tester.tap(find.byKey(const Key('collection-folder-select-sealed')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sealed'), findsOneWidget);
+    expect(find.text('Sealed'), findsWidgets);
     expect(find.text('Evolving Skies Booster Box'), findsOneWidget);
     expect(find.text('Charizard ex'), findsNothing);
   });
@@ -341,7 +351,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Lorcana Elsa'), findsOneWidget);
-    expect(find.textContaining('One Piece Manga Luffy'), findsOneWidget);
+    expect(find.text('One Piece Manga Luffy (JP)'), findsOneWidget);
+    expect(find.text('Lorcana · The First Chapter'), findsOneWidget);
+    expect(find.text('Enchanted Rare · 212'), findsOneWidget);
+    expect(find.text('Raw · Near Mint (NM)'), findsNothing);
+    expect(find.text('Enchanted'), findsOneWidget);
     expect(find.textContaining('Qty:'), findsNothing);
     _expectCollectionCardRowMatchesSearchField(
       tester,
@@ -515,9 +529,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final card = find.text('Charizard ex');
-    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
-    await tester.pumpAndSettle();
+    final card = find.byKey(const Key('search-card-charizard-ex'));
+    await tester.ensureVisible(card);
     await tester.tap(card);
     await tester.pumpAndSettle();
 
@@ -742,6 +755,16 @@ void _expectCollectionCardRowMatchesSearchField(
   expect(leftCardRect.left, closeTo(searchFieldRect.left, 0.01));
   expect(rightCardRect.right, closeTo(searchFieldRect.right, 0.01));
   expect(rightCardRect.left - leftCardRect.right, closeTo(10, 0.01));
+}
+
+void _expectTextOrder(WidgetTester tester, List<String> labels) {
+  for (var index = 1; index < labels.length; index++) {
+    expect(
+      tester.getRect(find.text(labels[index])).top,
+      greaterThan(tester.getRect(find.text(labels[index - 1])).top),
+      reason: 'Collection cards must preserve the Search Cards field order.',
+    );
+  }
 }
 
 _searchOverrides() {

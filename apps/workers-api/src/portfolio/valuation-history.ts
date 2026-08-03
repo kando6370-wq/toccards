@@ -35,6 +35,8 @@ export type CardRow = {
   game: string | null;
   name: string | null;
   set_name: string | null;
+  number: string | null;
+  rarity: string | null;
 };
 
 export type MostValuableItem = {
@@ -258,7 +260,7 @@ export async function loadCards(db: D1Database, cardRefs: string[]): Promise<Car
     const placeholders = chunk.map(() => "?").join(", ");
     const result = await db
       .prepare(
-        `SELECT product_id, game, name, set_name
+        `SELECT product_id, game, name, set_name, number, rarity
          FROM cards_all WHERE product_id IN (${placeholders})`,
       )
       .bind(...chunk)

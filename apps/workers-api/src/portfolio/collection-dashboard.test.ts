@@ -43,6 +43,8 @@ describe("collection dashboard enrichment", () => {
     expect(result.portfolio_items).toHaveLength(101);
     expect(result.portfolio_items[0]).toMatchObject({
       name: "Server Card",
+      card_number: "025",
+      rarity: "Rare Holo",
       image_url: "https://image.tcgcard.fun/cards/100.jpg",
       market_price_usd: 20,
       previous_30d_price_usd: 10,
@@ -103,6 +105,8 @@ function card(productId: string) {
     game: "Pokemon",
     name: "Server Card",
     set_name: "Server Set",
+    number: "025",
+    rarity: "Rare Holo",
   };
 }
 

@@ -163,7 +163,9 @@ class HttpCardDetailRepository
     final rawSeries = rawPrices
         .map(
           (price) => CardPriceChartSeries(
-            label: _marketPriceLabel(price),
+            label: price.condition?.trim().isNotEmpty == true
+                ? price.condition!.trim()
+                : 'Price',
             seriesByRange: seriesByPrice[price] ?? const {},
           ),
         )
@@ -484,12 +486,7 @@ CardPriceChartSeries _gradedSeriesFromDto(CardDataMarketPriceDto dto) {
 String _gradedSeriesLabel(CardDataMarketPriceDto dto) {
   final grade =
       dto.gradeLabel ?? (dto.grade == null ? '' : _gradeText(dto.grade!));
-  final subtype = dto.productSubType?.trim();
-  return [
-    dto.grader,
-    if (grade.isNotEmpty) grade,
-    if (subtype?.isNotEmpty == true) subtype!,
-  ].join(' ');
+  return [dto.grader, if (grade.isNotEmpty) grade].join(' ');
 }
 
 List<CardPricePoint> _filterPointsByDays(

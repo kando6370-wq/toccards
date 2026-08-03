@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
@@ -11,10 +12,12 @@ class AuthSessionInterceptor extends Interceptor {
       _storage = storage;
 
   static const _retriedKey = 'auth_session_retried';
+  static const _requestRefreshTokenKey = 'auth_session_refresh_token';
 
   final Dio _dio;
   final AuthStorage _storage;
   Future<AuthSession?>? _refreshing;
+  String? _refreshingRefreshToken;
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
@@ -25,10 +28,14 @@ class AuthSessionInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    if (_hasBearerToken(options)) {
+    final accessToken = _bearerAccessToken(options);
+    if (accessToken != null) {
       final session = await _storage.readSession();
-      if (session != null) {
+      if (session != null &&
+          (session.accessToken == accessToken ||
+              _sameTokenOwner(accessToken, session.accessToken))) {
         options.headers['Authorization'] = 'Bearer ${session.accessToken}';
+        options.extra[_requestRefreshTokenKey] = session.refreshToken;
       }
     }
     handler.next(options);
@@ -54,7 +61,15 @@ class AuthSessionInterceptor extends Interceptor {
       return;
     }
 
-    final session = await _refreshSession();
+    final requestRefreshToken = options.extra[_requestRefreshTokenKey];
+    final currentSession = await _storage.readSession();
+    if (requestRefreshToken is! String ||
+        currentSession?.refreshToken != requestRefreshToken) {
+      handler.next(response);
+      return;
+    }
+
+    final session = await _refreshSession(currentSession!);
     if (session == null) {
       handler.next(response);
       return;
@@ -69,25 +84,27 @@ class AuthSessionInterceptor extends Interceptor {
     }
   }
 
-  Future<AuthSession?> _refreshSession() async {
+  Future<AuthSession?> _refreshSession(AuthSession session) async {
     final activeRefresh = _refreshing;
-    if (activeRefresh != null) return activeRefresh;
+    if (activeRefresh != null &&
+        _refreshingRefreshToken == session.refreshToken) {
+      return activeRefresh;
+    }
 
-    final refresh = _performRefresh();
+    final refresh = _performRefresh(session);
     _refreshing = refresh;
+    _refreshingRefreshToken = session.refreshToken;
     try {
       return await refresh;
     } finally {
       if (identical(_refreshing, refresh)) {
         _refreshing = null;
+        _refreshingRefreshToken = null;
       }
     }
   }
 
-  Future<AuthSession?> _performRefresh() async {
-    final session = await _storage.readSession();
-    if (session == null) return null;
-
+  Future<AuthSession?> _performRefresh(AuthSession session) async {
     try {
       final response = await _dio.post<Object?>(
         '/auth/token/refresh',
@@ -103,7 +120,7 @@ class AuthSessionInterceptor extends Interceptor {
 
       final latestSession = await _storage.readSession();
       if (latestSession?.refreshToken != session.refreshToken) {
-        return latestSession;
+        return null;
       }
 
       final refreshed = AuthSession(
@@ -124,8 +141,41 @@ class AuthSessionInterceptor extends Interceptor {
   }
 
   bool _hasBearerToken(RequestOptions options) {
+    return _bearerAccessToken(options) != null;
+  }
+
+  String? _bearerAccessToken(RequestOptions options) {
     final authorization = options.headers['Authorization'];
-    return authorization is String && authorization.startsWith('Bearer ');
+    if (authorization is! String || !authorization.startsWith('Bearer ')) {
+      return null;
+    }
+    final token = authorization.substring('Bearer '.length).trim();
+    return token.isEmpty ? null : token;
+  }
+}
+
+bool _sameTokenOwner(String left, String right) {
+  final leftOwner = _tokenOwner(left);
+  final rightOwner = _tokenOwner(right);
+  return leftOwner != null &&
+      rightOwner != null &&
+      leftOwner.ownerType == rightOwner.ownerType &&
+      leftOwner.ownerId == rightOwner.ownerId;
+}
+
+({String ownerType, String ownerId})? _tokenOwner(String token) {
+  final parts = token.split('.');
+  if (parts.length != 3) return null;
+  try {
+    final normalized = base64Url.normalize(parts[1]);
+    final payload = jsonDecode(utf8.decode(base64Url.decode(normalized)));
+    if (payload is! Map) return null;
+    final ownerType = _nonEmptyString(payload['owner_type']);
+    final ownerId = _nonEmptyString(payload['owner_id']);
+    if (ownerType == null || ownerId == null) return null;
+    return (ownerType: ownerType, ownerId: ownerId);
+  } on FormatException {
+    return null;
   }
 }
 

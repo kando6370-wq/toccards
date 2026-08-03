@@ -186,6 +186,14 @@ void main() {
             reason: 'Binder texture must not enter the recognition crop.',
           );
         }
+        if ({'cards_100014.jpg', 'cards_100015.jpg'}.contains(sampleName)) {
+          expect(
+            hash.diagnostics,
+            isNot(contains('slab_card_recovery')),
+            reason:
+                '$sampleName is already a complete card image, so its own border must not be treated as a grading slab.',
+          );
+        }
       }
     },
     timeout: const Timeout(Duration(minutes: 3)),
