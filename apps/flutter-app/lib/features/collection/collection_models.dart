@@ -30,6 +30,7 @@ class CollectionItem {
     required this.name,
     required this.setName,
     required this.number,
+    required this.rarity,
     required this.game,
     required this.language,
     required this.finish,
@@ -49,6 +50,7 @@ class CollectionItem {
   final String name;
   final String setName;
   final String number;
+  final String rarity;
   final String game;
   final String language;
   final String finish;

@@ -126,6 +126,7 @@ CollectionItem _collectionItemFromDto(CollectionDashboardItemDto dto) {
     name: dto.name,
     setName: dto.setName,
     number: dto.cardNumber.isEmpty ? '--' : '#${dto.cardNumber}',
+    rarity: dto.rarity.isEmpty ? '--' : dto.rarity,
     game: dto.game,
     language: dto.language,
     finish: dto.finish,

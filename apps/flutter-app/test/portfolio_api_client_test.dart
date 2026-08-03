@@ -199,6 +199,7 @@ void main() {
                 'name': 'Pikachu',
                 'set_name': 'Base Set',
                 'card_number': '25',
+                'rarity': 'Rare Holo',
                 'game': 'Pokemon',
                 'language': 'English',
                 'finish': 'Normal',
@@ -226,6 +227,7 @@ void main() {
       expect(dashboard.preference.currency, 'NZD');
       expect(dashboard.portfolioItems.single.marketPriceUsd, 20);
       expect(dashboard.portfolioItems.single.previous30dPriceUsd, 10);
+      expect(dashboard.portfolioItems.single.rarity, 'Rare Holo');
       expect(
         dashboard.portfolioItems.single.folderJoinedAt,
         DateTime.parse('2026-07-05T00:00:00.000Z'),

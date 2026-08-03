@@ -550,11 +550,8 @@ class CardDetailState {
   }
 
   String _gradedMarketRowLabel(CardMarketPrice price) {
-    final grade =
-        price.gradeLabel ??
+    return price.gradeLabel ??
         (price.grade == null ? price.label : _gradeText(price.grade!));
-    final subtype = price.productSubType?.trim();
-    return subtype?.isNotEmpty == true ? '$grade · $subtype' : grade;
   }
 
   String _rawMarketRowLabel(CardMarketPrice price) {

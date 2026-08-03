@@ -21,6 +21,7 @@ class SearchCardTile extends ConsumerWidget {
     required this.actionsEnabled,
     this.showActions = true,
     this.showSearchMetadata = false,
+    this.showCollectionMetadata = false,
     this.showQuantity = true,
     this.entrySource = AnalyticsValue.sourceSearch,
   });
@@ -29,6 +30,7 @@ class SearchCardTile extends ConsumerWidget {
   final bool actionsEnabled;
   final bool showActions;
   final bool showSearchMetadata;
+  final bool showCollectionMetadata;
   final bool showQuantity;
   final String entrySource;
 
@@ -194,7 +196,9 @@ class SearchCardTile extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                showSearchMetadata ? _cardName(card) : card.name,
+                showSearchMetadata
+                    ? _cardName(card, showEnglish: showCollectionMetadata)
+                    : card.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -207,25 +211,39 @@ class SearchCardTile extends ConsumerWidget {
               ),
               const SizedBox(height: 2),
               if (showSearchMetadata) ...[
-                Text(
-                  _gameAndSetLine(card),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: mutedLine,
-                ),
-                Text(
-                  _searchMetadataLine(card.metadataLine),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: mutedLine,
-                ),
-                Text(
-                  _searchVariantLine(card),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: mutedLine,
-                ),
-                const SizedBox(height: 42),
+                if (showCollectionMetadata) ...[
+                  _MetadataPair(
+                    key: Key('collection-set-row-${card.id}'),
+                    left: card.setName,
+                    right: card.metadataLine,
+                  ),
+                  _MetadataPair(
+                    key: Key('collection-state-row-${card.id}'),
+                    left: card.collectionInfo ?? '-',
+                    right: card.variantLine,
+                  ),
+                  const SizedBox(height: 12),
+                ] else ...[
+                  Text(
+                    _gameAndSetLine(card),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: mutedLine,
+                  ),
+                  Text(
+                    _searchMetadataLine(card.metadataLine),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: mutedLine,
+                  ),
+                  Text(
+                    _searchVariantLine(card),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: mutedLine,
+                  ),
+                  const SizedBox(height: 42),
+                ],
                 _PriceRow(
                   key: Key('search-price-row-${card.id}'),
                   quantity: card.quantity,
@@ -301,8 +319,11 @@ String _cardDetailsLocation(SearchCard card, String entrySource) {
   ).toString();
 }
 
-String _cardName(SearchCard card) {
-  final languageCode = _displayLanguageCode(card.language);
+String _cardName(SearchCard card, {bool showEnglish = false}) {
+  final languageCode = _displayLanguageCode(
+    card.language,
+    showEnglish: showEnglish,
+  );
   return languageCode == null ? card.name : '${card.name} ($languageCode)';
 }
 
@@ -332,12 +353,12 @@ String _searchMetadataLine(String value) {
   return metadata.replaceFirst(' #', ' · ');
 }
 
-String? _displayLanguageCode(String? value) {
+String? _displayLanguageCode(String? value, {bool showEnglish = false}) {
   final language = value?.trim();
   if (language == null || language.isEmpty) return null;
 
   return switch (language.toLowerCase()) {
-    'english' || 'en' || 'eng' => null,
+    'english' || 'en' || 'eng' => showEnglish ? 'EN' : null,
     'japanese' || 'ja' || 'jp' => 'JP',
     'chinese' ||
     'simplified chinese' ||
@@ -406,6 +427,44 @@ class _PriceRow extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetadataPair extends StatelessWidget {
+  const _MetadataPair({super.key, required this.left, required this.right});
+
+  final String left;
+  final String right;
+
+  @override
+  Widget build(BuildContext context) {
+    const style = TextStyle(
+      fontSize: 10,
+      height: 18 / 10,
+      color: Color(0xFF92927D),
+    );
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            left,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: style,
           ),
         ),
       ],

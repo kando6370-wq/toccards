@@ -259,7 +259,7 @@ CardDetail _mockDetail(String cardId) {
       },
       gradedPriceSeries: [
         CardPriceChartSeries(
-          label: 'PSA 10 Holofoil',
+          label: 'PSA 10',
           seriesByRange: {
             CardPriceRange.oneDay: [
               CardPricePoint(dateLabel: 'Yesterday', priceUsd: 770),
@@ -284,7 +284,7 @@ CardDetail _mockDetail(String cardId) {
           },
         ),
         CardPriceChartSeries(
-          label: 'BGS 10 Holofoil',
+          label: 'BGS 10',
           seriesByRange: {
             CardPriceRange.oneDay: [
               CardPricePoint(dateLabel: 'Yesterday', priceUsd: 738),

@@ -60,11 +60,42 @@ void main() {
   );
 
   test(
+    'uses the latest token for the same owner because one parallel request may refresh before another starts',
+    () async {
+      final oldAccess = _jwt(ownerId: 'anon-1', sessionId: 'session-old');
+      final currentAccess = _jwt(
+        ownerId: 'anon-1',
+        sessionId: 'session-current',
+      );
+      final storage = _MemoryAuthStorage(_session(currentAccess));
+      final adapter = _AuthRetryAdapter(
+        refreshSucceeds: true,
+        acceptedAccessToken: currentAccess,
+      );
+      final dio = _dio(adapter, storage);
+
+      final response = await dio.get<Object?>(
+        '/collection/dashboard',
+        options: Options(
+          headers: {'Authorization': 'Bearer $oldAccess'},
+          validateStatus: (_) => true,
+        ),
+      );
+
+      expect(response.statusCode, 200);
+      expect(adapter.paths, ['/api/v1/collection/dashboard']);
+      expect(adapter.authorizationHeaders, ['Bearer $currentAccess']);
+    },
+  );
+
+  test(
     'keeps the request session when storage changed because owner-scoped data must not be sent with another account token',
     () async {
+      final oldAccess = _jwt(ownerId: 'anon-1', sessionId: 'session-old');
+      final newAccess = _jwt(ownerId: 'anon-2', sessionId: 'session-new');
       final storage = _MemoryAuthStorage(
         _session(
-          'new-owner-access',
+          newAccess,
           refreshToken: 'new-owner-refresh',
           anonymousId: 'anon-2',
         ),
@@ -76,15 +107,15 @@ void main() {
         '/cards/663187/collect',
         data: {'folder_id': 'old-owner-folder'},
         options: Options(
-          headers: {'Authorization': 'Bearer old-owner-access'},
+          headers: {'Authorization': 'Bearer $oldAccess'},
           validateStatus: (_) => true,
         ),
       );
 
       expect(response.statusCode, 401);
       expect(adapter.paths, ['/api/v1/cards/663187/collect']);
-      expect(adapter.authorizationHeaders, ['Bearer old-owner-access']);
-      expect(storage.session?.accessToken, 'new-owner-access');
+      expect(adapter.authorizationHeaders, ['Bearer $oldAccess']);
+      expect(storage.session?.accessToken, newAccess);
     },
   );
 }
@@ -136,9 +167,13 @@ class _MemoryAuthStorage implements AuthStorage {
 }
 
 class _AuthRetryAdapter implements HttpClientAdapter {
-  _AuthRetryAdapter({required this.refreshSucceeds});
+  _AuthRetryAdapter({
+    required this.refreshSucceeds,
+    this.acceptedAccessToken = 'refreshed-access',
+  });
 
   final bool refreshSucceeds;
+  final String acceptedAccessToken;
   final List<String> paths = [];
   final List<String?> authorizationHeaders = [];
 
@@ -165,7 +200,7 @@ class _AuthRetryAdapter implements HttpClientAdapter {
         refreshSucceeds ? 200 : 401,
       );
     }
-    if (options.headers['Authorization'] == 'Bearer refreshed-access') {
+    if (options.headers['Authorization'] == 'Bearer $acceptedAccessToken') {
       return _json({'success': true, 'data': {}}, 200);
     }
     return _json({
@@ -186,4 +221,14 @@ class _AuthRetryAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+String _jwt({required String ownerId, required String sessionId}) {
+  String encode(Object value) {
+    return base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+  }
+
+  return '${encode({'alg': 'HS256', 'typ': 'JWT'})}.'
+      '${encode({'owner_type': 'anonymous', 'owner_id': ownerId, 'session_id': sessionId})}.'
+      'signature';
 }

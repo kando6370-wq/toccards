@@ -680,12 +680,13 @@ class _CollectionGrid extends StatelessWidget {
                 for (final item in items)
                   SizedBox(
                     width: tileWidth,
-                    height: 378,
+                    height: 328,
                     child: SearchCardTile(
                       card: _asSearchCard(item, showQuantity: showQuantity),
                       actionsEnabled: false,
                       showActions: false,
                       showSearchMetadata: true,
+                      showCollectionMetadata: true,
                       showQuantity: showQuantity,
                       entrySource: AnalyticsValue.sourceEdit,
                     ),
@@ -717,7 +718,7 @@ SearchCard _asSearchCard(
         ? null
         : source.previous30dPriceUsd! * quantityMultiplier,
     setName: source.setName,
-    metadataLine: source.number,
+    metadataLine: '${source.rarity} · ${source.number}',
     variantLine: source.finish,
     quantity: source.quantity,
     isWishlisted: !showQuantity,

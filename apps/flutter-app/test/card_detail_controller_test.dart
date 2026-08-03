@@ -77,6 +77,16 @@ void main() {
         '2026-06-10',
       );
       expect(
+        detail.rawPriceSeries.map((series) => series.label),
+        ['Near Mint'],
+        reason: 'RAW chart legends must describe condition without Raw.',
+      );
+      expect(
+        detail.gradedPriceSeries.map((series) => series.label),
+        ['PSA 10'],
+        reason: 'GRADED chart legends must not repeat the card material.',
+      );
+      expect(
         detail
             .gradedPriceSeriesByRange[CardPriceRange.threeMonths]!
             .last
@@ -369,6 +379,42 @@ void main() {
     expect(state.hasSoldListingRows, isFalse);
     expect(state.soldListingsFallbackText, 'No sold listings available.');
   });
+
+  test(
+    'Grade market rows omit product subtype because the grade column must contain only the score',
+    () {
+      const state = CardDetailState(
+        cardId: 'pikachu',
+        detail: CardDetail(
+          id: 'pikachu',
+          type: CardDetailType.tcg,
+          name: 'Pikachu',
+          game: 'Pokemon',
+          setName: 'Base Set',
+          identityLine: '58/102',
+          finish: 'Normal',
+          language: 'English',
+          quantity: 0,
+          isWishlisted: false,
+          marketPrices: [
+            CardMarketPrice(
+              label: '7/7.5',
+              grader: 'Grade',
+              grade: 7.25,
+              gradeLabel: '7/7.5',
+              productSubType: '1st Edition',
+              priceUsd: 253.24,
+              previous30dPriceUsd: 253.24,
+            ),
+          ],
+        ),
+        currency: AppCurrency.usd,
+        selectedMarketPriceCategory: CardMarketPriceCategory.grade,
+      );
+
+      expect(state.priceTabMarketRows.single.label, '7/7.5');
+    },
+  );
 
   test(
     'quick Collect updates from repository result and clears Wishlist because backend owns the item id',
@@ -956,9 +1002,9 @@ void main() {
 
       expect(normal.priceFinish, 'Normal');
       expect(normal.detail.rawPriceSeries.map((series) => series.label), [
-        'Raw Near Mint',
-        'Raw Lightly Played',
-        'Raw Moderately Played',
+        'Near Mint',
+        'Lightly Played',
+        'Moderately Played',
       ]);
       expect(normal.priceTabMarketRows.map((row) => row.priceText), [
         r'$25.00',

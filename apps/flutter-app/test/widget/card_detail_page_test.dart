@@ -910,8 +910,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('GRADED'));
     await tester.pumpAndSettle();
-    expect(find.text('PSA 10 Holofoil'), findsOneWidget);
-    expect(find.text('BGS 10 Holofoil'), findsOneWidget);
+    expect(find.text('PSA 10'), findsOneWidget);
+    expect(find.text('BGS 10'), findsOneWidget);
+    expect(find.text('PSA 10 Holofoil'), findsNothing);
+    expect(find.text('BGS 10 Holofoil'), findsNothing);
     final chart = find.byKey(const Key('card-detail-price-chart-interactive'));
     await tester.ensureVisible(chart);
     await tester.pumpAndSettle();
@@ -921,8 +923,9 @@ void main() {
     );
     await tester.pump();
     final chartSemantics = tester.widget<Semantics>(chart);
-    expect(chartSemantics.properties.value, contains('PSA 10 Holofoil'));
-    expect(chartSemantics.properties.value, contains('BGS 10 Holofoil'));
+    expect(chartSemantics.properties.value, contains('PSA 10'));
+    expect(chartSemantics.properties.value, contains('BGS 10'));
+    expect(chartSemantics.properties.value, isNot(contains('Holofoil')));
     await touch.up();
     await tester.pump();
     await tester.ensureVisible(find.text('3M'));

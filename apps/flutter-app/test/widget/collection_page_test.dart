@@ -114,15 +114,30 @@ void main() {
     expect(find.text(r'$1,245.00'), findsOneWidget);
     expect(find.text('4 cards'), findsOneWidget);
     expect(find.text('2 graded'), findsOneWidget);
-    expect(find.text('Charizard ex'), findsOneWidget);
+    expect(find.text('Charizard ex (EN)'), findsOneWidget);
+    expect(find.text('Obsidian Flames'), findsOneWidget);
+    expect(find.text('Special Illustration Rare · #223'), findsOneWidget);
+    expect(find.text('PSA 10'), findsOneWidget);
+    expect(find.text('Holofoil'), findsOneWidget);
     expect(find.text(r'$780.00'), findsOneWidget);
     expect(find.text('Qty: 1'), findsWidgets);
+    final stateRow = tester.getRect(
+      find.byKey(const Key('collection-state-row-charizard-ex')),
+    );
+    final priceRow = tester.getRect(
+      find.byKey(const Key('search-price-row-charizard-ex')),
+    );
+    expect(
+      priceRow.top - stateRow.bottom,
+      closeTo(12, 0.01),
+      reason: 'Collection metadata and price should form one compact card.',
+    );
     _expectCollectionCardRowMatchesSearchField(
       tester,
       leftCardId: 'charizard-ex',
       rightCardId: 'umbreon-vmax',
     );
-    expect(find.text('Pokemon · Obsidian Flames'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('pull refresh keeps Collection content and shows one spinner', (
@@ -139,14 +154,14 @@ void main() {
     expect(repository.calls, 2);
     expect(find.byType(RefreshProgressIndicator), findsOneWidget);
     expect(find.byType(KandoLoadingBlock), findsNothing);
-    expect(find.text('Charizard ex'), findsOneWidget);
+    expect(find.text('Charizard ex (EN)'), findsOneWidget);
 
     await repository.completeRefresh();
     await refresh;
     await tester.pumpAndSettle();
 
     expect(find.byType(RefreshProgressIndicator), findsNothing);
-    expect(find.text('Charizard ex'), findsOneWidget);
+    expect(find.text('Charizard ex (EN)'), findsOneWidget);
   });
 
   testWidgets(
@@ -221,12 +236,12 @@ void main() {
 
     await tester.tap(find.text('Main'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sealed').last);
+    await tester.tap(find.byKey(const Key('collection-folder-select-sealed')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sealed'), findsOneWidget);
-    expect(find.text('Evolving Skies Booster Box'), findsOneWidget);
-    expect(find.text('Charizard ex'), findsNothing);
+    expect(find.text('Sealed'), findsWidgets);
+    expect(find.text('Evolving Skies Booster Box (EN)'), findsOneWidget);
+    expect(find.text('Charizard ex (EN)'), findsNothing);
   });
 
   testWidgets(
@@ -340,8 +355,11 @@ void main() {
     await tester.tap(find.text('Wishlist'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Lorcana Elsa'), findsOneWidget);
-    expect(find.textContaining('One Piece Manga Luffy'), findsOneWidget);
+    expect(find.text('Lorcana Elsa (EN)'), findsOneWidget);
+    expect(find.text('One Piece Manga Luffy (JP)'), findsOneWidget);
+    expect(find.text('Enchanted Rare · #212'), findsOneWidget);
+    expect(find.text('Raw · Near Mint (NM)'), findsWidgets);
+    expect(find.text('Enchanted'), findsOneWidget);
     expect(find.textContaining('Qty:'), findsNothing);
     _expectCollectionCardRowMatchesSearchField(
       tester,
@@ -446,7 +464,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Pikachu Promo'), findsOneWidget);
-    expect(find.text('Charizard ex'), findsNothing);
+    expect(find.text('Charizard ex (EN)'), findsNothing);
   });
 
   testWidgets('Collection bottom navigation can return Home and Profile', (
@@ -515,9 +533,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final card = find.text('Charizard ex');
-    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
-    await tester.pumpAndSettle();
+    final card = find.byKey(const Key('search-card-charizard-ex'));
+    await tester.ensureVisible(card);
     await tester.tap(card);
     await tester.pumpAndSettle();
 
