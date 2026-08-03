@@ -1114,6 +1114,41 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Trending View all shows Refresh for an empty ranking because an empty live response is unavailable content',
+    (tester) async {
+      final trendingApi = _EmptyTrendingCardDataApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            homeRepositoryProvider.overrideWithValue(
+              const MockHomeRepository(),
+            ),
+            cardDataApiClientProvider.overrideWithValue(trendingApi),
+          ],
+          child: const _HomeTestAppWithRoutes(),
+        ),
+      );
+
+      final viewAll = find.byKey(const Key('home-trending-view-all'));
+      await tester.ensureVisible(viewAll);
+      await tester.tap(viewAll);
+      await tester.pumpAndSettle();
+
+      expect(find.text(refreshText), findsOneWidget);
+      expect(
+        find.text('Pull down to refresh the latest ranking.'),
+        findsNothing,
+      );
+
+      await tester.tap(find.text(refreshText));
+      await tester.pumpAndSettle();
+
+      expect(trendingApi.requestedPages, [1, 1]);
+    },
+  );
+
   testWidgets('Search bottom tab navigates to Search page', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -1417,6 +1452,11 @@ class _TrendingCardDataApi
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _EmptyTrendingCardDataApi extends _TrendingCardDataApi {
+  @override
+  Future<List<CardDataCardDto>> trendingCards() async => const [];
 }
 
 class _SuccessfulThenFailingHomeRepository implements HomeRepository {

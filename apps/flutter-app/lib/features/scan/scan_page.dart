@@ -33,7 +33,6 @@ enum _ScanItemStatus {
   matched,
   failed,
   noMatch,
-  added,
 }
 
 enum _ScanReviewSaveAction { single, all }
@@ -317,7 +316,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _capturingPhoto = false;
   var _librarySelectionInFlight = false;
   int? _selectedReviewItemId;
-  int? _lastAddedCount;
   ScanReviewTarget? _reviewTarget;
   Map<String, ScanReviewCard> _reviewCards = const {};
   final Map<int, _ScanCollectionDraft> _reviewDrafts = {};
@@ -375,7 +373,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool get _hasUnsavedScanResults {
-    return _items.any((item) => item.status != _ScanItemStatus.added);
+    return _items.isNotEmpty;
   }
 
   @override
@@ -792,7 +790,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _nextScanId += 1;
     _scanStopwatches[id] = Stopwatch()..start();
     setState(() {
-      _lastAddedCount = null;
       _dismissedFeedbackItemId = null;
       _items.add(
         _ScanItem(
@@ -1224,9 +1221,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!mounted) return;
 
     setState(() {
-      _lastAddedCount = 1;
       _reviewing = false;
-      _markItemsAdded({item.id});
+      _items.removeWhere((candidate) => candidate.id == item.id);
       _selectedReviewItemId = null;
       _reviewTarget = null;
       _reviewCards = const {};
@@ -1291,11 +1287,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
 
     setState(() {
-      _markItemsAdded(addedIds);
+      _items.removeWhere((item) => addedIds.contains(item.id));
       for (final itemId in addedIds) {
         _reviewDrafts.remove(itemId);
       }
-      _lastAddedCount = addedIds.isEmpty ? null : addedIds.length;
       final remaining = _matchedItems;
       _reviewing = remaining.isNotEmpty;
       _selectedReviewItemId = remaining.firstOrNull?.id;
@@ -1482,14 +1477,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!_reviewing) unawaited(_openCamera());
   }
 
-  void _markItemsAdded(Set<int> itemIds) {
-    for (var index = 0; index < _items.length; index += 1) {
-      if (itemIds.contains(_items[index].id)) {
-        _items[index] = _items[index].copyWith(status: _ScanItemStatus.added);
-      }
-    }
-  }
-
   void _refreshPortfolioSurfaces() {
     ref.invalidate(homeControllerProvider);
     ref.invalidate(collectionControllerProvider);
@@ -1663,7 +1650,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     cameraPreview: _cameraSession?.buildPreview(),
                     flashEnabled: _cameraSession?.flashEnabled ?? false,
                     items: _items,
-                    lastAddedCount: _lastAddedCount,
                     canReview: _canReview,
                     capturingPhoto: _capturingPhoto,
                     recognizing: _isRecognizing,
@@ -1707,7 +1693,6 @@ class _ScanCameraView extends StatelessWidget {
     required this.cameraPreview,
     required this.flashEnabled,
     required this.items,
-    required this.lastAddedCount,
     required this.canReview,
     required this.capturingPhoto,
     required this.recognizing,
@@ -1733,7 +1718,6 @@ class _ScanCameraView extends StatelessWidget {
   final Widget? cameraPreview;
   final bool flashEnabled;
   final List<_ScanItem> items;
-  final int? lastAddedCount;
 
   final bool canReview;
   final bool capturingPhoto;
@@ -1862,7 +1846,6 @@ class _ScanCameraView extends StatelessWidget {
               items: items,
               cards: cards,
               currency: currency,
-              lastAddedCount: lastAddedCount,
               showRevealingFeedback: showRevealingFeedback,
               onDismissRevealing: onDismissScanFeedback,
               onReviewItem: onReviewItem,
@@ -2776,7 +2759,6 @@ class _ScanResults extends StatelessWidget {
     required this.items,
     required this.cards,
     required this.currency,
-    required this.lastAddedCount,
     required this.showRevealingFeedback,
     required this.onDismissRevealing,
     required this.onReviewItem,
@@ -2788,7 +2770,6 @@ class _ScanResults extends StatelessWidget {
   final List<_ScanItem> items;
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
-  final int? lastAddedCount;
   final bool showRevealingFeedback;
   final VoidCallback onDismissRevealing;
   final ValueChanged<int?> onReviewItem;
@@ -2812,13 +2793,10 @@ class _ScanResults extends StatelessWidget {
     final completedCount = items.where((item) {
       return item.status == _ScanItemStatus.matched ||
           item.status == _ScanItemStatus.failed ||
-          item.status == _ScanItemStatus.noMatch ||
-          item.status == _ScanItemStatus.added;
+          item.status == _ScanItemStatus.noMatch;
     }).length;
     final hasValuedCards = items.any(
-      (item) =>
-          item.status == _ScanItemStatus.matched ||
-          item.status == _ScanItemStatus.added,
+      (item) => item.status == _ScanItemStatus.matched,
     );
     final total = items.fold<double>(0, (sum, item) {
       final card = cards[item.match?.cardRef];
@@ -2835,11 +2813,7 @@ class _ScanResults extends StatelessWidget {
           child: Row(
             children: [
               Text(
-                lastAddedCount == null
-                    ? 'Scanned: $completedCount/${items.length}'
-                    : lastAddedCount == 1
-                    ? 'Added to Portfolio'
-                    : 'Added $lastAddedCount cards to Portfolio',
+                'Scanned: $completedCount/${items.length}',
                 style: const TextStyle(
                   color: Color(0xFFEEECD8),
                   fontSize: 13,
@@ -2925,10 +2899,9 @@ class _ScanItemCard extends StatelessWidget {
     }
 
     final matched = item.status == _ScanItemStatus.matched;
-    final added = item.status == _ScanItemStatus.added;
     final failed = item.status == _ScanItemStatus.failed;
-    final width = matched || added ? 240.0 : 176.0;
-    final title = matched || added
+    final width = matched ? 240.0 : 176.0;
+    final title = matched
         ? item.match?.name ?? item.pictureLabel
         : failed
         ? 'Failed'
@@ -3001,7 +2974,7 @@ class _ScanItemCard extends StatelessWidget {
                         _ScanDeleteButton(itemId: item.id, onPressed: onDelete),
                       ],
                     ),
-                    if (matched || added)
+                    if (matched)
                       Row(
                         children: [
                           Flexible(
@@ -3015,10 +2988,7 @@ class _ScanItemCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                added
-                                    ? 'ADDED'
-                                    : previewDraft?.condition.toUpperCase() ??
-                                          'RAW',
+                                previewDraft?.condition.toUpperCase() ?? 'RAW',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -3029,30 +2999,28 @@ class _ScanItemCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (!added) ...[
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: FittedBox(
-                                key: Key('scan-item-price-${item.id}'),
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  price == null
-                                      ? '--'
-                                      : CurrencyFormatter(
-                                          currency: currency,
-                                        ).formatUsd(price),
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    color: Color(0xFFFFF6AF),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    height: 15 / 13,
-                                  ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FittedBox(
+                              key: Key('scan-item-price-${item.id}'),
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                price == null
+                                    ? '--'
+                                    : CurrencyFormatter(
+                                        currency: currency,
+                                      ).formatUsd(price),
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: Color(0xFFFFF6AF),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  height: 15 / 13,
                                 ),
                               ),
                             ),
-                          ],
+                          ),
                         ],
                       )
                     else

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
-import 'package:lottie/lottie.dart';
 import 'package:video_player/video_player.dart';
 
 import '../auth/auth_controller.dart';
@@ -25,10 +24,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       title: 'Instantly Scan Cards',
       description:
           'Identify your cards with AI and add\nthem to your collection in seconds.',
-      // Previous Lottie media kept for a quick rollback:
-      // mediaKind: _OnboardingMediaKind.lottie,
-      // mediaAsset: 'assets/onboarding/guide_scan.json',
-      mediaKind: _OnboardingMediaKind.video,
       mediaAsset: 'assets/onboarding/guide_scan.mp4',
       placeholderAsset: 'assets/onboarding/guide_scan_placeholder.png',
       primaryLabel: "LET'S START",
@@ -37,10 +32,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       title: 'Track Card Values',
       description:
           'Follow market prices, trends, and value\nchanges for the cards you care about.',
-      // Previous Lottie media kept for a quick rollback:
-      // mediaKind: _OnboardingMediaKind.lottie,
-      // mediaAsset: 'assets/onboarding/guide_values.json',
-      mediaKind: _OnboardingMediaKind.video,
       mediaAsset: 'assets/onboarding/guide_values.mp4',
       placeholderAsset: 'assets/onboarding/guide_values_placeholder.png',
       primaryLabel: 'NEXT',
@@ -48,7 +39,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     _OnboardingSlide(
       title: 'Personalized Wishlist',
       description: 'Save the cards you want and never lose track',
-      mediaKind: _OnboardingMediaKind.video,
       mediaAsset: 'assets/onboarding/guide_wishlist.mp4',
       placeholderAsset: 'assets/onboarding/guide_wishlist_placeholder.png',
       primaryLabel: 'SIGN UP/SIGN IN',
@@ -56,7 +46,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   ];
 
   final _pageController = PageController();
-  late final List<_OnboardingVideoController?> _videoControllers;
+  late final List<_OnboardingVideoController> _videoControllers;
   var _currentIndex = 0;
   var _lastTrackedGuideIndex = 0;
   var _isPageTransitioning = false;
@@ -67,11 +57,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     super.initState();
     ref.read(analyticsProvider).track(AnalyticsEvent.guide1View);
     _videoControllers = [
-      for (final slide in _slides)
-        if (slide.mediaKind == _OnboardingMediaKind.video)
-          _OnboardingVideoController(slide.mediaAsset)
-        else
-          null,
+      for (final slide in _slides) _OnboardingVideoController(slide.mediaAsset),
     ];
   }
 
@@ -89,7 +75,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   void dispose() {
     _pageController.dispose();
     for (final controller in _videoControllers) {
-      controller?.dispose();
+      controller.dispose();
     }
     super.dispose();
   }
@@ -161,7 +147,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       preloadIndex += 1
     ) {
       final controller = _videoControllers[preloadIndex];
-      if (controller != null) unawaited(controller.initialize());
+      unawaited(controller.initialize());
     }
   }
 
@@ -191,13 +177,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 }
 
-enum _OnboardingMediaKind { lottie, video }
-
 class _OnboardingSlide {
   const _OnboardingSlide({
     required this.title,
     required this.description,
-    required this.mediaKind,
     required this.mediaAsset,
     required this.placeholderAsset,
     required this.primaryLabel,
@@ -205,7 +188,6 @@ class _OnboardingSlide {
 
   final String title;
   final String description;
-  final _OnboardingMediaKind mediaKind;
   final String mediaAsset;
   final String placeholderAsset;
   final String primaryLabel;
@@ -227,7 +209,7 @@ class _OnboardingSlideView extends StatelessWidget {
   final int index;
   final _OnboardingSlide slide;
   final bool isActive;
-  final _OnboardingVideoController? videoController;
+  final _OnboardingVideoController videoController;
   final int currentIndex;
   final int pageCount;
   final VoidCallback onPrimaryPressed;
@@ -250,8 +232,6 @@ class _OnboardingSlideView extends StatelessWidget {
             _OnboardingMedia(
               key: ValueKey('onboarding-media-placeholder-$index'),
               index: index,
-              kind: slide.mediaKind,
-              mediaAsset: slide.mediaAsset,
               placeholderAsset: slide.placeholderAsset,
               isActive: isActive,
               videoController: videoController,
@@ -343,8 +323,6 @@ class _OnboardingSlideView extends StatelessWidget {
 class _OnboardingMedia extends StatelessWidget {
   const _OnboardingMedia({
     required this.index,
-    required this.kind,
-    required this.mediaAsset,
     required this.placeholderAsset,
     required this.isActive,
     required this.videoController,
@@ -352,11 +330,9 @@ class _OnboardingMedia extends StatelessWidget {
   });
 
   final int index;
-  final _OnboardingMediaKind kind;
-  final String mediaAsset;
   final String placeholderAsset;
   final bool isActive;
-  final _OnboardingVideoController? videoController;
+  final _OnboardingVideoController videoController;
 
   @override
   Widget build(BuildContext context) {
@@ -375,77 +351,22 @@ class _OnboardingMedia extends StatelessWidget {
                 Image.asset(
                   placeholderAsset,
                   key: ValueKey('onboarding-media-first-frame-$index'),
-                  fit: kind == _OnboardingMediaKind.video
-                      ? BoxFit.cover
-                      : BoxFit.fill,
+                  fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
                   filterQuality: FilterQuality.high,
                   excludeFromSemantics: true,
                 ),
-                if (kind == _OnboardingMediaKind.lottie)
-                  _OnboardingLottie(
-                    key: ValueKey('onboarding-lottie-$index'),
-                    asset: mediaAsset,
-                    animate: isActive && !reduceMotion,
-                  )
-                else
-                  _LoopingOnboardingVideo(
-                    key: ValueKey('onboarding-video-$index'),
-                    videoController: videoController!,
-                    isActive: isActive,
-                    enabled: !reduceMotion,
-                  ),
+                _LoopingOnboardingVideo(
+                  key: ValueKey('onboarding-video-$index'),
+                  videoController: videoController,
+                  isActive: isActive,
+                  enabled: !reduceMotion,
+                ),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _OnboardingLottie extends StatelessWidget {
-  const _OnboardingLottie({
-    required this.asset,
-    required this.animate,
-    super.key,
-  });
-
-  static const _designWidth = 390.0;
-  static const _designHeight = 884.0;
-  static const _statusBarPlaceholderHeight = 40.0;
-
-  final String asset;
-  final bool animate;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final scale = constraints.maxWidth / _designWidth;
-        return Stack(
-          clipBehavior: Clip.hardEdge,
-          children: [
-            Positioned(
-              top: -_statusBarPlaceholderHeight * scale,
-              left: 0,
-              width: constraints.maxWidth,
-              height: _designHeight * scale,
-              child: Lottie.asset(
-                asset,
-                key: ValueKey('onboarding-lottie-asset-$asset'),
-                animate: animate,
-                repeat: true,
-                fit: BoxFit.fill,
-                frameRate: const FrameRate(30),
-                renderCache: RenderCache.drawingCommands,
-                backgroundLoading: true,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }

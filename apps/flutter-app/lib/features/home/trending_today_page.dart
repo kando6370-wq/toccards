@@ -23,7 +23,6 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
   var _cards = const <SearchCard>[];
   var _loading = true;
   var _loadingMore = false;
-  var _failed = false;
   var _page = 0;
   var _hasMore = true;
 
@@ -36,7 +35,6 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
   Future<void> _load() async {
     setState(() {
       _loading = true;
-      _failed = false;
       _page = 0;
       _hasMore = true;
     });
@@ -76,7 +74,6 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
       setState(() {
         _loading = false;
         _loadingMore = false;
-        _failed = replace;
       });
     }
   }
@@ -114,16 +111,8 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
     if (_loading && _cards.isEmpty) {
       return const _FullPageState(child: KandoLoadingBlock());
     }
-    if (_failed && _cards.isEmpty) {
-      return _FullPageState(child: KandoFailureBlock(onRefresh: _refresh));
-    }
     if (_cards.isEmpty) {
-      return const _FullPageState(
-        child: KandoEmptyBlock(
-          title: 'No trending cards available',
-          body: 'Pull down to refresh the latest ranking.',
-        ),
-      );
+      return _FullPageState(child: KandoFailureBlock(onRefresh: _refresh));
     }
 
     return NotificationListener<ScrollNotification>(

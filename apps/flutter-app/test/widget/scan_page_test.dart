@@ -1363,8 +1363,12 @@ void main() {
       await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pumpAndSettle();
 
-      expect(find.text('Added to Portfolio'), findsWidgets);
-      expect(find.text('Mega Lucario ex'), findsWidgets);
+      expect(
+        find.byKey(const Key('scan-active-item-1')),
+        findsNothing,
+        reason: 'A confirmed scan must leave the pending results rail.',
+      );
+      expect(find.text('ADDED'), findsNothing);
       expect(reviewRepository.confirmedScanIds, ['scan-mega']);
       final submitted = reviewRepository.confirmedItems.single;
       expect(submitted.folderId, 'trade');
@@ -1560,7 +1564,12 @@ void main() {
       await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pumpAndSettle();
 
-      expect(find.text('Added to Portfolio'), findsWidgets);
+      expect(
+        find.byKey(const Key('scan-active-item-1')),
+        findsNothing,
+        reason: 'An idempotent confirmation is still a completed scan.',
+      );
+      expect(find.text('ADDED'), findsNothing);
       expect(
         find.text('Something went wrong. Please try again.'),
         findsNothing,
@@ -2315,9 +2324,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Review your matches'), findsNothing);
 
-    expect(find.text('Added 2 cards to Portfolio'), findsOneWidget);
-    expect(find.text('Mega Lucario ex'), findsWidgets);
-    expect(find.text('Charizard ex'), findsWidgets);
+    expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
+    expect(find.byKey(const Key('scan-active-item-4')), findsNothing);
+    expect(find.text('ADDED'), findsNothing);
     expect(repository.confirmedItems.map((item) => item.quantity), [2, 3]);
   });
 
