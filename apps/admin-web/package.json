@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "pnpm run build:prod",
+    "build:prod": "vite build --mode production",
+    "build:dev": "vite build --mode development",
     "test": "node --test test/*.test.mjs",
     "type-check": "tsc --noEmit -p tsconfig.json",
     "preview": "vite preview"

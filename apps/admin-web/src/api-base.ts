@@ -3,10 +3,9 @@ type ViteEnvironment = {
   VITE_API_BASE_URL?: string;
 };
 
-const DEVELOPMENT_ADMIN_API_BASE = "https://api-dev.tcgcard.fun/api/v1/admin";
-
 export function resolveAdminApiBase(environment: ViteEnvironment): string {
   const configuredBase = environment.VITE_API_BASE_URL?.trim();
   if (configuredBase) return configuredBase.replace(/\/+$/, "");
-  return environment.DEV ? "/api/v1/admin" : DEVELOPMENT_ADMIN_API_BASE;
+  if (environment.DEV) return "/api/v1/admin";
+  throw new Error("VITE_API_BASE_URL is required for admin production builds");
 }
