@@ -9,6 +9,8 @@ import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/home/home_models.dart';
+import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
@@ -465,20 +467,41 @@ void main() {
   );
 
   test(
-    'folder mutation invalidates Home and Card Detail because both cache portfolio folder data',
+    'folder management keeps Home loaded because the selected portfolio did not change',
     () async {
-      final container = _collectionContainer(includeFolderConsumers: true);
+      final repository = _RecordingCollectionRepository();
+      final homeRepository = _CountingHomeRepository();
+      final container = _collectionContainer(
+        repository: repository,
+        includeFolderConsumers: true,
+        homeRepository: homeRepository,
+      );
       addTearDown(container.dispose);
       await _loadedState(container);
       final controller = container.read(collectionControllerProvider.notifier);
-      final homeState = container.read(homeControllerProvider);
+      container.read(homeControllerProvider);
       final detailProvider = cardDetailControllerProvider('squirtle');
       await container.read(detailProvider.notifier).loadComplete;
       final detailState = container.read(detailProvider);
 
-      expect(await controller.createFolder('Trade'), isNotNull);
+      final created = await controller.createFolder('Trade');
+      expect(
+        await controller.renameFolder(created!.id, 'Trade Binder'),
+        isTrue,
+      );
+      expect(await controller.setDefaultFolder(created.id), isTrue);
+      expect(
+        await controller.reorderFolders([
+          created.id,
+          'main',
+          'sealed',
+          'empty',
+        ]),
+        isTrue,
+      );
+      expect(await controller.deleteFolder('empty'), isTrue);
 
-      expect(container.read(homeControllerProvider), isNot(same(homeState)));
+      expect(homeRepository.calls, 1);
       expect(container.read(detailProvider), isNot(same(detailState)));
     },
   );
@@ -682,6 +705,7 @@ void main() {
 ProviderContainer _collectionContainer({
   CollectionRepository repository = const MockCollectionRepository(),
   bool includeFolderConsumers = false,
+  HomeRepository homeRepository = const MockHomeRepository(),
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -692,13 +716,23 @@ ProviderContainer _collectionContainer({
       ),
       collectionRepositoryProvider.overrideWithValue(repository),
       if (includeFolderConsumers) ...[
-        homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+        homeRepositoryProvider.overrideWithValue(homeRepository),
         cardDetailRepositoryProvider.overrideWithValue(
           const MockCardDetailRepository(),
         ),
       ],
     ],
   );
+}
+
+class _CountingHomeRepository implements HomeRepository {
+  var calls = 0;
+
+  @override
+  HomeDashboard loadDashboard() {
+    calls += 1;
+    return const MockHomeRepository().loadDashboard();
+  }
 }
 
 Future<CollectionState> _loadedState(ProviderContainer container) async {

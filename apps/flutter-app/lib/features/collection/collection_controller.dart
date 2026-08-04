@@ -584,6 +584,9 @@ class CollectionController extends Notifier<CollectionState> {
     if (!exists) {
       return false;
     }
+    if (folderId == state.selectedFolderId) {
+      return true;
+    }
 
     final previousFolderId = state.selectedFolderId;
     state = state.copyWith(selectedFolderId: folderId);
@@ -621,7 +624,7 @@ class CollectionController extends Notifier<CollectionState> {
           folders: [...state.dashboard.folders, folder],
         ),
       );
-      _invalidateFolderConsumers();
+      _invalidateFolderDetails();
       return folder;
     } catch (_) {
       return null;
@@ -649,7 +652,10 @@ class CollectionController extends Notifier<CollectionState> {
           ],
         ),
       );
-      _invalidateFolderConsumers();
+      ref
+          .read(homeControllerProvider.notifier)
+          .updateFolderName(folderId, updated.name);
+      _invalidateFolderDetails();
       return true;
     } catch (_) {
       return false;
@@ -673,7 +679,7 @@ class CollectionController extends Notifier<CollectionState> {
           ],
         ),
       );
-      _invalidateFolderConsumers();
+      _invalidateFolderDetails();
       return true;
     } catch (_) {
       return false;
@@ -701,7 +707,7 @@ class CollectionController extends Notifier<CollectionState> {
       await ref
           .read(collectionRepositoryProvider)
           .reorderFolders(session, folderIds);
-      _invalidateFolderConsumers();
+      _invalidateFolderDetails();
       return true;
     } catch (_) {
       state = state.copyWith(
@@ -726,8 +732,9 @@ class CollectionController extends Notifier<CollectionState> {
       await ref
           .read(collectionRepositoryProvider)
           .deleteFolder(session, folderId);
+      final selectionChanged = state.selectedFolderId == folderId;
       final fallbackId = state.dashboard.defaultFolder.id;
-      final selectedFolderId = state.selectedFolderId == folderId
+      final selectedFolderId = selectionChanged
           ? fallbackId
           : state.selectedFolderId;
       state = state.copyWith(
@@ -741,10 +748,10 @@ class CollectionController extends Notifier<CollectionState> {
         ),
         selectedFolderId: selectedFolderId,
       );
-      if (selectedFolderId == fallbackId) {
+      if (selectionChanged) {
         ref.read(selectedPortfolioFolderProvider.notifier).select(fallbackId);
       }
-      _invalidateFolderConsumers();
+      _invalidateFolderDetails();
       return true;
     } catch (_) {
       return false;
@@ -809,8 +816,7 @@ class CollectionController extends Notifier<CollectionState> {
     }
   }
 
-  void _invalidateFolderConsumers() {
-    ref.invalidate(homeControllerProvider);
+  void _invalidateFolderDetails() {
     ref.invalidate(cardDetailControllerProvider);
   }
 }

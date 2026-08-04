@@ -256,13 +256,8 @@ class HomeController extends Notifier<HomeState> {
     });
     ref.listen<String?>(selectedPortfolioFolderProvider, (previous, next) {
       if (next == null || state.isLoading || state.isUnavailable) return;
-      if (state.dashboard.folders.any((folder) => folder.id == next)) {
-        final portfolio = state.dashboard.portfoliosByFolderId[next]!;
-        state = state.copyWith(
-          selectedFolderId: next,
-          chartRange: _bestChartRange(portfolio, preferred: state.chartRange),
-        );
-      }
+      if (next == state.selectedFolderId) return;
+      unawaited(refresh());
     });
     ref.listen<bool?>(portfolioAmountHiddenProvider, (previous, next) {
       if (next != null && !state.isLoading && !state.isUnavailable) {
@@ -608,8 +603,8 @@ class HomeController extends Notifier<HomeState> {
       unawaited(_restorePreferredCurrency(configuredCurrency));
     }
     final previousFolderId =
-        previousState?.selectedFolderId ??
-        ref.read(selectedPortfolioFolderProvider);
+        ref.read(selectedPortfolioFolderProvider) ??
+        previousState?.selectedFolderId;
     final selectedFolderId =
         dashboard.folders.any((folder) => folder.id == previousFolderId)
         ? previousFolderId!
@@ -622,7 +617,9 @@ class HomeController extends Notifier<HomeState> {
     if (previousState == null &&
         ref.read(selectedPortfolioFolderProvider) == null) {
       Future<void>.microtask(() {
-        if (ref.mounted) {
+        if (ref.mounted &&
+            ref.read(selectedPortfolioFolderProvider) == null &&
+            state.selectedFolderId == selectedFolderId) {
           ref
               .read(selectedPortfolioFolderProvider.notifier)
               .select(selectedFolderId);
@@ -661,6 +658,9 @@ class HomeController extends Notifier<HomeState> {
     if (!exists) {
       return false;
     }
+    if (folderId == state.selectedFolderId) {
+      return true;
+    }
 
     final portfolio =
         state.dashboard.portfoliosByFolderId[folderId] ??
@@ -682,6 +682,24 @@ class HomeController extends Notifier<HomeState> {
       );
       return false;
     }
+  }
+
+  void updateFolderName(String folderId, String name) {
+    if (state.isLoading || state.isUnavailable) return;
+    final folders = state.dashboard.folders;
+    if (!folders.any((folder) => folder.id == folderId)) return;
+
+    state = state.copyWith(
+      dashboard: state.dashboard.copyWith(
+        folders: [
+          for (final folder in folders)
+            if (folder.id == folderId)
+              HomeFolder(id: folder.id, name: name, isDefault: folder.isDefault)
+            else
+              folder,
+        ],
+      ),
+    );
   }
 
   Future<bool> selectCurrency(String currencyCode) async {

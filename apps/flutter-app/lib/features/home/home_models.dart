@@ -104,11 +104,12 @@ class HomeDashboard {
   }
 
   HomeDashboard copyWith({
+    List<HomeFolder>? folders,
     List<TrendingCard>? trending,
     bool? trendingUnavailable,
   }) {
     return HomeDashboard(
-      folders: folders,
+      folders: folders ?? this.folders,
       portfoliosByFolderId: portfoliosByFolderId,
       mostValuableByFolderId: mostValuableByFolderId,
       mostValuableCardsByFolderId: mostValuableCardsByFolderId,
