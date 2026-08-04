@@ -37,9 +37,7 @@ class SearchCardTile extends ConsumerWidget {
     final currency = ref.watch(selectedCurrencyProvider);
     final showFilledHeart = card.isWishlisted;
     final change = card.changeText;
-    final changeColor = change.startsWith('-')
-        ? Theme.of(context).colorScheme.error
-        : (change.startsWith('+') ? KandoColors.gain : KandoColors.mutedText);
+    final changeColor = marketChangeTextColor(change);
 
     final metadataFontSize = showSearchMetadata ? 10.0 : 11.0;
     final mutedLine = TextStyle(

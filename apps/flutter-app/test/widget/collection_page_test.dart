@@ -164,14 +164,37 @@ void main() {
     (tester) async {
       await _pumpCollection(tester);
 
+      final header = tester.widget<Padding>(
+        find.byKey(const Key('collection-fixed-header')),
+      );
       final listView = tester.widget<ListView>(
         find.byKey(const Key('collection-content-list')),
       );
 
       expect(
-        listView.padding,
-        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 24),
+        header.padding,
+        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 16),
       );
+      expect(listView.padding, const EdgeInsets.fromLTRB(20, 0, 20, 24));
+    },
+  );
+
+  testWidgets(
+    'Collection header stays fixed because card browsing must preserve controls and portfolio context',
+    (tester) async {
+      await _pumpCollection(tester);
+
+      final header = find.byKey(const Key('collection-fixed-header'));
+      final list = find.byKey(const Key('collection-content-list'));
+      final firstCard = find.text('Charizard ex');
+      final headerBeforeScroll = tester.getRect(header);
+      final cardBeforeScroll = tester.getRect(firstCard);
+
+      await tester.drag(list, const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(header), headerBeforeScroll);
+      expect(tester.getTopLeft(firstCard).dy, lessThan(cardBeforeScroll.top));
     },
   );
 

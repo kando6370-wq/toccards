@@ -40,65 +40,89 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
           builder: (context, constraints) {
             final isPageFailure = state.isUnavailable;
 
-            return RefreshIndicator(
-              key: const Key('collection-pull-to-refresh'),
-              onRefresh: () => _refresh(controller, preserveContent: true),
-              child: ListView(
-                key: const Key('collection-content-list'),
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: isPageFailure
-                    ? EdgeInsets.zero
-                    : const EdgeInsets.fromLTRB(
-                        20,
-                        KandoLayout.mainTabTopPadding,
-                        20,
-                        24,
+            if (state.loadStatus == KandoLoadStatus.loading || isPageFailure) {
+              return RefreshIndicator(
+                key: const Key('collection-pull-to-refresh'),
+                onRefresh: () => _refresh(controller, preserveContent: true),
+                child: ListView(
+                  key: const Key('collection-content-list'),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  children: [
+                    if (state.loadStatus == KandoLoadStatus.loading)
+                      const KandoLoadingBlock()
+                    else
+                      SizedBox(
+                        height: math.max(0.0, constraints.maxHeight),
+                        child: KandoFailureBlock(
+                          onRefresh: () => _refresh(controller),
+                        ),
                       ),
-                children: [
-                  if (state.loadStatus == KandoLoadStatus.loading)
-                    const KandoLoadingBlock()
-                  else if (isPageFailure)
-                    SizedBox(
-                      height: math.max(0.0, constraints.maxHeight),
-                      child: KandoFailureBlock(
-                        onRefresh: () => _refresh(controller),
-                      ),
-                    )
-                  else ...[
-                    _SegmentedTabs(
-                      selected: state.selectedTab,
-                      onSelect: controller.selectTab,
-                    ),
-                    const SizedBox(height: 16),
-                    _SearchField(
-                      fieldKey: ValueKey(state.selectedTab),
-                      onChanged: controller.updateSearch,
-                      onFilterPressed: () => _showFilterSheet(context, ref),
-                    ),
-                    const SizedBox(height: 16),
-                    if (state.selectedTab == CollectionTab.portfolio) ...[
-                      _PortfolioSummaryCard(
-                        state: state,
-                        onFolderPressed: () {
-                          ref
-                              .read(analyticsProvider)
-                              .track(AnalyticsEvent.folderClick);
-                          showPortfolioFolderSheet(context, ref);
-                        },
-                        onHidePressed: () async {
-                          if (!await controller.toggleAmountHidden() &&
-                              context.mounted) {
-                            showKandoFailureToast(context);
-                          }
-                        },
+                  ],
+                ),
+              );
+            }
+
+            return Column(
+              children: [
+                Padding(
+                  key: const Key('collection-fixed-header'),
+                  padding: const EdgeInsets.fromLTRB(
+                    20,
+                    KandoLayout.mainTabTopPadding,
+                    20,
+                    16,
+                  ),
+                  child: Column(
+                    children: [
+                      _SegmentedTabs(
+                        selected: state.selectedTab,
+                        onSelect: controller.selectTab,
                       ),
                       const SizedBox(height: 16),
+                      _SearchField(
+                        fieldKey: ValueKey(state.selectedTab),
+                        onChanged: controller.updateSearch,
+                        onFilterPressed: () => _showFilterSheet(context, ref),
+                      ),
+                      const SizedBox(height: 16),
+                      if (state.selectedTab == CollectionTab.portfolio) ...[
+                        _PortfolioSummaryCard(
+                          state: state,
+                          onFolderPressed: () {
+                            ref
+                                .read(analyticsProvider)
+                                .track(AnalyticsEvent.folderClick);
+                            showPortfolioFolderSheet(context, ref);
+                          },
+                          onHidePressed: () async {
+                            if (!await controller.toggleAmountHidden() &&
+                                context.mounted) {
+                              showKandoFailureToast(context);
+                            }
+                          },
+                        ),
+                      ],
                     ],
-                    _CollectionContent(state: state),
-                    const SizedBox(height: 100),
-                  ],
-                ],
-              ),
+                  ),
+                ),
+                Expanded(
+                  child: RefreshIndicator(
+                    key: const Key('collection-pull-to-refresh'),
+                    onRefresh: () =>
+                        _refresh(controller, preserveContent: true),
+                    child: ListView(
+                      key: const Key('collection-content-list'),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      children: [
+                        _CollectionContent(state: state),
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             );
           },
         ),

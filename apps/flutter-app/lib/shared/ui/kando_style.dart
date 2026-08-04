@@ -11,6 +11,7 @@ abstract final class KandoColors {
   static const softAccent = Color(0xFFF0E7FF);
   static const money = Color(0xFFFFF6AF);
   static const gain = Color(0xFF4ADE80);
+  static const loss = Color(0xFFFF8989);
   static const error = Color(0xFFFFB1B1);
   static const errorText = Color(0xFFFF8989);
   static const primaryOnDefault = Color(0xFF2C3400);
@@ -18,6 +19,13 @@ abstract final class KandoColors {
   static const borderFocus = Color(0x99F0FE6F);
   static const accentGlow10 = Color(0x1AF0FE6F);
   static const borderSubtle = Color(0x14FFFFFF);
+}
+
+Color marketChangeTextColor(String value) {
+  if (value == '-/-') return KandoColors.mutedText;
+  if (value.startsWith('-')) return KandoColors.loss;
+  if (value.startsWith('+') || value.startsWith('<')) return KandoColors.gain;
+  return KandoColors.mutedText;
 }
 
 abstract final class KandoLayout {

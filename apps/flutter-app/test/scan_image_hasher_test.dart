@@ -66,17 +66,41 @@ void main() {
       final hash = await createScanImageHasher().hash(
         _syntheticCardPpm(),
         crop: const ScanImageCrop(
-          left: 0,
-          top: 0,
-          width: 1,
-          height: 1,
+          left: 55 / 240,
+          top: 75 / 360,
+          width: 130 / 240,
+          height: 210 / 360,
           viewportAspectRatio: 2 / 3,
         ),
       );
 
+      expect(hash.diagnostics['camera_guide_selection'], 1.0);
+      expect(hash.diagnostics['area_ratio'], closeTo(0.58, 0.05));
       expect(hash.diagnostics, isNot(contains('nested_card_surface')));
       expect(hash.diagnostics, isNot(contains('landscape_panel_recovery')));
       expect(hash.diagnostics, isNot(contains('slab_card_recovery')));
+    },
+    timeout: const Timeout(Duration(minutes: 1)),
+    skip: Platform.environment['DARTCV_LIB_PATH'] == null
+        ? 'Requires the platform dartcv library.'
+        : false,
+  );
+
+  test(
+    'camera guidance rejects unrelated contours because hashing an object outside the viewfinder would produce a false match',
+    () async {
+      final future = createScanImageHasher().hash(
+        _syntheticCardPpm(),
+        crop: const ScanImageCrop(
+          left: 0,
+          top: 0,
+          width: 0.15,
+          height: 0.12,
+          viewportAspectRatio: 2 / 3,
+        ),
+      );
+
+      await expectLater(future, throwsA(isA<ScanImageProcessingException>()));
     },
     timeout: const Timeout(Duration(minutes: 1)),
     skip: Platform.environment['DARTCV_LIB_PATH'] == null
@@ -89,6 +113,29 @@ void main() {
     () async {
       final hash = await createScanImageHasher().hash(_syntheticSlabPng());
 
+      expect(hash.diagnostics['area_ratio'], closeTo(0.048, 0.01));
+    },
+    timeout: const Timeout(Duration(minutes: 1)),
+    skip: Platform.environment['DARTCV_LIB_PATH'] == null
+        ? 'Requires the platform dartcv library.'
+        : false,
+  );
+
+  test(
+    'camera guidance keeps the card inside a grading case because the outer case must not be hashed as card content',
+    () async {
+      final hash = await createScanImageHasher().hash(
+        _syntheticSlabPng(),
+        crop: const ScanImageCrop(
+          left: 210 / 500,
+          top: 205 / 600,
+          width: 80 / 500,
+          height: 110 / 600,
+          viewportAspectRatio: 5 / 6,
+        ),
+      );
+
+      expect(hash.diagnostics['camera_guide_selection'], 1.0);
       expect(hash.diagnostics['area_ratio'], closeTo(0.048, 0.01));
     },
     timeout: const Timeout(Duration(minutes: 1)),
@@ -128,6 +175,57 @@ void main() {
       expect(hash.diagnostics['landscape_panel_recovery'], 1.0);
       expect(hash.diagnostics['pre_recovery_area_ratio'], lessThan(0.25));
       expect(hash.diagnostics['area_ratio'], closeTo(0.39, 0.05));
+    },
+    timeout: const Timeout(Duration(minutes: 1)),
+    skip: Platform.environment['DARTCV_LIB_PATH'] == null
+        ? 'Requires the platform dartcv library.'
+        : false,
+  );
+
+  test(
+    'gallery recovery infers one missing corner because a damaged card outline should not discard the remaining usable card image',
+    () async {
+      final hash = await createScanImageHasher().hash(
+        _syntheticMissingCornerCardPpm(),
+      );
+
+      expect(
+        hash.diagnostics['missing_corner_recovery'],
+        1.0,
+        reason: 'Actual diagnostics: ${hash.diagnostics}',
+      );
+      expect(
+        hash.diagnostics['missing_corner_area_expansion_ratio'],
+        inInclusiveRange(1.0, 1.12),
+      );
+      final crop = cv.imdecode(hash.cardImageBytes!, cv.IMREAD_COLOR);
+      try {
+        expect((crop.cols, crop.rows), (745, 1043));
+      } finally {
+        crop.dispose();
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 1)),
+    skip: Platform.environment['DARTCV_LIB_PATH'] == null
+        ? 'Requires the platform dartcv library.'
+        : false,
+  );
+
+  test(
+    'camera-guided crops do not infer missing corners because a retakeable capture must not prefer gallery recovery geometry',
+    () async {
+      final hash = await createScanImageHasher().hash(
+        _syntheticMissingCornerCardPpm(),
+        crop: const ScanImageCrop(
+          left: 70 / 400,
+          top: 85 / 520,
+          width: 240 / 400,
+          height: 340 / 520,
+          viewportAspectRatio: 400 / 520,
+        ),
+      );
+
+      expect(hash.diagnostics, isNot(contains('missing_corner_recovery')));
     },
     timeout: const Timeout(Duration(minutes: 1)),
     skip: Platform.environment['DARTCV_LIB_PATH'] == null
@@ -232,6 +330,62 @@ Uint8List _syntheticCardPpm() {
     }
   }
   return output;
+}
+
+Uint8List _syntheticMissingCornerCardPpm() {
+  const width = 400;
+  const height = 520;
+  const outline = <(double, double)>[
+    (70, 60),
+    (300, 75),
+    (340, 120),
+    (310, 475),
+    (45, 450),
+  ];
+  final header = ascii.encode('P6\n$width $height\n255\n');
+  final output = Uint8List(header.length + width * height * 3)
+    ..setRange(0, header.length, header);
+  var offset = header.length;
+  for (var y = 0; y < height; y += 1) {
+    for (var x = 0; x < width; x += 1) {
+      var red = 30;
+      var green = 35;
+      var blue = 40;
+      if (_insidePolygon(x + 0.5, y + 0.5, outline)) {
+        red = (x * 3 + y) % 180 + 35;
+        green = (x + y * 2) % 170 + 45;
+        blue = (x * 2 + y * 3) % 160 + 55;
+        if (y % 28 < 5 || (x + y) % 47 < 5) {
+          red = green = blue = 235;
+        }
+      }
+      output[offset++] = red;
+      output[offset++] = green;
+      output[offset++] = blue;
+    }
+  }
+  return output;
+}
+
+bool _insidePolygon(double x, double y, List<(double, double)> polygon) {
+  var inside = false;
+  for (
+    var index = 0, previous = polygon.length - 1;
+    index < polygon.length;
+    previous = index++
+  ) {
+    final currentPoint = polygon[index];
+    final previousPoint = polygon[previous];
+    if ((currentPoint.$2 > y) != (previousPoint.$2 > y) &&
+        x <
+            (previousPoint.$1 - currentPoint.$1) *
+                    (y - currentPoint.$2) /
+                    (previousPoint.$2 - currentPoint.$2) +
+                currentPoint.$1) {
+      inside = !inside;
+    }
+  }
+  return inside;
 }
 
 Uint8List _syntheticSlabPng() {
