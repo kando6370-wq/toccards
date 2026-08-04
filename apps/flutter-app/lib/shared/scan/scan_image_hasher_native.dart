@@ -43,19 +43,20 @@ ScanImageHashes _hashImage(Uint8List imageBytes, ScanImageCrop? crop) {
     throw const ScanImageProcessingException('The selected image is invalid.');
   }
 
-  cv.Mat? cropped;
   cv.Mat? card;
   cv.Mat? rgb;
   try {
-    final source = crop == null
-        ? decoded
-        : (cropped = _cropImage(decoded, crop));
-    final detection = _detectCardCorners(
-      source,
-      allowSourceImage: crop == null,
-      allowContainerRecovery: crop == null,
+    final cameraGuide = crop?.resolve(
+      imageWidth: decoded.cols,
+      imageHeight: decoded.rows,
     );
-    card = _warpCard(source, detection.corners);
+    final detection = _detectCardCorners(
+      decoded,
+      allowSourceImage: true,
+      allowContainerRecovery: crop == null,
+      cameraGuide: cameraGuide,
+    );
+    card = _warpCard(decoded, detection.corners);
     rgb = cv.cvtColor(card, cv.COLOR_BGR2RGB);
     final parameters = [cv.IMWRITE_JPEG_QUALITY, 85].i32;
     late final Uint8List cardImageBytes;
@@ -109,26 +110,7 @@ ScanImageHashes _hashImage(Uint8List imageBytes, ScanImageCrop? crop) {
   } finally {
     rgb?.dispose();
     card?.dispose();
-    cropped?.dispose();
     decoded.dispose();
-  }
-}
-
-cv.Mat _cropImage(cv.Mat image, ScanImageCrop crop) {
-  final resolved = crop.resolve(
-    imageWidth: image.cols,
-    imageHeight: image.rows,
-  );
-  final rectangle = cv.Rect(
-    resolved.x,
-    resolved.y,
-    resolved.width,
-    resolved.height,
-  );
-  try {
-    return image.region(rectangle);
-  } finally {
-    rectangle.dispose();
   }
 }
 
@@ -137,6 +119,7 @@ _detectCardCorners(
   cv.Mat image, {
   required bool allowSourceImage,
   required bool allowContainerRecovery,
+  required ScanPixelCrop? cameraGuide,
 }) {
   const maximumDimension = 1600;
   final scale = math.min(
@@ -150,6 +133,14 @@ _detectCardCorners(
           (image.rows * scale).round(),
         ), interpolation: cv.INTER_AREA))
       : image;
+  final scaledCameraGuide = cameraGuide == null
+      ? null
+      : _CameraGuide(
+          left: cameraGuide.x * scale,
+          top: cameraGuide.y * scale,
+          width: cameraGuide.width * scale,
+          height: cameraGuide.height * scale,
+        );
   final gray = cv.cvtColor(working, cv.COLOR_BGR2GRAY);
   final clahe = cv.createCLAHE(clipLimit: 2.0, tileGridSize: (8, 8));
   final enhanced = clahe.apply(gray);
@@ -223,6 +214,7 @@ _detectCardCorners(
             gradient,
             gradientHigh,
             candidates,
+            allowMissingCornerRecovery: allowContainerRecovery,
           );
         }
       } finally {
@@ -259,6 +251,31 @@ _detectCardCorners(
     if (deduplicated.isEmpty) {
       throw const ScanImageProcessingException(
         'Keep one card fully visible inside the frame and try again.',
+      );
+    }
+    if (scaledCameraGuide != null) {
+      var guided = _selectCameraCandidate(deduplicated, scaledCameraGuide);
+      if (guided == null) {
+        throw const ScanImageProcessingException(
+          'Keep one card fully visible inside the frame and try again.',
+        );
+      }
+      final enclosing = _preferEnclosingCard(
+        guided,
+        deduplicated,
+        working.rows * working.cols,
+      );
+      if (enclosing != null) {
+        guided = enclosing
+            .withDiagnostic('camera_guide_selection')
+            .withDiagnostic('camera_enclosing_card_recovery');
+      }
+      return (
+        corners: [
+          for (final point in guided.points)
+            _ImagePoint(point.x / scale, point.y / scale),
+        ],
+        diagnostics: guided.diagnostics,
       );
     }
     deduplicated.sort((left, right) => right.score.compareTo(left.score));
@@ -396,17 +413,55 @@ void _addContourCandidates(
   cv.Mat image,
   cv.Mat gradient,
   double gradientHigh,
-  List<_CardCandidate> candidates,
-) {
+  List<_CardCandidate> candidates, {
+  required bool allowMissingCornerRecovery,
+}) {
   final imageArea = image.rows * image.cols;
   final area = cv.contourArea(contour).abs();
   if (area < imageArea * 0.025 || area > imageArea * 0.96) return;
   final perimeter = cv.arcLength(contour, true);
   if (perimeter <= 0) return;
   var added = false;
+  var recoveredMissingCorner = false;
   for (final epsilon in const [0.012, 0.02, 0.03, 0.045, 0.065, 0.09]) {
     final approximation = cv.approxPolyDP(contour, perimeter * epsilon, true);
     try {
+      if (allowMissingCornerRecovery &&
+          !recoveredMissingCorner &&
+          approximation.length == 5) {
+        final recovery = _recoverMissingCorner(
+          [
+            for (var i = 0; i < approximation.length; i++)
+              _ImagePoint(
+                approximation[i].x.toDouble(),
+                approximation[i].y.toDouble(),
+              ),
+          ],
+          image.cols,
+          image.rows,
+        );
+        if (recovery != null &&
+            _addCandidate(
+              recovery.points,
+              image,
+              gradient,
+              gradientHigh,
+              candidates,
+            )) {
+          final recovered = candidates.removeLast();
+          candidates.add(
+            recovered.copyWith(
+              diagnostics: {
+                ...recovered.diagnostics,
+                'missing_corner_recovery': 1.0,
+                'missing_corner_gap_ratio': recovery.gapRatio,
+                'missing_corner_area_expansion_ratio': recovery.areaExpansion,
+              },
+            ),
+          );
+          recoveredMissingCorner = true;
+        }
+      }
       if (approximation.length != 4 || !cv.isContourConvex(approximation)) {
         continue;
       }
@@ -448,6 +503,92 @@ void _addContourCandidates(
   } finally {
     box.dispose();
   }
+}
+
+({List<_ImagePoint> points, double gapRatio, double areaExpansion})?
+_recoverMissingCorner(
+  List<_ImagePoint> contour,
+  int imageWidth,
+  int imageHeight,
+) {
+  if (contour.length != 5) return null;
+  ({List<_ImagePoint> points, double gapRatio, double areaExpansion})? best;
+  final originalArea = _polygonArea(contour);
+  for (var index = 0; index < contour.length; index += 1) {
+    final before = contour[(index + contour.length - 1) % contour.length];
+    final start = contour[index];
+    final end = contour[(index + 1) % contour.length];
+    final after = contour[(index + 2) % contour.length];
+    final beforeLength = _distance(before, start);
+    final gapLength = _distance(start, end);
+    final afterLength = _distance(end, after);
+    final adjacentLength = math.min(beforeLength, afterLength);
+    if (adjacentLength < 24 || gapLength / adjacentLength > 0.50) continue;
+
+    final intersection = _lineIntersection(before, start, end, after);
+    if (intersection == null ||
+        intersection.x < 0 ||
+        intersection.y < 0 ||
+        intersection.x > imageWidth - 1 ||
+        intersection.y > imageHeight - 1) {
+      continue;
+    }
+    final incomingX = start.x - before.x;
+    final incomingY = start.y - before.y;
+    final outgoingX = after.x - end.x;
+    final outgoingY = after.y - end.y;
+    if ((intersection.x - start.x) * incomingX +
+                (intersection.y - start.y) * incomingY <=
+            0 ||
+        (intersection.x - end.x) * outgoingX +
+                (intersection.y - end.y) * outgoingY >=
+            0) {
+      continue;
+    }
+    if (_distance(start, intersection) / beforeLength > 0.45 ||
+        _distance(end, intersection) / afterLength > 0.45) {
+      continue;
+    }
+
+    final recovered = <_ImagePoint>[
+      intersection,
+      for (var offset = 2; offset < contour.length; offset += 1)
+        contour[(index + offset) % contour.length],
+    ];
+    final recoveredArea = _polygonArea(recovered);
+    final areaExpansion = recoveredArea / math.max(originalArea, 1e-6);
+    if (areaExpansion < 1.0 || areaExpansion > 1.12) continue;
+    final gapRatio = gapLength / adjacentLength;
+    if (best == null || gapRatio < best.gapRatio) {
+      best = (
+        points: recovered,
+        gapRatio: gapRatio,
+        areaExpansion: areaExpansion,
+      );
+    }
+  }
+  return best;
+}
+
+_ImagePoint? _lineIntersection(
+  _ImagePoint firstStart,
+  _ImagePoint firstEnd,
+  _ImagePoint secondStart,
+  _ImagePoint secondEnd,
+) {
+  final firstX = firstEnd.x - firstStart.x;
+  final firstY = firstEnd.y - firstStart.y;
+  final secondX = secondEnd.x - secondStart.x;
+  final secondY = secondEnd.y - secondStart.y;
+  final denominator = firstX * secondY - firstY * secondX;
+  if (denominator.abs() < 1e-6) return null;
+  final offsetX = secondStart.x - firstStart.x;
+  final offsetY = secondStart.y - firstStart.y;
+  final scale = (offsetX * secondY - offsetY * secondX) / denominator;
+  return _ImagePoint(
+    firstStart.x + scale * firstX,
+    firstStart.y + scale * firstY,
+  );
 }
 
 bool _addCandidate(
@@ -1079,9 +1220,20 @@ double _boundaryStrength(
 List<_CardCandidate> _deduplicateCandidates(List<_CardCandidate> candidates) {
   final kept = <_CardCandidate>[];
   for (final candidate in candidates) {
-    if (kept.any(
+    final duplicateIndex = kept.indexWhere(
       (item) => _quadSimilarity(candidate.points, item.points) > 0.82,
-    )) {
+    );
+    if (duplicateIndex >= 0) {
+      final existing = kept[duplicateIndex];
+      final recoversMissingCorner =
+          candidate.diagnostics['missing_corner_recovery'] == 1.0;
+      final existingRecoversMissingCorner =
+          existing.diagnostics['missing_corner_recovery'] == 1.0;
+      if (recoversMissingCorner &&
+          !existingRecoversMissingCorner &&
+          candidate.score >= existing.score - 0.06) {
+        kept[duplicateIndex] = candidate;
+      }
       continue;
     }
     kept.add(candidate);
@@ -1090,6 +1242,103 @@ List<_CardCandidate> _deduplicateCandidates(List<_CardCandidate> candidates) {
     }
   }
   return kept;
+}
+
+_CardCandidate? _selectCameraCandidate(
+  List<_CardCandidate> candidates,
+  _CameraGuide guide,
+) {
+  final guideArea = guide.width * guide.height;
+  final guideDiagonal = math.sqrt(
+    guide.width * guide.width + guide.height * guide.height,
+  );
+  final guideCenter = _ImagePoint(
+    guide.left + guide.width / 2,
+    guide.top + guide.height / 2,
+  );
+  final ranked = <({double score, _CardCandidate candidate})>[];
+  for (final candidate in candidates) {
+    if (candidate.aspectScore < 0.70) continue;
+    final bounds = _quadBounds(candidate.points);
+    if ((bounds.width > bounds.height) != (guide.width > guide.height)) {
+      continue;
+    }
+    final intersectionWidth = math.max(
+      0.0,
+      math.min(bounds.right, guide.right) - math.max(bounds.left, guide.left),
+    );
+    final intersectionHeight = math.max(
+      0.0,
+      math.min(bounds.bottom, guide.bottom) - math.max(bounds.top, guide.top),
+    );
+    final intersectionArea = intersectionWidth * intersectionHeight;
+    final guideCoverage = intersectionArea / math.max(guideArea, 1.0);
+    final candidateBoundsArea = bounds.width * bounds.height;
+    final candidateCoverage =
+        intersectionArea / math.max(candidateBoundsArea, 1.0);
+    final candidateCenter = _ImagePoint(
+      (bounds.left + bounds.right) / 2,
+      (bounds.top + bounds.bottom) / 2,
+    );
+    final normalizedCenterDistance =
+        _distance(candidateCenter, guideCenter) / math.max(guideDiagonal, 1.0);
+    final centerScore = math.max(0.0, 1.0 - normalizedCenterDistance / 0.35);
+    final relativeArea = candidate.area / math.max(guideArea, 1.0);
+    if (guideCoverage < 0.45 ||
+        centerScore < 0.35 ||
+        relativeArea < 0.75 ||
+        relativeArea > 5.0) {
+      continue;
+    }
+    final areaScore = math.exp(-(math.log(relativeArea / 1.4)).abs());
+    final guidedScore =
+        0.38 * candidate.score +
+        0.18 * guideCoverage +
+        0.10 * candidateCoverage +
+        0.12 * centerScore +
+        0.12 * areaScore +
+        0.10 * candidate.aspectScore;
+    ranked.add((
+      score: guidedScore,
+      candidate: candidate.copyWith(
+        diagnostics: {
+          ...candidate.diagnostics,
+          'camera_guide_selection': 1.0,
+          'camera_guide_score': guidedScore,
+          'camera_guide_coverage': guideCoverage,
+          'camera_candidate_coverage': candidateCoverage,
+          'camera_guide_center_score': centerScore,
+          'camera_guide_area_ratio': relativeArea,
+          'camera_guide_area_score': areaScore,
+        },
+      ),
+    ));
+  }
+  ranked.sort((left, right) => right.score.compareTo(left.score));
+  return ranked.isEmpty ? null : ranked.first.candidate;
+}
+
+({
+  double left,
+  double top,
+  double right,
+  double bottom,
+  double width,
+  double height,
+})
+_quadBounds(List<_ImagePoint> points) {
+  final left = points.map((point) => point.x).reduce(math.min);
+  final top = points.map((point) => point.y).reduce(math.min);
+  final right = points.map((point) => point.x).reduce(math.max);
+  final bottom = points.map((point) => point.y).reduce(math.max);
+  return (
+    left: left,
+    top: top,
+    right: right,
+    bottom: bottom,
+    width: right - left,
+    height: bottom - top,
+  );
 }
 
 double _quadSimilarity(List<_ImagePoint> a, List<_ImagePoint> b) {
@@ -1215,6 +1464,23 @@ class _ImagePoint {
 
   final double x;
   final double y;
+}
+
+class _CameraGuide {
+  const _CameraGuide({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
+
+  final double left;
+  final double top;
+  final double width;
+  final double height;
+
+  double get right => left + width;
+  double get bottom => top + height;
 }
 
 class _CardCandidate {
