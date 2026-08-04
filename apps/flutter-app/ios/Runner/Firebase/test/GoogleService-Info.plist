@@ -3,21 +3,21 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n.apps.googleusercontent.com</string>
+	<string>1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n</string>
+	<string>com.googleusercontent.apps.1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc</string>
 	<key>API_KEY</key>
-	<string>AIzaSyD6uUoRaiVt1yzk6Dq37Tt5kKVgxz7XdBg</string>
+	<string>AIzaSyBeeFxSubpc3QWE8oPyQSpSuWIEiJi34CQ</string>
 	<key>GCM_SENDER_ID</key>
-	<string>490325688457</string>
+	<string>1030914046373</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.kando.kandoApp.beta</string>
+	<string>com.cardai.tcg</string>
 	<key>PROJECT_ID</key>
-	<string>card-ai---test</string>
+	<string>tcg-card-2072d</string>
 	<key>STORAGE_BUCKET</key>
-	<string>card-ai---test.firebasestorage.app</string>
+	<string>tcg-card-2072d.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false/>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -29,6 +29,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true/>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:490325688457:ios:923f77a6242705bc0f8658</string>
+	<string>1:1030914046373:ios:d7aa0de588060708f5504c</string>
 </dict>
 </plist>

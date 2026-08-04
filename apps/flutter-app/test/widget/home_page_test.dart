@@ -514,7 +514,7 @@ void main() {
   );
 
   testWidgets(
-    'folder picker closes and updates Home before preference persistence because switching must stay responsive',
+    'folder picker closes and refreshes Home before preference persistence because a real switch changed the portfolio',
     (tester) async {
       final preferences = _DelayedPortfolioManagementApi();
       final homeRepository = _CountingHomeRepository();
@@ -531,10 +531,39 @@ void main() {
       expect(find.text('Select Portfolio'), findsNothing);
       expect(find.text('Sealed'), findsOneWidget);
       expect(find.text(r'$8,640.00'), findsOneWidget);
-      expect(homeRepository.calls, 1);
+      expect(homeRepository.calls, 2);
 
       preferences.preferenceWrite.complete();
       await tester.pumpAndSettle();
+      expect(homeRepository.calls, 2);
+    },
+  );
+
+  testWidgets(
+    'renaming a folder keeps Home loaded because the selected portfolio did not change',
+    (tester) async {
+      final homeRepository = _CountingHomeRepository();
+      await tester.pumpWidget(
+        _mockHomeApp(
+          _TestPortfolioManagementApi(),
+          const _TestCurrencyRateApi(),
+          homeRepository,
+        ),
+      );
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-folder-edit-sealed')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('collection-folder-name')),
+        'Trade Binder',
+      );
+      await tester.tap(find.byKey(const Key('collection-folder-name-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Trade Binder'), findsOneWidget);
       expect(homeRepository.calls, 1);
     },
   );
