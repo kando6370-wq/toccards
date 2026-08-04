@@ -25,7 +25,7 @@ describe("card share routes", () => {
         loadStoreUrls: async () => ({
           ios: "https://apps.apple.com/app/kando/id123",
           android:
-            "https://play.google.com/store/apps/details?id=com.kando.kandoApp.beta",
+            "https://play.google.com/store/apps/details?id=com.cardai.tcg",
         }),
       }),
     );
@@ -47,7 +47,7 @@ describe("card share routes", () => {
     expect(html).toContain("kando://app/cards/pokemon%3Asv3%3A125");
     expect(html).toContain("https://apps.apple.com/app/kando/id123");
     expect(html).toContain(
-      "https://play.google.com/store/apps/details?id=com.kando.kandoApp.beta",
+      "https://play.google.com/store/apps/details?id=com.cardai.tcg",
     );
     expect(html).not.toContain("Switch <Rare>");
   });

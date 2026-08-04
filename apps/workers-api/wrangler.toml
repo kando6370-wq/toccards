@@ -45,7 +45,7 @@ name = "toccards-api-dev"
 routes = [{ pattern = "api-dev.tcgcard.fun", custom_domain = true }]
 
 [env.dev.vars]
-GOOGLE_CLIENT_ID = "490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com"
 APPLE_CLIENT_ID = "com.cardai.tcg"
 ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"

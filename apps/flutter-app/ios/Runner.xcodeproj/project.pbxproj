@@ -568,7 +568,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.kando.kandoApp.beta.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cardai.tcg.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
@@ -586,14 +586,14 @@
 				DEVELOPMENT_TEAM = B95U3272HR;
 				ENABLE_BITCODE = NO;
 				FIREBASE_ENVIRONMENT = test;
-				GOOGLE_CLIENT_ID = "490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n.apps.googleusercontent.com";
-				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n";
+				GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com";
+				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc";
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.kando.kandoApp.beta;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cardai.tcg;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -792,7 +792,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.kando.kandoApp.beta.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cardai.tcg.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -974,7 +974,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.kando.kandoApp.beta.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cardai.tcg.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
@@ -1044,14 +1044,14 @@
 				DEVELOPMENT_TEAM = B95U3272HR;
 				ENABLE_BITCODE = NO;
 				FIREBASE_ENVIRONMENT = test;
-				GOOGLE_CLIENT_ID = "490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n.apps.googleusercontent.com";
-				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n";
+				GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com";
+				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc";
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.kando.kandoApp.beta;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cardai.tcg;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -1070,14 +1070,14 @@
 				DEVELOPMENT_TEAM = B95U3272HR;
 				ENABLE_BITCODE = NO;
 				FIREBASE_ENVIRONMENT = test;
-				GOOGLE_CLIENT_ID = "490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n.apps.googleusercontent.com";
-				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.490325688457-q40tlt2mnofjsfc61ibh2nlch6a9760n";
+				GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com";
+				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc";
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.kando.kandoApp.beta;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cardai.tcg;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
