@@ -18,8 +18,6 @@ import 'card_detail_models.dart';
 /// Figma spacing/radius tokens for the card detail module.
 const double _kRadiusLg = 16;
 const double _kRadiusXl = 24;
-const Color _kPositiveColor = Color(0xFF4ADE80);
-const Color _kNegativeColor = Color(0xFFFF8989);
 const Color _kCollectionCardStart = Color(0x1F747B26);
 const Color _kCollectionCardEnd = Color(0x0A141506);
 const Color _kCollectionOutline = Color(0x1A90927C);
@@ -3493,11 +3491,7 @@ class _MarketPricesRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final changeColor = header
         ? KandoColors.mutedText
-        : change.startsWith('-')
-        ? _kNegativeColor
-        : change.startsWith('+')
-        ? _kPositiveColor
-        : KandoColors.mutedText;
+        : marketChangeTextColor(change);
     final style = TextStyle(
       fontSize: header ? 10 : 13,
       color: header ? KandoColors.mutedText : KandoColors.text,

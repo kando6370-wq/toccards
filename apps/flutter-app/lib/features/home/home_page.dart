@@ -22,10 +22,6 @@ import '../collection/collection_models.dart';
 import 'home_controller.dart';
 import 'home_models.dart';
 
-// Semantic down color for negative price changes. There is no red design token,
-// so this maps the Figma negative-change red to the nearest available value.
-const Color _kNegativeColor = Color(0xFFE5484D);
-
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
@@ -1166,7 +1162,11 @@ class _TrendingSection extends StatelessWidget {
               percent: MarketChange.fromPercent(
                 trends[index].increaseRate,
               ).percentText,
-              percentColor: _percentValueColor(trends[index].increaseRate),
+              percentColor: marketChangeTextColor(
+                MarketChange.fromPercent(
+                  trends[index].increaseRate,
+                ).percentText,
+              ),
               imageAssetPath: trends[index].imageAssetPath,
               imageUrl: trends[index].imageUrl,
               onTap: trends[index].cardRef == null
@@ -1312,6 +1312,7 @@ class _MostValuableTile extends StatelessWidget {
       current: card.priceUsd,
       previous: card.previousPriceUsd,
     );
+    final percentColor = marketChangeTextColor(percent);
 
     return SizedBox(
       width: 144,
@@ -1381,8 +1382,8 @@ class _MostValuableTile extends StatelessWidget {
                             ),
                             child: Text(
                               percent,
-                              style: const TextStyle(
-                                color: KandoColors.text,
+                              style: TextStyle(
+                                color: percentColor,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w400,
                                 height: 14 / 10,
@@ -2057,11 +2058,4 @@ String _percentText({required double current, required double? previous}) {
     current: current,
     previous: previous,
   ).percentText;
-}
-
-Color _percentValueColor(double percent) {
-  if (percent == 0) {
-    return KandoColors.mutedText;
-  }
-  return percent > 0 ? KandoColors.accent : _kNegativeColor;
 }

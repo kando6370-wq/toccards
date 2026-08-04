@@ -1,7 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 
 void main() {
+  test(
+    'market change colors distinguish gains from losses wherever percentages are shown',
+    () {
+      expect(marketChangeTextColor('+1.00%'), KandoColors.gain);
+      expect(marketChangeTextColor('<0.01%'), KandoColors.gain);
+      expect(marketChangeTextColor('-1.00%'), KandoColors.loss);
+      expect(marketChangeTextColor('0.00%'), KandoColors.mutedText);
+      expect(marketChangeTextColor('-/-'), KandoColors.mutedText);
+    },
+  );
+
   test('calculates amount and percent from current and previous prices', () {
     final change = MarketChange.fromPrices(current: 120, previous: 100);
 
