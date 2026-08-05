@@ -104,7 +104,7 @@ class _StartupPageState extends ConsumerState<_StartupPage>
           final verticalInset = (constraints.maxHeight - 844 * scale) / 2;
           final brandingTop = useIosLaunchMark
               ? constraints.maxHeight * (311 / 844) - 56 * scale
-              : verticalInset + 255 * scale;
+              : constraints.maxHeight / 2 - 56 * scale;
           return Stack(
             alignment: Alignment.center,
             children: [
@@ -134,8 +134,8 @@ class _StartupPageState extends ConsumerState<_StartupPage>
                                   key: const ValueKey(
                                     'onboarding-loading-logo',
                                   ),
-                                  width: 90 * scale,
-                                  height: 90 * scale,
+                                  width: 90,
+                                  height: 90,
                                   filterQuality: FilterQuality.high,
                                 ),
                         ),

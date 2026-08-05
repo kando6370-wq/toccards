@@ -56,6 +56,49 @@ void main() {
     }
   });
 
+  testWidgets('Android launch logo stays centered at the native splash size', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    try {
+      const viewports = [Size(390, 844), Size(430, 932), Size(768, 1024)];
+      tester.view.physicalSize = viewports.first;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appStartupPreloaderProvider.overrideWith((ref) async {}),
+            onboardingRepositoryProvider.overrideWithValue(
+              const _ImmediateOnboardingRepository(completed: true),
+            ),
+          ],
+          child: const MaterialApp(
+            home: OnboardingGate(home: Text('Home ready')),
+          ),
+        ),
+      );
+
+      for (final viewport in viewports) {
+        tester.view.physicalSize = viewport;
+        await tester.pump();
+        final logo = find.byKey(const ValueKey('onboarding-loading-logo'));
+        expect(tester.getSize(logo), const Size.square(90));
+        expect(tester.getCenter(logo).dx, closeTo(viewport.width / 2, .01));
+        expect(tester.getCenter(logo).dy, closeTo(viewport.height / 2, .01));
+      }
+
+      await tester.pump(OnboardingController.minimumSplashDuration);
+      await tester.pump();
+      await tester.pump(OnboardingController.progressCompletionDuration);
+      await tester.pump(OnboardingController.completedProgressHoldDuration);
+      await tester.pump();
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   testWidgets('cold-start branding remains visible for at least 3 seconds', (
     tester,
   ) async {
@@ -98,7 +141,7 @@ void main() {
     expect(find.text('Home ready'), findsNothing);
     expect(
       tester.getRect(find.byKey(const ValueKey('onboarding-loading-branding'))),
-      const Rect.fromLTWH(137, 255, 116, 160),
+      const Rect.fromLTWH(137, 366, 116, 160),
     );
     expect(
       tester.getRect(find.byKey(const ValueKey('onboarding-loading-progress'))),

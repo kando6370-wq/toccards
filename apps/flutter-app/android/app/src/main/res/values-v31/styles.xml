@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowSplashScreenBackground">@color/card_ai_icon_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/launch_mark</item>
-        <item name="android:windowSplashScreenIconBackgroundColor">@color/card_ai_icon_background</item>
+        <item name="android:windowSplashScreenBackground">@color/card_ai_launch_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/launch_mark_v2</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/card_ai_launch_background</item>
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">@color/card_ai_icon_background</item>
+        <item name="android:windowBackground">@color/card_ai_launch_background</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 </resources>
