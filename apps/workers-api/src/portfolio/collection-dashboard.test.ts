@@ -11,7 +11,7 @@ class FakeDb {
   prepare(sql: string) {
     const rows = sql.includes("FROM cards_all")
       ? this.cards
-      : sql.includes("FROM tcg_price_history")
+      : sql.includes("price_Grade_7") || sql.includes("SELECT DISTINCT pricecharting_id")
         ? this.gradedPrices
         : this.skus;
     return {

@@ -82,6 +82,6 @@
 | # | 待定项 | 影响范围 | 说明 |
 |---|---|---|---|
 | 1 | **汇率接口提供方** | 货币换算展示（Home / Collection / CardDetail） | 按统一汇率服务接口抽象，厂商待定；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #2 |
-| 2 | **卡牌基础表导入任务与刷新频率** | 搜索、价格、Trending 非置顶、成交记录降级口径 | 当前数据源为同一个 D1 中的 `cards_all` / `games` / `sets` / `tcgplayer_skus`；需与采集程序联调刷新节奏 |
+| 2 | **卡牌基础表导入任务与刷新频率** | 搜索、价格、Trending 非置顶、成交记录降级口径 | 当前数据源为同一个 D1 中的 `cards_all` / `games` / `sets` / `tcg_price`；需与采集程序联调刷新节奏 |
 | 3 | **Apple / Google OAuth 开发者账号与凭证** | Auth 第三方登录（Apple Login、Google OAuth） | 文档写流程，凭证待开发者账号配置后填入；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #4 |
 | 4 | **邮件服务 Resend vs SES 最终选择** | 验证码发送、找回密码 | 默认 Resend，最终选型根据发送量和成本确认；见 [spec](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §6 #3 |

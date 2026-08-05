@@ -125,7 +125,7 @@
 
 ## 4. M2 数据代理层
 
-**目标**：实现 Workers 数据代理层，对接当前项目 D1 中的卡牌基础数据表（`cards_all` / `games` / `sets` / `tcgplayer_skus`），提供搜索、详情、价格、Trending 置顶、成交记录降级等接口，并实现 KV/Cache 缓存与降级逻辑。基础数据由外部采集程序写入，Workers 只读查询。
+**目标**：实现 Workers 数据代理层，对接当前项目 D1 中的卡牌基础数据表（`cards_all` / `games` / `sets` / `tcg_price`），提供搜索、详情、价格、Trending 置顶、成交记录降级等接口，并实现 KV/Cache 缓存与降级逻辑。基础数据由外部采集程序写入，Workers 只读查询。
 
 **依赖里程碑**：M0
 
@@ -134,7 +134,7 @@
 | # | 任务 | 说明 |
 |---|---|---|
 | M2-1 | `DataSourceAdapter` 抽象层 | 可插拔适配器接口：`searchCards` / `getCard` / `getPriceSeries` / `getMarketPrices` / `getTrending` / `getSoldListings`；参见 [`third-party.md`](../03-data-api/third-party.md) |
-| M2-2 | D1 卡牌基础数据适配实现 | 整合 `cards_basic_information_ddl.md` 的 `cards_all` / `games` / `sets` / `tcgplayer_skus` 到当前 D1，并实现只读 `DataSourceAdapter` |
+| M2-2 | D1 卡牌基础数据适配实现 | 对接当前 D1 的 `cards_all` / `games` / `sets` / `tcg_price`，并实现只读 `DataSourceAdapter` |
 | M2-3 | Workers KV 缓存层 | searchCards（TTL 1h）、trending（TTL 15min）；参见 [`tech-stack.md §2.4`](../02-architecture/tech-stack.md) |
 | M2-4 | Cache API 缓存层 | market-prices / price-series / sold-listings（TTL 30min）；参见 [`tech-stack.md §2.4`](../02-architecture/tech-stack.md) |
 | M2-5 | 降级兜底逻辑 | D1 基础表读取和缓存均失败时返回空数组或 404；客户端展示 "No content available"（见 [`api-spec.md §4`](../03-data-api/api-spec.md) 各端点降级说明） |
@@ -145,7 +145,7 @@
 ### 验收标准
 
 - 使用 D1 卡牌基础数据适配器时，`GET /cards/search?q=charizard` 从 `cards_all` 返回结构化 JSON，分页正确。
-- `GET /cards/{card_ref}/market-prices` 和 `price-series` 从 `tcgplayer_skus.price_history` 解析价格历史。
+- `GET /cards/{card_ref}/market-prices` 和 `price-series` 从 `tcg_price.price_Ungraded` 及对应评级 `price_*` 字段解析价格历史。
 - 缓存命中时不再重复查询基础表（可通过日志或测试用例验证）。
 - 基础表读取失败时接口仍按约定降级，无 500 崩溃。
 - `card_override` 有记录的 card_ref 返回的数据中 `override_applied: true`，字段已合并。
@@ -337,7 +337,7 @@
 |---|---|---|
 | M8-1 | OAuth 凭证填入 | Apple Service ID / Team ID / Key ID + Google OAuth Client ID / Secret 真实值配置到 Workers 环境变量（解除 TBD M1-B）；参见 [`api-spec.md §6 #1`](../03-data-api/api-spec.md) |
 | M8-2 | 邮件服务上线 | 选定 Resend 或 SES，配置 API Key，端到端验证验证码邮件发送（解除 TBD M1-A）；参见 [`tech-stack.md §2.6`](../02-architecture/tech-stack.md) |
-| M8-3 | 卡牌基础数据导入联调 | 确认外部采集程序已将 `cards_all` / `games` / `sets` / `tcgplayer_skus` 写入当前 D1（解除 TBD M2-A）；验证搜索/价格/Trending 置顶真实数据返回 |
+| M8-3 | 卡牌基础数据导入联调 | 确认外部采集程序已将 `cards_all` / `games` / `sets` / `tcg_price` 写入当前 D1（解除 TBD M2-A）；验证搜索/价格/Trending 置顶真实数据返回 |
 | M8-4 | 汇率接口接入 | 接入选定汇率提供方（解除 TBD M2-B）；验证货币换算展示正确 |
 | M8-5 | 协议链接配置 | 将 `terms_url` / `privacy_url` / `app_store_url` 真实值写入 `app_config`（解除 TBD M6-A）；参见 [`api-spec.md §6 #7`](../03-data-api/api-spec.md) |
 | M8-6 | Restore 按钮审核决策 | 确认 App Store 审核是否要求保留 Restore 恢复购买按钮（解除 TBD M6-B）；按审核结果处理（见 [`overview.md §4.3`](../00-product/overview.md)） |
@@ -401,7 +401,7 @@ M0 → M1 → M3 → M4 → M8 是最长依赖链，任何一环延误将直接�
 |---|---|---|---|
 | TBD M1-A | 邮件服务提供商（Resend / SES）账号与 API Key | M1、M8 | 开发可 Mock；M8 前须选定并接入；见 [`tech-stack.md §2.6`](../02-architecture/tech-stack.md)、[`api-spec.md §6 #2`](../03-data-api/api-spec.md) |
 | TBD M1-B | Apple / Google OAuth 凭证 | M1、M8 | 开发可用测试凭证；M8 真机联调前须配置生产凭证；见 [`api-spec.md §6 #1`](../03-data-api/api-spec.md) |
-| TBD M2-A | 卡牌基础表导入任务与刷新频率 | M2、M8 | 外部采集程序需写入 `cards_all` / `games` / `sets` / `tcgplayer_skus`；影响目录完整性、价格历史新鲜度和 Trending 非置顶数据；见 [`third-party.md`](../03-data-api/third-party.md)、[`api-spec.md §6 #4`](../03-data-api/api-spec.md) |
+| TBD M2-A | 卡牌基础表导入任务与刷新频率 | M2、M8 | 外部采集程序需写入 `cards_all` / `games` / `sets` / `tcg_price`；影响目录完整性、价格历史新鲜度和 Trending 非置顶数据；见 [`third-party.md`](../03-data-api/third-party.md)、[`api-spec.md §6 #4`](../03-data-api/api-spec.md) |
 | TBD M2-B | 汇率接口提供方 | M2、M4、M8 | 开发可 Mock 汇率数据；M8 前须接入；见 [`api-spec.md §6 #3`](../03-data-api/api-spec.md)、[`tech-stack.md §3`](../02-architecture/tech-stack.md) |
 | TBD M2-C | 各代理接口最终 TTL | M2、M8 | 取决于基础表刷新频率；M8 前基于采集程序策略确认；见 [`api-spec.md §6 #9`](../03-data-api/api-spec.md) |
 | TBD M4-A | Scan 占位页最终文案 | M4 | 默认"扫描功能即将上线"，待确认；见 [`overview.md §5`](../00-product/overview.md) |

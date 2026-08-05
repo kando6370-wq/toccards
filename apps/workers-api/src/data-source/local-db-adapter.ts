@@ -19,7 +19,7 @@ type CardCatalogRow = {
   product_type_name: string | null;
 };
 
-type TcgplayerSkuRow = {
+type TcgPriceRow = {
   sku_id: number;
   product_id: string;
   condition_code: string | null;
@@ -37,12 +37,12 @@ type CardNumberRow = {
 };
 
 type TrendingRow = CardCatalogRow &
-  Omit<TcgplayerSkuRow, "product_id"> & {
+  Omit<TcgPriceRow, "product_id"> & {
     increase_rate: number;
   };
 
 type SkuPricingRow = Pick<
-  TcgplayerSkuRow,
+  TcgPriceRow,
   "variant_name" | "variant_code" | "language_name" | "language_code" | "price_history"
 >;
 
@@ -263,18 +263,6 @@ LIMIT ? OFFSET ?`,
     async getTrending(options) {
       const page = options?.page ?? 1;
       const pageSize = options?.page_size ?? 10;
-      const available = await db
-        .prepare(
-          `SELECT 1 AS has_trending
-FROM tcgplayer_skus INDEXED BY idx_tcgplayer_skus_increase_rate
-WHERE increase_rate IS NOT NULL
-LIMIT 1`,
-        )
-        .all<{ has_trending: number }>();
-      if ((available.results ?? []).length === 0) {
-        return [];
-      }
-
       const results = await db
         .prepare(
           `SELECT cards_all.product_id, cards_all.game_id, cards_all.game,
@@ -282,22 +270,24 @@ LIMIT 1`,
        cards_all.rarity, cards_all.product_type_name,
        sku.sku_id, sku.condition_code, sku.condition_name,
        sku.language_code, sku.language_name, sku.variant_code,
-       sku.variant_name, sku.price_history, sku.increase_rate
-FROM tcgplayer_skus AS sku
+       sku.variant_name, sku.price_Ungraded AS price_history,
+       sku.increase_Ungraded AS increase_rate
+FROM tcg_price AS sku INDEXED BY idx_tcg_price_increase_ungraded
 JOIN cards_all
   ON cards_all.product_id = sku.product_id
-WHERE sku.increase_rate IS NOT NULL
+WHERE sku.sku_id IS NOT NULL AND sku.increase_Ungraded IS NOT NULL
   AND NOT EXISTS (
     SELECT 1
-    FROM tcgplayer_skus AS better
+    FROM tcg_price AS better
     WHERE better.product_id = sku.product_id
-      AND better.increase_rate IS NOT NULL
+      AND better.sku_id IS NOT NULL
+      AND better.increase_Ungraded IS NOT NULL
       AND (
-        better.increase_rate > sku.increase_rate
-        OR (better.increase_rate = sku.increase_rate AND better.sku_id < sku.sku_id)
+        better.increase_Ungraded > sku.increase_Ungraded
+        OR (better.increase_Ungraded = sku.increase_Ungraded AND better.sku_id < sku.sku_id)
       )
   )
-ORDER BY sku.increase_rate DESC, sku.sku_id ASC
+ORDER BY sku.increase_Ungraded DESC, sku.sku_id ASC
 LIMIT ? OFFSET ?`,
         )
         .bind(pageSize, (page - 1) * pageSize)
@@ -332,7 +322,7 @@ LIMIT ? OFFSET ?`,
 
 function soldListingFromSku(
   card: CardCatalogRow,
-  sku: TcgplayerSkuRow,
+  sku: TcgPriceRow,
 ): SoldListing | null {
   const latest = latestPricePoint(parsePriceHistory(sku.price_history));
 
@@ -387,7 +377,7 @@ function isMissingCardNumberColumn(error: unknown): boolean {
 
 function cardWithSearchPricing(
   row: CardCatalogRow,
-  skus: TcgplayerSkuRow[],
+  skus: TcgPriceRow[],
   cardNumber: string,
 ): CardSearchResult {
   const card = cardFromRow(row, cardNumber);
@@ -450,22 +440,23 @@ async function findCardNumbersByProductId(
 async function findSkuRowsByProductId(
   db: D1Database,
   cardRefs: string[],
-): Promise<Map<string, TcgplayerSkuRow[]>> {
+): Promise<Map<string, TcgPriceRow[]>> {
   const productIds = cardRefs.filter((cardRef) => /^\d+$/.test(cardRef));
-  const skusByProductId = new Map<string, TcgplayerSkuRow[]>();
+  const skusByProductId = new Map<string, TcgPriceRow[]>();
   if (productIds.length === 0) return skusByProductId;
 
   const placeholders = productIds.map(() => "?").join(", ");
   const results = await db
     .prepare(
       `SELECT sku_id, product_id, condition_code, condition_name, language_code,
-              language_name, variant_code, variant_name, price_history
-       FROM tcgplayer_skus
-       WHERE product_id IN (${placeholders})
+              language_name, variant_code, variant_name,
+              price_Ungraded AS price_history
+       FROM tcg_price
+       WHERE sku_id IS NOT NULL AND product_id IN (${placeholders})
        ORDER BY product_id, language_code, variant_code, condition_code`,
     )
     .bind(...productIds)
-    .all<TcgplayerSkuRow>();
+    .all<TcgPriceRow>();
   for (const sku of results.results ?? []) {
     const productId = sku.product_id;
     const productSkus = skusByProductId.get(productId);
@@ -478,7 +469,7 @@ async function findSkuRowsByProductId(
   return skusByProductId;
 }
 
-function preferredSearchSku(rows: TcgplayerSkuRow[]): TcgplayerSkuRow | null {
+function preferredSearchSku(rows: TcgPriceRow[]): TcgPriceRow | null {
   return (
     [...rows]
       .filter((row) => parsePriceHistory(row.price_history).length > 0)
@@ -487,16 +478,16 @@ function preferredSearchSku(rows: TcgplayerSkuRow[]): TcgplayerSkuRow | null {
 }
 
 function uniqueSkuValues(
-  rows: TcgplayerSkuRow[],
-  valueOf: (row: TcgplayerSkuRow) => string | null,
+  rows: TcgPriceRow[],
+  valueOf: (row: TcgPriceRow) => string | null,
 ): string[] {
   return [...new Set(rows.map(valueOf).map((value) => value?.trim()).filter(
     (value): value is string => Boolean(value),
   ))].sort((left, right) => left.localeCompare(right));
 }
 
-function preferredMarketSkus(rows: TcgplayerSkuRow[]): TcgplayerSkuRow[] {
-  const rowsByCondition = new Map<string, TcgplayerSkuRow>();
+function preferredMarketSkus(rows: TcgPriceRow[]): TcgPriceRow[] {
+  const rowsByCondition = new Map<string, TcgPriceRow>();
 
   for (const row of rows) {
     if (parsePriceHistory(row.price_history).length === 0) {
@@ -524,7 +515,7 @@ function preferredMarketSkus(rows: TcgplayerSkuRow[]): TcgplayerSkuRow[] {
   );
 }
 
-function marketConditionRank(row: TcgplayerSkuRow): number {
+function marketConditionRank(row: TcgPriceRow): number {
   switch ((row.condition_code ?? "").trim().toUpperCase()) {
     case "NM":
       return 0;
@@ -541,7 +532,7 @@ function marketConditionRank(row: TcgplayerSkuRow): number {
   }
 }
 
-function searchSkuRank(row: TcgplayerSkuRow): number {
+function searchSkuRank(row: TcgPriceRow): number {
   return (
     (row.condition_code === "NM" ? 0 : 100) +
     (row.language_code === "EN" ? 0 : 10) +
@@ -550,8 +541,8 @@ function searchSkuRank(row: TcgplayerSkuRow): number {
 }
 
 function compareSkuPreference(
-  left: TcgplayerSkuRow,
-  right: TcgplayerSkuRow,
+  left: TcgPriceRow,
+  right: TcgPriceRow,
 ): number {
   return (
     searchSkuRank(left) - searchSkuRank(right) ||
@@ -561,8 +552,8 @@ function compareSkuPreference(
 }
 
 function isFresherSku(
-  candidate: TcgplayerSkuRow,
-  current: TcgplayerSkuRow,
+  candidate: TcgPriceRow,
+  current: TcgPriceRow,
 ): boolean {
   const candidateDate = latestPriceDate(candidate);
   const currentDate = latestPriceDate(current);
@@ -570,14 +561,14 @@ function isFresherSku(
     (candidateDate === currentDate && candidate.sku_id < current.sku_id);
 }
 
-function latestPriceDate(row: TcgplayerSkuRow): string {
+function latestPriceDate(row: TcgPriceRow): string {
   return latestPricePoint(parsePriceHistory(row.price_history))?.date ?? "";
 }
 
 async function findSkuRows(
   db: D1Database,
   cardRef: string,
-): Promise<TcgplayerSkuRow[]> {
+): Promise<TcgPriceRow[]> {
   if (!/^\d+$/.test(cardRef)) {
     return [];
   }
@@ -585,13 +576,14 @@ async function findSkuRows(
   const results = await db
     .prepare(
       `SELECT sku_id, product_id, condition_code, condition_name, language_code,
-              language_name, variant_code, variant_name, price_history
-       FROM tcgplayer_skus
-       WHERE product_id = ?
+              language_name, variant_code, variant_name,
+              price_Ungraded AS price_history
+       FROM tcg_price
+       WHERE sku_id IS NOT NULL AND product_id = ?
        ORDER BY language_code, variant_code, condition_code`,
     )
     .bind(cardRef)
-    .all<TcgplayerSkuRow>();
+    .all<TcgPriceRow>();
 
   return results.results ?? [];
 }
@@ -607,17 +599,17 @@ async function findGradedMarketPrices(
   try {
     const results = await db
       .prepare(
-        `SELECT pricecharting_id, product_sub_type,
+        `SELECT DISTINCT pricecharting_id, variant_name AS product_sub_type,
                 price_Ungraded, increase_Ungraded,
                 price_Grade_7, price_Grade_8, price_Grade_9, price_Grade_9_5,
                 price_PSA_10, price_BGS_10, price_CGC_10, price_SGC_10,
                 increase_Grade_7, increase_Grade_8, increase_Grade_9,
                 increase_Grade_9_5, increase_PSA_10, increase_BGS_10,
                 increase_CGC_10, increase_SGC_10
-         FROM tcg_price_history
+         FROM tcg_price
          WHERE product_id = ?
-           AND (? IS NULL OR lower(trim(product_sub_type)) = lower(trim(?)))
-         ORDER BY product_sub_type, pricecharting_id`,
+           AND (? IS NULL OR lower(trim(variant_name)) = lower(trim(?)))
+         ORDER BY variant_name, pricecharting_id`,
       )
       .bind(cardRef, finish ?? null, finish ?? null)
       .all<TcgPriceHistoryRow>();
@@ -655,9 +647,9 @@ async function findGradedMarketPrices(
 }
 
 function filterSkusByFinish(
-  rows: TcgplayerSkuRow[],
+  rows: TcgPriceRow[],
   finish?: string | null,
-): TcgplayerSkuRow[] {
+): TcgPriceRow[] {
   const normalized = finish?.trim().toLowerCase();
   if (!normalized) return rows;
   return rows.filter((row) =>
@@ -716,11 +708,12 @@ async function findPriceHistoryRows(
   if (!/^\d+$/.test(cardRef)) return [];
   try {
     const result = await db.prepare(
-      `SELECT pricecharting_id, product_sub_type, price_Ungraded, increase_Ungraded
-       FROM tcg_price_history
+      `SELECT DISTINCT pricecharting_id, variant_name AS product_sub_type,
+              price_Ungraded, increase_Ungraded
+       FROM tcg_price
        WHERE product_id = ?
-         AND (? IS NULL OR lower(trim(product_sub_type)) = lower(trim(?)))
-       ORDER BY product_sub_type, pricecharting_id`,
+         AND (? IS NULL OR lower(trim(variant_name)) = lower(trim(?)))
+       ORDER BY variant_name, pricecharting_id`,
     ).bind(cardRef, finish ?? null, finish ?? null).all<TcgPriceHistoryRow>();
     return (result.results ?? []).filter((row) => historyMatchesFinish(row, finish));
   } catch (error) {
@@ -844,7 +837,7 @@ function filterPointsByDays(
 }
 
 function skuMatchesCondition(
-  row: TcgplayerSkuRow,
+  row: TcgPriceRow,
   condition: string,
 ): boolean {
   const normalized = condition.trim().toLowerCase();

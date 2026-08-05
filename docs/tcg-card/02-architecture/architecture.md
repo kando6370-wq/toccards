@@ -48,7 +48,7 @@ Workers 作为统一 API 网关（BFF），对内分两类职责：
 | 代理类型 | 说明 |
 |---|---|
 | 卡牌搜索 | 查询 `cards_all`，写 KV 缓存 |
-| 卡牌价格 | 从 `tcgplayer_skus.price_history` 解析 Raw / Sealed 价格，写 Cache API |
+| 卡牌价格 | 从 `tcg_price.price_Ungraded` 解析 Raw / Sealed 价格，并从对应 `price_*` 字段解析评级价格，写 Cache API |
 | Trending Today | 先查 `trending_pin` 并回查 `cards_all`，写 KV 缓存 |
 | 成交记录 | 当前基础表无真实成交记录，接口按空列表降级，写 Cache API |
 
@@ -60,7 +60,7 @@ Workers 作为统一 API 网关（BFF），对内分两类职责：
 
 ### 3.1 D1 卡牌基础数据层
 
-- **数据来源**：同一个 D1 数据库中的 `cards_all` / `games` / `sets` / `tcgplayer_skus`，由外部采集程序写入。
+- **数据来源**：同一个 D1 数据库中的 `cards_all` / `games` / `sets` / `tcg_price`，由外部采集程序写入。
 - **存储**：基础表长期存储在 D1；Workers KV / Cache API 只保存接口响应缓存。
 - **内容**：卡牌目录、SKU 维度价格历史；Trending 非置顶和成交记录若基础表无数据则按接口降级。
 - **性质**：只读，不允许 App 或管理后台写入

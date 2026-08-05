@@ -1122,7 +1122,7 @@ PATCH /preferences
 
 > 所有数据代理端点均经 Workers **适配层（DataSourceAdapter）+ 缓存**（KV / Cache API）读取当前 D1 中的卡牌基础数据表，不直连采集程序或外部数据源。端点可无 JWT 访问（仅需合法来源请求），但若携带 JWT，Workers 可根据账号偏好换算货币。
 >
-> 当前默认数据源：`cards_all` / `games` / `sets` / `tcgplayer_skus`。这些表由外部采集程序写入同一个 D1 数据库，Workers 只读查询。`card_ref` 统一使用 `cards_all.product_id`。
+> 当前默认数据源：`cards_all` / `games` / `sets` / `tcg_price`。这些表由外部采集程序写入同一个 D1 数据库，Workers 只读查询。`card_ref` 统一使用 `cards_all.product_id`。
 >
 > 缓存策略、TTL、降级行为见 [`third-party.md`](./third-party.md) §4、§5；占位展示文案见 `global-rules.md`。
 
@@ -1307,7 +1307,7 @@ Query 参数：
 |---|---|---|
 | `grader` | string | 必填；`Raw` \| `PSA` \| `BGS` \| `CGC` \| `SGC` \| `TAG` \| `AGS` |
 | `grade` | number | grader≠Raw 时必填 |
-| `condition` | string | grader=Raw 时必填（枚举来自 `tcgplayer_skus.condition_code` / `condition_name`） |
+| `condition` | string | grader=Raw 时必填（枚举来自 `tcg_price.condition_code` / `condition_name`） |
 | `days` | integer | 必填；`7` \| `30` \| `90` \| `180` \| `365` |
 
 > 缓存：Cache API，TTL 30 分钟（⚠️ TBD）。
@@ -2216,7 +2216,7 @@ GET /admin/scans/{scan_id}
 | 2 | 邮件服务提供商（Resend / SES） | §2.2、§2.5 |
 | 3 | 汇率接口提供方 | §4.8、§3.4.2（currency 枚举） |
 | 4 | 卡牌基础表导入任务与数据刷新频率 | 所有读取卡牌目录、价格历史和 card_ref 的端点 |
-| 5 | condition / finish 枚举合法值（取决于 `tcgplayer_skus` 实际枚举） | §3.2.2、§4.5 |
+| 5 | condition / finish 枚举合法值（取决于 `tcg_price` 实际枚举） | §3.2.2、§4.5 |
 | 6 | Admin Refresh Token 存储方案（复用 `session` 表 `owner_type='admin'` 或独立表，实现阶段确认） | §5.0.1–5.0.3 |
 | 7 | terms_url / privacy_url / app_store_url 实际值 | §5.3.1（app_config key） |
 | 8 | 资产隐私合规留存/清除策略（登录态删号 + 游客态 anonymous_account 删除统一口径） | §2.12 删除账号、profile §6.3 |

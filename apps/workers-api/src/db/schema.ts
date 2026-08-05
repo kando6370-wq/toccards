@@ -94,10 +94,12 @@ export const sets = sqliteTable(
   ],
 );
 
-export const tcgplayerSkus = sqliteTable(
-  "tcgplayer_skus",
+export const tcgPrice = sqliteTable(
+  "tcg_price",
   {
-    skuId: integer("sku_id").primaryKey(),
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    skuId: integer("sku_id"),
+    pricechartingId: text("pricecharting_id"),
     productId: text("product_id").notNull(),
     skuKey: text("sku_key").notNull(),
     conditionCode: text("condition_code"),
@@ -106,20 +108,36 @@ export const tcgplayerSkus = sqliteTable(
     languageName: text("language_name"),
     variantCode: text("variant_code"),
     variantName: text("variant_name"),
-    createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
-    priceHistory: text("price_history").notNull().default("[]"),
-    increaseRate: real("increase_rate"),
+    priceUngraded: text("price_Ungraded").notNull().default("[]"),
+    priceGrade7: text("price_Grade_7").notNull().default("[]"),
+    priceGrade8: text("price_Grade_8").notNull().default("[]"),
+    priceGrade9: text("price_Grade_9").notNull().default("[]"),
+    priceGrade95: text("price_Grade_9_5").notNull().default("[]"),
+    pricePsa10: text("price_PSA_10").notNull().default("[]"),
+    priceBgs10: text("price_BGS_10").notNull().default("[]"),
+    priceCgc10: text("price_CGC_10").notNull().default("[]"),
+    priceSgc10: text("price_SGC_10").notNull().default("[]"),
+    increaseUngraded: real("increase_Ungraded").notNull().default(0),
+    increaseGrade7: real("increase_Grade_7").notNull().default(0),
+    increaseGrade8: real("increase_Grade_8").notNull().default(0),
+    increaseGrade9: real("increase_Grade_9").notNull().default(0),
+    increaseGrade95: real("increase_Grade_9_5").notNull().default(0),
+    increasePsa10: real("increase_PSA_10").notNull().default(0),
+    increaseBgs10: real("increase_BGS_10").notNull().default(0),
+    increaseCgc10: real("increase_CGC_10").notNull().default(0),
+    increaseSgc10: real("increase_SGC_10").notNull().default(0),
   },
   (t) => [
-    index("idx_tcgplayer_skus_product_id").on(t.productId),
-    index("idx_tcgplayer_skus_lookup").on(
+    uniqueIndex("idx_tcg_price_sku_id").on(t.skuId),
+    index("idx_tcg_price_pricecharting_lookup").on(t.pricechartingId),
+    index("idx_tcg_price_product_id").on(t.productId),
+    index("idx_tcg_price_lookup").on(
       t.productId,
       t.languageCode,
       t.variantCode,
       t.conditionCode,
     ),
-    index("idx_tcgplayer_skus_increase_rate").on(t.increaseRate),
+    index("idx_tcg_price_increase_ungraded").on(t.increaseUngraded),
   ],
 );
 

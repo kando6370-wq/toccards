@@ -27,7 +27,7 @@ class FakeDb {
 }
 
 describe("portfolio valuation history", () => {
-  it("binds SKU product IDs as strings because tcgplayer_skus.product_id is TEXT", async () => {
+  it("binds SKU product IDs as strings because tcg_price.product_id is TEXT", async () => {
     const db = new FakeDb([], [], []);
 
     await loadSkus(db as unknown as D1Database, ["100", "200", "custom-card"]);
