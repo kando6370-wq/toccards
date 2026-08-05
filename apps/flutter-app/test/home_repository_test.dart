@@ -116,7 +116,7 @@ void main() {
   );
 
   test(
-    'Trending skips incomplete leaders before taking three because producer updates must not hide valid fallback cards',
+    'Trending skips incomplete and non-positive leaders before taking three because Home only previews daily gains',
     () async {
       final trending = await loadTrendingCards(_UpdatingTrendingApi());
 
@@ -364,6 +364,7 @@ class _UpdatingTrendingApi extends _CardDataApi {
       _trendingCard('updating-1', priceUsd: null),
       _trendingCard('updating-2', increaseRate: null),
       _trendingCard('updating-3', priceUsd: null),
+      _trendingCard('falling', increaseRate: -5),
       _trendingCard('valid-1'),
       _trendingCard('valid-2'),
       _trendingCard('valid-3'),

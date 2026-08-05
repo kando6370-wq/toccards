@@ -62,7 +62,14 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
           : await api.trendingCards();
       if (!mounted) return;
       setState(() {
-        final nextCards = rows.map(searchCardFromDto).toList();
+        final nextCards = rows
+            .where(
+              (row) =>
+                  row.priceChange1dPercent != null &&
+                  row.priceChange1dPercent! > 0,
+            )
+            .map((row) => searchCardFromDto(row, usePriceChange1dPercent: true))
+            .toList();
         _cards = replace ? nextCards : [..._cards, ...nextCards];
         _page = page;
         _hasMore = rows.length == kandoPageSize;

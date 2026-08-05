@@ -275,7 +275,7 @@ LIMIT ? OFFSET ?`,
 FROM tcg_price AS sku INDEXED BY idx_tcg_price_increase_ungraded
 JOIN cards_all
   ON cards_all.product_id = sku.product_id
-WHERE sku.sku_id IS NOT NULL AND sku.increase_Ungraded IS NOT NULL
+WHERE sku.sku_id IS NOT NULL AND sku.increase_Ungraded > 0
   AND NOT EXISTS (
     SELECT 1
     FROM tcg_price AS better
