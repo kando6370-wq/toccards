@@ -392,7 +392,7 @@ body {
 }
 
 .users-table-panel .ant-table-body {
-  height: clamp(220px, calc(100dvh - 390px), 520px);
+  height: clamp(220px, calc(100dvh - 470px), 520px);
 }
 
 .users-table-panel .ant-pagination {
