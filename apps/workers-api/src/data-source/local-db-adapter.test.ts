@@ -123,7 +123,9 @@ class FakeBoundStatement {
     }
     if (this.sql.includes("FROM tcg_price AS sku")) {
       const highestSkuByProduct = new Map<string, SkuRow>();
-      for (const sku of this.skus.filter((row) => row.increase_rate !== null)) {
+      for (const sku of this.skus.filter(
+        (row) => row.increase_rate !== null && row.increase_rate > 0,
+      )) {
         const productId = String(sku.product_id);
         const current = highestSkuByProduct.get(productId);
         if (
@@ -735,7 +737,7 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
-  it("ranks Trending Today by stored increase_Ungraded because Home must show the same SKU price it ranked", async () => {
+  it("ranks only positive Trending Today cards by stored increase_Ungraded because Home and View all share that daily metric", async () => {
     const db = new FakeCardDatabase(
         [
           card({ product_id: "100", name: "Small Mover" }),
@@ -811,11 +813,6 @@ describe("local D1 card data source adapter", () => {
         previous_30d_price_usd: 10,
         price_change_1d_percent: 5,
       },
-      {
-        card_ref: "400",
-        name: "Falling Card",
-        price_change_1d_percent: -20,
-      },
     ]);
     const trendingSql = db.preparedSql.find((sql) =>
       sql.includes("FROM tcg_price AS sku"),
@@ -826,6 +823,7 @@ describe("local D1 card data source adapter", () => {
     );
     expect(trendingSql).toContain("better.sku_id IS NOT NULL");
     expect(trendingSql).toContain("idx_tcg_price_increase_ungraded");
+    expect(trendingSql).toContain("sku.increase_Ungraded > 0");
     expect(trendingSql).not.toContain("CAST(");
   });
 });

@@ -1130,6 +1130,8 @@ void main() {
         closeTo(tester.getCenter(backButton).dy, 1),
       );
       expect(find.text('Live Trending'), findsOneWidget);
+      expect(find.text('+5.00%'), findsOneWidget);
+      expect(find.text('Falling Trending'), findsNothing);
       expect(
         tester.getSize(find.byKey(const Key('search-card-live-trending'))),
         const Size(170, 378),
@@ -1477,7 +1479,23 @@ class _TrendingCardDataApi
       imageUrl: null,
       rarity: 'Rare',
       priceUsd: 12,
+      previous30dPriceUsd: 1,
       priceChange1dPercent: 5,
+    ),
+    CardDataCardDto(
+      cardRef: 'falling-trending',
+      name: 'Falling Trending',
+      setName: 'Live Set',
+      setCode: 'LIVE',
+      cardNumber: '2',
+      finish: 'Normal',
+      language: 'English',
+      objectType: 'tcg',
+      imageUrl: null,
+      rarity: 'Rare',
+      priceUsd: 10,
+      previous30dPriceUsd: 20,
+      priceChange1dPercent: -5,
     ),
   ];
 

@@ -136,7 +136,10 @@ Future<List<TrendingCard>> loadTrendingCards(CardDataApi cardDataApi) async {
   final cards = await cardDataApi.trendingCards();
   return cards
       .where(
-        (card) => card.priceUsd != null && card.priceChange1dPercent != null,
+        (card) =>
+            card.priceUsd != null &&
+            card.priceChange1dPercent != null &&
+            card.priceChange1dPercent! > 0,
       )
       .take(3)
       .map(

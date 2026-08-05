@@ -34,6 +34,7 @@ class SearchCard {
     this.language,
     this.finish,
     this.imageUrl,
+    this.priceChange1dPercent,
   });
 
   final String id;
@@ -54,6 +55,7 @@ class SearchCard {
   final String? language;
   final String? finish;
   final String? imageUrl;
+  final double? priceChange1dPercent;
 
   bool get isCollected => quantity > 0;
 
@@ -67,6 +69,9 @@ class SearchCard {
   }
 
   String get changeText {
+    if (priceChange1dPercent != null) {
+      return MarketChange.fromPercent(priceChange1dPercent).percentText;
+    }
     return MarketChange.fromPrices(
       current: priceUsd,
       previous: previous30dPriceUsd,
@@ -106,6 +111,7 @@ class SearchCard {
       language: language,
       finish: finish,
       imageUrl: imageUrl,
+      priceChange1dPercent: priceChange1dPercent,
     );
   }
 }
