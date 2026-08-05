@@ -18,6 +18,7 @@ import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'support/in_memory_auth_storage.dart';
+import 'support/in_memory_portfolio_amount_hidden_storage.dart';
 import 'support/local_placeholder_auth_repository.dart';
 import 'support/mock_collection_repository.dart';
 import 'support/mock_card_detail_repository.dart';
@@ -378,10 +379,14 @@ void main() {
   });
 
   test(
-    'folder selection and amount visibility persist owner preferences because Home and Collection must stay in sync',
+    'folder selection stays remote while amount visibility persists locally',
     () async {
       final repository = _RecordingCollectionRepository();
-      final container = _collectionContainer(repository: repository);
+      final amountStorage = InMemoryPortfolioAmountHiddenStorage();
+      final container = _collectionContainer(
+        repository: repository,
+        amountStorage: amountStorage,
+      );
       addTearDown(container.dispose);
       await _loadedState(container);
       final controller = container.read(collectionControllerProvider.notifier);
@@ -390,7 +395,8 @@ void main() {
       expect(await controller.toggleAmountHidden(), isTrue);
 
       expect(repository.selectedFolderIds, ['sealed']);
-      expect(repository.amountHiddenValues, [true]);
+      expect(repository.amountHiddenValues, isEmpty);
+      expect(amountStorage.writes, [true]);
       final state = container.read(collectionControllerProvider);
       expect(state.selectedFolder.id, 'sealed');
       expect(state.amountHidden, isTrue);
@@ -507,7 +513,7 @@ void main() {
   );
 
   test(
-    'preference write failure rolls back state because local success must not disagree with Workers',
+    'remote preference failure only rolls back settings that still use the backend',
     () async {
       final repository = _RecordingCollectionRepository(failPreferences: true);
       final container = _collectionContainer(repository: repository);
@@ -516,11 +522,11 @@ void main() {
       final controller = container.read(collectionControllerProvider.notifier);
 
       expect(await controller.selectFolder('sealed'), isFalse);
-      expect(await controller.toggleAmountHidden(), isFalse);
+      expect(await controller.toggleAmountHidden(), isTrue);
 
       final state = container.read(collectionControllerProvider);
       expect(state.selectedFolder.id, 'main');
-      expect(state.amountHidden, isFalse);
+      expect(state.amountHidden, isTrue);
       expect(container.read(selectedPortfolioFolderProvider), 'main');
     },
   );
@@ -706,6 +712,7 @@ ProviderContainer _collectionContainer({
   CollectionRepository repository = const MockCollectionRepository(),
   bool includeFolderConsumers = false,
   HomeRepository homeRepository = const MockHomeRepository(),
+  InMemoryPortfolioAmountHiddenStorage? amountStorage,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -715,6 +722,9 @@ ProviderContainer _collectionContainer({
         LocalPlaceholderAuthRepository(storage),
       ),
       collectionRepositoryProvider.overrideWithValue(repository),
+      portfolioAmountHiddenStorageProvider.overrideWithValue(
+        amountStorage ?? InMemoryPortfolioAmountHiddenStorage(),
+      ),
       if (includeFolderConsumers) ...[
         homeRepositoryProvider.overrideWithValue(homeRepository),
         cardDetailRepositoryProvider.overrideWithValue(

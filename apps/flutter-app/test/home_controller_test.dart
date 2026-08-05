@@ -17,6 +17,7 @@ import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'support/in_memory_auth_storage.dart';
+import 'support/in_memory_portfolio_amount_hidden_storage.dart';
 import 'support/local_placeholder_auth_repository.dart';
 import 'support/mock_home_repository.dart';
 
@@ -295,6 +296,55 @@ void main() {
     expect(state.formatCardPrice(8640), r'$8,640.00');
   });
 
+  test('preloaded local visibility overrides the dashboard preference', () {
+    final container = _homeContainer(
+      const MockHomeRepository(),
+      initialAmountHidden: true,
+    );
+    addTearDown(container.dispose);
+
+    final state = container.read(homeControllerProvider);
+    expect(state.dashboard.amountHidden, isFalse);
+    expect(state.amountHidden, isTrue);
+    expect(state.totalAmountText, hiddenMoneyText);
+  });
+
+  test(
+    'local amount visibility wins when an older Home refresh finishes later',
+    () async {
+      final repository = _BlockingRefreshHomeRepository();
+      final amountStorage = InMemoryPortfolioAmountHiddenStorage();
+      final storage = InMemoryAuthStorage();
+      final container = ProviderContainer(
+        overrides: [
+          authStorageProvider.overrideWithValue(storage),
+          authRepositoryProvider.overrideWithValue(
+            LocalPlaceholderAuthRepository(storage),
+          ),
+          homeRepositoryProvider.overrideWithValue(repository),
+          portfolioManagementApiProvider.overrideWithValue(
+            const _TestPortfolioManagementApi(),
+          ),
+          portfolioAmountHiddenStorageProvider.overrideWithValue(amountStorage),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+      await container.read(homeControllerProvider.notifier).coreLoadComplete;
+
+      final controller = container.read(homeControllerProvider.notifier);
+      final refresh = controller.refreshSilently();
+      expect(await controller.toggleAmountHidden(), isTrue);
+      expect(container.read(homeControllerProvider).amountHidden, isTrue);
+
+      repository.completeRefresh();
+      await refresh;
+
+      expect(container.read(homeControllerProvider).amountHidden, isTrue);
+      expect(amountStorage.writes, [true]);
+    },
+  );
+
   test(
     'empty folder most valuable price stays a card placeholder when totals are hidden',
     () async {
@@ -477,6 +527,7 @@ ProviderContainer _homeContainer(
   HomeRepository repository, {
   CurrencyRateApi currencyRateApi = const _TestCurrencyRateApi(),
   CardDataApi? cardDataApi,
+  bool initialAmountHidden = false,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -492,6 +543,12 @@ ProviderContainer _homeContainer(
         cardDataApiClientProvider.overrideWithValue(cardDataApi),
       portfolioManagementApiProvider.overrideWithValue(
         const _TestPortfolioManagementApi(),
+      ),
+      portfolioAmountHiddenStorageProvider.overrideWithValue(
+        InMemoryPortfolioAmountHiddenStorage(),
+      ),
+      initialPortfolioAmountHiddenProvider.overrideWithValue(
+        initialAmountHidden,
       ),
     ],
   );
@@ -683,5 +740,21 @@ class _SuccessfulThenFailingHomeRepository implements HomeRepository {
       return const MockHomeRepository().loadDashboard();
     }
     throw StateError('mock home unavailable');
+  }
+}
+
+class _BlockingRefreshHomeRepository implements HomeRepository {
+  final refreshResult = Completer<HomeDashboard>();
+  var calls = 0;
+
+  @override
+  FutureOr<HomeDashboard> loadDashboard() {
+    calls += 1;
+    if (calls == 1) return mockHomeDashboard;
+    return refreshResult.future;
+  }
+
+  void completeRefresh() {
+    refreshResult.complete(mockHomeDashboard);
   }
 }

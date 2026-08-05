@@ -483,8 +483,7 @@ class CollectionController extends Notifier<CollectionState> {
             : dashboard.folders.any((folder) => folder.id == sharedFolderId)
             ? sharedFolderId!
             : dashboard.defaultFolder.id;
-        final amountHidden =
-            ref.read(portfolioAmountHiddenProvider) ?? dashboard.amountHidden;
+        final amountHidden = ref.read(portfolioAmountHiddenProvider) ?? false;
         final initialSort = preserveState == null
             ? ref.read(collectionInitialSortProvider) ?? CollectionSort.newest
             : null;
@@ -802,18 +801,25 @@ class CollectionController extends Notifier<CollectionState> {
     }
 
     final previous = state.amountHidden;
-    state = state.copyWith(amountHidden: !previous);
-    try {
-      final session = ref.read(authControllerProvider).session!;
-      await ref
-          .read(collectionRepositoryProvider)
-          .updatePreferences(session, amountHidden: !previous);
-      ref.read(portfolioAmountHiddenProvider.notifier).select(!previous);
-      return true;
-    } catch (_) {
+    final next = !previous;
+    state = state.copyWith(amountHidden: next);
+    final saved = await ref
+        .read(portfolioAmountHiddenProvider.notifier)
+        .select(next);
+    // Backend persistence is intentionally disabled while visibility is local.
+    // try {
+    //   final session = ref.read(authControllerProvider).session!;
+    //   await ref
+    //       .read(collectionRepositoryProvider)
+    //       .updatePreferences(session, amountHidden: next);
+    // } catch (_) {
+    //   state = state.copyWith(amountHidden: previous);
+    //   return false;
+    // }
+    if (!saved && state.amountHidden == next) {
       state = state.copyWith(amountHidden: previous);
-      return false;
     }
+    return saved;
   }
 
   void _invalidateFolderDetails() {

@@ -123,7 +123,7 @@ void main() {
     },
   );
 
-  testWidgets('guide media starts below the top safe area', (tester) async {
+  testWidgets('guide media extends behind the top safe area', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     tester.view.padding = const FakeViewPadding(left: 19, top: 47, right: 23);
@@ -135,7 +135,8 @@ void main() {
       of: find.byKey(const ValueKey('onboarding-media-placeholder-0')),
       matching: find.byType(Image),
     );
-    expect(tester.getTopLeft(media), const Offset(0, 47));
+    expect(tester.getTopLeft(media), Offset.zero);
+    expect(tester.getSize(media), const Size(390, 563));
   });
 
   testWidgets(
