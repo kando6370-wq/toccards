@@ -171,6 +171,15 @@ void main() {
     expect(find.text('MAX'), findsNothing);
     expect(find.text('30D'), findsNothing);
     expect(find.text('30 days ago'), findsOneWidget);
+    final middleAxisLabel = tester.widget<Text>(
+      find.byKey(const Key('card-detail-price-axis-middle')),
+    );
+    expect(
+      middleAxisLabel.data,
+      isEmpty,
+      reason:
+          'Two-point series must not duplicate an endpoint or show a price.',
+    );
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
@@ -887,6 +896,14 @@ void main() {
     expect(find.text('Shop'), findsOneWidget);
     expect(find.text('Ungraded'), findsOneWidget);
     expect(find.text(r'$215.00'), findsWidgets);
+    final middleAxisLabel = tester.widget<Text>(
+      find.byKey(const Key('card-detail-price-axis-middle')),
+    );
+    expect(
+      middleAxisLabel.data,
+      '14 days ago',
+      reason: 'The middle x-axis label represents the middle point date.',
+    );
 
     final psaCategory = find.byKey(
       const Key('card-detail-market-category-psa'),

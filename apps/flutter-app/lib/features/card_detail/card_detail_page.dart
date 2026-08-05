@@ -3132,12 +3132,11 @@ class _PriceOverview extends ConsumerWidget {
                       style: _kFieldLabelStyle.copyWith(fontSize: 10),
                     ),
                     Text(
-                      state.priceSeriesRows.last.priceText,
-                      style: const TextStyle(
-                        color: KandoColors.accent,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      pricePoints.length >= 3
+                          ? pricePoints[pricePoints.length ~/ 2].dateLabel
+                          : '',
+                      key: const Key('card-detail-price-axis-middle'),
+                      style: _kFieldLabelStyle.copyWith(fontSize: 10),
                     ),
                     Text(
                       pricePoints.last.dateLabel,
