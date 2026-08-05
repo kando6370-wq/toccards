@@ -110,7 +110,10 @@ class FakeBoundStatement {
   ) {}
 
   async all<T>(): Promise<{ results: T[] }> {
-    if (this.sql.includes("FROM tcg_price_history")) {
+    if (
+      this.sql.includes("price_Grade_7") ||
+      this.sql.includes("SELECT DISTINCT pricecharting_id")
+    ) {
       const productId = String(this.values[0]);
       return {
         results: this.priceHistories.filter(
@@ -118,14 +121,7 @@ class FakeBoundStatement {
         ) as T[],
       };
     }
-    if (this.sql.includes("SELECT 1 AS has_trending")) {
-      const results = this.skus.some((row) => row.increase_rate !== null)
-        ? [{ has_trending: 1 }]
-        : [];
-      return { results: results as T[] };
-    }
-
-    if (this.sql.includes("FROM tcgplayer_skus AS sku")) {
+    if (this.sql.includes("FROM tcg_price AS sku")) {
       const highestSkuByProduct = new Map<string, SkuRow>();
       for (const sku of this.skus.filter((row) => row.increase_rate !== null)) {
         const productId = String(sku.product_id);
@@ -256,7 +252,7 @@ class FakeBoundStatement {
       return { results: this.cards as T[] };
     }
 
-    if (this.sql.includes("FROM tcgplayer_skus")) {
+    if (this.sql.includes("FROM tcg_price")) {
       const productIds = new Set(this.values.map(String));
       return {
         results: this.skus.filter((sku) =>
@@ -352,7 +348,7 @@ describe("local D1 card data source adapter", () => {
     });
   });
 
-  it("parses tcgplayer_skus price_history with JSON because price strings must become numeric market data", async () => {
+  it("parses tcg_price price_Ungraded with JSON because price strings must become numeric market data", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [card({ product_id: "100", name: "Charizard" })],
@@ -386,7 +382,7 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
-  it("adds only real graded history while raw pricing stays on tcgplayer_skus", async () => {
+  it("adds only real graded history while raw pricing stays on tcg_price.price_Ungraded", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [card({ product_id: "100", name: "Charizard" })],
@@ -739,7 +735,7 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
-  it("ranks Trending Today by non-null stored SKU increase because Home must show the same SKU price it ranked", async () => {
+  it("ranks Trending Today by stored increase_Ungraded because Home must show the same SKU price it ranked", async () => {
     const db = new FakeCardDatabase(
         [
           card({ product_id: "100", name: "Small Mover" }),
@@ -822,28 +818,15 @@ describe("local D1 card data source adapter", () => {
       },
     ]);
     const trendingSql = db.preparedSql.find((sql) =>
-      sql.includes("FROM tcgplayer_skus AS sku"),
+      sql.includes("FROM tcg_price AS sku"),
     );
     expect(trendingSql).toContain("NOT EXISTS");
     expect(trendingSql).toContain(
       "cards_all.product_id = sku.product_id",
     );
+    expect(trendingSql).toContain("better.sku_id IS NOT NULL");
+    expect(trendingSql).toContain("idx_tcg_price_increase_ungraded");
     expect(trendingSql).not.toContain("CAST(");
-  });
-
-  it("returns empty Trending without the ranking scan because an unfinished producer leaves increase_rate null", async () => {
-    const db = new FakeCardDatabase(
-      [card({ product_id: "100" })],
-      [sku({ product_id: "100", increase_rate: null })],
-    );
-    const adapter = createLocalDbDataSourceAdapter(
-      db as unknown as D1Database,
-    );
-
-    await expect(adapter.getTrending()).resolves.toEqual([]);
-    expect(db.preparedSql).toHaveLength(1);
-    expect(db.preparedSql[0]).toContain("idx_tcgplayer_skus_increase_rate");
-    expect(db.preparedSql[0]).not.toContain("WITH ranked_skus AS");
   });
 });
 

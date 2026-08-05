@@ -3031,7 +3031,6 @@ class _PriceOverview extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pricePoints = state.selectedPriceSeries;
     final chartSeries = [
       for (
         var index = 0;
@@ -3122,30 +3121,6 @@ class _PriceOverview extends ConsumerWidget {
                       )
                     : _InteractivePriceChart(series: chartSeries),
               ),
-              if (pricePoints.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      pricePoints.first.dateLabel,
-                      style: _kFieldLabelStyle.copyWith(fontSize: 10),
-                    ),
-                    Text(
-                      state.priceSeriesRows.last.priceText,
-                      style: const TextStyle(
-                        color: KandoColors.accent,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      pricePoints.last.dateLabel,
-                      style: _kFieldLabelStyle.copyWith(fontSize: 10),
-                    ),
-                  ],
-                ),
-              ],
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3272,11 +3247,12 @@ class _FinishTabs extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              finish.toLowerCase().contains('foil')
-                                  ? Icons.auto_awesome_outlined
-                                  : Icons.crop_portrait_outlined,
-                              size: 16,
+                            _FinishIcon(
+                              key: Key('card-detail-finish-icon-$finish'),
+                              pattern: _finishIconPattern(
+                                finish,
+                                randomize: finishes.length > 2,
+                              ),
                               color: finish == selected
                                   ? KandoColors.accent
                                   : KandoColors.mutedText,
@@ -3305,6 +3281,60 @@ class _FinishTabs extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+enum _FinishIconPattern { circle, heart, diamond, sparkle }
+
+_FinishIconPattern _finishIconPattern(
+  String finish, {
+  required bool randomize,
+}) {
+  if (!randomize) {
+    return finish.toLowerCase().contains('foil')
+        ? _FinishIconPattern.heart
+        : _FinishIconPattern.circle;
+  }
+
+  final hash = finish.codeUnits.fold<int>(
+    0,
+    (value, codeUnit) => (value * 31 + codeUnit) & 0x7fffffff,
+  );
+  return _FinishIconPattern.values[hash % _FinishIconPattern.values.length];
+}
+
+class _FinishIcon extends StatelessWidget {
+  const _FinishIcon({super.key, required this.pattern, required this.color});
+
+  final _FinishIconPattern pattern;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (pattern) {
+      _FinishIconPattern.circle => Icons.circle_outlined,
+      _FinishIconPattern.heart => Icons.favorite,
+      _FinishIconPattern.diamond => Icons.diamond,
+      _FinishIconPattern.sparkle => Icons.auto_awesome,
+    };
+
+    return SizedBox.square(
+      dimension: 16,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 10.5,
+            height: 14,
+            decoration: BoxDecoration(
+              border: Border.all(color: color, width: 0.875),
+              borderRadius: BorderRadius.circular(1.5),
+            ),
+          ),
+          Icon(icon, size: 5.5, color: color),
+        ],
       ),
     );
   }

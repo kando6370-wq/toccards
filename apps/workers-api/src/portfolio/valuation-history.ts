@@ -243,8 +243,10 @@ export async function loadSkus(db: D1Database, cardRefs: string[]): Promise<SkuR
     const result = await db
       .prepare(
         `SELECT sku_id, product_id, condition_code, condition_name, language_code,
-          language_name, variant_code, variant_name, price_history
-         FROM tcgplayer_skus WHERE product_id IN (${placeholders})`,
+          language_name, variant_code, variant_name,
+          price_Ungraded AS price_history
+         FROM tcg_price
+         WHERE sku_id IS NOT NULL AND product_id IN (${placeholders})`,
       )
       .bind(...chunk)
       .all<SkuRow>();

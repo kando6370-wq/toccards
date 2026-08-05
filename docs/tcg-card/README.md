@@ -128,7 +128,7 @@ docs/tcg-card/
 
 | 编号 | 待定项 | 影响文档 | 决策方 |
 |---|---|---|---|
-| TBD-14 | condition / finish 枚举合法值（取决于 `tcgplayer_skus` 实际枚举） | `api-spec.md §3.2.2`、`third-party.md §4` | 研发（采集数据稳定后确认） |
+| TBD-14 | condition / finish 枚举合法值（取决于 `tcg_price` 实际枚举） | `api-spec.md §3.2.2`、`third-party.md §4` | 研发（采集数据稳定后确认） |
 | TBD-15 | 各代理接口最终 TTL（取决于基础表刷新频率） | `api-spec.md §4.1–§4.7`、`third-party.md §5` | 研发（采集策略确认后调整） |
 | TBD-16 | Workers KV / Cache API TTL 最终值 | `architecture.md §4.3` | 研发 |
 | TBD-17 | TS→Dart 类型共享工具选型（JSON Schema / OpenAPI 代码生成） | `monorepo.md §六` | 研发 |

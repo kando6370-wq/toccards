@@ -37,6 +37,14 @@ void main() {
       expect(normalTab, findsOneWidget);
       expect(foilTab, findsOneWidget);
       expect(
+        find.byKey(const Key('card-detail-finish-icon-Normal')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-finish-icon-Foil')),
+        findsOneWidget,
+      );
+      expect(
         tester
             .getTopLeft(find.byKey(const Key('card-detail-price-heading')))
             .dy,
@@ -51,6 +59,25 @@ void main() {
 
       expect(repository.requestedFinishes.last, 'Foil');
       expect(find.text(r'$20.00'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'more than two Finish tabs generate a center pattern per finish',
+    (tester) async {
+      final repository = _FinishTabCardDetailRepository(
+        finishes: const ['Normal', 'Foil', 'Holofoil'],
+      );
+      await tester.pumpWidget(
+        _CardDetailTestApp(cardId: '180865', repository: repository),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-finish-icon-Holofoil')),
+        findsOneWidget,
+        reason: 'Every finish needs a stable generated center pattern.',
+      );
     },
   );
 
@@ -170,8 +197,8 @@ void main() {
     expect(find.text('12M'), findsNothing);
     expect(find.text('MAX'), findsNothing);
     expect(find.text('30D'), findsNothing);
-    expect(find.text('30 days ago'), findsOneWidget);
-    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('30 days ago'), findsNothing);
+    expect(find.text('Today'), findsNothing);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
     expect(find.text('Ungraded'), findsOneWidget);
@@ -887,6 +914,9 @@ void main() {
     expect(find.text('Shop'), findsOneWidget);
     expect(find.text('Ungraded'), findsOneWidget);
     expect(find.text(r'$215.00'), findsWidgets);
+    expect(find.text('30 days ago'), findsNothing);
+    expect(find.text('14 days ago'), findsNothing);
+    expect(find.text('Today'), findsNothing);
 
     final psaCategory = find.byKey(
       const Key('card-detail-market-category-psa'),
@@ -933,8 +963,8 @@ void main() {
     await tester.tap(find.text('3M'));
     await tester.pumpAndSettle();
 
-    expect(find.text('90 days ago'), findsOneWidget);
-    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('90 days ago'), findsNothing);
+    expect(find.text('Today'), findsNothing);
     expect(find.text(r'$780.00'), findsWidgets);
     expect(find.text('Shop'), findsOneWidget);
   });
@@ -1425,6 +1455,9 @@ class _CardDetailTestApp extends StatelessWidget {
 
 class _FinishTabCardDetailRepository extends MockCardDetailRepository
     implements CardDetailSectionRepository {
+  _FinishTabCardDetailRepository({this.finishes = const ['Normal', 'Foil']});
+
+  final List<String> finishes;
   final List<String?> requestedFinishes = [];
 
   @override
@@ -1438,7 +1471,7 @@ class _FinishTabCardDetailRepository extends MockCardDetailRepository
       identityLine: '#180865',
       finish: 'Normal',
       language: 'English',
-      availableFinishes: ['Normal', 'Foil'],
+      availableFinishes: finishes,
       quantity: 0,
       isWishlisted: false,
       marketPrices: [

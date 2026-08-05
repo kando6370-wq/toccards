@@ -18,11 +18,13 @@ import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
+import '../support/in_memory_portfolio_amount_hidden_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';
@@ -428,7 +430,7 @@ void main() {
   });
 
   testWidgets(
-    'amount toggle failure restores money and shows shared Toast because the server preference is authoritative',
+    'amount toggle stays local when the server preference endpoint fails',
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -447,9 +449,9 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text(genericFailureToastText), findsOneWidget);
-      expect(find.text(r'$1,245.00'), findsOneWidget);
-      expect(find.text(hiddenMoneyText), findsNothing);
+      expect(find.text(genericFailureToastText), findsNothing);
+      expect(find.text(r'$1,245.00'), findsNothing);
+      expect(find.text(hiddenMoneyText), findsOneWidget);
     },
   );
 
@@ -804,6 +806,9 @@ _localAuthOverrides() {
       LocalPlaceholderAuthRepository(storage),
     ),
     currencyRateApiProvider.overrideWithValue(const _TestCurrencyRateApi()),
+    portfolioAmountHiddenStorageProvider.overrideWithValue(
+      InMemoryPortfolioAmountHiddenStorage(),
+    ),
   ];
 }
 

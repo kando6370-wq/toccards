@@ -1,6 +1,6 @@
 # tcg-card 卡牌数据源接入
 
-> **定位**：定义 tcg-card v1.0 的卡牌数据源接入口径，包括：本地 D1 卡牌基础表、可插拔适配层接口、字段映射、缓存策略、降级策略。默认数据源为当前项目 D1 中的 `cards_all` / `games` / `sets` / `tcgplayer_skus`，由外部采集程序写入。
+> **定位**：定义 tcg-card v1.0 的卡牌数据源接入口径，包括：本地 D1 卡牌基础表、可插拔适配层接口、字段映射、缓存策略、降级策略。默认数据源为当前项目 D1 中的 `cards_all` / `games` / `sets` / `tcg_price`，由外部采集程序写入。
 > **日期**：2026-06-30
 > **来源**：
 > - Spec [`docs/superpowers/specs/2026-06-30-tcg-card-preparation-design.md`](../../superpowers/specs/2026-06-30-tcg-card-preparation-design.md) §4.2、§4.3、§6
@@ -11,7 +11,7 @@
 
 ## 1. 设计原则
 
-1. **当前 D1 为默认数据源**：卡牌目录与 SKU 价格历史来自同一个 D1 数据库中的 `cards_all`、`sets`、`games`、`tcgplayer_skus`。
+1. **当前 D1 为默认数据源**：卡牌目录与 SKU/评级价格历史来自同一个 D1 数据库中的 `cards_all`、`sets`、`games`、`tcg_price`。
 2. **采集与读取分离**：外部采集程序负责写入/更新基础表；Workers 只读查询并向 App 暴露稳定 REST 契约。
 3. **App 不直连采集源**：客户端只访问 Workers，不接触采集程序或采集侧凭证。
 4. **覆盖层优先**：Workers 返回卡牌数据时，先读 D1 `card_override` 表，有覆盖字段则合并后返回，无覆盖则直接返回基础表数据（见数据模型 §6.1）。
@@ -280,5 +280,5 @@ D1 基础表读取
 | 1 | 卡牌基础表导入任务与刷新频率 | 目录完整性、价格历史新鲜度、Trending 非置顶数据是否可用 |
 | 2 | 汇率接口提供方 | `purchase_price` 展示换算、货币切换 |
 | 3 | 各接口最终 TTL（取决于基础表刷新频率） | 缓存命中率与数据新鲜度 |
-| 4 | `tcgplayer_skus.condition_*` 枚举值 | `collection_item.condition` 字段的合法值集合 |
-| 5 | `tcgplayer_skus.variant_*` 枚举值 | `collection_item.finish` 字段的合法值集合 |
+| 4 | `tcg_price.condition_*` 枚举值 | `collection_item.condition` 字段的合法值集合 |
+| 5 | `tcg_price.variant_*` 枚举值 | `collection_item.finish` 字段的合法值集合 |

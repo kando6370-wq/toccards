@@ -33,6 +33,7 @@ import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
+import '../support/in_memory_portfolio_amount_hidden_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_collection_repository.dart';
 import '../support/mock_home_repository.dart';
@@ -657,9 +658,13 @@ void main() {
       await tester.pumpWidget(_mockHomeApp(preferences));
       await _waitForHomeAuth(tester);
 
+      final cardPrice = find.descendant(
+        of: find.byKey(const Key('home-most-valuable-card-main-0')),
+        matching: find.text(r'$10,000,000.12'),
+      );
       expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
       expect(find.byIcon(Icons.visibility_off_outlined), findsNothing);
-      expect(find.text(r'$780.00'), findsOneWidget);
+      expect(cardPrice, findsOneWidget);
 
       await tester.tap(find.byKey(const Key('home-hide-amount')));
       await tester.pump();
@@ -668,13 +673,13 @@ void main() {
       expect(find.byIcon(Icons.visibility_outlined), findsNothing);
       expect(find.text(hiddenMoneyText), findsOneWidget);
       expect(find.text(r'$12,450.80'), findsNothing);
-      expect(find.text(r'$780.00'), findsOneWidget);
+      expect(cardPrice, findsOneWidget);
 
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
-      expect(find.text(r'$780.00'), findsOneWidget);
-      expect(preferences.amountHiddenValues, [true]);
+      expect(cardPrice, findsOneWidget);
+      expect(preferences.amountHiddenValues, isEmpty);
     },
   );
 
@@ -1228,6 +1233,9 @@ _localAuthOverrides() {
     authStorageProvider.overrideWithValue(storage),
     authRepositoryProvider.overrideWithValue(
       LocalPlaceholderAuthRepository(storage),
+    ),
+    portfolioAmountHiddenStorageProvider.overrideWithValue(
+      InMemoryPortfolioAmountHiddenStorage(),
     ),
   ];
 }

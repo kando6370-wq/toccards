@@ -334,7 +334,7 @@ class HomeController extends Notifier<HomeState> {
         selectedFolderId:
             previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
         currency: selectedCurrency,
-        amountHidden: previousState?.amountHidden ?? false,
+        amountHidden: _localAmountHidden(previousState),
         chartRange:
             previousState?.chartRange ??
             _bestChartRange(
@@ -370,7 +370,7 @@ class HomeController extends Notifier<HomeState> {
         selectedFolderId:
             previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
         currency: selectedCurrency,
-        amountHidden: previousState?.amountHidden ?? false,
+        amountHidden: _localAmountHidden(previousState),
         chartRange:
             previousState?.chartRange ??
             _bestChartRange(
@@ -386,7 +386,7 @@ class HomeController extends Notifier<HomeState> {
         selectedFolderId:
             previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
         currency: selectedCurrency,
-        amountHidden: previousState?.amountHidden ?? false,
+        amountHidden: _localAmountHidden(previousState),
         chartRange:
             previousState?.chartRange ??
             _bestChartRange(
@@ -418,7 +418,7 @@ class HomeController extends Notifier<HomeState> {
       selectedFolderId:
           previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
       currency: currency,
-      amountHidden: previousState?.amountHidden ?? false,
+      amountHidden: _localAmountHidden(previousState),
       chartRange: previousState?.chartRange ?? HomeChartRange.fifteenDays,
     );
   }
@@ -459,7 +459,7 @@ class HomeController extends Notifier<HomeState> {
           selectedFolderId:
               previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
           currency: currency,
-          amountHidden: previousState?.amountHidden ?? false,
+          amountHidden: _localAmountHidden(previousState),
           chartRange: previousState?.chartRange ?? HomeChartRange.fifteenDays,
         );
         _logLoadFailure(
@@ -573,7 +573,7 @@ class HomeController extends Notifier<HomeState> {
         selectedFolderId:
             previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
         currency: currency,
-        amountHidden: previousState?.amountHidden ?? false,
+        amountHidden: _localAmountHidden(previousState),
         chartRange:
             previousState?.chartRange ??
             _bestChartRange(
@@ -610,10 +610,7 @@ class HomeController extends Notifier<HomeState> {
         ? previousFolderId!
         : dashboard.defaultFolder.id;
     final portfolio = dashboard.portfoliosByFolderId[selectedFolderId]!;
-    final amountHidden =
-        previousState?.amountHidden ??
-        ref.read(portfolioAmountHiddenProvider) ??
-        dashboard.amountHidden;
+    final amountHidden = _localAmountHidden(previousState);
     if (previousState == null &&
         ref.read(selectedPortfolioFolderProvider) == null) {
       Future<void>.microtask(() {
@@ -645,6 +642,12 @@ class HomeController extends Notifier<HomeState> {
       ),
       trendingStatus: trendingStatus,
     );
+  }
+
+  bool _localAmountHidden(HomeState? previousState) {
+    return ref.read(portfolioAmountHiddenProvider) ??
+        previousState?.amountHidden ??
+        false;
   }
 
   Future<bool> selectFolder(String folderId) async {
@@ -763,15 +766,22 @@ class HomeController extends Notifier<HomeState> {
 
   Future<bool> toggleAmountHidden() async {
     final previous = state.amountHidden;
-    state = state.copyWith(amountHidden: !previous);
-    try {
-      await _updatePreferences(amountHidden: !previous);
-      ref.read(portfolioAmountHiddenProvider.notifier).select(!previous);
-      return true;
-    } catch (_) {
+    final next = !previous;
+    state = state.copyWith(amountHidden: next);
+    final saved = await ref
+        .read(portfolioAmountHiddenProvider.notifier)
+        .select(next);
+    // Backend persistence is intentionally disabled while visibility is local.
+    // try {
+    //   await _updatePreferences(amountHidden: next);
+    // } catch (_) {
+    //   state = state.copyWith(amountHidden: previous);
+    //   return false;
+    // }
+    if (!saved && state.amountHidden == next) {
       state = state.copyWith(amountHidden: previous);
-      return false;
     }
+    return saved;
   }
 
   Future<void> _updatePreferences({

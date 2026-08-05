@@ -17,9 +17,9 @@ tcg-card 的数据分为两层，本文档只定义写入 D1 的部分：
 | 层 | 存储位置 | 说明 |
 |---|---|---|
 | **D1 用户资产 + 覆盖层** | Cloudflare D1 | 用户账号、资产、偏好、卡牌覆盖层、运营配置——本文档全部覆盖 |
-| **D1 卡牌基础数据源** | Cloudflare D1 | `cards_all` / `games` / `sets` / `tcgplayer_skus`，由外部采集程序维护，Workers 只读 |
+| **D1 卡牌基础数据源** | Cloudflare D1 | `cards_all` / `games` / `sets` / `tcg_price`，由外部采集程序维护，Workers 只读 |
 
-读取规则：**D1 覆盖层优先，回落 D1 卡牌基础数据源**（见架构文档 §3.3）。`card_ref` 统一使用 `cards_all.product_id`；价格历史来自 `tcgplayer_skus.price_history` JSON 字段。
+读取规则：**D1 覆盖层优先，回落 D1 卡牌基础数据源**（见架构文档 §3.3）。`card_ref` 统一使用 `cards_all.product_id`；Raw 价格历史来自 `tcg_price.price_Ungraded` JSON 字段，评级价格历史来自对应 `price_*` 字段。
 
 ### 1.1 卡牌基础数据源表
 
@@ -30,12 +30,12 @@ tcg-card 的数据分为两层，本文档只定义写入 D1 的部分：
 | `cards_all` | 卡牌/商品基础元数据 | `product_id` 主键、`game_id`、`game`、`set_name`、`set_code`、`name`、`rarity`、`product_type_name`、`image_url` |
 | `games` | 已加载游戏/产品线 | `id`、`game_id`、`name`、`total_cards` |
 | `sets` | 系列/扩展包信息 | `id` 主键、`game`、`name`、`set_code`、`set_id` |
-| `tcgplayer_skus` | SKU 维度价格历史 | `sku_id` 主键、`product_id`、`condition_*`、`language_*`、`variant_*`、`price_history` |
+| `tcg_price` | SKU 与评级维度价格历史 | `id` 主键、`sku_id`、`pricecharting_id`、`product_id`、`condition_*`、`language_*`、`variant_*`、`price_Ungraded`、评级 `price_*`、对应 `increase_*` |
 
 建模注意：
-- `cards_all.product_id` 与 `tcgplayer_skus.product_id` 均为 TEXT，Workers 与业务引用统一按字符串处理。
+- `cards_all.product_id` 与 `tcg_price.product_id` 均为 TEXT，Workers 与业务引用统一按字符串处理。
 - `cards_all` 当前没有 `card_number`，数据代理响应该字段为空字符串。
-- `price_history` 是 JSON 数组字符串，结构如 `[{"price":"0.13","date":"2026-07-07"}]`，应用层必须使用 JSON parser。
+- `price_Ungraded` 与各评级 `price_*` 字段是 JSON 数组字符串，结构如 `[{"price":"0.13","date":"2026-07-07"}]`，应用层必须使用 JSON parser。
 
 ---
 
@@ -215,7 +215,7 @@ CREATE INDEX idx_collection_item_card ON collection_item(card_ref);
 - `grader` 为评级机构时，`grade` 必填，`condition` 为 NULL。
 - `object_type = 'sealed'` 时，`grader` 固定为 `'Raw'`（Sealed 无评级），`condition` / `grade` 均为 NULL。
 - `purchase_price` 存原始货币原值，不参与市场价值计算，只作成本记录；展示时按 `purchase_currency` 换算显示货币（见架构文档 §4.1）。
-- `card_ref` 使用 `cards_all.product_id`。该字段与 `tcgplayer_skus.product_id` 均为 TEXT，可直接关联。
+- `card_ref` 使用 `cards_all.product_id`。该字段与 `tcg_price.product_id` 均为 TEXT，可直接关联。
 
 ### 4.3 wishlist_item（心愿单）
 

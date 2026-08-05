@@ -85,32 +85,27 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     return Scaffold(
       key: const ValueKey('onboarding-guides'),
       backgroundColor: const Color(0xFF0D0F08),
-      body: SafeArea(
-        left: false,
-        right: false,
-        bottom: false,
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _handlePageScroll,
-          child: PageView.builder(
-            key: const ValueKey('onboarding-page-view'),
-            controller: _pageController,
-            itemCount: _slides.length,
-            onPageChanged: _handlePageChanged,
-            itemBuilder: (context, index) {
-              final isLast = index == _slides.length - 1;
-              return _OnboardingSlideView(
-                key: ValueKey('onboarding-guide-$index'),
-                index: index,
-                slide: _slides[index],
-                isActive: index == _currentIndex && !_isPageTransitioning,
-                videoController: _videoControllers[index],
-                currentIndex: _currentIndex,
-                pageCount: _slides.length,
-                onPrimaryPressed: isLast ? _authenticate : _next,
-                onContinueAsGuest: isLast ? _complete : null,
-              );
-            },
-          ),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: _handlePageScroll,
+        child: PageView.builder(
+          key: const ValueKey('onboarding-page-view'),
+          controller: _pageController,
+          itemCount: _slides.length,
+          onPageChanged: _handlePageChanged,
+          itemBuilder: (context, index) {
+            final isLast = index == _slides.length - 1;
+            return _OnboardingSlideView(
+              key: ValueKey('onboarding-guide-$index'),
+              index: index,
+              slide: _slides[index],
+              isActive: index == _currentIndex && !_isPageTransitioning,
+              videoController: _videoControllers[index],
+              currentIndex: _currentIndex,
+              pageCount: _slides.length,
+              onPrimaryPressed: isLast ? _authenticate : _next,
+              onContinueAsGuest: isLast ? _complete : null,
+            );
+          },
         ),
       ),
     );
@@ -339,34 +334,46 @@ class _OnboardingMedia extends StatelessWidget {
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
-    return Align(
-      alignment: Alignment.topCenter,
-      child: AspectRatio(
-        aspectRatio: 390 / 516,
-        child: RepaintBoundary(
-          child: ClipRect(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.asset(
-                  placeholderAsset,
-                  key: ValueKey('onboarding-media-first-frame-$index'),
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                  filterQuality: FilterQuality.high,
-                  excludeFromSemantics: true,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final topInset = MediaQuery.paddingOf(context).top;
+        final baseHeight = constraints.maxWidth * (516 / 390);
+        final mediaHeight = (baseHeight + topInset).clamp(
+          0.0,
+          constraints.maxHeight,
+        );
+
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: constraints.maxWidth,
+            height: mediaHeight,
+            child: RepaintBoundary(
+              child: ClipRect(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      placeholderAsset,
+                      key: ValueKey('onboarding-media-first-frame-$index'),
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                      filterQuality: FilterQuality.high,
+                      excludeFromSemantics: true,
+                    ),
+                    _LoopingOnboardingVideo(
+                      key: ValueKey('onboarding-video-$index'),
+                      videoController: videoController,
+                      isActive: isActive,
+                      enabled: !reduceMotion,
+                    ),
+                  ],
                 ),
-                _LoopingOnboardingVideo(
-                  key: ValueKey('onboarding-video-$index'),
-                  videoController: videoController,
-                  isActive: isActive,
-                  enabled: !reduceMotion,
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -5,10 +5,15 @@ class FakeDb {
   constructor(
     readonly cards: Record<string, unknown>[],
     readonly skus: Record<string, unknown>[],
+    readonly gradedPrices: Record<string, unknown>[] = [],
   ) {}
 
   prepare(sql: string) {
-    const rows = sql.includes("FROM cards_all") ? this.cards : this.skus;
+    const rows = sql.includes("FROM cards_all")
+      ? this.cards
+      : sql.includes("price_Grade_7") || sql.includes("SELECT DISTINCT pricecharting_id")
+        ? this.gradedPrices
+        : this.skus;
     return {
       bind: (..._args: unknown[]) => ({
         all: async <T>() => ({ results: rows as T[] }),
@@ -34,7 +39,11 @@ describe("collection dashboard enrichment", () => {
       created_at: "2026-07-01T00:00:00.000Z",
     }));
     const result = await enrichCollectionDashboard(
-      new FakeDb([card("100")], [sku("100")]) as unknown as D1Database,
+      new FakeDb(
+        [card("100")],
+        [sku("100")],
+        [gradedPrice("100", "Normal", 4357.94)],
+      ) as unknown as D1Database,
       portfolio,
       [{ id: "wish-1", card_ref: "100", created_at: "2026-07-02T00:00:00.000Z" }],
       new Date("2026-07-10T12:00:00.000Z"),
@@ -51,7 +60,7 @@ describe("collection dashboard enrichment", () => {
     });
     expect(result.portfolio_items[100]).toMatchObject({
       grader: "PSA",
-      market_price_usd: null,
+      market_price_usd: 4357.94,
       previous_30d_price_usd: null,
     });
     expect(result.wishlist_items[0]).toMatchObject({
@@ -107,6 +116,15 @@ function card(productId: string) {
     set_name: "Server Set",
     number: "025",
     rarity: "Rare Holo",
+  };
+}
+
+function gradedPrice(productId: string, finish: string, price: number) {
+  return {
+    product_id: productId,
+    pricecharting_id: "graded-1",
+    product_sub_type: finish,
+    price_PSA_10: JSON.stringify([{ date: "2026-07-06", price }]),
   };
 }
 
