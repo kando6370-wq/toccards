@@ -370,7 +370,12 @@ class SearchController extends Notifier<SearchState> {
 
     final tab = state.selectedTab;
     state = state.copyWith(searchByTab: {...state.searchByTab, tab: value});
-    _scheduleSearch(tab: tab, query: value, debounce: debounce);
+    _scheduleSearch(
+      tab: tab,
+      query: value,
+      allowEmpty: true,
+      debounce: debounce,
+    );
   }
 
   void clearSearch() {

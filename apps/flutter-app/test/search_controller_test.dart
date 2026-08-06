@@ -454,27 +454,27 @@ void main() {
   test(
     'Search loads and mutates backend asset state because Qty Collect and Wishlist must survive page refresh',
     () async {
+      const assetCard = CardDataCardDto(
+        cardRef: '9359',
+        name: 'Escape Artist',
+        setName: 'Odyssey',
+        setCode: 'ODY',
+        cardNumber: '',
+        finish: 'Normal',
+        language: 'English',
+        objectType: 'tcg',
+        imageUrl: null,
+        rarity: 'Common',
+        priceUsd: 0.21,
+        previous30dPriceUsd: 0.17,
+      );
       final portfolioApi = _FakePortfolioApi(
         items: [_portfolioItem(id: 'item-1', quantity: 2)],
       );
       final repository = HttpSearchRepository(
         _FakeCardDataApi(
-          trendingCardRows: const [
-            CardDataCardDto(
-              cardRef: '9359',
-              name: 'Escape Artist',
-              setName: 'Odyssey',
-              setCode: 'ODY',
-              cardNumber: '',
-              finish: 'Normal',
-              language: 'English',
-              objectType: 'tcg',
-              imageUrl: null,
-              rarity: 'Common',
-              priceUsd: 0.21,
-              previous30dPriceUsd: 0.17,
-            ),
-          ],
+          trendingCardRows: const [assetCard],
+          searchCardRows: const [assetCard],
           sets: const [],
         ),
         portfolioApi: portfolioApi,
@@ -829,7 +829,7 @@ void main() {
       await controller.loadComplete;
       controller.submitSearch('Elsa');
       await controller.loadComplete;
-      controller.clearSearch();
+      controller.submitSearch('');
       await controller.loadComplete;
       await controller.refreshPreservingContent();
 

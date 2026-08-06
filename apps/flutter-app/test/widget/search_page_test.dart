@@ -472,7 +472,11 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: _searchOverrides(),
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            const _CurrentGameSearchRepository(),
+          ),
+        ],
         child: const _SearchTestApp(),
       ),
     );
@@ -505,6 +509,14 @@ void main() {
 
     expect(find.text('Lorcana Elsa'), findsOneWidget);
     expect(find.text('Squirtle'), findsNothing);
+
+    await tester.enterText(find.byKey(const Key('search-field')), 'Elsa');
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('search-field')), '');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lorcana Elsa'), findsOneWidget);
+    expect(find.byKey(const Key('search-no-results')), findsNothing);
   });
 
   testWidgets(
@@ -1009,6 +1021,30 @@ class _BlockingGameSearchRepository implements SearchRepository {
     _cards.complete(
       await const MockSearchRepository().searchCards('', game: 'Lorcana'),
     );
+  }
+}
+
+class _CurrentGameSearchRepository implements SearchRepository {
+  const _CurrentGameSearchRepository();
+
+  @override
+  Future<SearchCatalog> loadCatalog() async {
+    final catalog = await const MockSearchRepository().loadCatalog();
+    return SearchCatalog(
+      games: catalog.games,
+      cards: catalog.cards.where((card) => card.gameId == 'pokemon').toList(),
+      sets: catalog.sets,
+    );
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
+    return const MockSearchRepository().searchCards(query, game: game);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
   }
 }
 
