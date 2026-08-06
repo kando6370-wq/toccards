@@ -93,6 +93,7 @@ CardDetail _mockDetail(String cardId) {
           priceUsd: 32.13,
           previous30dPriceUsd: 30.67,
           previous7dPriceUsd: 31.44,
+          increasePercent: 4.76,
         ),
         CardMarketPrice(
           label: 'PSA 10',
@@ -101,6 +102,7 @@ CardDetail _mockDetail(String cardId) {
           priceUsd: 124.5,
           previous30dPriceUsd: 117.2,
           previous7dPriceUsd: 121.3,
+          increasePercent: 4.76,
         ),
       ],
       priceSeriesByRange: {
@@ -178,6 +180,7 @@ CardDetail _mockDetail(String cardId) {
           priceUsd: 780,
           previous30dPriceUsd: 721.58,
           previous7dPriceUsd: 760,
+          increasePercent: 8.10,
         ),
         CardMarketPrice(
           label: 'BGS 10',
@@ -186,6 +189,7 @@ CardDetail _mockDetail(String cardId) {
           priceUsd: 745,
           previous30dPriceUsd: 700,
           previous7dPriceUsd: 730,
+          increasePercent: 8.10,
         ),
         CardMarketPrice(
           label: 'Raw Near Mint (NM)',
@@ -193,6 +197,7 @@ CardDetail _mockDetail(String cardId) {
           priceUsd: 215,
           previous30dPriceUsd: 204.5,
           previous7dPriceUsd: 209,
+          increasePercent: 8.10,
         ),
       ],
       collectionItems: [
@@ -360,6 +365,7 @@ CardDetail _mockDetail(String cardId) {
           label: 'Raw Near Mint (NM)',
           priceUsd: 330,
           previous30dPriceUsd: 306.69,
+          increasePercent: 7.60,
         ),
       ],
     ),

@@ -209,6 +209,7 @@ void main() {
                 'quantity': 2,
                 'market_price_usd': 20,
                 'previous_30d_price_usd': 10,
+                'increase_percent': 8.97,
                 'folder_joined_at': '2026-07-05T00:00:00.000Z',
                 'created_at': '2026-07-01T00:00:00.000Z',
                 'image_url': 'https://img.example/100.jpg',
@@ -227,6 +228,7 @@ void main() {
       expect(dashboard.preference.currency, 'NZD');
       expect(dashboard.portfolioItems.single.marketPriceUsd, 20);
       expect(dashboard.portfolioItems.single.previous30dPriceUsd, 10);
+      expect(dashboard.portfolioItems.single.increasePercent, 8.97);
       expect(dashboard.portfolioItems.single.rarity, 'Rare Holo');
       expect(
         dashboard.portfolioItems.single.folderJoinedAt,

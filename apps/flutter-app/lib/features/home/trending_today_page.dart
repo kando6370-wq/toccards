@@ -68,7 +68,7 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
                   row.priceChange1dPercent != null &&
                   row.priceChange1dPercent! > 0,
             )
-            .map((row) => searchCardFromDto(row, usePriceChange1dPercent: true))
+            .map(searchCardFromDto)
             .toList();
         _cards = replace ? nextCards : [..._cards, ...nextCards];
         _page = page;

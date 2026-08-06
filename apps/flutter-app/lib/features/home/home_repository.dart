@@ -177,6 +177,7 @@ HomeCardHighlight _highlight(PortfolioMostValuableDto item) {
     subtitle: subtitle,
     priceUsd: item.priceUsd,
     previousPriceUsd: item.previous30dPriceUsd,
+    increasePercent: item.increasePercent,
     imageUrl: cardImageUrl(item.cardRef, CardImageVariant.thumbnail),
   );
 }

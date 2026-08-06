@@ -69,13 +69,7 @@ class SearchCard {
   }
 
   String get changeText {
-    if (priceChange1dPercent != null) {
-      return MarketChange.fromPercent(priceChange1dPercent).percentText;
-    }
-    return MarketChange.fromPrices(
-      current: priceUsd,
-      previous: previous30dPriceUsd,
-    ).percentText;
+    return MarketChange.fromPercent(priceChange1dPercent).percentText;
   }
 
   SearchCard copyWith({

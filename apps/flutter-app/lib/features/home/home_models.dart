@@ -45,6 +45,7 @@ class HomeCardHighlight {
     required this.subtitle,
     required this.priceUsd,
     required this.previousPriceUsd,
+    this.increasePercent,
     this.imageAssetPath,
     this.imageUrl,
   });
@@ -54,6 +55,7 @@ class HomeCardHighlight {
   final String subtitle;
   final double priceUsd;
   final double? previousPriceUsd;
+  final double? increasePercent;
   final String? imageAssetPath;
   final String? imageUrl;
 }

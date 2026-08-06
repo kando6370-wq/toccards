@@ -740,6 +740,7 @@ SearchCard _asSearchCard(
     previous30dPriceUsd: source.previous30dPriceUsd == null
         ? null
         : source.previous30dPriceUsd! * quantityMultiplier,
+    priceChange1dPercent: source.increasePercent,
     setName: source.setName,
     metadataLine: '${source.rarity} ${source.number}',
     variantLine: source.finish,

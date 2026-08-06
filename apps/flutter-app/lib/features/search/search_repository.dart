@@ -264,10 +264,7 @@ List<SearchGame> _gamesFromCards(List<CardDataCardDto> cards) {
   return games;
 }
 
-SearchCard searchCardFromDto(
-  CardDataCardDto dto, {
-  bool usePriceChange1dPercent = false,
-}) {
+SearchCard searchCardFromDto(CardDataCardDto dto) {
   return SearchCard(
     id: dto.cardRef,
     gameId: _gameIdFromCard(dto),
@@ -283,9 +280,7 @@ SearchCard searchCardFromDto(
     language: dto.language,
     finish: dto.finish,
     imageUrl: cardImageUrl(dto.cardRef, CardImageVariant.list),
-    priceChange1dPercent: usePriceChange1dPercent
-        ? dto.priceChange1dPercent
-        : null,
+    priceChange1dPercent: dto.priceChange1dPercent,
   );
 }
 

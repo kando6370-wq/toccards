@@ -29,6 +29,7 @@ type TcgPriceRow = {
   variant_code: string | null;
   variant_name: string | null;
   price_history: string;
+  increase_rate: number | null;
 };
 
 type CardNumberRow = {
@@ -43,7 +44,8 @@ type TrendingRow = CardCatalogRow &
 
 type SkuPricingRow = Pick<
   TcgPriceRow,
-  "variant_name" | "variant_code" | "language_name" | "language_code" | "price_history"
+  "variant_name" | "variant_code" | "language_name" | "language_code" |
+    "price_history" | "increase_rate"
 >;
 
 type PriceHistoryEntry = {
@@ -75,20 +77,19 @@ type TcgPriceHistoryRow = {
 };
 
 const GRADED_PRICE_FIELDS = [
-  ["Grade", 7, "7/7.5", "price_Grade_7", "increase_Grade_7"],
-  ["Grade", 8, "8/8.5", "price_Grade_8", "increase_Grade_8"],
-  ["Grade", 9, "9", "price_Grade_9", "increase_Grade_9"],
-  ["Grade", 9.5, "9.5", "price_Grade_9_5", "increase_Grade_9_5"],
-  ["PSA", 10, "10", "price_PSA_10", "increase_PSA_10"],
-  ["BGS", 10, "10", "price_BGS_10", "increase_BGS_10"],
-  ["CGC", 10, "10", "price_CGC_10", "increase_CGC_10"],
-  ["SGC", 10, "10", "price_SGC_10", "increase_SGC_10"],
+  ["Grade", 7, "7/7.5", "price_Grade_7"],
+  ["Grade", 8, "8/8.5", "price_Grade_8"],
+  ["Grade", 9, "9", "price_Grade_9"],
+  ["Grade", 9.5, "9.5", "price_Grade_9_5"],
+  ["PSA", 10, "10", "price_PSA_10"],
+  ["BGS", 10, "10", "price_BGS_10"],
+  ["CGC", 10, "10", "price_CGC_10"],
+  ["SGC", 10, "10", "price_SGC_10"],
 ] as const satisfies ReadonlyArray<
   readonly [
     string,
     number,
     string,
-    keyof TcgPriceHistoryRow,
     keyof TcgPriceHistoryRow,
   ]
 >;
@@ -250,6 +251,9 @@ LIMIT ? OFFSET ?`,
           grade: null,
           condition: row.condition_name ?? row.condition_code,
           price: latest.price,
+          ...(Number.isFinite(row.increase_rate)
+            ? { increase_percent: row.increase_rate! }
+            : {}),
         });
       }
 
@@ -407,6 +411,9 @@ function cardWithSkuPricing(
     language: sku.language_name ?? sku.language_code,
     ...(current === undefined ? {} : { price_usd: current }),
     ...(previous === undefined ? {} : { previous_30d_price_usd: previous }),
+    ...(Number.isFinite(sku.increase_rate)
+      ? { price_change_1d_percent: sku.increase_rate! }
+      : {}),
   };
 }
 
@@ -450,7 +457,8 @@ async function findSkuRowsByProductId(
     .prepare(
       `SELECT sku_id, product_id, condition_code, condition_name, language_code,
               language_name, variant_code, variant_name,
-              price_Ungraded AS price_history
+              price_Ungraded AS price_history,
+              increase_Ungraded AS increase_rate
        FROM tcg_price
        WHERE sku_id IS NOT NULL AND product_id IN (${placeholders})
        ORDER BY product_id, language_code, variant_code, condition_code`,
@@ -577,7 +585,8 @@ async function findSkuRows(
     .prepare(
       `SELECT sku_id, product_id, condition_code, condition_name, language_code,
               language_name, variant_code, variant_name,
-              price_Ungraded AS price_history
+              price_Ungraded AS price_history,
+              increase_Ungraded AS increase_rate
        FROM tcg_price
        WHERE sku_id IS NOT NULL AND product_id = ?
        ORDER BY language_code, variant_code, condition_code`,
@@ -621,7 +630,7 @@ async function findGradedMarketPrices(
 
   return rows.flatMap((row) =>
     GRADED_PRICE_FIELDS.flatMap(
-      ([grader, grade, gradeLabel, historyField, increaseField]) => {
+      ([grader, grade, gradeLabel, historyField]) => {
         const history = filterPointsByDays(
           parsePriceHistory(String(row[historyField] ?? "[]")),
           90,
@@ -629,7 +638,6 @@ async function findGradedMarketPrices(
         const latest = history.at(-1);
         if (!latest) return [];
 
-        const increase = Number(row[increaseField]);
         return [{
           grader,
           grade,
@@ -638,7 +646,9 @@ async function findGradedMarketPrices(
           price: latest.price,
           pricecharting_id: row.pricecharting_id,
           product_sub_type: row.product_sub_type,
-          increase_percent: Number.isFinite(increase) ? increase : 0,
+          increase_percent: Number.isFinite(Number(row.increase_Ungraded))
+            ? Number(row.increase_Ungraded)
+            : 0,
           history,
         }];
       },

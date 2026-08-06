@@ -414,6 +414,7 @@ CardDetail _baseDetailFromDto(CardDataCardDto card) {
         label: 'Raw',
         priceUsd: card.priceUsd,
         previous30dPriceUsd: card.previous30dPriceUsd,
+        increasePercent: card.priceChange1dPercent,
       ),
     ],
   );

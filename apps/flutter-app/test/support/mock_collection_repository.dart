@@ -31,6 +31,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 1,
           marketValueUsd: 780,
           previous30dPriceUsd: 721.55,
+          increasePercent: 8.10,
           addedAtSort: 3,
         ),
         CollectionItem(
@@ -50,6 +51,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 1,
           marketValueUsd: 410,
           previous30dPriceUsd: 365.42,
+          increasePercent: 12.20,
           addedAtSort: 2,
         ),
         CollectionItem(
@@ -69,6 +71,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 2,
           marketValueUsd: 27.5,
           previous30dPriceUsd: 27.89,
+          increasePercent: -1.40,
           addedAtSort: 1,
         ),
         CollectionItem(
@@ -88,6 +91,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 1,
           marketValueUsd: 620,
           previous30dPriceUsd: 588.24,
+          increasePercent: 5.40,
           addedAtSort: 4,
         ),
       ],
@@ -109,6 +113,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 1,
           marketValueUsd: 480,
           previous30dPriceUsd: 449.86,
+          increasePercent: 6.70,
           addedAtSort: 2,
         ),
         CollectionItem(
@@ -128,6 +133,7 @@ class MockCollectionRepository implements CollectionRepository {
           quantity: 1,
           marketValueUsd: 330,
           previous30dPriceUsd: 306.69,
+          increasePercent: 7.60,
           addedAtSort: 1,
         ),
       ],

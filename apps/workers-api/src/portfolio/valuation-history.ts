@@ -26,6 +26,7 @@ export type SkuRow = {
   variant_code: string | null;
   variant_name: string | null;
   price_history: string;
+  increase_rate: number | null;
 };
 
 type PricePoint = { date: string; price: number };
@@ -49,6 +50,7 @@ export type MostValuableItem = {
   image_url: string | null;
   price_usd: number;
   previous_30d_price_usd: number | null;
+  increase_percent: number | null;
 };
 
 export type FolderValuationHistory = {
@@ -131,6 +133,9 @@ function mostValuableItems(
       image_url: cardImageUrl(state.card_ref, "thumbnail"),
       price_usd: current,
       previous_30d_price_usd: priceOnDate(sku.price_history, baselineDate),
+      increase_percent: Number.isFinite(sku.increase_rate)
+        ? sku.increase_rate
+        : null,
     });
   }
   return items
@@ -244,7 +249,8 @@ export async function loadSkus(db: D1Database, cardRefs: string[]): Promise<SkuR
       .prepare(
         `SELECT sku_id, product_id, condition_code, condition_name, language_code,
           language_name, variant_code, variant_name,
-          price_Ungraded AS price_history
+          price_Ungraded AS price_history,
+          increase_Ungraded AS increase_rate
          FROM tcg_price
          WHERE sku_id IS NOT NULL AND product_id IN (${placeholders})`,
       )

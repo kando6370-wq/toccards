@@ -90,6 +90,7 @@ class CollectionDashboardItemDto {
     required this.quantity,
     required this.marketPriceUsd,
     required this.previous30dPriceUsd,
+    this.increasePercent,
     required this.folderJoinedAt,
     required this.createdAt,
     required this.imageUrl,
@@ -111,6 +112,7 @@ class CollectionDashboardItemDto {
   final int quantity;
   final double? marketPriceUsd;
   final double? previous30dPriceUsd;
+  final double? increasePercent;
   final DateTime folderJoinedAt;
   final DateTime createdAt;
   final String? imageUrl;
@@ -141,6 +143,7 @@ class CollectionDashboardItemDto {
       quantity: json['quantity'] is int ? json['quantity']! as int : 1,
       marketPriceUsd: _nullableDouble(json['market_price_usd']),
       previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
+      increasePercent: _nullableDouble(json['increase_percent']),
       folderJoinedAt: _requiredDateTime(
         json['folder_joined_at'] ?? json['created_at'],
       ),
@@ -263,6 +266,7 @@ class PortfolioMostValuableDto {
     required this.imageUrl,
     required this.priceUsd,
     required this.previous30dPriceUsd,
+    this.increasePercent,
   });
 
   final String itemId;
@@ -274,6 +278,7 @@ class PortfolioMostValuableDto {
   final String? imageUrl;
   final double priceUsd;
   final double? previous30dPriceUsd;
+  final double? increasePercent;
 
   factory PortfolioMostValuableDto.fromJson(Map<String, Object?> json) {
     return PortfolioMostValuableDto(
@@ -286,6 +291,7 @@ class PortfolioMostValuableDto {
       imageUrl: _nullableString(json['image_url']),
       priceUsd: _requiredDouble(json['price_usd']),
       previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
+      increasePercent: _nullableDouble(json['increase_percent']),
     );
   }
 }

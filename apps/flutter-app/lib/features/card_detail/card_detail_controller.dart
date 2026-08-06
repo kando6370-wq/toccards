@@ -533,20 +533,11 @@ class CardDetailState {
   }
 
   MarketChange _marketChange(CardMarketPrice price) {
-    return MarketChange.fromPrices(
-      current: price.priceUsd,
-      previous: price.previous30dPriceUsd,
-    );
+    return MarketChange.fromPercent(price.increasePercent);
   }
 
   MarketChange _marketChange7d(CardMarketPrice price) {
-    if (price.increasePercent != null) {
-      return MarketChange.fromPercent(price.increasePercent);
-    }
-    return MarketChange.fromPrices(
-      current: price.priceUsd,
-      previous: price.previous7dPriceUsd,
-    );
+    return MarketChange.fromPercent(price.increasePercent);
   }
 
   String _gradedMarketRowLabel(CardMarketPrice price) {

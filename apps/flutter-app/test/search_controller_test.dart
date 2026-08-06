@@ -68,6 +68,7 @@ void main() {
             rarity: 'Common',
             priceUsd: 32.13,
             previous30dPriceUsd: 30.67,
+            priceChange1dPercent: 8.97,
           ),
           CardDataCardDto(
             cardRef: 'catalog:booster-box',
@@ -98,6 +99,7 @@ void main() {
             rarity: 'Common',
             priceUsd: 32.13,
             previous30dPriceUsd: 30.67,
+            priceChange1dPercent: 8.97,
           ),
         ],
         sets: const [
@@ -122,13 +124,13 @@ void main() {
       expect(catalog.cards.first.type, SearchCardType.tcg);
       expect(catalog.cards.first.gameId, 'pokemon');
       expect(catalog.cards.first.metadataLine, 'Common #025');
-      expect(catalog.cards.first.variantLine, 'Holofoil / English');
+      expect(catalog.cards.first.variantLine, 'Holofoil');
       expect(
         catalog.cards.first.imageUrl,
         'https://image.tcgcard.fun/cards/catalog%3Apikachu-025.jpg',
       );
       expect(catalog.cards.first.priceText(AppCurrency.usd), r'$32.13');
-      expect(catalog.cards.first.changeText, '+4.76%');
+      expect(catalog.cards.first.changeText, '+8.97%');
       expect(catalog.cards.last.type, SearchCardType.sealed);
       expect(catalog.sets.single.id, 'BS');
       expect(catalog.sets.single.gameId, 'pokemon');
@@ -148,7 +150,7 @@ void main() {
       expect(api.searchSetGames, ['Pokemon', 'Pokemon']);
       expect(cards.single.name, 'Pikachu');
       expect(cards.single.priceText(AppCurrency.usd), r'$32.13');
-      expect(cards.single.changeText, '+4.76%');
+      expect(cards.single.changeText, '+8.97%');
       expect(sets.single.name, 'Base Set');
     },
   );

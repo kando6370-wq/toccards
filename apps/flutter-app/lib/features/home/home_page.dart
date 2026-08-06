@@ -1308,10 +1308,7 @@ class _MostValuableTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final percent = _percentText(
-      current: card.priceUsd,
-      previous: card.previousPriceUsd,
-    );
+    final percent = MarketChange.fromPercent(card.increasePercent).percentText;
     final percentColor = marketChangeTextColor(percent);
 
     return SizedBox(
@@ -2051,11 +2048,4 @@ String _formatChartDate(List<String> dates, int index) {
 
 String _chartPrice(List<String> formattedValues, int index) {
   return index < formattedValues.length ? formattedValues[index] : '--';
-}
-
-String _percentText({required double current, required double? previous}) {
-  return MarketChange.fromPrices(
-    current: current,
-    previous: previous,
-  ).percentText;
 }

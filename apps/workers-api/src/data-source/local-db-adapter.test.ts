@@ -358,6 +358,7 @@ describe("local D1 card data source adapter", () => {
           sku({
             product_id: "100",
             condition_name: "Near Mint",
+            increase_rate: 8.97,
             price_history: JSON.stringify([
               { price: "12.50", date: "2026-07-01" },
               { price: "15.75", date: "2026-07-08" },
@@ -368,7 +369,20 @@ describe("local D1 card data source adapter", () => {
     );
 
     await expect(adapter.getMarketPrices("100")).resolves.toEqual([
-      { grader: "Raw", grade: null, condition: "Near Mint", price: 15.75 },
+      {
+        grader: "Raw",
+        grade: null,
+        condition: "Near Mint",
+        price: 15.75,
+        increase_percent: 8.97,
+      },
+    ]);
+    await expect(adapter.searchCards("Charizard")).resolves.toEqual([
+      expect.objectContaining({
+        card_ref: "100",
+        price_usd: 15.75,
+        price_change_1d_percent: 8.97,
+      }),
     ]);
     await expect(
       adapter.getPriceSeries("100", "Raw", null, "Near Mint", 30),
@@ -414,7 +428,7 @@ describe("local D1 card data source adapter", () => {
         price: 360,
         pricecharting_id: "pc-100-foil",
         product_sub_type: "Foil",
-        increase_percent: 20,
+        increase_percent: 999,
       }),
     );
     expect(prices.some((price) => price.grader === "ACE")).toBe(false);

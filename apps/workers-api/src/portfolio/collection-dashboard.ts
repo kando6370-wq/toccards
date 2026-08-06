@@ -54,6 +54,7 @@ export async function enrichCollectionDashboard(
   return {
     portfolio_items: portfolio.map((item) => {
       if (normalized(item.grader) !== "raw") {
+        const sku = matchingDisplaySku(item, skusByRef.get(item.card_ref) ?? []);
         const price = matchingGradedPrice(
           item,
           gradedPricesByCard.get(gradedPriceKey(item.card_ref, item.finish)) ?? [],
@@ -61,7 +62,7 @@ export async function enrichCollectionDashboard(
         return presentation(
           item,
           cardsByRef.get(item.card_ref),
-          null,
+          sku,
           currentDate,
           baselineDate,
           price,
@@ -100,10 +101,26 @@ function presentation(
       : sku
         ? priceOnDate(sku.price_history, baselineDate)
         : null,
+    increase_percent: sku?.increase_rate ?? null,
     market_language: sku?.language_name ?? null,
     market_finish: gradedPrice?.product_sub_type ?? sku?.variant_name ?? null,
     market_condition: gradedPrice?.condition ?? sku?.condition_name ?? null,
   };
+}
+
+function matchingDisplaySku(
+  item: Pick<DashboardPortfolioRow, "language" | "finish">,
+  rows: SkuRow[],
+): SkuRow | null {
+  return matchingSku(
+    {
+      grader: "Raw",
+      condition: "Near Mint (NM)",
+      language: item.language,
+      finish: item.finish,
+    },
+    rows,
+  );
 }
 
 async function loadGradedPrices(

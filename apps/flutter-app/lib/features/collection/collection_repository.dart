@@ -136,6 +136,7 @@ CollectionItem _collectionItemFromDto(CollectionDashboardItemDto dto) {
     quantity: dto.quantity,
     marketValueUsd: dto.marketPriceUsd,
     previous30dPriceUsd: dto.previous30dPriceUsd,
+    increasePercent: dto.increasePercent,
     addedAtSort: dto.folderJoinedAt.millisecondsSinceEpoch,
     imageUrl: cardImageUrl(dto.cardRef, CardImageVariant.thumbnail),
   );

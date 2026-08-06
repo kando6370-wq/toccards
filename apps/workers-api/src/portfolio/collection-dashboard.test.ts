@@ -57,6 +57,7 @@ describe("collection dashboard enrichment", () => {
       image_url: "https://image.tcgcard.fun/cards/100.jpg",
       market_price_usd: 20,
       previous_30d_price_usd: 10,
+      increase_percent: 12.34,
     });
     expect(result.portfolio_items[100]).toMatchObject({
       grader: "PSA",
@@ -147,5 +148,6 @@ function sku(
       { date: "2026-06-01", price: 10 },
       { date: "2026-07-06", price: currentPrice },
     ]),
+    increase_rate: 12.34,
   };
 }

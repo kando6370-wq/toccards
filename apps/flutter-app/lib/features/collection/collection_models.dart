@@ -40,6 +40,7 @@ class CollectionItem {
     required this.quantity,
     required this.marketValueUsd,
     required this.previous30dPriceUsd,
+    this.increasePercent,
     required this.addedAtSort,
     this.imageUrl,
   });
@@ -60,6 +61,7 @@ class CollectionItem {
   final int quantity;
   final double? marketValueUsd;
   final double? previous30dPriceUsd;
+  final double? increasePercent;
   final int addedAtSort;
   final String? imageUrl;
 

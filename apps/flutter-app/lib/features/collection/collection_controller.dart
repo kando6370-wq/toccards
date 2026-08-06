@@ -326,17 +326,11 @@ class CollectionState {
   }
 
   String _formatChange(CollectionItem item) {
-    return MarketChange.fromPrices(
-      current: item.marketValueUsd,
-      previous: item.previous30dPriceUsd,
-    ).percentText;
+    return MarketChange.fromPercent(item.increasePercent).percentText;
   }
 
   double? _changePercent(CollectionItem item) {
-    return MarketChange.fromPrices(
-      current: item.marketValueUsd,
-      previous: item.previous30dPriceUsd,
-    ).percent;
+    return MarketChange.fromPercent(item.increasePercent).percent;
   }
 
   static int _nullableDoubleDesc(double? left, double? right) {
