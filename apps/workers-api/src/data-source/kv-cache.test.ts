@@ -114,7 +114,7 @@ describe("KV cached data source adapter", () => {
     expect(source.searchCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "v8:searchCards:charizard%20gx:tcg:all:all:1:20",
+        key: "v9:searchCards:charizard%20gx:tcg:all:all:1:20",
         value: JSON.stringify([card]),
         options: { expirationTtl: 3600 },
       },
@@ -141,8 +141,8 @@ describe("KV cached data source adapter", () => {
 
     expect(source.searchCalls).toBe(2);
     expect(kv.puts.map((put) => put.key)).toEqual([
-      "v8:searchCards::all:magic%3A%20the%20gathering:fdn:1:40",
-      "v8:searchCards::all:magic%3A%20the%20gathering:ecl:1:40",
+      "v9:searchCards::all:magic%3A%20the%20gathering:fdn:1:40",
+      "v9:searchCards::all:magic%3A%20the%20gathering:ecl:1:40",
     ]);
   });
 
@@ -157,7 +157,7 @@ describe("KV cached data source adapter", () => {
     expect(source.trendingCalls).toBe(2);
     expect(kv.puts).toEqual([
       {
-        key: "v7:getTrending:1:10:last-known-good",
+        key: "v8:getTrending:1:10:last-known-good",
         value: JSON.stringify([card]),
         options: { expirationTtl: 86400 },
       },
@@ -172,7 +172,7 @@ describe("KV cached data source adapter", () => {
     await adapter.getTrending({ page: 2, page_size: 40 });
 
     expect(source.trendingOptions).toEqual([{ page: 2, page_size: 40 }]);
-    expect(kv.puts[0]?.key).toBe("v7:getTrending:2:40:last-known-good");
+    expect(kv.puts[0]?.key).toBe("v8:getTrending:2:40:last-known-good");
   });
 
   it("does not cache empty Trending because the external producer may populate increase rates at any time", async () => {
@@ -197,7 +197,7 @@ describe("KV cached data source adapter", () => {
     expect(source.trendingCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "v7:getTrending:1:10:last-known-good",
+        key: "v8:getTrending:1:10:last-known-good",
         value: JSON.stringify([card]),
         options: { expirationTtl: 86400 },
       },
