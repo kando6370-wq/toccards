@@ -129,6 +129,12 @@ export const tcgPrice = sqliteTable(
   },
   (t) => [
     uniqueIndex("idx_tcg_price_sku_id").on(t.skuId),
+    uniqueIndex("idx_tcg_price_natural_key").on(
+      t.productId,
+      sql`coalesce(${t.conditionName}, '')`,
+      sql`coalesce(${t.languageName}, '')`,
+      sql`coalesce(${t.variantName}, '')`,
+    ),
     index("idx_tcg_price_pricecharting_lookup").on(t.pricechartingId),
     index("idx_tcg_price_product_id").on(t.productId),
     index("idx_tcg_price_lookup").on(
