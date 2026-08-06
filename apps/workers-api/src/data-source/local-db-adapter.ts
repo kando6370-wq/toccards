@@ -77,19 +77,20 @@ type TcgPriceHistoryRow = {
 };
 
 const GRADED_PRICE_FIELDS = [
-  ["Grade", 7, "7/7.5", "price_Grade_7"],
-  ["Grade", 8, "8/8.5", "price_Grade_8"],
-  ["Grade", 9, "9", "price_Grade_9"],
-  ["Grade", 9.5, "9.5", "price_Grade_9_5"],
-  ["PSA", 10, "10", "price_PSA_10"],
-  ["BGS", 10, "10", "price_BGS_10"],
-  ["CGC", 10, "10", "price_CGC_10"],
-  ["SGC", 10, "10", "price_SGC_10"],
+  ["Grade", 7, "7/7.5", "price_Grade_7", "increase_Grade_7"],
+  ["Grade", 8, "8/8.5", "price_Grade_8", "increase_Grade_8"],
+  ["Grade", 9, "9", "price_Grade_9", "increase_Grade_9"],
+  ["Grade", 9.5, "9.5", "price_Grade_9_5", "increase_Grade_9_5"],
+  ["PSA", 10, "10", "price_PSA_10", "increase_PSA_10"],
+  ["BGS", 10, "10", "price_BGS_10", "increase_BGS_10"],
+  ["CGC", 10, "10", "price_CGC_10", "increase_CGC_10"],
+  ["SGC", 10, "10", "price_SGC_10", "increase_SGC_10"],
 ] as const satisfies ReadonlyArray<
   readonly [
     string,
     number,
     string,
+    keyof TcgPriceHistoryRow,
     keyof TcgPriceHistoryRow,
   ]
 >;
@@ -686,7 +687,7 @@ async function findGradedMarketPrices(
 
   return rows.flatMap((row) =>
     GRADED_PRICE_FIELDS.flatMap(
-      ([grader, grade, gradeLabel, historyField]) => {
+      ([grader, grade, gradeLabel, historyField, increaseField]) => {
         const history = filterPointsByDays(
           parsePriceHistory(String(row[historyField] ?? "[]")),
           90,
@@ -701,8 +702,8 @@ async function findGradedMarketPrices(
           condition: null,
           price: latest.price,
           product_sub_type: row.product_sub_type,
-          increase_percent: Number.isFinite(Number(row.increase_Ungraded))
-            ? Number(row.increase_Ungraded)
+          increase_percent: Number.isFinite(Number(row[increaseField]))
+            ? Number(row[increaseField])
             : 0,
           history,
         }];

@@ -3203,7 +3203,7 @@ class _PriceOverview extends ConsumerWidget {
   }
 }
 
-class _FinishTabs extends StatelessWidget {
+class _FinishTabs extends StatefulWidget {
   const _FinishTabs({
     required this.finishes,
     required this.selected,
@@ -3215,6 +3215,47 @@ class _FinishTabs extends StatelessWidget {
   final ValueChanged<String> onSelected;
 
   @override
+  State<_FinishTabs> createState() => _FinishTabsState();
+}
+
+class _FinishTabsState extends State<_FinishTabs> {
+  static const _textStyle = TextStyle(fontSize: 15, height: 17 / 15);
+  final ScrollController _scrollController = ScrollController();
+  bool _showEndFade = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_updateEndFade);
+    _scheduleEndFadeUpdate();
+  }
+
+  @override
+  void didUpdateWidget(covariant _FinishTabs oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleEndFadeUpdate();
+  }
+
+  void _scheduleEndFadeUpdate() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateEndFade());
+  }
+
+  void _updateEndFade() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final show = position.maxScrollExtent > position.pixels + 0.5;
+    if (show != _showEndFade) setState(() => _showEndFade = show);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_updateEndFade)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerLeft,
@@ -3224,65 +3265,108 @@ class _FinishTabs extends StatelessWidget {
           key: const Key('card-detail-finish-tabs'),
           height: 44,
           width: double.infinity,
-          child: Row(
-            children: [
-              for (final finish in finishes)
-                Expanded(
-                  child: InkWell(
-                    key: Key('card-detail-finish-$finish'),
-                    borderRadius: BorderRadius.circular(4),
-                    onTap: finish == selected ? null : () => onSelected(finish),
-                    child: Center(
-                      child: Container(
-                        height: 44,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: finish == selected
-                                  ? KandoColors.accent
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _FinishIcon(
-                              key: Key('card-detail-finish-icon-$finish'),
-                              pattern: _finishIconPattern(
-                                finish,
-                                randomize: finishes.length > 2,
-                              ),
-                              color: finish == selected
-                                  ? KandoColors.accent
-                                  : KandoColors.mutedText,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                finish,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: finish == selected
-                                      ? KandoColors.accent
-                                      : KandoColors.mutedText,
-                                  fontSize: 15,
-                                  height: 17 / 15,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final tabs = [
+                for (final finish in widget.finishes) _buildTab(finish),
+              ];
+              if (_tabsWidth(context) <= constraints.maxWidth) {
+                return Row(children: tabs);
+              }
+              _scheduleEndFadeUpdate();
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: SingleChildScrollView(
+                      key: const Key('card-detail-finish-tabs-scroll'),
+                      controller: _scrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: tabs,
                       ),
                     ),
                   ),
-                ),
-            ],
+                  if (_showEndFade)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        child: Container(
+                          key: const Key('card-detail-finish-tabs-end-fade'),
+                          width: 40,
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.transparent, KandoColors.ink],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
+        ),
+      ),
+    );
+  }
+
+  double _tabsWidth(BuildContext context) {
+    var width = 0.0;
+    for (final finish in widget.finishes) {
+      final painter = TextPainter(
+        text: TextSpan(text: finish, style: _textStyle),
+        maxLines: 1,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      width += painter.width + 44;
+      painter.dispose();
+    }
+    return width;
+  }
+
+  Widget _buildTab(String finish) {
+    final selected = finish == widget.selected;
+    return InkWell(
+      key: Key('card-detail-finish-$finish'),
+      borderRadius: BorderRadius.circular(4),
+      onTap: selected ? null : () => widget.onSelected(finish),
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: selected ? KandoColors.accent : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _FinishIcon(
+              key: Key('card-detail-finish-icon-$finish'),
+              pattern: _finishIconPattern(
+                finish,
+                randomize: widget.finishes.length > 2,
+              ),
+              color: selected ? KandoColors.accent : KandoColors.mutedText,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              finish,
+              maxLines: 1,
+              softWrap: false,
+              style: _textStyle.copyWith(
+                color: selected ? KandoColors.accent : KandoColors.mutedText,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -426,7 +426,7 @@ describe("local D1 card data source adapter", () => {
         grade_label: "10",
         price: 360,
         product_sub_type: "Foil",
-        increase_percent: 999,
+        increase_percent: 20,
       }),
     );
     expect(prices.some((price) => price.grader === "ACE")).toBe(false);
