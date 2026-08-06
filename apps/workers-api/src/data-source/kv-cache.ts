@@ -14,9 +14,10 @@ export type DataSourceKvNamespace = {
 
 const SEARCH_CARDS_TTL_SECONDS = 60 * 60;
 const TRENDING_LAST_GOOD_TTL_SECONDS = 24 * 60 * 60;
-const CARD_RESPONSE_CACHE_VERSION = "v7";
-const TRENDING_RESPONSE_CACHE_VERSION = "v6";
+const CARD_RESPONSE_CACHE_VERSION = "v8";
+const TRENDING_RESPONSE_CACHE_VERSION = "v7";
 const TRENDING_LEGACY_CACHE_KEYS = [
+  "v6:getTrending:1:10:last-known-good",
   "v5:getTrending:last-known-good",
   "v4:getTrending",
 ];

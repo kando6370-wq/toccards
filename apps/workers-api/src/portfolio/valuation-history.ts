@@ -23,7 +23,6 @@ type ItemEventRow = {
 };
 
 export type SkuRow = {
-  sku_id: number | null;
   product_id: string;
   condition_code: string | null;
   condition_name: string | null;
@@ -209,8 +208,7 @@ export function matchingPrice(
       - qualifierRank(language, right.language_code, right.language_name)
       || qualifierRank(finish, left.variant_code, left.variant_name)
       - qualifierRank(finish, right.variant_code, right.variant_name)
-      || (left.sku_id ?? Number.MAX_SAFE_INTEGER)
-      - (right.sku_id ?? Number.MAX_SAFE_INTEGER)
+      || compareNaturalQualifiers(left, right)
   );
   const row = candidates[0];
   return row
@@ -234,8 +232,7 @@ export function matchingSku(
       .filter((row) => parsePriceHistory(row.price_history).length > 0)
       .sort((left, right) =>
         skuRank(left) - skuRank(right)
-        || (left.sku_id ?? Number.MAX_SAFE_INTEGER)
-        - (right.sku_id ?? Number.MAX_SAFE_INTEGER)
+        || compareNaturalQualifiers(left, right)
       )[0] ??
     null
   );
@@ -290,6 +287,17 @@ function skuRank(row: SkuRow): number {
   );
 }
 
+function compareNaturalQualifiers(left: SkuRow, right: SkuRow): number {
+  return [left.condition_name, left.language_name, left.variant_name]
+    .map(normalizedQualifier)
+    .join("\u0000")
+    .localeCompare(
+      [right.condition_name, right.language_name, right.variant_name]
+        .map(normalizedQualifier)
+        .join("\u0000"),
+    );
+}
+
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -327,7 +335,7 @@ export async function loadSkus(db: D1Database, cardRefs: string[]): Promise<SkuR
     const placeholders = chunk.map(() => "?").join(", ");
     const result = await db
       .prepare(
-        `SELECT sku_id, product_id, condition_code, condition_name, language_code,
+        `SELECT product_id, condition_code, condition_name, language_code,
           language_name, variant_code, variant_name,
           price_Ungraded AS price_history,
           increase_Ungraded AS increase_rate,

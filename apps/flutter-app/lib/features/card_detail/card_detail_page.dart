@@ -676,8 +676,11 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this)
-      ..addListener(_handleTabChange);
+    _tabController = TabController(
+      length: 2,
+      initialIndex: widget.entrySource == AnalyticsValue.sourceEdit ? 1 : 0,
+      vsync: this,
+    )..addListener(_handleTabChange);
   }
 
   @override
