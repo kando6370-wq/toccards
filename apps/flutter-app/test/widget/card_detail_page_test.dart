@@ -13,6 +13,7 @@ import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
+import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -863,6 +864,29 @@ void main() {
     expect(find.byKey(const Key('card-detail-price-chart')), findsNothing);
   });
 
+  testWidgets('Collection list entry defaults owned CardDetail to Price', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const _CardDetailTestApp(
+        cardId: 'charizard-ex',
+        entrySource: AnalyticsValue.sourceEdit,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('card-detail-owned-tabs')),
+      400,
+    );
+
+    expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
+    expect(
+      find.byKey(const Key('card-detail-collection-item-item-charizard')),
+      findsNothing,
+    );
+  });
+
   testWidgets(
     'owned CardDetail displays one Collection Item while keeping list data',
     (tester) async {
@@ -1430,11 +1454,13 @@ class _CardDetailTestApp extends StatelessWidget {
     required this.cardId,
     this.actions,
     this.repository,
+    this.entrySource = AnalyticsValue.sourceSearch,
   });
 
   final String cardId;
   final CardDetailActions? actions;
   final CardDetailRepository? repository;
+  final String entrySource;
 
   @override
   Widget build(BuildContext context) {
@@ -1448,7 +1474,9 @@ class _CardDetailTestApp extends StatelessWidget {
         if (actions != null)
           cardDetailActionsProvider.overrideWithValue(actions!),
       ],
-      child: MaterialApp(home: CardDetailPage(cardId: cardId)),
+      child: MaterialApp(
+        home: CardDetailPage(cardId: cardId, entrySource: entrySource),
+      ),
     );
   }
 }

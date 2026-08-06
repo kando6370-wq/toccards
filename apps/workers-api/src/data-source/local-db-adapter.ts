@@ -20,7 +20,6 @@ type CardCatalogRow = {
 };
 
 type TcgPriceRow = {
-  sku_id: number;
   product_id: string;
   condition_code: string | null;
   condition_name: string | null;
@@ -54,7 +53,6 @@ type PriceHistoryEntry = {
 };
 
 type TcgPriceHistoryRow = {
-  pricecharting_id: string;
   product_sub_type: string | null;
   language_code: string | null;
   language_name: string | null;
@@ -285,26 +283,36 @@ LIMIT ? OFFSET ?`,
           `SELECT cards_all.product_id, cards_all.game_id, cards_all.game,
        cards_all.set_name, cards_all.set_code, cards_all.name,
        cards_all.rarity, cards_all.product_type_name,
-       sku.sku_id, sku.condition_code, sku.condition_name,
+       sku.condition_code, sku.condition_name,
        sku.language_code, sku.language_name, sku.variant_code,
        sku.variant_name, sku.price_Ungraded AS price_history,
        sku.increase_Ungraded AS increase_rate
 FROM tcg_price AS sku INDEXED BY idx_tcg_price_increase_ungraded
 JOIN cards_all
   ON cards_all.product_id = sku.product_id
-WHERE sku.sku_id IS NOT NULL AND sku.increase_Ungraded > 0
+WHERE sku.increase_Ungraded > 0
   AND NOT EXISTS (
     SELECT 1
     FROM tcg_price AS better
     WHERE better.product_id = sku.product_id
-      AND better.sku_id IS NOT NULL
       AND better.increase_Ungraded IS NOT NULL
       AND (
         better.increase_Ungraded > sku.increase_Ungraded
-        OR (better.increase_Ungraded = sku.increase_Ungraded AND better.sku_id < sku.sku_id)
+        OR (
+          better.increase_Ungraded = sku.increase_Ungraded
+          AND lower(trim(coalesce(better.condition_name, ''))) || char(0)
+              || lower(trim(coalesce(better.language_name, ''))) || char(0)
+              || lower(trim(coalesce(better.variant_name, '')))
+            < lower(trim(coalesce(sku.condition_name, ''))) || char(0)
+              || lower(trim(coalesce(sku.language_name, ''))) || char(0)
+              || lower(trim(coalesce(sku.variant_name, '')))
+        )
       )
   )
-ORDER BY sku.increase_Ungraded DESC, sku.sku_id ASC
+ORDER BY sku.increase_Ungraded DESC,
+  lower(trim(coalesce(sku.condition_name, ''))),
+  lower(trim(coalesce(sku.language_name, ''))),
+  lower(trim(coalesce(sku.variant_name, '')))
 LIMIT ? OFFSET ?`,
         )
         .bind(pageSize, (page - 1) * pageSize)
@@ -468,12 +476,12 @@ async function findSkuRowsByProductId(
   const placeholders = productIds.map(() => "?").join(", ");
   const results = await db
     .prepare(
-      `SELECT sku_id, product_id, condition_code, condition_name, language_code,
+      `SELECT product_id, condition_code, condition_name, language_code,
               language_name, variant_code, variant_name,
               price_Ungraded AS price_history,
               increase_Ungraded AS increase_rate
        FROM tcg_price
-       WHERE sku_id IS NOT NULL AND product_id IN (${placeholders})
+       WHERE product_id IN (${placeholders})
        ORDER BY product_id, language_code, variant_code, condition_code`,
     )
     .bind(...productIds)
@@ -494,7 +502,9 @@ function preferredSearchSku(rows: TcgPriceRow[]): TcgPriceRow | null {
   return (
     [...rows]
       .filter((row) => parsePriceHistory(row.price_history).length > 0)
-      .sort(compareSkuPreference)[0] ?? null
+      .sort((left, right) =>
+        compareIncreaseDescending(left, right) || compareSkuPreference(left, right)
+      )[0] ?? null
   );
 }
 
@@ -532,7 +542,7 @@ function preferredMarketSkus(rows: TcgPriceRow[]): TcgPriceRow[] {
   return [...rowsByCondition.values()].sort(
     (left, right) =>
       marketConditionRank(left) - marketConditionRank(right) ||
-      left.sku_id - right.sku_id,
+      compareNaturalQualifiers(left, right),
   );
 }
 
@@ -568,8 +578,36 @@ function compareSkuPreference(
   return (
     searchSkuRank(left) - searchSkuRank(right) ||
     latestPriceDate(right).localeCompare(latestPriceDate(left)) ||
-    left.sku_id - right.sku_id
+    compareNaturalQualifiers(left, right)
   );
+}
+
+function compareIncreaseDescending(
+  left: TcgPriceRow,
+  right: TcgPriceRow,
+): number {
+  const leftIncrease = Number.isFinite(left.increase_rate)
+    ? left.increase_rate!
+    : null;
+  const rightIncrease = Number.isFinite(right.increase_rate)
+    ? right.increase_rate!
+    : null;
+  if (leftIncrease === null) return rightIncrease === null ? 0 : 1;
+  if (rightIncrease === null) return -1;
+  return rightIncrease - leftIncrease;
+}
+
+function compareNaturalQualifiers(
+  left: TcgPriceRow,
+  right: TcgPriceRow,
+): number {
+  return naturalQualifierKey(left).localeCompare(naturalQualifierKey(right));
+}
+
+function naturalQualifierKey(row: TcgPriceRow): string {
+  return [row.condition_name, row.language_name, row.variant_name]
+    .map((value) => normalizedQualifier(value))
+    .join("\u0000");
 }
 
 function isFresherSku(
@@ -579,7 +617,7 @@ function isFresherSku(
   const candidateDate = latestPriceDate(candidate);
   const currentDate = latestPriceDate(current);
   return candidateDate > currentDate ||
-    (candidateDate === currentDate && candidate.sku_id < current.sku_id);
+    (candidateDate === currentDate && compareNaturalQualifiers(candidate, current) < 0);
 }
 
 function latestPriceDate(row: TcgPriceRow): string {
@@ -596,12 +634,12 @@ async function findSkuRows(
 
   const results = await db
     .prepare(
-      `SELECT sku_id, product_id, condition_code, condition_name, language_code,
+      `SELECT product_id, condition_code, condition_name, language_code,
               language_name, variant_code, variant_name,
               price_Ungraded AS price_history,
               increase_Ungraded AS increase_rate
        FROM tcg_price
-       WHERE sku_id IS NOT NULL AND product_id = ?
+       WHERE product_id = ?
        ORDER BY language_code, variant_code, condition_code`,
     )
     .bind(cardRef)
@@ -622,7 +660,7 @@ async function findGradedMarketPrices(
   try {
     const results = await db
       .prepare(
-        `SELECT DISTINCT pricecharting_id, variant_name AS product_sub_type,
+        `SELECT DISTINCT variant_name AS product_sub_type,
                 language_code, language_name,
                 price_Ungraded, increase_Ungraded,
                 price_Grade_7, price_Grade_8, price_Grade_9, price_Grade_9_5,
@@ -633,7 +671,7 @@ async function findGradedMarketPrices(
          FROM tcg_price
          WHERE product_id = ?
            AND (? IS NULL OR lower(trim(variant_name)) = lower(trim(?)))
-         ORDER BY variant_name, pricecharting_id`,
+         ORDER BY condition_name, language_name, variant_name`,
       )
       .bind(cardRef, finish ?? null, finish ?? null)
       .all<TcgPriceHistoryRow>();
@@ -662,7 +700,6 @@ async function findGradedMarketPrices(
           grade_label: gradeLabel,
           condition: null,
           price: latest.price,
-          pricecharting_id: row.pricecharting_id,
           product_sub_type: row.product_sub_type,
           increase_percent: Number.isFinite(Number(row.increase_Ungraded))
             ? Number(row.increase_Ungraded)
@@ -753,13 +790,13 @@ async function findPriceHistoryRows(
   if (!/^\d+$/.test(cardRef)) return [];
   try {
     const result = await db.prepare(
-      `SELECT DISTINCT pricecharting_id, variant_name AS product_sub_type,
+      `SELECT DISTINCT variant_name AS product_sub_type,
               language_code, language_name,
               price_Ungraded, increase_Ungraded
        FROM tcg_price
        WHERE product_id = ?
          AND (? IS NULL OR lower(trim(variant_name)) = lower(trim(?)))
-       ORDER BY variant_name, pricecharting_id`,
+       ORDER BY condition_name, language_name, variant_name`,
     ).bind(cardRef, finish ?? null, finish ?? null).all<TcgPriceHistoryRow>();
     return preferHistoryRowsByLanguage(
       (result.results ?? []).filter((row) => historyMatchesFinish(row, finish)),

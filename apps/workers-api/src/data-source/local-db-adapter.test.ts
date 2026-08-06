@@ -23,7 +23,7 @@ type SetRow = {
 };
 
 type SkuRow = {
-  sku_id: number;
+  sku_id: number | null;
   product_id: string;
   condition_code: string | null;
   condition_name: string | null;
@@ -36,7 +36,6 @@ type SkuRow = {
 };
 
 type PriceHistoryRow = Record<string, string | number | null> & {
-  pricecharting_id: string;
   product_id: string;
   product_sub_type: string | null;
 };
@@ -112,7 +111,7 @@ class FakeBoundStatement {
   async all<T>(): Promise<{ results: T[] }> {
     if (
       this.sql.includes("price_Grade_7") ||
-      this.sql.includes("SELECT DISTINCT pricecharting_id")
+      this.sql.includes("variant_name AS product_sub_type")
     ) {
       const productId = String(this.values[0]);
       return {
@@ -131,7 +130,7 @@ class FakeBoundStatement {
         if (
           !current ||
           sku.increase_rate! > current.increase_rate! ||
-          (sku.increase_rate === current.increase_rate && sku.sku_id < current.sku_id)
+          (sku.increase_rate === current.increase_rate && naturalKey(sku) < naturalKey(current))
         ) {
           highestSkuByProduct.set(productId, sku);
         }
@@ -139,7 +138,7 @@ class FakeBoundStatement {
       const results = [...highestSkuByProduct.values()]
         .sort(
           (left, right) =>
-            right.increase_rate! - left.increase_rate! || left.sku_id - right.sku_id,
+            right.increase_rate! - left.increase_rate! || naturalKey(left).localeCompare(naturalKey(right)),
         )
         .slice(0, 10)
         .flatMap((sku) => {
@@ -426,7 +425,6 @@ describe("local D1 card data source adapter", () => {
         grade: 10,
         grade_label: "10",
         price: 360,
-        pricecharting_id: "pc-100-foil",
         product_sub_type: "Foil",
         increase_percent: 999,
       }),
@@ -577,9 +575,10 @@ describe("local D1 card data source adapter", () => {
         [card({ product_id: "100", name: "Charizard" })],
         [
           sku({
-            sku_id: 1,
+            sku_id: null,
             variant_code: "F",
             variant_name: "Foil",
+            increase_rate: 3186.713286713287,
             price_history: JSON.stringify([
               { price: "12.50", date: "2026-06-01" },
               { price: "15.75", date: "2026-07-08" },
@@ -601,10 +600,11 @@ describe("local D1 card data source adapter", () => {
     await expect(adapter.searchCards("charizard")).resolves.toMatchObject([
       {
         card_ref: "100",
-        finish: "Normal",
+        finish: "Foil",
         language: "English",
-        price_usd: 10.5,
-        previous_30d_price_usd: 9.25,
+        price_usd: 15.75,
+        previous_30d_price_usd: 12.5,
+        price_change_1d_percent: 3186.713286713287,
       },
     ]);
   });
@@ -698,7 +698,6 @@ describe("local D1 card data source adapter", () => {
   it("falls back to Ungraded for the same product subtype only when that finish has no SKU history", async () => {
     const normalHistory = {
       ...gradedPriceHistory(),
-      pricecharting_id: "pc-180865-normal",
       product_id: "180865",
       product_sub_type: "Normal",
       price_Ungraded: JSON.stringify([{ price: 30, date: "2026-07-30" }]),
@@ -818,6 +817,17 @@ describe("local D1 card data source adapter", () => {
             ]),
           }),
           sku({
+            sku_id: null,
+            product_id: "200",
+            variant_code: "CF",
+            variant_name: "Cold Foil",
+            increase_rate: 80,
+            price_history: JSON.stringify([
+              { price: 30, date: "2026-07-14" },
+              { price: 54, date: "2026-07-15" },
+            ]),
+          }),
+          sku({
             sku_id: 4,
             product_id: "300",
             increase_rate: null,
@@ -844,10 +854,10 @@ describe("local D1 card data source adapter", () => {
       {
         card_ref: "200",
         name: "Largest Mover",
-        finish: "Foil",
-        price_usd: 25,
-        previous_30d_price_usd: 20,
-        price_change_1d_percent: 60,
+        finish: "Cold Foil",
+        price_usd: 54,
+        previous_30d_price_usd: 30,
+        price_change_1d_percent: 80,
       },
       {
         card_ref: "100",
@@ -864,7 +874,11 @@ describe("local D1 card data source adapter", () => {
     expect(trendingSql).toContain(
       "cards_all.product_id = sku.product_id",
     );
-    expect(trendingSql).toContain("better.sku_id IS NOT NULL");
+    expect(trendingSql).not.toContain("sku_id IS NOT NULL");
+    expect(trendingSql).not.toContain("pricecharting_id");
+    expect(
+      db.preparedSql.every((sql) => !/sku_id|pricecharting_id/i.test(sql)),
+    ).toBe(true);
     expect(trendingSql).toContain("idx_tcg_price_increase_ungraded");
     expect(trendingSql).toContain("sku.increase_Ungraded > 0");
     expect(trendingSql).not.toContain("CAST(");
@@ -903,9 +917,14 @@ function sku(overrides: Partial<SkuRow>): SkuRow {
   };
 }
 
+function naturalKey(row: SkuRow): string {
+  return [row.condition_name, row.language_name, row.variant_name]
+    .map((value) => (value ?? "").trim().toLowerCase())
+    .join("\u0000");
+}
+
 function gradedPriceHistory(): PriceHistoryRow {
   return {
-    pricecharting_id: "pc-100-foil",
     product_id: "100",
     product_sub_type: "Foil",
     price_Ungraded: JSON.stringify([
