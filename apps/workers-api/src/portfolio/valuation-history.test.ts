@@ -80,7 +80,7 @@ describe("portfolio valuation history", () => {
     ]);
   });
 
-  it("sorts by unit price rather than quantity because Most Valuable is not total position value", async () => {
+  it("sorts by current position value because Most Valuable must match the quantity-aware Collection price", async () => {
     const db = new FakeDb(
       [
         event("a", "expensive", "main", "100", "upsert", "2026-06-01T00:00:00.000Z", 1),
@@ -100,7 +100,56 @@ describe("portfolio valuation history", () => {
       new Date("2026-07-10T12:00:00.000Z"),
     );
     expect(main!.current_value_usd).toBe(520);
-    expect(main!.most_valuable.map((item) => item.item_id)).toEqual(["expensive", "bulk"]);
+    expect(main!.most_valuable.map((item) => item.item_id)).toEqual(["bulk", "expensive"]);
+    expect(main!.most_valuable.map((item) => item.price_usd)).toEqual([500, 20]);
+  });
+
+  it("uses graded finish and language history because Home must equal the saved Collection item valuation", async () => {
+    const graded = {
+      ...event("graded", "graded-item", "main", "100", "upsert", "2026-07-01T00:00:00.000Z", 2),
+      grader: "PSA",
+      condition: null,
+      grade: 7.5,
+      language: "Japanese",
+      finish: "Foil",
+    };
+    const db = new FakeDb(
+      [graded],
+      [
+        {
+          ...sku("100", 1, []),
+          language_code: "JP",
+          language_name: "Japanese",
+          variant_code: "F",
+          variant_name: "Foil",
+          price_Grade_7: JSON.stringify([{ date: "2026-07-08", price: 30 }]),
+        },
+        {
+          ...sku("100", 2, []),
+          language_code: "EN",
+          language_name: "English",
+          variant_code: "N",
+          variant_name: "Normal",
+          price_Grade_7: JSON.stringify([{ date: "2026-07-10", price: 999 }]),
+        },
+      ],
+      [{ ...card("100", "Graded Card"), number: "007" }],
+    );
+
+    const [main] = await loadValuationHistory(
+      db as unknown as D1Database,
+      { owner_type: "anonymous", owner_id: "anon-1" },
+      ["main"],
+      1,
+      new Date("2026-07-10T12:00:00.000Z"),
+    );
+
+    expect(main!.current_value_usd).toBe(60);
+    expect(main!.series.at(-1)?.value_usd).toBe(60);
+    expect(main!.most_valuable[0]).toMatchObject({
+      card_number: "007",
+      price_usd: 60,
+    });
   });
 });
 

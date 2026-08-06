@@ -220,7 +220,10 @@ export function createDataSourceRoutes(
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
     const finish = nullableString(c.req.query("finish"));
-    const prices = await listOrEmpty(() => adapter.getMarketPrices(cardRef, finish));
+    const language = nullableString(c.req.query("language"));
+    const prices = await listOrEmpty(() =>
+      adapter.getMarketPrices(cardRef, finish, language),
+    );
 
     return c.json({
       success: true,

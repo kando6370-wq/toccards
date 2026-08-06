@@ -254,6 +254,7 @@ abstract interface class CardDataApi {
   Future<List<CardDataMarketPriceDto>> getMarketPrices(
     String cardRef, {
     String? finish,
+    String? language,
   });
   Future<List<CardDataPricePointDto>> getPriceSeries(
     String cardRef, {
@@ -411,6 +412,7 @@ class CardDataApiClient
   Future<List<CardDataMarketPriceDto>> getMarketPrices(
     String cardRef, {
     String? finish,
+    String? language,
   }) async {
     final data = await _requestData(
       'GET',
@@ -418,6 +420,7 @@ class CardDataApiClient
       queryParameters: {
         'response_version': cardDataResponseVersion,
         if (finish != null) 'finish': finish,
+        if (language != null) 'language': language,
       },
     );
     final prices = data['prices'];

@@ -306,6 +306,33 @@ void main() {
   );
 
   test(
+    'collection preserves half grades because BGS 9.5 has its own price bucket',
+    () {
+      const item = CollectionItem(
+        id: 'bgs-95',
+        cardRef: 'card',
+        folderId: 'main',
+        name: 'Half Grade',
+        setName: 'Set',
+        number: '1',
+        rarity: 'Rare',
+        game: 'Pokemon',
+        language: 'English',
+        finish: 'Holofoil',
+        grader: 'BGS',
+        condition: null,
+        grade: 9.5,
+        quantity: 1,
+        marketValueUsd: 10,
+        previous30dPriceUsd: 9,
+        addedAtSort: 0,
+      );
+
+      expect(item.statusText, 'BGS 9.5');
+    },
+  );
+
+  test(
     'shared selected currency converts collection money while preserving percentages',
     () async {
       final container = _collectionContainer();
@@ -626,25 +653,28 @@ void main() {
     expect(state.visibleItems.first.changeText, '+8.10%');
   });
 
-  test('empty and no-match states are distinct', () async {
-    final container = _collectionContainer();
-    addTearDown(container.dispose);
-    await _loadedState(container);
-    final controller = container.read(collectionControllerProvider.notifier);
+  test(
+    'empty and no-match states are distinct while Portfolio total remains the full folder value',
+    () async {
+      final container = _collectionContainer();
+      addTearDown(container.dispose);
+      await _loadedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
 
-    await controller.selectFolder('empty');
-    expect(container.read(collectionControllerProvider).isEmpty, isTrue);
-    expect(container.read(collectionControllerProvider).isNoMatch, isFalse);
+      await controller.selectFolder('empty');
+      expect(container.read(collectionControllerProvider).isEmpty, isTrue);
+      expect(container.read(collectionControllerProvider).isNoMatch, isFalse);
 
-    await controller.selectFolder('main');
-    controller.updateSearch('missing');
-    final state = container.read(collectionControllerProvider);
-    expect(state.isEmpty, isFalse);
-    expect(state.isNoMatch, isTrue);
-    expect(state.portfolioSummary.totalValueText, r'$0.00');
-    expect(state.portfolioSummary.cardCount, 0);
-    expect(state.portfolioSummary.gradedCount, 0);
-  });
+      await controller.selectFolder('main');
+      controller.updateSearch('missing');
+      final state = container.read(collectionControllerProvider);
+      expect(state.isEmpty, isFalse);
+      expect(state.isNoMatch, isTrue);
+      expect(state.portfolioSummary.totalValueText, r'$1,245.00');
+      expect(state.portfolioSummary.cardCount, 4);
+      expect(state.portfolioSummary.gradedCount, 2);
+    },
+  );
 
   test(
     'collection renders owned items before slow game filters because filters are supplemental',
@@ -1085,6 +1115,7 @@ class _FakeCardDataApi implements CardDataApi {
   Future<List<CardDataMarketPriceDto>> getMarketPrices(
     String cardRef, {
     String? finish,
+    String? language,
   }) async {
     marketPriceRefs.add(cardRef);
     if (priceFailures.contains(cardRef)) {

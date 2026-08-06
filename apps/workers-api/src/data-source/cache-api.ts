@@ -33,9 +33,9 @@ export function createCacheApiDataSourceAdapter(
       );
     },
 
-    getMarketPrices(card_ref, finish) {
-      return readThroughCacheApi(cache, marketPricesCacheKey(card_ref, finish), () =>
-        source.getMarketPrices(card_ref, finish),
+    getMarketPrices(card_ref, finish, language) {
+      return readThroughCacheApi(cache, marketPricesCacheKey(card_ref, finish, language), () =>
+        source.getMarketPrices(card_ref, finish, language),
       );
     },
 
@@ -104,9 +104,22 @@ function cacheRequest(key: string): Request {
   return new Request(`${CACHE_ORIGIN}/${key}`);
 }
 
-function marketPricesCacheKey(card_ref: string, finish?: string | null): string {
-  if (!finish) return ["getMarketPrices", "v3", cacheKeyPart(card_ref)].join(":");
-  return ["getMarketPrices", "v4", cacheKeyPart(card_ref), cacheKeyPart(finish)].join(":");
+function marketPricesCacheKey(
+  card_ref: string,
+  finish?: string | null,
+  language?: string | null,
+): string {
+  if (!language) {
+    if (!finish) return ["getMarketPrices", "v3", cacheKeyPart(card_ref)].join(":");
+    return ["getMarketPrices", "v4", cacheKeyPart(card_ref), cacheKeyPart(finish)].join(":");
+  }
+  return [
+    "getMarketPrices",
+    "v5",
+    cacheKeyPart(card_ref),
+    finish ? cacheKeyPart(finish) : "none",
+    cacheKeyPart(language),
+  ].join(":");
 }
 
 function priceSeriesCacheKey(

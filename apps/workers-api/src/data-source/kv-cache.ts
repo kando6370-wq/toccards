@@ -49,8 +49,8 @@ export function createKvCachedDataSourceAdapter(
       return source.getPriceSeries(card_ref, grader, grade, condition, days, finish);
     },
 
-    getMarketPrices(card_ref, finish) {
-      return source.getMarketPrices(card_ref, finish);
+    getMarketPrices(card_ref, finish, language) {
+      return source.getMarketPrices(card_ref, finish, language);
     },
 
     async getTrending(options) {

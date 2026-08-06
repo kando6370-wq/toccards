@@ -41,6 +41,7 @@ class ScanReviewTarget {
 class ScanReviewPrice {
   const ScanReviewPrice({
     this.finish,
+    this.language,
     required this.grader,
     required this.grade,
     required this.condition,
@@ -48,6 +49,7 @@ class ScanReviewPrice {
   });
 
   final String? finish;
+  final String? language;
   final String grader;
   final double? grade;
   final String? condition;
@@ -159,17 +161,26 @@ class ApiScanReviewRepository implements ScanReviewRepository {
     final finishes = card.availableFinishes.isEmpty
         ? <String?>[card.finish]
         : card.availableFinishes.cast<String?>();
+    final languages = card.availableLanguages.isEmpty
+        ? <String?>[card.language]
+        : card.availableLanguages.cast<String?>();
     final prices = await Future.wait(
-      finishes.map((finish) async {
+      [
+        for (final finish in finishes)
+          for (final language in languages) (finish, language),
+      ].map((selection) async {
+        final (finish, language) = selection;
         try {
           final rows = await _cardDataApi.getMarketPrices(
             cardRef,
             finish: finish,
+            language: language,
           );
           return rows
               .map(
                 (price) => ScanReviewPrice(
                   finish: finish,
+                  language: language,
                   grader: price.grader,
                   grade: price.grade,
                   condition: price.condition,

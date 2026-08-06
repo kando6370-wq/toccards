@@ -28,7 +28,7 @@ final cardDetailControllerProvider =
       CardDetailController.new,
     );
 
-const cardCollectionGraders = ['Raw', 'PSA', 'BGS', 'SGC', 'CGC', 'TAG', 'AGS'];
+const cardCollectionGraders = ['Raw', 'PSA', 'BGS', 'CGC', 'SGC'];
 const cardCollectionConditions = [
   'Near Mint (NM)',
   'Lightly Played (LP)',
@@ -55,27 +55,12 @@ const cardCollectionFinishes = [
   'Foil',
   'Non-Foil',
 ];
-const cardCollectionGradeValues = [
-  '10',
-  '9.5',
-  '9',
-  '8.5',
-  '8',
-  '7.5',
-  '7',
-  '6.5',
-  '6',
-  '5.5',
-  '5',
-  '4.5',
-  '4',
-  '3.5',
-  '3',
-  '2.5',
-  '2',
-  '1.5',
-  '1',
-];
+const _cardCollectionGradesByGrader = <String, List<String>>{
+  'PSA': ['10', '9', '8.5', '8', '7.5', '7'],
+  'BGS': ['10', '9.5', '9', '8.5', '8', '7.5', '7'],
+  'CGC': ['10'],
+  'SGC': ['10'],
+};
 
 const _defaultCondition = 'Near Mint (NM)';
 const _defaultGrade = '10';
@@ -108,7 +93,39 @@ int _compareListingDates(String left, String right) {
 }
 
 List<String> cardCollectionGradeLabelsFor(String grader) {
-  return cardCollectionGradeValues.map((grade) => '$grader $grade').toList();
+  return cardCollectionGradeValuesFor(
+    grader,
+  ).map((grade) => '$grader $grade').toList();
+}
+
+List<String> cardCollectionGradeValuesFor(String grader) {
+  return _cardCollectionGradesByGrader[grader] ?? const [];
+}
+
+bool cardCollectionPriceMatches({
+  required String grader,
+  required double grade,
+  required String marketGrader,
+  required double? marketGrade,
+}) {
+  if (marketGrade == null) return false;
+  if (grade == 7 || grade == 7.5) {
+    return marketGrader.toLowerCase() == 'grade' && marketGrade == 7;
+  }
+  if (grade == 8 || grade == 8.5) {
+    return marketGrader.toLowerCase() == 'grade' && marketGrade == 8;
+  }
+  if (grade == 9) {
+    return marketGrader.toLowerCase() == 'grade' && marketGrade == 9;
+  }
+  if (grade == 9.5) {
+    return grader == 'BGS' &&
+        marketGrader.toLowerCase() == 'grade' &&
+        marketGrade == 9.5;
+  }
+  return grade == 10 &&
+      grader.toLowerCase() == marketGrader.toLowerCase() &&
+      marketGrade == 10;
 }
 
 class CardCollectionItemDraft {
@@ -419,7 +436,13 @@ class CardDetailState {
             _normalizedCondition(condition);
       }
       final gradeValue = double.tryParse(grade ?? '');
-      return gradeValue != null && price.grade == gradeValue;
+      return gradeValue != null &&
+          cardCollectionPriceMatches(
+            grader: grader,
+            grade: gradeValue,
+            marketGrader: price.grader,
+            marketGrade: price.grade,
+          );
     }).firstOrNull;
   }
 
@@ -695,6 +718,8 @@ class CardDetailController extends Notifier<CardDetailState> {
         final data = await repository.loadMarketPrices(
           cardId,
           finish: state.priceFinish,
+          language:
+              state.collectionItemDraft?.language ?? state.detail.language,
         );
         if (!isCurrent()) return;
         state = state.copyWith(
@@ -846,6 +871,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       final market = await sectionRepository.loadMarketPrices(
         cardId,
         finish: finish,
+        language: state.collectionItemDraft?.language ?? state.detail.language,
       );
       final series = await sectionRepository.loadPriceSeries(
         cardId,
@@ -874,6 +900,33 @@ class CardDetailController extends Notifier<CardDetailState> {
         priceSeriesStatus: KandoLoadStatus.failure,
         marketPricesStatus: KandoLoadStatus.failure,
       );
+    }
+  }
+
+  Future<void> selectCollectionPriceLanguage(String language) async {
+    if (state.isLoading || state.isUnavailable) return;
+    final repository = _repository;
+    if (repository is! CardDetailSectionRepository) return;
+    final sectionRepository = repository as CardDetailSectionRepository;
+    final generation = ++_priceLoadGeneration;
+    state = state.copyWith(marketPricesStatus: KandoLoadStatus.loading);
+    try {
+      final market = await sectionRepository.loadMarketPrices(
+        cardId,
+        finish: state.collectionItemDraft?.finish ?? state.priceFinish,
+        language: language,
+      );
+      if (generation != _priceLoadGeneration) return;
+      state = state.copyWith(
+        detail: state.detail.copyWith(
+          marketPrices: _resolvedMarketPrices(market.marketPrices),
+        ),
+        marketPricesStatus: KandoLoadStatus.content,
+      );
+    } catch (_) {
+      if (generation == _priceLoadGeneration) {
+        state = state.copyWith(marketPricesStatus: KandoLoadStatus.failure);
+      }
     }
   }
 
@@ -933,7 +986,9 @@ class CardDetailController extends Notifier<CardDetailState> {
         portfolioName: item.portfolioName,
         grader: item.grader,
         condition: item.condition ?? _defaultCondition,
-        grade: item.grade ?? _defaultGradeForGrader(item.grader),
+        grade: cardCollectionGradeValuesFor(item.grader).contains(item.grade)
+            ? item.grade!
+            : _defaultGradeForGrader(item.grader),
         language: _collectionOptionOrDefault(
           item.language ?? state.detail.language,
           _optionsWithCurrent(
@@ -1332,6 +1387,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       final data = await repository.loadMarketPrices(
         cardId,
         finish: state.priceFinish,
+        language: state.detail.language,
       );
       if (generation == _loadGeneration) {
         state = state.copyWith(
@@ -1508,9 +1564,7 @@ class CardDetailController extends Notifier<CardDetailState> {
 }
 
 String _defaultGradeForGrader(String grader) {
-  return cardCollectionGraders.contains(grader) && grader != 'Raw'
-      ? cardCollectionGradeValues.first
-      : _defaultGrade;
+  return cardCollectionGradeValuesFor(grader).firstOrNull ?? _defaultGrade;
 }
 
 String _normalizedCondition(String? value) {
