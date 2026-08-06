@@ -463,6 +463,10 @@ CardMarketPrice _marketPriceFromDto(
   CardDataMarketPriceDto dto,
   Map<CardPriceRange, List<CardPricePoint>> seriesByRange,
 ) {
+  final history = _pricePointsFromDtos(dto.history);
+  final sevenDaySeries =
+      seriesByRange[CardPriceRange.sevenDays] ??
+      _filterPointsByDays(history, CardPriceRange.sevenDays.days);
   return CardMarketPrice(
     label: _marketPriceLabel(dto),
     grader: dto.grader,
@@ -472,10 +476,10 @@ CardMarketPrice _marketPriceFromDto(
     pricechartingId: dto.pricechartingId,
     productSubType: dto.productSubType,
     increasePercent: dto.increasePercent,
-    history: _pricePointsFromDtos(dto.history),
+    history: history,
     priceUsd: dto.price,
     previous30dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.oneMonth]),
-    previous7dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.sevenDays]),
+    previous7dPriceUsd: _priceAtDaysAgo(sevenDaySeries, 6),
   );
 }
 
@@ -522,6 +526,22 @@ double? _previousPrice(List<CardPricePoint>? points) {
     return null;
   }
   return points.first.priceUsd;
+}
+
+double? _priceAtDaysAgo(List<CardPricePoint> points, int days) {
+  if (points.length < 2) return null;
+  final sorted = [...points]
+    ..sort((left, right) => left.dateLabel.compareTo(right.dateLabel));
+  final latest = DateTime.tryParse(sorted.last.dateLabel);
+  if (latest == null) return null;
+  final cutoff = latest.subtract(Duration(days: days));
+  return sorted
+      .where((point) {
+        final date = DateTime.tryParse(point.dateLabel);
+        return date != null && !date.isAfter(cutoff);
+      })
+      .lastOrNull
+      ?.priceUsd;
 }
 
 String _marketPriceLabel(CardDataMarketPriceDto dto) {

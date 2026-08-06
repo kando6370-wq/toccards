@@ -428,12 +428,10 @@ class CardDetailState {
       return null;
     }
     return detail.marketPrices.where((price) {
-      if (price.grader.toLowerCase() != grader.toLowerCase()) {
-        return false;
-      }
       if (grader.toLowerCase() == 'raw') {
-        return _normalizedCondition(price.condition) ==
-            _normalizedCondition(condition);
+        return price.grader.toLowerCase() == 'raw' &&
+            _normalizedCondition(price.condition) ==
+                _normalizedCondition(condition);
       }
       final gradeValue = double.tryParse(grade ?? '');
       return gradeValue != null &&
@@ -560,7 +558,10 @@ class CardDetailState {
   }
 
   MarketChange _marketChange7d(CardMarketPrice price) {
-    return MarketChange.fromPercent(price.increasePercent);
+    return MarketChange.fromPrices(
+      current: price.priceUsd,
+      previous: price.previous7dPriceUsd,
+    );
   }
 
   String _gradedMarketRowLabel(CardMarketPrice price) {

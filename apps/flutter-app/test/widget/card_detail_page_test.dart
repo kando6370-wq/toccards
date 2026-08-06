@@ -82,6 +82,58 @@ void main() {
     },
   );
 
+  testWidgets(
+    'overflowing Finish tabs scroll and remove their end cue at the last item',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _FinishTabCardDetailRepository(
+        finishes: const [
+          'Normal',
+          '1st Edition',
+          '1st Edition Holofoil',
+          'Reverse Holofoil',
+        ],
+      );
+      await tester.pumpWidget(
+        _CardDetailTestApp(cardId: '600820', repository: repository),
+      );
+      await tester.pumpAndSettle();
+
+      final scroll = find.byKey(const Key('card-detail-finish-tabs-scroll'));
+      await tester.scrollUntilVisible(
+        scroll,
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      final scrollView = tester.widget<SingleChildScrollView>(scroll);
+      expect(scrollView.controller!.position.maxScrollExtent, greaterThan(0));
+      expect(
+        find.byKey(const Key('card-detail-finish-tabs-end-fade')),
+        findsOneWidget,
+        reason:
+            'Overflow needs a visible cue that more finishes are available.',
+      );
+      final longLabel = tester.widget<Text>(find.text('1st Edition Holofoil'));
+      expect(longLabel.maxLines, 1);
+      expect(longLabel.softWrap, isFalse);
+
+      await tester.drag(scroll, const Offset(-1000, 0));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-finish-tabs-end-fade')),
+        findsNothing,
+        reason:
+            'The overflow cue must disappear once the last finish is visible.',
+      );
+    },
+  );
+
   testWidgets('Wishlist CardDetail uses the global Finish tabs', (
     tester,
   ) async {
@@ -208,7 +260,7 @@ void main() {
     expect(find.text('BGS'), findsNothing);
     expect(find.text('Near Mint (NM)'), findsOneWidget);
     expect(find.text(r'$32.13'), findsWidgets);
-    expect(find.text('+4.76%'), findsOneWidget);
+    expect(find.text('+2.19%'), findsOneWidget);
     expect(find.text('Collection Item'), findsNothing);
     expect(
       find.byKey(const Key('card-detail-remove-from-portfolio')),

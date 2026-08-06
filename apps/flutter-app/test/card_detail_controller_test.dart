@@ -59,6 +59,52 @@ void main() {
   );
 
   test(
+    'PSA 7.5 draft uses the shared Grade 7 market bucket because total value must reflect the selected graded price',
+    () {
+      const state = CardDetailState(
+        cardId: '656259',
+        detail: CardDetail(
+          id: '656259',
+          type: CardDetailType.tcg,
+          name: 'Test Card',
+          game: 'Pokemon',
+          setName: 'Test Set',
+          identityLine: '#656259',
+          finish: 'Normal',
+          language: 'English',
+          quantity: 0,
+          isWishlisted: false,
+          marketPrices: [
+            CardMarketPrice(
+              label: '7/7.5',
+              grader: 'Grade',
+              grade: 7,
+              gradeLabel: '7/7.5',
+              priceUsd: 14.76,
+              previous30dPriceUsd: null,
+            ),
+          ],
+        ),
+        currency: AppCurrency.usd,
+        collectionItemDraft: CardCollectionItemDraft(
+          quantityText: '2',
+          portfolioName: 'Main',
+          grader: 'PSA',
+          condition: '',
+          grade: '7.5',
+          language: 'English',
+          finish: 'Normal',
+          purchasePriceText: '',
+          notes: '',
+        ),
+      );
+
+      expect(state.collectionItemDraftMarketPriceText, r'$14.76');
+      expect(state.collectionItemDraftTotalText, r'$29.52');
+    },
+  );
+
+  test(
     'http detail repository loads card-data presentation rows before portfolio overlay because card identity and prices are catalog-owned',
     () async {
       final cardDataApi = _FakeCardDataApi();
@@ -106,6 +152,12 @@ void main() {
       expect(detail.marketPrices.first.priceUsd, 15);
       expect(detail.marketPrices.first.previous30dPriceUsd, 10);
       expect(detail.marketPrices.first.previous7dPriceUsd, 14);
+      expect(
+        detail.marketPrices.last.previous7dPriceUsd,
+        65,
+        reason:
+            'Graded 7D change must use its own price history and an inclusive seven-day window.',
+      );
       expect(
         detail.priceSeriesByRange[CardPriceRange.oneMonth]!.first.dateLabel,
         '2026-06-10',
@@ -1045,7 +1097,12 @@ void main() {
         r'$20.00',
         r'$15.00',
       ]);
-      expect(normal.priceTabMarketRows.first.changeText, '+5.00%');
+      expect(
+        normal.priceTabMarketRows.first.changeText,
+        '+4.17%',
+        reason:
+            '7D change must be calculated from the row series (25 vs 24), not increasePercent.',
+      );
       expect(cardDataApi.marketFinishes.last, 'Normal');
       expect(
         cardDataApi.seriesFinishes.whereType<String>().toSet(),
@@ -1703,7 +1760,7 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
         history: [
           CardDataPricePointDto(date: '2026-04-10', price: 40),
           CardDataPricePointDto(date: '2026-06-10', price: 50),
-          CardDataPricePointDto(date: '2026-07-03', price: 65),
+          CardDataPricePointDto(date: '2026-07-04', price: 65),
           CardDataPricePointDto(date: '2026-07-10', price: 70),
         ],
       ),
