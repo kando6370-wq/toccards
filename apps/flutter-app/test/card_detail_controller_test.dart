@@ -25,6 +25,40 @@ import 'support/mock_search_repository.dart';
 
 void main() {
   test(
+    'collection grading options and database buckets stay aligned because every saved graded card must be priceable',
+    () {
+      expect(cardCollectionGraders, ['Raw', 'PSA', 'BGS', 'CGC', 'SGC']);
+      expect(cardCollectionGradeValuesFor('PSA'), [
+        '10',
+        '9',
+        '8.5',
+        '8',
+        '7.5',
+        '7',
+      ]);
+      expect(cardCollectionGradeValuesFor('CGC'), ['10']);
+      expect(
+        cardCollectionPriceMatches(
+          grader: 'PSA',
+          grade: 7.5,
+          marketGrader: 'Grade',
+          marketGrade: 7,
+        ),
+        isTrue,
+      );
+      expect(
+        cardCollectionPriceMatches(
+          grader: 'PSA',
+          grade: 10,
+          marketGrader: 'SGC',
+          marketGrade: 10,
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  test(
     'http detail repository loads card-data presentation rows before portfolio overlay because card identity and prices are catalog-owned',
     () async {
       final cardDataApi = _FakeCardDataApi();
@@ -1199,6 +1233,7 @@ class _BlockingOptionalSectionRepository extends _RecordingCardDetailRepository
   Future<CardDetailMarketData> loadMarketPrices(
     String cardId, {
     String? finish,
+    String? language,
   }) {
     return _marketCompleter.future;
   }
@@ -1644,6 +1679,7 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
   Future<List<CardDataMarketPriceDto>> getMarketPrices(
     String cardRef, {
     String? finish,
+    String? language,
   }) async {
     if (failMarketPrices) {
       throw StateError('market prices unavailable');
@@ -1755,6 +1791,7 @@ class _FinishSwitchingCardDataApi extends _FakeCardDataApi {
   Future<List<CardDataMarketPriceDto>> getMarketPrices(
     String cardRef, {
     String? finish,
+    String? language,
   }) async {
     marketFinishes.add(finish);
     if (finish != 'Normal') {
@@ -1815,6 +1852,7 @@ class _RecoveringSectionCardDataApi extends _FakeCardDataApi {
   Future<List<CardDataMarketPriceDto>> getMarketPrices(
     String cardRef, {
     String? finish,
+    String? language,
   }) {
     if (_marketFailuresRemaining > 0) {
       _marketFailuresRemaining -= 1;

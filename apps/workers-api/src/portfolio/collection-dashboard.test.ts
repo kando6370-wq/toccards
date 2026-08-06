@@ -11,9 +11,7 @@ class FakeDb {
   prepare(sql: string) {
     const rows = sql.includes("FROM cards_all")
       ? this.cards
-      : sql.includes("price_Grade_7") || sql.includes("SELECT DISTINCT pricecharting_id")
-        ? this.gradedPrices
-        : this.skus;
+      : [...this.skus, ...this.gradedPrices];
     return {
       bind: (..._args: unknown[]) => ({
         all: async <T>() => ({ results: rows as T[] }),
@@ -105,6 +103,48 @@ describe("collection dashboard enrichment", () => {
       market_price_usd: null,
       market_language: null,
       market_finish: null,
+    });
+  });
+
+  it("maps PSA 7.5 to Grade 7 because saved grader labels must select the shared database price bucket", async () => {
+    const item = {
+      id: "graded-item",
+      folder_id: "main",
+      card_ref: "100",
+      object_type: "tcg",
+      grader: "PSA",
+      condition: null,
+      grade: 7.5,
+      language: "English",
+      finish: "Normal",
+      quantity: 2,
+      folder_joined_at: "2026-07-01T00:00:00.000Z",
+      created_at: "2026-07-01T00:00:00.000Z",
+    };
+    const result = await enrichCollectionDashboard(
+      new FakeDb(
+        [card("100")],
+        [],
+        [{
+          product_id: "100",
+          pricecharting_id: "graded-1",
+          variant_name: "Normal",
+          language_name: "English",
+          price_Grade_7: JSON.stringify([
+            { date: "2026-07-09", price: 70 },
+            { date: "2026-07-10", price: 75 },
+          ]),
+        }],
+      ) as unknown as D1Database,
+      [item],
+      [],
+      new Date("2026-07-10T12:00:00.000Z"),
+    );
+
+    expect(result.portfolio_items[0]).toMatchObject({
+      market_price_usd: 75,
+      market_language: "English",
+      market_finish: "Normal",
     });
   });
 });

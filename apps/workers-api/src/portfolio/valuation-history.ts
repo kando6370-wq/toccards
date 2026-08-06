@@ -1,5 +1,11 @@
 import type { AuthenticatedOwner } from "../owner-auth";
 import { cardImageUrl } from "../card-image-url";
+import {
+  gradedIncreaseField,
+  gradedPriceHistoryField,
+  type GradedIncreaseField,
+  type GradedPriceHistoryField,
+} from "../grading";
 
 type ItemEventRow = {
   id: string;
@@ -17,7 +23,7 @@ type ItemEventRow = {
 };
 
 export type SkuRow = {
-  sku_id: number;
+  sku_id: number | null;
   product_id: string;
   condition_code: string | null;
   condition_name: string | null;
@@ -27,6 +33,13 @@ export type SkuRow = {
   variant_name: string | null;
   price_history: string;
   increase_rate: number | null;
+} & Record<GradedPriceHistoryField, string>
+  & Record<GradedIncreaseField, number | null>;
+
+export type MatchedPrice = {
+  row: SkuRow;
+  history: string;
+  increaseRate: number | null;
 };
 
 type PricePoint = { date: string; price: number };
@@ -119,23 +132,27 @@ function mostValuableItems(
   for (const events of eventsByItem.values()) {
     const state = stateOnDate(events, date);
     if (!state || state.event_type === "delete" || state.folder_id !== folderId) continue;
-    const sku = matchingSku(state, skusByProduct.get(state.card_ref) ?? []);
+    const matched = matchingPrice(state, skusByProduct.get(state.card_ref) ?? []);
     const card = cardsByProduct.get(state.card_ref);
-    const current = sku ? priceOnDate(sku.price_history, date) : null;
-    if (!sku || !card || current === null) continue;
+    const current = matched ? priceOnDate(matched.history, date) : null;
+    if (!matched || !card || current === null) continue;
+    const positionValue = roundMoney(current * state.quantity);
+    const previous = priceOnDate(matched.history, baselineDate);
     items.push({
       item_id: state.item_id,
       card_ref: state.card_ref,
       name: card.name ?? state.card_ref,
       set_name: card.set_name ?? "",
-      card_number: "",
+      card_number: card.number ?? "",
       finish: state.finish,
       image_url: cardImageUrl(state.card_ref, "thumbnail"),
-      price_usd: current,
-      previous_30d_price_usd: priceOnDate(sku.price_history, baselineDate),
-      increase_percent: Number.isFinite(sku.increase_rate)
-        ? sku.increase_rate
-        : null,
+      price_usd: positionValue,
+      previous_30d_price_usd:
+        previous === null ? null : roundMoney(previous * state.quantity),
+      increase_percent:
+        matched.increaseRate !== null && Number.isFinite(matched.increaseRate)
+          ? matched.increaseRate
+          : null,
     });
   }
   return items
@@ -160,11 +177,45 @@ function valueOnDate(
     if (!state || state.event_type === "delete" || state.folder_id !== folderId) {
       continue;
     }
-    const sku = matchingSku(state, skusByProduct.get(state.card_ref) ?? []);
-    const price = sku ? priceOnDate(sku.price_history, date) : null;
+    const matched = matchingPrice(state, skusByProduct.get(state.card_ref) ?? []);
+    const price = matched ? priceOnDate(matched.history, date) : null;
     if (price !== null) total += price * state.quantity;
   }
-  return Math.round(total * 100) / 100;
+  return roundMoney(total);
+}
+
+export function matchingPrice(
+  event: Pick<ItemEventRow, "grader" | "condition" | "grade" | "language" | "finish">,
+  rows: SkuRow[],
+): MatchedPrice | null {
+  if (event.grader.toLowerCase() === "raw") {
+    const row = matchingSku(event, rows);
+    return row
+      ? { row, history: row.price_history, increaseRate: row.increase_rate }
+      : null;
+  }
+  if (event.grade === null) return null;
+  const field = gradedPriceHistoryField(event.grader.toUpperCase(), event.grade);
+  const increaseField = gradedIncreaseField(event.grader.toUpperCase(), event.grade);
+  if (!field || !increaseField) return null;
+  const language = normalizedOptionalQualifier(event.language);
+  const finish = normalizedOptionalQualifier(event.finish);
+  const candidates = rows
+    .filter((row) => optionalQualifierMatches(language, row.language_code, row.language_name))
+    .filter((row) => optionalQualifierMatches(finish, row.variant_code, row.variant_name))
+    .filter((row) => parsePriceHistory(row[field]).length > 0)
+    .sort((left, right) =>
+      qualifierRank(language, left.language_code, left.language_name)
+      - qualifierRank(language, right.language_code, right.language_name)
+      || qualifierRank(finish, left.variant_code, left.variant_name)
+      - qualifierRank(finish, right.variant_code, right.variant_name)
+      || (left.sku_id ?? Number.MAX_SAFE_INTEGER)
+      - (right.sku_id ?? Number.MAX_SAFE_INTEGER)
+  );
+  const row = candidates[0];
+  return row
+    ? { row, history: row[field], increaseRate: row[increaseField] }
+    : null;
 }
 
 export function matchingSku(
@@ -181,7 +232,11 @@ export function matchingSku(
       .filter((row) => !language || qualifierMatches(language, row.language_code, row.language_name))
       .filter((row) => !finish || qualifierMatches(finish, row.variant_code, row.variant_name))
       .filter((row) => parsePriceHistory(row.price_history).length > 0)
-      .sort((left, right) => skuRank(left) - skuRank(right) || left.sku_id - right.sku_id)[0] ??
+      .sort((left, right) =>
+        skuRank(left) - skuRank(right)
+        || (left.sku_id ?? Number.MAX_SAFE_INTEGER)
+        - (right.sku_id ?? Number.MAX_SAFE_INTEGER)
+      )[0] ??
     null
   );
 }
@@ -193,6 +248,27 @@ function qualifierMatches(
 ): boolean {
   if (!expected) return true;
   return [code, name].some((value) => normalizedQualifier(value) === expected);
+}
+
+function optionalQualifierMatches(
+  expected: string,
+  code: string | null,
+  name: string | null,
+): boolean {
+  if (!expected) return true;
+  const values = [code, name].map(normalizedQualifier).filter(Boolean);
+  return values.length === 0 || values.includes(expected);
+}
+
+function qualifierRank(
+  expected: string,
+  code: string | null,
+  name: string | null,
+): number {
+  if (!expected) return 0;
+  return [code, name].some((value) => normalizedQualifier(value) === expected)
+    ? 0
+    : 1;
 }
 
 function normalizedQualifier(value: string | null): string {
@@ -212,6 +288,10 @@ function skuRank(row: SkuRow): number {
     (row.language_code === "EN" ? 0 : 10) +
     (row.variant_code === "N" ? 0 : 1)
   );
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 export function priceOnDate(history: string, date: string): number | null {
@@ -250,9 +330,14 @@ export async function loadSkus(db: D1Database, cardRefs: string[]): Promise<SkuR
         `SELECT sku_id, product_id, condition_code, condition_name, language_code,
           language_name, variant_code, variant_name,
           price_Ungraded AS price_history,
-          increase_Ungraded AS increase_rate
+          increase_Ungraded AS increase_rate,
+          price_Grade_7, price_Grade_8, price_Grade_9, price_Grade_9_5,
+          price_PSA_10, price_BGS_10, price_CGC_10, price_SGC_10,
+          increase_Grade_7, increase_Grade_8, increase_Grade_9,
+          increase_Grade_9_5, increase_PSA_10, increase_BGS_10,
+          increase_CGC_10, increase_SGC_10
          FROM tcg_price
-         WHERE sku_id IS NOT NULL AND product_id IN (${placeholders})`,
+         WHERE product_id IN (${placeholders})`,
       )
       .bind(...chunk)
       .all<SkuRow>();

@@ -1,3 +1,5 @@
+import { isSupportedGradedSelection } from "./grading";
+
 export type CollectionItemDraft = {
   folder_id: string;
   card_ref: string;
@@ -18,7 +20,7 @@ type CollectionItemOverrides = Partial<
 >;
 
 const SUPPORTED_OBJECT_TYPES = new Set(["tcg", "sports", "sealed", "other"]);
-const SUPPORTED_GRADERS = new Set(["Raw", "PSA", "BGS", "SGC", "CGC", "TAG", "AGS"]);
+const SUPPORTED_GRADERS = new Set(["Raw", "PSA", "BGS", "CGC", "SGC"]);
 const SUPPORTED_RAW_CONDITIONS = new Set([
   "Near Mint (NM)",
   "Lightly Played (LP)",
@@ -140,7 +142,7 @@ function normalizeCollectionItemDraft(
   }
 
   return draft.grade !== null &&
-    isValidGrade(draft.grade) &&
+    isSupportedGradedSelection(draft.grader, draft.grade) &&
     draft.condition === null
     ? draft
     : null;
@@ -173,10 +175,6 @@ function positiveInteger(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0
     ? value
     : null;
-}
-
-function isValidGrade(grade: number): boolean {
-  return grade > 0 && grade <= 10 && Number.isSafeInteger(grade * 2);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

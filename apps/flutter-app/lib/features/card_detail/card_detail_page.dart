@@ -23,14 +23,7 @@ const Color _kCollectionCardEnd = Color(0x0A141506);
 const Color _kCollectionOutline = Color(0x1A90927C);
 const Color _kCollectionSecondaryText = Color(0xFF92927D);
 const Color _kRemovePortfolioColor = Color(0xFFFACC15);
-const List<String> _kEditGraderOptions = [
-  'Raw',
-  'PSA',
-  'BGS',
-  'TAG',
-  'CGC',
-  'AGS',
-];
+const List<String> _kEditGraderOptions = ['Raw', 'PSA', 'BGS', 'CGC', 'SGC'];
 const List<String> _kEditConditionOptions = [
   'Near Mint (NM)',
   'Lightly Played (LP)',
@@ -1721,9 +1714,10 @@ class _CollectionItemForm extends StatelessWidget {
     final finishValue = finishOptions.contains(draft.finish)
         ? draft.finish
         : finishOptions.first;
-    final gradeValue = cardCollectionGradeValues.contains(draft.grade)
+    final gradeOptions = cardCollectionGradeValuesFor(draft.grader);
+    final gradeValue = gradeOptions.contains(draft.grade)
         ? draft.grade
-        : cardCollectionGradeValues.first;
+        : gradeOptions.firstOrNull ?? '10';
     final useEditCard = isEditing && showHeader && showActions && !embedded;
 
     if (useEditCard) {
@@ -1819,8 +1813,8 @@ class _CollectionItemForm extends StatelessWidget {
               final grade = await _showChoiceSheet(
                 context,
                 title: 'Grade',
-                selected: cardCollectionGradeValues.first,
-                options: cardCollectionGradeValues,
+                selected: cardCollectionGradeValuesFor(value).first,
+                options: cardCollectionGradeValuesFor(value),
               );
               if (grade != null) {
                 controller.updateCollectionItemDraft(grade: grade);
@@ -1843,7 +1837,7 @@ class _CollectionItemForm extends StatelessWidget {
               key: const Key('card-detail-item-grade'),
               label: 'Grade',
               value: gradeValue,
-              options: cardCollectionGradeValues,
+              options: gradeOptions,
               displayBuilder: (grade) => '${draft.grader} $grade',
               onSelected: (value) {
                 controller.updateCollectionItemDraft(grade: value);
@@ -1855,8 +1849,9 @@ class _CollectionItemForm extends StatelessWidget {
             label: 'Language',
             value: languageValue,
             options: languageOptions,
-            onSelected: (value) {
+            onSelected: (value) async {
               controller.updateCollectionItemDraft(language: value);
+              await controller.selectCollectionPriceLanguage(value);
             },
           ),
           const SizedBox(height: 12),
@@ -2058,7 +2053,9 @@ class _CollectionItemAddForm extends StatelessWidget {
           onGradedSelected: () {
             controller.updateCollectionItemDraft(
               grader: draft.isRaw ? 'PSA' : draft.grader,
-              grade: cardCollectionGradeValues.first,
+              grade: cardCollectionGradeValuesFor(
+                draft.isRaw ? 'PSA' : draft.grader,
+              ).first,
             );
           },
         ),
@@ -2100,7 +2097,7 @@ class _CollectionItemAddForm extends StatelessWidget {
             key: const Key('card-detail-item-grade'),
             label: 'GRADE',
             selected: gradeValue,
-            options: cardCollectionGradeValues,
+            options: cardCollectionGradeValuesFor(draft.grader),
             columns: 3,
             onSelected: (value) {
               controller.updateCollectionItemDraft(grade: value);
@@ -2113,8 +2110,9 @@ class _CollectionItemAddForm extends StatelessWidget {
           label: 'LANGUAGE',
           value: languageValue,
           options: languageOptions,
-          onSelected: (value) {
+          onSelected: (value) async {
             controller.updateCollectionItemDraft(language: value);
+            await controller.selectCollectionPriceLanguage(value);
           },
         ),
         const SizedBox(height: 24),
@@ -2231,8 +2229,9 @@ class _CollectionItemEditCard extends StatelessWidget {
             selected: finishValue,
             options: finishOptions,
             columns: 3,
-            onSelected: (value) {
+            onSelected: (value) async {
               controller.updateCollectionItemDraft(finish: value);
+              await controller.selectPriceFinish(value);
             },
           ),
           const SizedBox(height: 24),
@@ -2245,7 +2244,7 @@ class _CollectionItemEditCard extends StatelessWidget {
               final grader = draft.isRaw ? 'PSA' : draft.grader;
               controller.updateCollectionItemDraft(
                 grader: grader,
-                grade: cardCollectionGradeValues.first,
+                grade: cardCollectionGradeValuesFor(grader).first,
               );
             },
           ),
@@ -2292,7 +2291,7 @@ class _CollectionItemEditCard extends StatelessWidget {
                   key: const Key('card-detail-item-grade'),
                   label: 'GRADE',
                   selected: gradeValue,
-                  options: cardCollectionGradeValues,
+                  options: cardCollectionGradeValuesFor(draft.grader),
                   columns: 3,
                   onSelected: (value) {
                     controller.updateCollectionItemDraft(grade: value);
@@ -2306,8 +2305,9 @@ class _CollectionItemEditCard extends StatelessWidget {
             label: 'LANGUAGE',
             value: languageValue,
             options: languageOptions,
-            onSelected: (value) {
+            onSelected: (value) async {
               controller.updateCollectionItemDraft(language: value);
+              await controller.selectCollectionPriceLanguage(value);
             },
           ),
           const SizedBox(height: 24),

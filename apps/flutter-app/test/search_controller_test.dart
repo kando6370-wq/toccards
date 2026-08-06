@@ -1155,6 +1155,7 @@ class _FakeCardDataApi implements CardDataApi {
   Future<List<CardDataMarketPriceDto>> getMarketPrices(
     String cardRef, {
     String? finish,
+    String? language,
   }) async {
     throw UnimplementedError();
   }

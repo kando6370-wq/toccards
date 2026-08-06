@@ -188,7 +188,7 @@ class _ScanCollectionDraft {
           ? ''
           : grade ??
                 (isRaw || grader != null
-                    ? cardCollectionGradeValues.first
+                    ? cardCollectionGradeValuesFor(nextGrader).first
                     : this.grade),
       language: language ?? this.language,
       finish: finish ?? this.finish,
@@ -244,23 +244,35 @@ double? _selectedReviewPrice(ScanReviewCard card, _ScanCollectionDraft draft) {
   final hasFinishPrices = card.prices.any(
     (candidate) => candidate.finish != null,
   );
-  return card.prices
-      .where((candidate) {
-        if (hasFinishPrices &&
-            candidate.finish?.toLowerCase() != draft.finish.toLowerCase()) {
-          return false;
-        }
-        if (candidate.grader.toLowerCase() != draft.grader.toLowerCase()) {
-          return false;
-        }
-        if (draft.isRaw) {
-          return _normalizedReviewCondition(candidate.condition) ==
-              _normalizedReviewCondition(draft.condition);
-        }
-        final grade = double.tryParse(draft.grade);
-        return grade != null && candidate.grade == grade;
-      })
-      .firstOrNull
+  final matchingPrices = card.prices.where((candidate) {
+    if (hasFinishPrices &&
+        candidate.finish?.toLowerCase() != draft.finish.toLowerCase()) {
+      return false;
+    }
+    if (draft.isRaw) {
+      if (candidate.grader.toLowerCase() != 'raw') return false;
+      return _normalizedReviewCondition(candidate.condition) ==
+          _normalizedReviewCondition(draft.condition);
+    }
+    final grade = double.tryParse(draft.grade);
+    return grade != null &&
+        cardCollectionPriceMatches(
+          grader: draft.grader,
+          grade: grade,
+          marketGrader: candidate.grader,
+          marketGrade: candidate.grade,
+        );
+  }).toList();
+  return (matchingPrices
+              .where(
+                (candidate) =>
+                    candidate.language?.toLowerCase() ==
+                    draft.language.toLowerCase(),
+              )
+              .firstOrNull ??
+          matchingPrices
+              .where((candidate) => candidate.language == null)
+              .firstOrNull)
       ?.price;
 }
 
@@ -3755,7 +3767,7 @@ class _ReviewCollectionItem extends StatelessWidget {
                         fieldKey: Key('scan-review-grade-$itemId'),
                         label: 'GRADE',
                         selected: draft.grade,
-                        options: cardCollectionGradeValues,
+                        options: cardCollectionGradeValuesFor(draft.grader),
                         enabled: enabled,
                         onChanged: (value) =>
                             onChanged(draft.copyWith(grade: value)),

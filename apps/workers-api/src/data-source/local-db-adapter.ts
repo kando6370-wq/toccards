@@ -56,6 +56,8 @@ type PriceHistoryEntry = {
 type TcgPriceHistoryRow = {
   pricecharting_id: string;
   product_sub_type: string | null;
+  language_code: string | null;
+  language_name: string | null;
   price_Ungraded: string;
   increase_Ungraded: number;
   price_Grade_7: string;
@@ -235,8 +237,11 @@ LIMIT ? OFFSET ?`,
       return findUngradedFallbackSeries(db, card_ref, finish, days);
     },
 
-    async getMarketPrices(card_ref, finish) {
-      const skuRows = filterSkusByFinish(await findSkuRows(db, card_ref), finish);
+    async getMarketPrices(card_ref, finish, language) {
+      const skuRows = filterSkusByLanguage(
+        filterSkusByFinish(await findSkuRows(db, card_ref), finish),
+        language,
+      );
       const prices: MarketPrice[] = [];
 
       for (const row of preferredMarketSkus(skuRows)) {
@@ -258,10 +263,18 @@ LIMIT ? OFFSET ?`,
       }
 
       if (prices.length === 0) {
-        const fallback = await findUngradedFallbackMarketPrice(db, card_ref, finish);
+        const fallback = await findUngradedFallbackMarketPrice(
+          db,
+          card_ref,
+          finish,
+          language,
+        );
         if (fallback) prices.push(fallback);
       }
-      return [...prices, ...(await findGradedMarketPrices(db, card_ref, finish))];
+      return [
+        ...prices,
+        ...(await findGradedMarketPrices(db, card_ref, finish, language)),
+      ];
     },
 
     async getTrending(options) {
@@ -601,6 +614,7 @@ async function findGradedMarketPrices(
   db: D1Database,
   cardRef: string,
   finish?: string | null,
+  language?: string | null,
 ): Promise<MarketPrice[]> {
   if (!/^\d+$/.test(cardRef)) return [];
 
@@ -609,6 +623,7 @@ async function findGradedMarketPrices(
     const results = await db
       .prepare(
         `SELECT DISTINCT pricecharting_id, variant_name AS product_sub_type,
+                language_code, language_name,
                 price_Ungraded, increase_Ungraded,
                 price_Grade_7, price_Grade_8, price_Grade_9, price_Grade_9_5,
                 price_PSA_10, price_BGS_10, price_CGC_10, price_SGC_10,
@@ -622,7 +637,10 @@ async function findGradedMarketPrices(
       )
       .bind(cardRef, finish ?? null, finish ?? null)
       .all<TcgPriceHistoryRow>();
-    rows = (results.results ?? []).filter((row) => historyMatchesFinish(row, finish));
+    rows = preferHistoryRowsByLanguage(
+      (results.results ?? []).filter((row) => historyMatchesFinish(row, finish)),
+      language,
+    );
   } catch (error) {
     console.error("Failed to load graded price history.", error);
     return [];
@@ -669,6 +687,21 @@ function filterSkusByFinish(
   );
 }
 
+function filterSkusByLanguage(
+  rows: TcgPriceRow[],
+  language?: string | null,
+): TcgPriceRow[] {
+  const expected = normalizedQualifier(language);
+  if (!expected) return rows;
+  const exact = rows.filter((row) =>
+    qualifierValues(row.language_code, row.language_name).includes(expected),
+  );
+  if (exact.length > 0) return exact;
+  return rows.filter(
+    (row) => qualifierValues(row.language_code, row.language_name).length === 0,
+  );
+}
+
 async function findUngradedFallbackSeries(
   db: D1Database,
   cardRef: string,
@@ -687,8 +720,9 @@ async function findUngradedFallbackMarketPrice(
   db: D1Database,
   cardRef: string,
   finish?: string | null,
+  language?: string | null,
 ): Promise<MarketPrice | null> {
-  const rows = await findPriceHistoryRows(db, cardRef, finish);
+  const rows = await findPriceHistoryRows(db, cardRef, finish, language);
   for (const row of rows) {
     const history = filterPointsByDays(
       parsePriceHistory(String(row.price_Ungraded ?? "[]")),
@@ -714,18 +748,23 @@ async function findPriceHistoryRows(
   db: D1Database,
   cardRef: string,
   finish?: string | null,
+  language?: string | null,
 ): Promise<TcgPriceHistoryRow[]> {
   if (!/^\d+$/.test(cardRef)) return [];
   try {
     const result = await db.prepare(
       `SELECT DISTINCT pricecharting_id, variant_name AS product_sub_type,
+              language_code, language_name,
               price_Ungraded, increase_Ungraded
        FROM tcg_price
        WHERE product_id = ?
          AND (? IS NULL OR lower(trim(variant_name)) = lower(trim(?)))
        ORDER BY variant_name, pricecharting_id`,
     ).bind(cardRef, finish ?? null, finish ?? null).all<TcgPriceHistoryRow>();
-    return (result.results ?? []).filter((row) => historyMatchesFinish(row, finish));
+    return preferHistoryRowsByLanguage(
+      (result.results ?? []).filter((row) => historyMatchesFinish(row, finish)),
+      language,
+    );
   } catch (error) {
     console.error("Failed to load ungraded price history.", error);
     return [];
@@ -738,6 +777,29 @@ function historyMatchesFinish(
 ): boolean {
   const normalized = finish?.trim().toLowerCase();
   return !normalized || row.product_sub_type?.trim().toLowerCase() === normalized;
+}
+
+function preferHistoryRowsByLanguage(
+  rows: TcgPriceHistoryRow[],
+  language?: string | null,
+): TcgPriceHistoryRow[] {
+  const expected = normalizedQualifier(language);
+  if (!expected) return rows;
+  const exact = rows.filter((row) =>
+    qualifierValues(row.language_code, row.language_name).includes(expected),
+  );
+  if (exact.length > 0) return exact;
+  return rows.filter(
+    (row) => qualifierValues(row.language_code, row.language_name).length === 0,
+  );
+}
+
+function qualifierValues(code: string | null, name: string | null): string[] {
+  return [code, name].map(normalizedQualifier).filter(Boolean);
+}
+
+function normalizedQualifier(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase();
 }
 
 function cardFromRow(row: CardCatalogRow, cardNumber = ""): CardSearchResult {

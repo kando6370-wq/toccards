@@ -59,6 +59,7 @@ abstract interface class CardDetailSectionRepository {
   Future<CardDetailMarketData> loadMarketPrices(
     String cardId, {
     String? finish,
+    String? language,
   });
   Future<CardDetailSeriesData> loadPriceSeries(
     String cardId, {
@@ -125,8 +126,13 @@ class HttpCardDetailRepository
   Future<CardDetailMarketData> loadMarketPrices(
     String cardId, {
     String? finish,
+    String? language,
   }) async {
-    final prices = await _cardDataApi.getMarketPrices(cardId, finish: finish);
+    final prices = await _cardDataApi.getMarketPrices(
+      cardId,
+      finish: finish,
+      language: language,
+    );
     return CardDetailMarketData(
       prices: prices,
       marketPrices: prices

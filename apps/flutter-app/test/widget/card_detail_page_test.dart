@@ -207,7 +207,7 @@ void main() {
     expect(find.text('BGS'), findsNothing);
     expect(find.text('Near Mint (NM)'), findsOneWidget);
     expect(find.text(r'$32.13'), findsWidgets);
-    expect(find.text('+2.19%'), findsOneWidget);
+    expect(find.text('+4.76%'), findsOneWidget);
     expect(find.text('Collection Item'), findsNothing);
     expect(
       find.byKey(const Key('card-detail-remove-from-portfolio')),
@@ -1501,6 +1501,7 @@ class _FinishTabCardDetailRepository extends MockCardDetailRepository
   Future<CardDetailMarketData> loadMarketPrices(
     String cardId, {
     String? finish,
+    String? language,
   }) async {
     requestedFinishes.add(finish);
     final price = finish == 'Foil' ? 20.0 : 10.0;
@@ -1798,6 +1799,7 @@ class _FailingSectionCardDetailRepository extends MockCardDetailRepository
   Future<CardDetailMarketData> loadMarketPrices(
     String cardId, {
     String? finish,
+    String? language,
   }) {
     throw StateError('market prices unavailable');
   }

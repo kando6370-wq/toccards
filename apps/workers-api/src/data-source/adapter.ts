@@ -82,7 +82,11 @@ export interface DataSourceAdapter {
     days: number,
     finish?: string | null,
   ): Promise<PricePoint[]>;
-  getMarketPrices(card_ref: string, finish?: string | null): Promise<MarketPrice[]>;
+  getMarketPrices(
+    card_ref: string,
+    finish?: string | null,
+    language?: string | null,
+  ): Promise<MarketPrice[]>;
   getTrending(options?: Pick<CardSearchOptions, "page" | "page_size">): Promise<CardSearchResult[]>;
   getSoldListings(card_ref: string): Promise<SoldListing[]>;
 }

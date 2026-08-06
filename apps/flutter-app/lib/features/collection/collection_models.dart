@@ -69,7 +69,13 @@ class CollectionItem {
 
   String get statusText {
     if (isGraded) {
-      return '$grader ${grade?.toStringAsFixed(0) ?? '-'}';
+      final value = grade;
+      final gradeText = value == null
+          ? '-'
+          : value == value.truncateToDouble()
+          ? value.toStringAsFixed(0)
+          : value.toStringAsFixed(1);
+      return '$grader $gradeText';
     }
 
     return 'Raw · ${condition ?? '-'}';

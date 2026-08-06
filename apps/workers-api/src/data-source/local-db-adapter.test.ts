@@ -666,6 +666,35 @@ describe("local D1 card data source adapter", () => {
     ).resolves.toEqual([{ date: "2026-07-30", price: 12 }]);
   });
 
+  it("filters current prices by language because the collection editor must not display another language variant", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "180865" })],
+        [
+          sku({
+            product_id: "180865",
+            language_code: "EN",
+            language_name: "English",
+            price_history: JSON.stringify([{ price: 12, date: "2026-07-30" }]),
+          }),
+          sku({
+            product_id: "180865",
+            sku_id: 2,
+            language_code: "JP",
+            language_name: "Japanese",
+            price_history: JSON.stringify([{ price: 22, date: "2026-07-30" }]),
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(
+      adapter.getMarketPrices("180865", "Normal", "Japanese"),
+    ).resolves.toEqual([
+      { grader: "Raw", grade: null, condition: "Near Mint", price: 22 },
+    ]);
+  });
+
   it("falls back to Ungraded for the same product subtype only when that finish has no SKU history", async () => {
     const normalHistory = {
       ...gradedPriceHistory(),

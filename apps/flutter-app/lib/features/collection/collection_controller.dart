@@ -251,7 +251,9 @@ class CollectionState {
   }
 
   CollectionSummary get portfolioSummary {
-    final items = visibleItems.map((item) => item.source).toList();
+    final items = dashboard.portfolioItems
+        .where((item) => item.folderId == selectedFolder.id)
+        .toList();
     final total = items.fold<double>(0, (sum, item) {
       final value = item.marketValueUsd;
       if (value == null || value <= 0) {
