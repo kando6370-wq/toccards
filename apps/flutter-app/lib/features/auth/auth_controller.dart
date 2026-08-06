@@ -56,6 +56,10 @@ final oauthAuthorizerProvider = Provider<OAuthAuthorizer>((ref) {
 
 final authDeviceIdProvider = Provider<String?>((ref) => null);
 
+final authStartupRetryDelaysProvider = Provider<List<Duration>>((ref) {
+  return const [Duration(seconds: 1), Duration(seconds: 3)];
+});
+
 final authControllerProvider = NotifierProvider<AuthController, AuthState>(
   AuthController.new,
 );
@@ -89,7 +93,9 @@ class AuthController extends Notifier<AuthState> {
     final completer = Completer<void>();
     final generation = ++_generation;
     _startupCompleter = completer;
-    final startup = _enqueueMutation(() => _loadInitialSession(generation));
+    final startup = _enqueueMutation(
+      () => _loadInitialSessionWithRetry(generation),
+    );
     unawaited(
       startup.then(completer.complete).catchError((
         Object error,
@@ -101,6 +107,21 @@ class AuthController extends Notifier<AuthState> {
         completer.complete();
       }),
     );
+  }
+
+  Future<void> _loadInitialSessionWithRetry(int generation) async {
+    final retryDelays = ref.read(authStartupRetryDelaysProvider);
+    for (var attempt = 0; ; attempt += 1) {
+      try {
+        await _loadInitialSession(generation);
+        return;
+      } on AuthNetworkException {
+        if (generation != _generation) return;
+        if (attempt >= retryDelays.length) rethrow;
+        await Future<void>.delayed(retryDelays[attempt]);
+        if (generation != _generation) return;
+      }
+    }
   }
 
   Future<void> logout() async {

@@ -100,12 +100,16 @@ class HttpAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession> createAnonymousSession(String deviceId) async {
-    final data = await _requestData(
-      'POST',
-      '/auth/anonymous',
-      body: {'device_id': deviceId, 'platform': _installationPlatform()},
-    );
-    return _anonymousSession(data);
+    try {
+      final data = await _requestData(
+        'POST',
+        '/auth/anonymous',
+        body: {'device_id': deviceId, 'platform': _installationPlatform()},
+      );
+      return _anonymousSession(data);
+    } on DioException {
+      throw const AuthNetworkException();
+    }
   }
 
   @override

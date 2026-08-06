@@ -257,9 +257,19 @@ class SearchController extends Notifier<SearchState> {
 
   Future<void> refreshPreservingContent() {
     if (state.isLoading || state.isUnavailable) return refresh();
-    final previousState = state;
+    _searchDebounce?.cancel();
     _resetAssets();
-    _startLoad(preserveState: previousState, session: _assetSession);
+    final completer = Completer<void>();
+    final generation = ++_loadGeneration;
+    _loadCompleter = completer;
+    unawaited(
+      _loadSearch(
+        state.selectedTab,
+        state.searchText.trim(),
+        generation,
+        completer,
+      ),
+    );
     return loadComplete;
   }
 
@@ -360,7 +370,12 @@ class SearchController extends Notifier<SearchState> {
 
     final tab = state.selectedTab;
     state = state.copyWith(searchByTab: {...state.searchByTab, tab: value});
-    _scheduleSearch(tab: tab, query: value, debounce: debounce);
+    _scheduleSearch(
+      tab: tab,
+      query: value,
+      allowEmpty: true,
+      debounce: debounce,
+    );
   }
 
   void clearSearch() {

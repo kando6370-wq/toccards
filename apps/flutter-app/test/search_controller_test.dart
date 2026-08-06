@@ -454,27 +454,27 @@ void main() {
   test(
     'Search loads and mutates backend asset state because Qty Collect and Wishlist must survive page refresh',
     () async {
+      const assetCard = CardDataCardDto(
+        cardRef: '9359',
+        name: 'Escape Artist',
+        setName: 'Odyssey',
+        setCode: 'ODY',
+        cardNumber: '',
+        finish: 'Normal',
+        language: 'English',
+        objectType: 'tcg',
+        imageUrl: null,
+        rarity: 'Common',
+        priceUsd: 0.21,
+        previous30dPriceUsd: 0.17,
+      );
       final portfolioApi = _FakePortfolioApi(
         items: [_portfolioItem(id: 'item-1', quantity: 2)],
       );
       final repository = HttpSearchRepository(
         _FakeCardDataApi(
-          trendingCardRows: const [
-            CardDataCardDto(
-              cardRef: '9359',
-              name: 'Escape Artist',
-              setName: 'Odyssey',
-              setCode: 'ODY',
-              cardNumber: '',
-              finish: 'Normal',
-              language: 'English',
-              objectType: 'tcg',
-              imageUrl: null,
-              rarity: 'Common',
-              priceUsd: 0.21,
-              previous30dPriceUsd: 0.17,
-            ),
-          ],
+          trendingCardRows: const [assetCard],
+          searchCardRows: const [assetCard],
           sets: const [],
         ),
         portfolioApi: portfolioApi,
@@ -816,6 +816,35 @@ void main() {
     },
   );
 
+  test(
+    'clearing and pull refresh reload the selected game because default-game cards must not replace current results',
+    () async {
+      final repository = _CurrentGameRefreshSearchRepository();
+      final container = _searchContainer(repository: repository);
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      controller.selectGame('lorcana');
+      await controller.loadComplete;
+      controller.submitSearch('Elsa');
+      await controller.loadComplete;
+      controller.submitSearch('');
+      await controller.loadComplete;
+      await controller.refreshPreservingContent();
+
+      final state = container.read(searchControllerProvider);
+      expect(repository.requestedGames, [
+        'Lorcana',
+        'Lorcana',
+        'Lorcana',
+        'Lorcana',
+      ]);
+      expect(state.selectedGame.label, 'Lorcana');
+      expect(state.visibleCards.map((card) => card.name), ['Lorcana Elsa']);
+    },
+  );
+
   test('Collect updates Qty and removes Wishlist state', () async {
     final container = _searchContainer();
     addTearDown(container.dispose);
@@ -931,6 +960,31 @@ class _FailingCardSearchRepository implements SearchRepository {
   @override
   Future<List<SearchSet>> searchSets(String query, {String? game}) {
     return const MockSearchRepository().searchSets(query);
+  }
+}
+
+class _CurrentGameRefreshSearchRepository implements SearchRepository {
+  final requestedGames = <String?>[];
+
+  @override
+  Future<SearchCatalog> loadCatalog() async {
+    final catalog = await const MockSearchRepository().loadCatalog();
+    return SearchCatalog(
+      games: catalog.games,
+      cards: catalog.cards.where((card) => card.gameId == 'pokemon').toList(),
+      sets: catalog.sets,
+    );
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
+    requestedGames.add(game);
+    return const MockSearchRepository().searchCards(query, game: game);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
   }
 }
 

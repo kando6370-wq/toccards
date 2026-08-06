@@ -40,6 +40,21 @@ void main() {
   );
 
   test(
+    'anonymous session creation reports network failure because cold start can retry transient connectivity',
+    () async {
+      final repository = HttpAuthRepository(
+        _dio(_FakeAuthAdapter({'POST /auth/anonymous': _NetworkFailure()})),
+        InMemoryAuthStorage(),
+      );
+
+      await expectLater(
+        repository.createAnonymousSession('device-1'),
+        throwsA(isA<AuthNetworkException>()),
+      );
+    },
+  );
+
+  test(
     'validates stored sessions with auth me because local tokens alone are not proof of identity',
     () async {
       final stored = AuthSession(
