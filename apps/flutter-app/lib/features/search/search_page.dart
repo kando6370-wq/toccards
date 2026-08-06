@@ -111,7 +111,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           child: _SearchControlsHeader(
                             state: state,
                             onSearchChanged: controller.submitSearch,
-                            onClear: () => controller.submitSearch(''),
+                            onClear: controller.clearSearch,
                             onSelectTab: controller.selectTab,
                             onGamePressed: () => _showGameSheet(context, ref),
                             onScan: () => context.go('/scan'),

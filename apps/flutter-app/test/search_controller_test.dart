@@ -816,6 +816,35 @@ void main() {
     },
   );
 
+  test(
+    'clearing and pull refresh reload the selected game because default-game cards must not replace current results',
+    () async {
+      final repository = _CurrentGameRefreshSearchRepository();
+      final container = _searchContainer(repository: repository);
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      controller.selectGame('lorcana');
+      await controller.loadComplete;
+      controller.submitSearch('Elsa');
+      await controller.loadComplete;
+      controller.clearSearch();
+      await controller.loadComplete;
+      await controller.refreshPreservingContent();
+
+      final state = container.read(searchControllerProvider);
+      expect(repository.requestedGames, [
+        'Lorcana',
+        'Lorcana',
+        'Lorcana',
+        'Lorcana',
+      ]);
+      expect(state.selectedGame.label, 'Lorcana');
+      expect(state.visibleCards.map((card) => card.name), ['Lorcana Elsa']);
+    },
+  );
+
   test('Collect updates Qty and removes Wishlist state', () async {
     final container = _searchContainer();
     addTearDown(container.dispose);
@@ -931,6 +960,31 @@ class _FailingCardSearchRepository implements SearchRepository {
   @override
   Future<List<SearchSet>> searchSets(String query, {String? game}) {
     return const MockSearchRepository().searchSets(query);
+  }
+}
+
+class _CurrentGameRefreshSearchRepository implements SearchRepository {
+  final requestedGames = <String?>[];
+
+  @override
+  Future<SearchCatalog> loadCatalog() async {
+    final catalog = await const MockSearchRepository().loadCatalog();
+    return SearchCatalog(
+      games: catalog.games,
+      cards: catalog.cards.where((card) => card.gameId == 'pokemon').toList(),
+      sets: catalog.sets,
+    );
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
+    requestedGames.add(game);
+    return const MockSearchRepository().searchCards(query, game: game);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
   }
 }
 

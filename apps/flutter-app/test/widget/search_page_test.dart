@@ -116,7 +116,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(repository.calls, 2);
+    expect(repository.loadCatalogCalls, 1);
+    expect(repository.searchCardsCalls, 1);
     expect(find.byType(RefreshProgressIndicator), findsOneWidget);
     expect(find.byType(KandoLoadingBlock), findsNothing);
     expect(find.text('Squirtle'), findsOneWidget);
@@ -958,19 +959,20 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
 }
 
 class _BlockingRefreshSearchRepository implements SearchRepository {
-  final _refresh = Completer<SearchCatalog>();
-  var calls = 0;
+  final _refresh = Completer<List<SearchCard>>();
+  var loadCatalogCalls = 0;
+  var searchCardsCalls = 0;
 
   @override
   Future<SearchCatalog> loadCatalog() {
-    calls += 1;
-    if (calls == 1) return const MockSearchRepository().loadCatalog();
-    return _refresh.future;
+    loadCatalogCalls += 1;
+    return const MockSearchRepository().loadCatalog();
   }
 
   @override
   Future<List<SearchCard>> searchCards(String query, {String? game}) {
-    return const MockSearchRepository().searchCards(query, game: game);
+    searchCardsCalls += 1;
+    return _refresh.future;
   }
 
   @override
@@ -979,7 +981,9 @@ class _BlockingRefreshSearchRepository implements SearchRepository {
   }
 
   Future<void> completeRefresh() async {
-    _refresh.complete(await const MockSearchRepository().loadCatalog());
+    _refresh.complete(
+      await const MockSearchRepository().searchCards('', game: 'Pokemon'),
+    );
   }
 }
 
