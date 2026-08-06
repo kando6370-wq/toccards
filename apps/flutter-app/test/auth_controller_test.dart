@@ -125,6 +125,27 @@ void main() {
   );
 
   test(
+    'startup retries anonymous creation because transient cold-start connectivity must not require a process restart',
+    () async {
+      final anonymous = _anonymousSession('anon-after-retry');
+      final repository = _FakeAuthRepository(
+        createAnonymousErrors: [const AuthNetworkException()],
+        createdAnonymousSession: anonymous,
+      );
+
+      final state = await _startAuth(
+        repository,
+        deviceId,
+        retryDelays: const [Duration.zero],
+      );
+
+      expect(state.session, same(anonymous));
+      expect(repository.createdDeviceIds, [deviceId, deviceId]);
+      expect(repository.persistedSessions, [same(anonymous)]);
+    },
+  );
+
+  test(
     'valid stored anonymous session remains anonymous for guest continuity',
     () async {
       final storedAnonymous = _anonymousSession('anon-existing');
@@ -809,8 +830,16 @@ void main() {
   );
 }
 
-Future<AuthState> _startAuth(AuthRepository repository, String deviceId) async {
-  final container = _createContainer(repository, deviceId);
+Future<AuthState> _startAuth(
+  AuthRepository repository,
+  String deviceId, {
+  List<Duration>? retryDelays,
+}) async {
+  final container = _createContainer(
+    repository,
+    deviceId,
+    retryDelays: retryDelays,
+  );
   addTearDown(container.dispose);
 
   expect(container.read(authControllerProvider).isLoading, isTrue);
@@ -822,11 +851,14 @@ ProviderContainer _createContainer(
   AuthRepository repository,
   String deviceId, {
   OAuthAuthorizer? authorizer,
+  List<Duration>? retryDelays,
 }) {
   return ProviderContainer(
     overrides: [
       authRepositoryProvider.overrideWithValue(repository),
       authDeviceIdProvider.overrideWithValue(deviceId),
+      if (retryDelays != null)
+        authStartupRetryDelaysProvider.overrideWithValue(retryDelays),
       if (authorizer != null)
         oauthAuthorizerProvider.overrideWithValue(authorizer),
     ],
@@ -892,6 +924,7 @@ class _FakeAuthRepository implements AuthRepository {
     AuthSession? createdAnonymousSession,
     List<AuthSession>? createdAnonymousSessions,
     List<Future<AuthSession>>? createAnonymousResults,
+    List<Exception>? createAnonymousErrors,
     List<Future<void>>? persistResults,
     List<AuthSession>? googleCallbackSessions,
     List<AuthSession>? appleCallbackSessions,
@@ -909,6 +942,7 @@ class _FakeAuthRepository implements AuthRepository {
            Future<AuthSession>.value(_anonymousSession('anon-default')),
        ],
        _persistResults = [...?persistResults],
+       _createAnonymousErrors = [...?createAnonymousErrors],
        _googleCallbackSessions = [...?googleCallbackSessions],
        _appleCallbackSessions = [...?appleCallbackSessions];
 
@@ -918,6 +952,7 @@ class _FakeAuthRepository implements AuthRepository {
   final Exception? validationError;
   final AuthSession? previousAnonymousSession;
   final List<Future<AuthSession>> _createAnonymousResults;
+  final List<Exception> _createAnonymousErrors;
   final List<Future<void>> _persistResults;
   final List<AuthSession> _googleCallbackSessions;
   final List<AuthSession> _appleCallbackSessions;
@@ -940,6 +975,9 @@ class _FakeAuthRepository implements AuthRepository {
   @override
   Future<AuthSession> createAnonymousSession(String deviceId) async {
     createdDeviceIds.add(deviceId);
+    if (_createAnonymousErrors.isNotEmpty) {
+      throw _createAnonymousErrors.removeAt(0);
+    }
     return _createAnonymousResults.removeAt(0);
   }
 
