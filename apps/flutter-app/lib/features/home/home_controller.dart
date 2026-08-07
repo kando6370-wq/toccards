@@ -231,6 +231,7 @@ class HomeState {
 
 class HomeController extends Notifier<HomeState> {
   Completer<HomeCoreLoadResult>? _coreLoadCompleter;
+  Completer<void>? _trendingLoadCompleter;
   var _loadGeneration = 0;
   var _trendingLoadGeneration = 0;
   var _isSelectingCurrency = false;
@@ -271,10 +272,10 @@ class HomeController extends Notifier<HomeState> {
 
   Future<void> refresh() async {
     state = _loadDashboard(currency: state.currency, previousState: state);
-    await coreLoadComplete;
-    while (ref.mounted && state.trendingStatus == KandoLoadStatus.loading) {
-      await Future<void>.delayed(const Duration(milliseconds: 16));
-    }
+    final coreLoad = coreLoadComplete;
+    final trendingLoad = _trendingLoadCompleter?.future ?? Future<void>.value();
+    await coreLoad;
+    await trendingLoad;
   }
 
   Future<void> refreshSilently() async {
@@ -323,6 +324,7 @@ class HomeController extends Notifier<HomeState> {
     HomeState? previousState,
   }) {
     _beginCoreLoad();
+    _completeTrendingLoad();
     final AppCurrency selectedCurrency =
         currency ?? ref.read(selectedCurrencyProvider);
     final HomeRepository? source =
@@ -403,6 +405,7 @@ class HomeController extends Notifier<HomeState> {
   ) {
     final generation = ++_loadGeneration;
     final trendingGeneration = ++_trendingLoadGeneration;
+    final trendingLoadCompleter = _beginTrendingLoad();
     unawaited(
       _resolveProgressiveDashboard(
         repository,
@@ -410,7 +413,7 @@ class HomeController extends Notifier<HomeState> {
         trendingGeneration,
         currency,
         previousState,
-      ),
+      ).whenComplete(() => _completeTrendingLoad(trendingLoadCompleter)),
     );
     final dashboard = previousState?.dashboard ?? _emptyHomeDashboard;
     return HomeState.loading(
@@ -536,6 +539,16 @@ class HomeController extends Notifier<HomeState> {
   void _completeCoreLoad(HomeCoreLoadResult result) {
     final completer = _coreLoadCompleter;
     if (completer != null && !completer.isCompleted) completer.complete(result);
+  }
+
+  Completer<void> _beginTrendingLoad() {
+    _completeTrendingLoad();
+    return _trendingLoadCompleter = Completer<void>();
+  }
+
+  void _completeTrendingLoad([Completer<void>? load]) {
+    final completer = load ?? _trendingLoadCompleter;
+    if (completer != null && !completer.isCompleted) completer.complete();
   }
 
   void _logLoadFailure(

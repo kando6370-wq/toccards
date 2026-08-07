@@ -347,16 +347,18 @@ void main() {
     expect(searchFocusNode.hasFocus, isFalse);
   });
 
-  testWidgets('search field waits for debounce before updating results', (
+  testWidgets('search results wait for the controller debounce', (
     tester,
   ) async {
+    final repository = _TrackingSearchRepository();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: _searchOverrides(),
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
         child: const _SearchTestApp(),
       ),
     );
     await tester.pumpAndSettle();
+    final initialCardCalls = repository.cardCalls;
 
     await tester.tap(find.byType(TextFormField));
     await tester.enterText(find.byType(TextFormField), 'charizard');
@@ -367,13 +369,16 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(SearchPage)),
     );
-    expect(container.read(searchControllerProvider).searchText, '');
-    expect(find.text('Squirtle'), findsOneWidget);
+    expect(container.read(searchControllerProvider).searchText, 'charizard');
+    expect(repository.cardCalls, initialCardCalls);
 
-    await tester.pump(searchDebounceDuration);
+    await tester.pump(
+      Duration(milliseconds: searchDebounceDuration.inMilliseconds ~/ 2),
+    );
     await tester.pump();
 
     expect(container.read(searchControllerProvider).searchText, 'charizard');
+    expect(repository.cardCalls, initialCardCalls + 1);
     expect(find.text('Charizard ex'), findsOneWidget);
     expect(find.text('Squirtle'), findsNothing);
     expect(find.byType(TextFormField), findsOneWidget);
@@ -392,7 +397,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField), 'squirtle');
-      await tester.pump(searchDebounceDuration * 2);
+      await tester.pump(searchDebounceDuration);
       await tester.pump();
       expect(find.text(noContentAvailableText), findsOneWidget);
       expect(find.text(refreshText), findsOneWidget);
@@ -406,7 +411,7 @@ void main() {
       await tester.tap(find.text('Cards').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text(refreshText));
-      await tester.pump(searchDebounceDuration * 2);
+      await tester.pump(searchDebounceDuration);
       await tester.pump();
 
       expect(repository.cardCalls, 2);
@@ -515,6 +520,13 @@ void main() {
     await tester.enterText(find.byKey(const Key('search-field')), '');
     await tester.pumpAndSettle();
 
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SearchPage)),
+    );
+    expect(
+      container.read(searchControllerProvider).selectedGame.label,
+      'Lorcana',
+    );
     expect(find.text('Lorcana Elsa'), findsOneWidget);
     expect(find.byKey(const Key('search-no-results')), findsNothing);
   });
@@ -967,6 +979,26 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
   @override
   Future<List<SearchSet>> searchSets(String query, {String? game}) {
     return const MockSearchRepository().searchSets(query);
+  }
+}
+
+class _TrackingSearchRepository implements SearchRepository {
+  var cardCalls = 0;
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    return const MockSearchRepository().loadCatalog();
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
+    cardCalls += 1;
+    return const MockSearchRepository().searchCards(query, game: game);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
   }
 }
 
