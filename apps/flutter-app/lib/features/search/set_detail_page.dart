@@ -15,12 +15,12 @@ import 'search_repository.dart';
 class SetDetailPage extends ConsumerStatefulWidget {
   const SetDetailPage({
     super.key,
-    required this.setCode,
+    required this.setId,
     required this.game,
     required this.setName,
   });
 
-  final String setCode;
+  final String setId;
   final String game;
   final String setName;
 
@@ -82,7 +82,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
     try {
       final rows = await ref
           .read(setCatalogApiClientProvider)
-          .cardsForSet(widget.setCode, game: widget.game, page: requestedPage);
+          .cardsForSet(widget.setId, game: widget.game, page: requestedPage);
       final items = rows.map(searchCardFromDto).toList();
       if (!mounted) return;
       setState(() {

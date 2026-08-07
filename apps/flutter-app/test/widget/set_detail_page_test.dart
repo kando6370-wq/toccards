@@ -24,7 +24,7 @@ void main() {
           ],
           child: const MaterialApp(
             home: SetDetailPage(
-              setCode: 'BS',
+              setId: 'base-set-id',
               game: 'Pokemon',
               setName: 'Base Set',
             ),
@@ -83,7 +83,7 @@ void main() {
           overrides: [setCatalogApiClientProvider.overrideWithValue(api)],
           child: const MaterialApp(
             home: SetDetailPage(
-              setCode: 'BS',
+              setId: 'base-set-id',
               game: 'Pokemon',
               setName: 'Base Set',
             ),

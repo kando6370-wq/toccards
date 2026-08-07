@@ -114,7 +114,7 @@ describe("KV cached data source adapter", () => {
     expect(source.searchCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "v9:searchCards:charizard%20gx:tcg:all:all:1:20",
+        key: "v10:searchCards:charizard%20gx:tcg:all:all:all:1:20",
         value: JSON.stringify([card]),
         options: { expirationTtl: 3600 },
       },
@@ -127,22 +127,24 @@ describe("KV cached data source adapter", () => {
     const adapter = createKvCachedDataSourceAdapter(source, kv);
 
     await adapter.searchCards("", {
-      game: "Magic: The Gathering",
-      set_code: "FDN",
+      game: "Pokemon",
+      set_id: "1455",
+      set_code: "PR",
       page: 1,
       page_size: 40,
     });
     await adapter.searchCards("", {
-      game: "Magic: The Gathering",
-      set_code: "ECL",
+      game: "Pokemon",
+      set_id: "1840",
+      set_code: "PR",
       page: 1,
       page_size: 40,
     });
 
     expect(source.searchCalls).toBe(2);
     expect(kv.puts.map((put) => put.key)).toEqual([
-      "v9:searchCards::all:magic%3A%20the%20gathering:fdn:1:40",
-      "v9:searchCards::all:magic%3A%20the%20gathering:ecl:1:40",
+      "v10:searchCards::all:pokemon:1455:pr:1:40",
+      "v10:searchCards::all:pokemon:1840:pr:1:40",
     ]);
   });
 

@@ -286,7 +286,7 @@ SearchCard searchCardFromDto(CardDataCardDto dto) {
 
 SearchSet _setFromDto(CardDataSetDto dto) {
   return SearchSet(
-    id: dto.setCode,
+    id: dto.setId ?? dto.setCode,
     gameId: _gameIdFromValue(dto.game),
     name: dto.setName,
     subtitle: dto.game ?? 'Card catalog set',

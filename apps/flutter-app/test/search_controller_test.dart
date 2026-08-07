@@ -104,6 +104,7 @@ void main() {
         ],
         sets: const [
           CardDataSetDto(
+            setId: 'base-set-id',
             setCode: 'BS',
             setName: 'Base Set',
             game: 'Pokemon',
@@ -132,7 +133,7 @@ void main() {
       expect(catalog.cards.first.priceText(AppCurrency.usd), r'$32.13');
       expect(catalog.cards.first.changeText, '+8.97%');
       expect(catalog.cards.last.type, SearchCardType.sealed);
-      expect(catalog.sets.single.id, 'BS');
+      expect(catalog.sets.single.id, 'base-set-id');
       expect(catalog.sets.single.gameId, 'pokemon');
       expect(catalog.sets.single.subtitle, 'Pokemon');
       expect(catalog.sets.single.cardCountText, '102 cards');

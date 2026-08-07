@@ -190,6 +190,7 @@ void main() {
           'data': {
             'items': [
               {
+                'set_id': 'odyssey-id',
                 'set_code': 'ODY',
                 'set_name': 'Odyssey',
                 'game': 'Magic: The Gathering',
@@ -206,6 +207,7 @@ void main() {
       ).searchSets('', game: 'Magic: The Gathering');
 
       expect(sets.single.setCode, 'ODY');
+      expect(sets.single.setId, 'odyssey-id');
       expect(sets.single.game, 'Magic: The Gathering');
       expect(sets.single.cardCount, 350);
     },
@@ -254,6 +256,7 @@ void main() {
           'data': {
             'items': [
               {
+                'set_id': 'tmnt-id',
                 'set_code': 'TMC',
                 'set_name': 'Commander: Teenage Mutant Ninja Turtles',
                 'game': 'Magic: The Gathering',
@@ -278,13 +281,13 @@ void main() {
   );
 
   test(
-    'cardsForSet sends both game and set code because duplicate codes must not leak cards across games',
+    'cardsForSet sends the unique set id because one game can reuse a set code',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.path, '/cards/search');
         expect(request.queryParameters, {
           'game': 'Pokemon',
-          'set_code': 'BASE',
+          'set_id': 'base-set-id',
           'page': '2',
           'page_size': '40',
         });
@@ -298,7 +301,7 @@ void main() {
 
       final cards = await CardDataApiClient(
         _dio(adapter),
-      ).cardsForSet('BASE', game: 'Pokemon', page: 2);
+      ).cardsForSet('base-set-id', game: 'Pokemon', page: 2);
 
       expect(cards.single.cardRef, 'catalog:base-2');
     },

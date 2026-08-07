@@ -84,6 +84,7 @@ export function createMockDataSourceAdapter(): DataSourceAdapter {
           !options.object_type || card.object_type === options.object_type;
         const matchesGame =
           !options.game || card.game?.toLowerCase() === options.game.toLowerCase();
+        const matchesSet = !options.set_id || card.set_code === options.set_id;
         const matchesQuery =
           searchTerms.length === 0 ||
           searchTerms.every((term) =>
@@ -92,7 +93,7 @@ export function createMockDataSourceAdapter(): DataSourceAdapter {
               .includes(term),
           );
 
-        return matchesType && matchesGame && matchesQuery;
+        return matchesType && matchesGame && matchesSet && matchesQuery;
       });
       const startIndex = (page - 1) * pageSize;
 
@@ -115,6 +116,7 @@ export function createMockDataSourceAdapter(): DataSourceAdapter {
           existing.card_count += 1;
         } else {
           sets.set(key, {
+            set_id: card.set_code,
             set_code: card.set_code,
             set_name: card.set_name,
             game: card.game ?? null,

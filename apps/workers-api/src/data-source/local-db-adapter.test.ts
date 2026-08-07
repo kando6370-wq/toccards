@@ -15,6 +15,7 @@ type CardRow = {
 };
 
 type SetRow = {
+  set_id?: string;
   game: string;
   name: string;
   set_code: string | null;
@@ -168,6 +169,7 @@ class FakeBoundStatement {
         .sort((left, right) => left.name.localeCompare(right.name))
         .slice(offset, offset + limit)
         .map((set) => ({
+          set_id: set.set_id ?? set.set_code ?? "",
           set_code: set.set_code,
           set_name: set.name,
           game: set.game,
@@ -552,6 +554,7 @@ describe("local D1 card data source adapter", () => {
       adapter.searchSets("base", { game: "Pokemon", page_size: 1 }),
     ).resolves.toEqual([
       {
+        set_id: "BS",
         set_code: "BS",
         set_name: "Base Set",
         game: "Pokemon",

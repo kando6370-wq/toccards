@@ -35,6 +35,7 @@ type CardCatalogRow = {
   product_id: string;
   game_id: number;
   game: string | null;
+  set_id?: string | null;
   set_name: string | null;
   set_code: string | null;
   name: string | null;
@@ -44,6 +45,7 @@ type CardCatalogRow = {
 };
 
 type SetCatalogRow = {
+  set_id?: string;
   game: string;
   name: string;
   set_code: string | null;
@@ -199,6 +201,7 @@ class FakeD1BoundStatement {
         .sort((left, right) => left.name.localeCompare(right.name))
         .slice(offset, offset + limit)
         .map((set) => ({
+          set_id: set.set_id ?? set.set_code ?? "",
           set_code: set.set_code,
           set_name: set.name,
           game: set.game,
@@ -215,12 +218,16 @@ class FakeD1BoundStatement {
 
     const query = String(this.values[0]).replaceAll("%", "").toLowerCase();
     const hasGameFilter = this.sql.includes("lower(game) = lower(?)");
+    const hasSetIdFilter = this.sql.includes("set_id = ?");
     const hasSetFilter = this.sql.includes("lower(set_code) = lower(?)");
     const game = hasGameFilter ? String(this.values[1]).toLowerCase() : null;
-    const setCode = hasSetFilter
-      ? String(this.values[hasGameFilter ? 2 : 1]).toLowerCase()
+    const setId = hasSetIdFilter
+      ? String(this.values[1 + Number(hasGameFilter)])
       : null;
-    const filterCount = Number(hasGameFilter) + Number(hasSetFilter);
+    const setCode = hasSetFilter
+      ? String(this.values[1 + Number(hasGameFilter) + Number(hasSetIdFilter)]).toLowerCase()
+      : null;
+    const filterCount = Number(hasGameFilter) + Number(hasSetIdFilter) + Number(hasSetFilter);
     const limit = Number(this.values[1 + filterCount]);
     const offset = Number(this.values[2 + filterCount]);
     const catalogCards = this.sql.includes("product_type_name = 'Cards'")
@@ -229,6 +236,7 @@ class FakeD1BoundStatement {
     const gameCards = catalogCards.filter(
       (card) =>
         (game === null || card.game?.toLowerCase() === game) &&
+        (setId === null || card.set_id === setId) &&
         (setCode === null || card.set_code?.toLowerCase() === setCode),
     );
 
@@ -606,6 +614,7 @@ describe("data source routes", () => {
       data: {
         items: [
           {
+            set_id: "BS",
             set_code: "BS",
             set_name: "Base Set",
             game: null,
@@ -613,6 +622,7 @@ describe("data source routes", () => {
             card_count: 1,
           },
           {
+            set_id: "EVO",
             set_code: "EVO",
             set_name: "Evolutions",
             game: null,
@@ -823,6 +833,58 @@ describe("data source routes", () => {
         items: [
           { card_ref: "pokemon-1", game: "Pokemon" },
           { card_ref: "pokemon-2", game: "Pokemon" },
+        ],
+      },
+    });
+  });
+
+  it("filters set cards by set id because one game can reuse a display code", async () => {
+    const env = createTestEnv(
+      [],
+      [
+        {
+          product_id: "best-1",
+          game_id: 3,
+          game: "Pokemon",
+          set_id: "1455",
+          set_name: "Best of Promos",
+          set_code: "PR",
+          name: "Best Promo Card",
+          rarity: "Promo",
+          product_type_name: "Cards",
+          image_url: null,
+        },
+        {
+          product_id: "deck-1",
+          game_id: 3,
+          game: "Pokemon",
+          set_id: "1840",
+          set_name: "Deck Exclusives",
+          set_code: "PR",
+          name: "Deck Exclusive Card",
+          rarity: "Promo",
+          product_type_name: "Cards",
+          image_url: null,
+        },
+      ],
+    );
+
+    const response = await app.request(
+      "/api/v1/cards/search?game=Pokemon&set_id=1455",
+      {},
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      success: true,
+      data: {
+        items: [
+          {
+            card_ref: "best-1",
+            set_name: "Best of Promos",
+            set_code: "PR",
+          },
         ],
       },
     });
