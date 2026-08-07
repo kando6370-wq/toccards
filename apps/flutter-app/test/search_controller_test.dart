@@ -818,6 +818,35 @@ void main() {
   );
 
   test(
+    'switching back to Cards loads the selected game because changing Game in Sets must not leave stale card data',
+    () async {
+      final repository = _CurrentGameRefreshSearchRepository();
+      final container = _searchContainer(repository: repository);
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      controller.selectTab(SearchTab.sets);
+      controller.selectGame('lorcana');
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+      controller.clearSearch();
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+
+      controller.selectTab(SearchTab.cards);
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+
+      final state = container.read(searchControllerProvider);
+      expect(repository.requestedGames, ['Lorcana']);
+      expect(state.selectedTab, SearchTab.cards);
+      expect(state.selectedGame.label, 'Lorcana');
+      expect(state.visibleCards.map((card) => card.name), ['Lorcana Elsa']);
+    },
+  );
+
+  test(
     'clearing and pull refresh reload the selected game because default-game cards must not replace current results',
     () async {
       final repository = _CurrentGameRefreshSearchRepository();
