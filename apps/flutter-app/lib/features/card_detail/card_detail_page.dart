@@ -11,6 +11,7 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../subscription/subscription_controller.dart';
 import 'card_detail_actions.dart';
 import 'card_detail_controller.dart';
 import 'card_detail_models.dart';
@@ -110,6 +111,9 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
     final provider = cardDetailControllerProvider(widget.cardId);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    final isPro = ref.watch(
+      subscriptionControllerProvider.select((value) => value.isPro),
+    );
     _trackViewWhenLoaded(state);
 
     final page = Scaffold(
@@ -196,6 +200,7 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                               state: state,
                               controller: controller,
                               entrySource: widget.entrySource,
+                              isPro: isPro,
                             )
                           else
                             _PriceOverview(
@@ -659,11 +664,13 @@ class _OwnedDetailTabs extends StatefulWidget {
     required this.state,
     required this.controller,
     required this.entrySource,
+    required this.isPro,
   });
 
   final CardDetailState state;
   final CardDetailController controller;
   final String entrySource;
+  final bool isPro;
 
   @override
   State<_OwnedDetailTabs> createState() => _OwnedDetailTabsState();
@@ -677,8 +684,8 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 2,
-      initialIndex: widget.entrySource == AnalyticsValue.sourceEdit ? 1 : 0,
+      length: 3,
+      initialIndex: widget.entrySource == AnalyticsValue.sourceEdit ? 2 : 0,
       vsync: this,
     )..addListener(_handleTabChange);
   }
@@ -755,6 +762,7 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
                   ),
                   tabs: const [
                     Tab(height: 42, text: 'Collection Item'),
+                    Tab(height: 42, text: 'Performance'),
                     Tab(height: 42, text: 'Price'),
                   ],
                 ),
@@ -769,9 +777,237 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
             controller: widget.controller,
             entrySource: widget.entrySource,
           )
+        else if (_tabController.index == 1)
+          _CardPerformance(state: widget.state, isPro: widget.isPro)
         else
           _PriceOverview(state: widget.state, controller: widget.controller),
       ],
+    );
+  }
+}
+
+class _CardPerformance extends StatelessWidget {
+  const _CardPerformance({required this.state, required this.isPro});
+
+  final CardDetailState state;
+  final bool isPro;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isPro) {
+      return _CardPerformanceLocked(
+        onUnlock: () => context.push('/subscription'),
+      );
+    }
+
+    final chartSeries = [
+      for (
+        var index = 0;
+        index < state.selectedPriceChartSeries.length;
+        index++
+      )
+        _DetailChartSeries(
+          label: state.selectedPriceChartSeries[index].label,
+          points:
+              state.selectedPriceChartSeries[index].seriesByRange[state
+                  .selectedPriceRange] ??
+              const [],
+          color: _kPriceChartColors[index % _kPriceChartColors.length],
+        ),
+    ];
+
+    return Column(
+      key: const Key('card-detail-performance-content'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _CardPerformanceMetric(
+                label: 'Purchase Cost',
+                value: state.performancePurchaseCostText,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _CardPerformanceMetric(
+                label: 'Current Value',
+                value: state.performanceCurrentValueText,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _CardPerformanceMetric(
+                label: 'Profit / Loss',
+                value: state.performanceProfitLossText,
+                caption: 'Priced cards only',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _CardPerformanceMetric(
+                label: 'Return %',
+                value: state.performanceReturnText,
+                caption: 'Priced cards only',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        const Row(
+          children: [
+            Expanded(
+              child: Text('Performance Chart', style: _kSectionTitleStyle),
+            ),
+            Text('MARKET VALUE', style: _kFieldLabelStyle),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 190,
+          padding: const EdgeInsets.fromLTRB(12, 18, 12, 12),
+          decoration: _kPanel(),
+          child: chartSeries.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No performance history available.',
+                    style: _kFieldLabelStyle,
+                  ),
+                )
+              : _InteractivePriceChart(series: chartSeries),
+        ),
+      ],
+    );
+  }
+}
+
+class _CardPerformanceLocked extends StatelessWidget {
+  const _CardPerformanceLocked({required this.onUnlock});
+
+  final VoidCallback onUnlock;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('card-detail-performance-locked'),
+      width: double.infinity,
+      height: 405,
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KandoColors.border),
+        gradient: const RadialGradient(
+          center: Alignment.bottomLeft,
+          radius: 1.15,
+          colors: [Color(0x66464D1F), Color(0xFF15160E)],
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: KandoColors.accentGlow10,
+            ),
+            child: const Icon(
+              Icons.lock_outline,
+              color: KandoColors.accent,
+              size: 27,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            "Track This Card's\nPerformance",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: KandoColors.accent,
+              fontFamily: 'Fraunces',
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'See your profit, return, and performance history.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: KandoColors.mutedText, fontSize: 14),
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: FilledButton(
+              key: const Key('card-detail-unlock-performance'),
+              onPressed: onUnlock,
+              child: const Text('Unlock Performance'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardPerformanceMetric extends StatelessWidget {
+  const _CardPerformanceMetric({
+    required this.label,
+    required this.value,
+    this.caption,
+  });
+
+  final String label;
+  final String value;
+  final String? caption;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 100,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x1F747B26), Color(0x4D343434)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(label, style: _kFieldLabelStyle),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: KandoColors.text,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (caption != null)
+            Text(
+              caption!,
+              style: const TextStyle(
+                color: KandoColors.mutedText,
+                fontSize: 10,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

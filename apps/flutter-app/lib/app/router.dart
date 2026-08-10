@@ -14,6 +14,7 @@ import '../features/profile/profile_page.dart';
 import '../features/scan/scan_page.dart';
 import '../features/search/search_page.dart';
 import '../features/search/set_detail_page.dart';
+import '../features/subscription/subscription_page.dart';
 import '../shared/analytics/analytics_events.dart';
 import '../shared/analytics/app_analytics.dart';
 
@@ -111,6 +112,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/api-requests',
         builder: (context, state) => const ApiRequestLogPage(),
+      ),
+      GoRoute(
+        path: '/subscription',
+        builder: (context, state) => const SubscriptionPage(),
+      ),
+      GoRoute(
+        path: '/subscription/success',
+        builder: (context, state) => const SubscriptionSuccessPage(),
       ),
     ],
   );

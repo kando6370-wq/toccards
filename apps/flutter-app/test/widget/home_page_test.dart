@@ -22,6 +22,7 @@ import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
@@ -216,6 +217,46 @@ void main() {
     expect(find.text('Ragavan, Nimble Pilferer'), findsOneWidget);
     expect(find.text('+12.34%'), findsOneWidget);
   });
+
+  testWidgets(
+    'free users see a locked Performance view because portfolio gains are a Pro entitlement',
+    (tester) async {
+      await tester.pumpWidget(_mockHomeApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('home-performance-locked')), findsOneWidget);
+      expect(find.text('Portfolio Performance'), findsOneWidget);
+      expect(find.text('Unlock Performance'), findsOneWidget);
+      expect(find.text('Most Valuable'), findsNothing);
+      expect(find.text(r'$12,450.80'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Pro users see Performance data and trends because the entitlement unlocks analytics',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('home-performance-locked')), findsNothing);
+      expect(find.text('Market Value'), findsOneWidget);
+      expect(find.text(r'$12,450.80'), findsOneWidget);
+      expect(find.text('Trending Today'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Portfolio chart selects the nearest date anywhere in the plot because users inspect historical values',
@@ -1246,6 +1287,7 @@ Widget _mockHomeApp([
   PortfolioManagementApi? managementApi,
   CurrencyRateApi currencyRateApi = const _TestCurrencyRateApi(),
   HomeRepository homeRepository = const MockHomeRepository(),
+  SubscriptionController Function()? subscriptionController,
 ]) {
   final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
   return ProviderScope(
@@ -1257,9 +1299,16 @@ Widget _mockHomeApp([
       ),
       portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
       currencyRateApiProvider.overrideWithValue(currencyRateApi),
+      if (subscriptionController != null)
+        subscriptionControllerProvider.overrideWith(subscriptionController),
     ],
     child: const _HomeTestApp(),
   );
+}
+
+class _ProHomeSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState(isPro: true);
 }
 
 Widget _mockHomeRouteApp() {

@@ -20,6 +20,7 @@ import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/features/scan/scan_review_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/features/subscription/scan_quota_controller.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
@@ -2436,6 +2437,7 @@ Future<void> _pumpScanTestApp(
         ),
         scanCameraFactoryProvider.overrideWithValue(scanCameraFactory),
         scanPermissionGatewayProvider.overrideWithValue(permissions),
+        scanQuotaStorageProvider.overrideWithValue(InMemoryScanQuotaStorage()),
         if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
       child: TickerMode(
@@ -2457,6 +2459,7 @@ _scanGoldenOverrides() {
     ),
     scanResultSourceProvider.overrideWithValue(_defaultTestScanResultSource()),
     scanReviewRepositoryProvider.overrideWithValue(_FakeScanReviewRepository()),
+    scanQuotaStorageProvider.overrideWithValue(InMemoryScanQuotaStorage()),
   ];
 }
 
@@ -2902,6 +2905,11 @@ class _ScanTestAppWithRoutes extends StatelessWidget {
           GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfilePage(),
+          ),
+          GoRoute(
+            path: '/subscription',
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('Subscription'))),
           ),
         ],
       ),

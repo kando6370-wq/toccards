@@ -19,6 +19,7 @@ import '../../shared/analytics/app_analytics.dart';
 import '../collection/collection_page.dart';
 import '../collection/collection_controller.dart';
 import '../collection/collection_models.dart';
+import '../subscription/subscription_controller.dart';
 import 'home_controller.dart';
 import 'home_models.dart';
 
@@ -32,6 +33,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage>
     with WidgetsBindingObserver {
   AppLifecycleState? _lastLifecycleState;
+  var _performanceSelected = false;
 
   @override
   void initState() {
@@ -62,6 +64,9 @@ class _HomePageState extends ConsumerState<HomePage>
   Widget build(BuildContext context) {
     final state = ref.watch(homeControllerProvider);
     final controller = ref.read(homeControllerProvider.notifier);
+    final isPro = ref.watch(
+      subscriptionControllerProvider.select((value) => value.isPro),
+    );
 
     return KandoTabScaffold(
       currentTab: KandoMainTab.home,
@@ -94,6 +99,13 @@ class _HomePageState extends ConsumerState<HomePage>
                   _Header(
                     currencyCode: state.currencyCode,
                     currencySymbol: state.currency.symbol,
+                    performanceSelected: _performanceSelected,
+                    onOverviewPressed: () {
+                      setState(() => _performanceSelected = false);
+                    },
+                    onPerformancePressed: () {
+                      setState(() => _performanceSelected = true);
+                    },
                     onCurrencyPressed: () {
                       ref
                           .read(analyticsProvider)
@@ -102,43 +114,57 @@ class _HomePageState extends ConsumerState<HomePage>
                     },
                   ),
                   const SizedBox(height: 24),
-                  _PortfolioCard(
-                    state: state,
-                    onFolderPressed: () {
-                      ref
-                          .read(analyticsProvider)
-                          .track(AnalyticsEvent.folderClick);
-                      _showFolderSheet(context, ref);
-                    },
-                    onHidePressed: controller.toggleAmountHidden,
-                    onRangeSelected: controller.selectChartRange,
-                    onRefresh: () => _trackRefresh(controller.refresh),
-                  ),
-                  const SizedBox(height: 32),
-                  _MostValuableSection(
-                    state: state,
-                    onRefresh: controller.refresh,
-                    onViewAll: () {
-                      ref
-                          .read(analyticsProvider)
-                          .track(AnalyticsEvent.mostvaluableClick);
-                      ref
-                          .read(collectionInitialSortProvider.notifier)
-                          .select(CollectionSort.valueDesc);
-                      context.go('/collection');
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                  _TrendingSection(
-                    state: state,
-                    onRefresh: () => _trackRefresh(controller.refreshTrending),
-                    onViewAll: () {
-                      ref
-                          .read(analyticsProvider)
-                          .track(AnalyticsEvent.trendingClick);
-                      context.push('/trending');
-                    },
-                  ),
+                  if (_performanceSelected)
+                    _PerformanceSection(
+                      state: state,
+                      isPro: isPro,
+                      onFolderPressed: () => _showFolderSheet(context, ref),
+                      onRangeSelected: controller.selectChartRange,
+                      onUnlock: () => context.push('/subscription'),
+                      onRefresh: () => _trackRefresh(controller.refresh),
+                    )
+                  else ...[
+                    _PortfolioCard(
+                      state: state,
+                      onFolderPressed: () {
+                        ref
+                            .read(analyticsProvider)
+                            .track(AnalyticsEvent.folderClick);
+                        _showFolderSheet(context, ref);
+                      },
+                      onHidePressed: controller.toggleAmountHidden,
+                      onRangeSelected: controller.selectChartRange,
+                      onRefresh: () => _trackRefresh(controller.refresh),
+                    ),
+                    const SizedBox(height: 32),
+                    _MostValuableSection(
+                      state: state,
+                      onRefresh: controller.refresh,
+                      onViewAll: () {
+                        ref
+                            .read(analyticsProvider)
+                            .track(AnalyticsEvent.mostvaluableClick);
+                        ref
+                            .read(collectionInitialSortProvider.notifier)
+                            .select(CollectionSort.valueDesc);
+                        context.go('/collection');
+                      },
+                    ),
+                  ],
+                  if (!_performanceSelected || isPro) ...[
+                    const SizedBox(height: 32),
+                    _TrendingSection(
+                      state: state,
+                      onRefresh: () =>
+                          _trackRefresh(controller.refreshTrending),
+                      onViewAll: () {
+                        ref
+                            .read(analyticsProvider)
+                            .track(AnalyticsEvent.trendingClick);
+                        context.push('/trending');
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -292,11 +318,17 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.currencyCode,
     required this.currencySymbol,
+    required this.performanceSelected,
+    required this.onOverviewPressed,
+    required this.onPerformancePressed,
     required this.onCurrencyPressed,
   });
 
   final String currencyCode;
   final String currencySymbol;
+  final bool performanceSelected;
+  final VoidCallback onOverviewPressed;
+  final VoidCallback onPerformancePressed;
   final VoidCallback onCurrencyPressed;
 
   @override
@@ -307,7 +339,7 @@ class _Header extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Container(
-            width: 115,
+            width: 222,
             height: 42,
             padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
@@ -315,39 +347,27 @@ class _Header extends StatelessWidget {
               borderRadius: BorderRadius.circular(21),
               border: Border.all(color: const Color(0x99F0FE6F)),
             ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: KandoColors.accent,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: KandoColors.accent),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SvgPicture.asset(
-                    key: const Key('home-overview-icon'),
-                    'assets/home/overview.svg',
-                    width: 14,
-                    height: 14,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _HomeModeSegment(
+                    key: const Key('home-overview-tab'),
+                    selected: !performanceSelected,
+                    label: 'Overview',
+                    iconAsset: 'assets/home/overview.svg',
+                    onTap: onOverviewPressed,
                   ),
-                  const SizedBox(width: 4),
-                  const Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'Overview',
-                        maxLines: 1,
-                        style: TextStyle(
-                          color: Color(0xFF303126),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          height: 24 / 16,
-                        ),
-                      ),
-                    ),
+                ),
+                Expanded(
+                  child: _HomeModeSegment(
+                    key: const Key('home-performance-tab'),
+                    selected: performanceSelected,
+                    label: 'Performance',
+                    icon: Icons.workspace_premium_outlined,
+                    onTap: onPerformancePressed,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           SizedBox(
@@ -440,6 +460,301 @@ class _Header extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeModeSegment extends StatelessWidget {
+  const _HomeModeSegment({
+    super.key,
+    required this.selected,
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.iconAsset,
+  });
+
+  final bool selected;
+  final String label;
+  final VoidCallback onTap;
+  final IconData? icon;
+  final String? iconAsset;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected
+        ? KandoColors.primaryOnDefault
+        : KandoColors.mutedText;
+    return Material(
+      color: selected ? KandoColors.accent : Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (iconAsset != null)
+              SvgPicture.asset(
+                key: const Key('home-overview-icon'),
+                iconAsset!,
+                width: 14,
+                height: 14,
+                colorFilter: ColorFilter.mode(foreground, BlendMode.srcIn),
+              )
+            else
+              Icon(icon, size: 14, color: foreground),
+            const SizedBox(width: 4),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(color: foreground, fontSize: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PerformanceSection extends StatelessWidget {
+  const _PerformanceSection({
+    required this.state,
+    required this.isPro,
+    required this.onFolderPressed,
+    required this.onRangeSelected,
+    required this.onUnlock,
+    required this.onRefresh,
+  });
+
+  final HomeState state;
+  final bool isPro;
+  final VoidCallback onFolderPressed;
+  final ValueChanged<HomeChartRange> onRangeSelected;
+  final VoidCallback onUnlock;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'PERFORMANCE ⓘ',
+                style: TextStyle(
+                  color: KandoColors.text,
+                  fontFamily: 'Fraunces',
+                  fontSize: 24,
+                ),
+              ),
+            ),
+            _FolderPill(
+              label: state.selectedFolder.name,
+              onPressed: onFolderPressed,
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Cards with purchase price',
+          style: TextStyle(color: KandoColors.mutedText, fontSize: 14),
+        ),
+        const SizedBox(height: 20),
+        if (!isPro)
+          _PerformanceLockedPanel(onUnlock: onUnlock)
+        else if (state.isUnavailable)
+          _FigmaFailurePanel(
+            key: const Key('home-performance-failure'),
+            height: 390,
+            refreshKey: const Key('home-performance-refresh'),
+            onRefresh: onRefresh,
+          )
+        else ...[
+          Row(
+            children: [
+              const Expanded(
+                child: _PerformanceMetric(label: 'Total Paid', value: '--'),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _PerformanceMetric(
+                  label: 'Market Value',
+                  value: state.totalAmountText,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Row(
+            children: [
+              Expanded(
+                child: _PerformanceMetric(label: 'Profit / Loss', value: '--'),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: _PerformanceMetric(label: 'Return', value: '--'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 190,
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: KandoColors.borderSubtle),
+              color: KandoColors.ink.withValues(alpha: 0.55),
+            ),
+            child: Column(
+              children: [
+                _ChartRangePicker(
+                  selected: state.chartRange,
+                  onSelected: onRangeSelected,
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: _InteractiveChart(
+                    values: state.chartValues,
+                    dates: state.chartDates,
+                    formattedValues: state.chartValues
+                        .map(state.formatCardPrice)
+                        .toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PerformanceLockedPanel extends StatelessWidget {
+  const _PerformanceLockedPanel({required this.onUnlock});
+
+  final VoidCallback onUnlock;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('home-performance-locked'),
+      height: 428,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KandoColors.border),
+        gradient: const RadialGradient(
+          center: Alignment.bottomLeft,
+          radius: 1.2,
+          colors: [Color(0x66464D1F), Color(0xFF15160E)],
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: KandoColors.accentGlow10,
+            ),
+            child: const Icon(
+              Icons.lock_outline,
+              color: KandoColors.accent,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Portfolio Performance',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: KandoColors.accent,
+              fontFamily: 'Fraunces',
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Unlock total paid, profit and loss, return, longer history, and change explanations.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: KandoColors.mutedText,
+              fontSize: 15,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: FilledButton(
+              key: const Key('home-unlock-performance'),
+              onPressed: onUnlock,
+              child: const Text('Unlock Performance'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PerformanceMetric extends StatelessWidget {
+  const _PerformanceMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 94,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KandoColors.borderSubtle),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF262817), Color(0xFF17180F)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: KandoColors.mutedText, fontSize: 12),
+          ),
+          const SizedBox(height: 5),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: KandoColors.accent,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

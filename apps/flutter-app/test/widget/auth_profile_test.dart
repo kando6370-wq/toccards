@@ -22,6 +22,7 @@ import 'package:kando_app/features/profile/customer_support_page.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
 
@@ -1823,44 +1824,61 @@ void main() {
     expect(feedbackRepository.submissions, isEmpty);
   });
 
-  testWidgets(
-    'subscription copy is absent from Profile account and support surfaces',
-    (tester) async {
-      final guestRepository = _WidgetAuthRepository(
-        initialSession: _anonymousSession('anon-existing'),
-      );
+  testWidgets('unsubscribed profile opens the Performance Pro paywall', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
 
-      await tester.pumpWidget(_testApp(guestRepository));
-      await tester.pumpAndSettle();
-      await _openProfileTab(tester);
-      _expectNoSubscriptionCopy();
+    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
 
-      await tester.tap(find.text('Customer Support'));
-      await tester.pumpAndSettle();
-      _expectNoSubscriptionCopy();
+    expect(find.text('Upgrade to Pro'), findsOneWidget);
+    expect(find.text('Upgrade Now'), findsOneWidget);
+    expect(find.text('Restore'), findsNothing);
 
-      final userRepository = _WidgetAuthRepository(
-        initialSession: _userSession(),
-      );
+    await tester.tap(find.text('Upgrade Now'));
+    await tester.pumpAndSettle();
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpAndSettle();
-      await tester.pumpWidget(_testApp(userRepository));
-      await tester.pumpAndSettle();
-      await _openProfileTab(tester);
-      _expectNoSubscriptionCopy();
+    expect(find.text('Performance Pro'), findsOneWidget);
+    expect(find.text('Unlimited Card Scanning'), findsOneWidget);
+    expect(find.text('Yearly'), findsOneWidget);
+    final purchaseButton = find.byKey(
+      const Key('subscription-purchase-button'),
+    );
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    expect(purchaseButton, findsWidgets);
+  });
 
-      await tester.tap(find.text('person@example.com').first);
-      await tester.pumpAndSettle();
-      _expectNoSubscriptionCopy();
+  testWidgets('subscribed profile exposes restore without upgrade banner', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(initialSession: _userSession());
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Customer Support'));
-      await tester.pumpAndSettle();
-      _expectNoSubscriptionCopy();
-    },
-  );
+    await tester.pumpWidget(
+      _testApp(
+        repository,
+        subscriptionController: _ProSubscriptionController.new,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
+
+    expect(find.text('Upgrade to Pro'), findsNothing);
+    expect(find.text('Upgrade Now'), findsNothing);
+    expect(find.text('SUBSCRIBE'), findsOneWidget);
+    expect(find.text('Restore'), findsOneWidget);
+
+    await tester.tap(find.text('person@example.com').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Restore'), findsNothing);
+  });
 
   testWidgets(
     'logout from account creates a guest profile without previous anonymous',
@@ -2085,22 +2103,6 @@ Future<void> _openProfileTab(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-void _expectNoSubscriptionCopy() {
-  const subscriptionCopy = [
-    'Upgrade to Pro',
-    'Subscribe',
-    'Subscription',
-    'PRO',
-    'Unlock All',
-    'Go unlock',
-    'Restore',
-  ];
-
-  for (final copy in subscriptionCopy) {
-    expect(find.text(copy), findsNothing, reason: '$copy must stay hidden');
-  }
-}
-
 Future<void> _openEmailAuth(WidgetTester tester) async {
   await _openAuthSheet(tester);
   await tester.tap(find.text('Continue with Email'));
@@ -2132,6 +2134,7 @@ ProviderScope _testApp(
   FeedbackRepository? feedbackRepository,
   ProfileActions? profileActions,
   AuthController Function()? authController,
+  SubscriptionController Function()? subscriptionController,
 }) {
   final onboardingStorage = InMemoryOnboardingStorage(completed: true);
 
@@ -2145,6 +2148,8 @@ ProviderScope _testApp(
       authRepositoryProvider.overrideWithValue(repository),
       if (authController != null)
         authControllerProvider.overrideWith(authController),
+      if (subscriptionController != null)
+        subscriptionControllerProvider.overrideWith(subscriptionController),
       authDeviceIdProvider.overrideWithValue('widget-test-device'),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(onboardingStorage),
@@ -2161,6 +2166,14 @@ ProviderScope _testApp(
     ],
     child: const KandoApp(),
   );
+}
+
+class _ProSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState(isPro: true);
+
+  @override
+  Future<void> restore() async {}
 }
 
 class _CompletedOnboardingController extends OnboardingController {

@@ -17,11 +17,14 @@ import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_image_hasher.dart';
+import '../../shared/ui/kando_style.dart';
 import '../../shared/ui/toast.dart';
 import '../collection/collection_controller.dart';
 import '../card_detail/card_detail_controller.dart';
 import '../home/home_controller.dart';
 import '../search/search_controller.dart';
+import '../subscription/scan_quota_controller.dart';
+import '../subscription/subscription_controller.dart';
 import 'scan_camera.dart';
 import 'scan_permissions.dart';
 import 'scan_review_repository.dart';
@@ -539,11 +542,19 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final camera = _cameraSession;
     if (camera == null) {
       if (_openingCamera) return;
+      if (!_consumeScanQuota()) {
+        unawaited(context.push('/subscription'));
+        return;
+      }
       ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
       _addScan(Future.sync(source.photo));
       return;
     }
     if (_photoRecognitionInFlight) return;
+    if (!_consumeScanQuota()) {
+      unawaited(context.push('/subscription'));
+      return;
+    }
     ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
     _photoRecognitionInFlight = true;
     late final int itemId;
@@ -612,10 +623,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
       }
       await _closeCamera();
       var selectedCount = 0;
+      var quotaExhausted = false;
       final scans = await ref
           .read(scanResultSourceProvider)
           .library(
             onSelected: (image, resolution) {
+              if (!_consumeScanQuota()) {
+                quotaExhausted = true;
+                return;
+              }
               selectedCount += 1;
               if (mounted) {
                 _addScan(
@@ -631,8 +647,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
       if (!mounted) return;
       if (selectedCount == 0) {
         for (final scan in scans) {
+          if (!_consumeScanQuota()) {
+            quotaExhausted = true;
+            break;
+          }
           _addScan(scan, usesCameraFeedback: false);
         }
+      }
+      if (quotaExhausted && mounted) {
+        unawaited(context.push('/subscription'));
       }
     } catch (_) {
       if (mounted) {
@@ -647,6 +670,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
         unawaited(_openCamera(previewDelay: _galleryCameraWarmupDuration));
       }
     }
+  }
+
+  bool _consumeScanQuota() {
+    if (ref.read(subscriptionControllerProvider).isPro) return true;
+    return ref.read(scanQuotaControllerProvider.notifier).tryConsume();
   }
 
   Future<void> _showPermissionSettings(String name) async {
@@ -1599,6 +1627,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
   @override
   Widget build(BuildContext context) {
     final currency = ref.watch(selectedCurrencyProvider);
+    final isPro = ref.watch(
+      subscriptionControllerProvider.select((value) => value.isPro),
+    );
+    final quota = ref.watch(scanQuotaControllerProvider);
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return PopScope(
       canPop: false,
@@ -1671,11 +1703,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     revealAnimation: _revealAnimation,
                     cards: _reviewCards,
                     currency: currency,
+                    remainingScans: isPro ? null : quota.remainingScans,
                     onClosePressed: _handleClosePressed,
                     onFlashPressed: _cameraSession == null
                         ? null
                         : _toggleFlash,
                     onSearchPressed: () => context.go('/search'),
+                    onUpgradePressed: () => context.push('/subscription'),
                     onPhotoPressed: _startPhotoScan,
                     onLibraryPressed: _startLibraryScan,
                     onDismissScanFeedback: _dismissScanFeedback,
@@ -1714,9 +1748,11 @@ class _ScanCameraView extends StatelessWidget {
     required this.revealAnimation,
     required this.cards,
     required this.currency,
+    required this.remainingScans,
     required this.onClosePressed,
     required this.onFlashPressed,
     required this.onSearchPressed,
+    required this.onUpgradePressed,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
     required this.onDismissScanFeedback,
@@ -1740,9 +1776,11 @@ class _ScanCameraView extends StatelessWidget {
   final Animation<double> revealAnimation;
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
+  final int? remainingScans;
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final VoidCallback onSearchPressed;
+  final VoidCallback onUpgradePressed;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
   final VoidCallback onDismissScanFeedback;
@@ -1823,6 +1861,13 @@ class _ScanCameraView extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 const _AlignCardPill(),
+                if (remainingScans != null) ...[
+                  const SizedBox(height: 6),
+                  _ScanQuotaPill(
+                    remainingScans: remainingScans!,
+                    onPressed: onUpgradePressed,
+                  ),
+                ],
               ],
             ),
           ),
@@ -2014,6 +2059,82 @@ class _AlignCardPill extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ScanQuotaPill extends StatelessWidget {
+  const _ScanQuotaPill({required this.remainingScans, required this.onPressed});
+
+  final int remainingScans;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('scan-free-quota-pill'),
+      color: const Color(0xEB222222),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          height: 44,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: KandoColors.borderFocus),
+                    color: KandoColors.accentGlow10,
+                  ),
+                  child: const Text(
+                    'PRO',
+                    style: TextStyle(
+                      color: KandoColors.accent,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$remainingScans scans remaining',
+                      style: const TextStyle(
+                        color: KandoColors.text,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const Text(
+                      'Tap to get unlimited scans',
+                      style: TextStyle(
+                        color: KandoColors.mutedText,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.arrow_upward_rounded,
+                  color: KandoColors.accent,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
