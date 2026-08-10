@@ -796,7 +796,7 @@ class _CardPerformance extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!isPro) {
       return _CardPerformanceLocked(
-        onUnlock: () => context.push('/subscription'),
+        onUnlock: () => context.push(subscriptionSheetLocation),
       );
     }
 

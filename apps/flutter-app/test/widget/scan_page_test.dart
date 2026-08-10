@@ -21,6 +21,7 @@ import 'package:kando_app/features/scan/scan_review_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/subscription/scan_quota_controller.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
@@ -100,6 +101,66 @@ const _transparentPngBytes = <int>[
 ];
 
 void main() {
+  testWidgets(
+    'free scanning shows the configured allowance because upgrade urgency depends on the remaining count',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      expect(find.text('10 scans remaining'), findsOneWidget);
+      expect(find.text('Tap to get unlimited scans'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a completed free scan consumes one allowance so the displayed limit stays truthful',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(find.text('9 scans remaining'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an exhausted free allowance opens the paywall without starting recognition',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaStorage: InMemoryScanQuotaStorage(usedScans: 10),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+
+      expect(source.photoCallCount, 0);
+      expect(find.text('Subscription'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Pro scanning stays unlimited and does not consume the free allowance',
+    (tester) async {
+      final quotaStorage = InMemoryScanQuotaStorage();
+      await _pumpScanTestApp(
+        tester,
+        scanQuotaStorage: quotaStorage,
+        subscriptionController: _ProScanSubscriptionController.new,
+      );
+
+      expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(quotaStorage.usedScans, 0);
+    },
+  );
+
   testWidgets('Scan requests camera access before opening the camera', (
     tester,
   ) async {
@@ -366,7 +427,7 @@ void main() {
       await tester.pump();
 
       expect(camera.takePhotoCount, 0);
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 501));
       expect(camera.takePhotoCount, 1);
       expect(source.recognizedImages, hasLength(1));
     },
@@ -1094,7 +1155,8 @@ void main() {
 
     expect(source.lastRetryBytes, Uint8List.fromList(_transparentPngBytes));
     expect(source.lastRetryFileName, 'failed-card.jpg');
-    expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
+    expect(find.text('Scanning...'), findsOneWidget);
+    expect(find.byKey(const Key('scan-recognition-progress')), findsOneWidget);
 
     await _completeFigmaScan(tester);
     expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
@@ -1824,12 +1886,7 @@ void main() {
           .onPressed,
       isNull,
     );
-    expect(
-      tester
-          .widget<OutlinedButton>(find.byKey(const Key('scan-review-add-all')))
-          .onPressed,
-      isNull,
-    );
+    expect(find.byKey(const Key('scan-review-add-all')), findsNothing);
     expect(find.text('Add this card'), findsOneWidget);
 
     repository.completeNextConfirmation();
@@ -2420,6 +2477,8 @@ Future<void> _pumpScanTestApp(
   ScanCameraFactory scanCameraFactory = const _DisabledScanCameraFactory(),
   ScanPermissionGateway permissions = const _GrantedScanPermissionGateway(),
   AppAnalytics? analytics,
+  ScanQuotaStorage? scanQuotaStorage,
+  SubscriptionController Function()? subscriptionController,
   bool tickerEnabled = true,
 }) async {
   await tester.pumpWidget(const SizedBox.shrink());
@@ -2437,7 +2496,11 @@ Future<void> _pumpScanTestApp(
         ),
         scanCameraFactoryProvider.overrideWithValue(scanCameraFactory),
         scanPermissionGatewayProvider.overrideWithValue(permissions),
-        scanQuotaStorageProvider.overrideWithValue(InMemoryScanQuotaStorage()),
+        scanQuotaStorageProvider.overrideWithValue(
+          scanQuotaStorage ?? InMemoryScanQuotaStorage(),
+        ),
+        if (subscriptionController != null)
+          subscriptionControllerProvider.overrideWith(subscriptionController),
         if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
       child: TickerMode(
@@ -2483,6 +2546,11 @@ class _AnalyticsRecorder {
         if (record.event == event) record.properties,
     ];
   }
+}
+
+class _ProScanSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState(isPro: true);
 }
 
 class _FakeScanReviewRepository implements ScanReviewRepository {

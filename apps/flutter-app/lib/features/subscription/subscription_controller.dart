@@ -7,6 +7,7 @@ import 'package:subscription_core/subscription_core.dart';
 const subscriptionWeeklyPlanId = 'weekly';
 const subscriptionYearlyPlanId = 'yearly';
 const subscriptionLifetimePlanId = 'lifetime';
+const subscriptionSheetLocation = '/subscription?presentation=sheet';
 
 class SubscriptionPlanPresentation {
   const SubscriptionPlanPresentation({

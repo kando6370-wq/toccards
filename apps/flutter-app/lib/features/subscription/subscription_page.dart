@@ -18,7 +18,9 @@ const _benefits = [
 ];
 
 class SubscriptionPage extends ConsumerWidget {
-  const SubscriptionPage({super.key});
+  const SubscriptionPage({this.sheet = false, super.key});
+
+  final bool sheet;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,129 +38,163 @@ class SubscriptionPage extends ConsumerWidget {
       }
     });
 
+    final content = Stack(
+      children: [
+        const Positioned.fill(child: _PaywallBackground()),
+        CustomScrollView(
+          slivers: [
+            const SliverToBoxAdapter(child: SizedBox(height: 98)),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+              sliver: SliverList.list(
+                children: [
+                  const Text(
+                    'Performance Pro',
+                    style: TextStyle(
+                      color: KandoColors.text,
+                      fontFamily: 'Fraunces',
+                      fontSize: 32,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ..._benefits.map(_BenefitRow.new),
+                  const SizedBox(height: 18),
+                  ...subscriptionPlans.map(
+                    (plan) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _PlanTile(
+                        plan: plan,
+                        price:
+                            state.displayPrices[plan.id] ?? plan.fallbackPrice,
+                        selected: state.selectedPlanId == plan.id,
+                        onTap: () => ref
+                            .read(subscriptionControllerProvider.notifier)
+                            .selectPlan(plan.id),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    height: 56,
+                    child: FilledButton(
+                      key: const Key('subscription-purchase-button'),
+                      onPressed: state.isLoading
+                          ? null
+                          : () => ref
+                                .read(subscriptionControllerProvider.notifier)
+                                .purchase(),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: KandoColors.accent,
+                        foregroundColor: KandoColors.primaryOnDefault,
+                        disabledBackgroundColor: KandoColors.accent.withValues(
+                          alpha: 0.45,
+                        ),
+                        shape: const StadiumBorder(),
+                      ),
+                      child: state.isLoading
+                          ? const SizedBox.square(
+                              dimension: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: KandoColors.primaryOnDefault,
+                              ),
+                            )
+                          : const Text('SUBSCRIBE'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _LegalLink(
+                        label: 'Terms of Use',
+                        onTap: () =>
+                            ref.read(profileActionsProvider).openTerms(),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          '·',
+                          style: TextStyle(color: KandoColors.mutedText),
+                        ),
+                      ),
+                      _LegalLink(
+                        label: 'Privacy Policy',
+                        onTap: () =>
+                            ref.read(profileActionsProvider).openPrivacy(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                ],
+              ),
+            ),
+          ],
+        ),
+        Positioned(
+          top: 12,
+          left: 20,
+          child: _CircleAction(
+            tooltip: 'Close',
+            icon: Icons.close,
+            onPressed: () =>
+                context.canPop() ? context.pop() : context.go('/profile'),
+          ),
+        ),
+        Positioned(
+          top: 12,
+          right: 20,
+          child: TextButton(
+            onPressed: state.isLoading
+                ? null
+                : () => ref
+                      .read(subscriptionControllerProvider.notifier)
+                      .restore(),
+            child: const Text('Restore'),
+          ),
+        ),
+      ],
+    );
+    if (!sheet) {
+      return Scaffold(
+        backgroundColor: KandoColors.ink,
+        body: SafeArea(bottom: false, child: content),
+      );
+    }
     return Scaffold(
-      backgroundColor: KandoColors.ink,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
-        child: Stack(
-          children: [
-            const Positioned.fill(child: _PaywallBackground()),
-            CustomScrollView(
-              slivers: [
-                const SliverToBoxAdapter(child: SizedBox(height: 98)),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-                  sliver: SliverList.list(
-                    children: [
-                      const Text(
-                        'Performance Pro',
-                        style: TextStyle(
-                          color: KandoColors.text,
-                          fontFamily: 'Fraunces',
-                          fontSize: 32,
-                          fontWeight: FontWeight.w600,
-                        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: ColoredBox(
+            color: KandoColors.ink,
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 32),
+                  child: content,
+                ),
+                Positioned(
+                  top: 10,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      key: const Key('subscription-sheet-handle'),
+                      width: 48,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF615D3B),
+                        borderRadius: BorderRadius.circular(999),
                       ),
-                      const SizedBox(height: 24),
-                      ..._benefits.map(_BenefitRow.new),
-                      const SizedBox(height: 18),
-                      ...subscriptionPlans.map(
-                        (plan) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _PlanTile(
-                            plan: plan,
-                            price:
-                                state.displayPrices[plan.id] ??
-                                plan.fallbackPrice,
-                            selected: state.selectedPlanId == plan.id,
-                            onTap: () => ref
-                                .read(subscriptionControllerProvider.notifier)
-                                .selectPlan(plan.id),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        height: 56,
-                        child: FilledButton(
-                          key: const Key('subscription-purchase-button'),
-                          onPressed: state.isLoading
-                              ? null
-                              : () => ref
-                                    .read(
-                                      subscriptionControllerProvider.notifier,
-                                    )
-                                    .purchase(),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: KandoColors.accent,
-                            foregroundColor: KandoColors.primaryOnDefault,
-                            disabledBackgroundColor: KandoColors.accent
-                                .withValues(alpha: 0.45),
-                            shape: const StadiumBorder(),
-                          ),
-                          child: state.isLoading
-                              ? const SizedBox.square(
-                                  dimension: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: KandoColors.primaryOnDefault,
-                                  ),
-                                )
-                              : const Text('SUBSCRIBE'),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _LegalLink(
-                            label: 'Terms of Use',
-                            onTap: () =>
-                                ref.read(profileActionsProvider).openTerms(),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 10),
-                            child: Text(
-                              '·',
-                              style: TextStyle(color: KandoColors.mutedText),
-                            ),
-                          ),
-                          _LegalLink(
-                            label: 'Privacy Policy',
-                            onTap: () =>
-                                ref.read(profileActionsProvider).openPrivacy(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 30),
-                    ],
+                    ),
                   ),
                 ),
               ],
             ),
-            Positioned(
-              top: 12,
-              left: 20,
-              child: _CircleAction(
-                tooltip: 'Close',
-                icon: Icons.close,
-                onPressed: () =>
-                    context.canPop() ? context.pop() : context.go('/profile'),
-              ),
-            ),
-            Positioned(
-              top: 12,
-              right: 20,
-              child: TextButton(
-                onPressed: state.isLoading
-                    ? null
-                    : () => ref
-                          .read(subscriptionControllerProvider.notifier)
-                          .restore(),
-                child: const Text('Restore'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -173,55 +209,180 @@ class SubscriptionSuccessPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: KandoColors.ink,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 72, 28, 28),
-          child: Column(
-            children: [
-              Container(
-                width: 116,
-                height: 116,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: KandoColors.accentGlow10,
-                  border: Border.all(color: KandoColors.borderFocus),
-                ),
-                child: const Icon(
-                  Icons.check_rounded,
-                  size: 64,
-                  color: KandoColors.accent,
-                ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 390),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 83, 20, 32),
+              child: Column(
+                children: [
+                  const _SuccessBadge(),
+                  const SizedBox(height: 25),
+                  const Text(
+                    'You are Pro now',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: KandoColors.text,
+                      fontFamily: 'Fraunces',
+                      fontSize: 32,
+                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Performance Pro is active on your account',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: KandoColors.text,
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  const _SuccessBenefitRow('Unlimited Card Scanning'),
+                  const SizedBox(height: 12),
+                  const _SuccessBenefitRow('Unlimited Portfolio Folders'),
+                  const SizedBox(height: 12),
+                  const _SuccessBenefitRow('Extended Price History'),
+                  const SizedBox(height: 44),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: FilledButton(
+                      key: const Key('subscription-success-continue'),
+                      onPressed: () => context.go('/home'),
+                      child: const Text('CONTINUE'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => _openSubscriptionManagement(context),
+                    child: const Text('Manage subscription'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 38),
-              const Text(
-                'You are Pro now',
-                textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuccessBadge extends StatelessWidget {
+  const _SuccessBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const Key('subscription-success-badge'),
+      width: 128,
+      height: 135,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 128,
+            height: 128,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: KandoColors.accentGlow10,
+              border: Border.all(color: KandoColors.accent, width: 2),
+              boxShadow: const [
+                BoxShadow(color: Color(0x403E4910), blurRadius: 22),
+                BoxShadow(color: Color(0x332F3A00), blurRadius: 42),
+              ],
+            ),
+            child: const Icon(
+              Icons.check_rounded,
+              size: 54,
+              color: KandoColors.accent,
+            ),
+          ),
+          const Positioned(
+            left: -22,
+            top: 5,
+            child: Icon(
+              Icons.auto_awesome,
+              size: 14,
+              color: KandoColors.accent,
+            ),
+          ),
+          const Positioned(
+            right: -18,
+            top: 34,
+            child: Icon(
+              Icons.auto_awesome,
+              size: 10,
+              color: KandoColors.accent,
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            child: Container(
+              height: 24,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: KandoColors.accent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Text(
+                'PRO',
                 style: TextStyle(
-                  color: KandoColors.text,
-                  fontFamily: 'Fraunces',
-                  fontSize: 34,
+                  color: Color(0xFF5B6300),
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 30),
-              const _BenefitRow('Unlimited Card Scanning'),
-              const _BenefitRow('Track Portfolio Performance'),
-              const _BenefitRow('Extended Price History'),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  onPressed: () => context.go('/home'),
-                  child: const Text('CONTINUE'),
-                ),
-              ),
-              TextButton(
-                onPressed: () => _openSubscriptionManagement(context),
-                child: const Text('Manage subscription'),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SuccessBenefitRow extends StatelessWidget {
+  const _SuccessBenefitRow(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1C14),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x33D4E157)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: KandoColors.accentGlow10,
+            ),
+            child: const Icon(Icons.check, size: 14, color: KandoColors.accent),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: KandoColors.text,
+                fontSize: 16,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

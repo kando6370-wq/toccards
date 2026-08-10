@@ -23,6 +23,7 @@ import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_page.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
 
@@ -1312,6 +1313,7 @@ void main() {
       expect(find.text('Customer Support'), findsOneWidget);
       expect(find.text('Score'), findsOneWidget);
       expect(find.text('Share With Friends'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);
       expect(find.text('Terms Of Use'), findsOneWidget);
       expect(find.text('Privacy Policy'), findsOneWidget);
       expect(find.text('Log Out'), findsNothing);
@@ -1376,6 +1378,7 @@ void main() {
     expect(find.text('Customer Support'), findsOneWidget);
     expect(find.text('Score'), findsOneWidget);
     expect(find.text('Share With Friends'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);
     expect(find.text('Terms Of Use'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);
     expect(find.text('Sign in / Sign up'), findsNothing);
@@ -1430,6 +1433,7 @@ void main() {
         const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 96),
       );
       expect(find.byIcon(Icons.shield_outlined), findsNothing);
+      await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);
       final privacyIcon = tester.widget<SvgPicture>(
         find.byKey(const Key('profile-privacy-policy-icon')),
       );
@@ -1445,6 +1449,7 @@ void main() {
         'Terms Of Use',
         'Privacy Policy',
       ]) {
+        await tester.scrollUntilVisible(find.text(label), 200);
         final row = tester.widget<InkWell>(
           find.ancestor(of: find.text(label), matching: find.byType(InkWell)),
         );
@@ -1547,10 +1552,15 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Share With Friends'));
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+      await tester.scrollUntilVisible(find.text('Terms Of Use'), 200);
+      await tester.drag(
+        find.byKey(const Key('profile-content-list')),
+        const Offset(0, -100),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Terms Of Use'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);
       await tester.tap(find.text('Privacy Policy'));
       await tester.pumpAndSettle();
 
@@ -1842,6 +1852,10 @@ void main() {
     await tester.tap(find.text('Upgrade Now'));
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const Key('subscription-sheet-handle')),
+      findsOneWidget,
+    );
     expect(find.text('Performance Pro'), findsOneWidget);
     expect(find.text('Unlimited Card Scanning'), findsOneWidget);
     expect(find.text('Yearly'), findsOneWidget);
@@ -1879,6 +1893,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Restore'), findsNothing);
   });
+
+  testWidgets(
+    'subscription success confirms the Pro benefits unlocked by the purchase',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildKandoTheme(),
+          home: const SubscriptionSuccessPage(),
+        ),
+      );
+
+      expect(find.text('You are Pro now'), findsOneWidget);
+      expect(
+        find.text('Performance Pro is active on your account'),
+        findsOneWidget,
+      );
+      expect(find.text('Unlimited Card Scanning'), findsOneWidget);
+      expect(find.text('Unlimited Portfolio Folders'), findsOneWidget);
+      expect(find.text('Extended Price History'), findsOneWidget);
+      expect(find.text('Track Portfolio Performance'), findsNothing);
+      expect(
+        tester.getSize(find.byKey(const Key('subscription-success-badge'))),
+        const Size(128, 135),
+      );
+      expect(
+        find.byKey(const Key('subscription-success-continue')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets(
     'logout from account creates a guest profile without previous anonymous',

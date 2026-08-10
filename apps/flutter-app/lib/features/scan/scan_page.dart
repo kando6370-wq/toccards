@@ -543,7 +543,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (camera == null) {
       if (_openingCamera) return;
       if (!_consumeScanQuota()) {
-        unawaited(context.push('/subscription'));
+        unawaited(context.push(subscriptionSheetLocation));
         return;
       }
       ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
@@ -552,7 +552,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
     if (_photoRecognitionInFlight) return;
     if (!_consumeScanQuota()) {
-      unawaited(context.push('/subscription'));
+      unawaited(context.push(subscriptionSheetLocation));
       return;
     }
     ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
@@ -655,7 +655,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         }
       }
       if (quotaExhausted && mounted) {
-        unawaited(context.push('/subscription'));
+        unawaited(context.push(subscriptionSheetLocation));
       }
     } catch (_) {
       if (mounted) {
@@ -1709,7 +1709,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
                         ? null
                         : _toggleFlash,
                     onSearchPressed: () => context.go('/search'),
-                    onUpgradePressed: () => context.push('/subscription'),
+                    onUpgradePressed: () =>
+                        context.push(subscriptionSheetLocation),
                     onPhotoPressed: _startPhotoScan,
                     onLibraryPressed: _startLibraryScan,
                     onDismissScanFeedback: _dismissScanFeedback,

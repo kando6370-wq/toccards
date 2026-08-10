@@ -150,6 +150,7 @@ const mockHomeDashboard = HomeDashboard(
         subtitle: '#95 • Diamond & Pearl',
         priceUsd: 10000000.12,
         previousPriceUsd: 9690000.12,
+        increasePercent: 3.2,
         imageAssetPath: 'assets/home/mega_lucario_ex.png',
       ),
       HomeCardHighlight(
@@ -157,6 +158,7 @@ const mockHomeDashboard = HomeDashboard(
         subtitle: '#95 · Diamond & Pearl',
         priceUsd: 9999000.12,
         previousPriceUsd: 9690000.12,
+        increasePercent: 3.19,
         imageAssetPath: 'assets/home/mega_lucario_ex.png',
       ),
       HomeCardHighlight(
@@ -164,6 +166,7 @@ const mockHomeDashboard = HomeDashboard(
         subtitle: '#95 · Diamond & Pearl',
         priceUsd: 9998000.12,
         previousPriceUsd: 9690000.12,
+        increasePercent: 3.18,
         imageAssetPath: 'assets/home/mega_lucario_ex.png',
       ),
     ],
@@ -173,6 +176,7 @@ const mockHomeDashboard = HomeDashboard(
         subtitle: 'Sealed • 36 Packs',
         priceUsd: 620,
         previousPriceUsd: 588.24,
+        increasePercent: 5.4,
         imageAssetPath: 'assets/home/mega_lucario_ex.png',
       ),
     ],

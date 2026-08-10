@@ -28,3 +28,6 @@ apps/admin-web/dist/
 .dart_tool/
 .flutter-plugins-dependencies
 build/
+
+# Flutter golden-test diagnostics
+apps/flutter-app/test/widget/failures/

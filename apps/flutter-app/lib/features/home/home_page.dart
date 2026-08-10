@@ -120,7 +120,7 @@ class _HomePageState extends ConsumerState<HomePage>
                       isPro: isPro,
                       onFolderPressed: () => _showFolderSheet(context, ref),
                       onRangeSelected: controller.selectChartRange,
-                      onUnlock: () => context.push('/subscription'),
+                      onUnlock: () => context.push(subscriptionSheetLocation),
                       onRefresh: () => _trackRefresh(controller.refresh),
                     )
                   else ...[

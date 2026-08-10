@@ -119,7 +119,9 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
             ),
             children: [
               if (!subscription.isPro) ...[
-                _UpgradeBanner(onTap: () => context.push('/subscription')),
+                _UpgradeBanner(
+                  onTap: () => context.push(subscriptionSheetLocation),
+                ),
                 const SizedBox(height: 24),
               ],
               _SectionLabel('Account'),
