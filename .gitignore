@@ -26,4 +26,5 @@ apps/admin-web/dist/
 
 # Dart / Flutter（根工作区）
 .dart_tool/
+.flutter-plugins-dependencies
 build/

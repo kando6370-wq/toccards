@@ -6,7 +6,7 @@ environment:
   sdk: ^3.9.2
 workspace:
   - apps/flutter-app
-  # dart-packages/* 等 Dart 共享包后续按需加入（显式路径）。
+  - dart-packages/subscription-core
 dev_dependencies:
   melos: ^8.0.0
 
