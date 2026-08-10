@@ -40,7 +40,7 @@ class SubscriptionPage extends ConsumerWidget {
 
     final content = Stack(
       children: [
-        const Positioned.fill(child: _PaywallBackground()),
+        Positioned.fill(child: _PaywallBackground(sheet: sheet)),
         CustomScrollView(
           slivers: [
             const SliverToBoxAdapter(child: SizedBox(height: 98)),
@@ -399,10 +399,62 @@ Future<void> _openSubscriptionManagement(BuildContext context) async {
 }
 
 class _PaywallBackground extends StatelessWidget {
-  const _PaywallBackground();
+  const _PaywallBackground({required this.sheet});
+
+  final bool sheet;
 
   @override
   Widget build(BuildContext context) {
+    if (sheet) {
+      return Stack(
+        children: [
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF191813), KandoColors.ink],
+                  stops: [0, 0.42],
+                ),
+              ),
+            ),
+          ),
+          const Positioned(
+            top: 8,
+            right: -28,
+            child: _SheetBackgroundCard(
+              assetIndex: 4,
+              width: 170,
+              angle: -0.56,
+              opacity: 0.34,
+            ),
+          ),
+          const Positioned(
+            top: 64,
+            right: 82,
+            child: _SheetBackgroundCard(
+              assetIndex: 2,
+              width: 150,
+              angle: -0.87,
+              opacity: 0.2,
+            ),
+          ),
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.center,
+                  colors: [Color(0x0010100B), KandoColors.ink],
+                  stops: [0.1, 0.44],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return Stack(
       children: [
         Positioned(
@@ -444,6 +496,44 @@ class _PaywallBackground extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SheetBackgroundCard extends StatelessWidget {
+  const _SheetBackgroundCard({
+    required this.assetIndex,
+    required this.width,
+    required this.angle,
+    required this.opacity,
+  });
+
+  final int assetIndex;
+  final double width;
+  final double angle;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: angle,
+      child: Opacity(
+        opacity: opacity,
+        child: ColorFiltered(
+          colorFilter: const ColorFilter.mode(
+            Color(0xFF677020),
+            BlendMode.modulate,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/subscription/card_$assetIndex.png',
+              width: width,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

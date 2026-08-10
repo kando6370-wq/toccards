@@ -1852,10 +1852,7 @@ void main() {
     await tester.tap(find.text('Upgrade Now'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const Key('subscription-sheet-handle')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('subscription-sheet-handle')), findsOneWidget);
     expect(find.text('Performance Pro'), findsOneWidget);
     expect(find.text('Unlimited Card Scanning'), findsOneWidget);
     expect(find.text('Yearly'), findsOneWidget);
@@ -1923,6 +1920,42 @@ void main() {
       );
     },
   );
+
+  for (final goldenCase in [
+    (
+      name: 'full page',
+      file: 'figma_subscription_full_1727_13164_390x844.png',
+      child: const SubscriptionPage(),
+    ),
+    (
+      name: 'bottom sheet',
+      file: 'figma_subscription_sheet_1651_9467_390x844.png',
+      child: const SubscriptionPage(sheet: true),
+    ),
+    (
+      name: 'success page',
+      file: 'figma_subscription_success_1706_12964_390x844.png',
+      child: const SubscriptionSuccessPage(),
+    ),
+  ]) {
+    testWidgets(
+      'Figma subscription ${goldenCase.name} keeps the approved 390x844 appearance',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
+        await tester.pumpAndSettle();
+
+        await expectLater(
+          find.byKey(const Key('subscription-golden-boundary')),
+          matchesGoldenFile('goldens/rendered/${goldenCase.file}'),
+        );
+      },
+    );
+  }
 
   testWidgets(
     'logout from account creates a guest profile without previous anonymous',
@@ -2218,6 +2251,31 @@ class _ProSubscriptionController extends SubscriptionController {
 
   @override
   Future<void> restore() async {}
+}
+
+class _FreeSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState();
+
+  @override
+  Future<void> restore() async {}
+}
+
+ProviderScope _subscriptionGoldenApp(Widget child) {
+  return ProviderScope(
+    overrides: [
+      subscriptionControllerProvider.overrideWith(
+        _FreeSubscriptionController.new,
+      ),
+    ],
+    child: MaterialApp(
+      theme: buildKandoTheme(),
+      home: RepaintBoundary(
+        key: const Key('subscription-golden-boundary'),
+        child: child,
+      ),
+    ),
+  );
 }
 
 class _CompletedOnboardingController extends OnboardingController {
