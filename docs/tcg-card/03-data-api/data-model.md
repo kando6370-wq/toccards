@@ -258,6 +258,22 @@ CREATE TABLE user_preference (
 
 ---
 
+### 4.5 订阅与内购
+
+订阅域采用“购买链、交易、授权”分离模型：Apple/Google 的历史交易不可覆盖；购买链保存当前商店状态；一条有效购买链可向多个游客或正式用户 UID 授权，以支持同一 Apple ID 在多台设备恢复购买。
+
+| 表 | 核心字段 | 约束与用途 |
+|---|---|---|
+| `billing_product` | `store`, `product_id`, `plan_id`, `entitlement_id`, `product_type`, `active` | `(store, product_id)` 与 `(store, plan_id)` 唯一；支持按项目启用单一或多个商店 |
+| `billing_purchase_chain` | `original_transaction_id`, `original_owner_type/id`, `status`, `auto_renew`, `expires_at` | `(store, environment, original_transaction_id)` 唯一；保存订阅或终身购买当前状态 |
+| `billing_transaction` | `transaction_id`, `product_id`, `status`, `amount_micros`, `currency`, `purchase_at` | 追加式交易历史；金额使用整数 micros，避免浮点误差 |
+| `billing_entitlement_grant` | `purchase_chain_id`, `owner_type/id`, `source`, `status` | 一条购买链可关联多个 UID；链退款、撤销或过期时所有授权同时失效 |
+| `apple_server_notification` | `notification_uuid`, `notification_type`, `signed_payload`, `processing_status` | `notification_uuid` 唯一保证幂等；保留原始 JWS 用于审计和重放 |
+
+Apple 通知类型属于外部开放枚举，不设置封闭 CHECK；内部处理状态由 Workers 校验。Apple ID 不进入数据库，恢复购买只依赖 Apple 验签后的购买链和本系统授权关系。
+
+---
+
 ## 5. 管理员层
 
 ### 5.1 admin_user（后台管理员账号）
@@ -575,7 +591,8 @@ erDiagram
 | 其他主键 / 外键 ID | TEXT（ULID） |
 | 时间戳 | TEXT（ISO 8601 UTC，如 `2026-06-30T12:00:00Z`） |
 | 布尔值 | INTEGER（0 / 1） |
-| 金额 | REAL（原始货币原值） |
+| 资产录入金额 | REAL（原始货币原值） |
+| 账单金额 | INTEGER（micros，1 个货币单位 = 1,000,000 micros） |
 | 货币代码 | TEXT（ISO 4217，如 `USD`） |
 | 枚举 | TEXT（Workers 层校验有效性） |
 | 多值字段 | TEXT（JSON 数组字符串） |
