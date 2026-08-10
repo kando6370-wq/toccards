@@ -35,6 +35,7 @@ tcg-card 是一款 iOS 集卡管理应用，支持 TCG 单卡、体育卡、Seal
 19. [`01-flows/state-machines.md`](01-flows/state-machines.md) — 状态机
 20. [`04-admin/admin.md`](04-admin/admin.md) — 后台管理系统
 21. [`05-plan/dev-plan.md`](05-plan/dev-plan.md) — 开发计划与里程碑
+22. [`05-plan/app-store-connect-subscription-setup.md`](05-plan/app-store-connect-subscription-setup.md) — App Store Connect 订阅、终身买断与审核配置
 
 ---
 
@@ -76,7 +77,10 @@ docs/tcg-card/
 │   └── admin.md                           后台管理系统（运营配置/工单/用户/卡牌覆盖）
 │
 └── 05-plan/
-    └── dev-plan.md                        开发计划（M1–M8 里程碑/依赖/验收标准/TBD）
+    ├── dev-plan.md                        开发计划（M1–M8 里程碑/依赖/验收标准/TBD）
+    ├── external-deps-checklist.md         外部依赖与凭证确认清单
+    └── app-store-connect-subscription-setup.md
+                                            App Store Connect 订阅、终身买断与审核配置
 ```
 
 ---
