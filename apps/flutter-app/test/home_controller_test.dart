@@ -464,6 +464,40 @@ void main() {
   );
 
   test(
+    'refresh completes immediately after both core and Trending loads finish',
+    () async {
+      final repository = _RefreshSlowTrendingHomeRepository();
+      final container = _homeContainer(repository);
+      addTearDown(container.dispose);
+
+      expect(container.read(homeControllerProvider).isLoading, isTrue);
+      repository.coreLoads.single.complete(
+        mockHomeDashboard.copyWith(trending: const []),
+      );
+      await Future<void>.delayed(Duration.zero);
+      repository.trendingLoads.single.complete(mockHomeDashboard.trending);
+      await Future<void>.delayed(Duration.zero);
+
+      var refreshCompleted = false;
+      final refresh = container
+          .read(homeControllerProvider.notifier)
+          .refresh()
+          .whenComplete(() => refreshCompleted = true);
+      repository.coreLoads.last.complete(
+        mockHomeDashboard.copyWith(trending: const []),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(refreshCompleted, isFalse);
+      repository.trendingLoads.last.complete(mockHomeDashboard.trending);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(refreshCompleted, isTrue);
+      await refresh;
+    },
+  );
+
+  test(
     'temporary core network failure retries automatically and restores content',
     () async {
       final repository = _TransientCoreFailureHomeRepository();
@@ -579,6 +613,30 @@ class _SlowTrendingHomeRepository implements ProgressiveHomeRepository {
   Future<List<TrendingCard>> loadTrending() {
     trendingCalls += 1;
     return trending.future;
+  }
+
+  @override
+  Future<HomeDashboard> loadDashboard() {
+    throw StateError('Progressive loading must not call the combined path.');
+  }
+}
+
+class _RefreshSlowTrendingHomeRepository implements ProgressiveHomeRepository {
+  final coreLoads = <Completer<HomeDashboard>>[];
+  final trendingLoads = <Completer<List<TrendingCard>>>[];
+
+  @override
+  Future<HomeDashboard> loadCoreDashboard() {
+    final load = Completer<HomeDashboard>();
+    coreLoads.add(load);
+    return load.future;
+  }
+
+  @override
+  Future<List<TrendingCard>> loadTrending() {
+    final load = Completer<List<TrendingCard>>();
+    trendingLoads.add(load);
+    return load.future;
   }
 
   @override

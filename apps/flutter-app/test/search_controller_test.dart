@@ -104,6 +104,7 @@ void main() {
         ],
         sets: const [
           CardDataSetDto(
+            setId: 'base-set-id',
             setCode: 'BS',
             setName: 'Base Set',
             game: 'Pokemon',
@@ -132,7 +133,7 @@ void main() {
       expect(catalog.cards.first.priceText(AppCurrency.usd), r'$32.13');
       expect(catalog.cards.first.changeText, '+8.97%');
       expect(catalog.cards.last.type, SearchCardType.sealed);
-      expect(catalog.sets.single.id, 'BS');
+      expect(catalog.sets.single.id, 'base-set-id');
       expect(catalog.sets.single.gameId, 'pokemon');
       expect(catalog.sets.single.subtitle, 'Pokemon');
       expect(catalog.sets.single.cardCountText, '102 cards');
@@ -812,6 +813,35 @@ void main() {
 
       expect(state.selectedGame.label, 'Lorcana');
       expect(state.searchText, '');
+      expect(state.visibleCards.map((card) => card.name), ['Lorcana Elsa']);
+    },
+  );
+
+  test(
+    'switching back to Cards loads the selected game because changing Game in Sets must not leave stale card data',
+    () async {
+      final repository = _CurrentGameRefreshSearchRepository();
+      final container = _searchContainer(repository: repository);
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      controller.selectTab(SearchTab.sets);
+      controller.selectGame('lorcana');
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+      controller.clearSearch();
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+
+      controller.selectTab(SearchTab.cards);
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+
+      final state = container.read(searchControllerProvider);
+      expect(repository.requestedGames, ['Lorcana']);
+      expect(state.selectedTab, SearchTab.cards);
+      expect(state.selectedGame.label, 'Lorcana');
       expect(state.visibleCards.map((card) => card.name), ['Lorcana Elsa']);
     },
   );

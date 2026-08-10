@@ -12,6 +12,7 @@ type CardCatalogRow = {
   product_id: string;
   game_id: number;
   game: string | null;
+  set_id: string | null;
   set_name: string | null;
   set_code: string | null;
   name: string | null;
@@ -96,7 +97,7 @@ const GRADED_PRICE_FIELDS = [
 >;
 
 const CARD_SELECT = `
-SELECT product_id, game_id, game, set_name, set_code, name, rarity, product_type_name
+SELECT product_id, game_id, game, set_id, set_name, set_code, name, rarity, product_type_name
 FROM cards_all
 `;
 
@@ -111,10 +112,12 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
       const offset = (page - 1) * pageSize;
       const objectTypeClause = objectTypeWhereClause(options.object_type);
       const gameClause = options.game ? "AND lower(game) = lower(?)" : "";
+      const setIdClause = options.set_id ? "AND set_id = ?" : "";
       const setClause = options.set_code ? "AND lower(set_code) = lower(?)" : "";
       const bindings = [
         ...effectiveSearchTerms.map((term) => `%${term}%`),
         ...(options.game ? [options.game] : []),
+        ...(options.set_id ? [options.set_id] : []),
         ...(options.set_code ? [options.set_code] : []),
         pageSize,
         offset,
@@ -137,6 +140,7 @@ WHERE ${effectiveSearchTerms
   .join("\nAND ")}
 ${objectTypeClause}
 ${gameClause}
+${setIdClause}
 ${setClause}
 ORDER BY updated_at DESC, product_id ASC
 LIMIT ? OFFSET ?`,
@@ -169,7 +173,8 @@ LIMIT ? OFFSET ?`,
       ];
       const results = await db
         .prepare(
-          `SELECT s.set_code,
+          `SELECT s.set_id,
+                  s.set_code,
                   s.name AS set_name,
                   s.game,
                   NULL AS image_url,

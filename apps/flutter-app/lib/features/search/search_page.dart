@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -110,7 +108,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         delegate: _SearchControlsHeaderDelegate(
                           child: _SearchControlsHeader(
                             state: state,
-                            onSearchChanged: controller.submitSearch,
+                            onSearchChanged: controller.updateSearch,
                             onClear: controller.clearSearch,
                             onSelectTab: controller.selectTab,
                             onGamePressed: () => _showGameSheet(context, ref),
@@ -275,7 +273,6 @@ class _DebouncedSearchField extends StatefulWidget {
 
 class _DebouncedSearchFieldState extends State<_DebouncedSearchField> {
   late final TextEditingController _controller;
-  Timer? _debounce;
   late String _lastExternalText;
 
   @override
@@ -294,7 +291,6 @@ class _DebouncedSearchFieldState extends State<_DebouncedSearchField> {
       return;
     }
 
-    _debounce?.cancel();
     _lastExternalText = widget.searchText;
     if (_controller.text != widget.searchText) {
       _controller.value = TextEditingValue(
@@ -306,22 +302,17 @@ class _DebouncedSearchFieldState extends State<_DebouncedSearchField> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  void _queueSearch(String value) {
+  void _handleSearchChanged(String value) {
     setState(() {});
-    _debounce?.cancel();
-    _debounce = Timer(searchDebounceDuration, () {
-      _lastExternalText = value;
-      widget.onChanged(value);
-    });
+    _lastExternalText = value;
+    widget.onChanged(value);
   }
 
   void _clearSearch() {
-    _debounce?.cancel();
     _lastExternalText = '';
     if (_controller.text.isNotEmpty) {
       _controller.clear();
@@ -371,7 +362,7 @@ class _DebouncedSearchFieldState extends State<_DebouncedSearchField> {
         focusedBorder: _inputBorder(KandoColors.accent),
       ),
       onTapOutside: (_) => FocusScope.of(context).unfocus(),
-      onChanged: _queueSearch,
+      onChanged: _handleSearchChanged,
     );
   }
 }

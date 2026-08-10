@@ -96,6 +96,7 @@ class CardDataCardDto {
 
 class CardDataSetDto {
   const CardDataSetDto({
+    this.setId,
     required this.setCode,
     required this.setName,
     this.game,
@@ -103,6 +104,7 @@ class CardDataSetDto {
     required this.cardCount,
   });
 
+  final String? setId;
   final String setCode;
   final String setName;
   final String? game;
@@ -111,6 +113,7 @@ class CardDataSetDto {
 
   factory CardDataSetDto.fromJson(Map<String, Object?> json) {
     return CardDataSetDto(
+      setId: _nullableString(json['set_id']),
       setCode: _requiredString(json['set_code']),
       setName: _requiredString(json['set_name']),
       game: _nullableString(json['game']),
@@ -138,7 +141,7 @@ abstract interface class SetCatalogApi {
   Future<List<CardDataGameDto>> listGames();
   Future<List<CardDataSetDto>> searchCatalogSets(String query, {String? game});
   Future<List<CardDataCardDto>> cardsForSet(
-    String setCode, {
+    String setId, {
     required String game,
     int page,
   });
@@ -366,7 +369,7 @@ class CardDataApiClient
 
   @override
   Future<List<CardDataCardDto>> cardsForSet(
-    String setCode, {
+    String setId, {
     required String game,
     int page = 1,
   }) async {
@@ -375,7 +378,7 @@ class CardDataApiClient
       '/cards/search',
       queryParameters: {
         'game': game,
-        'set_code': setCode,
+        'set_id': setId,
         'page': page,
         'page_size': kandoPageSize,
       },

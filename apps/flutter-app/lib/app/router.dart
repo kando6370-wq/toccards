@@ -80,9 +80,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/sets/:setCode',
+        path: '/sets/:setId',
         builder: (context, state) => SetDetailPage(
-          setCode: state.pathParameters['setCode'] ?? '',
+          setId: state.pathParameters['setId'] ?? '',
           game: state.uri.queryParameters['game'] ?? '',
           setName: state.uri.queryParameters['name'] ?? '',
         ),

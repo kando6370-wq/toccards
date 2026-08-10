@@ -215,6 +215,7 @@ class SearchController extends Notifier<SearchState> {
   Future<SearchAssetSnapshot>? _assetLoad;
   var _assetGeneration = 0;
   var _hasCompleteSets = true;
+  final _loadedGameByTab = <SearchTab, String>{};
   final _pendingCardMutations = <String>{};
 
   Future<void> get loadComplete {
@@ -275,6 +276,7 @@ class SearchController extends Notifier<SearchState> {
 
   void _startLoad({SearchState? preserveState, AuthSession? session}) {
     _searchDebounce?.cancel();
+    _loadedGameByTab.clear();
     _hasCompleteSets =
         ref.read(searchRepositoryProvider) is! HttpSearchRepository;
     final completer = Completer<void>();
@@ -313,6 +315,9 @@ class SearchController extends Notifier<SearchState> {
               ? KandoLoadStatus.loading
               : KandoLoadStatus.content,
         );
+        _loadedGameByTab
+          ..[SearchTab.cards] = state.selectedGame.id
+          ..[SearchTab.sets] = state.selectedGame.id;
       }
       if (assetsFuture != null) {
         final snapshot = await assetsFuture;
@@ -349,7 +354,8 @@ class SearchController extends Notifier<SearchState> {
     }
 
     state = state.copyWith(selectedTab: tab);
-    if (tab == SearchTab.sets && !_hasCompleteSets) {
+    final needsCurrentGame = _loadedGameByTab[tab] != state.selectedGame.id;
+    if (needsCurrentGame || (tab == SearchTab.sets && !_hasCompleteSets)) {
       _hasCompleteSets = true;
       _scheduleSearch(tab: tab, query: state.searchText, allowEmpty: true);
     }
@@ -746,6 +752,7 @@ class SearchController extends Notifier<SearchState> {
       catalog = await _withAssets(repository, catalog, _assetSession);
       if (!ref.mounted) return;
       if (generation == _loadGeneration) {
+        _loadedGameByTab[tab] = state.selectedGame.id;
         final failedSearchTabs = {...state.failedSearchTabs}..remove(tab);
         if (tab == SearchTab.sets) {
           _hasCompleteSets = true;

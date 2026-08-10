@@ -103,9 +103,10 @@ export function createDataSourceRoutes(
   routes.get("/cards/search", async (c) => {
     const query = c.req.query("q")?.trim() ?? "";
     const game = nullableString(c.req.query("game")) ?? undefined;
+    const setId = nullableString(c.req.query("set_id")) ?? undefined;
     const setCode = nullableString(c.req.query("set_code")) ?? undefined;
 
-    if (!query && !game && !setCode) {
+    if (!query && !game && !setId && !setCode) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
@@ -122,6 +123,7 @@ export function createDataSourceRoutes(
       adapter.searchCards(query, {
         object_type: "tcg",
         game,
+        set_id: setId,
         set_code: setCode,
         page,
         page_size: pageSize,
