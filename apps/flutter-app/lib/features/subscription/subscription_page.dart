@@ -201,8 +201,40 @@ class SubscriptionPage extends ConsumerWidget {
   }
 }
 
-class SubscriptionSuccessPage extends StatelessWidget {
+class SubscriptionSuccessPage extends StatefulWidget {
   const SubscriptionSuccessPage({super.key});
+
+  @override
+  State<SubscriptionSuccessPage> createState() =>
+      _SubscriptionSuccessPageState();
+}
+
+class _SubscriptionSuccessPageState extends State<SubscriptionSuccessPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2200),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (disableAnimations) {
+      _controller
+        ..stop()
+        ..value = 1;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -216,49 +248,90 @@ class SubscriptionSuccessPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 83, 20, 32),
               child: Column(
                 children: [
-                  const _SuccessBadge(),
+                  _SuccessBadgeReveal(controller: _controller),
                   const SizedBox(height: 25),
-                  const Text(
-                    'You are Pro now',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: KandoColors.text,
-                      fontFamily: 'Fraunces',
-                      fontSize: 32,
-                      height: 1.25,
-                      fontWeight: FontWeight.w600,
+                  _SuccessReveal(
+                    key: const Key('subscription-success-title-reveal'),
+                    controller: _controller,
+                    begin: 0.29545,
+                    end: 0.40909,
+                    child: const Text(
+                      'You are Pro now',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: KandoColors.text,
+                        fontFamily: 'Fraunces',
+                        fontSize: 32,
+                        height: 1.25,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Performance Pro is active on your account',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: KandoColors.text,
-                      fontSize: 16,
-                      height: 1.5,
+                  _SuccessReveal(
+                    controller: _controller,
+                    begin: 0.29545,
+                    end: 0.40909,
+                    child: const Text(
+                      'Performance Pro is active on your account',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: KandoColors.text,
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 40),
-                  const _SuccessBenefitRow('Unlimited Card Scanning'),
+                  _SuccessReveal(
+                    key: const Key('subscription-success-benefit-0-reveal'),
+                    controller: _controller,
+                    begin: 0.52273,
+                    end: 0.63636,
+                    child: const _SuccessBenefitRow('Unlimited Card Scanning'),
+                  ),
                   const SizedBox(height: 12),
-                  const _SuccessBenefitRow('Unlimited Portfolio Folders'),
-                  const SizedBox(height: 12),
-                  const _SuccessBenefitRow('Extended Price History'),
-                  const SizedBox(height: 44),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: FilledButton(
-                      key: const Key('subscription-success-continue'),
-                      onPressed: () => context.go('/home'),
-                      child: const Text('CONTINUE'),
+                  _SuccessReveal(
+                    key: const Key('subscription-success-benefit-1-reveal'),
+                    controller: _controller,
+                    begin: 0.55,
+                    end: 0.66364,
+                    child: const _SuccessBenefitRow(
+                      'Unlimited Portfolio Folders',
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => _openSubscriptionManagement(context),
-                    child: const Text('Manage subscription'),
+                  _SuccessReveal(
+                    key: const Key('subscription-success-benefit-2-reveal'),
+                    controller: _controller,
+                    begin: 0.57727,
+                    end: 0.69091,
+                    child: const _SuccessBenefitRow('Extended Price History'),
+                  ),
+                  const SizedBox(height: 44),
+                  _SuccessReveal(
+                    controller: _controller,
+                    begin: 0.80909,
+                    end: 0.92273,
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: FilledButton(
+                        key: const Key('subscription-success-continue'),
+                        onPressed: () => context.go('/home'),
+                        child: const Text('CONTINUE'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _SuccessReveal(
+                    controller: _controller,
+                    begin: 0.84545,
+                    end: 0.95909,
+                    child: TextButton(
+                      onPressed: () => _openSubscriptionManagement(context),
+                      child: const Text('Manage subscription'),
+                    ),
                   ),
                 ],
               ),
@@ -266,6 +339,77 @@ class SubscriptionSuccessPage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SuccessReveal extends StatelessWidget {
+  const _SuccessReveal({
+    required this.controller,
+    required this.begin,
+    required this.end,
+    required this.child,
+    super.key,
+  });
+
+  final AnimationController controller;
+  final double begin;
+  final double end;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      child: child,
+      builder: (context, child) {
+        final progress = Interval(
+          begin,
+          end,
+          curve: Curves.easeOut,
+        ).transform(controller.value);
+        return IgnorePointer(
+          ignoring: progress < 1,
+          child: Opacity(
+            opacity: progress,
+            child: Transform.translate(
+              offset: Offset(0, 8 * (1 - progress)),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SuccessBadgeReveal extends StatelessWidget {
+  const _SuccessBadgeReveal({required this.controller});
+
+  final AnimationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      child: const _SuccessBadge(),
+      builder: (context, child) {
+        final value = controller.value;
+        final opacity = const Interval(
+          0.09091,
+          0.29545,
+          curve: Curves.easeOut,
+        ).transform(value);
+        final scale = value <= 0.21818
+            ? 0.82 + (0.26 * Curves.easeOut.transform(value / 0.21818))
+            : value < 0.29545
+            ? 1.08 - (0.08 * ((value - 0.21818) / (0.29545 - 0.21818)))
+            : 1.0;
+        return Opacity(
+          opacity: opacity,
+          child: Transform.scale(scale: scale, child: child),
+        );
+      },
     );
   }
 }

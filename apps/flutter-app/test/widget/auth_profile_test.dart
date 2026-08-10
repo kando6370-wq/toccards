@@ -1921,6 +1921,37 @@ void main() {
     },
   );
 
+  testWidgets(
+    'subscription success reveals identity before benefits because the Figma sequence builds purchase confirmation in stages',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildKandoTheme(),
+          home: const SubscriptionSuccessPage(),
+        ),
+      );
+
+      double opacityFor(Key key) => tester
+          .widget<Opacity>(
+            find
+                .descendant(of: find.byKey(key), matching: find.byType(Opacity))
+                .first,
+          )
+          .opacity;
+
+      expect(opacityFor(const Key('subscription-success-title-reveal')), 0);
+      expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 0);
+
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(opacityFor(const Key('subscription-success-title-reveal')), 1);
+      expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 0);
+
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 1);
+      expect(opacityFor(const Key('subscription-success-benefit-2-reveal')), 1);
+    },
+  );
+
   for (final goldenCase in [
     (
       name: 'full page',
@@ -2270,6 +2301,10 @@ ProviderScope _subscriptionGoldenApp(Widget child) {
     ],
     child: MaterialApp(
       theme: buildKandoTheme(),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(disableAnimations: true),
+        child: child!,
+      ),
       home: RepaintBoundary(
         key: const Key('subscription-golden-boundary'),
         child: child,
