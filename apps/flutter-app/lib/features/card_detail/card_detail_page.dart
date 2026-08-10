@@ -704,6 +704,13 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
     }
   }
 
+  void _editMissingPurchasePrice() {
+    final items = widget.state.collectionItemRows;
+    if (items.isEmpty) return;
+    widget.controller.startEditingCollectionItem(items.first.id);
+    _tabController.animateTo(0);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -778,7 +785,11 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
             entrySource: widget.entrySource,
           )
         else if (_tabController.index == 1)
-          _CardPerformance(state: widget.state, isPro: widget.isPro)
+          _CardPerformance(
+            state: widget.state,
+            isPro: widget.isPro,
+            onEditPurchasePrice: _editMissingPurchasePrice,
+          )
         else
           _PriceOverview(state: widget.state, controller: widget.controller),
       ],
@@ -787,10 +798,15 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
 }
 
 class _CardPerformance extends StatelessWidget {
-  const _CardPerformance({required this.state, required this.isPro});
+  const _CardPerformance({
+    required this.state,
+    required this.isPro,
+    required this.onEditPurchasePrice,
+  });
 
   final CardDetailState state;
   final bool isPro;
+  final VoidCallback onEditPurchasePrice;
 
   @override
   Widget build(BuildContext context) {
@@ -857,13 +873,50 @@ class _CardPerformance extends StatelessWidget {
             ),
           ],
         ),
+        if (state.performancePurchaseCostUsd == null &&
+            state.collectionItemRows.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            key: const Key('card-detail-missing-purchase-price'),
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: _kPanel(strong: true),
+            child: Column(
+              children: [
+                const Text(
+                  'Add purchase price to calculate your card performance.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: KandoColors.mutedText,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    key: const Key('card-detail-edit-missing-purchase-price'),
+                    onPressed: onEditPurchasePrice,
+                    child: const Text('Edit Collection Item'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 28),
-        const Row(
+        Row(
           children: [
             Expanded(
-              child: Text('Performance Chart', style: _kSectionTitleStyle),
+              child: Text(
+                state.performancePurchaseCostUsd == null
+                    ? 'Market Value History'
+                    : 'Performance Chart',
+                style: _kSectionTitleStyle,
+              ),
             ),
-            Text('MARKET VALUE', style: _kFieldLabelStyle),
+            const Text('MARKET VALUE', style: _kFieldLabelStyle),
           ],
         ),
         const SizedBox(height: 12),
