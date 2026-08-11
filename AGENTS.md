@@ -13,6 +13,7 @@
 - 显式失败：不得把跳过的检查写成通过；必须列出未运行项及原因。
 - 目标驱动：开始前定义验收条件，重要步骤后总结完成项、验证结果和剩余工作。
 - 模型仅用于判断类任务：适合分类、起草、摘要和信息提取；路由、重试、数据转换等确定性任务应使用常规代码完成。
+- 必须注意docs文件夹下文档,和此文档的实时更新
 
 ## 仓库结构
 
@@ -26,6 +27,25 @@
 - `packages/api-client`、`packages/ui-kit`、`packages/workers-common`：TypeScript 共享包。
 
 Node workspace 由 `pnpm-workspace.yaml` 管理；Dart workspace 由根 `pubspec.yaml` 管理。当前 Dart workspace 仅正式包含 `apps/flutter-app`，不要把未跟踪目录当作工作区成员。
+
+### 项目架构
+
+```text
+Flutter App ───────────────┐
+                          ├─> Cloudflare Workers API (`/api/v1`)
+React Admin ── Worker ─────┘          ├─> D1：卡牌、账号、资产与运营数据
+                                     ├─> KV：目录与汇率缓存
+                                     ├─> R2：扫描图片
+                                     └─> OAuth、邮件、OCR、汇率等外部服务
+
+Marketing Web ──> 独立的营销与法律页面
+```
+
+- Flutter App 只通过 Workers API 访问服务端数据，不直接连接 D1、KV 或 R2。
+- Admin 是独立 React SPA，但构建产物由 Workers assets 托管，与对应环境的 API 一起部署。
+- Workers 是鉴权、账号归属、资产隔离、卡牌查询、扫描识别和 Admin 操作的服务端边界。
+- D1 保存业务真源；KV 只保存可重建缓存；R2 保存扫描图片等对象。
+- `packages/*` 只承载跨应用共享能力，应用之间通过包依赖或 HTTP 契约协作。
 
 ## 工具链与常用命令
 
