@@ -1,0 +1,24 @@
+# Card AI
+
+> Card AI is a trading card scanner and collection management app that helps collectors identify cards, track market prices, and understand their collection value.
+
+The [canonical website](https://tcgcard.fun/) is tcgcard.fun. Card AI supports collectors across Pokémon, Magic: The Gathering, Yu-Gi-Oh!, One Piece, Disney Lorcana, and Digimon.
+
+## Core Capabilities
+
+- AI-assisted card scanning and identification
+- Market price tracking and card-level market data
+- Portfolio organization and collection value tracking
+- Wishlist management
+- Multi-game collection support
+
+## Official Resources
+
+- [Official Website](https://tcgcard.fun/): Product overview, capabilities, workflow, and supported games.
+- [Privacy Policy](https://tcgcard.fun/privacy): How Card AI collects, uses, retains, and protects information.
+- [Terms of Use](https://tcgcard.fun/terms): Rules and terms governing use of Card AI.
+- [Sitemap](https://tcgcard.fun/sitemap.xml): Canonical public website URLs.
+
+## Contact
+
+- [Support](mailto:support@tcgcard.fun): Official support contact for Card AI.
