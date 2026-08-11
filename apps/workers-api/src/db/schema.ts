@@ -1,4 +1,4 @@
-// tcg-card D1 Schema —— 严格对齐 docs/tcg-card/03-data-api/data-model.md。
+// tcg-card D1 Schema —— 对齐 docs/releases/v1.0.0/03-data-api/data-model.md。
 // 约定：账号主键为至少 6 位的全局数字 UID，其他业务主键为 ULID TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；金额 REAL；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。
 import { sql } from "drizzle-orm";
 import {
