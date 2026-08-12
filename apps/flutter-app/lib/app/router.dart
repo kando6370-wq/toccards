@@ -14,6 +14,7 @@ import '../features/profile/profile_page.dart';
 import '../features/scan/scan_page.dart';
 import '../features/search/search_page.dart';
 import '../features/search/set_detail_page.dart';
+import '../features/subscription/subscription_page.dart';
 import '../shared/analytics/analytics_events.dart';
 import '../shared/analytics/app_analytics.dart';
 
@@ -111,6 +112,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/api-requests',
         builder: (context, state) => const ApiRequestLogPage(),
+      ),
+      GoRoute(
+        path: '/subscription',
+        pageBuilder: (context, state) {
+          final sheet = state.uri.queryParameters['presentation'] == 'sheet';
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            opaque: !sheet,
+            barrierColor: sheet ? const Color(0x99000000) : null,
+            child: SubscriptionPage(sheet: sheet),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  if (!sheet) return child;
+                  return SlideTransition(
+                    position: animation.drive(
+                      Tween(
+                        begin: const Offset(0, 1),
+                        end: Offset.zero,
+                      ).chain(CurveTween(curve: Curves.easeOutCubic)),
+                    ),
+                    child: child,
+                  );
+                },
+          );
+        },
+      ),
+      GoRoute(
+        path: '/subscription/success',
+        builder: (context, state) => const SubscriptionSuccessPage(),
       ),
     ],
   );

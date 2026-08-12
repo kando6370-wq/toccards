@@ -22,6 +22,8 @@ import 'package:kando_app/features/profile/customer_support_page.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_page.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
 
@@ -1311,6 +1313,7 @@ void main() {
       expect(find.text('Customer Support'), findsOneWidget);
       expect(find.text('Score'), findsOneWidget);
       expect(find.text('Share With Friends'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);
       expect(find.text('Terms Of Use'), findsOneWidget);
       expect(find.text('Privacy Policy'), findsOneWidget);
       expect(find.text('Log Out'), findsNothing);
@@ -1375,6 +1378,7 @@ void main() {
     expect(find.text('Customer Support'), findsOneWidget);
     expect(find.text('Score'), findsOneWidget);
     expect(find.text('Share With Friends'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);
     expect(find.text('Terms Of Use'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);
     expect(find.text('Sign in / Sign up'), findsNothing);
@@ -1429,6 +1433,7 @@ void main() {
         const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 96),
       );
       expect(find.byIcon(Icons.shield_outlined), findsNothing);
+      await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);
       final privacyIcon = tester.widget<SvgPicture>(
         find.byKey(const Key('profile-privacy-policy-icon')),
       );
@@ -1444,6 +1449,7 @@ void main() {
         'Terms Of Use',
         'Privacy Policy',
       ]) {
+        await tester.scrollUntilVisible(find.text(label), 200);
         final row = tester.widget<InkWell>(
           find.ancestor(of: find.text(label), matching: find.byType(InkWell)),
         );
@@ -1546,10 +1552,15 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Share With Friends'));
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+      await tester.scrollUntilVisible(find.text('Terms Of Use'), 200);
+      await tester.drag(
+        find.byKey(const Key('profile-content-list')),
+        const Offset(0, -100),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Terms Of Use'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);
       await tester.tap(find.text('Privacy Policy'));
       await tester.pumpAndSettle();
 
@@ -1823,44 +1834,159 @@ void main() {
     expect(feedbackRepository.submissions, isEmpty);
   });
 
+  testWidgets('unsubscribed profile opens the Performance Pro paywall', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+
+    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
+
+    expect(find.text('Upgrade to Pro'), findsOneWidget);
+    expect(find.text('Upgrade Now'), findsOneWidget);
+    expect(find.text('Restore'), findsNothing);
+
+    await tester.tap(find.text('Upgrade Now'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('subscription-sheet-handle')), findsOneWidget);
+    expect(find.text('Performance Pro'), findsOneWidget);
+    expect(find.text('Unlimited Card Scanning'), findsOneWidget);
+    expect(find.text('Yearly'), findsOneWidget);
+    final purchaseButton = find.byKey(
+      const Key('subscription-purchase-button'),
+    );
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    expect(purchaseButton, findsWidgets);
+  });
+
+  testWidgets('subscribed profile exposes restore without upgrade banner', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(initialSession: _userSession());
+
+    await tester.pumpWidget(
+      _testApp(
+        repository,
+        subscriptionController: _ProSubscriptionController.new,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
+
+    expect(find.text('Upgrade to Pro'), findsNothing);
+    expect(find.text('Upgrade Now'), findsNothing);
+    expect(find.text('SUBSCRIBE'), findsOneWidget);
+    expect(find.text('Restore'), findsOneWidget);
+
+    await tester.tap(find.text('person@example.com').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Restore'), findsNothing);
+  });
+
   testWidgets(
-    'subscription copy is absent from Profile account and support surfaces',
+    'subscription success confirms the Pro benefits unlocked by the purchase',
     (tester) async {
-      final guestRepository = _WidgetAuthRepository(
-        initialSession: _anonymousSession('anon-existing'),
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildKandoTheme(),
+          home: const SubscriptionSuccessPage(),
+        ),
       );
 
-      await tester.pumpWidget(_testApp(guestRepository));
-      await tester.pumpAndSettle();
-      await _openProfileTab(tester);
-      _expectNoSubscriptionCopy();
-
-      await tester.tap(find.text('Customer Support'));
-      await tester.pumpAndSettle();
-      _expectNoSubscriptionCopy();
-
-      final userRepository = _WidgetAuthRepository(
-        initialSession: _userSession(),
+      expect(find.text('You are Pro now'), findsOneWidget);
+      expect(
+        find.text('Performance Pro is active on your account'),
+        findsOneWidget,
       );
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpAndSettle();
-      await tester.pumpWidget(_testApp(userRepository));
-      await tester.pumpAndSettle();
-      await _openProfileTab(tester);
-      _expectNoSubscriptionCopy();
-
-      await tester.tap(find.text('person@example.com').first);
-      await tester.pumpAndSettle();
-      _expectNoSubscriptionCopy();
-
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Customer Support'));
-      await tester.pumpAndSettle();
-      _expectNoSubscriptionCopy();
+      expect(find.text('Unlimited Card Scanning'), findsOneWidget);
+      expect(find.text('Unlimited Portfolio Folders'), findsOneWidget);
+      expect(find.text('Extended Price History'), findsOneWidget);
+      expect(find.text('Track Portfolio Performance'), findsNothing);
+      expect(
+        tester.getSize(find.byKey(const Key('subscription-success-badge'))),
+        const Size(128, 135),
+      );
+      expect(
+        find.byKey(const Key('subscription-success-continue')),
+        findsOneWidget,
+      );
     },
   );
+
+  testWidgets(
+    'subscription success reveals identity before benefits because the Figma sequence builds purchase confirmation in stages',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildKandoTheme(),
+          home: const SubscriptionSuccessPage(),
+        ),
+      );
+
+      double opacityFor(Key key) => tester
+          .widget<Opacity>(
+            find
+                .descendant(of: find.byKey(key), matching: find.byType(Opacity))
+                .first,
+          )
+          .opacity;
+
+      expect(opacityFor(const Key('subscription-success-title-reveal')), 0);
+      expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 0);
+
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(opacityFor(const Key('subscription-success-title-reveal')), 1);
+      expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 0);
+
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 1);
+      expect(opacityFor(const Key('subscription-success-benefit-2-reveal')), 1);
+    },
+  );
+
+  for (final goldenCase in [
+    (
+      name: 'full page',
+      file: 'figma_subscription_full_1727_13164_390x844.png',
+      child: const SubscriptionPage(),
+    ),
+    (
+      name: 'bottom sheet',
+      file: 'figma_subscription_sheet_1651_9467_390x844.png',
+      child: const SubscriptionPage(sheet: true),
+    ),
+    (
+      name: 'success page',
+      file: 'figma_subscription_success_1706_12964_390x844.png',
+      child: const SubscriptionSuccessPage(),
+    ),
+  ]) {
+    testWidgets(
+      'Figma subscription ${goldenCase.name} keeps the approved 390x844 appearance',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
+        await tester.pumpAndSettle();
+
+        await expectLater(
+          find.byKey(const Key('subscription-golden-boundary')),
+          matchesGoldenFile('goldens/rendered/${goldenCase.file}'),
+        );
+      },
+    );
+  }
 
   testWidgets(
     'logout from account creates a guest profile without previous anonymous',
@@ -2085,22 +2211,6 @@ Future<void> _openProfileTab(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-void _expectNoSubscriptionCopy() {
-  const subscriptionCopy = [
-    'Upgrade to Pro',
-    'Subscribe',
-    'Subscription',
-    'PRO',
-    'Unlock All',
-    'Go unlock',
-    'Restore',
-  ];
-
-  for (final copy in subscriptionCopy) {
-    expect(find.text(copy), findsNothing, reason: '$copy must stay hidden');
-  }
-}
-
 Future<void> _openEmailAuth(WidgetTester tester) async {
   await _openAuthSheet(tester);
   await tester.tap(find.text('Continue with Email'));
@@ -2132,6 +2242,7 @@ ProviderScope _testApp(
   FeedbackRepository? feedbackRepository,
   ProfileActions? profileActions,
   AuthController Function()? authController,
+  SubscriptionController Function()? subscriptionController,
 }) {
   final onboardingStorage = InMemoryOnboardingStorage(completed: true);
 
@@ -2145,6 +2256,8 @@ ProviderScope _testApp(
       authRepositoryProvider.overrideWithValue(repository),
       if (authController != null)
         authControllerProvider.overrideWith(authController),
+      if (subscriptionController != null)
+        subscriptionControllerProvider.overrideWith(subscriptionController),
       authDeviceIdProvider.overrideWithValue('widget-test-device'),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(onboardingStorage),
@@ -2160,6 +2273,43 @@ ProviderScope _testApp(
         profileActionsProvider.overrideWithValue(profileActions),
     ],
     child: const KandoApp(),
+  );
+}
+
+class _ProSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState(isPro: true);
+
+  @override
+  Future<void> restore() async {}
+}
+
+class _FreeSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState();
+
+  @override
+  Future<void> restore() async {}
+}
+
+ProviderScope _subscriptionGoldenApp(Widget child) {
+  return ProviderScope(
+    overrides: [
+      subscriptionControllerProvider.overrideWith(
+        _FreeSubscriptionController.new,
+      ),
+    ],
+    child: MaterialApp(
+      theme: buildKandoTheme(),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(disableAnimations: true),
+        child: child!,
+      ),
+      home: RepaintBoundary(
+        key: const Key('subscription-golden-boundary'),
+        child: child,
+      ),
+    ),
   );
 }
 

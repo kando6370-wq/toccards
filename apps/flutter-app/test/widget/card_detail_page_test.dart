@@ -13,6 +13,7 @@ import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -916,6 +917,100 @@ void main() {
     expect(find.byKey(const Key('card-detail-price-chart')), findsNothing);
   });
 
+  testWidgets(
+    'free owners see a locked card Performance tab because financial analytics are Pro-only',
+    (tester) async {
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-performance-locked')),
+        findsOneWidget,
+      );
+      expect(find.text('Unlock Performance'), findsOneWidget);
+      expect(find.text(r'$650.00'), findsNothing);
+      expect(find.text(r'$780.00'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Pro owners see calculated card cost and return because entitlement unlocks Performance',
+    (tester) async {
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-performance-content')),
+        findsOneWidget,
+      );
+      expect(find.text(r'$650.00'), findsOneWidget);
+      expect(find.text(r'$780.00'), findsOneWidget);
+      expect(find.text(r'$130.00'), findsOneWidget);
+      expect(find.text('+20.00%'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-missing-purchase-price')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'Pro owners without purchase price can edit the Collection Item because Performance cannot be calculated yet',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          repository: _MissingPurchasePriceCardDetailRepository(),
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-missing-purchase-price')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Add purchase price to calculate your card performance.'),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-edit-missing-purchase-price')),
+      );
+      await tester.tap(
+        find.byKey(const Key('card-detail-edit-missing-purchase-price')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-item-purchase-price')),
+        findsOneWidget,
+      );
+      final purchasePriceField = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const Key('card-detail-item-purchase-price')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(purchasePriceField.controller.text, isEmpty);
+    },
+  );
+
   testWidgets('Collection list entry defaults owned CardDetail to Price', (
     tester,
   ) async {
@@ -1507,12 +1602,14 @@ class _CardDetailTestApp extends StatelessWidget {
     this.actions,
     this.repository,
     this.entrySource = AnalyticsValue.sourceSearch,
+    this.subscriptionController,
   });
 
   final String cardId;
   final CardDetailActions? actions;
   final CardDetailRepository? repository;
   final String entrySource;
+  final SubscriptionController Function()? subscriptionController;
 
   @override
   Widget build(BuildContext context) {
@@ -1525,12 +1622,19 @@ class _CardDetailTestApp extends StatelessWidget {
         ),
         if (actions != null)
           cardDetailActionsProvider.overrideWithValue(actions!),
+        if (subscriptionController != null)
+          subscriptionControllerProvider.overrideWith(subscriptionController!),
       ],
       child: MaterialApp(
         home: CardDetailPage(cardId: cardId, entrySource: entrySource),
       ),
     );
   }
+}
+
+class _ProCardSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState(isPro: true);
 }
 
 class _FinishTabCardDetailRepository extends MockCardDetailRepository
@@ -1841,6 +1945,21 @@ class _MultiItemCardDetailRepository extends MockCardDetailRepository {
           purchasePriceUsd: 20.0,
           notes: 'Hidden duplicate item.',
         ),
+      ],
+    );
+  }
+}
+
+class _MissingPurchasePriceCardDetailRepository
+    extends MockCardDetailRepository {
+  const _MissingPurchasePriceCardDetailRepository();
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    final detail = await super.loadDetail(session, cardId);
+    return detail.copyWith(
+      collectionItems: [
+        detail.collectionItems.first.copyWith(purchasePriceUsd: null),
       ],
     );
   }

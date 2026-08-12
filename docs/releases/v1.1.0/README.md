@@ -4,7 +4,12 @@
 
 ## 版本目标
 
-范围尚未录入。开发开始前应明确用户价值、功能范围和不包含项。
+除已记录的官网增量外，当前代码已合入 App 订阅体验原型、StoreKit 抽象层及 Admin/D1 数据骨架。该实现尚不包含可上线的服务端订阅可信验证与权益闭环。
+
+## 当前订阅资料
+
+- [`contract-changes.md`](contract-changes.md)：订阅数据骨架、当前边界与上线缺口。
+- [`app-store-connect-subscription-setup.md`](app-store-connect-subscription-setup.md)：App Store Connect 商品、测试与通知配置手册。
 
 ## 按需创建
 

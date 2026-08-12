@@ -26,4 +26,8 @@ apps/admin-web/dist/
 
 # Dart / Flutter（根工作区）
 .dart_tool/
+.flutter-plugins-dependencies
 build/
+
+# Flutter golden-test diagnostics
+apps/flutter-app/test/widget/failures/

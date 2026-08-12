@@ -633,6 +633,109 @@ adminRoutes.get("/analytics/installations", async (c) => {
   });
 });
 
+adminRoutes.get("/billing/transactions", async (c) => {
+  const page = readPositiveInt(c.req.query("page"), 1);
+  const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  const uid = normalizeQuery(c.req.query("uid"));
+  if (uid) {
+    conditions.push(`EXISTS (SELECT 1 FROM billing_entitlement_grant matched_grant
+      WHERE matched_grant.purchase_chain_id = c.id AND LOWER(matched_grant.owner_id) LIKE ?)`);
+    bindings.push(`%${uid}%`);
+  }
+  addContainsCondition(conditions, bindings, "t.transaction_id", c.req.query("order_id"));
+  addExactCondition(conditions, bindings, "t.storefront_country_code", c.req.query("country"));
+  addListCondition(conditions, bindings, "t.product_id", c.req.query("sku"));
+  addListCondition(conditions, bindings, "t.status", c.req.query("status"));
+  addExactCondition(conditions, bindings, "t.environment", c.req.query("environment"));
+  const autoRenew = c.req.query("auto_renew");
+  if (autoRenew === "true" || autoRenew === "false") {
+    conditions.push("c.auto_renew = ?");
+    bindings.push(autoRenew === "true" ? 1 : 0);
+  }
+  const purchaseFrom = readDateBoundary(c.req.query("purchase_from"), false);
+  const purchaseTo = readDateBoundary(c.req.query("purchase_to"), true);
+  if (purchaseFrom === "invalid" || purchaseTo === "invalid") return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  if (purchaseFrom) { conditions.push("t.purchase_at >= ?"); bindings.push(purchaseFrom); }
+  if (purchaseTo) { conditions.push("t.purchase_at <= ?"); bindings.push(purchaseTo); }
+  const statusFrom = readDateBoundary(c.req.query("status_from"), false);
+  const statusTo = readDateBoundary(c.req.query("status_to"), true);
+  if (statusFrom === "invalid" || statusTo === "invalid") return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  if (statusFrom) { conditions.push("COALESCE(t.revoked_at, t.expires_at) >= ?"); bindings.push(statusFrom); }
+  if (statusTo) { conditions.push("COALESCE(t.revoked_at, t.expires_at) <= ?"); bindings.push(statusTo); }
+  const refundCount = c.req.query("refund_count");
+  if (refundCount && /^\d+$/.test(refundCount)) {
+    conditions.push(`(SELECT COUNT(*) FROM apple_server_notification refund_notice
+      WHERE refund_notice.original_transaction_id = c.original_transaction_id
+        AND refund_notice.notification_type IN ('REFUND', 'REVOKE')) = ?`);
+    bindings.push(Number(refundCount));
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const from = `FROM billing_transaction t
+    JOIN billing_purchase_chain c ON c.id = t.purchase_chain_id
+    LEFT JOIN billing_entitlement_grant g ON g.purchase_chain_id = c.id AND g.status = 'active'`;
+  const rows = await bindAdminQuery(c.env.DB, `SELECT t.id, c.original_owner_id AS uid,
+      t.transaction_id AS order_id, t.storefront_country_code AS country, t.purchase_at,
+      COALESCE(t.revoked_at, t.expires_at) AS status_at, t.product_id AS sku,
+      t.status AS order_status, c.auto_renew, t.environment, t.amount_micros,
+      t.currency, t.amount_usd_micros,
+      COUNT(DISTINCT g.owner_type || ':' || g.owner_id) AS grant_count,
+      (SELECT COUNT(*) FROM apple_server_notification n
+        WHERE n.original_transaction_id = c.original_transaction_id
+          AND n.notification_type IN ('REFUND', 'REVOKE')) AS refund_count
+    ${from} ${where} GROUP BY t.id ORDER BY t.purchase_at DESC LIMIT ? OFFSET ?`,
+    [...bindings, pageSize, (page - 1) * pageSize]).all();
+  const count = await bindAdminQuery(c.env.DB,
+    `SELECT COUNT(DISTINCT t.id) AS total ${from} ${where}`, bindings).first<{ total: number }>();
+  return c.json({ success: true, data: { items: rows.results ?? [], total: count?.total ?? 0, page, page_size: pageSize } });
+});
+
+adminRoutes.get("/apple-notifications", async (c) => {
+  const page = readPositiveInt(c.req.query("page"), 1);
+  const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  addContainsCondition(conditions, bindings, "n.original_transaction_id", c.req.query("original_transaction_id"));
+  addContainsCondition(conditions, bindings, "n.transaction_id", c.req.query("order_id"));
+  const uid = normalizeQuery(c.req.query("uid"));
+  if (uid) {
+    conditions.push(`EXISTS (SELECT 1 FROM billing_purchase_chain matched_chain
+      JOIN billing_entitlement_grant matched_grant ON matched_grant.purchase_chain_id = matched_chain.id
+      WHERE matched_chain.original_transaction_id = n.original_transaction_id
+        AND matched_chain.environment = n.environment AND LOWER(matched_grant.owner_id) LIKE ?)`);
+    bindings.push(`%${uid}%`);
+  }
+  addListCondition(conditions, bindings, "n.notification_type", c.req.query("notification_type"));
+  addListCondition(conditions, bindings, "n.subtype", c.req.query("subtype"));
+  addExactCondition(conditions, bindings, "n.environment", c.req.query("environment"));
+  const createdFrom = readDateBoundary(c.req.query("created_from"), false);
+  const createdTo = readDateBoundary(c.req.query("created_to"), true);
+  if (createdFrom === "invalid" || createdTo === "invalid") return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  if (createdFrom) { conditions.push("n.received_at >= ?"); bindings.push(createdFrom); }
+  if (createdTo) { conditions.push("n.received_at <= ?"); bindings.push(createdTo); }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await bindAdminQuery(c.env.DB, `SELECT n.id, n.notification_uuid,
+      n.notification_type, n.subtype, n.environment, n.original_transaction_id,
+      n.transaction_id, n.product_id AS sku, n.processing_status, n.received_at,
+      (SELECT GROUP_CONCAT(DISTINCT g.owner_id) FROM billing_purchase_chain c
+        JOIN billing_entitlement_grant g ON g.purchase_chain_id = c.id
+        WHERE c.original_transaction_id = n.original_transaction_id
+          AND c.environment = n.environment) AS uids
+    FROM apple_server_notification n ${where}
+    ORDER BY n.received_at DESC LIMIT ? OFFSET ?`,
+    [...bindings, pageSize, (page - 1) * pageSize]).all();
+  const count = await bindAdminQuery(c.env.DB,
+    `SELECT COUNT(*) AS total FROM apple_server_notification n ${where}`, bindings).first<{ total: number }>();
+  return c.json({ success: true, data: { items: rows.results ?? [], total: count?.total ?? 0, page, page_size: pageSize } });
+});
+
+adminRoutes.get("/apple-notifications/:notificationUuid", async (c) => {
+  const row = await c.env.DB.prepare("SELECT * FROM apple_server_notification WHERE notification_uuid = ? LIMIT 1")
+    .bind(c.req.param("notificationUuid")).first();
+  return row ? c.json({ success: true, data: row }) : c.json(NOT_FOUND_RESPONSE, 404);
+});
+
 adminRoutes.get("/users", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
@@ -1211,6 +1314,32 @@ function readBooleanQuery(value: string | undefined): boolean | null {
 function readDateOnly(value: string | undefined): string | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   return Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)) ? null : value;
+}
+
+function bindAdminQuery(db: D1Database, sql: string, bindings: unknown[]): D1PreparedStatement {
+  const statement = db.prepare(sql);
+  return bindings.length ? statement.bind(...bindings) : statement;
+}
+
+function addContainsCondition(conditions: string[], bindings: unknown[], column: string, value: string | undefined): void {
+  const normalized = normalizeQuery(value);
+  if (!normalized) return;
+  conditions.push(`LOWER(${column}) LIKE ?`);
+  bindings.push(`%${normalized}%`);
+}
+
+function addExactCondition(conditions: string[], bindings: unknown[], column: string, value: string | undefined): void {
+  const normalized = normalizeQuery(value);
+  if (!normalized) return;
+  conditions.push(`LOWER(${column}) = ?`);
+  bindings.push(normalized);
+}
+
+function addListCondition(conditions: string[], bindings: unknown[], column: string, value: string | undefined): void {
+  const values = value?.split(",").map((item) => item.trim()).filter(Boolean) ?? [];
+  if (!values.length) return;
+  conditions.push(`${column} IN (${values.map(() => "?").join(", ")})`);
+  bindings.push(...values);
 }
 
 function normalizeQuery(value: string | undefined): string | null {

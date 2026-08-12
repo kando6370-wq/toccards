@@ -381,6 +381,65 @@ class CardDetailState {
     }).toList();
   }
 
+  double? get performancePurchaseCostUsd {
+    final pricedItems = detail.collectionItems.where(
+      (item) => item.purchasePriceUsd != null,
+    );
+    if (pricedItems.isEmpty) return null;
+    return pricedItems.fold<double>(
+      0,
+      (total, item) => total + item.purchasePriceUsd! * item.quantity,
+    );
+  }
+
+  double? get performanceCurrentValueUsd {
+    final pricedItems = detail.collectionItems.where(
+      (item) => item.purchasePriceUsd != null,
+    );
+    if (pricedItems.isEmpty) return null;
+    var total = 0.0;
+    for (final item in pricedItems) {
+      final marketPrice = _matchingCollectionMarketPrice(
+        finish: item.finish,
+        grader: item.grader,
+        condition: item.condition,
+        grade: item.grade,
+      );
+      if (marketPrice == null) return null;
+      final priceUsd = marketPrice.priceUsd;
+      if (priceUsd == null) return null;
+      total += priceUsd * item.quantity;
+    }
+    return total;
+  }
+
+  String get performancePurchaseCostText =>
+      _formatter.formatUsd(performancePurchaseCostUsd);
+
+  String get performanceCurrentValueText =>
+      _formatter.formatUsd(performanceCurrentValueUsd);
+
+  String get performanceProfitLossText {
+    final purchaseCost = performancePurchaseCostUsd;
+    final currentValue = performanceCurrentValueUsd;
+    if (purchaseCost == null || currentValue == null) {
+      return _formatter.formatUsd(null);
+    }
+    return _formatter.formatUsd(currentValue - purchaseCost);
+  }
+
+  String get performanceReturnText {
+    final purchaseCost = performancePurchaseCostUsd;
+    final currentValue = performanceCurrentValueUsd;
+    if (purchaseCost == null || currentValue == null || purchaseCost == 0) {
+      return '--';
+    }
+    return MarketChange.fromPrices(
+      current: currentValue,
+      previous: purchaseCost,
+    ).percentText;
+  }
+
   String get collectionItemDraftTotalText {
     final draft = collectionItemDraft;
     if (draft == null) return _formatter.formatUsd(null);

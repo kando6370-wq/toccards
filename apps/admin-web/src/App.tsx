@@ -25,7 +25,7 @@ import "./App.css";
 import { resolveAdminApiBase } from "./api-base";
 
 type AdminRole = "super_admin" | "operator";
-type MenuKey = "installations" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions";
+type MenuKey = "installations" | "billing-orders" | "apple-notifications" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions";
 type FeedbackStatus = "pending" | "processed" | "ignored";
 type PermissionStatus = "active" | "disabled";
 type AppVersionStatus = "enabled" | "disabled";
@@ -60,6 +60,22 @@ type InstallationRow = {
   environment: string;
   installs: number;
 };
+
+type BillingTransactionRow = {
+  id: string; uid: string; order_id: string; country: string | null;
+  purchase_at: string; status_at: string | null; sku: string; order_status: string;
+  auto_renew: number; environment: string; amount_micros: number | null;
+  currency: string | null; amount_usd_micros: number | null;
+  refund_count: number; grant_count: number;
+};
+
+type AppleNotificationRow = {
+  id: string; notification_uuid: string; notification_type: string; subtype: string | null;
+  environment: string; original_transaction_id: string | null; transaction_id: string | null;
+  sku: string | null; processing_status: string; received_at: string; uids: string | null;
+};
+
+type PagedResponse<T> = { items: T[]; total: number; page: number; page_size: number };
 
 type UserItem = {
   account_type: "user" | "anonymous";
@@ -151,7 +167,11 @@ const SESSION_EXPIRED_EVENT = "kando-admin-session-expired";
 const PERIOD_OPTIONS = ["1d", "7d", "15d", "1m", "3m"];
 
 const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: string }> }> = [
-  { title: "数据统计", items: [{ key: "installations", label: "安装统计" }] },
+  { title: "数据统计", items: [
+    { key: "installations", label: "安装统计" },
+    { key: "billing-orders", label: "订单统计" },
+    { key: "apple-notifications", label: "苹果通知消息" },
+  ] },
   {
     title: "用户管理",
     items: [
@@ -166,6 +186,8 @@ const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: str
 
 const pageMeta: Record<MenuKey, { title: string; description: string }> = {
   installations: { title: "安装分析", description: "查看各国家与平台安装趋势及明细数据。" },
+  "billing-orders": { title: "订单统计", description: "查询 App Store 与 Google Play 的订单、金额及授权设备。" },
+  "apple-notifications": { title: "苹果通知消息", description: "查询 Apple App Store Server Notifications V2 及处理结果。" },
   users: { title: "用户列表", description: "查看 App 用户的基础信息、登录身份和首次安装时间。" },
   feedbacks: { title: "用户反馈", description: "查看用户提交的反馈内容，并标记处理状态。" },
   scans: { title: "扫描记录管理", description: "查看用户扫描图片、系统识别结果和用户最终确认结果。" },
@@ -384,6 +406,8 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
             <Text>{new Date().toLocaleDateString()}</Text>
           </div>
           {selected === "installations" && <InstallationsPage session={session} />}
+          {selected === "billing-orders" && <BillingOrdersPage session={session} />}
+          {selected === "apple-notifications" && <AppleNotificationsPage session={session} />}
           {selected === "users" && <UsersPage session={session} />}
           {selected === "feedbacks" && <FeedbackPage session={session} />}
           {selected === "scans" && <ScansPage session={session} />}
@@ -438,6 +462,86 @@ function InstallationsPage({ session }: { session: AdminSession }) {
       </DataPanel>
     </PagePanel>
   );
+}
+
+function BillingOrdersPage({ session }: { session: AdminSession }) {
+  const [page, setPage] = useState(1);
+  const [dateKey, setDateKey] = useState(0);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const path = useMemo(() => queryPath("/billing/transactions", page, filters), [filters, page]);
+  const { data, loading, reload, error } = useAdminData<PagedResponse<BillingTransactionRow>>(path, session);
+  const columns: ColumnsType<BillingTransactionRow> = [
+    { title: "UID", dataIndex: "uid", width: 100 },
+    { title: "订单 ID", dataIndex: "order_id", width: 190, ellipsis: true },
+    { title: "国家/地区", dataIndex: "country", width: 95, render: (value) => value ? countryName(value) : "-" },
+    { title: "订单时间（UTC+0）", dataIndex: "purchase_at", width: 170, render: formatTime },
+    { title: "SKU", dataIndex: "sku", width: 180, ellipsis: true },
+    { title: "订单状态", dataIndex: "order_status", width: 120, render: (value) => <Tag>{value}</Tag> },
+    { title: "自动续期", dataIndex: "auto_renew", width: 90, render: (value) => value ? "是" : "否" },
+    { title: "环境", dataIndex: "environment", width: 100 },
+    { title: "原始金额", width: 110, render: (_, row) => formatMicros(row.amount_micros, row.currency) },
+    { title: "金额（USD）", width: 110, render: (_, row) => formatMicros(row.amount_usd_micros, "USD") },
+    { title: "退款次数", dataIndex: "refund_count", width: 90 },
+    { title: "授权 UID 数", dataIndex: "grant_count", width: 105 },
+  ];
+  return <PagePanel error={error} onRefresh={reload}>
+    <section className="scans-filter-panel">
+      <ScanFilterField label="UID"><Input value={draft.uid ?? ""} placeholder="输入用户 ID" onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} placeholder="输入订单 ID" onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="国家/地区"><Input value={draft.country ?? ""} placeholder="例如 US" onChange={(e) => setDraft({ ...draft, country: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="SKU"><Select mode="multiple" value={csvValues(draft.sku)} options={billingSkuOptions} onChange={(v) => setDraft({ ...draft, sku: v.join(",") })} /></ScanFilterField>
+      <ScanFilterField label="订单状态"><Select mode="multiple" value={csvValues(draft.status)} options={billingStatusOptions} onChange={(v) => setDraft({ ...draft, status: v.join(",") })} /></ScanFilterField>
+      <ScanFilterField label="购买时间（UTC+0）"><DatePicker.RangePicker key={`purchase-${dateKey}`} onChange={(_, v) => setDraft({ ...draft, purchase_from: v[0], purchase_to: v[1] })} /></ScanFilterField>
+      <ScanFilterField label="状态时间（UTC+0）"><DatePicker.RangePicker key={`status-${dateKey}`} onChange={(_, v) => setDraft({ ...draft, status_from: v[0], status_to: v[1] })} /></ScanFilterField>
+      <ScanFilterField label="自动续期"><Select allowClear value={draft.auto_renew || undefined} options={[{ value: "true", label: "是" }, { value: "false", label: "否" }]} onChange={(v) => setDraft({ ...draft, auto_renew: v ?? "" })} /></ScanFilterField>
+      <ScanFilterField label="环境"><Select allowClear value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
+      <ScanFilterField label="退款次数"><Input inputMode="numeric" value={draft.refund_count ?? ""} onChange={(e) => setDraft({ ...draft, refund_count: e.target.value })} /></ScanFilterField>
+      <div className="scans-filter-actions"><Button onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" onClick={() => { setFilters(draft); setPage(1); }}>查询</Button></div>
+    </section>
+    <section className="scans-table-panel"><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} scroll={{ x: 1450 }} />
+      <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
+    </section>
+  </PagePanel>;
+}
+
+function AppleNotificationsPage({ session }: { session: AdminSession }) {
+  const [page, setPage] = useState(1);
+  const [dateKey, setDateKey] = useState(0);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
+  const path = useMemo(() => queryPath("/apple-notifications", page, filters), [filters, page]);
+  const { data, loading, reload, error } = useAdminData<PagedResponse<AppleNotificationRow>>(path, session);
+  async function openDetail(id: string) { setDetail(await adminRequest<Record<string, unknown>>(`/apple-notifications/${id}`, { token: session.accessToken })); }
+  const columns: ColumnsType<AppleNotificationRow> = [
+    { title: "UID", dataIndex: "uids", width: 120, ellipsis: true, render: (v) => v || "-" },
+    { title: "原始交易 ID", dataIndex: "original_transaction_id", width: 190, ellipsis: true },
+    { title: "订单 ID", dataIndex: "transaction_id", width: 190, ellipsis: true },
+    { title: "主通知类型", dataIndex: "notification_type", width: 150, render: (v) => <Tag color="cyan">{v}</Tag> },
+    { title: "子通知类型", dataIndex: "subtype", width: 150, render: (v) => v || "-" },
+    { title: "SKU", dataIndex: "sku", width: 170, ellipsis: true },
+    { title: "环境", dataIndex: "environment", width: 90 },
+    { title: "创建时间（UTC+0）", dataIndex: "received_at", width: 170, render: formatTime },
+    { title: "处理状态", dataIndex: "processing_status", width: 110 },
+    { title: "操作", width: 90, render: (_, row) => <Button type="link" onClick={() => openDetail(row.notification_uuid)}>查看详情</Button> },
+  ];
+  return <PagePanel error={error} onRefresh={reload}>
+    <section className="scans-filter-panel">
+      <ScanFilterField label="UID"><Input value={draft.uid ?? ""} onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="原始交易 ID"><Input value={draft.original_transaction_id ?? ""} onChange={(e) => setDraft({ ...draft, original_transaction_id: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="主通知类型"><Select mode="multiple" value={csvValues(draft.notification_type)} options={appleNotificationOptions} onChange={(v) => setDraft({ ...draft, notification_type: v.join(",") })} /></ScanFilterField>
+      <ScanFilterField label="子通知类型"><Input value={draft.subtype ?? ""} onChange={(e) => setDraft({ ...draft, subtype: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="环境"><Select allowClear value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
+      <ScanFilterField label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
+      <div className="scans-filter-actions"><Button onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" onClick={() => { setFilters(draft); setPage(1); }}>查询</Button></div>
+    </section>
+    <section className="scans-table-panel"><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} scroll={{ x: 1250 }} />
+      <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
+    </section>
+    <Drawer title="Apple 通知详情" width={640} open={detail !== null} onClose={() => setDetail(null)}><pre className="json-block">{detail ? JSON.stringify(detail, null, 2) : ""}</pre></Drawer>
+  </PagePanel>;
 }
 
 function UsersPage({ session }: { session: AdminSession }) {
@@ -1136,6 +1240,21 @@ function rangeSummaryPage(page: number, pageSize: number, total: number) {
   return `显示 ${start}-${end} 条，共 ${total.toLocaleString()} 条`;
 }
 
+function queryPath(base: string, page: number, filters: Record<string, string>): string {
+  const params = new URLSearchParams({ page: String(page), page_size: "20" });
+  Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+  return `${base}?${params.toString()}`;
+}
+
+function csvValues(value: string | undefined): string[] {
+  return value ? value.split(",").filter(Boolean) : [];
+}
+
+function formatMicros(value: number | null, currency: string | null): string {
+  if (value === null || !currency) return "-";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value / 1000000);
+}
+
 function rangeSummary(count: number, unit: string) {
   if (count === 0) return `显示 0 条，共 0 ${unit}`;
   return `显示 1 到 ${count} 条，共 ${count.toLocaleString()} ${unit}`;
@@ -1170,4 +1289,8 @@ const recognitionOptions = [
 ];
 const scanPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
 const confirmationOptions = [{ value: "confirmed", label: "已确认" }, { value: "pending", label: "待确认" }];
+const billingSkuOptions = ["com.cardai.tcg.pro.weekly", "com.cardai.tcg.pro.yearly", "com.cardai.tcg.pro.lifetime"].map((value) => ({ value, label: value }));
+const billingStatusOptions = ["active", "expired", "refunded", "revoked", "billing_retry", "grace_period"].map((value) => ({ value, label: value }));
+const billingEnvironmentOptions = [{ value: "production", label: "正式" }, { value: "sandbox", label: "测试" }];
+const appleNotificationOptions = ["SUBSCRIBED", "DID_RENEW", "EXPIRED", "REFUND", "REVOKE", "DID_FAIL_TO_RENEW"].map((value) => ({ value, label: value }));
 const permissionStatusOptions = [{ value: "active", label: "启用" }, { value: "disabled", label: "停用" }];

@@ -11,6 +11,7 @@ import '../auth/auth_models.dart';
 import '../auth/auth_repository.dart';
 import '../auth/ui/auth_sheet.dart';
 import '../app_upgrade/app_upgrade_repository.dart';
+import '../subscription/subscription_controller.dart';
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
 import '../../shared/ui/toast.dart';
@@ -82,6 +83,14 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
   @override
   Widget build(BuildContext context) {
     final session = widget.authState.session;
+    final subscription = ref.watch(subscriptionControllerProvider);
+    ref.listen(subscriptionControllerProvider, (previous, next) {
+      if (next.errorMessage != null &&
+          next.errorMessage != previous?.errorMessage &&
+          context.mounted) {
+        showKandoToast(context, message: next.errorMessage!);
+      }
+    });
     final isUser = session?.ownerType == OwnerType.user;
     final emailText = session?.email ?? 'Unknown email';
     final userIdText = session?.userId ?? 'Unknown user';
@@ -109,6 +118,12 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
               96,
             ),
             children: [
+              if (!subscription.isPro) ...[
+                _UpgradeBanner(
+                  onTap: () => context.push(subscriptionSheetLocation),
+                ),
+                const SizedBox(height: 24),
+              ],
               _SectionLabel('Account'),
               if (isUser)
                 _MenuCard(
@@ -131,6 +146,23 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                   ],
                 ),
               const SizedBox(height: 24),
+              if (subscription.isPro) ...[
+                _SectionLabel('Subscribe'),
+                _MenuCard(
+                  children: [
+                    _MenuRow(
+                      icon: Icons.restore,
+                      label: 'Restore',
+                      onTap: subscription.isLoading
+                          ? null
+                          : () => ref
+                                .read(subscriptionControllerProvider.notifier)
+                                .restore(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
               _SectionLabel('Support'),
               _MenuCard(
                 children: [
@@ -328,6 +360,59 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
         showKandoFailureToast(context);
       }
     }
+  }
+}
+
+class _UpgradeBanner extends StatelessWidget {
+  const _UpgradeBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF34381C), Color(0xFF1A1C14)],
+        ),
+        border: Border.all(color: KandoColors.borderFocus),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: KandoColors.accentGlow10,
+              ),
+              child: const Icon(
+                Icons.workspace_premium_outlined,
+                color: KandoColors.accent,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Text(
+                'Upgrade to Pro',
+                style: TextStyle(
+                  color: KandoColors.text,
+                  fontFamily: 'Fraunces',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(onPressed: onTap, child: const Text('Upgrade Now')),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -23,7 +23,7 @@ ts:
 
 dart:
   stage: dart
-  image: ghcr.io/cirruslabs/flutter:3.35.5
+  image: ghcr.io/cirruslabs/flutter:3.44.0
   before_script:
     - flutter pub get # 解析根 pub workspace（含 melos dev 依赖）
   script:

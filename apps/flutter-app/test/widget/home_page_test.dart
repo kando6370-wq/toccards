@@ -22,6 +22,7 @@ import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
@@ -218,6 +219,46 @@ void main() {
   });
 
   testWidgets(
+    'free users see a locked Performance view because portfolio gains are a Pro entitlement',
+    (tester) async {
+      await tester.pumpWidget(_mockHomeApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('home-performance-locked')), findsOneWidget);
+      expect(find.text('Portfolio Performance'), findsOneWidget);
+      expect(find.text('Unlock Performance'), findsOneWidget);
+      expect(find.text('Most Valuable'), findsNothing);
+      expect(find.text(r'$12,450.80'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Pro users see Performance data and trends because the entitlement unlocks analytics',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('home-performance-locked')), findsNothing);
+      expect(find.text('Market Value'), findsOneWidget);
+      expect(find.text(r'$12,450.80'), findsOneWidget);
+      expect(find.text('Trending Today'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'Portfolio chart selects the nearest date anywhere in the plot because users inspect historical values',
     (tester) async {
       await tester.pumpWidget(_mockHomeApp());
@@ -300,16 +341,20 @@ void main() {
     await tester.pumpWidget(_mockHomeApp());
 
     final chart = find.byKey(const Key('home-portfolio-chart'));
+    await tester.ensureVisible(chart);
+    await tester.pumpAndSettle();
     final chartRect = tester.getRect(chart);
 
-    await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));
+    final gesture = await tester.startGesture(
+      Offset(chartRect.left + 1, chartRect.center.dy),
+    );
     await tester.pump();
     expect(
       tester.widget<Semantics>(chart).properties.value,
       r'Date: Feb 12, 2025, Price: $11,800.00',
     );
 
-    await tester.tapAt(
+    await gesture.moveTo(
       Offset(chartRect.left + chartRect.width * 4 / 9, chartRect.center.dy),
     );
     await tester.pump();
@@ -318,25 +363,28 @@ void main() {
       r'Date: Feb 16, 2025, Price: $12,050.00',
     );
 
-    await tester.dragFrom(
-      Offset(chartRect.left + 1, chartRect.center.dy),
-      Offset(chartRect.width - 2, 0),
-    );
+    await gesture.moveTo(Offset(chartRect.right - 1, chartRect.center.dy));
     await tester.pump();
     expect(
       tester.widget<Semantics>(chart).properties.value,
       r'Date: Feb 21, 2025, Price: $12,450.80',
     );
+    await gesture.up();
+    await tester.pump();
+    expect(
+      tester.widget<Semantics>(chart).properties.value,
+      'No chart point selected',
+    );
   });
 
   testWidgets(
-    'Overview uses the Figma SVG icon and filled 16px inverse label',
+    'Overview uses the Figma SVG icon and compact inverse segment label',
     (tester) async {
       await tester.pumpWidget(_mockHomeApp());
 
       final overview = tester.widget<Text>(find.text('Overview'));
-      expect(overview.style?.fontSize, 16);
-      expect(overview.style?.color, const Color(0xFF303126));
+      expect(overview.style?.fontSize, 14);
+      expect(overview.style?.color, KandoColors.primaryOnDefault);
 
       final icon = tester.widget<SvgPicture>(
         find.byKey(const Key('home-overview-icon')),
@@ -378,6 +426,8 @@ void main() {
     await tester.pumpWidget(_mockHomeApp());
 
     final firstCard = find.byKey(const Key('home-most-valuable-card-main-0'));
+    await tester.ensureVisible(firstCard);
+    await tester.pumpAndSettle();
     final backdrop = find.descendant(
       of: firstCard,
       matching: find.byType(BackdropFilter),
@@ -689,14 +739,24 @@ void main() {
       await tester.pumpWidget(_mockHomeApp());
       await _waitForHomeAuth(tester);
 
+      await tester.ensureVisible(
+        find.byKey(const Key('home-most-valuable-card-main-0')),
+      );
+      await tester.pumpAndSettle();
       expect(find.text('+3.20%'), findsOneWidget);
       expect(find.text('0.001%'), findsNothing);
 
+      await tester.ensureVisible(find.text('Main'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Main'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Sealed').last);
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(
+        find.byKey(const Key('home-most-valuable-card-sealed-0')),
+      );
+      await tester.pumpAndSettle();
       expect(find.text('+5.40%'), findsOneWidget);
       expect(find.text('0.001%'), findsNothing);
     },
@@ -1246,6 +1306,7 @@ Widget _mockHomeApp([
   PortfolioManagementApi? managementApi,
   CurrencyRateApi currencyRateApi = const _TestCurrencyRateApi(),
   HomeRepository homeRepository = const MockHomeRepository(),
+  SubscriptionController Function()? subscriptionController,
 ]) {
   final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
   return ProviderScope(
@@ -1257,9 +1318,16 @@ Widget _mockHomeApp([
       ),
       portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
       currencyRateApiProvider.overrideWithValue(currencyRateApi),
+      if (subscriptionController != null)
+        subscriptionControllerProvider.overrideWith(subscriptionController),
     ],
     child: const _HomeTestApp(),
   );
+}
+
+class _ProHomeSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState(isPro: true);
 }
 
 Widget _mockHomeRouteApp() {

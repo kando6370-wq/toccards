@@ -1,5 +1,5 @@
-// tcg-card D1 Schema —— 对齐 docs/releases/v1.0.0/03-data-api/data-model.md。
-// 约定：账号主键为至少 6 位的全局数字 UID，其他业务主键为 ULID TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；金额 REAL；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。
+// tcg-card D1 Schema —— 对齐 docs/releases/v1.0.0/03-data-api/data-model.md 与 v1.1.0 增量契约。
+// 约定：账号主键为至少 6 位的全局数字 UID，其他业务主键为 ULID TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；资产金额 REAL，账单金额 INTEGER micros；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -413,6 +413,145 @@ export const userPreference = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (t) => [unique("uq_user_preference_owner").on(t.ownerType, t.ownerId)],
+);
+
+// ── 订阅与内购层 ──────────────────────────────────────────────
+
+export const billingProduct = sqliteTable(
+  "billing_product",
+  {
+    id: text("id").primaryKey(),
+    store: text("store").notNull(),
+    productId: text("product_id").notNull(),
+    planId: text("plan_id").notNull(),
+    entitlementId: text("entitlement_id").notNull(),
+    productType: text("product_type").notNull(),
+    active: integer("active").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_product_store_product").on(t.store, t.productId),
+    unique("uq_billing_product_store_plan").on(t.store, t.planId),
+    check("ck_billing_product_active", sql`${t.active} IN (0, 1)`),
+  ],
+);
+
+export const billingPurchaseChain = sqliteTable(
+  "billing_purchase_chain",
+  {
+    id: text("id").primaryKey(),
+    store: text("store").notNull(),
+    environment: text("environment").notNull(),
+    originalTransactionId: text("original_transaction_id").notNull(),
+    productId: text("product_id").notNull(),
+    entitlementId: text("entitlement_id").notNull(),
+    originalOwnerType: text("original_owner_type").notNull(),
+    originalOwnerId: text("original_owner_id").notNull(),
+    appAccountToken: text("app_account_token"),
+    status: text("status").notNull(),
+    autoRenew: integer("auto_renew").notNull().default(0),
+    expiresAt: text("expires_at"),
+    gracePeriodExpiresAt: text("grace_period_expires_at"),
+    revokedAt: text("revoked_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_chain_store_environment_original").on(
+      t.store,
+      t.environment,
+      t.originalTransactionId,
+    ),
+    index("idx_billing_chain_owner").on(t.originalOwnerType, t.originalOwnerId),
+    index("idx_billing_chain_status_expiry").on(t.status, t.expiresAt),
+    check("ck_billing_chain_auto_renew", sql`${t.autoRenew} IN (0, 1)`),
+  ],
+);
+
+export const billingTransaction = sqliteTable(
+  "billing_transaction",
+  {
+    id: text("id").primaryKey(),
+    purchaseChainId: text("purchase_chain_id")
+      .notNull()
+      .references(() => billingPurchaseChain.id),
+    store: text("store").notNull(),
+    environment: text("environment").notNull(),
+    transactionId: text("transaction_id").notNull(),
+    productId: text("product_id").notNull(),
+    transactionReason: text("transaction_reason").notNull(),
+    status: text("status").notNull(),
+    storefrontCountryCode: text("storefront_country_code"),
+    amountMicros: integer("amount_micros"),
+    currency: text("currency"),
+    amountUsdMicros: integer("amount_usd_micros"),
+    purchaseAt: text("purchase_at").notNull(),
+    expiresAt: text("expires_at"),
+    revokedAt: text("revoked_at"),
+    signedTransaction: text("signed_transaction"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_transaction_store_environment_transaction").on(
+      t.store,
+      t.environment,
+      t.transactionId,
+    ),
+    index("idx_billing_transaction_chain_time").on(t.purchaseChainId, t.purchaseAt),
+    index("idx_billing_transaction_status_time").on(t.status, t.purchaseAt),
+    index("idx_billing_transaction_product_time").on(t.productId, t.purchaseAt),
+  ],
+);
+
+export const billingEntitlementGrant = sqliteTable(
+  "billing_entitlement_grant",
+  {
+    id: text("id").primaryKey(),
+    purchaseChainId: text("purchase_chain_id")
+      .notNull()
+      .references(() => billingPurchaseChain.id),
+    ownerType: text("owner_type").notNull(),
+    ownerId: text("owner_id").notNull(),
+    source: text("source").notNull(),
+    status: text("status").notNull(),
+    grantedAt: text("granted_at").notNull(),
+    revokedAt: text("revoked_at"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_grant_chain_owner").on(t.purchaseChainId, t.ownerType, t.ownerId),
+    index("idx_billing_grant_owner_status").on(t.ownerType, t.ownerId, t.status),
+  ],
+);
+
+export const appleServerNotification = sqliteTable(
+  "apple_server_notification",
+  {
+    id: text("id").primaryKey(),
+    notificationUuid: text("notification_uuid").notNull().unique(),
+    notificationType: text("notification_type").notNull(),
+    subtype: text("subtype"),
+    environment: text("environment").notNull(),
+    originalTransactionId: text("original_transaction_id"),
+    transactionId: text("transaction_id"),
+    productId: text("product_id"),
+    signedPayload: text("signed_payload").notNull(),
+    decodedPayload: text("decoded_payload"),
+    processingStatus: text("processing_status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    signedAt: text("signed_at"),
+    receivedAt: text("received_at").notNull(),
+    processedAt: text("processed_at"),
+  },
+  (t) => [
+    index("idx_apple_notification_received").on(t.receivedAt),
+    index("idx_apple_notification_type_received").on(t.notificationType, t.receivedAt),
+    index("idx_apple_notification_transaction").on(t.originalTransactionId),
+    index("idx_apple_notification_processing").on(t.processingStatus, t.receivedAt),
+  ],
 );
 
 // ── 管理员层 ──────────────────────────────────────────────────
