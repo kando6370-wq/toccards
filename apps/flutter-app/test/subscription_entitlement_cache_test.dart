@@ -42,6 +42,28 @@ void main() {
     expect(cache.effectiveState(now), AppPremiumState.premium);
   });
 
+  test(
+    'restart cache contains only verified entitlement facts because old paywalls, Restore UI, and blocked actions must not resume',
+    () {
+      final cache = VerifiedEntitlementCache(
+        state: AppPremiumState.premium,
+        verifiedAt: DateTime.utc(2026, 8, 12),
+        productId: 'apple.yearly',
+        originalTransactionId: 'purchase-chain',
+        expiresAt: DateTime.utc(2027, 8, 12),
+      );
+
+      expect(cache.toJson().keys, {
+        'state',
+        'verified_at',
+        'product_id',
+        'original_transaction_id',
+        'expires_at',
+        'is_lifetime',
+      });
+    },
+  );
+
   test('StoreKit JWS decoder rejects malformed evidence', () {
     expect(decodeStoreKitJwsPayload('not-a-jws'), isNull);
     expect(decodeStoreKitJwsPayload(_jws({'productId': 'apple.yearly'})), {
