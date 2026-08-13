@@ -25,7 +25,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 | Scan | 服务端已有终身 10 次真源、request ID 原子预占、逐张结算/返还、60 秒租约、响应重放和多设备并发保护；Flutter 已使用服务端 quota 真值，完成 Waiting、Quota=0 Paywall、Done 公式、服务端确认 Unlimited 后自动递补、Scan Pro 完整订阅来源返回及 Processing 删除后的后台结算 | Sandbox/TestFlight 与真实并发、超时规模验收尚未完成 |
 | Folder | 已有 Folder CRUD；Free 总数最多 2 个（含默认 Folder），服务端按当前 session grant 判断，并以单条条件 INSERT 防止并发越限；购买或恢复成功后在原 Folder Sheet 仍有效时打开 Create Folder Modal；服务端并发上限拒绝会先刷新 Folder List 再进入 Paywall，普通失败或权益同步中保留名称输入 | `0030`/相关授权迁移未执行；仍缺 Sandbox/TestFlight 多设备人工验收 |
 | Performance | 已有 Home 与 Card Detail 独立服务端接口、六档自然范围、Purchase/Quantity/Folder Move 历史、迁移 baseline、Premium session grant 校验及 App 完整状态渲染；`0031` 已在 dev 真实历史数据的本地副本验证不伪造历史 | dev 最大 owner 仅 24 条 Event、12 个现存 Item，只能证明当前小样本；仍缺重度收藏用户规模、Cloudflare 端到端、Sandbox/TestFlight 验收 |
-| Admin | 订单 13 列、11 项组合筛选、动态国家/SKU、10,000 行以内 XLSX 全量导出及 inbox 通知排障视图已实现；完整 Decoded Payload 仅授权用户打开详情时加载，默认不返回 `signedPayload`，复制由用户主动触发 | dev 订单表为空，无法证明有数据及 10,000 行导出时的 3 秒普通查询目标；Sandbox/TestFlight 人工验收尚未完成 |
+| Admin | 订单 13 列、11 项组合筛选、动态国家/SKU、10,000 行以内 XLSX 全量导出及 inbox 通知排障视图已实现；订单请求期间查询、重置、分页与刷新均锁定，避免重复请求；完整 Decoded Payload 仅授权用户打开详情时加载，默认不返回 `signedPayload`，复制由用户主动触发 | dev 订单表为空，无法证明有数据及 10,000 行导出时的 3 秒普通查询目标；Sandbox/TestFlight 人工验收尚未完成 |
 | 归因与收入 | 已有 Firebase/Mixpanel 基础设施；首次安装仅在 ATT `notDetermined` 时请求，随后按最终状态初始化 Singular；冷启动不重复请求，回前台只读同步；Key 缺失或 SDK 失败不阻断。Apple verified 新 Purchase 使用 JWS `price/currency` 上报 Firebase 标准 Purchase，并按 `transaction_id` 持久化去重、失败保留重试 | 缺 Singular 正式 Key、iOS 真机归因及 Sandbox/TestFlight Revenue 验收 |
 
 代码中只有 Scan 使用时触发的相机/相册权限，没有 PRD 所述“首次安装网络授权流程”。本实现选择遵守同一 PRD 的“不得新增无业务需要权限”：不伪造网络授权弹窗，ATT 排在现有 Splash/启动预加载之后、Onboarding 之前。ATT/Singular SDK、用途说明、首次安装请求、冷启动不重复请求、回前台只同步及非阻断降级均已完成；正式 Key 通过构建参数注入，仍待产品账号配置和 iOS 真机验证。
@@ -147,6 +147,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 当前状态：订单/通知业务功能代码已完成，发布验收待完成；经最新 Admin PRD 核对，本期不新增 Payload 查看/复制审计范围。
 
 - 订单页已按 PRD 7.4 补齐越界分页回退：刷新或数据变化导致当前页超过最新总页数时，自动请求最后一个有效页；无数据时稳定回到第 1 页，查询和重置仍按原规则回第 1 页。
+- 订单请求期间查询按钮显示 Loading，并禁用查询、重置、分页和刷新入口，避免 PRD 7.2、7.5、13.1 所述重复提交；请求完成后统一恢复交互。
 
 - 已补齐订单和通知字段、查询、正确扣款次数、安装时间、当前订阅状态和 XLSX 全量导出。
 - 已实现 Payload 默认安全边界：原始 `signedPayload` 长期保存但 Admin API/UI 不返回；XLSX 使用 inline string 防公式执行并限制同步导出最多 10,000 行。

@@ -514,7 +514,7 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
     { title: "金额（USD）", width: 110, render: (_, row) => formatMicros(row.amount_usd_micros, "USD") },
     { title: "扣款次数", dataIndex: "charge_count", width: 90, render: displayValue },
   ];
-  return <PagePanel error={error} onRefresh={reload}>
+  return <PagePanel error={error} onRefresh={reload} refreshing={loading}>
     <section className="scans-filter-panel">
       <ScanFilterField label="UID"><Input value={draft.uid ?? ""} placeholder="输入用户 ID" onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} placeholder="输入订单 ID" onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
@@ -527,10 +527,10 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
       <ScanFilterField label="自动续期"><Select allowClear value={draft.auto_renew || undefined} options={[{ value: "true", label: "是" }, { value: "false", label: "否" }]} onChange={(v) => setDraft({ ...draft, auto_renew: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="环境"><Select allowClear value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="扣款次数"><Select allowClear value={draft.charge_count || undefined} options={billingChargeCountOptions} onChange={(v) => setDraft({ ...draft, charge_count: v ?? "" })} /></ScanFilterField>
-      <div className="scans-filter-actions"><Button onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" onClick={() => { setFilters(draft); setPage(1); }}>查询</Button></div>
+      <div className="scans-filter-actions"><Button disabled={loading} onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={() => { setFilters(draft); setPage(1); }}>查询</Button></div>
     </section>
     <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>订单列表</Title><Button disabled={!data?.total || loading || exporting} loading={exporting} onClick={exportOrders}>导出</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} scroll={{ x: 1650 }} />
-      <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
+      <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination disabled={loading} current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
     </section>
   </PagePanel>;
 }
@@ -1114,12 +1114,12 @@ function DataPanel({ title, count, children, className = "" }: { title: string; 
   );
 }
 
-function PagePanel({ error, onRefresh, children, className = "" }: { error: string | null; onRefresh: () => void; children: React.ReactNode; className?: string }) {
+function PagePanel({ error, onRefresh, children, className = "", refreshing = false }: { error: string | null; onRefresh: () => void; children: React.ReactNode; className?: string; refreshing?: boolean }) {
   return (
     <div className={`page-panel ${className}`.trim()}>
       <div className="refresh-row">
         <span />
-        <Button onClick={onRefresh}>刷新</Button>
+        <Button disabled={refreshing} loading={refreshing} onClick={onRefresh}>刷新</Button>
       </div>
       {error && <Alert type="error" showIcon message={error} />}
       {children}

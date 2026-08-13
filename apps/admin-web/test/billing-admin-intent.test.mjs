@@ -16,6 +16,9 @@ test("billing admin follows the v1.1 order facts contract without making UID the
   assert.match(app, /\/billing\/transactions\/export/);
   assert.match(app, /const lastPage = Math\.max\(1, Math\.ceil\(data\.total \/ data\.page_size\)\)/);
   assert.match(app, /if \(page > lastPage\) setPage\(lastPage\)/);
+  assert.match(app, /<PagePanel error=\{error\} onRefresh=\{reload\} refreshing=\{loading\}>/);
+  assert.match(app, /<Button className="cyan-button" disabled=\{loading\} loading=\{loading\}/);
+  assert.match(app, /<Pagination disabled=\{loading\} current=\{page\}/);
   assert.match(routes, /adminRoutes\.get\("\/billing\/transactions"/);
   assert.match(routes, /adminRoutes\.get\("\/apple-notifications"/);
   assert.match(routes, /createXlsx/);
