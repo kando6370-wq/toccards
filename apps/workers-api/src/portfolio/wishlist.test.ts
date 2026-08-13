@@ -236,6 +236,57 @@ describe("wishlist routes", () => {
     ]);
   });
 
+  it("replays Wishlist Add after a lost response because retry must confirm the original intent", async () => {
+    const db = createDbForOwner("user", "user-1");
+    const idempotencyKey = "66666666-6666-4666-8666-666666666666";
+    const headers = {
+      ...(await authHeaders("user", "user-1")),
+      "Idempotency-Key": idempotencyKey,
+    };
+    const body = JSON.stringify({ card_ref: "card-a" });
+
+    const created = await app.request(
+      "/api/v1/wishlist",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+    const replayed = await app.request(
+      "/api/v1/wishlist",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+
+    expect(created.status).toBe(201);
+    expect(replayed.status).toBe(200);
+    expect(await replayed.json()).toMatchObject({
+      success: true,
+      data: { id: idempotencyKey, card_ref: "card-a" },
+    });
+    expect(db.wishlist).toHaveLength(1);
+  });
+
+  it("rejects reusing a Wishlist Add key for another card because one key has one intent", async () => {
+    const db = createDbForOwner("user", "user-1");
+    const headers = {
+      ...(await authHeaders("user", "user-1")),
+      "Idempotency-Key": "77777777-7777-4777-8777-777777777777",
+    };
+    await app.request(
+      "/api/v1/wishlist",
+      { method: "POST", headers, body: JSON.stringify({ card_ref: "card-a" }) },
+      createTestEnv(db),
+    );
+
+    const response = await app.request(
+      "/api/v1/wishlist",
+      { method: "POST", headers, body: JSON.stringify({ card_ref: "card-b" }) },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(409);
+    expect(db.wishlist).toHaveLength(1);
+  });
+
   it("returns CONFLICT for duplicate card_ref because one owner should have only one wishlist intent per card", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.wishlist.push(wishlist({ card_ref: "card-a" }));

@@ -62,11 +62,16 @@ dependencies:
   firebase_core: ^4.12.1
   firebase_analytics: ^12.4.5
   firebase_crashlytics: ^5.2.6
+  app_tracking_transparency: 2.0.7
+  singular_flutter_sdk: 1.9.0
   subscription_core: ^0.1.0
+  in_app_purchase_storekit: 0.4.11
+  uuid: 4.5.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  in_app_purchase_platform_interface: 1.4.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

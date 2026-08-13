@@ -81,6 +81,36 @@ void main() {
   });
 
   group('purchase lifecycle protects entitlement intent', () {
+    test('forwards pending without verification or entitlement', () async {
+      final apple = _FakeGateway(SubscriptionStore.appStore);
+      var verificationCalls = 0;
+      final client = _client(
+        enabledStores: {SubscriptionStore.appStore},
+        gateways: [apple],
+        verify: (request) async {
+          verificationCalls++;
+          return SubscriptionEntitlement(
+            planId: request.plan.id,
+            entitlementId: request.plan.entitlementId,
+            status: SubscriptionEntitlementStatus.active,
+          );
+        },
+      );
+      addTearDown(() async {
+        await client.dispose();
+        await apple.dispose();
+      });
+
+      await client.initialize();
+      final eventFuture = client.events.first;
+      apple.emitStatus(SubscriptionPurchaseStatus.pending);
+      final event = await eventFuture;
+
+      expect(event.purchase!.status, SubscriptionPurchaseStatus.pending);
+      expect(event.entitlement, isNull);
+      expect(verificationCalls, 0);
+    });
+
     test('completes a purchase only after trusted verification', () async {
       final apple = _FakeGateway(SubscriptionStore.appStore);
       var verificationCalls = 0;
@@ -297,13 +327,23 @@ class _FakeGateway implements SubscriptionStoreGateway {
   }
 
   void emitPurchase({required bool needsCompletion}) {
+    emitStatus(
+      SubscriptionPurchaseStatus.purchased,
+      needsCompletion: needsCompletion,
+    );
+  }
+
+  void emitStatus(
+    SubscriptionPurchaseStatus status, {
+    bool needsCompletion = false,
+  }) {
     _updates.add(
       SubscriptionPurchase(
         store: store,
         storeProductId: store == SubscriptionStore.appStore
             ? 'ios.pro'
             : 'android.pro',
-        status: SubscriptionPurchaseStatus.purchased,
+        status: status,
         verificationData: 'receipt',
         needsCompletion: needsCompletion,
       ),

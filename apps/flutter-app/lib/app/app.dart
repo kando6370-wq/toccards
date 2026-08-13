@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/app_upgrade/app_upgrade_gate.dart';
 import '../features/auth/auth_controller.dart';
+import '../features/subscription/subscription_entitlement_lifecycle.dart';
 import '../shared/analytics/app_analytics.dart';
+import '../shared/attribution/app_attribution.dart';
 import '../shared/debug/app_debug_overlay.dart';
 import 'app_startup_preloader.dart';
 import 'router.dart';
@@ -38,7 +40,11 @@ class KandoApp extends ConsumerWidget {
               Theme.of(context).platform,
             );
         return buildAppDebugOverlay(
-          AppUpgradeGate(child: child ?? const SizedBox.shrink()),
+          AppAttributionLifecycleObserver(
+            child: SubscriptionEntitlementLifecycleObserver(
+              child: AppUpgradeGate(child: child ?? const SizedBox.shrink()),
+            ),
+          ),
         );
       },
     );

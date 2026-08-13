@@ -5,6 +5,15 @@ export interface Env {
   JWT_SECRET: string;
   GOOGLE_CLIENT_ID?: string;
   APPLE_CLIENT_ID?: string;
+  APPLE_IAP_BUNDLE_ID?: string;
+  APPLE_IAP_APP_ID?: string;
+  APPLE_APP_ATTEST_APP_ID?: string;
+  APPLE_APP_ATTEST_DEVELOPMENT?: string;
+  APPLE_IAP_PRODUCT_IDS?: string;
+  APPLE_ROOT_CERTIFICATES_BASE64?: string;
+  APPLE_IAP_ISSUER_ID?: string;
+  APPLE_IAP_KEY_ID?: string;
+  APPLE_IAP_PRIVATE_KEY?: string;
   ZEPTOMAIL_TOKEN?: string;
   ZEPTOMAIL_API_URL?: string;
   MAIL_FROM_ADDRESS?: string;

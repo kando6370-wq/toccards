@@ -254,10 +254,16 @@ void main() {
       expect(find.text('Escape Artist (English)'), findsNothing);
       expect(find.text('Pikachu (JP)'), findsOneWidget);
       expect(find.text('Psyduck (CN)'), findsOneWidget);
-      expect(find.text('Pokemon · Odyssey'), findsOneWidget);
+      expect(find.text('TCG · Odyssey'), findsOneWidget);
       expect(find.text('Common · 123'), findsOneWidget);
-      expect(find.text('Normal'), findsOneWidget);
-      expect(find.text('Qty: 0'), findsOneWidget);
+      expect(
+        find.descendant(of: cardTile, matching: find.text('Normal')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: cardTile, matching: find.text('Qty: 0')),
+        findsOneWidget,
+      );
       expect(find.text('Near Mint (NM)'), findsNothing);
       expect(find.byIcon(Icons.trending_up), findsNothing);
       expect(
@@ -286,11 +292,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('search-failure')), findsOneWidget);
-    expect(
-      find.byKey(const Key('search-failure-illustration')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('search-content-list')), findsOneWidget);
+    expect(find.byType(KandoFailureBlock), findsOneWidget);
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
     expect(find.byKey(const Key('search-no-results')), findsNothing);
@@ -793,7 +796,11 @@ void main() {
 
     expect(find.byKey(const Key('card-detail-hero')), findsOneWidget);
     expect(find.text('Squirtle'), findsOneWidget);
-    expect(find.text('Add to Portfolio'), findsOneWidget);
+    expect(
+      find.byKey(const Key('card-detail-add-to-portfolio-squirtle')),
+      findsOneWidget,
+    );
+    expect(find.text('Add to Portfolio'), findsNothing);
     expect(find.text('Collect'), findsNothing);
 
     await tester.scrollUntilVisible(
@@ -836,6 +843,8 @@ void main() {
         300,
         scrollable: searchScroll,
       );
+      await tester.ensureVisible(selectedCard);
+      await tester.pumpAndSettle();
       final offsetBeforeOpening = tester
           .state<ScrollableState>(searchScroll)
           .position
@@ -889,7 +898,10 @@ void main() {
 
     expect(find.text('Collection Item'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
-    expect(find.text('PSA 10'), findsOneWidget);
+    expect(find.text('GRADER'), findsOneWidget);
+    expect(find.text('PSA'), findsOneWidget);
+    expect(find.text('GRADE'), findsOneWidget);
+    expect(find.text('10'), findsOneWidget);
   });
 }
 
@@ -942,6 +954,7 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
             builder: (context, state) {
               return CardDetailPage(
                 cardId: state.pathParameters['cardId'] ?? '',
+                collectionItemId: state.uri.queryParameters['item_id'],
               );
             },
           ),

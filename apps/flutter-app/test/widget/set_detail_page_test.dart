@@ -44,10 +44,13 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Rare · 025/102'), findsOneWidget);
-      expect(find.text('Holo / English'), findsOneWidget);
+      expect(find.text('Holo'), findsOneWidget);
       expect(find.text('Qty: 0'), findsOneWidget);
       expect(find.text(r'$12.50'), findsOneWidget);
-      expect(find.text('+25.00%'), findsOneWidget);
+      expect(
+        find.descendant(of: card, matching: find.text('-/-')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('search-collect-featured')), findsOneWidget);
       expect(find.byKey(const Key('search-wishlist-featured')), findsOneWidget);
       expect(

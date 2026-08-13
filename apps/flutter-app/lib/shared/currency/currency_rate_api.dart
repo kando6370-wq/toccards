@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,14 +11,20 @@ class CurrencyRateApiException implements Exception {
   const CurrencyRateApiException();
 }
 
+const currencyRateRequestDeadline = Duration(seconds: 15);
+
 abstract interface class CurrencyRateApi {
   Future<double> loadUsdRate(String targetCurrency);
 }
 
 class HttpCurrencyRateApi implements CurrencyRateApi {
-  HttpCurrencyRateApi(this._dio);
+  HttpCurrencyRateApi(
+    this._dio, {
+    this.requestDeadline = currencyRateRequestDeadline,
+  });
 
   final Dio _dio;
+  final Duration requestDeadline;
   final Map<String, double> _cachedRates = {};
   DateTime? _cachedAt;
   Future<Map<String, double>>? _loadingRates;
@@ -57,11 +65,32 @@ class HttpCurrencyRateApi implements CurrencyRateApi {
   }
 
   Future<Map<String, double>> _loadRates() async {
-    final response = await _dio.get<Object?>(
-      '/rates',
-      queryParameters: {'base': 'USD', 'targets': _supportedTargets.join(',')},
-      options: Options(validateStatus: (_) => true),
-    );
+    final cancelToken = CancelToken();
+    late final Response<Object?> response;
+    try {
+      response = await _dio
+          .get<Object?>(
+            '/rates',
+            queryParameters: {
+              'base': 'USD',
+              'targets': _supportedTargets.join(','),
+            },
+            cancelToken: cancelToken,
+            options: Options(validateStatus: (_) => true),
+          )
+          .timeout(
+            requestDeadline,
+            onTimeout: () {
+              cancelToken.cancel('REQUEST_TIMEOUT');
+              throw const CurrencyRateApiException();
+            },
+          );
+    } on DioException {
+      if (cancelToken.isCancelled) {
+        throw const CurrencyRateApiException();
+      }
+      rethrow;
+    }
     final envelope = response.data;
     if (envelope is! Map || envelope['success'] != true) {
       throw const CurrencyRateApiException();

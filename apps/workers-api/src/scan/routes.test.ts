@@ -31,6 +31,18 @@ type ScanRecordRow = {
   raw_response?: string;
 };
 
+type ScanQuotaRequestRow = {
+  request_id: string;
+  owner_type: "anonymous" | "user";
+  owner_id: string;
+  session_id: string;
+  access_mode: "free" | "premium";
+  status: "reserved" | "consumed" | "released";
+  processing_expires_at: string | null;
+  response_json: string | null;
+  http_status: number | null;
+};
+
 type FolderRow = { id: string; owner_type: "anonymous" | "user"; owner_id: string };
 type CollectionItemRow = {
   id: string;
@@ -102,6 +114,7 @@ class FakeD1 {
   sessions: SessionRow[] = [];
   anonymousAccounts: AnonymousAccountRow[] = [];
   scanRecords: ScanRecordRow[] = [];
+  scanQuotaRequests: ScanQuotaRequestRow[] = [];
   folders: FolderRow[] = [];
   collectionItems: CollectionItemRow[] = [];
   collectionItemEvents: CollectionItemEventRow[] = [];
@@ -153,6 +166,20 @@ class FakeD1Statement {
         (row) => row.id === id && row.owner_type === ownerType && row.owner_id === ownerId,
       ) ?? null) as T | null;
     }
+    if (sql.includes("FROM scan_quota_request") && sql.includes("WHERE request_id = ?")) {
+      const [requestId] = this.values as [string];
+      return (this.db.scanQuotaRequests.find((row) => row.request_id === requestId) ?? null) as T | null;
+    }
+    if (sql.includes("FROM scan_quota_request") && sql.includes("SUM(CASE")) {
+      const [ownerType, ownerId] = this.values as [string, string];
+      const rows = this.db.scanQuotaRequests.filter(
+        (row) => row.owner_type === ownerType && row.owner_id === ownerId && row.access_mode === "free",
+      );
+      return {
+        reserved_count: rows.filter((row) => row.status === "reserved").length,
+        consumed_count: rows.filter((row) => row.status === "consumed").length,
+      } as T;
+    }
     if (sql.includes("FROM portfolio_folder")) {
       const [id, ownerType, ownerId] = this.values as [string, string, string];
       return (this.db.folders.find(
@@ -196,6 +223,50 @@ class FakeD1Statement {
 
   async run<T = unknown>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
+    if (sql.startsWith("INSERT INTO scan_quota_request")) {
+      const [requestId, ownerType, ownerId, sessionId, accessMode, leaseExpiresAt] = this.values as [
+        string,
+        "anonymous" | "user",
+        string,
+        string,
+        "free" | "premium",
+        string,
+      ];
+      if (this.db.scanQuotaRequests.some((row) => row.request_id === requestId)) {
+        throw new Error("UNIQUE constraint failed: scan_quota_request.request_id");
+      }
+      const used = this.db.scanQuotaRequests.filter(
+        (row) => row.owner_type === ownerType && row.owner_id === ownerId && row.access_mode === "free" &&
+          (row.status === "reserved" || row.status === "consumed"),
+      ).length;
+      if (accessMode === "free" && used >= 10) return okResult<T>([], 0);
+      this.db.scanQuotaRequests.push({
+        request_id: requestId,
+        owner_type: ownerType,
+        owner_id: ownerId,
+        session_id: sessionId,
+        access_mode: accessMode,
+        status: "reserved",
+        processing_expires_at: leaseExpiresAt,
+        response_json: null,
+        http_status: null,
+      });
+      return okResult<T>();
+    }
+    if (sql.startsWith("UPDATE scan_quota_request") && sql.includes("SET status = ?")) {
+      const [status, , responseJson, httpStatus, , , requestId, ownerType, ownerId, sessionId] = this.values as [
+        "consumed" | "released", string | null, string | null, number | null, string, string, string, string, string, string,
+      ];
+      const row = this.db.scanQuotaRequests.find(
+        (candidate) => candidate.request_id === requestId && candidate.owner_type === ownerType &&
+          candidate.owner_id === ownerId && candidate.session_id === sessionId && candidate.status === "reserved",
+      );
+      if (!row) return okResult<T>([], 0);
+      row.status = status;
+      row.response_json = responseJson;
+      row.http_status = httpStatus;
+      return okResult<T>();
+    }
     if (sql.startsWith("INSERT INTO scan_record")) {
       if (this.db.failScanInsert) throw new Error("scan insert failed");
       const [id, ownerType, ownerId, imageUrl, , , , , , recognitionStatus, confirmationStatus, systemResult, userResult, candidates, rawResponse] =
@@ -405,12 +476,14 @@ describe("scan routes", () => {
       });
     });
 
+    const requestId = crypto.randomUUID();
     const response = await app.request(
       "/api/v1/scan/recognize",
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": requestId },
         body: recognitionForm({
+          request_id: requestId,
           r: PHASH, g: PHASH, b: PHASH, filename: "scan.jpg",
           platform: "iOS", app_version: "1.0.0",
         }),
@@ -609,6 +682,55 @@ describe("scan routes", () => {
         recognition_status: "no_match",
         candidates: expect.stringContaining('"confidence":77.125'),
       }),
+    ]);
+  });
+
+  it("rejects the eleventh Free scan before R2 and OCR because the server quota is authoritative", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    for (let index = 0; index < 10; index += 1) {
+      env.DB.scanQuotaRequests.push({
+        request_id: crypto.randomUUID(),
+        owner_type: "anonymous",
+        owner_id: "anon-1",
+        session_id: "session-1",
+        access_mode: "free",
+        status: "consumed",
+        processing_expires_at: null,
+        response_json: null,
+        http_status: null,
+      });
+    }
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      error: { code: "SCAN_QUOTA_EXHAUSTED" },
+      quota: { remaining: 0, consumed: 10 },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
+  });
+
+  it("replays a completed request because a lost response must not consume quota or OCR twice", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ candidates: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = await recognize(env, token, { request_id: requestId, r: PHASH, g: PHASH, b: PHASH });
+    const firstBody = await first.json();
+    const second = await recognize(env, token, { request_id: requestId, r: PHASH, g: PHASH, b: PHASH });
+
+    expect(second.status).toBe(200);
+    expect(await second.json()).toEqual(firstBody);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ request_id: requestId, status: "consumed" }),
     ]);
   });
 
@@ -976,12 +1098,13 @@ async function recognize(
   token: string,
   body: Record<string, unknown>,
 ): Promise<Response> {
+  const requestId = typeof body.request_id === "string" ? body.request_id : crypto.randomUUID();
   return await app.request(
     "/api/v1/scan/recognize",
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: recognitionForm(body),
+      headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": requestId },
+      body: recognitionForm({ ...body, request_id: requestId }),
     },
     env,
   );

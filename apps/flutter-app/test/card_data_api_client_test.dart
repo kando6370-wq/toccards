@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 
 void main() {
@@ -67,6 +68,38 @@ void main() {
       expect(cards.single.previousPriceAsOf, '2026-07-14');
       expect(cards.single.availableLanguages, ['English', 'Japanese']);
       expect(cards.single.availableFinishes, ['Holofoil', 'Normal']);
+    },
+  );
+
+  test(
+    'search has one total deadline so a late catalog response cannot overwrite the current query',
+    () async {
+      final adapter = _RecordingAdapter((_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [_cardJson(cardRef: 'late-result')],
+          },
+        });
+      });
+
+      await expectLater(
+        CardDataApiClient(
+          _dio(adapter),
+          requestDeadline: const Duration(milliseconds: 20),
+        ).searchCards('old query'),
+        throwsA(
+          isA<CardDataApiException>()
+              .having((error) => error.code, 'code', cardDataRequestTimeoutCode)
+              .having(
+                (error) => error.message,
+                'message',
+                cardDataRequestTimeoutMessage,
+              ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
     },
   );
 
@@ -171,6 +204,41 @@ void main() {
           ]);
 
       expect(results.single.single.price, 15);
+    },
+  );
+
+  test(
+    'Premium 1Y batch carries the live session because client state alone must not unlock history',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.headers['Authorization'], 'Bearer access-token');
+        expect(request.headers['X-Local-Premium-State'], 'verified');
+        return _json(200, {
+          'success': true,
+          'data': {
+            'results': [
+              {
+                'series': [
+                  {'date': '2026-08-12', 'price': 20.0},
+                ],
+              },
+            ],
+          },
+        });
+      });
+      const session = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        userId: 'user-1',
+      );
+
+      final results = await CardDataApiClient(_dio(adapter))
+          .getPremiumPriceSeriesBatch(session, '100', const [
+            CardDataPriceSeriesQuery(days: 365, grader: 'PSA', grade: 10),
+          ], localPremiumVerified: true);
+
+      expect(results.single.single.price, 20);
     },
   );
 
@@ -432,7 +500,7 @@ ResponseBody _json(int statusCode, Map<String, Object?> body) {
 class _RecordingAdapter implements HttpClientAdapter {
   _RecordingAdapter(this.handler);
 
-  final ResponseBody Function(_RecordedRequest request) handler;
+  final FutureOr<ResponseBody> Function(_RecordedRequest request) handler;
 
   @override
   Future<ResponseBody> fetch(
@@ -440,11 +508,12 @@ class _RecordingAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
-    return handler(
+    return await handler(
       _RecordedRequest(
         method: options.method,
         path: options.path,
         data: options.data,
+        headers: Map<String, Object?>.from(options.headers),
         queryParameters: options.queryParameters.map(
           (key, value) => MapEntry(key, value.toString()),
         ),
@@ -461,11 +530,13 @@ class _RecordedRequest {
     required this.method,
     required this.path,
     required this.data,
+    required this.headers,
     required this.queryParameters,
   });
 
   final String method;
   final String path;
   final Object? data;
+  final Map<String, Object?> headers;
   final Map<String, String> queryParameters;
 }

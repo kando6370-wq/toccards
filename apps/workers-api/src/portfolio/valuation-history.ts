@@ -310,7 +310,7 @@ export function priceOnDate(history: string, date: string): number | null {
   );
 }
 
-function parsePriceHistory(value: string): PricePoint[] {
+export function parsePriceHistory(value: string): PricePoint[] {
   try {
     const parsed = JSON.parse(value);
     if (!Array.isArray(parsed)) return [];

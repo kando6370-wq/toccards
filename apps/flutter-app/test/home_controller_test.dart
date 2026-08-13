@@ -39,6 +39,7 @@ void main() {
         '15d',
         '1m',
         '3m',
+        '1y',
       ]);
       expect(dashboard.defaultFolder.id, 'main');
       expect(dashboard.defaultFolder.isDefault, isTrue);
@@ -81,7 +82,7 @@ void main() {
         ],
       );
       expect(
-        state.chartDates[6],
+        state.chartDates.last,
         '2025-02-18',
         reason: 'HOME tooltips must use the date paired with the live curve.',
       );
@@ -408,7 +409,7 @@ void main() {
     final controller = container.read(homeControllerProvider.notifier);
     expect(
       container.read(homeControllerProvider).chartRange,
-      HomeChartRange.fifteenDays,
+      HomeChartRange.oneMonth,
     );
 
     controller.selectChartRange(HomeChartRange.oneMonth);

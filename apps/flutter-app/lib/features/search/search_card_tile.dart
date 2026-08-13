@@ -295,6 +295,7 @@ String _cardDetailsLocation(SearchCard card, String entrySource) {
       'collection': collectionType,
       'ip': analyticsIpType(card.gameId),
       'entry': entrySource,
+      if (card.collectionItemId != null) 'item_id': card.collectionItemId!,
     },
   ).toString();
 }
@@ -306,6 +307,7 @@ String _cardName(SearchCard card) {
 
 String _gameAndSetLine(SearchCard card) {
   final game = switch (card.gameId.toLowerCase()) {
+    'tcg' => 'TCG',
     'mtg' => 'MTG',
     'pokemon' => 'Pokemon',
     'lorcana' => 'Lorcana',

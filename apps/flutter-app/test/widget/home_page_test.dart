@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -23,6 +24,7 @@ import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
@@ -89,7 +91,7 @@ void main() {
     expect(loaded.isCompleted, isTrue);
   });
 
-  testWidgets('Figma normal Home renders at the approved 390x844 baseline', (
+  testWidgets('v1.1 PRD normal Home renders at the 390x844 baseline', (
     tester,
   ) async {
     await (FontLoader('Fraunces')..addFont(
@@ -104,6 +106,9 @@ void main() {
       ProviderScope(
         overrides: [
           homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+          subscriptionControllerProvider.overrideWith(
+            _FreeHomeSubscriptionController.new,
+          ),
         ],
         child: MaterialApp(
           theme: buildKandoTheme(),
@@ -127,7 +132,7 @@ void main() {
     );
   });
 
-  testWidgets('Figma partial Home failure renders at the 390x844 baseline', (
+  testWidgets('v1.1 PRD partial Home failure renders at the 390x844 baseline', (
     tester,
   ) async {
     final repository = _SuccessfulThenFailingHomeRepository();
@@ -141,7 +146,12 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          homeRepositoryProvider.overrideWithValue(repository),
+          subscriptionControllerProvider.overrideWith(
+            _FreeHomeSubscriptionController.new,
+          ),
+        ],
         child: MaterialApp(
           theme: buildKandoTheme(),
           home: const RepaintBoundary(
@@ -254,7 +264,121 @@ void main() {
       expect(find.byKey(const Key('home-performance-locked')), findsNothing);
       expect(find.text('Market Value'), findsOneWidget);
       expect(find.text(r'$12,450.80'), findsOneWidget);
+      expect(find.text(r'$800.00'), findsOneWidget);
       expect(find.text('Trending Today'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Performance tooltip and partial-price info are mutually exclusive because stale overlays misstate the selected context',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      final chart = find.byKey(const Key('home-performance-chart'));
+      final chartRect = tester.getRect(chart);
+      await tester.tapAt(Offset(chartRect.right - 1, chartRect.center.dy));
+      await tester.pump();
+
+      final tooltip = tester.widget<Semantics>(chart).properties.value!;
+      expect(tooltip, contains('Date: Aug 12, 2026'));
+      expect(tooltip, contains(r'Market: +$20.00'));
+      expect(tooltip, contains(r'Portfolio: +$24.00'));
+      expect(tooltip, contains('Qty: 4 (+2)'));
+      expect(tooltip, isNot(contains('Price:')));
+      expect(tooltip, isNot(contains('Daily Change')));
+
+      await tester.tap(find.byKey(const Key('home-performance-partial-info')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+      expect(
+        find.text(
+          'Profit and return are calculated only from cards with purchase prices.',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tapAt(Offset(chartRect.right - 1, chartRect.center.dy));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Profit and return are calculated only from cards with purchase prices.',
+        ),
+        findsNothing,
+      );
+
+      await tester.tap(find.byKey(const Key('home-performance-range-7D')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+
+      await tester.tap(find.byKey(const Key('home-performance-partial-info')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-overview-tab')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Profit and return are calculated only from cards with purchase prices.',
+        ),
+        findsNothing,
+      );
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      final refreshedChart = find.byKey(const Key('home-performance-chart'));
+      await tester.tapAt(tester.getRect(refreshedChart).center);
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('home-performance-folder')));
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(refreshedChart).properties.value,
+        'No chart point selected',
+      );
+    },
+  );
+
+  testWidgets(
+    '1D Performance keeps Qty visible while hidden amounts stay hidden because privacy applies to tooltip money only',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-hide-amount')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-range-1D')));
+      await tester.pumpAndSettle();
+
+      final chart = find.byKey(const Key('home-performance-chart'));
+      await tester.tapAt(tester.getRect(chart).center);
+      await tester.pump();
+      final tooltip = tester.widget<Semantics>(chart).properties.value!;
+      expect(tooltip, contains('Market: $hiddenMoneyText'));
+      expect(tooltip, contains('Portfolio: $hiddenMoneyText'));
+      expect(tooltip, contains('Qty: 4 (+2)'));
+      expect(tooltip, isNot(contains(r'$20.00')));
+      expect(tooltip, isNot(contains(r'$24.00')));
     },
   );
 
@@ -277,14 +401,14 @@ void main() {
       await tester.pump();
       expect(
         tester.widget<Semantics>(chart).properties.value,
-        contains('Date: Feb 12, 2025'),
+        contains('Date: Jan 20, 2025'),
       );
 
       await touch.moveTo(Offset(chartRect.right - 1, chartRect.center.dy));
       await tester.pump();
       expect(
         tester.widget<Semantics>(chart).properties.value,
-        contains('Date: Feb 21, 2025'),
+        contains('Date: Feb 18, 2025'),
       );
 
       await touch.up();
@@ -351,7 +475,7 @@ void main() {
     await tester.pump();
     expect(
       tester.widget<Semantics>(chart).properties.value,
-      r'Date: Feb 12, 2025, Price: $11,800.00',
+      r'Date: Jan 20, 2025, Price: $10,800.00',
     );
 
     await gesture.moveTo(
@@ -360,14 +484,14 @@ void main() {
     await tester.pump();
     expect(
       tester.widget<Semantics>(chart).properties.value,
-      r'Date: Feb 16, 2025, Price: $12,050.00',
+      r'Date: Feb 3, 2025, Price: $11,940.00',
     );
 
     await gesture.moveTo(Offset(chartRect.right - 1, chartRect.center.dy));
     await tester.pump();
     expect(
       tester.widget<Semantics>(chart).properties.value,
-      r'Date: Feb 21, 2025, Price: $12,450.80',
+      r'Date: Feb 18, 2025, Price: $12,450.80',
     );
     await gesture.up();
     await tester.pump();
@@ -1317,9 +1441,11 @@ Widget _mockHomeApp([
         _HomeCollectionRepository(portfolioManagement),
       ),
       portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
+      portfolioApiClientProvider.overrideWithValue(_TestHomePerformanceApi()),
       currencyRateApiProvider.overrideWithValue(currencyRateApi),
-      if (subscriptionController != null)
-        subscriptionControllerProvider.overrideWith(subscriptionController),
+      subscriptionControllerProvider.overrideWith(
+        subscriptionController ?? _FreeHomeSubscriptionController.new,
+      ),
     ],
     child: const _HomeTestApp(),
   );
@@ -1328,6 +1454,67 @@ Widget _mockHomeApp([
 class _ProHomeSubscriptionController extends SubscriptionController {
   @override
   SubscriptionState build() => const SubscriptionState(isPro: true);
+}
+
+class _FreeHomeSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.free);
+}
+
+class _TestHomePerformanceApi extends PortfolioApiClient {
+  _TestHomePerformanceApi() : super(Dio());
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) async {
+    final previous = PerformancePointDto(
+      date: '2026-08-11',
+      marketValueUsd: 100,
+      marketValueChangeUsd: null,
+      marketChangeUsd: null,
+      portfolioChangeUsd: null,
+      paidMarketValueUsd: 90,
+      totalPaidUsd: 80,
+      profitLossUsd: 10,
+      profitLossChangeUsd: null,
+      returnPercent: 12.5,
+      quantity: 2,
+      quantityChange: null,
+    );
+    final current = PerformancePointDto(
+      date: '2026-08-12',
+      marketValueUsd: 12450.8,
+      marketValueChangeUsd: 44,
+      marketChangeUsd: 20,
+      portfolioChangeUsd: 24,
+      paidMarketValueUsd: 1100,
+      totalPaidUsd: 800,
+      profitLossUsd: 300,
+      profitLossChangeUsd: 20,
+      returnPercent: 37.5,
+      quantity: 4,
+      quantityChange: 2,
+    );
+    return PortfolioPerformanceDto(
+      range: range,
+      rangeStart: '2026-07-12',
+      rangeEnd: '2026-08-12',
+      historyAvailableFrom: '2026-07-12',
+      partialHistory: false,
+      itemCount: 2,
+      marketPriceStatus: MarketPriceStatus.available,
+      purchasePriceStatus: PurchasePriceStatus.partial,
+      current: current,
+      series: range == PerformanceRange.oneDay
+          ? [current]
+          : [previous, current],
+    );
+  }
 }
 
 Widget _mockHomeRouteApp() {

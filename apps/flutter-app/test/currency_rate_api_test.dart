@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -79,13 +80,52 @@ void main() {
       expect(adapter.calls, 1);
     },
   );
+
+  test(
+    'currency loading has one total deadline and does not cache a late rate',
+    () async {
+      final adapter = _RateAdapter(
+        statusCode: 200,
+        delay: const Duration(milliseconds: 80),
+        body: {
+          'success': true,
+          'data': {
+            'base': 'USD',
+            'rates': {'EUR': 0.87},
+          },
+        },
+      );
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1'))
+        ..httpClientAdapter = adapter;
+      final api = HttpCurrencyRateApi(
+        dio,
+        requestDeadline: const Duration(milliseconds: 20),
+      );
+
+      await expectLater(
+        api.loadUsdRate('EUR'),
+        throwsA(isA<CurrencyRateApiException>()),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await expectLater(
+        api.loadUsdRate('EUR'),
+        throwsA(isA<CurrencyRateApiException>()),
+      );
+      expect(adapter.calls, 2);
+    },
+  );
 }
 
 class _RateAdapter implements HttpClientAdapter {
-  _RateAdapter({required this.statusCode, required this.body});
+  _RateAdapter({
+    required this.statusCode,
+    required this.body,
+    this.delay = Duration.zero,
+  });
 
   final int statusCode;
   final Map<String, Object?> body;
+  final Duration delay;
   String? path;
   Map<String, dynamic>? query;
   var calls = 0;
@@ -99,6 +139,7 @@ class _RateAdapter implements HttpClientAdapter {
     calls += 1;
     path = options.path;
     query = options.queryParameters;
+    if (delay > Duration.zero) await Future<void>.delayed(delay);
     return ResponseBody.fromString(
       jsonEncode(body),
       statusCode,

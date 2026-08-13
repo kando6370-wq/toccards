@@ -209,6 +209,26 @@ class AppAnalytics {
     }
   }
 
+  Future<void> logVerifiedApplePurchase({
+    required String transactionId,
+    required String productId,
+    required String planType,
+    required double value,
+    required String currency,
+  }) {
+    final firebase = _firebase;
+    if (firebase == null) {
+      throw StateError('Firebase Analytics is unavailable.');
+    }
+    return firebase.logPurchase(
+      transactionId: transactionId,
+      productId: productId,
+      planType: planType,
+      value: value,
+      currency: currency,
+    );
+  }
+
   static String _defaultOperatingSystem() {
     return switch (defaultTargetPlatform) {
       TargetPlatform.iOS => 'ios',

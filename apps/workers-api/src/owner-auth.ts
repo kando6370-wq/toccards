@@ -7,6 +7,7 @@ export type OwnerType = "anonymous" | "user";
 export type AuthenticatedOwner = {
   owner_type: OwnerType;
   owner_id: string;
+  session_id: string;
 };
 
 type SessionLookupRow = {
@@ -91,7 +92,11 @@ export async function authenticateOwner(
 
   return {
     status: "ok",
-    owner: { owner_type: session.owner_type, owner_id: session.owner_id },
+    owner: {
+      owner_type: session.owner_type,
+      owner_id: session.owner_id,
+      session_id: session.id,
+    },
   };
 }
 

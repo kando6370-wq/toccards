@@ -14,7 +14,9 @@ import '../features/profile/profile_page.dart';
 import '../features/scan/scan_page.dart';
 import '../features/search/search_page.dart';
 import '../features/search/set_detail_page.dart';
+import '../features/subscription/subscription_controller.dart';
 import '../features/subscription/subscription_page.dart';
+import '../features/subscription/startup_subscription_gate.dart';
 import '../shared/analytics/analytics_events.dart';
 import '../shared/analytics/app_analytics.dart';
 
@@ -24,10 +26,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         builder: (context, state) {
+          const home = AnalyticsPageView(
+            event: AnalyticsEvent.homeView,
+            child: HomePage(),
+          );
           return const OnboardingGate(
-            home: AnalyticsPageView(
-              event: AnalyticsEvent.homeView,
-              child: HomePage(),
+            home: StartupSubscriptionGate(source: 'cold_start', home: home),
+            firstLaunchHome: StartupSubscriptionGate(
+              source: 'onboarding',
+              home: home,
             ),
           );
         },
@@ -66,6 +73,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               AnalyticsValue.collectionNormal;
           return CardDetailPage(
             cardId: state.pathParameters['cardId'] ?? '',
+            collectionItemId: state.uri.queryParameters['item_id'],
             collectionType: collectionType,
             entrySource:
                 state.uri.queryParameters['entry'] ??
@@ -117,11 +125,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/subscription',
         pageBuilder: (context, state) {
           final sheet = state.uri.queryParameters['presentation'] == 'sheet';
-          return CustomTransitionPage<void>(
+          final source = state.uri.queryParameters['source'];
+          final entrySource = state.uri.queryParameters['entry_source'];
+          return CustomTransitionPage<SubscriptionPaywallResult>(
             key: state.pageKey,
             opaque: !sheet,
             barrierColor: sheet ? const Color(0x99000000) : null,
-            child: SubscriptionPage(sheet: sheet),
+            child: SubscriptionPage(
+              sheet: sheet,
+              source: source,
+              entrySource: entrySource,
+            ),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
                   if (!sheet) return child;
@@ -140,7 +154,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/subscription/success',
-        builder: (context, state) => const SubscriptionSuccessPage(),
+        builder: (context, state) => SubscriptionSuccessPage(
+          source: state.uri.queryParameters['source'],
+          entrySource: state.uri.queryParameters['entry_source'],
+        ),
       ),
     ],
   );

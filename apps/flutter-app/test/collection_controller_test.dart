@@ -462,12 +462,11 @@ void main() {
       await _loadedState(container);
       final controller = container.read(collectionControllerProvider.notifier);
 
-      final created = await controller.createFolder('Trade');
-      expect(created?.name, 'Trade');
-      expect(
-        await controller.renameFolder(created!.id, 'Trade Binder'),
-        isTrue,
-      );
+      final createResult = await controller.createFolder('Trade');
+      expect(createResult.status, CreateFolderStatus.success);
+      final created = createResult.folder!;
+      expect(created.name, 'Trade');
+      expect(await controller.renameFolder(created.id, 'Trade Binder'), isTrue);
       expect(await controller.setDefaultFolder(created.id), isTrue);
       expect(
         await controller.reorderFolders([
@@ -517,11 +516,10 @@ void main() {
       await container.read(detailProvider.notifier).loadComplete;
       final detailState = container.read(detailProvider);
 
-      final created = await controller.createFolder('Trade');
-      expect(
-        await controller.renameFolder(created!.id, 'Trade Binder'),
-        isTrue,
-      );
+      final createResult = await controller.createFolder('Trade');
+      expect(createResult.status, CreateFolderStatus.success);
+      final created = createResult.folder!;
+      expect(await controller.renameFolder(created.id, 'Trade Binder'), isTrue);
       expect(await controller.setDefaultFolder(created.id), isTrue);
       expect(
         await controller.reorderFolders([
@@ -536,6 +534,51 @@ void main() {
 
       expect(homeRepository.calls, 1);
       expect(container.read(detailProvider), isNot(same(detailState)));
+    },
+  );
+
+  test(
+    'server Folder limit refreshes the dashboard because another device may have consumed the final Free slot',
+    () async {
+      final repository = _FolderCreateFailureRepository(
+        code: 'PREMIUM_REQUIRED',
+      );
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedState(container);
+
+      final result = await container
+          .read(collectionControllerProvider.notifier)
+          .createFolder('Trade');
+
+      expect(result.status, CreateFolderStatus.premiumRequired);
+      expect(repository.loadCalls, 2);
+      expect(
+        container.read(collectionControllerProvider).dashboard.folders.length,
+        2,
+      );
+    },
+  );
+
+  test(
+    'entitlement sync and ordinary failures remain distinct so the create form can preserve user input',
+    () async {
+      for (final entry in {
+        'ENTITLEMENT_SYNC_REQUIRED': CreateFolderStatus.entitlementSyncRequired,
+        'INTERNAL_ERROR': CreateFolderStatus.failed,
+      }.entries) {
+        final repository = _FolderCreateFailureRepository(code: entry.key);
+        final container = _collectionContainer(repository: repository);
+        addTearDown(container.dispose);
+        await _loadedState(container);
+
+        final result = await container
+            .read(collectionControllerProvider.notifier)
+            .createFolder('Trade');
+
+        expect(result.status, entry.value);
+        expect(repository.loadCalls, 1);
+      }
     },
   );
 
@@ -792,8 +835,9 @@ class _RecordingCollectionRepository extends MockCollectionRepository {
   @override
   Future<CollectionFolder> createFolder(
     AuthSession session,
-    String name,
-  ) async {
+    String name, {
+    bool localPremiumVerified = false,
+  }) async {
     return CollectionFolder(
       id: 'folder-${name.toLowerCase()}',
       name: name,
@@ -832,6 +876,29 @@ class _DelayedPreferenceCollectionRepository extends MockCollectionRepository {
     String? lastSelectedFolderId,
   }) {
     return preferenceWrite.future;
+  }
+}
+
+class _FolderCreateFailureRepository extends MockCollectionRepository {
+  _FolderCreateFailureRepository({required this.code});
+
+  final String code;
+  var loadCalls = 0;
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    loadCalls += 1;
+    final dashboard = await super.loadDashboard(session);
+    return dashboard.copyWith(folders: dashboard.folders.take(2).toList());
+  }
+
+  @override
+  Future<CollectionFolder> createFolder(
+    AuthSession session,
+    String name, {
+    bool localPremiumVerified = false,
+  }) {
+    throw PortfolioApiException('rejected', code: code);
   }
 }
 

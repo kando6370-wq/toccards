@@ -553,6 +553,31 @@ body {
   overflow: hidden;
 }
 
+.billing-table-actions {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 18px;
+}
+
+.billing-table-actions h4 {
+  margin: 0;
+}
+
+.notification-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.json-block {
+  max-height: 52vh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .scans-table-panel .ant-table-thead > tr > th {
   background: #eef2f4;
   color: #23313d;
@@ -609,7 +634,8 @@ body {
   padding-left: 10px;
 }
 
-.scan-detail-drawer .info-grid {
+.scan-detail-drawer .info-grid,
+.notification-detail-drawer .info-grid {
   background: #f7fafb;
   border: 1px solid #dce5eb;
   border-radius: 6px;
@@ -619,12 +645,14 @@ body {
   padding: 16px;
 }
 
-.scan-detail-drawer .info-item {
+.scan-detail-drawer .info-item,
+.notification-detail-drawer .info-item {
   display: grid;
   gap: 4px;
 }
 
-.scan-detail-drawer .info-item strong {
+.scan-detail-drawer .info-item strong,
+.notification-detail-drawer .info-item strong {
   color: #17212b;
   font-weight: 700;
 }

@@ -39,6 +39,9 @@ type CollectionItemRow = {
   quantity: number;
   purchase_price: number | null;
   purchase_currency: string | null;
+  performance_start_at: string;
+  purchase_price_effective_at: string;
+  performance_history_available_from: string;
   notes: string | null;
   folder_joined_at: string;
   created_at: string;
@@ -65,6 +68,9 @@ type CollectionItemEventRow = {
   language: string | null;
   finish: string | null;
   quantity: number;
+  purchase_price: number | null;
+  purchase_currency: string | null;
+  performance_history_available_from: string;
   event_type: "upsert" | "delete";
   effective_at: string;
 };
@@ -186,6 +192,9 @@ class FakeD1Statement {
         language,
         finish,
         quantity,
+        purchasePrice,
+        purchaseCurrency,
+        performanceHistoryAvailableFrom,
         eventType,
         effectiveAt,
       ] = this.args as [
@@ -202,6 +211,9 @@ class FakeD1Statement {
         string | null,
         string | null,
         number,
+        number | null,
+        string | null,
+        string,
         "upsert" | "delete",
         string,
       ];
@@ -219,6 +231,9 @@ class FakeD1Statement {
         language,
         finish,
         quantity,
+        purchase_price: purchasePrice,
+        purchase_currency: purchaseCurrency,
+        performance_history_available_from: performanceHistoryAvailableFrom,
         event_type: eventType,
         effective_at: effectiveAt,
       });
@@ -241,6 +256,9 @@ class FakeD1Statement {
         quantity,
         purchasePrice,
         purchaseCurrency,
+        performanceStartAt,
+        purchasePriceEffectiveAt,
+        performanceHistoryAvailableFrom,
         notes,
         createdAt,
         updatedAt,
@@ -259,6 +277,9 @@ class FakeD1Statement {
         number,
         number | null,
         string | null,
+        string,
+        string,
+        string,
         string | null,
         string,
         string,
@@ -279,6 +300,9 @@ class FakeD1Statement {
         quantity,
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
+        performance_start_at: performanceStartAt,
+        purchase_price_effective_at: purchasePriceEffectiveAt,
+        performance_history_available_from: performanceHistoryAvailableFrom,
         notes,
         folder_joined_at: createdAt,
         created_at: createdAt,
@@ -479,6 +503,88 @@ describe("collection item routes", () => {
         event_type: "upsert",
       }),
     ]);
+  });
+
+  it("replays a lost create response by operation key because retry must confirm the original item", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    const idempotencyKey = "33333333-3333-4333-8333-333333333333";
+    const headers = {
+      ...(await authHeaders("anonymous", "anon-1")),
+      "Idempotency-Key": idempotencyKey,
+    };
+    const body = JSON.stringify({
+      folder_id: "main",
+      card_ref: "card-a",
+      object_type: "tcg",
+      grader: "Raw",
+      condition: "Near Mint (NM)",
+      grade: null,
+      language: "English",
+      finish: "Holofoil",
+      quantity: 2,
+      purchase_price: 50,
+      purchase_currency: "USD",
+      notes: "first copy",
+    });
+
+    const created = await app.request(
+      "/api/v1/portfolio/items",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+    const replayed = await app.request(
+      "/api/v1/portfolio/items",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+
+    expect(created.status).toBe(201);
+    expect(replayed.status).toBe(200);
+    expect(await replayed.json()).toMatchObject({
+      success: true,
+      data: { id: idempotencyKey, card_ref: "card-a", quantity: 2 },
+    });
+    expect(db.items).toHaveLength(1);
+    expect(db.itemEvents).toHaveLength(1);
+  });
+
+  it("rejects changing an item create after reusing its operation key because one key has one request meaning", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    const headers = {
+      ...(await authHeaders("anonymous", "anon-1")),
+      "Idempotency-Key": "44444444-4444-4444-8444-444444444444",
+    };
+    const draft = {
+      folder_id: "main",
+      card_ref: "card-a",
+      object_type: "tcg",
+      grader: "Raw",
+      condition: "Near Mint (NM)",
+      grade: null,
+      language: "English",
+      finish: "Holofoil",
+      quantity: 1,
+    };
+    await app.request(
+      "/api/v1/portfolio/items",
+      { method: "POST", headers, body: JSON.stringify(draft) },
+      createTestEnv(db),
+    );
+
+    const response = await app.request(
+      "/api/v1/portfolio/items",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ ...draft, quantity: 2 }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(409);
+    expect(db.items).toHaveLength(1);
   });
 
   it("rejects the old Raw condition label because raw card condition must use the PRD canonical value", async () => {
@@ -1011,6 +1117,9 @@ function item(overrides: Partial<CollectionItemRow>): CollectionItemRow {
     quantity: 1,
     purchase_price: null,
     purchase_currency: null,
+    performance_start_at: NOW,
+    purchase_price_effective_at: NOW,
+    performance_history_available_from: NOW,
     notes: null,
     folder_joined_at: NOW,
     created_at: NOW,

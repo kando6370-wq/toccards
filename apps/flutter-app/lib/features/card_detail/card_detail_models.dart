@@ -7,7 +7,8 @@ enum CardPriceRange {
   sevenDays(7, '7d'),
   fifteenDays(15, '15d'),
   oneMonth(30, '1m'),
-  threeMonths(90, '3m');
+  threeMonths(90, '3m'),
+  oneYear(365, '1y');
 
   const CardPriceRange(this.days, this.label);
 

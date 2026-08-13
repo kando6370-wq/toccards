@@ -54,7 +54,7 @@ describe("portfolio valuation history", () => {
 
     const result = await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
       ["main", "trade"],
       10,
       new Date("2026-07-10T12:00:00.000Z"),
@@ -94,7 +94,7 @@ describe("portfolio valuation history", () => {
     );
     const [main] = await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
       ["main"],
       1,
       new Date("2026-07-10T12:00:00.000Z"),
@@ -138,7 +138,7 @@ describe("portfolio valuation history", () => {
 
     const [main] = await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
       ["main"],
       1,
       new Date("2026-07-10T12:00:00.000Z"),

@@ -222,6 +222,7 @@ class _PortfolioApi implements PortfolioApi {
   Future<List<PortfolioFolderValuationDto>> getValuationHistory(
     AuthSession session, {
     int days = 90,
+    bool localPremiumVerified = false,
   }) async => [
     PortfolioFolderValuationDto(
       folderId: 'main',

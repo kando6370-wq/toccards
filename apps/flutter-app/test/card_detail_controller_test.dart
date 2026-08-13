@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -9,6 +10,7 @@ import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/home/home_performance_controller.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
@@ -943,6 +945,89 @@ void main() {
   );
 
   test(
+    'a stale target Folder refreshes Collection without moving the Item because remote deletion must not leave a false move result',
+    () async {
+      final repository = _MissingTargetFolderCardDetailRepository();
+      final container = _cardDetailContainer(
+        repository: repository,
+        includeAssetConsumers: true,
+      );
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('charizard-ex');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'charizard-ex');
+      final collectionController = container.read(
+        collectionControllerProvider.notifier,
+      );
+      await collectionController.loadComplete;
+      final collectionBeforeMove = container.read(collectionControllerProvider);
+
+      controller.startEditingCollectionItem('item-charizard');
+      controller.updateCollectionItemDraft(
+        portfolioName: 'Sealed',
+        notes: 'Keep this input after the failed move.',
+      );
+
+      await expectLater(
+        controller.saveCollectionItemDraft(),
+        throwsA(
+          isA<PortfolioApiException>().having(
+            (error) => error.code,
+            'code',
+            'NOT_FOUND',
+          ),
+        ),
+      );
+      final state = container.read(provider);
+
+      expect(state.collectionItemRows.single.portfolioName, 'Main');
+      expect(state.collectionItemDraft, isNotNull);
+      expect(
+        state.collectionItemDraft!.notes,
+        'Keep this input after the failed move.',
+      );
+      expect(state.isSavingCollectionItemDraft, isFalse);
+      expect(
+        container.read(collectionControllerProvider),
+        isNot(same(collectionBeforeMove)),
+      );
+    },
+  );
+
+  test(
+    'a successful Folder Move invalidates Source and Target Performance because both folder histories changed',
+    () async {
+      final performanceApi = _ImmediatePerformanceApi();
+      final container = _cardDetailContainer(
+        repository: _FolderAwareCardDetailRepository(),
+        includeAssetConsumers: true,
+        portfolioApi: performanceApi,
+      );
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('charizard-ex');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'charizard-ex');
+      await container
+          .read(homePerformanceControllerProvider.notifier)
+          .load(folderId: 'folder-main-db', localPremiumVerified: true);
+      expect(container.read(homePerformanceControllerProvider).hasLoaded, true);
+
+      controller.startEditingCollectionItem('item-charizard');
+      controller.updateCollectionItemDraft(portfolioName: 'Sealed');
+
+      expect(await controller.saveCollectionItemDraft(), isTrue);
+      expect(
+        container.read(provider).collectionItemRows.single.portfolioName,
+        'Sealed',
+      );
+      expect(
+        container.read(homePerformanceControllerProvider).hasLoaded,
+        false,
+      );
+    },
+  );
+
+  test(
     'invalid Collection Item draft stays open with validation copy',
     () async {
       final container = _cardDetailContainer();
@@ -998,6 +1083,7 @@ void main() {
         '15d',
         '1m',
         '3m',
+        '1y',
       ]);
       expect(state.selectedPriceChartMode, CardPriceChartMode.raw);
       expect(state.selectedPriceRange, CardPriceRange.oneMonth);
@@ -1300,6 +1386,13 @@ class _BlockingOptionalSectionRepository extends _RecordingCardDetailRepository
     String cardId, {
     CardDetailMarketData? market,
     String? finish,
+    Iterable<CardPriceRange> ranges = const [
+      CardPriceRange.oneDay,
+      CardPriceRange.sevenDays,
+      CardPriceRange.fifteenDays,
+      CardPriceRange.oneMonth,
+      CardPriceRange.threeMonths,
+    ],
   }) {
     return _seriesCompleter.future;
   }
@@ -1423,6 +1516,22 @@ class _DuplicateCollectionItemRepository
   }
 }
 
+class _MissingTargetFolderCardDetailRepository
+    extends _RecordingCardDetailRepository {
+  @override
+  Future<CardCollectionItem> updateCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+  }) {
+    throw const PortfolioApiException(
+      'Not found.',
+      code: 'NOT_FOUND',
+      statusCode: 404,
+    );
+  }
+}
+
 class _WishlistWithoutIdCardDetailRepository
     extends _RecordingCardDetailRepository {
   @override
@@ -1520,6 +1629,7 @@ class _FolderAwareCardDetailRepository extends _RecordingCardDetailRepository {
 ProviderContainer _cardDetailContainer({
   CardDetailRepository repository = const MockCardDetailRepository(),
   bool includeAssetConsumers = false,
+  PortfolioApiClient? portfolioApi,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -1529,6 +1639,8 @@ ProviderContainer _cardDetailContainer({
         LocalPlaceholderAuthRepository(storage),
       ),
       cardDetailRepositoryProvider.overrideWithValue(repository),
+      if (portfolioApi != null)
+        portfolioApiClientProvider.overrideWithValue(portfolioApi),
       if (includeAssetConsumers) ...[
         homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
         collectionRepositoryProvider.overrideWithValue(
@@ -1540,6 +1652,45 @@ ProviderContainer _cardDetailContainer({
       ],
     ],
   );
+}
+
+class _ImmediatePerformanceApi extends PortfolioApiClient {
+  _ImmediatePerformanceApi() : super(Dio());
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) async {
+    final point = PerformancePointDto(
+      date: '2026-08-13',
+      marketValueUsd: 100,
+      marketValueChangeUsd: 0,
+      marketChangeUsd: 0,
+      portfolioChangeUsd: 0,
+      paidMarketValueUsd: 100,
+      totalPaidUsd: 80,
+      profitLossUsd: 20,
+      profitLossChangeUsd: 0,
+      returnPercent: 25,
+      quantity: 1,
+      quantityChange: 0,
+    );
+    return PortfolioPerformanceDto(
+      range: range,
+      rangeStart: '2026-07-13',
+      rangeEnd: '2026-08-13',
+      historyAvailableFrom: '2026-07-13',
+      partialHistory: false,
+      itemCount: 1,
+      marketPriceStatus: MarketPriceStatus.available,
+      purchasePriceStatus: PurchasePriceStatus.complete,
+      current: point,
+      series: [point],
+    );
+  }
 }
 
 Future<CardDetailState> _loadedState(
@@ -1583,7 +1734,24 @@ class _FakePortfolioApiClient implements PortfolioApi {
   Future<List<PortfolioFolderValuationDto>> getValuationHistory(
     AuthSession session, {
     int days = 90,
+    bool localPremiumVerified = false,
   }) async => const [];
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<PortfolioPerformanceDto> getItemPerformance(
+    AuthSession session, {
+    required String itemId,
+    required PerformanceRange range,
+    bool localPremiumVerified = false,
+  }) => throw UnimplementedError();
 
   @override
   Future<List<PortfolioItemDto>> listCollectionItems(

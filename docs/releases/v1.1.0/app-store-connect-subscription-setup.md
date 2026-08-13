@@ -4,7 +4,7 @@
 > **日期**：2026-08-10
 > **适用应用**：Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
-> **当前状态**：商品配置可开始；正式购买仍被服务端票据验证能力阻塞，详见「七、当前阻塞项」。
+> **当前状态**：商品配置可开始；服务端 Apple JWS 验证链已实现，正式购买仍被 Product ID/Apple Secret 配置、D1 迁移和 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。
 
 ---
 
@@ -12,7 +12,7 @@
 
 iOS 中的数字内容订阅必须使用 **Apple In-App Purchase（StoreKit）**，不能使用 Apple Pay。
 
-| 套餐 | App Store 商品类型 | 建议 Product ID | 归属 |
+| 套餐 | App Store 商品类型 | 候选 Product ID（待产品/运营冻结） | 归属 |
 |---|---|---|---|
 | Weekly | Auto-Renewable Subscription | `com.cardai.tcg.pro.weekly` | `Performance Pro` 订阅组 |
 | Yearly | Auto-Renewable Subscription | `com.cardai.tcg.pro.yearly` | `Performance Pro` 订阅组 |
@@ -23,7 +23,7 @@ iOS 中的数字内容订阅必须使用 **Apple In-App Purchase（StoreKit）**
 - Weekly 和 Yearly 必须放在同一个订阅组，用户同一时间只能持有该组内一个订阅。
 - Lifetime 是一次性永久购买，不能放入自动续订订阅组。
 - Product ID 创建后不能修改，也不能在删除后复用；创建前须确认命名。
-- App Store 返回的本地化价格是展示与扣款的权威来源。当前代码中的 `$4.99`、`$49.99`、`$79.99` 仅为商店价格暂时不可用时的 fallback，不代表 App Store Connect 已配置价格。
+- App Store 返回的本地化价格是展示与扣款的权威来源。当前 App 不使用固定美元价格兜底；商品未返回时显示 Loading 或 Unavailable，不得伪造价格。
 
 ---
 
@@ -127,7 +127,22 @@ flutter build ipa --release `
   --dart-define=SUBSCRIPTION_APP_STORE_LIFETIME_ID=com.cardai.tcg.pro.lifetime
 ```
 
-当前客户端要求三个 iOS Product ID 全部非空才会初始化商店。漏配任意一个时，整个订阅购买入口都会处于未配置状态。
+最新 App PRD 将正式 Product ID 标记为 Pending Configuration。上表及示例值不得视为已冻结配置；产品/运营确认后，必须同步 App 构建参数、Workers `APPLE_IAP_PRODUCT_IDS`、D1 `billing_product` 和 App Store Connect。当前客户端只请求非空 Product ID：至少配置一个 SKU 即可初始化商店，其余未配置或 StoreKit 未返回的 SKU 显示 `Unavailable` 且不可购买；正式联调验收前仍必须冻结并完整配置三个 SKU。
+
+Singular 使用同一份 `--dart-define-from-file` 环境配置注入，不在仓库写入正式密钥：
+
+| 配置 | Dart Define |
+|---|---|
+| Singular API Key | `SINGULAR_API_KEY` |
+| Singular Secret Key | `SINGULAR_SECRET_KEY` |
+
+将两个字段与三个 Product ID 一并写入受控发布 JSON，正式值不得提交仓库。普通开发构建允许缺项并按业务规则降级；`tool/release_ios.sh` 属于正式发布入口，会在构建前强制校验 `APP_ENV`、三个 Product ID、Singular API Key/Secret 均为非空字符串，且三个 Product ID 不重复，缺项时显式终止。
+
+仓库内 `apps/flutter-app/config/test.json` 与 `production.json` 仅为不含密钥的占位配置。发布时通过 `RELEASE_ENV_CONFIG` 指向仓库外的受控文件：
+
+```bash
+RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env production
+```
 
 ---
 
@@ -147,41 +162,34 @@ flutter build ipa --release `
 
 在应用的 App Store Server Notifications 配置中分别填写：
 
-- Sandbox Server URL：开发或测试环境通知地址。
-- Production Server URL：生产环境通知地址。
+- Sandbox Server URL：`https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。
+- Production Server URL：`https://api.tcgcard.fun/api/v1/apple/notifications/v2`。
 - Version：选择 Version 2。
 
-具体 URL 需在后端通知接口完成后确定。接口必须验证 Apple 签名，并保证重复通知可幂等处理。
+上述 URL 来自当前 Worker 自定义域名和已挂载路由；填入 App Store Connect 前仍需先完成对应环境迁移、Apple 验签配置和部署，并用 Apple 测试通知验证可达性。接口已实现 Apple 签名验证和重复通知幂等处理。
 
 ### 6.3 后端职责
 
-- [ ] 使用 App Store Server API 查询交易与订阅状态。
-- [ ] 验证 Apple 签名的 JWS 交易数据，不能仅信任客户端结果。
-- [ ] 处理续订、退款、撤销、过期、Billing Retry 与 Grace Period。
-- [ ] 将 StoreKit 交易映射到用户和 `performance_pro` 权益。
-- [ ] Lifetime 验证成功后授予无到期时间的永久权益。
-- [ ] 提供恢复购买后的权益重建能力。
-- [ ] 保存通知处理记录，确保幂等并支持审计。
+- [x] 代码已使用 App Store Server API 查询交易与订阅状态；待配置各环境 Secret 并完成 Sandbox 验收。
+- [x] 代码已使用 Apple 官方库验证 StoreKit 2 JWS，校验 Bundle、环境、Product ID、有效期与撤销状态；仍待正式证书配置和 Sandbox 验收。
+- [x] 代码已处理续订、退款、撤销、过期、Billing Retry、Grace Period、乱序保护与 Apple Server API 校正；仍待真实通知矩阵。
+- [x] 交易映射到 Apple purchase chain 与当前 session grant，不把 UID 当作 Premium owner。
+- [x] Lifetime 通过已验证交易建立无到期时间权益；仍待 Sandbox 实单验收。
+- [x] Restore 已使用 StoreKit current entitlements 与 App Attest proof 为当前 session 重建 grant；仍待 iOS 真机验收。
+- [x] 通知原文、处理状态、幂等、重试和 Admin 排障视图已实现；迁移和真实环境验收尚未完成。
 
 ---
 
 ## 七、当前阻塞项
 
-仅完成 App Store Connect 配置，**当前代码仍无法完成正式购买授权**。
+当前已实现 Fresh Purchase challenge、StoreKit 2 JWS 上传和 Workers session grant 写链，但**仍无法宣称正式购买授权端到端完成**。上线阻塞包括：
 
-客户端仍注入 `_MissingSubscriptionReceiptVerifier`：
+- 正式 Product ID、Apple Root CA、Production App Apple ID 和 D1 `billing_product` 映射尚未配置/冻结。
+- StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
+- Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现，但 Apple Secret、通知 URL 和真机/Sandbox 端到端验收尚未完成。
+- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应迁移已通过隔离空库顺序执行，但尚未应用到常用 local、远程 dev 或 prod，仍待 Sandbox/TestFlight 多设备验收。
 
-```text
-apps/flutter-app/lib/features/subscription/subscription_controller.dart:286
-```
-
-购买验证时会抛出：
-
-```text
-A receipt verifier must be configured by the app.
-```
-
-上线前必须完成服务端验证接口，并在 App 中替换该占位 verifier。未完成前只能验证商品查询和发起购买等局部流程，不能宣称订阅支付已经端到端可用。
+challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。
 
 ---
 

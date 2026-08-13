@@ -40,6 +40,7 @@ class MockSearchRepository implements SearchRepository {
           variantLine: 'PSA 10',
           quantity: 1,
           collectionItemCount: 1,
+          collectionItemId: 'item-charizard',
           isWishlisted: false,
         ),
         SearchCard(

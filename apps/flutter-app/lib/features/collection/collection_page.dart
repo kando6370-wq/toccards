@@ -13,6 +13,9 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_entitlement_cache.dart';
+import '../subscription/premium_top_entry.dart';
 import 'collection_controller.dart';
 import 'collection_models.dart';
 
@@ -49,6 +52,18 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: EdgeInsets.zero,
                   children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        KandoLayout.mainTabTopPadding,
+                        20,
+                        8,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: PremiumTopEntry(source: 'collection'),
+                      ),
+                    ),
                     if (state.loadStatus == KandoLoadStatus.loading)
                       const KandoLoadingBlock()
                     else
@@ -75,6 +90,11 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                   ),
                   child: Column(
                     children: [
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: PremiumTopEntry(source: 'collection'),
+                      ),
+                      const SizedBox(height: 8),
                       _SegmentedTabs(
                         selected: state.selectedTab,
                         onSelect: controller.selectTab,
@@ -746,7 +766,8 @@ SearchCard _asSearchCard(
     variantLine: source.finish,
     quantity: source.quantity,
     isWishlisted: !showQuantity,
-    collectionItemCount: showQuantity ? source.quantity : 0,
+    collectionItemCount: showQuantity ? 1 : 0,
+    collectionItemId: showQuantity ? source.id : null,
     collectionInfo: showQuantity ? _searchCollectionInfo(source) : null,
     language: source.language,
     finish: source.finish,
@@ -1066,15 +1087,37 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                         shape: const StadiumBorder(),
                       ),
                       onPressed: () async {
-                        final name = await _promptForFolderName(
-                          context,
-                          title: 'Add Portfolio',
-                        );
-                        if (name == null || !context.mounted) return;
-                        if (await controller.createFolder(name) == null &&
-                            context.mounted) {
-                          _showCollectionActionError(context);
+                        var premiumState = ref
+                            .read(subscriptionControllerProvider)
+                            .premiumState;
+                        if (premiumState == AppPremiumState.unknown &&
+                            state.dashboard.folders.length >= 2) {
+                          premiumState = await ref
+                              .read(subscriptionControllerProvider.notifier)
+                              .refreshEntitlement();
+                          if (!context.mounted ||
+                              premiumState == AppPremiumState.unknown) {
+                            return;
+                          }
                         }
+                        if (premiumState == AppPremiumState.free &&
+                            state.dashboard.folders.length >= 2) {
+                          final result = await context
+                              .push<SubscriptionPaywallResult>(
+                                subscriptionSheetLocation,
+                              );
+                          if (!context.mounted || result == null) return;
+                          showKandoTopToast(
+                            context,
+                            message:
+                                result ==
+                                    SubscriptionPaywallResult.premiumRestored
+                                ? 'Premium restored'
+                                : 'Premium unlocked',
+                            type: KandoTopToastType.success,
+                          );
+                        }
+                        await _runCreateFolderFlow(context, controller);
                       },
                       icon: const Icon(Icons.add_circle_outline),
                       label: const Text('ADD NEW'),
@@ -1088,6 +1131,121 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
       },
     ),
   );
+}
+
+Future<void> _runCreateFolderFlow(
+  BuildContext context,
+  CollectionController controller,
+) async {
+  var initialName = '';
+  while (context.mounted) {
+    final result = await _showCreateFolderSheet(
+      context,
+      initialName: initialName,
+      onSave: controller.createFolder,
+    );
+    if (result == null ||
+        result.status == CreateFolderStatus.success ||
+        !context.mounted) {
+      return;
+    }
+
+    initialName = result.name;
+    final paywallResult = await context.push<SubscriptionPaywallResult>(
+      subscriptionSheetLocation,
+    );
+    if (!context.mounted || paywallResult == null) return;
+    showKandoTopToast(
+      context,
+      message: paywallResult == SubscriptionPaywallResult.premiumRestored
+          ? 'Premium restored'
+          : 'Premium unlocked',
+      type: KandoTopToastType.success,
+    );
+  }
+}
+
+Future<_CreateFolderSheetResult?> _showCreateFolderSheet(
+  BuildContext context, {
+  required String initialName,
+  required Future<CreateFolderResult> Function(String name) onSave,
+}) {
+  return showModalBottomSheet<_CreateFolderSheetResult>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: const Color(0xBF0D0F08),
+    builder: (context) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: _CreateFolderBottomSheet(initialName: initialName, onSave: onSave),
+    ),
+  );
+}
+
+class _CreateFolderSheetResult {
+  const _CreateFolderSheetResult({required this.status, required this.name});
+
+  final CreateFolderStatus status;
+  final String name;
+}
+
+class _CreateFolderBottomSheet extends StatefulWidget {
+  const _CreateFolderBottomSheet({
+    required this.initialName,
+    required this.onSave,
+  });
+
+  final String initialName;
+  final Future<CreateFolderResult> Function(String name) onSave;
+
+  @override
+  State<_CreateFolderBottomSheet> createState() =>
+      _CreateFolderBottomSheetState();
+}
+
+class _CreateFolderBottomSheetState extends State<_CreateFolderBottomSheet> {
+  late String _name = widget.initialName;
+  var _isSaving = false;
+
+  Future<void> _save() async {
+    final name = _name.trim();
+    if (_isSaving || name.isEmpty) return;
+    setState(() => _isSaving = true);
+    final result = await widget.onSave(name);
+    if (!mounted) return;
+
+    if (result.status == CreateFolderStatus.success ||
+        result.status == CreateFolderStatus.premiumRequired) {
+      Navigator.of(
+        context,
+      ).pop(_CreateFolderSheetResult(status: result.status, name: name));
+      return;
+    }
+
+    if (result.status == CreateFolderStatus.entitlementSyncRequired) {
+      showKandoToast(
+        context,
+        message: 'Premium access is still syncing. Please try again.',
+      );
+    } else {
+      _showCollectionActionError(context);
+    }
+    setState(() => _isSaving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isSaving,
+      child: _FolderNameBottomSheet(
+        title: 'Add Portfolio',
+        initialName: widget.initialName,
+        onChanged: (value) => _name = value,
+        onSave: _isSaving ? null : _save,
+        isSaving: _isSaving,
+      ),
+    );
+  }
 }
 
 Future<String?> _promptForFolderName(
@@ -1115,6 +1273,7 @@ Future<String?> _promptForFolderName(
               Navigator.of(context).pop(normalized);
             }
           },
+          isSaving: false,
         ),
       );
     },
@@ -1127,12 +1286,14 @@ class _FolderNameBottomSheet extends StatelessWidget {
     required this.initialName,
     required this.onChanged,
     required this.onSave,
+    required this.isSaving,
   });
 
   final String title;
   final String initialName;
   final ValueChanged<String> onChanged;
-  final VoidCallback onSave;
+  final VoidCallback? onSave;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -1172,6 +1333,7 @@ class _FolderNameBottomSheet extends StatelessWidget {
             initialValue: initialName,
             onChanged: onChanged,
             autofocus: true,
+            enabled: !isSaving,
             maxLength: 50,
             style: const TextStyle(
               color: KandoColors.text,
@@ -1197,7 +1359,7 @@ class _FolderNameBottomSheet extends StatelessWidget {
           Row(
             children: [
               _RoundSheetButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: isSaving ? null : () => Navigator.of(context).pop(),
                 child: const Icon(
                   Icons.arrow_back,
                   color: KandoColors.accent,
@@ -1210,7 +1372,7 @@ class _FolderNameBottomSheet extends StatelessWidget {
                   key: const Key('collection-folder-name-save'),
                   backgroundColor: KandoColors.accent,
                   foregroundColor: KandoColors.primaryOnDefault,
-                  label: 'SAVE',
+                  label: isSaving ? 'SAVING' : 'SAVE',
                   onPressed: onSave,
                 ),
               ),
@@ -1280,7 +1442,7 @@ class _PortfolioActionSheet extends StatelessWidget {
 class _RoundSheetButton extends StatelessWidget {
   const _RoundSheetButton({required this.onPressed, required this.child});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Widget child;
 
   @override
@@ -1315,7 +1477,7 @@ class _PillSheetButton extends StatelessWidget {
   final Color backgroundColor;
   final Color foregroundColor;
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {

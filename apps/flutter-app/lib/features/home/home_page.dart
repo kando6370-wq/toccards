@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -20,8 +21,11 @@ import '../collection/collection_page.dart';
 import '../collection/collection_controller.dart';
 import '../collection/collection_models.dart';
 import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_entitlement_cache.dart';
+import '../subscription/premium_top_entry.dart';
 import 'home_controller.dart';
 import 'home_models.dart';
+import 'home_performance_controller.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -64,9 +68,29 @@ class _HomePageState extends ConsumerState<HomePage>
   Widget build(BuildContext context) {
     final state = ref.watch(homeControllerProvider);
     final controller = ref.read(homeControllerProvider.notifier);
-    final isPro = ref.watch(
-      subscriptionControllerProvider.select((value) => value.isPro),
+    final premiumState = ref.watch(
+      subscriptionControllerProvider.select((value) => value.premiumState),
     );
+    final isPro = premiumState == AppPremiumState.premium;
+    if (premiumState == AppPremiumState.free &&
+        state.chartRange == HomeChartRange.oneYear) {
+      Future<void>.microtask(
+        () => ref
+            .read(homeControllerProvider.notifier)
+            .selectChartRange(HomeChartRange.threeMonths),
+      );
+    }
+    final performance = ref.watch(homePerformanceControllerProvider);
+    if (_performanceSelected &&
+        isPro &&
+        (performance.folderId != state.selectedFolderId ||
+            !performance.hasLoaded && !performance.isLoading)) {
+      Future<void>.microtask(
+        () => ref
+            .read(homePerformanceControllerProvider.notifier)
+            .load(folderId: state.selectedFolderId, localPremiumVerified: true),
+      );
+    }
 
     return KandoTabScaffold(
       currentTab: KandoMainTab.home,
@@ -96,6 +120,11 @@ class _HomePageState extends ConsumerState<HomePage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: PremiumTopEntry(source: 'home'),
+                  ),
+                  const SizedBox(height: 8),
                   _Header(
                     currencyCode: state.currencyCode,
                     currencySymbol: state.currency.symbol,
@@ -105,6 +134,9 @@ class _HomePageState extends ConsumerState<HomePage>
                     },
                     onPerformancePressed: () {
                       setState(() => _performanceSelected = true);
+                      unawaited(
+                        _loadPerformanceIfPremium(state.selectedFolderId),
+                      );
                     },
                     onCurrencyPressed: () {
                       ref
@@ -117,11 +149,27 @@ class _HomePageState extends ConsumerState<HomePage>
                   if (_performanceSelected)
                     _PerformanceSection(
                       state: state,
+                      performance: performance,
                       isPro: isPro,
                       onFolderPressed: () => _showFolderSheet(context, ref),
-                      onRangeSelected: controller.selectChartRange,
-                      onUnlock: () => context.push(subscriptionSheetLocation),
-                      onRefresh: () => _trackRefresh(controller.refresh),
+                      onRangeSelected: (range) => ref
+                          .read(homePerformanceControllerProvider.notifier)
+                          .selectRange(
+                            range,
+                            folderId: state.selectedFolderId,
+                            localPremiumVerified: true,
+                          ),
+                      onUnlock: () => _unlockPerformance(
+                        context,
+                        folderId: state.selectedFolderId,
+                      ),
+                      onRefresh: () => ref
+                          .read(homePerformanceControllerProvider.notifier)
+                          .load(
+                            folderId: state.selectedFolderId,
+                            localPremiumVerified: true,
+                            force: true,
+                          ),
                     )
                   else ...[
                     _PortfolioCard(
@@ -133,7 +181,12 @@ class _HomePageState extends ConsumerState<HomePage>
                         _showFolderSheet(context, ref);
                       },
                       onHidePressed: controller.toggleAmountHidden,
-                      onRangeSelected: controller.selectChartRange,
+                      onRangeSelected: (range) => _selectOverviewRange(
+                        context,
+                        controller,
+                        range,
+                        premiumState: premiumState,
+                      ),
                       onRefresh: () => _trackRefresh(controller.refresh),
                     ),
                     const SizedBox(height: 32),
@@ -181,6 +234,82 @@ class _HomePageState extends ConsumerState<HomePage>
   Future<void> _trackRefresh(Future<void> Function() refresh) {
     ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
     return refresh();
+  }
+
+  Future<void> _unlockPerformance(
+    BuildContext context, {
+    required String folderId,
+  }) async {
+    final premiumState = await _resolvePremiumForRestrictedAction();
+    if (!mounted || !context.mounted) return;
+    if (premiumState == AppPremiumState.premium) {
+      await ref
+          .read(homePerformanceControllerProvider.notifier)
+          .load(folderId: folderId, localPremiumVerified: true, force: true);
+      return;
+    }
+    if (premiumState == AppPremiumState.unknown) return;
+    final result = await context.push<SubscriptionPaywallResult>(
+      subscriptionSheetLocation,
+    );
+    if (!mounted || !context.mounted || result == null) return;
+    showKandoTopToast(
+      context,
+      message: result == SubscriptionPaywallResult.premiumRestored
+          ? 'Premium restored'
+          : 'Premium unlocked',
+      type: KandoTopToastType.success,
+    );
+    final home = ref.read(homeControllerProvider);
+    if (!_performanceSelected || home.selectedFolderId != folderId) return;
+    await ref
+        .read(homePerformanceControllerProvider.notifier)
+        .load(folderId: folderId, localPremiumVerified: true, force: true);
+  }
+
+  Future<void> _selectOverviewRange(
+    BuildContext context,
+    HomeController controller,
+    HomeChartRange range, {
+    required AppPremiumState premiumState,
+  }) async {
+    if (range == HomeChartRange.oneYear) {
+      final resolved = premiumState == AppPremiumState.unknown
+          ? await _resolvePremiumForRestrictedAction()
+          : premiumState;
+      if (!context.mounted || resolved == AppPremiumState.unknown) return;
+      if (resolved == AppPremiumState.free) {
+        final result = await context.push<SubscriptionPaywallResult>(
+          subscriptionSheetLocation,
+        );
+        if (!context.mounted || result == null) return;
+        showKandoTopToast(
+          context,
+          message: result == SubscriptionPaywallResult.premiumRestored
+              ? 'Premium restored'
+              : 'Premium unlocked',
+          type: KandoTopToastType.success,
+        );
+      }
+    }
+    final selected = await controller.selectChartRange(range);
+    if (!selected && context.mounted) showKandoFailureToast(context);
+  }
+
+  Future<AppPremiumState> _resolvePremiumForRestrictedAction() async {
+    final current = ref.read(subscriptionControllerProvider).premiumState;
+    if (current != AppPremiumState.unknown) return current;
+    return ref
+        .read(subscriptionControllerProvider.notifier)
+        .refreshEntitlement();
+  }
+
+  Future<void> _loadPerformanceIfPremium(String folderId) async {
+    final premiumState = await _resolvePremiumForRestrictedAction();
+    if (!mounted || premiumState != AppPremiumState.premium) return;
+    await ref
+        .read(homePerformanceControllerProvider.notifier)
+        .load(folderId: folderId, localPremiumVerified: true);
   }
 
   Future<void> _showCurrencySheet(BuildContext context, WidgetRef ref) {
@@ -527,9 +656,10 @@ class _HomeModeSegment extends StatelessWidget {
   }
 }
 
-class _PerformanceSection extends StatelessWidget {
+class _PerformanceSection extends StatefulWidget {
   const _PerformanceSection({
     required this.state,
+    required this.performance,
     required this.isPro,
     required this.onFolderPressed,
     required this.onRangeSelected,
@@ -538,14 +668,36 @@ class _PerformanceSection extends StatelessWidget {
   });
 
   final HomeState state;
+  final HomePerformanceState performance;
   final bool isPro;
   final VoidCallback onFolderPressed;
-  final ValueChanged<HomeChartRange> onRangeSelected;
+  final ValueChanged<PerformanceRange> onRangeSelected;
   final VoidCallback onUnlock;
   final VoidCallback onRefresh;
 
   @override
+  State<_PerformanceSection> createState() => _PerformanceSectionState();
+}
+
+class _PerformanceSectionState extends State<_PerformanceSection> {
+  final _chartKey = GlobalKey<_InteractiveChartState>();
+  final _infoController = MenuController();
+
+  @override
+  void didUpdateWidget(covariant _PerformanceSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state.selectedFolderId != widget.state.selectedFolderId ||
+        oldWidget.performance.selectedRange !=
+            widget.performance.selectedRange) {
+      _infoController.close();
+      _chartKey.currentState?.clearSelection();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
+    final performance = widget.performance;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -562,8 +714,12 @@ class _PerformanceSection extends StatelessWidget {
               ),
             ),
             _FolderPill(
+              key: const Key('home-performance-folder'),
               label: state.selectedFolder.name,
-              onPressed: onFolderPressed,
+              onPressed: () {
+                _clearOverlays();
+                widget.onFolderPressed();
+              },
             ),
           ],
         ),
@@ -573,72 +729,250 @@ class _PerformanceSection extends StatelessWidget {
           style: TextStyle(color: KandoColors.mutedText, fontSize: 14),
         ),
         const SizedBox(height: 20),
-        if (!isPro)
-          _PerformanceLockedPanel(onUnlock: onUnlock)
-        else if (state.isUnavailable)
+        if (!widget.isPro)
+          _PerformanceLockedPanel(onUnlock: widget.onUnlock)
+        else if (performance.isFailure && performance.data == null)
           _FigmaFailurePanel(
             key: const Key('home-performance-failure'),
             height: 390,
             refreshKey: const Key('home-performance-refresh'),
-            onRefresh: onRefresh,
+            onRefresh: widget.onRefresh,
           )
-        else ...[
-          Row(
-            children: [
-              const Expanded(
-                child: _PerformanceMetric(label: 'Total Paid', value: '--'),
+        else if (performance.isLoading && performance.data == null)
+          const SizedBox(
+            key: Key('home-performance-loading'),
+            height: 390,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (performance.data case final data?) ...[
+          if (data.itemCount == 0)
+            const SizedBox(
+              key: Key('home-performance-empty'),
+              height: 300,
+              child: Center(child: Text('Your portfolio is empty.')),
+            )
+          else if (data.marketPriceStatus == MarketPriceStatus.missing)
+            const SizedBox(
+              key: Key('home-performance-no-data'),
+              height: 300,
+              child: Center(child: Text('No performance history available.')),
+            )
+          else ...[
+            if (data.purchasePriceStatus == PurchasePriceStatus.missing)
+              _PerformanceMetric(
+                label: 'Market Value',
+                value: _performanceAmount(state, data.current.marketValueUsd),
+              )
+            else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: _PerformanceMetric(
+                      label: 'Total Paid',
+                      value: _performanceAmount(
+                        state,
+                        data.current.totalPaidUsd,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PerformanceMetric(
+                      label: 'Market Value',
+                      value: _performanceAmount(
+                        state,
+                        data.current.marketValueUsd,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _PerformanceMetric(
-                  label: 'Market Value',
-                  value: state.totalAmountText,
-                ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PerformanceMetric(
+                      label: 'Profit / Loss',
+                      value: _performanceAmount(
+                        state,
+                        data.current.profitLossUsd,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: _PerformanceMetric(
+                      label: 'Return',
+                      value: data.current.returnPercent == null
+                          ? '--'
+                          : '${data.current.returnPercent!.toStringAsFixed(2)}%',
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          const Row(
-            children: [
-              Expanded(
-                child: _PerformanceMetric(label: 'Profit / Loss', value: '--'),
+            const SizedBox(height: 12),
+            Container(
+              height: 190,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: KandoColors.borderSubtle),
+                color: KandoColors.ink.withValues(alpha: 0.55),
               ),
-              SizedBox(width: 12),
-              Expanded(
-                child: _PerformanceMetric(label: 'Return', value: '--'),
+              child: Column(
+                children: [
+                  _PerformanceRangePicker(
+                    selected: performance.selectedRange,
+                    onSelected: (range) {
+                      _clearOverlays();
+                      widget.onRangeSelected(range);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: _InteractiveChart(
+                      key: _chartKey,
+                      semanticKey: const Key('home-performance-chart'),
+                      semanticLabel: 'Portfolio performance chart',
+                      persistentSelection: true,
+                      onSelectionChanged: (selected) {
+                        if (selected) _infoController.close();
+                      },
+                      values: data.series
+                          .map((point) => point.marketValueUsd)
+                          .toList(),
+                      dates: data.series.map((point) => point.date).toList(),
+                      quantities: data.series
+                          .map((point) => point.quantity)
+                          .toList(),
+                      formattedValues: data.series
+                          .map(
+                            (point) =>
+                                _performanceAmount(state, point.marketValueUsd),
+                          )
+                          .toList(),
+                      tooltipRows: [
+                        for (var index = 0; index < data.series.length; index++)
+                          _performanceTooltipRows(state, data.series, index),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            height: 190,
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: KandoColors.borderSubtle),
-              color: KandoColors.ink.withValues(alpha: 0.55),
             ),
-            child: Column(
-              children: [
-                _ChartRangePicker(
-                  selected: state.chartRange,
-                  onSelected: onRangeSelected,
-                ),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: _InteractiveChart(
-                    values: state.chartValues,
-                    dates: state.chartDates,
-                    formattedValues: state.chartValues
-                        .map(state.formatCardPrice)
-                        .toList(),
+            if (data.purchasePriceStatus == PurchasePriceStatus.partial)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: MenuAnchor(
+                  controller: _infoController,
+                  menuChildren: const [
+                    Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 260,
+                        child: Text(
+                          'Profit and return are calculated only from cards with purchase prices.',
+                        ),
+                      ),
+                    ),
+                  ],
+                  builder: (context, controller, child) => IconButton(
+                    key: const Key('home-performance-partial-info'),
+                    tooltip: 'Purchase price coverage',
+                    onPressed: () {
+                      if (controller.isOpen) {
+                        controller.close();
+                      } else {
+                        _chartKey.currentState?.clearSelection();
+                        controller.open();
+                      }
+                    },
+                    icon: const Icon(Icons.info_outline),
+                    color: KandoColors.mutedText,
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            if (data.purchasePriceStatus == PurchasePriceStatus.missing)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Text('Add purchase prices to track profit and return.'),
+              ),
+          ],
         ],
       ],
+    );
+  }
+
+  void _clearOverlays() {
+    _infoController.close();
+    _chartKey.currentState?.clearSelection();
+  }
+}
+
+List<String> _performanceTooltipRows(
+  HomeState state,
+  List<PerformancePointDto> points,
+  int index,
+) {
+  final point = points[index];
+  final quantityDelta = point.quantityChange;
+  return [
+    if (point.marketChangeUsd != null)
+      'Market: ${_performanceChange(state, point.marketChangeUsd!)}',
+    if (point.portfolioChangeUsd != null)
+      'Portfolio: ${_performanceChange(state, point.portfolioChangeUsd!)}',
+    'Qty: ${point.quantity}${quantityDelta == null || quantityDelta == 0 ? '' : ' (${quantityDelta > 0 ? '+' : ''}$quantityDelta)'}',
+  ];
+}
+
+String _performanceChange(HomeState state, double value) {
+  final formatted = _performanceAmount(state, value);
+  if (state.amountHidden || value <= 0) return formatted;
+  return '+$formatted';
+}
+
+String _performanceAmount(HomeState state, double? value) {
+  if (value == null) return '--';
+  return CurrencyFormatter(
+    currency: state.currency,
+  ).formatUsd(value, hidden: state.amountHidden);
+}
+
+class _PerformanceRangePicker extends StatelessWidget {
+  const _PerformanceRangePicker({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final PerformanceRange selected;
+  final ValueChanged<PerformanceRange> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 30,
+      child: Row(
+        children: [
+          for (final range in PerformanceRange.values)
+            Expanded(
+              child: InkWell(
+                key: Key('home-performance-range-${range.apiValue}'),
+                onTap: () => onSelected(range),
+                child: Center(
+                  child: Text(
+                    range.apiValue,
+                    style: TextStyle(
+                      color: range == selected
+                          ? KandoColors.accent
+                          : KandoColors.mutedText,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -911,7 +1245,7 @@ class _PortfolioCard extends StatelessWidget {
 }
 
 class _FolderPill extends StatelessWidget {
-  const _FolderPill({required this.label, required this.onPressed});
+  const _FolderPill({super.key, required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;
@@ -2068,14 +2402,27 @@ class _CurrencyRow extends StatelessWidget {
 
 class _InteractiveChart extends StatefulWidget {
   const _InteractiveChart({
+    super.key,
     required this.values,
     required this.dates,
     required this.formattedValues,
+    this.quantities = const [],
+    this.semanticKey = const Key('home-portfolio-chart'),
+    this.semanticLabel = 'Portfolio value chart',
+    this.tooltipRows,
+    this.persistentSelection = false,
+    this.onSelectionChanged,
   });
 
   final List<double> values;
   final List<String> dates;
   final List<String> formattedValues;
+  final List<int> quantities;
+  final Key semanticKey;
+  final String semanticLabel;
+  final List<List<String>>? tooltipRows;
+  final bool persistentSelection;
+  final ValueChanged<bool>? onSelectionChanged;
 
   @override
   State<_InteractiveChart> createState() => _InteractiveChartState();
@@ -2089,8 +2436,17 @@ class _InteractiveChartState extends State<_InteractiveChart> {
     final selectedIndex = _selectedIndex;
     if (selectedIndex == null) return 'No chart point selected';
     final index = selectedIndex.clamp(0, widget.values.length - 1);
-    return 'Date: ${_formatChartDate(widget.dates, index)}, '
-        'Price: ${_chartPrice(widget.formattedValues, index)}';
+    final rows =
+        widget.tooltipRows?[index] ??
+        [
+          'Price: ${_chartPrice(widget.formattedValues, index)}',
+          if (index < widget.quantities.length)
+            'Qty: ${widget.quantities[index]}',
+        ];
+    return [
+      'Date: ${_formatChartDate(widget.dates, index)}',
+      ...rows,
+    ].join(', ');
   }
 
   @override
@@ -2102,16 +2458,20 @@ class _InteractiveChartState extends State<_InteractiveChart> {
   }
 
   void _selectAt(double localX, double width) {
-    if (widget.values.length < 2 || width <= 0) return;
+    if (widget.values.isEmpty || width <= 0) return;
     final normalizedX = (localX / width).clamp(0.0, 1.0);
-    final index = (normalizedX * (widget.values.length - 1)).round();
+    final index = widget.values.length == 1
+        ? 0
+        : (normalizedX * (widget.values.length - 1)).round();
     if (index == _selectedIndex) return;
     setState(() => _selectedIndex = index);
+    widget.onSelectionChanged?.call(true);
   }
 
-  void _clearSelection() {
+  void clearSelection() {
     if (_selectedIndex == null) return;
     setState(() => _selectedIndex = null);
+    widget.onSelectionChanged?.call(false);
   }
 
   @override
@@ -2120,25 +2480,32 @@ class _InteractiveChartState extends State<_InteractiveChart> {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         return Semantics(
-          key: const Key('home-portfolio-chart'),
-          label: 'Portfolio value chart',
+          key: widget.semanticKey,
+          label: widget.semanticLabel,
           value: _semanticValue,
           child: MouseRegion(
             onHover: (event) => _selectAt(event.localPosition.dx, width),
-            onExit: (_) => _clearSelection(),
+            onExit: (_) {
+              if (!widget.persistentSelection) clearSelection();
+            },
             child: Listener(
               behavior: HitTestBehavior.opaque,
               onPointerDown: (event) =>
                   _selectAt(event.localPosition.dx, width),
               onPointerMove: (event) =>
                   _selectAt(event.localPosition.dx, width),
-              onPointerUp: (_) => _clearSelection(),
-              onPointerCancel: (_) => _clearSelection(),
+              onPointerUp: (_) {
+                if (!widget.persistentSelection) clearSelection();
+              },
+              onPointerCancel: (_) {
+                if (!widget.persistentSelection) clearSelection();
+              },
               child: CustomPaint(
                 painter: _ChartPainter(
                   values: widget.values,
                   dates: widget.dates,
                   formattedValues: widget.formattedValues,
+                  tooltipRows: widget.tooltipRows,
                   selectedIndex: _selectedIndex,
                 ),
                 child: const SizedBox.expand(),
@@ -2156,12 +2523,14 @@ class _ChartPainter extends CustomPainter {
     required this.values,
     required this.dates,
     required this.formattedValues,
+    required this.tooltipRows,
     required this.selectedIndex,
   });
 
   final List<double> values;
   final List<String> dates;
   final List<String> formattedValues;
+  final List<List<String>>? tooltipRows;
   final int? selectedIndex;
 
   @override
@@ -2183,7 +2552,7 @@ class _ChartPainter extends CustomPainter {
       );
     }
 
-    if (values.length < 2) {
+    if (values.isEmpty) {
       return;
     }
 
@@ -2196,7 +2565,9 @@ class _ChartPainter extends CustomPainter {
     final availableHeight = size.height - topInset - bottomInset;
 
     for (var index = 0; index < values.length; index++) {
-      final x = size.width * index / (values.length - 1);
+      final x = values.length == 1
+          ? size.width / 2
+          : size.width * index / (values.length - 1);
       final normalized = range == 0 ? 0.5 : (values[index] - minValue) / range;
       final y = size.height - bottomInset - normalized * availableHeight;
       points.add(Offset(x, y));
@@ -2210,22 +2581,23 @@ class _ChartPainter extends CustomPainter {
       path.quadraticBezierTo(control.dx, control.dy, current.dx, current.dy);
     }
 
-    final areaPath = Path.from(path)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    final areaPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          KandoColors.accent.withValues(alpha: 0.2),
-          KandoColors.accent.withValues(alpha: 0.0),
-        ],
-      ).createShader(Offset.zero & size);
-    canvas.drawPath(areaPath, areaPaint);
-
-    canvas.drawPath(path, linePaint);
+    if (values.length > 1) {
+      final areaPath = Path.from(path)
+        ..lineTo(size.width, size.height)
+        ..lineTo(0, size.height)
+        ..close();
+      final areaPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            KandoColors.accent.withValues(alpha: 0.2),
+            KandoColors.accent.withValues(alpha: 0.0),
+          ],
+        ).createShader(Offset.zero & size);
+      canvas.drawPath(areaPath, areaPaint);
+      canvas.drawPath(path, linePaint);
+    }
 
     final selectedIndex = this.selectedIndex;
     if (selectedIndex == null) return;
@@ -2262,22 +2634,32 @@ class _ChartPainter extends CustomPainter {
       maxLines: 1,
       textDirection: TextDirection.ltr,
     )..layout();
-    final pricePainter = TextPainter(
-      text: TextSpan(
-        text: 'Price: ${_chartPrice(formattedValues, resolvedSelectedIndex)}',
-        style: const TextStyle(
-          color: KandoColors.accent,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          height: 16 / 11,
-        ),
-      ),
-      maxLines: 1,
-      textDirection: TextDirection.ltr,
-    )..layout();
+    final rowPainters =
+        (tooltipRows?[resolvedSelectedIndex] ??
+                ['Price: ${_chartPrice(formattedValues, resolvedSelectedIndex)}'])
+            .map(
+              (row) => TextPainter(
+                text: TextSpan(
+                  text: row,
+                  style: const TextStyle(
+                    color: KandoColors.accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    height: 16 / 11,
+                  ),
+                ),
+                maxLines: 1,
+                textDirection: TextDirection.ltr,
+              )..layout(),
+            )
+            .toList();
     final tooltipSize = Size(
-      math.max(datePainter.width, pricePainter.width) + 16,
-      52,
+      [
+            datePainter.width,
+            ...rowPainters.map((painter) => painter.width),
+          ].reduce(math.max) +
+          16,
+      16.0 * (rowPainters.length + 1) + 12,
     );
     final preferredLeft = selected.dx + tooltipSize.width + 12 <= size.width
         ? selected.dx + 12
@@ -2308,7 +2690,12 @@ class _ChartPainter extends CustomPainter {
         ..style = PaintingStyle.stroke,
     );
     datePainter.paint(canvas, tooltipRect.topLeft + const Offset(8, 8));
-    pricePainter.paint(canvas, tooltipRect.topLeft + const Offset(8, 28));
+    for (var index = 0; index < rowPainters.length; index++) {
+      rowPainters[index].paint(
+        canvas,
+        tooltipRect.topLeft + Offset(8, 8 + 16.0 * (index + 1)),
+      );
+    }
   }
 
   @override
@@ -2316,6 +2703,7 @@ class _ChartPainter extends CustomPainter {
     return oldDelegate.values != values ||
         oldDelegate.dates != dates ||
         oldDelegate.formattedValues != formattedValues ||
+        oldDelegate.tooltipRows != tooltipRows ||
         oldDelegate.selectedIndex != selectedIndex;
   }
 }

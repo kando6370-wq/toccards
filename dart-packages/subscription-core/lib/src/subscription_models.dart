@@ -42,6 +42,7 @@ class SubscriptionPurchase {
     this.transactionDate,
     this.errorCode,
     this.errorMessage,
+    this.applicationUserName,
     this.needsCompletion = false,
     this.storeData,
   });
@@ -54,6 +55,7 @@ class SubscriptionPurchase {
   final DateTime? transactionDate;
   final String? errorCode;
   final String? errorMessage;
+  final String? applicationUserName;
   final bool needsCompletion;
   final Object? storeData;
 }

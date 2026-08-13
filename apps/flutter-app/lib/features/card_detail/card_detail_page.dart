@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/card_image/kando_card_image.dart';
+import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -12,9 +15,11 @@ import 'package:kando_app/shared/ui/toast.dart';
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
 import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_entitlement_cache.dart';
 import 'card_detail_actions.dart';
 import 'card_detail_controller.dart';
 import 'card_detail_models.dart';
+import 'card_performance_controller.dart';
 
 /// Figma spacing/radius tokens for the card detail module.
 const double _kRadiusLg = 16;
@@ -84,12 +89,14 @@ ThemeData _formFieldTheme(BuildContext context) {
 class CardDetailPage extends ConsumerStatefulWidget {
   const CardDetailPage({
     required this.cardId,
+    this.collectionItemId,
     this.collectionType = AnalyticsValue.collectionNormal,
     this.entrySource = AnalyticsValue.sourceSearch,
     super.key,
   });
 
   final String cardId;
+  final String? collectionItemId;
   final String collectionType;
   final String entrySource;
 
@@ -111,9 +118,19 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
     final provider = cardDetailControllerProvider(widget.cardId);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
-    final isPro = ref.watch(
-      subscriptionControllerProvider.select((value) => value.isPro),
+    final premiumState = ref.watch(
+      subscriptionControllerProvider.select((value) => value.premiumState),
     );
+    final isPro = premiumState == AppPremiumState.premium;
+    if (premiumState == AppPremiumState.free &&
+        state.selectedPriceRange == CardPriceRange.oneYear) {
+      Future<void>.microtask(
+        () => controller.selectPriceRange(CardPriceRange.threeMonths),
+      );
+    }
+    final currentCollectionItemId = state.loadStatus == KandoLoadStatus.content
+        ? _currentCollectionItemId(state, widget.collectionItemId)
+        : null;
     _trackViewWhenLoaded(state);
 
     final page = Scaffold(
@@ -197,15 +214,18 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                                   KandoLoadStatus.content &&
                               state.detail.isCollected)
                             _OwnedDetailTabs(
+                              key: ValueKey(currentCollectionItemId),
                               state: state,
                               controller: controller,
                               entrySource: widget.entrySource,
                               isPro: isPro,
+                              currentCollectionItemId: currentCollectionItemId,
                             )
                           else
                             _PriceOverview(
                               state: state,
                               controller: controller,
+                              isPro: isPro,
                             ),
                           if (state.assetStateStatus ==
                                   KandoLoadStatus.content &&
@@ -257,6 +277,18 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
     controller.cancelCollectionItemEdit();
     context.go('/search');
   }
+}
+
+String? _currentCollectionItemId(
+  CardDetailState state,
+  String? requestedItemId,
+) {
+  final items = state.detail.collectionItems;
+  if (requestedItemId != null &&
+      items.any((item) => item.id == requestedItemId)) {
+    return requestedItemId;
+  }
+  return items.length == 1 ? items.single.id : null;
 }
 
 class _CardDetailKeyboardDismissOnPointerDown extends StatelessWidget {
@@ -659,24 +691,27 @@ class _BasicInfo extends StatelessWidget {
   }
 }
 
-class _OwnedDetailTabs extends StatefulWidget {
+class _OwnedDetailTabs extends ConsumerStatefulWidget {
   const _OwnedDetailTabs({
+    super.key,
     required this.state,
     required this.controller,
     required this.entrySource,
     required this.isPro,
+    required this.currentCollectionItemId,
   });
 
   final CardDetailState state;
   final CardDetailController controller;
   final String entrySource;
   final bool isPro;
+  final String? currentCollectionItemId;
 
   @override
-  State<_OwnedDetailTabs> createState() => _OwnedDetailTabsState();
+  ConsumerState<_OwnedDetailTabs> createState() => _OwnedDetailTabsState();
 }
 
-class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
+class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
@@ -684,8 +719,12 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 3,
-      initialIndex: widget.entrySource == AnalyticsValue.sourceEdit ? 2 : 0,
+      length: widget.currentCollectionItemId == null ? 2 : 3,
+      initialIndex: widget.entrySource == AnalyticsValue.sourceEdit
+          ? widget.currentCollectionItemId == null
+                ? 1
+                : 2
+          : 0,
       vsync: this,
     )..addListener(_handleTabChange);
   }
@@ -698,21 +737,57 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant _OwnedDetailTabs oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isPro &&
+        widget.isPro &&
+        _tabController.index == 1 &&
+        widget.currentCollectionItemId != null) {
+      unawaited(
+        ref
+            .read(
+              cardPerformanceControllerProvider(
+                widget.currentCollectionItemId!,
+              ).notifier,
+            )
+            .load(localPremiumVerified: true),
+      );
+    }
+  }
+
   void _handleTabChange() {
     if (!_tabController.indexIsChanging && mounted) {
       setState(() {});
+      if (_tabController.index == 1 &&
+          widget.isPro &&
+          widget.currentCollectionItemId != null) {
+        unawaited(
+          ref
+              .read(
+                cardPerformanceControllerProvider(
+                  widget.currentCollectionItemId!,
+                ).notifier,
+              )
+              .load(localPremiumVerified: true),
+        );
+      }
     }
   }
 
   void _editMissingPurchasePrice() {
-    final items = widget.state.collectionItemRows;
-    if (items.isEmpty) return;
-    widget.controller.startEditingCollectionItem(items.first.id);
+    final itemId = widget.currentCollectionItemId;
+    if (itemId == null) return;
+    widget.controller.startEditingCollectionItem(itemId);
     _tabController.animateTo(0);
   }
 
   @override
   Widget build(BuildContext context) {
+    final itemId = widget.currentCollectionItemId;
+    final performance = itemId == null
+        ? null
+        : ref.watch(cardPerformanceControllerProvider(itemId));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -767,10 +842,11 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
                     height: 17 / 15,
                     fontWeight: FontWeight.w400,
                   ),
-                  tabs: const [
-                    Tab(height: 42, text: 'Collection Item'),
-                    Tab(height: 42, text: 'Performance'),
-                    Tab(height: 42, text: 'Price'),
+                  tabs: [
+                    const Tab(height: 42, text: 'Collection Item'),
+                    if (itemId != null)
+                      const Tab(height: 42, text: 'Performance'),
+                    const Tab(height: 42, text: 'Price'),
                   ],
                 ),
               ),
@@ -784,16 +860,57 @@ class _OwnedDetailTabsState extends State<_OwnedDetailTabs>
             controller: widget.controller,
             entrySource: widget.entrySource,
           )
-        else if (_tabController.index == 1)
+        else if (itemId != null && _tabController.index == 1)
           _CardPerformance(
             state: widget.state,
             isPro: widget.isPro,
+            performance: performance!,
+            onRangeSelected: (range) => ref
+                .read(cardPerformanceControllerProvider(itemId).notifier)
+                .selectRange(range, localPremiumVerified: true),
+            onRefresh: () => ref
+                .read(cardPerformanceControllerProvider(itemId).notifier)
+                .load(localPremiumVerified: true, force: true),
             onEditPurchasePrice: _editMissingPurchasePrice,
+            onUnlock: () => _unlockPerformance(itemId),
           )
         else
-          _PriceOverview(state: widget.state, controller: widget.controller),
+          _PriceOverview(
+            state: widget.state,
+            controller: widget.controller,
+            isPro: widget.isPro,
+          ),
       ],
     );
+  }
+
+  Future<void> _unlockPerformance(String itemId) async {
+    final premiumState = await _resolvePremiumForRestrictedAction(ref);
+    if (!mounted) return;
+    if (premiumState == AppPremiumState.premium) {
+      await ref
+          .read(cardPerformanceControllerProvider(itemId).notifier)
+          .load(localPremiumVerified: true, force: true);
+      return;
+    }
+    if (premiumState == AppPremiumState.unknown) return;
+    final result = await context.push<SubscriptionPaywallResult>(
+      subscriptionSheetLocation,
+    );
+    if (!mounted || result == null) return;
+    showKandoTopToast(
+      context,
+      message: result == SubscriptionPaywallResult.premiumRestored
+          ? 'Premium restored'
+          : 'Premium unlocked',
+      type: KandoTopToastType.success,
+    );
+    if (_tabController.index != 1 || widget.currentCollectionItemId != itemId) {
+      return;
+    }
+    await ref
+        .read(cardPerformanceControllerProvider(itemId).notifier)
+        .load(localPremiumVerified: true, force: true);
   }
 }
 
@@ -801,80 +918,125 @@ class _CardPerformance extends StatelessWidget {
   const _CardPerformance({
     required this.state,
     required this.isPro,
+    required this.performance,
+    required this.onRangeSelected,
+    required this.onRefresh,
     required this.onEditPurchasePrice,
+    required this.onUnlock,
   });
 
   final CardDetailState state;
   final bool isPro;
+  final CardPerformanceState performance;
+  final ValueChanged<PerformanceRange> onRangeSelected;
+  final VoidCallback onRefresh;
   final VoidCallback onEditPurchasePrice;
+  final VoidCallback onUnlock;
 
   @override
   Widget build(BuildContext context) {
     if (!isPro) {
-      return _CardPerformanceLocked(
-        onUnlock: () => context.push(subscriptionSheetLocation),
-      );
+      return _CardPerformanceLocked(onUnlock: onUnlock);
     }
 
+    if (performance.isLoading && performance.data == null) {
+      return const SizedBox(
+        key: Key('card-detail-performance-loading'),
+        height: 390,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (performance.isFailure && performance.data == null) {
+      return KandoFailureBlock(
+        key: const Key('card-detail-performance-failure'),
+        onRefresh: onRefresh,
+      );
+    }
+    final data = performance.data;
+    if (data == null || data.marketPriceStatus == MarketPriceStatus.missing) {
+      return const SizedBox(
+        key: Key('card-detail-performance-no-data'),
+        height: 300,
+        child: Center(child: Text('No performance history available.')),
+      );
+    }
+    final missingPrice =
+        data.purchasePriceStatus == PurchasePriceStatus.missing;
     final chartSeries = [
-      for (
-        var index = 0;
-        index < state.selectedPriceChartSeries.length;
-        index++
-      )
-        _DetailChartSeries(
-          label: state.selectedPriceChartSeries[index].label,
-          points:
-              state.selectedPriceChartSeries[index].seriesByRange[state
-                  .selectedPriceRange] ??
-              const [],
-          color: _kPriceChartColors[index % _kPriceChartColors.length],
-        ),
+      _DetailChartSeries(
+        label: missingPrice ? 'Market Value' : 'Profit / Loss',
+        points: data.series
+            .map(
+              (point) => CardPricePoint(
+                dateLabel: point.date,
+                priceUsd: missingPrice
+                    ? point.marketValueUsd
+                    : point.profitLossUsd,
+              ),
+            )
+            .toList(),
+        color: KandoColors.accent,
+      ),
     ];
+    final formatter = CurrencyFormatter(currency: state.currency);
 
     return Column(
       key: const Key('card-detail-performance-content'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _CardPerformanceMetric(
-                label: 'Purchase Cost',
-                value: state.performancePurchaseCostText,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _CardPerformanceMetric(
-                label: 'Current Value',
-                value: state.performanceCurrentValueText,
-              ),
-            ),
-          ],
+        _CardPerformanceRangePicker(
+          selected: performance.selectedRange,
+          onSelected: onRangeSelected,
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _CardPerformanceMetric(
-                label: 'Profit / Loss',
-                value: state.performanceProfitLossText,
-                caption: 'Priced cards only',
+        const SizedBox(height: 12),
+        if (missingPrice)
+          _CardPerformanceMetric(
+            label: 'Market Value',
+            value: formatter.formatUsd(data.current.marketValueUsd),
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: _CardPerformanceMetric(
+                  label: 'Purchase Cost',
+                  value: formatter.formatUsd(data.current.totalPaidUsd),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _CardPerformanceMetric(
-                label: 'Return %',
-                value: state.performanceReturnText,
-                caption: 'Priced cards only',
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CardPerformanceMetric(
+                  label: 'Market Value',
+                  value: formatter.formatUsd(data.current.marketValueUsd),
+                ),
               ),
-            ),
-          ],
-        ),
-        if (state.performancePurchaseCostUsd == null &&
-            state.collectionItemRows.isNotEmpty) ...[
+            ],
+          ),
+        if (!missingPrice) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _CardPerformanceMetric(
+                  label: 'Profit / Loss',
+                  value: data.current.profitLossUsd == null
+                      ? '--'
+                      : _signedAmount(formatter, data.current.profitLossUsd!),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CardPerformanceMetric(
+                  label: 'Return',
+                  value: data.current.returnPercent == null
+                      ? '--'
+                      : '${data.current.returnPercent!.toStringAsFixed(2)}%',
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (missingPrice) ...[
           const SizedBox(height: 12),
           Container(
             key: const Key('card-detail-missing-purchase-price'),
@@ -910,13 +1072,14 @@ class _CardPerformance extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                state.performancePurchaseCostUsd == null
-                    ? 'Market Value History'
-                    : 'Performance Chart',
+                missingPrice ? 'Price Trend' : 'Performance Chart',
                 style: _kSectionTitleStyle,
               ),
             ),
-            const Text('MARKET VALUE', style: _kFieldLabelStyle),
+            Text(
+              missingPrice ? 'MARKET VALUE' : 'PROFIT / LOSS',
+              style: _kFieldLabelStyle,
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -931,11 +1094,52 @@ class _CardPerformance extends StatelessWidget {
                     style: _kFieldLabelStyle,
                   ),
                 )
-              : _InteractivePriceChart(series: chartSeries),
+              : _InteractivePriceChart(
+                  key: ValueKey(
+                    'card-performance-${performance.selectedRange.apiValue}',
+                  ),
+                  series: chartSeries,
+                  quantities: data.series
+                      .map((point) => point.quantity)
+                      .toList(),
+                  persistentSelection: true,
+                  semanticKey: const Key('card-detail-performance-chart'),
+                  semanticLabel: 'Card performance chart',
+                  tooltipRows: [
+                    for (final point in data.series)
+                      _cardPerformanceTooltipRows(
+                        formatter,
+                        point,
+                        missingPrice: missingPrice,
+                      ),
+                  ],
+                ),
         ),
       ],
     );
   }
+}
+
+List<String> _cardPerformanceTooltipRows(
+  CurrencyFormatter formatter,
+  PerformancePointDto point, {
+  required bool missingPrice,
+}) {
+  final dailyChange = missingPrice
+      ? point.marketValueChangeUsd
+      : point.profitLossChangeUsd;
+  return [
+    'Daily Change: ${dailyChange == null ? '--' : _signedAmount(formatter, dailyChange)}',
+    'Market Value: ${formatter.formatUsd(point.marketValueUsd)}',
+    if (!missingPrice)
+      'Profit / Loss: ${formatter.formatUsd(point.profitLossUsd)}',
+    'Qty: ${point.quantity}${point.quantityChange == null || point.quantityChange == 0 ? '' : ' (${point.quantityChange! > 0 ? '+' : ''}${point.quantityChange})'}',
+  ];
+}
+
+String _signedAmount(CurrencyFormatter formatter, double value) {
+  final formatted = formatter.formatUsd(value);
+  return value > 0 ? '+$formatted' : formatted;
 }
 
 class _CardPerformanceLocked extends StatelessWidget {
@@ -1009,16 +1213,49 @@ class _CardPerformanceLocked extends StatelessWidget {
   }
 }
 
-class _CardPerformanceMetric extends StatelessWidget {
-  const _CardPerformanceMetric({
-    required this.label,
-    required this.value,
-    this.caption,
+class _CardPerformanceRangePicker extends StatelessWidget {
+  const _CardPerformanceRangePicker({
+    required this.selected,
+    required this.onSelected,
   });
+
+  final PerformanceRange selected;
+  final ValueChanged<PerformanceRange> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 32,
+      child: Row(
+        children: [
+          for (final range in PerformanceRange.values)
+            Expanded(
+              child: InkWell(
+                key: Key('card-detail-performance-range-${range.apiValue}'),
+                onTap: () => onSelected(range),
+                child: Center(
+                  child: Text(
+                    range.apiValue,
+                    style: TextStyle(
+                      color: range == selected
+                          ? KandoColors.accent
+                          : KandoColors.mutedText,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardPerformanceMetric extends StatelessWidget {
+  const _CardPerformanceMetric({required this.label, required this.value});
 
   final String label;
   final String value;
-  final String? caption;
 
   @override
   Widget build(BuildContext context) {
@@ -1051,14 +1288,6 @@ class _CardPerformanceMetric extends StatelessWidget {
               ),
             ),
           ),
-          if (caption != null)
-            Text(
-              caption!,
-              style: const TextStyle(
-                color: KandoColors.mutedText,
-                fontSize: 10,
-              ),
-            ),
         ],
       ),
     );
@@ -3316,10 +3545,15 @@ class _ChoiceSheetOption extends StatelessWidget {
 }
 
 class _PriceOverview extends ConsumerWidget {
-  const _PriceOverview({required this.state, required this.controller});
+  const _PriceOverview({
+    required this.state,
+    required this.controller,
+    required this.isPro,
+  });
 
   final CardDetailState state;
   final CardDetailController controller;
+  final bool isPro;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -3421,7 +3655,7 @@ class _PriceOverview extends ConsumerWidget {
                     _PriceRangeButton(
                       range: range,
                       selected: state.selectedPriceRange == range,
-                      onSelected: controller.selectPriceRange,
+                      onSelected: (range) => _selectRange(context, ref, range),
                     ),
                 ],
               ),
@@ -3490,6 +3724,41 @@ class _PriceOverview extends ConsumerWidget {
       ],
     );
   }
+
+  Future<void> _selectRange(
+    BuildContext context,
+    WidgetRef ref,
+    CardPriceRange range,
+  ) async {
+    if (range == CardPriceRange.oneYear && !isPro) {
+      final premiumState = await _resolvePremiumForRestrictedAction(ref);
+      if (!context.mounted || premiumState == AppPremiumState.unknown) return;
+      if (premiumState == AppPremiumState.premium) {
+        final selected = await controller.selectPriceRange(range);
+        if (!selected && context.mounted) showKandoFailureToast(context);
+        return;
+      }
+      final result = await context.push<SubscriptionPaywallResult>(
+        subscriptionSheetLocation,
+      );
+      if (!context.mounted || result == null) return;
+      showKandoTopToast(
+        context,
+        message: result == SubscriptionPaywallResult.premiumRestored
+            ? 'Premium restored'
+            : 'Premium unlocked',
+        type: KandoTopToastType.success,
+      );
+    }
+    final selected = await controller.selectPriceRange(range);
+    if (!selected && context.mounted) showKandoFailureToast(context);
+  }
+}
+
+Future<AppPremiumState> _resolvePremiumForRestrictedAction(WidgetRef ref) {
+  final current = ref.read(subscriptionControllerProvider).premiumState;
+  if (current != AppPremiumState.unknown) return Future.value(current);
+  return ref.read(subscriptionControllerProvider.notifier).refreshEntitlement();
 }
 
 class _FinishTabs extends StatefulWidget {
@@ -4090,9 +4359,22 @@ class _PriceChartLegend extends StatelessWidget {
 }
 
 class _InteractivePriceChart extends StatefulWidget {
-  const _InteractivePriceChart({required this.series});
+  const _InteractivePriceChart({
+    super.key,
+    required this.series,
+    this.quantities = const [],
+    this.tooltipRows,
+    this.persistentSelection = false,
+    this.semanticKey = const Key('card-detail-price-chart-interactive'),
+    this.semanticLabel = 'Card price chart',
+  });
 
   final List<_DetailChartSeries> series;
+  final List<int> quantities;
+  final List<List<String>>? tooltipRows;
+  final bool persistentSelection;
+  final Key semanticKey;
+  final String semanticLabel;
 
   @override
   State<_InteractivePriceChart> createState() => _InteractivePriceChartState();
@@ -4108,16 +4390,22 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
     final primary = widget.series.first.points;
     final index = selectedIndex.clamp(0, primary.length - 1);
     final point = primary[index];
-    final values = widget.series
-        .map((series) {
-          final seriesIndex =
-              ((index / (primary.length - 1)) * (series.points.length - 1))
-                  .round();
+    final rows =
+        widget.tooltipRows?[index] ??
+        widget.series.map((series) {
+          final seriesIndex = primary.length == 1
+              ? 0
+              : ((index / (primary.length - 1)) * (series.points.length - 1))
+                    .round();
           final label = widget.series.length == 1 ? 'Price' : series.label;
           return '$label: ${_formatDetailChartPrice(series.points[seriesIndex])}';
-        })
-        .join(', ');
-    return 'Date: ${point.dateLabel}, $values';
+        }).toList();
+    return [
+      'Date: ${point.dateLabel}',
+      ...rows,
+      if (widget.tooltipRows == null && index < widget.quantities.length)
+        'Qty: ${widget.quantities[index]}',
+    ].join(', ');
   }
 
   @override
@@ -4130,7 +4418,11 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
 
   void _selectAt(double localX, double width) {
     final pointCount = widget.series.first.points.length;
-    if (pointCount < 2 || width <= 0) return;
+    if (pointCount == 0 || width <= 0) return;
+    if (pointCount == 1) {
+      if (_selectedIndex != 0) setState(() => _selectedIndex = 0);
+      return;
+    }
     final normalizedX = (localX / width).clamp(0.0, 1.0);
     final index = (normalizedX * (pointCount - 1)).round();
     if (index == _selectedIndex) return;
@@ -4148,23 +4440,31 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         return Semantics(
-          key: const Key('card-detail-price-chart-interactive'),
-          label: 'Card price chart',
+          key: widget.semanticKey,
+          label: widget.semanticLabel,
           value: _semanticValue,
           child: MouseRegion(
             onHover: (event) => _selectAt(event.localPosition.dx, width),
-            onExit: (_) => _clearSelection(),
+            onExit: (_) {
+              if (!widget.persistentSelection) _clearSelection();
+            },
             child: Listener(
               behavior: HitTestBehavior.opaque,
               onPointerDown: (event) =>
                   _selectAt(event.localPosition.dx, width),
               onPointerMove: (event) =>
                   _selectAt(event.localPosition.dx, width),
-              onPointerUp: (_) => _clearSelection(),
-              onPointerCancel: (_) => _clearSelection(),
+              onPointerUp: (_) {
+                if (!widget.persistentSelection) _clearSelection();
+              },
+              onPointerCancel: (_) {
+                if (!widget.persistentSelection) _clearSelection();
+              },
               child: CustomPaint(
                 painter: _PriceChartPainter(
                   series: widget.series,
+                  quantities: widget.quantities,
+                  tooltipRows: widget.tooltipRows,
                   selectedIndex: _selectedIndex,
                 ),
                 child: const SizedBox.expand(),
@@ -4178,9 +4478,16 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
 }
 
 class _PriceChartPainter extends CustomPainter {
-  const _PriceChartPainter({required this.series, required this.selectedIndex});
+  const _PriceChartPainter({
+    required this.series,
+    required this.quantities,
+    required this.tooltipRows,
+    required this.selectedIndex,
+  });
 
   final List<_DetailChartSeries> series;
+  final List<int> quantities;
+  final List<List<String>>? tooltipRows;
   final int? selectedIndex;
 
   @override
@@ -4199,7 +4506,7 @@ class _PriceChartPainter extends CustomPainter {
         .map((point) => point.priceUsd)
         .whereType<double>()
         .toList();
-    if (allValues.length < 2) return;
+    if (allValues.isEmpty) return;
 
     final minValue = allValues.reduce(math.min);
     final maxValue = allValues.reduce(math.max);
@@ -4212,7 +4519,9 @@ class _PriceChartPainter extends CustomPainter {
       for (var index = 0; index < item.points.length; index++) {
         final value = item.points[index].priceUsd;
         if (value == null) continue;
-        final x = size.width * index / (item.points.length - 1);
+        final x = item.points.length == 1
+            ? size.width / 2
+            : size.width * index / (item.points.length - 1);
         final normalized = range == 0 ? 0.5 : (value - minValue) / range;
         final y =
             size.height -
@@ -4273,7 +4582,9 @@ class _PriceChartPainter extends CustomPainter {
       primaryPoints.length - 1,
     );
     final selected = primaryPoints[resolvedSelectedIndex];
-    final selectedFraction = resolvedSelectedIndex / (primaryPoints.length - 1);
+    final selectedFraction = primaryPoints.length == 1
+        ? 0.5
+        : resolvedSelectedIndex / (primaryPoints.length - 1);
     final selectedX = size.width * selectedFraction;
     final xAxisY = size.height - bottomInset;
     _drawPriceChartDashedLine(
@@ -4316,15 +4627,24 @@ class _PriceChartPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: math.max(0.0, size.width - 16));
     final maxTooltipRows = math.max(1, ((size.height - 28) / 14).floor());
-    final tooltipSeriesCount = math.min(series.length, maxTooltipRows);
+    final customRows = tooltipRows?[resolvedSelectedIndex];
+    final tooltipSeriesCount = math.min(
+      customRows?.length ?? series.length,
+      maxTooltipRows,
+    );
     final pricePainters = [
       for (var index = 0; index < tooltipSeriesCount; index++)
         TextPainter(
           text: TextSpan(
             text:
+                customRows?[index] ??
                 '${series[index].label}: ${_formatDetailChartPrice(selectedPoints[index])}',
             style: TextStyle(
-              color: series[index].color,
+              color: customRows == null
+                  ? series[index].color
+                  : index == 0
+                  ? KandoColors.accent
+                  : KandoColors.mutedText,
               fontSize: 10,
               fontWeight: FontWeight.w500,
               height: 14 / 10,
@@ -4332,6 +4652,20 @@ class _PriceChartPainter extends CustomPainter {
           ),
           maxLines: 1,
           ellipsis: '...',
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: math.max(0.0, size.width - 16)),
+      if (customRows == null && resolvedSelectedIndex < quantities.length)
+        TextPainter(
+          text: TextSpan(
+            text: 'Qty: ${quantities[resolvedSelectedIndex]}',
+            style: const TextStyle(
+              color: KandoColors.mutedText,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              height: 14 / 10,
+            ),
+          ),
+          maxLines: 1,
           textDirection: TextDirection.ltr,
         )..layout(maxWidth: math.max(0.0, size.width - 16)),
     ];
@@ -4384,6 +4718,8 @@ class _PriceChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PriceChartPainter oldDelegate) {
     return oldDelegate.series != series ||
+        oldDelegate.quantities != quantities ||
+        oldDelegate.tooltipRows != tooltipRows ||
         oldDelegate.selectedIndex != selectedIndex;
   }
 }

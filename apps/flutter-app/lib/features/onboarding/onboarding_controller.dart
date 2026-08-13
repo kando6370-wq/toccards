@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_startup_preloader.dart';
+import '../../shared/attribution/app_attribution.dart';
 import 'onboarding_repository.dart';
 
 final onboardingControllerProvider =
@@ -26,11 +29,14 @@ class OnboardingController extends AsyncNotifier<bool> {
   @override
   Future<bool> build() async {
     final completed = ref.watch(onboardingRepositoryProvider).readCompleted();
+    final attribution = ref.read(appAttributionCoordinatorProvider);
+    unawaited(attribution.preloadStartupMarker());
     await Future.wait<void>([
       Future<void>.delayed(minimumSplashDuration),
       ref.watch(appStartupPreloaderProvider.future),
     ]);
     final completedValue = await completed;
+    await attribution.prepareForStartup(allowInitialRequest: !completedValue);
     ref.read(startupProgressFinishingProvider.notifier).finish();
     await Future<void>.delayed(
       progressCompletionDuration + completedProgressHoldDuration,

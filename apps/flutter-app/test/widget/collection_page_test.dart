@@ -16,9 +16,12 @@ import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -182,6 +185,24 @@ void main() {
   );
 
   testWidgets(
+    'Free Folder limit opens Paywall without showing the create form',
+    (tester) async {
+      await _pumpCollection(tester, useRoutes: true);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-folder-add')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Subscription'), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-folder-name-sheet')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
     'Collection header stays fixed because card browsing must preserve controls and portfolio context',
     (tester) async {
       await _pumpCollection(tester);
@@ -267,7 +288,10 @@ void main() {
   testWidgets(
     'folder manager exposes Figma actions and creates a backend folder',
     (tester) async {
-      await _pumpCollection(tester);
+      await _pumpCollection(
+        tester,
+        subscriptionController: _ProCollectionSubscriptionController.new,
+      );
 
       await tester.tap(find.text('Main'));
       await tester.pumpAndSettle();
@@ -315,6 +339,88 @@ void main() {
       expect(
         find.byKey(const Key('collection-folder-default-folder-trade')),
         findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'Create Folder keeps its input on server failure and blocks duplicate saves while pending',
+    (tester) async {
+      final repository = _BlockingCreateFolderRepository();
+      await _pumpCollection(
+        tester,
+        repository: repository,
+        subscriptionController: _ProCollectionSubscriptionController.new,
+      );
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-folder-add')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('collection-folder-name')),
+        'Trade',
+      );
+      await tester.tap(find.byKey(const Key('collection-folder-name-save')));
+      await tester.pump();
+
+      expect(repository.createCalls, 1);
+      expect(find.text('SAVING'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('collection-folder-name')),
+            )
+            .enabled,
+        isFalse,
+      );
+      await tester.tap(
+        find.byKey(const Key('collection-folder-name-save')),
+        warnIfMissed: false,
+      );
+      expect(repository.createCalls, 1);
+
+      repository.completeError('ENTITLEMENT_SYNC_REQUIRED');
+      await tester.pumpAndSettle();
+      expect(find.text('Trade'), findsOneWidget);
+      expect(
+        find.textContaining('Premium access is still syncing'),
+        findsOneWidget,
+      );
+      expect(find.text('SAVE'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a concurrent Free Folder limit refreshes the list and opens Paywall instead of creating a third folder',
+    (tester) async {
+      final repository = _ConcurrentFolderLimitRepository();
+      await _pumpCollection(tester, repository: repository, useRoutes: true);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-folder-add')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('collection-folder-name')),
+        'Trade',
+      );
+      await tester.tap(find.byKey(const Key('collection-folder-name-save')));
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, 1);
+      expect(repository.loadCalls, 2);
+      expect(find.text('Subscription'), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-folder-name-sheet')),
+        findsNothing,
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.text('Subscription')),
+      );
+      expect(
+        container.read(collectionControllerProvider).dashboard.folders.length,
+        2,
       );
     },
   );
@@ -400,9 +506,9 @@ void main() {
     expect(find.text('No matching cards found.'), findsOneWidget);
     expect(find.text('Try adjusting your search or filters.'), findsOneWidget);
     expect(find.byKey(const Key('collection-no-match-state')), findsOneWidget);
-    expect(find.text(r'$0.00'), findsOneWidget);
-    expect(find.text('0 cards'), findsOneWidget);
-    expect(find.text('0 graded'), findsOneWidget);
+    expect(find.text(r'$1,245.00'), findsOneWidget);
+    expect(find.text('4 cards'), findsOneWidget);
+    expect(find.text('2 graded'), findsOneWidget);
     expect(find.text('No cards in this portfolio yet.'), findsNothing);
   });
 
@@ -559,7 +665,7 @@ void main() {
     await tester.tap(card);
     await tester.pumpAndSettle();
 
-    expect(find.text('Detail charizard-ex'), findsOneWidget);
+    expect(find.text('Detail charizard-ex item-charizard'), findsOneWidget);
   });
 
   testWidgets(
@@ -751,14 +857,21 @@ void main() {
 Future<void> _pumpCollection(
   WidgetTester tester, {
   CollectionRepository repository = const MockCollectionRepository(),
+  SubscriptionController Function()? subscriptionController,
+  bool useRoutes = false,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         ..._localAuthOverrides(),
         collectionRepositoryProvider.overrideWithValue(repository),
+        subscriptionControllerProvider.overrideWith(
+          subscriptionController ?? _FreeCollectionSubscriptionController.new,
+        ),
       ],
-      child: const _CollectionTestApp(),
+      child: useRoutes
+          ? const _CollectionTestAppWithRoutes()
+          : const _CollectionTestApp(),
     ),
   );
   await tester.pumpAndSettle();
@@ -855,13 +968,32 @@ class _CollectionTestAppWithRoutes extends StatelessWidget {
           GoRoute(
             path: '/cards/:cardId',
             builder: (context, state) => Scaffold(
-              body: Text('Detail ${state.pathParameters['cardId']}'),
+              body: Text(
+                'Detail ${state.pathParameters['cardId']} '
+                '${state.uri.queryParameters['item_id']}',
+              ),
             ),
+          ),
+          GoRoute(
+            path: '/subscription',
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('Subscription'))),
           ),
         ],
       ),
     );
   }
+}
+
+class _ProCollectionSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState(isPro: true);
+}
+
+class _FreeCollectionSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.free);
 }
 
 class _FailingThenSuccessfulCollectionRepository
@@ -920,6 +1052,55 @@ class _FailingPreferenceCollectionRepository extends MockCollectionRepository {
     String? lastSelectedFolderId,
   }) {
     throw StateError('Preference backend rejected the mutation.');
+  }
+}
+
+class _BlockingCreateFolderRepository extends MockCollectionRepository {
+  final createCompleter = Completer<CollectionFolder>();
+  var createCalls = 0;
+
+  @override
+  Future<CollectionFolder> createFolder(
+    AuthSession session,
+    String name, {
+    bool localPremiumVerified = false,
+  }) {
+    createCalls += 1;
+    return createCompleter.future;
+  }
+
+  void completeError(String code) {
+    createCompleter.completeError(
+      PortfolioApiException('rejected', code: code),
+    );
+  }
+}
+
+class _ConcurrentFolderLimitRepository extends MockCollectionRepository {
+  var loadCalls = 0;
+  var createCalls = 0;
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    loadCalls += 1;
+    final dashboard = await super.loadDashboard(session);
+    return dashboard.copyWith(
+      folders: dashboard.folders.take(loadCalls == 1 ? 1 : 2).toList(),
+    );
+  }
+
+  @override
+  Future<CollectionFolder> createFolder(
+    AuthSession session,
+    String name, {
+    bool localPremiumVerified = false,
+  }) {
+    createCalls += 1;
+    throw const PortfolioApiException(
+      'Premium is required.',
+      code: 'PREMIUM_REQUIRED',
+      statusCode: 403,
+    );
   }
 }
 
