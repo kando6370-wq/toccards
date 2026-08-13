@@ -43,6 +43,41 @@ describe("Apple Notifications V2 durable consumption", () => {
     expect((await db.prepare("SELECT status FROM billing_session_entitlement_grant").first())?.status).toBe("active");
   });
 
+  it("preserves unknown Apple fields and notification types without inventing business side effects", async () => {
+    const futureNotification = {
+      ...notification("future-uuid", "FUTURE_NOTIFICATION", 10 * 60 + 5),
+      futureEnvelopeField: { version: 3 },
+    } as ResponseBodyV2DecodedPayload;
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({ verifyNotification: async () => futureNotification }),
+    }) });
+
+    const response = await post(app, env, "future.jws", { futureRequestField: "kept" });
+
+    expect(response.status).toBe(200);
+    const inbox = await db.prepare(`SELECT request_json, processing_status
+      FROM apple_notification_inbox`).first<{ request_json: string; processing_status: string }>();
+    expect(JSON.parse(inbox!.request_json)).toEqual({
+      signedPayload: "future.jws",
+      futureRequestField: "kept",
+    });
+    expect(inbox?.processing_status).toBe("processed");
+    const structured = await db.prepare(`SELECT notification_type, decoded_payload, processing_status
+      FROM apple_server_notification`).first<{
+        notification_type: string;
+        decoded_payload: string;
+        processing_status: string;
+      }>();
+    expect(structured?.notification_type).toBe("FUTURE_NOTIFICATION");
+    expect(JSON.parse(structured!.decoded_payload)).toMatchObject({
+      notification: { futureEnvelopeField: { version: 3 } },
+    });
+    expect(structured?.processing_status).toBe("processed");
+    expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(0);
+    expect((await db.prepare("SELECT status FROM billing_session_entitlement_grant").first())?.status).toBe("active");
+  });
+
   it("creates an unlinked Apple order without granting Premium when no UID chain exists", async () => {
     await db.prepare("DELETE FROM billing_session_entitlement_grant").run();
     await db.prepare("DELETE FROM billing_purchase_chain").run();
@@ -304,8 +339,17 @@ function notification(uuid: string, type: string, minute: number, subtype?: stri
   return { notificationUUID: uuid, notificationType: type, subtype, signedDate: Date.UTC(2026, 7, 12, 0, minute), data: { environment: Environment.SANDBOX, signedTransactionInfo: "transaction.jws", signedRenewalInfo: "renewal.jws" } };
 }
 
-async function post(app: ReturnType<typeof createAppleNotificationRoutes>, env: Env, signedPayload: string) {
-  return await app.request("/apple/notifications/v2", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signedPayload }) }, env);
+async function post(
+  app: ReturnType<typeof createAppleNotificationRoutes>,
+  env: Env,
+  signedPayload: string,
+  extraFields: Record<string, unknown> = {},
+) {
+  return await app.request("/apple/notifications/v2", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ signedPayload, ...extraFields }),
+  }, env);
 }
 
 const TRANSACTION_SCHEMA = `CREATE TABLE billing_transaction (

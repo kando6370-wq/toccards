@@ -133,11 +133,11 @@ Card Detail 普通价格历史 1Y 的服务端防绕过已关闭：Free 仍可�
 
 | API/任务 | 当前行为 |
 |---|---|
-| `POST /api/v1/apple/notifications/v2` | 无 App 用户鉴权；只接受有界 `{signedPayload}`，先写原始收件箱，再用 Apple 官方库验签并消费。原始落库失败返回非 2xx。 |
+| `POST /api/v1/apple/notifications/v2` | 无 App 用户鉴权；要求存在有界非空 `signedPayload`，允许 Apple 增加其他顶层字段并在 `request_json` 中原样保留；先写原始收件箱，再用 Apple 官方库验签并消费。原始落库失败返回非 2xx。 |
 | 每 5 分钟 Cron | 重试 `pending`、`processing_failed` 或处理租约已过期的收件箱记录。 |
 | Apple Server API 校正 | Cron 查询 `correction_required` 对应的现有 purchase chain，调用 Apple 当前订阅状态/交易接口并再次验签嵌套 JWS；只修正同链状态与已有 grant。 |
 
-验签后的通知以 `notificationUUID` 幂等，新订单以 `environment + transactionId` 幂等。purchase chain 生命周期按 `(signedDate, notificationUUID)` 保护：更早事件不能覆盖更新状态，同一时点冲突进入 `correction_required`。Grace 保持 grant 有效至 `gracePeriodExpiresDate`，Billing Retry/Expired 使 grant 失效，Refund 修改原交易并撤销同链 grant；`REFUND_REVERSED` 等不能从通知本身确定终态的事件先进入校正，再由 Apple Server API 当前状态恢复受影响订单/链路。校正不会创建 owner/session grant，也不按 UID 传播 Premium。
+未知但已验签的主通知类型和 Payload 字段会完整进入结构化通知及 Admin 动态选项/详情；在没有已定义业务语义时标记为 `processed`，不猜测建单或修改 purchase chain/grant。验签后的通知以 `notificationUUID` 幂等，新订单以 `environment + transactionId` 幂等。purchase chain 生命周期按 `(signedDate, notificationUUID)` 保护：更早事件不能覆盖更新状态，同一时点冲突进入 `correction_required`。Grace 保持 grant 有效至 `gracePeriodExpiresDate`，Billing Retry/Expired 使 grant 失效，Refund 修改原交易并撤销同链 grant；`REFUND_REVERSED` 等不能从通知本身确定终态的事件先进入校正，再由 Apple Server API 当前状态恢复受影响订单/链路。校正不会创建 owner/session grant，也不按 UID 传播 Premium。
 
 ## 当前边界
 

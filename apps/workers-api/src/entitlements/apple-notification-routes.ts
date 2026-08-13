@@ -546,9 +546,7 @@ function readSignedPayload(requestJson: string): string | null {
   try {
     const value = JSON.parse(requestJson) as unknown;
     if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-    const entries = Object.entries(value);
-    if (entries.length !== 1 || entries[0]?.[0] !== "signedPayload") return null;
-    const payload = entries[0][1];
+    const payload = (value as Record<string, unknown>).signedPayload;
     return typeof payload === "string" && payload.length > 0 && payload.length <= MAX_REQUEST_BYTES
       ? payload
       : null;

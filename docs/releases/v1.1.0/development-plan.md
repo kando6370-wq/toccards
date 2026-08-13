@@ -83,6 +83,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 - 2026-08-13 远程只读发布审计：dev/prod Worker 均只有既有 JWT、Mixpanel、ZeptoMail Secret，缺 Apple Root CA 和 App Store Server API Issuer/Key/Private Key；`wrangler.toml` 也尚未配置正式 Product ID 白名单、IAP Bundle ID、Production App Apple ID。两环境 D1 均待执行 `0025` 至 `0033`。因此当前部署即使可打包，Fresh Purchase/通知验签/Server API 校正仍会显式不可用；本轮未写 Secret、未迁移、未部署。
 - 2026-08-13 真实历史迁移预演：通过 Wrangler 只读导出远程 dev D1，在仓库外本地 SQLite 副本连续执行 `0025` 至 `0033`。迁移前后核心表行数一致，`quick_check=ok`、外键检查无错误；67/67 个既有 Item 的逻辑起点保持原 `created_at`，可靠历史起点统一为迁移时刻，145 条 Event 未删除或重排。单条迁移耗时 9-45 ms，`0031` 为 17 ms。当前 dev 最大 owner 只有 24 条 Event、12 个现存 Item，Performance 数据库查询本地 20 次中位数为 Event 6.71 ms、价格 7.72 ms；Admin 订单表为空，空列表/计数中位数分别为 6.52/6.41 ms。这些结果不包含 Cloudflare 网络与 Worker JS 计算，也不覆盖有订单或重度收藏用户，不能替代 App 15 秒和 Admin 普通查询 3 秒的发布环境验收。本轮未写远程 D1。
 
+- Notifications V2 前向兼容已收口：HTTP 包络允许 `signedPayload` 之外的 Apple 新增顶层字段并在 inbox `request_json` 原样保存；未知但已验签的主通知类型与 Payload 字段进入结构化记录和 Admin 展示，在无已定义语义时不建单、不修改权益。真实 D1 集成测试同时保护原始字段、Decoded Payload 和零业务副作用。
+
 ### 阶段 A：P0 可信权益闭环
 
 目标：关闭评审 P0-A/P0-B/P0-C，使服务端受限操作不信任 UID 或客户端布尔值。

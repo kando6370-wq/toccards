@@ -91,6 +91,32 @@ describe("Admin billing order contract", () => {
     expect(JSON.stringify(success)).not.toContain("signed.success.jws");
   });
 
+  it("shows future Apple notification types and decoded fields without a product dictionary update", async () => {
+    await db.batch([
+      db.prepare(`INSERT INTO apple_notification_inbox VALUES
+        ('inbox-future', 'hash-future', '{"signedPayload":"signed.future.jws","futureRequestField":"kept"}',
+         'signed.future.jws', 'processed', 1, NULL, 'notification-future', NULL,
+         '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z')`),
+      db.prepare(`INSERT INTO apple_server_notification VALUES
+        ('notification-row-future', 'inbox-future', 'notification-future', 'FUTURE_NOTIFICATION',
+         'FUTURE_SUBTYPE', 'Sandbox', NULL, NULL, NULL,
+         '{"notification":{"notificationType":"FUTURE_NOTIFICATION","futureEnvelopeField":{"version":3}}}',
+         'processed', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:00.000Z')`),
+    ]);
+
+    const options = await (await get("/admin/apple-notifications/options")).json() as any;
+    expect(options.data.items).toContainEqual({
+      notification_type: "FUTURE_NOTIFICATION",
+      subtype: "FUTURE_SUBTYPE",
+    });
+
+    const detail = await (await get("/admin/apple-notifications/notification-future")).json() as any;
+    expect(JSON.parse(detail.data.decoded_payload)).toMatchObject({
+      notification: { futureEnvelopeField: { version: 3 } },
+    });
+    expect(JSON.stringify(detail)).not.toContain("signed.future.jws");
+  });
+
   async function get(path: string) {
     return app.request(path, { headers: { authorization: `Bearer ${token}` } }, env);
   }
