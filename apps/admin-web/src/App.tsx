@@ -482,6 +482,11 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
   const path = useMemo(() => queryPath("/billing/transactions", page, filters), [filters, page]);
   const { data, loading, reload, error } = useAdminData<PagedResponse<BillingTransactionRow>>(path, session);
   const { data: options } = useAdminData<BillingOptions>("/billing/transactions/options", session);
+  useEffect(() => {
+    if (loading || !data) return;
+    const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
+    if (page > lastPage) setPage(lastPage);
+  }, [data, loading, page]);
   const countryOptions = (options?.countries ?? []).map((value) => ({ value, label: countryName(value) }));
   const skuOptions = (options?.skus ?? []).map((value) => ({ value, label: value }));
   async function exportOrders() {
