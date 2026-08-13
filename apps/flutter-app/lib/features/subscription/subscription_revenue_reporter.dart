@@ -42,6 +42,7 @@ class SubscriptionRevenueRecord {
         planType is! String ||
         planType.isEmpty ||
         amount is! num ||
+        !amount.isFinite ||
         currency is! String ||
         currency.isEmpty) {
       return null;
@@ -75,7 +76,11 @@ class PreferencesSubscriptionRevenueStorage
   @override
   Future<Set<String>> readReportedTransactionIds() async {
     final preferences = await SharedPreferences.getInstance();
-    return preferences.getStringList(_reportedKey)?.toSet() ?? <String>{};
+    return preferences
+            .getStringList(_reportedKey)
+            ?.where((transactionId) => transactionId.trim().isNotEmpty)
+            .toSet() ??
+        <String>{};
   }
 
   @override
@@ -89,7 +94,9 @@ class PreferencesSubscriptionRevenueStorage
       final pending = <String, SubscriptionRevenueRecord>{};
       for (final entry in decoded.entries) {
         final record = SubscriptionRevenueRecord.fromJson(entry.value);
-        if (entry.key is String && record != null) {
+        if (entry.key is String &&
+            record != null &&
+            entry.key == record.transactionId) {
           pending[entry.key as String] = record;
         }
       }

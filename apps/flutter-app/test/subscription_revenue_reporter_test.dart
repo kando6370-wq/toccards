@@ -2,9 +2,16 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/subscription/subscription_revenue_reporter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   test(
     'verified Apple purchase reports StoreKit transaction value once',
     () async {
@@ -102,7 +109,44 @@ void main() {
       expect(sink.records, isEmpty);
     },
   );
+
+  test(
+    'corrupted Revenue storage cannot bypass transaction idempotency or report a non-finite amount',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'subscription.revenue.reported_transaction_ids': [
+          '',
+          'transaction-reported',
+        ],
+        'subscription.revenue.pending': jsonEncode({
+          'wrong-map-key': _recordJson(transactionId: 'transaction-wrong'),
+          'transaction-valid': _recordJson(transactionId: 'transaction-valid'),
+        }),
+      });
+      const storage = PreferencesSubscriptionRevenueStorage();
+
+      expect(await storage.readReportedTransactionIds(), {
+        'transaction-reported',
+      });
+      expect((await storage.readPending()).keys, {'transaction-valid'});
+      expect(
+        SubscriptionRevenueRecord.fromJson({
+          ..._recordJson(transactionId: 'transaction-infinite'),
+          'value': double.infinity,
+        }),
+        isNull,
+      );
+    },
+  );
 }
+
+Map<String, Object> _recordJson({required String transactionId}) => {
+  'transaction_id': transactionId,
+  'product_id': 'apple.yearly',
+  'plan_type': 'yearly',
+  'value': 49.99,
+  'currency': 'USD',
+};
 
 SubscriptionEvent _event({
   SubscriptionPurchaseStatus status = SubscriptionPurchaseStatus.purchased,
