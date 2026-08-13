@@ -43,18 +43,34 @@ class VerifiedEntitlementCache {
 
   static VerifiedEntitlementCache? fromJson(Object? value) {
     if (value is! Map) return null;
+    final verifiedAtValue = value['verified_at'];
+    final productId = value['product_id'];
+    final originalTransactionId = value['original_transaction_id'];
+    final expiresAtValue = value['expires_at'];
+    final isLifetime = value['is_lifetime'];
+    if (verifiedAtValue is! String ||
+        productId is! String? ||
+        originalTransactionId is! String? ||
+        expiresAtValue is! String? ||
+        isLifetime is! bool) {
+      return null;
+    }
     final state = AppPremiumState.values
         .where((candidate) => candidate.name == value['state'])
         .firstOrNull;
-    final verifiedAt = DateTime.tryParse(value['verified_at'] as String? ?? '');
+    final verifiedAt = DateTime.tryParse(verifiedAtValue);
+    final expiresAt = expiresAtValue == null
+        ? null
+        : DateTime.tryParse(expiresAtValue);
     if (state == null || verifiedAt == null) return null;
+    if (expiresAtValue != null && expiresAt == null) return null;
     return VerifiedEntitlementCache(
       state: state,
       verifiedAt: verifiedAt,
-      productId: value['product_id'] as String?,
-      originalTransactionId: value['original_transaction_id'] as String?,
-      expiresAt: DateTime.tryParse(value['expires_at'] as String? ?? ''),
-      isLifetime: value['is_lifetime'] == true,
+      productId: productId,
+      originalTransactionId: originalTransactionId,
+      expiresAt: expiresAt,
+      isLifetime: isLifetime,
     );
   }
 }

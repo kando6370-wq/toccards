@@ -64,6 +64,27 @@ void main() {
     },
   );
 
+  test(
+    'malformed cache field types are discarded because corruption must trigger Apple revalidation instead of crashing startup',
+    () {
+      final valid = VerifiedEntitlementCache(
+        state: AppPremiumState.premium,
+        verifiedAt: DateTime.utc(2026, 8, 12),
+        isLifetime: true,
+      ).toJson();
+
+      for (final corrupted in [
+        {...valid, 'verified_at': 123},
+        {...valid, 'product_id': <String>[]},
+        {...valid, 'original_transaction_id': true},
+        {...valid, 'expires_at': 'not-a-date'},
+        {...valid, 'is_lifetime': 'true'},
+      ]) {
+        expect(VerifiedEntitlementCache.fromJson(corrupted), isNull);
+      }
+    },
+  );
+
   test('StoreKit JWS decoder rejects malformed evidence', () {
     expect(decodeStoreKitJwsPayload('not-a-jws'), isNull);
     expect(decodeStoreKitJwsPayload(_jws({'productId': 'apple.yearly'})), {
