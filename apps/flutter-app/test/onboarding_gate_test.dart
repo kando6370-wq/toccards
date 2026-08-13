@@ -8,6 +8,9 @@ import 'package:kando_app/app/app_startup_preloader.dart';
 import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_gate.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
+import 'package:kando_app/shared/attribution/app_attribution.dart';
+
+import 'support/test_app_attribution.dart';
 
 void main() {
   testWidgets('iOS launch logo keeps the same responsive center and size', (
@@ -23,6 +26,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appAttributionCoordinatorProvider.overrideWithValue(
+              testAppAttributionCoordinator(),
+            ),
             appStartupPreloaderProvider.overrideWith((ref) async {}),
             onboardingRepositoryProvider.overrideWithValue(
               const _ImmediateOnboardingRepository(completed: true),
@@ -69,6 +75,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appAttributionCoordinatorProvider.overrideWithValue(
+              testAppAttributionCoordinator(),
+            ),
             appStartupPreloaderProvider.overrideWith((ref) async {}),
             onboardingRepositoryProvider.overrideWithValue(
               const _ImmediateOnboardingRepository(completed: true),
@@ -109,6 +118,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appAttributionCoordinatorProvider.overrideWithValue(
+            testAppAttributionCoordinator(),
+          ),
           appStartupPreloaderProvider.overrideWith((ref) async {}),
           onboardingRepositoryProvider.overrideWithValue(
             const _ImmediateOnboardingRepository(completed: true),
@@ -181,6 +193,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appAttributionCoordinatorProvider.overrideWithValue(
+              testAppAttributionCoordinator(),
+            ),
             appStartupPreloaderProvider.overrideWith((ref) async {}),
             onboardingRepositoryProvider.overrideWithValue(repository),
           ],
@@ -215,6 +230,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appAttributionCoordinatorProvider.overrideWithValue(
+              testAppAttributionCoordinator(),
+            ),
             appStartupPreloaderProvider.overrideWith((ref) => preload.future),
             onboardingRepositoryProvider.overrideWithValue(
               const _ImmediateOnboardingRepository(completed: true),

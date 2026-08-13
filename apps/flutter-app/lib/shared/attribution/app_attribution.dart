@@ -77,17 +77,27 @@ class AppAttributionCoordinator {
   final AppTrackingGateway _tracking;
   final AppAttributionGateway _attribution;
   final AppAttributionStartupStorage _startupStorage;
+  bool? _firstStartup;
+  Future<void>? _startupMarkerPreload;
   Future<void>? _startup;
+
+  Future<void> preloadStartupMarker() {
+    return _startupMarkerPreload ??= _preloadStartupMarker();
+  }
+
+  Future<void> _preloadStartupMarker() async {
+    _firstStartup = await _claimFirstStartup();
+  }
 
   Future<void> prepareForStartup({required bool allowInitialRequest}) {
     return _startup ??= _prepare(allowInitialRequest: allowInitialRequest);
   }
 
   Future<void> _prepare({required bool allowInitialRequest}) async {
-    final firstStartup = _claimFirstStartup();
     var status = await _readStatus();
+    if (_firstStartup == null) await preloadStartupMarker();
     if (allowInitialRequest &&
-        (await firstStartup) &&
+        (_firstStartup ?? false) &&
         status == AppTrackingStatus.notDetermined) {
       try {
         status = await _tracking.requestAuthorization();

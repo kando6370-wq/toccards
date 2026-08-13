@@ -10,8 +10,10 @@ import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
+import 'package:kando_app/shared/attribution/app_attribution.dart';
 
 import 'support/in_memory_onboarding_storage.dart';
+import 'support/test_app_attribution.dart';
 
 void main() {
   testWidgets('KandoApp shows onboarding before the startup home page', (
@@ -71,6 +73,9 @@ Future<void> _finishPageTransition(WidgetTester tester) async {
 ProviderScope _testApp(InMemoryOnboardingStorage storage) {
   return ProviderScope(
     overrides: [
+      appAttributionCoordinatorProvider.overrideWithValue(
+        testAppAttributionCoordinator(),
+      ),
       appStartupPreloaderProvider.overrideWith((ref) async {}),
       authRepositoryProvider.overrideWithValue(
         _WidgetTestAuthRepository(

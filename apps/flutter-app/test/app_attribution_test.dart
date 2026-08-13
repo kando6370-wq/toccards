@@ -162,6 +162,26 @@ void main() {
       );
     },
   );
+
+  test(
+    'startup marker preload has no ATT or attribution side effects',
+    () async {
+      final events = <String>[];
+      final coordinator = AppAttributionCoordinator(
+        tracking: _TrackingGateway(
+          status: AppTrackingStatus.notDetermined,
+          requestedStatus: AppTrackingStatus.authorized,
+          events: events,
+        ),
+        attribution: _AttributionGateway(events),
+        startupStorage: _StartupStorage(firstStartup: true),
+      );
+
+      await coordinator.preloadStartupMarker();
+
+      expect(events, isEmpty);
+    },
+  );
 }
 
 class _StartupStorage implements AppAttributionStartupStorage {
