@@ -489,6 +489,12 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
   }, [data, loading, page]);
   const countryOptions = (options?.countries ?? []).map((value) => ({ value, label: countryName(value) }));
   const skuOptions = (options?.skus ?? []).map((value) => ({ value, label: value }));
+  function applyFilters() {
+    const nextFilters = { ...draft, uid: draft.uid?.trim() ?? "", order_id: draft.order_id?.trim() ?? "" };
+    setDraft(nextFilters);
+    setFilters(nextFilters);
+    setPage(1);
+  }
   async function exportOrders() {
     setExporting(true);
     try {
@@ -499,25 +505,28 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
       setExporting(false);
     }
   }
+  const billingValue = (value: unknown) => value === null || value === undefined || value === "" ? "--" : String(value);
+  const billingUtcTime = (value: string | null) => value ? formatUtcTime(value).replace(/^-$|^--$/, "--") : "--";
+  const billingAmount = (value: number | null, currency: string | null) => value === null || !currency ? "--" : formatMicros(value, currency);
   const columns: ColumnsType<BillingTransactionRow> = [
-    { title: "UID", dataIndex: "uid", width: 120, render: displayValue },
+    { title: "UID", dataIndex: "uid", width: 120, render: billingValue },
     { title: "订单 ID", dataIndex: "order_id", width: 190, ellipsis: true },
-    { title: "国家/地区", dataIndex: "country", width: 95, render: (value) => value ? countryName(value) : "-" },
-    { title: "安装时间（UTC+0）", dataIndex: "install_time", width: 170, render: formatUtcTime },
+    { title: "国家/地区", dataIndex: "country", width: 95, render: (value) => value ? countryName(value) : "--" },
+    { title: "安装时间（UTC+0）", dataIndex: "install_time", width: 170, render: billingUtcTime },
     { title: "订单时间（UTC+0）", dataIndex: "order_time", width: 170, render: formatUtcTime },
     { title: "SKU", dataIndex: "sku", width: 180, ellipsis: true },
     { title: "订单状态", dataIndex: "order_status", width: 135, render: billingOrderStatusTag },
     { title: "当前订阅状态", dataIndex: "subscription_status", width: 130, render: billingSubscriptionStatusTag },
     { title: "自动续期", dataIndex: "auto_renew", width: 90, render: (value) => value ? "是" : "否" },
     { title: "环境", dataIndex: "environment", width: 100, render: billingEnvironmentLabel },
-    { title: "原始金额", width: 110, render: (_, row) => formatMicros(row.amount_micros, row.currency) },
+    { title: "原始金额", width: 110, render: (_, row) => billingAmount(row.amount_micros, row.currency) },
     { title: "金额（USD）", width: 110, render: (_, row) => formatMicros(row.amount_usd_micros, "USD") },
     { title: "扣款次数", dataIndex: "charge_count", width: 90, render: displayValue },
   ];
-  return <PagePanel error={error} onRefresh={reload} refreshing={loading}>
+  return <PagePanel error={error ? "订单数据加载失败，请稍后重试" : null} onRefresh={reload} refreshing={loading} showRefresh={false}>
     <section className="scans-filter-panel">
-      <ScanFilterField label="UID"><Input value={draft.uid ?? ""} placeholder="输入用户 ID" onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
-      <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} placeholder="输入订单 ID" onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="UID"><Input value={draft.uid ?? ""} placeholder="请输入用户 ID。" onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} placeholder="请输入订单 ID。" onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="国家/地区"><Select showSearch mode="multiple" value={csvValues(draft.country)} options={countryOptions} onChange={(v) => setDraft({ ...draft, country: v.join(",") })} /></ScanFilterField>
       <ScanFilterField label="SKU"><Select showSearch mode="multiple" value={csvValues(draft.sku)} options={skuOptions} onChange={(v) => setDraft({ ...draft, sku: v.join(",") })} /></ScanFilterField>
       <ScanFilterField label="订单状态"><Select mode="multiple" value={csvValues(draft.status)} options={billingStatusOptions} onChange={(v) => setDraft({ ...draft, status: v.join(",") })} /></ScanFilterField>
@@ -527,10 +536,10 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
       <ScanFilterField label="自动续期"><Select allowClear value={draft.auto_renew || undefined} options={[{ value: "true", label: "是" }, { value: "false", label: "否" }]} onChange={(v) => setDraft({ ...draft, auto_renew: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="环境"><Select allowClear value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="扣款次数"><Select allowClear value={draft.charge_count || undefined} options={billingChargeCountOptions} onChange={(v) => setDraft({ ...draft, charge_count: v ?? "" })} /></ScanFilterField>
-      <div className="scans-filter-actions"><Button disabled={loading} onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={() => { setFilters(draft); setPage(1); }}>查询</Button></div>
+      <div className="scans-filter-actions"><Button disabled={loading} onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyFilters}>查询</Button></div>
     </section>
-    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>订单列表</Title><Button disabled={!data?.total || loading || exporting} loading={exporting} onClick={exportOrders}>导出</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} scroll={{ x: 1650 }} />
-      <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination disabled={loading} current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
+    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>订单列表</Title><Space><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button><Button disabled={!data?.total || loading || exporting} loading={exporting} onClick={exportOrders}>导出</Button></Space></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的订单" }} pagination={false} scroll={{ x: 1650 }} />
+      <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination disabled={loading} current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showQuickJumper showSizeChanger={false} onChange={setPage} /></div>
     </section>
   </PagePanel>;
 }
@@ -569,7 +578,7 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     { title: "创建时间（UTC+0）", dataIndex: "received_at", width: 170, render: formatUtcTime },
     { title: "操作", width: 90, render: (_, row) => <Button type="link" onClick={() => openDetail(row.detail_id)}>查看详情</Button> },
   ];
-  return <PagePanel error={error} onRefresh={reload}>
+  return <PagePanel error={error} onRefresh={reload} showRefresh={false}>
     <section className="scans-filter-panel">
       <ScanFilterField label="UID"><Input value={draft.uid ?? ""} onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="原始交易 ID"><Input value={draft.original_transaction_id ?? ""} onChange={(e) => setDraft({ ...draft, original_transaction_id: e.target.value })} /></ScanFilterField>
@@ -577,10 +586,10 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
       <ScanFilterField label="环境"><Select allowClear value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="主通知类型"><Select showSearch mode="multiple" value={selectedTypes} options={notificationTypeOptions} onChange={(v) => setDraft({ ...draft, notification_type: v.join(","), subtype: "" })} /></ScanFilterField>
       <ScanFilterField label="子通知类型"><Select showSearch mode="multiple" value={csvValues(draft.subtype)} options={subtypeOptions} onChange={(v) => setDraft({ ...draft, subtype: v.join(",") })} /></ScanFilterField>
-      <ScanFilterField label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
+      <ScanFilterField label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} showTime onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
       <div className="scans-filter-actions"><Button onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" onClick={() => { setFilters(draft); setPage(1); }}>查询</Button></div>
     </section>
-    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} scroll={{ x: 1250 }} />
+    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button onClick={reload}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} scroll={{ x: 1250 }} />
       <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
     </section>
     <Drawer title="通知消息详情" width="55%" open={detail !== null} onClose={() => setDetail(null)}>{detail && <Space direction="vertical" size="large" style={{ width: "100%" }}>
@@ -1115,13 +1124,13 @@ function DataPanel({ title, count, children, className = "" }: { title: string; 
   );
 }
 
-function PagePanel({ error, onRefresh, children, className = "", refreshing = false }: { error: string | null; onRefresh: () => void; children: React.ReactNode; className?: string; refreshing?: boolean }) {
+function PagePanel({ error, onRefresh, children, className = "", refreshing = false, showRefresh = true }: { error: string | null; onRefresh: () => void; children: React.ReactNode; className?: string; refreshing?: boolean; showRefresh?: boolean }) {
   return (
     <div className={`page-panel ${className}`.trim()}>
-      <div className="refresh-row">
+      {showRefresh && <div className="refresh-row">
         <span />
         <Button disabled={refreshing} loading={refreshing} onClick={onRefresh}>刷新</Button>
-      </div>
+      </div>}
       {error && <Alert type="error" showIcon message={error} />}
       {children}
     </div>

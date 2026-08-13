@@ -16,9 +16,13 @@ test("billing admin follows the v1.1 order facts contract without making UID the
   assert.match(app, /\/billing\/transactions\/export/);
   assert.match(app, /const lastPage = Math\.max\(1, Math\.ceil\(data\.total \/ data\.page_size\)\)/);
   assert.match(app, /if \(page > lastPage\) setPage\(lastPage\)/);
-  assert.match(app, /<PagePanel error=\{error\} onRefresh=\{reload\} refreshing=\{loading\}>/);
-  assert.match(app, /<Button className="cyan-button" disabled=\{loading\} loading=\{loading\}/);
-  assert.match(app, /<Pagination disabled=\{loading\} current=\{page\}/);
+  assert.match(app, /<PagePanel error=\{error \? "订单数据加载失败，请稍后重试" : null\} onRefresh=\{reload\} refreshing=\{loading\} showRefresh=\{false\}>/);
+  assert.match(app, /const nextFilters = \{ \.\.\.draft, uid: draft\.uid\?\.trim\(\).*order_id: draft\.order_id\?\.trim\(\)/);
+  assert.match(app, /<Button className="cyan-button" disabled=\{loading\} loading=\{loading\} onClick=\{applyFilters\}>查询<\/Button>/);
+  assert.match(app, /<Title level=\{4\}>订单列表<\/Title><Space><Button disabled=\{loading\} loading=\{loading\} onClick=\{reload\}>刷新<\/Button>/);
+  assert.match(app, /locale=\{\{ emptyText: "暂无符合条件的订单" \}\}/);
+  assert.match(app, /<Pagination disabled=\{loading\} current=\{page\}.*showQuickJumper/s);
+  assert.match(app, /const billingValue = \(value: unknown\).*\? "--"/);
   assert.match(routes, /adminRoutes\.get\("\/billing\/transactions"/);
   assert.match(routes, /adminRoutes\.get\("\/apple-notifications"/);
   assert.match(routes, /createXlsx/);
@@ -41,7 +45,9 @@ test("Apple notification inbox is idempotent and remains read-only until JWS ver
 test("Apple notification payload stays out of list responses and is copied only from an opened detail", () => {
   assert.match(app, /description: "查询并查看 Apple App Store Server Notifications V2 订阅通知消息及完整通知内容，用于排查掉单、订单状态异常等问题。"/);
   assert.match(app, /<ScanFilterField label="环境">.*<ScanFilterField label="主通知类型">.*<ScanFilterField label="子通知类型">/s);
+  assert.match(app, /<ScanFilterField label="创建时间（UTC\+0）"><DatePicker\.RangePicker key=\{dateKey\} showTime/);
   assert.match(app, /<Title level=\{4\}>通知消息列表<\/Title>/);
+  assert.match(app, /<Title level=\{4\}>通知消息列表<\/Title><Button onClick=\{reload\}>刷新<\/Button>/);
   assert.match(app, /const notificationValue = \(value: unknown\).*\? "--"/);
   assert.match(app, /async function openDetail\(id: string\).*\/apple-notifications\/\$\{id\}/s);
   assert.match(app, /onClick=\{\(\) => openDetail\(row\.detail_id\)\}>查看详情/);
