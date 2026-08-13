@@ -553,6 +553,31 @@ body {
   overflow: hidden;
 }
 
+.billing-table-actions {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 18px;
+}
+
+.billing-table-actions h4 {
+  margin: 0;
+}
+
+.notification-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.json-block {
+  max-height: 52vh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .scans-table-panel .ant-table-thead > tr > th {
   background: #eef2f4;
   color: #23313d;

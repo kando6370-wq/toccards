@@ -12,6 +12,7 @@ import type { Env } from "../env";
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
 import { cardImageUrl } from "../card-image-url";
 import { createId } from "../id";
+import { createXlsx } from "./xlsx";
 
 type AdminRole = "super_admin" | "operator";
 type AdminStatus = "active" | "disabled";
@@ -158,6 +159,34 @@ const VALIDATION_ERROR_RESPONSE = {
   success: false,
   error: { code: "VALIDATION_ERROR", message: "Invalid request." },
 } as const;
+
+const BILLING_LINKED_UIDS_SQL = `SELECT c.original_owner_id AS owner_id
+    WHERE NULLIF(c.original_owner_id, '') IS NOT NULL
+  UNION SELECT linked_session.owner_id
+    FROM billing_session_entitlement_grant linked_grant
+    JOIN session linked_session ON linked_session.id = linked_grant.session_id
+    WHERE linked_grant.purchase_chain_id = c.id`;
+const BILLING_UID_SQL = `(SELECT GROUP_CONCAT(owner_id) FROM (${BILLING_LINKED_UIDS_SQL}))`;
+const BILLING_INSTALL_TIME_SQL = `(SELECT MIN(installation.first_seen_at)
+  FROM app_installation installation
+  WHERE installation.uid IN (${BILLING_LINKED_UIDS_SQL}))`;
+const BILLING_ORDER_TIME_SQL = `CASE WHEN t.business_status = 'refunded'
+  THEN COALESCE(t.refund_completed_at, t.purchase_at) ELSE t.purchase_at END`;
+const BILLING_TRANSACTION_FROM_SQL = `FROM billing_transaction t
+  JOIN billing_purchase_chain c ON c.id = t.purchase_chain_id`;
+const BILLING_TRANSACTION_SELECT_SQL = `SELECT t.id, ${BILLING_UID_SQL} AS uid,
+  c.original_transaction_id, t.transaction_id AS order_id,
+  t.storefront_country_code AS country, t.storefront_country_code AS country_code,
+  ${BILLING_INSTALL_TIME_SQL} AS install_time, ${BILLING_ORDER_TIME_SQL} AS order_time,
+  t.product_id AS sku, t.business_status AS order_status, c.status AS subscription_status,
+  c.auto_renew, t.environment, t.amount_micros, t.currency, t.amount_usd_micros,
+  t.charge_count, t.refund_completed_at,
+  (SELECT n.notification_type FROM apple_server_notification n
+    WHERE n.environment = t.environment AND n.transaction_id = t.transaction_id
+    ORDER BY n.signed_at DESC, n.received_at DESC LIMIT 1) AS notification_type,
+  (SELECT n.subtype FROM apple_server_notification n
+    WHERE n.environment = t.environment AND n.transaction_id = t.transaction_id
+    ORDER BY n.signed_at DESC, n.received_at DESC LIMIT 1) AS notification_subtype`;
 
 const SELECT_ADMIN_BY_EMAIL_SQL = `
   SELECT id, email, password_hash, role, status, created_at
@@ -633,61 +662,60 @@ adminRoutes.get("/analytics/installations", async (c) => {
   });
 });
 
+adminRoutes.get("/billing/transactions/options", async (c) => {
+  const [countries, skus] = await Promise.all([
+    c.env.DB.prepare(`SELECT DISTINCT storefront_country_code AS value FROM billing_transaction
+      WHERE NULLIF(TRIM(storefront_country_code), '') IS NOT NULL ORDER BY value`).all<{ value: string }>(),
+    c.env.DB.prepare(`SELECT DISTINCT product_id AS value FROM billing_transaction
+      WHERE NULLIF(TRIM(product_id), '') IS NOT NULL ORDER BY value`).all<{ value: string }>(),
+  ]);
+  return c.json({ success: true, data: {
+    countries: (countries.results ?? []).map((row) => row.value),
+    skus: (skus.results ?? []).map((row) => row.value),
+  } });
+});
+
+adminRoutes.get("/billing/transactions/export", async (c) => {
+  const query = billingTransactionQuery((name) => c.req.query(name));
+  if (query.error) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  const total = await bindAdminQuery(c.env.DB,
+    `SELECT COUNT(*) AS total ${BILLING_TRANSACTION_FROM_SQL} ${query.where}`, query.bindings)
+    .first<{ total: number }>();
+  if ((total?.total ?? 0) === 0) return c.json(NOT_FOUND_RESPONSE, 404);
+  if ((total?.total ?? 0) > 10_000) {
+    return c.json({ success: false, error: { code: "EXPORT_LIMIT_EXCEEDED", message: "Export is limited to 10,000 rows." } }, 422);
+  }
+  const rows = await bindAdminQuery(c.env.DB,
+    `${BILLING_TRANSACTION_SELECT_SQL} ${BILLING_TRANSACTION_FROM_SQL} ${query.where}
+      ORDER BY order_time DESC, t.created_at DESC`, query.bindings).all<Record<string, unknown>>();
+  const headers = ["UID", "原始交易 ID", "订单 ID", "国家/地区", "国家/地区代码", "安装时间（UTC+0）",
+    "订单时间（UTC+0）", "SKU", "订单状态", "当前订阅状态", "自动续订", "环境", "原始金额数值",
+    "原始币种", "金额（USD）", "扣款次数", "退款完成时间", "Apple 主通知类型", "Apple 子通知类型"];
+  const workbook = createXlsx(headers, (rows.results ?? []).map((row) => [
+    row.uid, row.original_transaction_id, row.order_id, countryDisplayName(row.country_code), row.country_code,
+    row.install_time, row.order_time, row.sku, row.order_status, row.subscription_status,
+    row.auto_renew, row.environment, microsToDecimal(row.amount_micros), row.currency,
+    microsToDecimal(row.amount_usd_micros), row.charge_count, row.refund_completed_at,
+    row.notification_type, row.notification_subtype,
+  ]));
+  return new Response(workbook, { headers: {
+    "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "Content-Disposition": `attachment; filename="billing-orders-${new Date().toISOString().slice(0, 10)}.xlsx"`,
+  } });
+});
+
 adminRoutes.get("/billing/transactions", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
-  const conditions: string[] = [];
-  const bindings: unknown[] = [];
-  const uid = normalizeQuery(c.req.query("uid"));
-  if (uid) {
-    conditions.push(`EXISTS (SELECT 1 FROM billing_entitlement_grant matched_grant
-      WHERE matched_grant.purchase_chain_id = c.id AND LOWER(matched_grant.owner_id) LIKE ?)`);
-    bindings.push(`%${uid}%`);
-  }
-  addContainsCondition(conditions, bindings, "t.transaction_id", c.req.query("order_id"));
-  addExactCondition(conditions, bindings, "t.storefront_country_code", c.req.query("country"));
-  addListCondition(conditions, bindings, "t.product_id", c.req.query("sku"));
-  addListCondition(conditions, bindings, "t.status", c.req.query("status"));
-  addExactCondition(conditions, bindings, "t.environment", c.req.query("environment"));
-  const autoRenew = c.req.query("auto_renew");
-  if (autoRenew === "true" || autoRenew === "false") {
-    conditions.push("c.auto_renew = ?");
-    bindings.push(autoRenew === "true" ? 1 : 0);
-  }
-  const purchaseFrom = readDateBoundary(c.req.query("purchase_from"), false);
-  const purchaseTo = readDateBoundary(c.req.query("purchase_to"), true);
-  if (purchaseFrom === "invalid" || purchaseTo === "invalid") return c.json(VALIDATION_ERROR_RESPONSE, 422);
-  if (purchaseFrom) { conditions.push("t.purchase_at >= ?"); bindings.push(purchaseFrom); }
-  if (purchaseTo) { conditions.push("t.purchase_at <= ?"); bindings.push(purchaseTo); }
-  const statusFrom = readDateBoundary(c.req.query("status_from"), false);
-  const statusTo = readDateBoundary(c.req.query("status_to"), true);
-  if (statusFrom === "invalid" || statusTo === "invalid") return c.json(VALIDATION_ERROR_RESPONSE, 422);
-  if (statusFrom) { conditions.push("COALESCE(t.revoked_at, t.expires_at) >= ?"); bindings.push(statusFrom); }
-  if (statusTo) { conditions.push("COALESCE(t.revoked_at, t.expires_at) <= ?"); bindings.push(statusTo); }
-  const refundCount = c.req.query("refund_count");
-  if (refundCount && /^\d+$/.test(refundCount)) {
-    conditions.push(`(SELECT COUNT(*) FROM apple_server_notification refund_notice
-      WHERE refund_notice.original_transaction_id = c.original_transaction_id
-        AND refund_notice.notification_type IN ('REFUND', 'REVOKE')) = ?`);
-    bindings.push(Number(refundCount));
-  }
-  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-  const from = `FROM billing_transaction t
-    JOIN billing_purchase_chain c ON c.id = t.purchase_chain_id
-    LEFT JOIN billing_entitlement_grant g ON g.purchase_chain_id = c.id AND g.status = 'active'`;
-  const rows = await bindAdminQuery(c.env.DB, `SELECT t.id, c.original_owner_id AS uid,
-      t.transaction_id AS order_id, t.storefront_country_code AS country, t.purchase_at,
-      COALESCE(t.revoked_at, t.expires_at) AS status_at, t.product_id AS sku,
-      t.status AS order_status, c.auto_renew, t.environment, t.amount_micros,
-      t.currency, t.amount_usd_micros,
-      COUNT(DISTINCT g.owner_type || ':' || g.owner_id) AS grant_count,
-      (SELECT COUNT(*) FROM apple_server_notification n
-        WHERE n.original_transaction_id = c.original_transaction_id
-          AND n.notification_type IN ('REFUND', 'REVOKE')) AS refund_count
-    ${from} ${where} GROUP BY t.id ORDER BY t.purchase_at DESC LIMIT ? OFFSET ?`,
-    [...bindings, pageSize, (page - 1) * pageSize]).all();
+  const query = billingTransactionQuery((name) => c.req.query(name));
+  if (query.error) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  const rows = await bindAdminQuery(c.env.DB,
+    `${BILLING_TRANSACTION_SELECT_SQL} ${BILLING_TRANSACTION_FROM_SQL} ${query.where}
+      ORDER BY order_time DESC, t.created_at DESC LIMIT ? OFFSET ?`,
+    [...query.bindings, pageSize, (page - 1) * pageSize]).all();
   const count = await bindAdminQuery(c.env.DB,
-    `SELECT COUNT(DISTINCT t.id) AS total ${from} ${where}`, bindings).first<{ total: number }>();
+    `SELECT COUNT(*) AS total ${BILLING_TRANSACTION_FROM_SQL} ${query.where}`, query.bindings)
+    .first<{ total: number }>();
   return c.json({ success: true, data: { items: rows.results ?? [], total: count?.total ?? 0, page, page_size: pageSize } });
 });
 
@@ -696,43 +724,87 @@ adminRoutes.get("/apple-notifications", async (c) => {
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
   const conditions: string[] = [];
   const bindings: unknown[] = [];
-  addContainsCondition(conditions, bindings, "n.original_transaction_id", c.req.query("original_transaction_id"));
-  addContainsCondition(conditions, bindings, "n.transaction_id", c.req.query("order_id"));
+  addExactCondition(conditions, bindings, "n.original_transaction_id", c.req.query("original_transaction_id"));
+  addExactCondition(conditions, bindings, "n.transaction_id", c.req.query("order_id"));
   const uid = normalizeQuery(c.req.query("uid"));
   if (uid) {
     conditions.push(`EXISTS (SELECT 1 FROM billing_purchase_chain matched_chain
-      JOIN billing_entitlement_grant matched_grant ON matched_grant.purchase_chain_id = matched_chain.id
       WHERE matched_chain.original_transaction_id = n.original_transaction_id
-        AND matched_chain.environment = n.environment AND LOWER(matched_grant.owner_id) LIKE ?)`);
-    bindings.push(`%${uid}%`);
+        AND matched_chain.environment = n.environment
+        AND (LOWER(matched_chain.original_owner_id) = ? OR EXISTS (
+          SELECT 1 FROM billing_session_entitlement_grant matched_grant
+          JOIN session matched_session ON matched_session.id = matched_grant.session_id
+          WHERE matched_grant.purchase_chain_id = matched_chain.id
+            AND LOWER(matched_session.owner_id) = ?)))`);
+    bindings.push(uid);
+    bindings.push(uid);
   }
   addListCondition(conditions, bindings, "n.notification_type", c.req.query("notification_type"));
   addListCondition(conditions, bindings, "n.subtype", c.req.query("subtype"));
   addExactCondition(conditions, bindings, "n.environment", c.req.query("environment"));
   const createdFrom = readDateBoundary(c.req.query("created_from"), false);
   const createdTo = readDateBoundary(c.req.query("created_to"), true);
-  if (createdFrom === "invalid" || createdTo === "invalid") return c.json(VALIDATION_ERROR_RESPONSE, 422);
-  if (createdFrom) { conditions.push("n.received_at >= ?"); bindings.push(createdFrom); }
-  if (createdTo) { conditions.push("n.received_at <= ?"); bindings.push(createdTo); }
+  if (createdFrom === "invalid" || createdTo === "invalid" || invalidDateRange(createdFrom, createdTo)) {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
+  if (createdFrom) { conditions.push("inbox.received_at >= ?"); bindings.push(createdFrom); }
+  if (createdTo) { conditions.push("inbox.received_at <= ?"); bindings.push(createdTo); }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-  const rows = await bindAdminQuery(c.env.DB, `SELECT n.id, n.notification_uuid,
+  const rows = await bindAdminQuery(c.env.DB, `SELECT inbox.id, COALESCE(n.notification_uuid, inbox.id) AS detail_id,
       n.notification_type, n.subtype, n.environment, n.original_transaction_id,
-      n.transaction_id, n.product_id AS sku, n.processing_status, n.received_at,
-      (SELECT GROUP_CONCAT(DISTINCT g.owner_id) FROM billing_purchase_chain c
-        JOIN billing_entitlement_grant g ON g.purchase_chain_id = c.id
-        WHERE c.original_transaction_id = n.original_transaction_id
-          AND c.environment = n.environment) AS uids
-    FROM apple_server_notification n ${where}
-    ORDER BY n.received_at DESC LIMIT ? OFFSET ?`,
+      n.transaction_id, n.product_id AS sku, inbox.processing_status, inbox.received_at,
+      (SELECT GROUP_CONCAT(owner_id) FROM (
+        SELECT linked_chain.original_owner_id AS owner_id
+        FROM billing_purchase_chain linked_chain
+        WHERE linked_chain.original_transaction_id = n.original_transaction_id
+          AND linked_chain.environment = n.environment
+          AND NULLIF(linked_chain.original_owner_id, '') IS NOT NULL
+        UNION SELECT linked_session.owner_id
+        FROM billing_purchase_chain linked_chain
+        JOIN billing_session_entitlement_grant linked_grant ON linked_grant.purchase_chain_id = linked_chain.id
+        JOIN session linked_session ON linked_session.id = linked_grant.session_id
+        WHERE linked_chain.original_transaction_id = n.original_transaction_id
+          AND linked_chain.environment = n.environment
+      )) AS uids
+    FROM apple_notification_inbox inbox
+    LEFT JOIN apple_server_notification n ON n.inbox_id = inbox.id ${where}
+    ORDER BY inbox.received_at DESC LIMIT ? OFFSET ?`,
     [...bindings, pageSize, (page - 1) * pageSize]).all();
   const count = await bindAdminQuery(c.env.DB,
-    `SELECT COUNT(*) AS total FROM apple_server_notification n ${where}`, bindings).first<{ total: number }>();
+    `SELECT COUNT(*) AS total FROM apple_notification_inbox inbox
+      LEFT JOIN apple_server_notification n ON n.inbox_id = inbox.id ${where}`, bindings).first<{ total: number }>();
   return c.json({ success: true, data: { items: rows.results ?? [], total: count?.total ?? 0, page, page_size: pageSize } });
 });
 
-adminRoutes.get("/apple-notifications/:notificationUuid", async (c) => {
-  const row = await c.env.DB.prepare("SELECT * FROM apple_server_notification WHERE notification_uuid = ? LIMIT 1")
-    .bind(c.req.param("notificationUuid")).first();
+adminRoutes.get("/apple-notifications/options", async (c) => {
+  const rows = await c.env.DB.prepare(`SELECT DISTINCT notification_type, subtype
+    FROM apple_server_notification ORDER BY notification_type, subtype`).all<{
+      notification_type: string; subtype: string | null;
+    }>();
+  return c.json({ success: true, data: { items: rows.results ?? [] } });
+});
+
+adminRoutes.get("/apple-notifications/:detailId", async (c) => {
+  const row = await c.env.DB.prepare(`SELECT inbox.id, inbox.processing_status, inbox.last_error,
+      inbox.received_at, n.notification_type, n.subtype, n.environment,
+      n.original_transaction_id, n.transaction_id, n.product_id AS sku, n.decoded_payload,
+      (SELECT GROUP_CONCAT(owner_id) FROM (
+        SELECT linked_chain.original_owner_id AS owner_id
+        FROM billing_purchase_chain linked_chain
+        WHERE linked_chain.original_transaction_id = n.original_transaction_id
+          AND linked_chain.environment = n.environment
+          AND NULLIF(linked_chain.original_owner_id, '') IS NOT NULL
+        UNION SELECT linked_session.owner_id
+        FROM billing_purchase_chain linked_chain
+        JOIN billing_session_entitlement_grant linked_grant ON linked_grant.purchase_chain_id = linked_chain.id
+        JOIN session linked_session ON linked_session.id = linked_grant.session_id
+        WHERE linked_chain.original_transaction_id = n.original_transaction_id
+          AND linked_chain.environment = n.environment
+      )) AS uids
+    FROM apple_notification_inbox inbox
+    LEFT JOIN apple_server_notification n ON n.inbox_id = inbox.id
+    WHERE inbox.id = ? OR n.notification_uuid = ? LIMIT 1`)
+    .bind(c.req.param("detailId"), c.req.param("detailId")).first();
   return row ? c.json({ success: true, data: row }) : c.json(NOT_FOUND_RESPONSE, 404);
 });
 
@@ -1321,11 +1393,60 @@ function bindAdminQuery(db: D1Database, sql: string, bindings: unknown[]): D1Pre
   return bindings.length ? statement.bind(...bindings) : statement;
 }
 
-function addContainsCondition(conditions: string[], bindings: unknown[], column: string, value: string | undefined): void {
-  const normalized = normalizeQuery(value);
-  if (!normalized) return;
-  conditions.push(`LOWER(${column}) LIKE ?`);
-  bindings.push(`%${normalized}%`);
+type BillingTransactionQuery = { where: string; bindings: unknown[]; error: boolean };
+
+function billingTransactionQuery(read: (name: string) => string | undefined): BillingTransactionQuery {
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  const uid = normalizeQuery(read("uid"));
+  if (uid) {
+    conditions.push(`EXISTS (SELECT 1 FROM (${BILLING_LINKED_UIDS_SQL}) linked_uid
+      WHERE LOWER(linked_uid.owner_id) = ?)`);
+    bindings.push(uid);
+  }
+  addExactCondition(conditions, bindings, "t.transaction_id", read("order_id"));
+  addListCondition(conditions, bindings, "t.storefront_country_code", read("country"));
+  addListCondition(conditions, bindings, "t.product_id", read("sku"));
+  addListCondition(conditions, bindings, "t.business_status", read("status"));
+  addListCondition(conditions, bindings, "c.status", read("subscription_status"));
+  addExactCondition(conditions, bindings, "t.environment", read("environment"));
+  const autoRenew = read("auto_renew");
+  if (autoRenew === "true" || autoRenew === "false") {
+    conditions.push("c.auto_renew = ?");
+    bindings.push(autoRenew === "true" ? 1 : 0);
+  }
+  const installFrom = readDateBoundary(read("install_from"), false);
+  const installTo = readDateBoundary(read("install_to"), true);
+  const orderFrom = readDateBoundary(read("purchase_from"), false);
+  const orderTo = readDateBoundary(read("purchase_to"), true);
+  if ([installFrom, installTo, orderFrom, orderTo].includes("invalid") ||
+      invalidDateRange(installFrom, installTo) || invalidDateRange(orderFrom, orderTo)) {
+    return { where: "", bindings: [], error: true };
+  }
+  if (installFrom) { conditions.push(`${BILLING_INSTALL_TIME_SQL} >= ?`); bindings.push(installFrom); }
+  if (installTo) { conditions.push(`${BILLING_INSTALL_TIME_SQL} <= ?`); bindings.push(installTo); }
+  if (orderFrom) { conditions.push(`${BILLING_ORDER_TIME_SQL} >= ?`); bindings.push(orderFrom); }
+  if (orderTo) { conditions.push(`${BILLING_ORDER_TIME_SQL} <= ?`); bindings.push(orderTo); }
+  const chargeCount = read("charge_count");
+  if (chargeCount) {
+    if (chargeCount === "5_plus") conditions.push("t.charge_count >= 5");
+    else if (/^[0-4]$/.test(chargeCount)) { conditions.push("t.charge_count = ?"); bindings.push(Number(chargeCount)); }
+    else return { where: "", bindings: [], error: true };
+  }
+  return { where: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "", bindings, error: false };
+}
+
+function invalidDateRange(from: string | null | "invalid", to: string | null | "invalid"): boolean {
+  return !!from && from !== "invalid" && !!to && to !== "invalid" && from > to;
+}
+
+function microsToDecimal(value: unknown): number | "" {
+  return typeof value === "number" && Number.isFinite(value) ? value / 1_000_000 : "";
+}
+
+function countryDisplayName(value: unknown): string {
+  if (typeof value !== "string" || !/^[A-Za-z]{2}$/.test(value)) return "";
+  return new Intl.DisplayNames(["zh-CN"], { type: "region" }).of(value.toUpperCase()) ?? value.toUpperCase();
 }
 
 function addExactCondition(conditions: string[], bindings: unknown[], column: string, value: string | undefined): void {
