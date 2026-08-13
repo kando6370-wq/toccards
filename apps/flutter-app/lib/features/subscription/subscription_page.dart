@@ -51,7 +51,9 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(
-        ref.read(subscriptionControllerProvider.notifier).refreshProducts(),
+        ref
+            .read(subscriptionControllerProvider.notifier)
+            .refreshProducts(isContextActive: () => mounted),
       );
     }
   }

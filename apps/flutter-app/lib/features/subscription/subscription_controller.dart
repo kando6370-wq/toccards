@@ -387,7 +387,9 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     state = state.copyWith(selectedPlanId: planId, clearError: true);
   }
 
-  Future<void> refreshProducts() async {
+  Future<void> refreshProducts({
+    required bool Function() isContextActive,
+  }) async {
     if (!state.isConfigured ||
         state.isLoading ||
         state.isPurchasing ||
@@ -400,7 +402,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     state = state.copyWith(isLoading: true);
     var loaded = false;
     try {
-      loaded = await _loadProductsWithRetry();
+      loaded = await _loadProductsWithRetry(isContextActive: isContextActive);
     } finally {
       if (ref.mounted) {
         state = state.copyWith(isLoading: false, clearError: loaded);
@@ -754,12 +756,19 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     );
   }
 
-  Future<bool> _loadProducts(int cycle) async {
+  Future<bool> _loadProducts(
+    int cycle, {
+    bool Function()? isContextActive,
+  }) async {
     final client = _client;
     final store = _store;
     if (client == null || store == null) return false;
     final catalog = await client.loadProducts();
-    if (cycle != _productLoadCycle || !ref.mounted) return false;
+    if (cycle != _productLoadCycle ||
+        !ref.mounted ||
+        isContextActive?.call() == false) {
+      return false;
+    }
     final prices = <String, String>{};
     final available = <String>{};
     for (final product in catalog.products) {
@@ -790,13 +799,16 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     return available.isNotEmpty;
   }
 
-  Future<bool> _loadProductsWithRetry() {
+  Future<bool> _loadProductsWithRetry({bool Function()? isContextActive}) {
     final inFlight = _productLoadInFlight;
     if (inFlight != null) return inFlight;
     final cycle = ++_productLoadCycle;
     late final Future<bool> load;
-    load = loadSubscriptionProductsWithRetry(() => _loadProducts(cycle))
-        .whenComplete(() {
+    load =
+        loadSubscriptionProductsWithRetry(
+          () => _loadProducts(cycle, isContextActive: isContextActive),
+          shouldContinue: isContextActive,
+        ).whenComplete(() {
           if (cycle == _productLoadCycle) _productLoadCycle++;
           if (identical(_productLoadInFlight, load)) {
             _productLoadInFlight = null;
@@ -884,6 +896,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
 
 Future<bool> loadSubscriptionProductsWithRetry(
   Future<bool> Function() load, {
+  bool Function()? shouldContinue,
   Duration deadline = const Duration(seconds: 15),
   List<Duration> retryDelays = const [
     Duration(seconds: 1),
@@ -893,10 +906,12 @@ Future<bool> loadSubscriptionProductsWithRetry(
 }) async {
   final elapsed = Stopwatch()..start();
   for (var attempt = 0; attempt <= retryDelays.length; attempt++) {
+    if (shouldContinue?.call() == false) return false;
     if (attempt > 0) {
       final delay = retryDelays[attempt - 1];
       if (elapsed.elapsed + delay >= deadline) return false;
       await Future<void>.delayed(delay);
+      if (shouldContinue?.call() == false) return false;
     }
     final remaining = deadline - elapsed.elapsed;
     if (remaining <= Duration.zero) return false;

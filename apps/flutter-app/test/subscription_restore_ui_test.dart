@@ -105,6 +105,27 @@ void main() {
     },
   );
 
+  test(
+    'product loading stops retrying after its page context is closed',
+    () async {
+      var contextActive = true;
+      var attempts = 0;
+
+      final loaded = loadSubscriptionProductsWithRetry(
+        () async {
+          attempts += 1;
+          contextActive = false;
+          return false;
+        },
+        shouldContinue: () => contextActive,
+        retryDelays: const [Duration.zero, Duration.zero, Duration.zero],
+      );
+
+      await expectLater(loaded, completion(isFalse));
+      expect(attempts, 1);
+    },
+  );
+
   testWidgets('Terms keeps Full Subscription Page plan and source context', (
     tester,
   ) async {
@@ -524,7 +545,10 @@ class _ProductRefreshController extends _RestoreTestController {
   var productRefreshCount = 0;
 
   @override
-  Future<void> refreshProducts() async {
+  Future<void> refreshProducts({
+    required bool Function() isContextActive,
+  }) async {
+    if (!isContextActive()) return;
     productRefreshCount += 1;
   }
 }
