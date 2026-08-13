@@ -99,6 +99,7 @@ void main() {
             scanId: 'scan-2',
             recognitionStatus: 'no_match',
             results: [],
+            quota: _freeQuota,
           ),
         ),
         session: () => _session,
@@ -218,6 +219,7 @@ const _hash = 'vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw';
 const _matchedRecognition = ScanRecognitionDto(
   scanId: 'scan-1',
   recognitionStatus: 'success',
+  quota: _freeQuota,
   results: [
     ScanResultDto(
       index: 1,
@@ -240,6 +242,14 @@ const _matchedRecognition = ScanRecognitionDto(
       ],
     ),
   ],
+);
+
+const _freeQuota = ScanQuotaDto(
+  limit: 10,
+  reserved: 0,
+  consumed: 1,
+  remaining: 9,
+  unlimited: false,
 );
 
 class _FakeScanImagePicker implements ScanImagePicker {
@@ -289,6 +299,12 @@ class _FakeScanApi implements ScanApi {
   var callCount = 0;
 
   @override
+  Future<ScanQuotaDto> getQuota(
+    AuthSession session, {
+    bool localPremiumVerified = false,
+  }) async => _freeQuota;
+
+  @override
   Future<ScanConfirmationDto> confirmMatch(
     AuthSession session, {
     required String scanId,
@@ -304,6 +320,8 @@ class _FakeScanApi implements ScanApi {
     required String fileName,
     required String platform,
     required String appVersion,
+    required String requestId,
+    bool localPremiumVerified = false,
     String? cardNumber,
     String? deviceModel,
     String? osVersion,

@@ -1,0 +1,184 @@
+import 'dart:async';
+
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:singular_flutter_sdk/singular.dart';
+import 'package:singular_flutter_sdk/singular_config.dart';
+
+enum AppTrackingStatus {
+  notDetermined,
+  restricted,
+  denied,
+  authorized,
+  notSupported,
+}
+
+abstract interface class AppTrackingGateway {
+  Future<AppTrackingStatus> readStatus();
+  Future<AppTrackingStatus> requestAuthorization();
+}
+
+abstract interface class AppAttributionGateway {
+  Future<void> updateTrackingStatus(AppTrackingStatus status);
+}
+
+final appTrackingGatewayProvider = Provider<AppTrackingGateway>((ref) {
+  return const PluginAppTrackingGateway();
+});
+
+final appAttributionGatewayProvider = Provider<AppAttributionGateway>((ref) {
+  return SingularAttributionGateway();
+});
+
+final appAttributionCoordinatorProvider = Provider<AppAttributionCoordinator>((
+  ref,
+) {
+  return AppAttributionCoordinator(
+    tracking: ref.watch(appTrackingGatewayProvider),
+    attribution: ref.watch(appAttributionGatewayProvider),
+  );
+});
+
+class AppAttributionCoordinator {
+  AppAttributionCoordinator({
+    required AppTrackingGateway tracking,
+    required AppAttributionGateway attribution,
+  }) : _tracking = tracking,
+       _attribution = attribution;
+
+  final AppTrackingGateway _tracking;
+  final AppAttributionGateway _attribution;
+  Future<void>? _startup;
+
+  Future<void> prepareForStartup({required bool firstInstall}) {
+    return _startup ??= _prepare(firstInstall: firstInstall);
+  }
+
+  Future<void> _prepare({required bool firstInstall}) async {
+    var status = await _readStatus();
+    if (firstInstall && status == AppTrackingStatus.notDetermined) {
+      try {
+        status = await _tracking.requestAuthorization();
+      } on Object {
+        // ATT failures must not block onboarding or any product capability.
+      }
+    }
+    await _updateAttribution(status);
+  }
+
+  Future<void> refreshWithoutPrompt() async {
+    final startup = _startup;
+    if (startup == null) return;
+    await startup;
+    final status = await _readStatus();
+    await _updateAttribution(status);
+  }
+
+  Future<AppTrackingStatus> _readStatus() async {
+    try {
+      return await _tracking.readStatus();
+    } on Object {
+      return AppTrackingStatus.notSupported;
+    }
+  }
+
+  Future<void> _updateAttribution(AppTrackingStatus status) async {
+    try {
+      await _attribution.updateTrackingStatus(status);
+    } on Object {
+      // Attribution is supplementary and must never interrupt the App flow.
+    }
+  }
+}
+
+class PluginAppTrackingGateway implements AppTrackingGateway {
+  const PluginAppTrackingGateway();
+
+  @override
+  Future<AppTrackingStatus> readStatus() async {
+    return _mapStatus(
+      await AppTrackingTransparency.trackingAuthorizationStatus,
+    );
+  }
+
+  @override
+  Future<AppTrackingStatus> requestAuthorization() async {
+    return _mapStatus(
+      await AppTrackingTransparency.requestTrackingAuthorization(),
+    );
+  }
+
+  AppTrackingStatus _mapStatus(TrackingStatus status) => switch (status) {
+    TrackingStatus.notDetermined => AppTrackingStatus.notDetermined,
+    TrackingStatus.restricted => AppTrackingStatus.restricted,
+    TrackingStatus.denied => AppTrackingStatus.denied,
+    TrackingStatus.authorized => AppTrackingStatus.authorized,
+    TrackingStatus.notSupported => AppTrackingStatus.notSupported,
+  };
+}
+
+class SingularAttributionGateway implements AppAttributionGateway {
+  static const _apiKey = String.fromEnvironment('SINGULAR_API_KEY');
+  static const _secretKey = String.fromEnvironment('SINGULAR_SECRET_KEY');
+
+  var _started = false;
+
+  @override
+  Future<void> updateTrackingStatus(AppTrackingStatus status) async {
+    if (_apiKey.isEmpty || _secretKey.isEmpty) return;
+    final limitDataSharing = switch (status) {
+      AppTrackingStatus.denied ||
+      AppTrackingStatus.restricted ||
+      AppTrackingStatus.notDetermined => true,
+      AppTrackingStatus.authorized || AppTrackingStatus.notSupported => false,
+    };
+    if (!_started) {
+      final config = SingularConfig(_apiKey, _secretKey)
+        ..limitDataSharing = limitDataSharing
+        ..waitForTrackingAuthorizationWithTimeoutInterval = 0;
+      Singular.start(config);
+      _started = true;
+      return;
+    }
+    Singular.limitDataSharing(limitDataSharing);
+  }
+}
+
+class AppAttributionLifecycleObserver extends ConsumerStatefulWidget {
+  const AppAttributionLifecycleObserver({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  ConsumerState<AppAttributionLifecycleObserver> createState() =>
+      _AppAttributionLifecycleObserverState();
+}
+
+class _AppAttributionLifecycleObserverState
+    extends ConsumerState<AppAttributionLifecycleObserver>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        ref.read(appAttributionCoordinatorProvider).refreshWithoutPrompt(),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

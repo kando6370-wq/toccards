@@ -257,6 +257,7 @@ done
 
 [[ "$(uname -s)" == "Darwin" ]] || die "This script must run on macOS"
 require_command flutter
+require_command dart
 require_command xcodebuild
 require_command xcrun
 require_command codesign
@@ -282,12 +283,12 @@ case "$ENVIRONMENT" in
     ;;
 esac
 
-ENV_CONFIG="$APP_DIR/config/$ENVIRONMENT.json"
+ENV_CONFIG="${RELEASE_ENV_CONFIG:-$APP_DIR/config/$ENVIRONMENT.json}"
 FIREBASE_CONFIG_SOURCE="$APP_DIR/ios/Runner/Firebase/$ENVIRONMENT/GoogleService-Info.plist"
 [[ -f "$ENV_CONFIG" ]] || die "Environment config not found: $ENV_CONFIG"
 [[ -f "$FIREBASE_CONFIG_SOURCE" ]] || die "Firebase config not found: $FIREBASE_CONFIG_SOURCE"
-grep -Eq "\"APP_ENV\"[[:space:]]*:[[:space:]]*\"$ENVIRONMENT\"" "$ENV_CONFIG" \
-  || die "$ENV_CONFIG does not select APP_ENV=$ENVIRONMENT"
+dart "$APP_DIR/tool/validate_release_config.dart" "$ENV_CONFIG" "$ENVIRONMENT" \
+  || die "$ENV_CONFIG is not ready for a v1.1 release"
 FIREBASE_PROJECT_ID="$(plist_value "$FIREBASE_CONFIG_SOURCE" PROJECT_ID)"
 assert_equal "$BUNDLE_ID" "$(plist_value "$FIREBASE_CONFIG_SOURCE" BUNDLE_ID)" "$ENVIRONMENT Firebase bundle ID"
 

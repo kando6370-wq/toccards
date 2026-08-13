@@ -1,4 +1,5 @@
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 
 import 'subscription_config.dart';
 import 'subscription_gateway.dart';
@@ -27,11 +28,6 @@ class InAppPurchaseSubscriptionGateway implements SubscriptionStoreGateway {
     final response = await _inAppPurchase.queryProductDetails(productIds);
     if (response.error != null) {
       throw StateError(response.error!.message);
-    }
-    if (response.notFoundIDs.isNotEmpty) {
-      throw StateError(
-        'Products not found: ${response.notFoundIDs.join(', ')}',
-      );
     }
     return response.productDetails.map(_toProduct).toList(growable: false);
   }
@@ -97,6 +93,9 @@ class InAppPurchaseSubscriptionGateway implements SubscriptionStoreGateway {
         transactionDate: _parseTransactionDate(details.transactionDate),
         errorCode: details.error?.code,
         errorMessage: details.error?.message,
+        applicationUserName: details is SK2PurchaseDetails
+            ? details.appAccountToken
+            : null,
         needsCompletion: details.pendingCompletePurchase,
         storeData: details,
       );

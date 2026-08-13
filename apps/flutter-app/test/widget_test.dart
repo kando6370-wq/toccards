@@ -8,6 +8,8 @@ import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 
 import 'support/in_memory_onboarding_storage.dart';
 
@@ -29,6 +31,13 @@ void main() {
     await tester.tap(find.byTooltip('NEXT'));
     await _finishPageTransition(tester);
     await tester.tap(find.byTooltip('Skip and start now'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Choose Your Plan'), findsOneWidget);
+    expect(find.text('Overview'), findsNothing);
+
+    await tester.tap(find.byTooltip('Close'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -76,9 +85,23 @@ ProviderScope _testApp(InMemoryOnboardingStorage storage) {
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(storage),
       ),
+      subscriptionControllerProvider.overrideWith(
+        _FreeWidgetTestSubscriptionController.new,
+      ),
     ],
     child: const KandoApp(),
   );
+}
+
+class _FreeWidgetTestSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.free);
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    return AppPremiumState.free;
+  }
 }
 
 class _WidgetTestAuthRepository implements AuthRepository {

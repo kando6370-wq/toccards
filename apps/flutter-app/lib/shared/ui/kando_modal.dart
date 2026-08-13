@@ -173,6 +173,42 @@ Future<void> showKandoWelcomeModal(
   );
 }
 
+Future<void> showKandoFailureAlert(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String actionLabel = 'OK',
+}) {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => KandoModalFrame(
+      height: 310,
+      child: Padding(
+        padding: const EdgeInsets.all(33),
+        child: SizedBox(
+          width: 276,
+          child: Column(
+            children: [
+              const _KandoModalIcon(
+                icon: Icons.error_outline,
+                color: KandoColors.error,
+              ),
+              const SizedBox(height: 20),
+              _KandoModalText(title: title, message: message),
+              const Spacer(),
+              KandoModalButton(
+                label: actionLabel,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 /// Button variants supported by Figma modal actions.
 ///
 /// 中文：Figma 弹窗按钮类型，分别对应主按钮、次按钮和危险操作按钮。
@@ -458,9 +494,10 @@ class KandoModalButton extends StatelessWidget {
 }
 
 class _KandoModalIcon extends StatelessWidget {
-  const _KandoModalIcon({required this.icon});
+  const _KandoModalIcon({required this.icon, this.color = KandoColors.accent});
 
   final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -471,7 +508,7 @@ class _KandoModalIcon extends StatelessWidget {
         color: KandoColors.accentGlow10,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, size: 26, color: KandoColors.accent),
+      child: Icon(icon, size: 26, color: color),
     );
   }
 }

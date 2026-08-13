@@ -5,6 +5,7 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/home/home_performance_controller.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
@@ -893,12 +894,72 @@ class CardDetailController extends Notifier<CardDetailState> {
     _invalidateAssetConsumers();
   }
 
-  void selectPriceRange(CardPriceRange range) {
+  Future<bool> selectPriceRange(CardPriceRange range) async {
     if (state.isUnavailable || state.isLoading) {
-      return;
+      return false;
+    }
+    if (range == CardPriceRange.oneYear &&
+        !state.selectedPriceChartSeries.any(
+          (series) => series.seriesByRange.containsKey(range),
+        )) {
+      return _loadOneYearPriceSeries();
     }
 
     state = state.copyWith(selectedPriceRange: range);
+    return true;
+  }
+
+  Future<bool> _loadOneYearPriceSeries() async {
+    final repository = _repository;
+    if (repository is! PremiumCardDetailSectionRepository) return false;
+    final session = ref.read(authControllerProvider).session;
+    if (session == null) return false;
+    final sectionRepository = repository as PremiumCardDetailSectionRepository;
+    final generation = ++_priceLoadGeneration;
+    final finish = state.priceFinish;
+    state = state.copyWith(priceSeriesStatus: KandoLoadStatus.loading);
+    try {
+      final data = await sectionRepository
+          .loadPremiumPriceSeries(
+            session,
+            cardId,
+            finish: finish,
+            ranges: const [CardPriceRange.oneYear],
+            localPremiumVerified: true,
+          )
+          .timeout(const Duration(seconds: 15));
+      if (generation != _priceLoadGeneration || finish != state.priceFinish) {
+        return false;
+      }
+      state = state.copyWith(
+        detail: state.detail.copyWith(
+          priceSeriesByRange: {
+            ...state.detail.priceSeriesByRange,
+            ...data.rawSeriesByRange,
+          },
+          rawPriceSeries: _mergePriceSeries(
+            state.detail.rawPriceSeries,
+            data.rawSeries,
+          ),
+          gradedPriceSeriesByRange: {
+            ...state.detail.gradedPriceSeriesByRange,
+            ...data.gradedSeriesByRange,
+          },
+          gradedPriceSeries: _mergePriceSeries(
+            state.detail.gradedPriceSeries,
+            data.gradedSeries,
+          ),
+        ),
+        selectedPriceRange: CardPriceRange.oneYear,
+        priceSeriesStatus: KandoLoadStatus.content,
+      );
+      return true;
+    } catch (_) {
+      if (generation == _priceLoadGeneration) {
+        state = state.copyWith(priceSeriesStatus: KandoLoadStatus.content);
+      }
+      return false;
+    }
   }
 
   void selectPriceChartMode(CardPriceChartMode mode) {
@@ -1226,6 +1287,24 @@ class CardDetailController extends Notifier<CardDetailState> {
               : state.collectionItemFormError,
         );
       }
+      if (editingItemId != null && error.code == 'NOT_FOUND') {
+        _invalidateAssetConsumers();
+        await refreshAssetState();
+        if (_canApplyMutation(session, mutationGeneration)) {
+          final currentItem = _findCollectionItem(editingItemId);
+          state = currentItem == null
+              ? state.copyWith(
+                  collectionItemDraft: null,
+                  editingCollectionItemId: null,
+                  collectionItemFormError: null,
+                )
+              : state.copyWith(
+                  collectionItemDraft: state.collectionItemDraft?.copyWith(
+                    portfolioName: currentItem.portfolioName,
+                  ),
+                );
+        }
+      }
       if (error.code == duplicateCollectionItemErrorCode) return false;
       rethrow;
     } catch (_) {
@@ -1320,6 +1399,7 @@ class CardDetailController extends Notifier<CardDetailState> {
 
   void _invalidateAssetConsumers() {
     ref.invalidate(homeControllerProvider);
+    ref.invalidate(homePerformanceControllerProvider);
     ref.invalidate(collectionControllerProvider);
     ref.invalidate(searchControllerProvider);
   }
@@ -1621,6 +1701,24 @@ class CardDetailController extends Notifier<CardDetailState> {
       collectionItems: items,
     );
   }
+}
+
+List<CardPriceChartSeries> _mergePriceSeries(
+  List<CardPriceChartSeries> current,
+  List<CardPriceChartSeries> incoming,
+) {
+  final incomingByLabel = {for (final series in incoming) series.label: series};
+  return [
+    for (final series in current)
+      CardPriceChartSeries(
+        label: series.label,
+        seriesByRange: {
+          ...series.seriesByRange,
+          ...?incomingByLabel.remove(series.label)?.seriesByRange,
+        },
+      ),
+    ...incomingByLabel.values,
+  ];
 }
 
 String _defaultGradeForGrader(String grader) {

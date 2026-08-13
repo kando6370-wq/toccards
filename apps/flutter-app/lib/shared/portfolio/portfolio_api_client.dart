@@ -1,12 +1,19 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:uuid/uuid.dart';
 
 const portfolioApiBaseUrl = authApiBaseUrl;
 const duplicateCollectionItemErrorCode = 'DUPLICATE_COLLECTION_ITEM';
 const duplicateCollectionItemMessage =
     'This card with the same finish and language is already in this portfolio.';
+const portfolioRequestDeadline = Duration(seconds: 15);
+const portfolioRequestTimeoutCode = 'REQUEST_TIMEOUT';
+const portfolioRequestTimeoutMessage = 'Request timed out. Please try again.';
 
 Dio createPortfolioDio({String baseUrl = portfolioApiBaseUrl}) {
   return Dio(
@@ -332,6 +339,132 @@ class PortfolioFolderValuationDto {
   }
 }
 
+enum PerformanceRange {
+  oneDay('1D'),
+  sevenDays('7D'),
+  fifteenDays('15D'),
+  oneMonth('1M'),
+  threeMonths('3M'),
+  oneYear('1Y');
+
+  const PerformanceRange(this.apiValue);
+
+  final String apiValue;
+}
+
+enum PurchasePriceStatus { complete, partial, missing }
+
+enum MarketPriceStatus { available, missing }
+
+class PerformancePointDto {
+  const PerformancePointDto({
+    required this.date,
+    required this.marketValueUsd,
+    required this.marketValueChangeUsd,
+    required this.marketChangeUsd,
+    required this.portfolioChangeUsd,
+    required this.paidMarketValueUsd,
+    required this.totalPaidUsd,
+    required this.profitLossUsd,
+    required this.profitLossChangeUsd,
+    required this.returnPercent,
+    required this.quantity,
+    required this.quantityChange,
+  });
+
+  final String date;
+  final double marketValueUsd;
+  final double? marketValueChangeUsd;
+  final double? marketChangeUsd;
+  final double? portfolioChangeUsd;
+  final double? paidMarketValueUsd;
+  final double? totalPaidUsd;
+  final double? profitLossUsd;
+  final double? profitLossChangeUsd;
+  final double? returnPercent;
+  final int quantity;
+  final int? quantityChange;
+
+  factory PerformancePointDto.fromJson(Map<String, Object?> json) {
+    return PerformancePointDto(
+      date: _requiredString(json['date']),
+      marketValueUsd: _requiredDouble(json['market_value_usd']),
+      marketValueChangeUsd: _nullableDouble(json['market_value_change_usd']),
+      marketChangeUsd: _nullableDouble(json['market_change_usd']),
+      portfolioChangeUsd: _nullableDouble(json['portfolio_change_usd']),
+      paidMarketValueUsd: _nullableDouble(json['paid_market_value_usd']),
+      totalPaidUsd: _nullableDouble(json['total_paid_usd']),
+      profitLossUsd: _nullableDouble(json['profit_loss_usd']),
+      profitLossChangeUsd: _nullableDouble(json['profit_loss_change_usd']),
+      returnPercent: _nullableDouble(json['return_percent']),
+      quantity: _requiredInt(json['quantity']),
+      quantityChange: _nullableInt(json['quantity_change']),
+    );
+  }
+}
+
+class PortfolioPerformanceDto {
+  const PortfolioPerformanceDto({
+    required this.range,
+    required this.rangeStart,
+    required this.rangeEnd,
+    required this.historyAvailableFrom,
+    required this.partialHistory,
+    required this.itemCount,
+    required this.marketPriceStatus,
+    required this.purchasePriceStatus,
+    required this.current,
+    required this.series,
+  });
+
+  final PerformanceRange range;
+  final String rangeStart;
+  final String rangeEnd;
+  final String? historyAvailableFrom;
+  final bool partialHistory;
+  final int itemCount;
+  final MarketPriceStatus marketPriceStatus;
+  final PurchasePriceStatus purchasePriceStatus;
+  final PerformancePointDto current;
+  final List<PerformancePointDto> series;
+
+  factory PortfolioPerformanceDto.fromJson(Map<String, Object?> json) {
+    final rangeValue = _requiredString(json['range']);
+    final statusValue = _requiredString(json['purchase_price_status']);
+    try {
+      return PortfolioPerformanceDto(
+        range: PerformanceRange.values.singleWhere(
+          (range) => range.apiValue == rangeValue,
+        ),
+        rangeStart: _requiredString(json['range_start']),
+        rangeEnd: _requiredString(json['range_end']),
+        historyAvailableFrom: _nullableString(json['history_available_from']),
+        partialHistory: json['partial_history'] == true,
+        itemCount: _requiredInt(json['item_count']),
+        marketPriceStatus: MarketPriceStatus.values.byName(
+          _requiredString(json['market_price_status']),
+        ),
+        purchasePriceStatus: PurchasePriceStatus.values.byName(statusValue),
+        current: PerformancePointDto.fromJson({
+          'date': _requiredString(json['range_end']),
+          ..._mapItem(json['current']),
+        }),
+        series: _itemsFrom(
+          json['series'],
+        ).map(PerformancePointDto.fromJson).toList(),
+      );
+    } on StateError {
+      throw const PortfolioApiException(
+        'Something went wrong. Please try again.',
+      );
+    } on ArgumentError {
+      throw const PortfolioApiException(
+        'Something went wrong. Please try again.',
+      );
+    }
+  }
+}
+
 class WishlistItemDto {
   const WishlistItemDto({
     required this.id,
@@ -420,6 +553,19 @@ abstract interface class PortfolioApi {
   Future<List<PortfolioFolderValuationDto>> getValuationHistory(
     AuthSession session, {
     int days = 90,
+    bool localPremiumVerified = false,
+  });
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  });
+  Future<PortfolioPerformanceDto> getItemPerformance(
+    AuthSession session, {
+    required String itemId,
+    required PerformanceRange range,
+    bool localPremiumVerified = false,
   });
   Future<List<WishlistItemDto>> listWishlistItems(AuthSession session);
   Future<PortfolioItemDto> quickCollect(
@@ -446,7 +592,11 @@ abstract interface class CollectionDashboardApi {
 }
 
 abstract interface class PortfolioManagementApi {
-  Future<PortfolioFolderDto> createFolder(AuthSession session, String name);
+  Future<PortfolioFolderDto> createFolder(
+    AuthSession session,
+    String name, {
+    bool localPremiumVerified = false,
+  });
   Future<PortfolioFolderDto> renameFolder(
     AuthSession session,
     String folderId,
@@ -469,9 +619,16 @@ abstract interface class PortfolioManagementApi {
 
 class PortfolioApiClient
     implements PortfolioApi, PortfolioManagementApi, CollectionDashboardApi {
-  const PortfolioApiClient(this._dio);
+  PortfolioApiClient(
+    this._dio, {
+    this.requestDeadline = portfolioRequestDeadline,
+  });
 
   final Dio _dio;
+  final Duration requestDeadline;
+  final Map<String, String> _pendingFolderRequestIds = {};
+  final Map<String, String> _pendingItemRequestIds = {};
+  final Map<String, String> _pendingWishlistRequestIds = {};
 
   @override
   Future<CollectionDashboardDto> getCollectionDashboard(
@@ -490,15 +647,36 @@ class PortfolioApiClient
   @override
   Future<PortfolioFolderDto> createFolder(
     AuthSession session,
-    String name,
-  ) async {
-    final data = await _requestData(
-      'POST',
-      '/portfolio/folders',
-      session,
-      body: {'name': name},
+    String name, {
+    bool localPremiumVerified = false,
+  }) async {
+    final ownerId =
+        session.userId ?? session.anonymousId ?? session.accessToken;
+    final operationKey =
+        '${session.ownerType.name}\u0000$ownerId\u0000${name.trim()}';
+    final requestId = _pendingFolderRequestIds.putIfAbsent(
+      operationKey,
+      () => const Uuid().v4(),
     );
-    return PortfolioFolderDto.fromJson(data);
+    try {
+      final data = await _requestData(
+        'POST',
+        '/portfolio/folders',
+        session,
+        body: {'name': name},
+        headers: {
+          'Idempotency-Key': requestId,
+          if (localPremiumVerified) 'X-Local-Premium-State': 'verified',
+        },
+      );
+      _pendingFolderRequestIds.remove(operationKey);
+      return PortfolioFolderDto.fromJson(data);
+    } on PortfolioApiException catch (error) {
+      if (error.code != portfolioRequestTimeoutCode) {
+        _pendingFolderRequestIds.remove(operationKey);
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -595,14 +773,53 @@ class PortfolioApiClient
   Future<List<PortfolioFolderValuationDto>> getValuationHistory(
     AuthSession session, {
     int days = 90,
+    bool localPremiumVerified = false,
   }) async {
     final data = await _requestData(
       'GET',
       '/portfolio/valuation-history',
       session,
       queryParameters: {'days': days},
+      headers: {if (localPremiumVerified) 'X-Local-Premium-State': 'verified'},
     );
     return _items(data).map(PortfolioFolderValuationDto.fromJson).toList();
+  }
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) async {
+    final data = await _requestData(
+      'GET',
+      '/portfolio/performance',
+      session,
+      queryParameters: {
+        'range': range.apiValue,
+        if (folderId != null) 'folder_id': folderId,
+      },
+      headers: {if (localPremiumVerified) 'X-Local-Premium-State': 'verified'},
+    );
+    return PortfolioPerformanceDto.fromJson(data);
+  }
+
+  @override
+  Future<PortfolioPerformanceDto> getItemPerformance(
+    AuthSession session, {
+    required String itemId,
+    required PerformanceRange range,
+    bool localPremiumVerified = false,
+  }) async {
+    final data = await _requestData(
+      'GET',
+      '/portfolio/items/${Uri.encodeComponent(itemId)}/performance',
+      session,
+      queryParameters: {'range': range.apiValue},
+      headers: {if (localPremiumVerified) 'X-Local-Premium-State': 'verified'},
+    );
+    return PortfolioPerformanceDto.fromJson(data);
   }
 
   @override
@@ -635,13 +852,13 @@ class PortfolioApiClient
     required String cardRef,
     required PortfolioItemDraftDto draft,
   }) async {
-    final data = await _requestData(
-      'POST',
-      '/cards/${Uri.encodeComponent(cardRef)}/collect',
+    return _createPortfolioItem(
       session,
-      body: draft.toJson(includeCardRef: false),
+      operation: 'quick_collect',
+      path: '/cards/${Uri.encodeComponent(cardRef)}/collect',
+      draft: draft,
+      includeCardRef: false,
     );
-    return PortfolioItemDto.fromJson(data);
   }
 
   @override
@@ -649,13 +866,50 @@ class PortfolioApiClient
     AuthSession session,
     PortfolioItemDraftDto draft,
   ) async {
-    final data = await _requestData(
-      'POST',
-      '/portfolio/items',
+    return _createPortfolioItem(
       session,
-      body: draft.toJson(),
+      operation: 'create_item',
+      path: '/portfolio/items',
+      draft: draft,
     );
-    return PortfolioItemDto.fromJson(data);
+  }
+
+  Future<PortfolioItemDto> _createPortfolioItem(
+    AuthSession session, {
+    required String operation,
+    required String path,
+    required PortfolioItemDraftDto draft,
+    bool includeCardRef = true,
+  }) async {
+    final ownerId =
+        session.userId ?? session.anonymousId ?? session.accessToken;
+    final operationKey = jsonEncode({
+      'owner_type': session.ownerType.name,
+      'owner_id': ownerId,
+      'operation': operation,
+      'draft': draft.toJson(),
+    });
+    final requestId = _pendingItemRequestIds.putIfAbsent(
+      operationKey,
+      () => const Uuid().v4(),
+    );
+    try {
+      final data = await _requestData(
+        'POST',
+        path,
+        session,
+        body: draft.toJson(includeCardRef: includeCardRef),
+        headers: {'Idempotency-Key': requestId},
+      );
+      final item = PortfolioItemDto.fromJson(data);
+      _pendingItemRequestIds.remove(operationKey);
+      return item;
+    } on PortfolioApiException catch (error) {
+      if (error.code != portfolioRequestTimeoutCode) {
+        _pendingItemRequestIds.remove(operationKey);
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -687,13 +941,34 @@ class PortfolioApiClient
     AuthSession session,
     String cardRef,
   ) async {
-    final data = await _requestData(
-      'POST',
-      '/wishlist',
-      session,
-      body: {'card_ref': cardRef},
+    final ownerId =
+        session.userId ?? session.anonymousId ?? session.accessToken;
+    final operationKey = jsonEncode({
+      'owner_type': session.ownerType.name,
+      'owner_id': ownerId,
+      'card_ref': cardRef.trim(),
+    });
+    final requestId = _pendingWishlistRequestIds.putIfAbsent(
+      operationKey,
+      () => const Uuid().v4(),
     );
-    return WishlistItemDto.fromJson(data);
+    try {
+      final data = await _requestData(
+        'POST',
+        '/wishlist',
+        session,
+        body: {'card_ref': cardRef},
+        headers: {'Idempotency-Key': requestId},
+      );
+      final item = WishlistItemDto.fromJson(data);
+      _pendingWishlistRequestIds.remove(operationKey);
+      return item;
+    } on PortfolioApiException catch (error) {
+      if (error.code != portfolioRequestTimeoutCode) {
+        _pendingWishlistRequestIds.remove(operationKey);
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -711,17 +986,45 @@ class PortfolioApiClient
     AuthSession session, {
     Map<String, Object?>? body,
     Map<String, Object?>? queryParameters,
+    Map<String, String>? headers,
   }) async {
-    final response = await _dio.request<Object?>(
-      path,
-      data: body,
-      queryParameters: queryParameters,
-      options: Options(
-        method: method,
-        headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        validateStatus: (_) => true,
-      ),
-    );
+    final cancelToken = CancelToken();
+    late final Response<Object?> response;
+    try {
+      response = await _dio
+          .request<Object?>(
+            path,
+            data: body,
+            queryParameters: queryParameters,
+            cancelToken: cancelToken,
+            options: Options(
+              method: method,
+              headers: {
+                'Authorization': 'Bearer ${session.accessToken}',
+                ...?headers,
+              },
+              validateStatus: (_) => true,
+            ),
+          )
+          .timeout(
+            requestDeadline,
+            onTimeout: () {
+              cancelToken.cancel(portfolioRequestTimeoutCode);
+              throw const PortfolioApiException(
+                portfolioRequestTimeoutMessage,
+                code: portfolioRequestTimeoutCode,
+              );
+            },
+          );
+    } on DioException {
+      if (cancelToken.isCancelled) {
+        throw const PortfolioApiException(
+          portfolioRequestTimeoutMessage,
+          code: portfolioRequestTimeoutCode,
+        );
+      }
+      rethrow;
+    }
     final envelope = response.data;
     if (envelope is Map && envelope['success'] == true) {
       final data = envelope['data'];
@@ -802,6 +1105,12 @@ String? _nullableString(Object? value) {
 }
 
 int _requiredInt(Object? value) {
+  if (value is int) return value;
+  throw const PortfolioApiException('Something went wrong. Please try again.');
+}
+
+int? _nullableInt(Object? value) {
+  if (value == null) return null;
   if (value is int) return value;
   throw const PortfolioApiException('Something went wrong. Please try again.');
 }

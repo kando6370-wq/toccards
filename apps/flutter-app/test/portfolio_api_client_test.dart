@@ -102,13 +102,18 @@ void main() {
       });
       final api = PortfolioApiClient(_dio(adapter));
 
-      final created = await api.createFolder(_session, 'Trade');
+      final created = await api.createFolder(
+        _session,
+        'Trade',
+        localPremiumVerified: true,
+      );
       final renamed = await api.renameFolder(_session, 'trade', 'Trade Binder');
       final defaultFolder = await api.setDefaultFolder(_session, 'trade');
       await api.reorderFolders(_session, const ['trade', 'main']);
       await api.deleteFolder(_session, 'trade');
 
       expect(created.name, 'Trade');
+      expect(adapter.requests.first.localPremiumState, 'verified');
       expect(renamed.name, 'Trade Binder');
       expect(defaultFolder.isDefault, isTrue);
       expect(adapter.requests, hasLength(5));
@@ -400,6 +405,117 @@ void main() {
   );
 
   test(
+    'extended valuation history sends local verified only as a sync hint because the server grant remains authoritative',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/portfolio/valuation-history');
+        expect(request.queryParameters, {'days': '365'});
+        expect(request.localPremiumState, 'verified');
+        return _json(200, {
+          'success': true,
+          'data': {'items': <Object>[]},
+        });
+      });
+
+      final history = await PortfolioApiClient(
+        _dio(adapter),
+      ).getValuationHistory(_session, days: 365, localPremiumVerified: true);
+
+      expect(history, isEmpty);
+    },
+  );
+
+  test(
+    'Performance requests preserve scope and server truth while mapping partial cost history',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.authorization, 'Bearer owner-access');
+        expect(request.localPremiumState, 'verified');
+        if (call++ == 0) {
+          expect(request.path, '/portfolio/performance');
+          expect(request.queryParameters, {'range': '1M', 'folder_id': 'main'});
+        } else {
+          expect(request.path, '/portfolio/items/item%2F1/performance');
+          expect(request.queryParameters, {'range': '1Y'});
+        }
+        return _json(200, {
+          'success': true,
+          'data': {
+            'range': call == 1 ? '1M' : '1Y',
+            'range_start': '2026-07-12',
+            'range_end': '2026-08-12',
+            'history_available_from': '2026-08-01',
+            'partial_history': true,
+            'item_count': 2,
+            'market_price_status': 'available',
+            'purchase_price_status': 'partial',
+            'current': {
+              'market_value_usd': 60,
+              'market_value_change_usd': 30,
+              'market_change_usd': 20,
+              'portfolio_change_usd': 10,
+              'paid_market_value_usd': 40,
+              'total_paid_usd': 30,
+              'profit_loss_usd': 10,
+              'profit_loss_change_usd': 5,
+              'return_percent': 33.33,
+              'quantity': 3,
+              'quantity_change': 1,
+            },
+            'series': [
+              {
+                'date': '2026-08-12',
+                'market_value_usd': 60,
+                'market_value_change_usd': 30,
+                'market_change_usd': 20,
+                'portfolio_change_usd': 10,
+                'paid_market_value_usd': 40,
+                'total_paid_usd': 30,
+                'profit_loss_usd': 10,
+                'profit_loss_change_usd': 5,
+                'return_percent': 33.33,
+                'quantity': 3,
+                'quantity_change': 1,
+              },
+            ],
+          },
+        });
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+
+      final home = await api.getPortfolioPerformance(
+        _session,
+        range: PerformanceRange.oneMonth,
+        folderId: 'main',
+        localPremiumVerified: true,
+      );
+      final item = await api.getItemPerformance(
+        _session,
+        itemId: 'item/1',
+        range: PerformanceRange.oneYear,
+        localPremiumVerified: true,
+      );
+
+      expect(home.partialHistory, isTrue);
+      expect(home.itemCount, 2);
+      expect(home.marketPriceStatus, MarketPriceStatus.available);
+      expect(home.purchasePriceStatus, PurchasePriceStatus.partial);
+      expect(home.current.totalPaidUsd, 30);
+      expect(home.current.marketChangeUsd, 20);
+      expect(home.current.marketValueChangeUsd, 30);
+      expect(home.current.profitLossChangeUsd, 5);
+      expect(home.current.portfolioChangeUsd, 10);
+      expect(home.series.single.quantity, 3);
+      expect(home.series.single.quantityChange, 1);
+      expect(item.range, PerformanceRange.oneYear);
+      expect(adapter.requests, hasLength(2));
+    },
+  );
+
+  test(
     'quickCollect posts path card ref and body fields required by Workers',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -498,6 +614,65 @@ void main() {
       expect(item.folderId, 'main');
       expect(item.cardRef, 'squirtle');
       expect(item.purchasePrice, 12.5);
+    },
+  );
+
+  test(
+    'timed out item creates reuse their idempotency key across token refresh and clear it after success',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) async {
+        call += 1;
+        if (call == 1) {
+          await Future<void>.delayed(const Duration(milliseconds: 80));
+        }
+        return _json(200, {
+          'success': true,
+          'data': _portfolioItemJson(id: 'item-$call', cardRef: 'squirtle'),
+        });
+      });
+      final api = PortfolioApiClient(
+        _dio(adapter),
+        requestDeadline: const Duration(milliseconds: 20),
+      );
+      const draft = PortfolioItemDraftDto(
+        folderId: 'main',
+        cardRef: 'squirtle',
+        objectType: 'tcg',
+        grader: 'Raw',
+        condition: 'Near Mint (NM)',
+        grade: null,
+        language: 'English',
+        finish: 'Holofoil',
+        quantity: 1,
+        purchasePrice: 12.5,
+        purchaseCurrency: 'USD',
+        notes: 'binder copy',
+      );
+
+      await expectLater(
+        api.createCollectionItem(_session, draft),
+        throwsA(isA<PortfolioApiException>()),
+      );
+      final refreshedSession = AuthSession(
+        ownerType: _session.ownerType,
+        accessToken: 'refreshed-owner-access',
+        refreshToken: _session.refreshToken,
+        userId: _session.userId,
+      );
+      await api.createCollectionItem(refreshedSession, draft);
+      await api.createCollectionItem(refreshedSession, draft);
+
+      expect(adapter.requests[0].idempotencyKey, isNotEmpty);
+      expect(
+        adapter.requests[1].idempotencyKey,
+        adapter.requests[0].idempotencyKey,
+      );
+      expect(
+        adapter.requests[2].idempotencyKey,
+        isNot(adapter.requests[1].idempotencyKey),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
     },
   );
 
@@ -604,6 +779,7 @@ void main() {
         expect(request.method, 'POST');
         expect(request.path, '/wishlist');
         expect(request.authorization, 'Bearer owner-access');
+        expect(request.idempotencyKey, isNotEmpty);
         expect(request.body, {'card_ref': 'squirtle'});
         return _json(201, {
           'success': true,
@@ -625,6 +801,54 @@ void main() {
   );
 
   test(
+    'timed out Wishlist Add reuses its key after token refresh and success clears it',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) async {
+        call += 1;
+        if (call == 1) {
+          await Future<void>.delayed(const Duration(milliseconds: 80));
+        }
+        return _json(200, {
+          'success': true,
+          'data': {
+            'id': 'wish-$call',
+            'card_ref': 'squirtle',
+            'created_at': '2026-01-03T00:00:00.000Z',
+          },
+        });
+      });
+      final api = PortfolioApiClient(
+        _dio(adapter),
+        requestDeadline: const Duration(milliseconds: 20),
+      );
+
+      await expectLater(
+        api.addWishlist(_session, 'squirtle'),
+        throwsA(isA<PortfolioApiException>()),
+      );
+      final refreshedSession = AuthSession(
+        ownerType: _session.ownerType,
+        accessToken: 'refreshed-owner-access',
+        refreshToken: _session.refreshToken,
+        userId: _session.userId,
+      );
+      await api.addWishlist(refreshedSession, 'squirtle');
+      await api.addWishlist(refreshedSession, 'squirtle');
+
+      expect(
+        adapter.requests[1].idempotencyKey,
+        adapter.requests[0].idempotencyKey,
+      );
+      expect(
+        adapter.requests[2].idempotencyKey,
+        isNot(adapter.requests[1].idempotencyKey),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    },
+  );
+
+  test(
     'deleteWishlist sends backend wishlist item id because card refs are not row ids',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -639,6 +863,91 @@ void main() {
       ).deleteWishlist(_session, 'wish-squirtle');
 
       expect(adapter.requests.single.path, '/wishlist/wish-squirtle');
+    },
+  );
+
+  test(
+    'portfolio writes share one total deadline so a late response cannot complete an expired save',
+    () async {
+      final adapter = _RecordingAdapter((_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        return _json(201, {
+          'success': true,
+          'data': _folderJson(id: 'late', name: 'Late', sortOrder: 200),
+        });
+      });
+
+      await expectLater(
+        PortfolioApiClient(
+          _dio(adapter),
+          requestDeadline: const Duration(milliseconds: 20),
+        ).createFolder(_session, 'Late'),
+        throwsA(
+          isA<PortfolioApiException>()
+              .having(
+                (error) => error.code,
+                'code',
+                portfolioRequestTimeoutCode,
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                portfolioRequestTimeoutMessage,
+              ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    },
+  );
+
+  test(
+    'a timed out Folder retry reuses its idempotency key and success clears it for a later independent create',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) async {
+        call += 1;
+        if (call == 1) {
+          await Future<void>.delayed(const Duration(milliseconds: 80));
+        }
+        return _json(200, {
+          'success': true,
+          'data': _folderJson(
+            id: 'folder-$call',
+            name: 'Trade',
+            sortOrder: 200,
+          ),
+        });
+      });
+      final api = PortfolioApiClient(
+        _dio(adapter),
+        requestDeadline: const Duration(milliseconds: 20),
+      );
+
+      await expectLater(
+        api.createFolder(_session, 'Trade'),
+        throwsA(isA<PortfolioApiException>()),
+      );
+      final refreshedSession = AuthSession(
+        ownerType: _session.ownerType,
+        accessToken: 'refreshed-owner-access',
+        refreshToken: _session.refreshToken,
+        userId: _session.userId,
+      );
+      final retried = await api.createFolder(refreshedSession, 'Trade');
+      final independent = await api.createFolder(refreshedSession, 'Trade');
+
+      expect(retried.id, 'folder-2');
+      expect(independent.id, 'folder-3');
+      expect(adapter.requests[0].idempotencyKey, isNotEmpty);
+      expect(
+        adapter.requests[1].idempotencyKey,
+        adapter.requests[0].idempotencyKey,
+      );
+      expect(
+        adapter.requests[2].idempotencyKey,
+        isNot(adapter.requests[1].idempotencyKey),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
     },
   );
 }
@@ -707,7 +1016,7 @@ ResponseBody _json(int statusCode, Map<String, Object?> body) {
 class _RecordingAdapter implements HttpClientAdapter {
   _RecordingAdapter(this.handler);
 
-  final ResponseBody Function(_RecordedRequest request) handler;
+  final FutureOr<ResponseBody> Function(_RecordedRequest request) handler;
   final List<_RecordedRequest> requests = [];
 
   @override
@@ -723,10 +1032,12 @@ class _RecordingAdapter implements HttpClientAdapter {
         (key, value) => MapEntry(key, value.toString()),
       ),
       authorization: options.headers['Authorization']?.toString(),
+      idempotencyKey: options.headers['Idempotency-Key']?.toString(),
+      localPremiumState: options.headers['X-Local-Premium-State']?.toString(),
       body: await _decodeBody(requestStream) ?? options.data,
     );
     requests.add(request);
-    return handler(request);
+    return await handler(request);
   }
 
   @override
@@ -749,6 +1060,8 @@ class _RecordedRequest {
     required this.path,
     required this.queryParameters,
     required this.authorization,
+    required this.idempotencyKey,
+    required this.localPremiumState,
     required this.body,
   });
 
@@ -756,5 +1069,7 @@ class _RecordedRequest {
   final String path;
   final Map<String, String> queryParameters;
   final String? authorization;
+  final String? idempotencyKey;
+  final String? localPremiumState;
   final Object? body;
 }

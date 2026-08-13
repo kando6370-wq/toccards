@@ -12,9 +12,12 @@ import '../auth/auth_repository.dart';
 import '../auth/ui/auth_sheet.dart';
 import '../app_upgrade/app_upgrade_repository.dart';
 import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_entitlement_cache.dart';
+import '../subscription/premium_top_entry.dart';
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
 import '../../shared/ui/toast.dart';
+import '../../shared/ui/kando_modal.dart';
 import 'account_page.dart';
 import 'profile_actions.dart';
 
@@ -32,34 +35,74 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
+    final subscription = ref.watch(subscriptionControllerProvider);
 
-    return KandoTabScaffold(
-      currentTab: KandoMainTab.profile,
-      body: SafeArea(
-        bottom: false,
-        child: authState.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : authState.hasError
-            ? KandoFailureBlock(
-                onRefresh: () {
-                  ref
-                      .read(analyticsProvider)
-                      .track(AnalyticsEvent.refreshClick);
-                  ref.read(authControllerProvider.notifier).retryStartup();
-                },
-              )
-            : _ProfileContent(
-                authState: authState,
-                onRefresh: () async {
-                  ref
-                      .read(analyticsProvider)
-                      .track(AnalyticsEvent.refreshClick);
-                  ref.invalidate(profileVersionProvider);
-                  await ref
-                      .read(authControllerProvider.notifier)
-                      .retryStartup();
-                },
+    return PopScope(
+      canPop: !subscription.isRestoring,
+      child: Stack(
+        children: [
+          AbsorbPointer(
+            absorbing: subscription.isRestoring,
+            child: KandoTabScaffold(
+              currentTab: KandoMainTab.profile,
+              body: SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        KandoLayout.mainTabTopPadding,
+                        20,
+                        8,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: PremiumTopEntry(source: 'profile'),
+                      ),
+                    ),
+                    Expanded(
+                      child: authState.isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : authState.hasError
+                          ? KandoFailureBlock(
+                              onRefresh: () {
+                                ref
+                                    .read(analyticsProvider)
+                                    .track(AnalyticsEvent.refreshClick);
+                                ref
+                                    .read(authControllerProvider.notifier)
+                                    .retryStartup();
+                              },
+                            )
+                          : _ProfileContent(
+                              authState: authState,
+                              onRefresh: () async {
+                                ref
+                                    .read(analyticsProvider)
+                                    .track(AnalyticsEvent.refreshClick);
+                                ref.invalidate(profileVersionProvider);
+                                await ref
+                                    .read(authControllerProvider.notifier)
+                                    .retryStartup();
+                              },
+                            ),
+                    ),
+                  ],
+                ),
               ),
+            ),
+          ),
+          if (subscription.isRestoring)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Color(0x99000000),
+                child: Center(
+                  child: CircularProgressIndicator(color: KandoColors.accent),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -85,6 +128,35 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
     final session = widget.authState.session;
     final subscription = ref.watch(subscriptionControllerProvider);
     ref.listen(subscriptionControllerProvider, (previous, next) {
+      if (next.resultEventCount != previous?.resultEventCount &&
+          next.restoreSource == SubscriptionRestoreSource.profile &&
+          context.mounted) {
+        switch (next.resultEvent) {
+          case SubscriptionResultEvent.restoreSuccess:
+            showKandoCenteredSuccessToast(
+              context,
+              title: 'Premium restored',
+              message: 'Your premium access is ready to use.',
+              duration: const Duration(milliseconds: 2750),
+            );
+          case SubscriptionResultEvent.restoreNotFound:
+            showKandoTopToast(
+              context,
+              message: 'No subscription found',
+              type: KandoTopToastType.info,
+            );
+          case SubscriptionResultEvent.restoreFailed:
+            showKandoFailureAlert(
+              context,
+              title: 'Restore failed',
+              message: 'Unable to restore purchases. Please try again.',
+            );
+          case SubscriptionResultEvent.purchaseSuccess ||
+              SubscriptionResultEvent.externalPremium ||
+              null:
+            break;
+        }
+      }
       if (next.errorMessage != null &&
           next.errorMessage != previous?.errorMessage &&
           context.mounted) {
@@ -118,9 +190,9 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
               96,
             ),
             children: [
-              if (!subscription.isPro) ...[
+              if (subscription.premiumState == AppPremiumState.free) ...[
                 _UpgradeBanner(
-                  onTap: () => context.push(subscriptionSheetLocation),
+                  onTap: () => context.push(profileSubscriptionLocation),
                 ),
                 const SizedBox(height: 24),
               ],
@@ -146,23 +218,23 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                   ],
                 ),
               const SizedBox(height: 24),
-              if (subscription.isPro) ...[
-                _SectionLabel('Subscribe'),
-                _MenuCard(
-                  children: [
-                    _MenuRow(
-                      icon: Icons.restore,
-                      label: 'Restore',
-                      onTap: subscription.isLoading
-                          ? null
-                          : () => ref
-                                .read(subscriptionControllerProvider.notifier)
-                                .restore(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
+              _SectionLabel('Subscribe'),
+              _MenuCard(
+                children: [
+                  _MenuRow(
+                    icon: Icons.restore,
+                    label: 'Restore',
+                    onTap: subscription.isLoading
+                        ? null
+                        : () => ref
+                              .read(subscriptionControllerProvider.notifier)
+                              .restore(
+                                source: SubscriptionRestoreSource.profile,
+                              ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
               _SectionLabel('Support'),
               _MenuCard(
                 children: [

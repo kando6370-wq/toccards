@@ -25,6 +25,7 @@ import '../home/home_controller.dart';
 import '../search/search_controller.dart';
 import '../subscription/scan_quota_controller.dart';
 import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_entitlement_cache.dart';
 import 'scan_camera.dart';
 import 'scan_permissions.dart';
 import 'scan_review_repository.dart';
@@ -36,6 +37,8 @@ enum _ScanItemStatus {
   matched,
   failed,
   noMatch,
+  waiting,
+  entitlementSync,
 }
 
 enum _ScanReviewSaveAction { single, all }
@@ -106,6 +109,7 @@ class _ScanItem {
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
+    this.retainOnQuotaExhausted = false,
   });
 
   final int id;
@@ -116,6 +120,7 @@ class _ScanItem {
   final Uint8List? imageBytes;
   final Uint8List? displayImageBytes;
   final String? imageFileName;
+  final bool retainOnQuotaExhausted;
 
   _ScanItem copyWith({
     _ScanItemStatus? status,
@@ -123,6 +128,7 @@ class _ScanItem {
     Uint8List? imageBytes,
     Uint8List? displayImageBytes,
     String? imageFileName,
+    bool? retainOnQuotaExhausted,
   }) {
     return _ScanItem(
       id: id,
@@ -133,6 +139,8 @@ class _ScanItem {
       imageBytes: imageBytes ?? this.imageBytes,
       displayImageBytes: displayImageBytes ?? this.displayImageBytes,
       imageFileName: imageFileName ?? this.imageFileName,
+      retainOnQuotaExhausted:
+          retainOnQuotaExhausted ?? this.retainOnQuotaExhausted,
     );
   }
 }
@@ -292,6 +300,7 @@ class _PendingScan {
   final int token;
   ScanResolution? resolution;
   var revealTimelineFinished = false;
+  var removedFromUi = false;
   AnimationController? revealController;
 }
 
@@ -328,8 +337,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _openingReview = false;
   var _reviewing = false;
   var _photoRecognitionInFlight = false;
+  var _premiumResolutionInFlight = false;
   var _capturingPhoto = false;
   var _librarySelectionInFlight = false;
+  var _quotaPaywallOpen = false;
+  var _entitlementRefreshInFlight = false;
+  Timer? _entitlementRefreshTimer;
+  Completer<void>? _entitlementRefreshDelay;
   int? _selectedReviewItemId;
   ScanReviewTarget? _reviewTarget;
   Map<String, ScanReviewCard> _reviewCards = const {};
@@ -370,7 +384,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool get _canReview {
-    return _matchedItems.isNotEmpty;
+    final processing = _items.any(
+      (item) =>
+          item.status == _ScanItemStatus.scanning ||
+          item.status == _ScanItemStatus.recognizing ||
+          item.status == _ScanItemStatus.revealing,
+    );
+    return _matchedItems.isNotEmpty && !processing;
   }
 
   Animation<double> get _revealAnimation {
@@ -399,6 +419,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
       duration: _captureAnimationDuration,
     );
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(ref.read(scanQuotaControllerProvider.notifier).refresh());
+      }
+    });
     unawaited(_openCamera());
   }
 
@@ -406,6 +431,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _appActive = true;
+      unawaited(_refreshQuotaAndResumeWaiting());
       unawaited(_resumeCameraForLifecycle());
       return;
     }
@@ -427,6 +453,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
     for (final pending in _pendingScans.values) {
       pending.revealController?.dispose();
+    }
+    _entitlementRefreshTimer?.cancel();
+    final entitlementRefreshDelay = _entitlementRefreshDelay;
+    if (entitlementRefreshDelay?.isCompleted == false) {
+      entitlementRefreshDelay!.complete();
     }
     _pendingScans.clear();
     super.dispose();
@@ -537,13 +568,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
   }
 
-  void _startPhotoScan() {
+  Future<void> _startPhotoScan() async {
+    if (!await _resolvePremiumBeforeScan()) return;
+    if (!mounted) return;
     final source = ref.read(scanResultSourceProvider);
     final camera = _cameraSession;
     if (camera == null) {
       if (_openingCamera) return;
-      if (!_consumeScanQuota()) {
-        unawaited(context.push(subscriptionSheetLocation));
+      if (_scanQuotaExhausted()) {
+        unawaited(_openQuotaPaywall());
         return;
       }
       ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
@@ -551,8 +584,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     if (_photoRecognitionInFlight) return;
-    if (!_consumeScanQuota()) {
-      unawaited(context.push(subscriptionSheetLocation));
+    if (_scanQuotaExhausted()) {
+      unawaited(_openQuotaPaywall());
       return;
     }
     ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
@@ -609,6 +642,21 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _startLibraryScan() async {
     if (_librarySelectionInFlight) return;
+    if (!await _resolvePremiumBeforeScan()) return;
+    if (!mounted) return;
+    if (_scanQuotaExhausted()) {
+      unawaited(_openQuotaPaywall());
+      return;
+    }
+    final remainingQueueCapacity = 10 - _items.length;
+    if (remainingQueueCapacity <= 0) {
+      showKandoTopToast(
+        context,
+        message: 'Scan queue is full',
+        type: KandoTopToastType.info,
+      );
+      return;
+    }
     ref.read(analyticsProvider).track(AnalyticsEvent.imageClick);
     setState(() => _librarySelectionInFlight = true);
     try {
@@ -623,15 +671,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
       }
       await _closeCamera();
       var selectedCount = 0;
-      var quotaExhausted = false;
       final scans = await ref
           .read(scanResultSourceProvider)
           .library(
+            maxItems: remainingQueueCapacity,
             onSelected: (image, resolution) {
-              if (!_consumeScanQuota()) {
-                quotaExhausted = true;
-                return;
-              }
               selectedCount += 1;
               if (mounted) {
                 _addScan(
@@ -640,22 +684,20 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   imageBytes: image.bytes,
                   displayImageBytes: image.bytes,
                   imageFileName: image.fileName,
+                  retainOnQuotaExhausted: true,
                 );
               }
             },
           );
       if (!mounted) return;
       if (selectedCount == 0) {
-        for (final scan in scans) {
-          if (!_consumeScanQuota()) {
-            quotaExhausted = true;
-            break;
-          }
-          _addScan(scan, usesCameraFeedback: false);
+        for (final scan in scans.take(remainingQueueCapacity)) {
+          _addScan(
+            scan,
+            usesCameraFeedback: false,
+            retainOnQuotaExhausted: true,
+          );
         }
-      }
-      if (quotaExhausted && mounted) {
-        unawaited(context.push(subscriptionSheetLocation));
       }
     } catch (_) {
       if (mounted) {
@@ -672,9 +714,107 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
   }
 
-  bool _consumeScanQuota() {
-    if (ref.read(subscriptionControllerProvider).isPro) return true;
-    return ref.read(scanQuotaControllerProvider.notifier).tryConsume();
+  bool _scanQuotaExhausted() {
+    if (ref.read(subscriptionControllerProvider).isPro) return false;
+    final quota = ref.read(scanQuotaControllerProvider);
+    return quota.isServerAuthoritative && quota.remainingScans == 0;
+  }
+
+  Future<bool> _resolvePremiumBeforeScan() async {
+    final current = ref.read(subscriptionControllerProvider).premiumState;
+    if (current != AppPremiumState.unknown) return true;
+    if (_premiumResolutionInFlight) return false;
+    _premiumResolutionInFlight = true;
+    try {
+      final resolved = await ref
+          .read(subscriptionControllerProvider.notifier)
+          .refreshEntitlement();
+      return mounted && resolved != AppPremiumState.unknown;
+    } finally {
+      _premiumResolutionInFlight = false;
+    }
+  }
+
+  Future<void> _openQuotaPaywall({bool resumeWaiting = false}) async {
+    if (!mounted || _quotaPaywallOpen) return;
+    _quotaPaywallOpen = true;
+    try {
+      final result = await context.push<SubscriptionPaywallResult>(
+        subscriptionSheetLocation,
+      );
+      if (!mounted || result == null) return;
+      showKandoTopToast(
+        context,
+        message: result == SubscriptionPaywallResult.premiumRestored
+            ? 'Premium restored'
+            : 'Premium unlocked',
+        type: KandoTopToastType.success,
+      );
+      if (resumeWaiting && _items.any(_isWaitingForCapacity)) {
+        unawaited(_confirmPremiumAndResumeWaiting());
+      }
+    } finally {
+      _quotaPaywallOpen = false;
+    }
+  }
+
+  Future<void> _refreshQuotaAndResumeWaiting() async {
+    final refreshed = await ref
+        .read(scanQuotaControllerProvider.notifier)
+        .refresh();
+    if (mounted && refreshed) _resumeWaitingFromServerQuota();
+  }
+
+  Future<void> _confirmPremiumAndResumeWaiting() async {
+    if (_entitlementRefreshInFlight) return;
+    _entitlementRefreshInFlight = true;
+    try {
+      final deadline = DateTime.now().add(const Duration(seconds: 15));
+      while (mounted && _items.any(_isWaitingForCapacity)) {
+        await _refreshQuotaAndResumeWaiting();
+        if (!mounted ||
+            ref.read(scanQuotaControllerProvider).unlimited ||
+            DateTime.now().isAfter(deadline)) {
+          return;
+        }
+        await _waitForEntitlementRefresh();
+      }
+    } finally {
+      _entitlementRefreshInFlight = false;
+    }
+  }
+
+  Future<void> _waitForEntitlementRefresh() {
+    final completer = Completer<void>();
+    _entitlementRefreshDelay = completer;
+    _entitlementRefreshTimer = Timer(const Duration(seconds: 1), () {
+      _entitlementRefreshTimer = null;
+      _entitlementRefreshDelay = null;
+      completer.complete();
+    });
+    return completer.future;
+  }
+
+  bool _isWaitingForCapacity(_ScanItem item) {
+    return item.status == _ScanItemStatus.waiting ||
+        item.status == _ScanItemStatus.entitlementSync;
+  }
+
+  void _resumeWaitingFromServerQuota() {
+    if (!mounted) return;
+    final quota = ref.read(scanQuotaControllerProvider);
+    if (!quota.isServerAuthoritative) return;
+    var capacity = quota.unlimited ? _items.length : quota.remainingScans;
+    if (capacity <= 0) return;
+    final resumable = _items.where((item) {
+      if (item.status == _ScanItemStatus.waiting) return true;
+      return quota.unlimited && item.status == _ScanItemStatus.entitlementSync;
+    }).toList();
+    for (final item in resumable) {
+      if (capacity <= 0) break;
+      capacity -= 1;
+      _restartScan(item);
+    }
   }
 
   Future<void> _showPermissionSettings(String name) async {
@@ -750,9 +890,24 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
   }
 
-  void _retryScan(_ScanItem item) {
+  Future<void> _retryScan(_ScanItem item) async {
+    if (!await _resolvePremiumBeforeScan()) return;
+    if (_scanQuotaExhausted()) {
+      _replaceItem(item.copyWith(status: _ScanItemStatus.waiting));
+      unawaited(_openQuotaPaywall(resumeWaiting: true));
+      return;
+    }
+    _restartScan(item);
+  }
+
+  void _restartScan(_ScanItem item) {
     _scanStopwatches[item.id] = Stopwatch()..start();
-    _replaceItem(item.copyWith(status: _ScanItemStatus.scanning));
+    _replaceItem(
+      item.copyWith(
+        status: _ScanItemStatus.scanning,
+        retainOnQuotaExhausted: true,
+      ),
+    );
     _startScanTimeline(
       item.id,
       Future.sync(
@@ -773,8 +928,16 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() => _dismissedFeedbackItemId = revealingItem.id);
   }
 
-  void _removeScan(_ScanItem item) {
-    _pendingScans.remove(item.id)?.revealController?.dispose();
+  void _removeScan(_ScanItem item, {bool settleInBackground = false}) {
+    final pending = _pendingScans[item.id];
+    if (settleInBackground && pending != null) {
+      pending
+        ..removedFromUi = true
+        ..revealController?.dispose();
+      pending.revealController = null;
+    } else {
+      _pendingScans.remove(item.id)?.revealController?.dispose();
+    }
     setState(() {
       _items.removeWhere((candidate) => candidate.id == item.id);
       if (_selectedReviewItemId == item.id) {
@@ -784,8 +947,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _removeScanFromUser(_ScanItem item) {
-    if (item.status == _ScanItemStatus.scanning ||
-        item.status == _ScanItemStatus.recognizing) {
+    final processing =
+        item.status == _ScanItemStatus.scanning ||
+        item.status == _ScanItemStatus.recognizing ||
+        item.status == _ScanItemStatus.revealing;
+    if (processing) {
       ref.read(analyticsProvider).track(AnalyticsEvent.cancelClick);
       final stopwatch = _scanStopwatches.remove(item.id);
       stopwatch?.stop();
@@ -796,7 +962,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } else {
       ref.read(analyticsProvider).track(AnalyticsEvent.deleteClick);
     }
-    _removeScan(item);
+    _removeScan(item, settleInBackground: processing);
   }
 
   Future<void> _searchManually(_ScanItem item) async {
@@ -825,6 +991,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     Uint8List? imageBytes,
     Uint8List? displayImageBytes,
     String? imageFileName,
+    bool retainOnQuotaExhausted = false,
   }) {
     final id = _nextScanId;
     _nextScanId += 1;
@@ -840,6 +1007,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           imageBytes: imageBytes,
           displayImageBytes: displayImageBytes,
           imageFileName: imageFileName,
+          retainOnQuotaExhausted: retainOnQuotaExhausted,
         ),
       );
     });
@@ -966,19 +1134,38 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (pending == null || pending.token != token) {
       return;
     }
-    final stopwatch = _scanStopwatches.remove(itemId);
-    stopwatch?.stop();
-    _scanDurations[itemId] =
-        (_scanDurations[itemId] ?? Duration.zero) +
-        (stopwatch?.elapsed ?? Duration.zero);
-    _scanResultValues[itemId] = switch (resolution.kind) {
-      ScanResolutionKind.matched => AnalyticsValue.scanSuccess,
-      ScanResolutionKind.noMatch => AnalyticsValue.scanNotFound,
-      ScanResolutionKind.failed ||
-      ScanResolutionKind.cancelled => AnalyticsValue.scanFailed,
-    };
+    if (!pending.removedFromUi) {
+      final stopwatch = _scanStopwatches.remove(itemId);
+      stopwatch?.stop();
+      _scanDurations[itemId] =
+          (_scanDurations[itemId] ?? Duration.zero) +
+          (stopwatch?.elapsed ?? Duration.zero);
+      _scanResultValues[itemId] = switch (resolution.kind) {
+        ScanResolutionKind.matched => AnalyticsValue.scanSuccess,
+        ScanResolutionKind.noMatch => AnalyticsValue.scanNotFound,
+        ScanResolutionKind.failed ||
+        ScanResolutionKind.cancelled ||
+        ScanResolutionKind.quotaExhausted ||
+        ScanResolutionKind.entitlementSyncRequired => AnalyticsValue.scanFailed,
+      };
+    }
 
     if (!mounted) {
+      return;
+    }
+    final serverQuota = resolution.quota;
+    if (serverQuota != null) {
+      ref
+          .read(scanQuotaControllerProvider.notifier)
+          .applyServerQuota(serverQuota);
+    }
+    if (pending.removedFromUi) {
+      _pendingScans.remove(itemId)?.revealController?.dispose();
+      if (serverQuota != null) {
+        _resumeWaitingFromServerQuota();
+      } else {
+        unawaited(_refreshQuotaAndResumeWaiting());
+      }
       return;
     }
     if (resolution.kind == ScanResolutionKind.cancelled) {
@@ -988,8 +1175,47 @@ class _ScanPageState extends ConsumerState<ScanPage>
       });
       return;
     }
+    if (resolution.kind == ScanResolutionKind.quotaExhausted) {
+      _pendingScans.remove(itemId)?.revealController?.dispose();
+      final item = _items.where((item) => item.id == itemId).firstOrNull;
+      if (item?.retainOnQuotaExhausted == true) {
+        _replaceItem(
+          item!.copyWith(
+            status: _ScanItemStatus.waiting,
+            imageBytes: resolution.imageBytes,
+            displayImageBytes: resolution.displayImageBytes,
+            imageFileName: resolution.imageFileName,
+          ),
+        );
+      } else {
+        setState(() => _items.removeWhere((item) => item.id == itemId));
+      }
+      unawaited(
+        _openQuotaPaywall(resumeWaiting: item?.retainOnQuotaExhausted == true),
+      );
+      return;
+    }
+    if (resolution.kind == ScanResolutionKind.entitlementSyncRequired) {
+      _pendingScans.remove(itemId)?.revealController?.dispose();
+      final item = _items.where((item) => item.id == itemId).firstOrNull;
+      if (item != null) {
+        _replaceItem(
+          item.copyWith(
+            status: _ScanItemStatus.entitlementSync,
+            imageBytes: resolution.imageBytes,
+            displayImageBytes: resolution.displayImageBytes,
+            imageFileName: resolution.imageFileName,
+          ),
+        );
+      }
+      if (ref.read(subscriptionControllerProvider).isPro) {
+        unawaited(_confirmPremiumAndResumeWaiting());
+      }
+      return;
+    }
     pending.resolution = resolution;
     _completeScanIfReady(itemId, token);
+    if (serverQuota != null) _resumeWaitingFromServerQuota();
   }
 
   _ScanItem? _currentItem(
@@ -1035,6 +1261,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
       ScanResolutionKind.failed => _ScanItemStatus.failed,
       ScanResolutionKind.noMatch => _ScanItemStatus.noMatch,
       ScanResolutionKind.cancelled => _ScanItemStatus.failed,
+      ScanResolutionKind.quotaExhausted => _ScanItemStatus.waiting,
+      ScanResolutionKind.entitlementSyncRequired =>
+        _ScanItemStatus.entitlementSync,
     };
     final match = status == _ScanItemStatus.matched
         ? _ScanMatch(
@@ -1709,8 +1938,26 @@ class _ScanPageState extends ConsumerState<ScanPage>
                         ? null
                         : _toggleFlash,
                     onSearchPressed: () => context.go('/search'),
-                    onUpgradePressed: () =>
-                        context.push(subscriptionSheetLocation),
+                    onUpgradePressed: () async {
+                      final result = await context
+                          .push<SubscriptionPaywallResult>(
+                            scanSubscriptionLocation,
+                          );
+                      if (!mounted || !context.mounted || result == null) {
+                        return;
+                      }
+                      showKandoTopToast(
+                        context,
+                        message:
+                            result == SubscriptionPaywallResult.premiumRestored
+                            ? 'Premium restored'
+                            : 'Premium unlocked',
+                        type: KandoTopToastType.success,
+                      );
+                      if (_items.any(_isWaitingForCapacity)) {
+                        unawaited(_confirmPremiumAndResumeWaiting());
+                      }
+                    },
                     onPhotoPressed: _startPhotoScan,
                     onLibraryPressed: _startLibraryScan,
                     onDismissScanFeedback: _dismissScanFeedback,
@@ -1718,7 +1965,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     onReviewItem: _openReview,
                     onRetryItem: _retryScan,
                     onDeleteItem: _removeScanFromUser,
-                    onSearchItem: _searchManually,
+                    onSearchItem: (item) {
+                      if (item.status == _ScanItemStatus.waiting) {
+                        unawaited(_openQuotaPaywall(resumeWaiting: true));
+                      } else {
+                        unawaited(_searchManually(item));
+                      }
+                    },
                   ),
                   if (_openingReview)
                     const Positioned.fill(
@@ -3034,17 +3287,21 @@ class _ScanItemCard extends StatelessWidget {
 
     final matched = item.status == _ScanItemStatus.matched;
     final failed = item.status == _ScanItemStatus.failed;
+    final waiting = item.status == _ScanItemStatus.waiting;
+    final entitlementSync = item.status == _ScanItemStatus.entitlementSync;
     final width = matched ? 240.0 : 176.0;
     final title = matched
         ? item.match?.name ?? item.pictureLabel
         : failed
         ? 'Failed'
+        : waiting
+        ? 'Waiting to scan'
         : 'No Match Found';
     final action = matched
         ? onReview
         : failed
         ? onRetry
-        : item.status == _ScanItemStatus.noMatch
+        : item.status == _ScanItemStatus.noMatch || waiting
         ? onSearch
         : null;
     final previewDraft = card == null ? null : _previewDraft(card!);
@@ -3057,6 +3314,10 @@ class _ScanItemCard extends StatelessWidget {
           ? 'Review scan result'
           : failed
           ? 'Retry scan'
+          : waiting
+          ? 'Unlock unlimited scans'
+          : entitlementSync
+          ? 'Premium access is syncing'
           : 'Search manually',
       child: InkWell(
         onTap: action,
@@ -3159,7 +3420,13 @@ class _ScanItemCard extends StatelessWidget {
                       )
                     else
                       Text(
-                        failed ? 'Tap to retry' : 'Search Manually',
+                        failed
+                            ? 'Tap to retry'
+                            : waiting
+                            ? 'Waiting to scan'
+                            : entitlementSync
+                            ? 'Syncing Premium'
+                            : 'Search Manually',
                         maxLines: 1,
                         style: const TextStyle(
                           color: Color(0xFFF0FE6F),

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -14,8 +15,11 @@ import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
@@ -247,6 +251,7 @@ void main() {
     expect(find.text('15D'), findsOneWidget);
     expect(find.text('1M'), findsOneWidget);
     expect(find.text('3M'), findsOneWidget);
+    expect(find.text('1Y'), findsOneWidget);
     expect(find.text('6M'), findsNothing);
     expect(find.text('12M'), findsNothing);
     expect(find.text('MAX'), findsNothing);
@@ -937,7 +942,7 @@ void main() {
   );
 
   testWidgets(
-    'Pro owners see calculated card cost and return because entitlement unlocks Performance',
+    'Pro owners see server Item performance because Card Detail must not aggregate same-card Items',
     (tester) async {
       await tester.pumpWidget(
         _CardDetailTestApp(
@@ -954,13 +959,45 @@ void main() {
         find.byKey(const Key('card-detail-performance-content')),
         findsOneWidget,
       );
-      expect(find.text(r'$650.00'), findsOneWidget);
-      expect(find.text(r'$780.00'), findsOneWidget);
-      expect(find.text(r'$130.00'), findsOneWidget);
-      expect(find.text('+20.00%'), findsOneWidget);
+      expect(find.text(r'$600.00'), findsOneWidget);
+      expect(find.text(r'$790.00'), findsOneWidget);
+      expect(find.text(r'+$190.00'), findsOneWidget);
+      expect(find.text('31.67%'), findsOneWidget);
       expect(
         find.byKey(const Key('card-detail-missing-purchase-price')),
         findsNothing,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-performance-chart')),
+      );
+      final chart = find.byKey(const Key('card-detail-performance-chart'));
+      await tester.tapAt(tester.getRect(chart).center);
+      await tester.pump();
+      final tooltip = tester.widget<Semantics>(chart).properties.value!;
+      expect(tooltip, contains('Date: 2026-08-12'));
+      expect(tooltip, contains(r'Daily Change: +$40.00'));
+      expect(tooltip, contains(r'Market Value: $790.00'));
+      expect(tooltip, contains(r'Profit / Loss: $190.00'));
+      expect(tooltip, contains('Qty: 1'));
+      expect(tooltip, isNot(contains('Price:')));
+
+      await tester.tap(
+        find.byKey(const Key('card-detail-performance-range-1D')),
+      );
+      await tester.pumpAndSettle();
+      final oneDayChart = find.byKey(
+        const Key('card-detail-performance-chart'),
+      );
+      expect(
+        tester.widget<Semantics>(oneDayChart).properties.value,
+        'No chart point selected',
+      );
+      await tester.tapAt(tester.getRect(oneDayChart).center);
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(oneDayChart).properties.value,
+        contains(r'Daily Change: +$40.00'),
       );
     },
   );
@@ -969,9 +1006,10 @@ void main() {
     'Pro owners without purchase price can edit the Collection Item because Performance cannot be calculated yet',
     (tester) async {
       await tester.pumpWidget(
-        const _CardDetailTestApp(
+        _CardDetailTestApp(
           cardId: 'charizard-ex',
           repository: _MissingPurchasePriceCardDetailRepository(),
+          performanceApi: _MissingPriceCardPerformanceApi(),
           subscriptionController: _ProCardSubscriptionController.new,
         ),
       );
@@ -988,6 +1026,20 @@ void main() {
         find.text('Add purchase price to calculate your card performance.'),
         findsOneWidget,
       );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-performance-chart')),
+      );
+      final chart = find.byKey(const Key('card-detail-performance-chart'));
+      await tester.tapAt(tester.getRect(chart).center);
+      await tester.pump();
+      final tooltip = tester.widget<Semantics>(chart).properties.value!;
+      expect(tooltip, contains(r'Daily Change: +$40.00'));
+      expect(tooltip, contains(r'Market Value: $790.00'));
+      expect(tooltip, contains('Qty: 1'));
+      expect(tooltip, isNot(contains('Profit / Loss')));
+      expect(tooltip, isNot(contains('Purchase Cost')));
+      expect(tooltip, isNot(contains('Return')));
 
       await tester.ensureVisible(
         find.byKey(const Key('card-detail-edit-missing-purchase-price')),
@@ -1008,6 +1060,25 @@ void main() {
         ),
       );
       expect(purchasePriceField.controller.text, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'same-card multiple Items hide Performance without an Item context because guessing would mix ownership',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          repository: _MultiItemCardDetailRepository(),
+          collectionItemId: null,
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Performance'), findsNothing);
+      expect(find.text('Collection Item'), findsOneWidget);
+      expect(find.text('Price'), findsOneWidget);
     },
   );
 
@@ -1603,6 +1674,8 @@ class _CardDetailTestApp extends StatelessWidget {
     this.repository,
     this.entrySource = AnalyticsValue.sourceSearch,
     this.subscriptionController,
+    this.performanceApi,
+    this.collectionItemId = 'item-charizard',
   });
 
   final String cardId;
@@ -1610,6 +1683,8 @@ class _CardDetailTestApp extends StatelessWidget {
   final CardDetailRepository? repository;
   final String entrySource;
   final SubscriptionController Function()? subscriptionController;
+  final PortfolioApiClient? performanceApi;
+  final String? collectionItemId;
 
   @override
   Widget build(BuildContext context) {
@@ -1620,13 +1695,21 @@ class _CardDetailTestApp extends StatelessWidget {
         cardDetailRepositoryProvider.overrideWithValue(
           repository ?? const MockCardDetailRepository(),
         ),
+        portfolioApiClientProvider.overrideWithValue(
+          performanceApi ?? _CardPerformanceApi(),
+        ),
         if (actions != null)
           cardDetailActionsProvider.overrideWithValue(actions!),
-        if (subscriptionController != null)
-          subscriptionControllerProvider.overrideWith(subscriptionController!),
+        subscriptionControllerProvider.overrideWith(
+          subscriptionController ?? _FreeCardSubscriptionController.new,
+        ),
       ],
       child: MaterialApp(
-        home: CardDetailPage(cardId: cardId, entrySource: entrySource),
+        home: CardDetailPage(
+          cardId: cardId,
+          collectionItemId: collectionItemId,
+          entrySource: entrySource,
+        ),
       ),
     );
   }
@@ -1635,6 +1718,94 @@ class _CardDetailTestApp extends StatelessWidget {
 class _ProCardSubscriptionController extends SubscriptionController {
   @override
   SubscriptionState build() => const SubscriptionState(isPro: true);
+}
+
+class _FreeCardSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.free);
+}
+
+class _CardPerformanceApi extends PortfolioApiClient {
+  _CardPerformanceApi() : super(Dio());
+
+  @override
+  Future<PortfolioPerformanceDto> getItemPerformance(
+    AuthSession session, {
+    required String itemId,
+    required PerformanceRange range,
+    bool localPremiumVerified = false,
+  }) async {
+    final point = PerformancePointDto(
+      date: '2026-08-12',
+      marketValueUsd: 790,
+      marketValueChangeUsd: 40,
+      marketChangeUsd: 10,
+      portfolioChangeUsd: 20,
+      paidMarketValueUsd: 790,
+      totalPaidUsd: 600,
+      profitLossUsd: 190,
+      profitLossChangeUsd: 40,
+      returnPercent: 31.67,
+      quantity: 1,
+      quantityChange: 0,
+    );
+    return PortfolioPerformanceDto(
+      range: range,
+      rangeStart: '2026-07-12',
+      rangeEnd: '2026-08-12',
+      historyAvailableFrom: '2026-07-12',
+      partialHistory: false,
+      itemCount: 1,
+      marketPriceStatus: MarketPriceStatus.available,
+      purchasePriceStatus: PurchasePriceStatus.complete,
+      current: point,
+      series: [point],
+    );
+  }
+}
+
+class _MissingPriceCardPerformanceApi extends _CardPerformanceApi {
+  @override
+  Future<PortfolioPerformanceDto> getItemPerformance(
+    AuthSession session, {
+    required String itemId,
+    required PerformanceRange range,
+    bool localPremiumVerified = false,
+  }) async {
+    final normal = await super.getItemPerformance(
+      session,
+      itemId: itemId,
+      range: range,
+      localPremiumVerified: localPremiumVerified,
+    );
+    final point = PerformancePointDto(
+      date: normal.current.date,
+      marketValueUsd: normal.current.marketValueUsd,
+      marketValueChangeUsd: normal.current.marketValueChangeUsd,
+      marketChangeUsd: normal.current.marketChangeUsd,
+      portfolioChangeUsd: normal.current.portfolioChangeUsd,
+      paidMarketValueUsd: null,
+      totalPaidUsd: null,
+      profitLossUsd: null,
+      profitLossChangeUsd: null,
+      returnPercent: null,
+      quantity: normal.current.quantity,
+      quantityChange: normal.current.quantityChange,
+    );
+    return PortfolioPerformanceDto(
+      range: range,
+      rangeStart: normal.rangeStart,
+      rangeEnd: normal.rangeEnd,
+      historyAvailableFrom: normal.historyAvailableFrom,
+      partialHistory: false,
+      itemCount: 1,
+      marketPriceStatus: MarketPriceStatus.available,
+      purchasePriceStatus: PurchasePriceStatus.missing,
+      current: point,
+      series: [point],
+    );
+  }
 }
 
 class _FinishTabCardDetailRepository extends MockCardDetailRepository
@@ -1713,6 +1884,13 @@ class _FinishTabCardDetailRepository extends MockCardDetailRepository
     String cardId, {
     CardDetailMarketData? market,
     String? finish,
+    Iterable<CardPriceRange> ranges = const [
+      CardPriceRange.oneDay,
+      CardPriceRange.sevenDays,
+      CardPriceRange.fifteenDays,
+      CardPriceRange.oneMonth,
+      CardPriceRange.threeMonths,
+    ],
   }) async {
     final price = finish == 'Foil' ? 20.0 : 10.0;
     final points = [
@@ -2008,6 +2186,13 @@ class _FailingSectionCardDetailRepository extends MockCardDetailRepository
     String cardId, {
     CardDetailMarketData? market,
     String? finish,
+    Iterable<CardPriceRange> ranges = const [
+      CardPriceRange.oneDay,
+      CardPriceRange.sevenDays,
+      CardPriceRange.fifteenDays,
+      CardPriceRange.oneMonth,
+      CardPriceRange.threeMonths,
+    ],
   }) {
     throw StateError('price series unavailable');
   }

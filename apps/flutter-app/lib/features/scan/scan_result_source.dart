@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' as picker;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_card_number_reader.dart';
@@ -9,8 +10,16 @@ import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
+import '../subscription/subscription_controller.dart';
 
-enum ScanResolutionKind { matched, failed, noMatch, cancelled }
+enum ScanResolutionKind {
+  matched,
+  failed,
+  noMatch,
+  cancelled,
+  quotaExhausted,
+  entitlementSyncRequired,
+}
 
 class ScanResolution {
   const ScanResolution.matched({
@@ -22,12 +31,14 @@ class ScanResolution {
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
+    this.quota,
   }) : kind = ScanResolutionKind.matched;
 
   const ScanResolution.failed({
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
+    this.quota,
   }) : kind = ScanResolutionKind.failed,
        scanId = null,
        cardRef = null,
@@ -39,6 +50,7 @@ class ScanResolution {
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
+    this.quota,
   }) : kind = ScanResolutionKind.noMatch,
        scanId = null,
        cardRef = null,
@@ -55,7 +67,32 @@ class ScanResolution {
       candidateCardRefs = const [],
       imageBytes = null,
       displayImageBytes = null,
-      imageFileName = null;
+      imageFileName = null,
+      quota = null;
+
+  const ScanResolution.quotaExhausted({
+    required this.imageBytes,
+    required this.displayImageBytes,
+    required this.imageFileName,
+    required this.quota,
+  }) : kind = ScanResolutionKind.quotaExhausted,
+       scanId = null,
+       cardRef = null,
+       matchName = null,
+       candidates = const [],
+       candidateCardRefs = const [];
+
+  const ScanResolution.entitlementSyncRequired({
+    required this.imageBytes,
+    required this.displayImageBytes,
+    required this.imageFileName,
+  }) : kind = ScanResolutionKind.entitlementSyncRequired,
+       scanId = null,
+       cardRef = null,
+       matchName = null,
+       candidates = const [],
+       candidateCardRefs = const [],
+       quota = null;
 
   final ScanResolutionKind kind;
   final String? scanId;
@@ -66,11 +103,13 @@ class ScanResolution {
   final Uint8List? imageBytes;
   final Uint8List? displayImageBytes;
   final String? imageFileName;
+  final ScanQuotaDto? quota;
 }
 
 abstract interface class ScanResultSource {
   Future<ScanResolution> photo();
   Future<List<Future<ScanResolution>>> library({
+    int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
   });
@@ -89,6 +128,7 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     imageHasher: createScanImageHasher(),
     cardNumberReader: createScanCardNumberReader(),
     appInfo: _readScanAppInfo,
+    localPremiumVerified: () => ref.read(subscriptionControllerProvider).isPro,
   ),
 );
 
@@ -172,11 +212,13 @@ class ApiScanResultSource implements ScanResultSource {
     required ScanImageHasher imageHasher,
     required Future<ScanAppInfo> Function() appInfo,
     ScanCardNumberReader? cardNumberReader,
+    bool Function()? localPremiumVerified,
   }) : _api = api,
        _session = session,
        _imagePicker = imagePicker,
        _imageHasher = imageHasher,
        _appInfo = appInfo,
+       _localPremiumVerified = localPremiumVerified ?? _false,
        _cardNumberReader = cardNumberReader ?? const _NoopCardNumberReader();
 
   final ScanApi _api;
@@ -185,19 +227,22 @@ class ApiScanResultSource implements ScanResultSource {
   final ScanImageHasher _imageHasher;
   final Future<ScanAppInfo> Function() _appInfo;
   final ScanCardNumberReader _cardNumberReader;
+  final bool Function() _localPremiumVerified;
   @override
   Future<ScanResolution> photo() => _pickAndRecognize(ScanImageSource.camera);
 
   @override
   Future<List<Future<ScanResolution>>> library({
+    int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
   }) async {
+    if (maxItems <= 0) return const [];
     final images = await _imagePicker.pickMany(
       ScanImageSource.gallery,
-      limit: 10,
+      limit: maxItems,
     );
-    final selectedImages = images.take(10).toList();
+    final selectedImages = images.take(maxItems).toList();
     if (selectedImages.isEmpty) return const [];
     return [
       for (final image in selectedImages)
@@ -262,9 +307,33 @@ class ApiScanResultSource implements ScanResultSource {
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,
+        requestId: const Uuid().v4(),
+        localPremiumVerified: _localPremiumVerified(),
         cardNumber: cardNumber,
       );
-    } catch (_) {
+    } on ScanApiException catch (error) {
+      if (error.code == 'SCAN_QUOTA_EXHAUSTED' && error.quota != null) {
+        return ScanResolution.quotaExhausted(
+          imageBytes: image.bytes,
+          displayImageBytes: displayImageBytes,
+          imageFileName: image.fileName,
+          quota: error.quota!,
+        );
+      }
+      if (error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+        return ScanResolution.entitlementSyncRequired(
+          imageBytes: image.bytes,
+          displayImageBytes: displayImageBytes,
+          imageFileName: image.fileName,
+        );
+      }
+      return ScanResolution.failed(
+        imageBytes: image.bytes,
+        displayImageBytes: displayImageBytes,
+        imageFileName: image.fileName,
+        quota: error.quota,
+      );
+    } on Object {
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
@@ -279,6 +348,7 @@ class ApiScanResultSource implements ScanResultSource {
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
         imageFileName: image.fileName,
+        quota: recognition.quota,
       );
     }
     final candidates = matchedResults.first.candidates;
@@ -293,9 +363,12 @@ class ApiScanResultSource implements ScanResultSource {
       imageBytes: image.bytes,
       displayImageBytes: displayImageBytes,
       imageFileName: image.fileName,
+      quota: recognition.quota,
     );
   }
 }
+
+bool _false() => false;
 
 class _NoopCardNumberReader implements ScanCardNumberReader {
   const _NoopCardNumberReader();

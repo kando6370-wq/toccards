@@ -3,7 +3,8 @@ enum HomeChartRange {
   sevenDays('7d'),
   fifteenDays('15d'),
   oneMonth('1m'),
-  threeMonths('3m');
+  threeMonths('3m'),
+  oneYear('1y');
 
   const HomeChartRange(this.label);
 
@@ -36,6 +37,19 @@ class PortfolioSummary {
   final double previous30dValueUsd;
   final Map<HomeChartRange, List<double>> chartValuesByRange;
   final Map<HomeChartRange, List<String>> chartDatesByRange;
+
+  PortfolioSummary copyWith({
+    Map<HomeChartRange, List<double>>? chartValuesByRange,
+    Map<HomeChartRange, List<String>>? chartDatesByRange,
+  }) {
+    return PortfolioSummary(
+      folderId: folderId,
+      totalValueUsd: totalValueUsd,
+      previous30dValueUsd: previous30dValueUsd,
+      chartValuesByRange: chartValuesByRange ?? this.chartValuesByRange,
+      chartDatesByRange: chartDatesByRange ?? this.chartDatesByRange,
+    );
+  }
 }
 
 class HomeCardHighlight {
@@ -107,12 +121,13 @@ class HomeDashboard {
 
   HomeDashboard copyWith({
     List<HomeFolder>? folders,
+    Map<String, PortfolioSummary>? portfoliosByFolderId,
     List<TrendingCard>? trending,
     bool? trendingUnavailable,
   }) {
     return HomeDashboard(
       folders: folders ?? this.folders,
-      portfoliosByFolderId: portfoliosByFolderId,
+      portfoliosByFolderId: portfoliosByFolderId ?? this.portfoliosByFolderId,
       mostValuableByFolderId: mostValuableByFolderId,
       mostValuableCardsByFolderId: mostValuableCardsByFolderId,
       trending: trending ?? this.trending,

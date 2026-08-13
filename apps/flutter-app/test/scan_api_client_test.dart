@@ -24,6 +24,7 @@ void main() {
           'filename': 'scan.jpg',
           'platform': 'iOS',
           'app_version': '1.0.0',
+          'request_id': '123e4567-e89b-42d3-a456-426614174000',
           'card_number': '018/066',
         });
         expect(form.files, hasLength(1));
@@ -36,6 +37,13 @@ void main() {
           'data': {
             'scan_id': 'scan-1',
             'recognition_status': 'success',
+            'quota': {
+              'limit': 10,
+              'reserved': 0,
+              'consumed': 1,
+              'remaining': 9,
+              'unlimited': false,
+            },
             'results': [
               {
                 'index': 1,
@@ -73,6 +81,7 @@ void main() {
         fileName: 'scan.jpg',
         platform: 'iOS',
         appVersion: '1.0.0',
+        requestId: '123e4567-e89b-42d3-a456-426614174000',
         cardNumber: '018/066',
       );
 
@@ -94,6 +103,13 @@ void main() {
           'data': {
             'scan_id': 'scan-1',
             'recognition_status': 'success',
+            'quota': {
+              'limit': 10,
+              'reserved': 0,
+              'consumed': 1,
+              'remaining': 9,
+              'unlimited': false,
+            },
             'results': [
               {
                 'index': 1,
@@ -123,6 +139,7 @@ void main() {
           fileName: 'scan.jpg',
           platform: 'iOS',
           appVersion: '1.0.0',
+          requestId: '123e4567-e89b-42d3-a456-426614174000',
         ),
         throwsA(isA<ScanApiException>()),
       );
@@ -181,6 +198,42 @@ void main() {
       expect(result.collectionItemId, 'item-1');
     },
   );
+
+  test(
+    'one scan operation has a total deadline so a late success cannot revive an expired request',
+    () async {
+      final adapter = _RecordingAdapter((_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        return _json(200, {
+          'success': true,
+          'data': {
+            'limit': 10,
+            'reserved': 0,
+            'consumed': 0,
+            'remaining': 10,
+            'unlimited': false,
+          },
+        });
+      });
+
+      await expectLater(
+        ScanApiClient(
+          _dio(adapter),
+          requestDeadline: const Duration(milliseconds: 20),
+        ).getQuota(_session),
+        throwsA(
+          isA<ScanApiException>()
+              .having((error) => error.code, 'code', scanRequestTimeoutCode)
+              .having(
+                (error) => error.message,
+                'message',
+                scanRequestTimeoutMessage,
+              ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    },
+  );
 }
 
 const _session = AuthSession(
@@ -211,7 +264,7 @@ ResponseBody _json(int statusCode, Map<String, Object?> body) {
 class _RecordingAdapter implements HttpClientAdapter {
   _RecordingAdapter(this.handler);
 
-  final ResponseBody Function(_RecordedRequest request) handler;
+  final FutureOr<ResponseBody> Function(_RecordedRequest request) handler;
 
   @override
   Future<ResponseBody> fetch(
@@ -220,7 +273,7 @@ class _RecordingAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     final data = options.data;
-    return handler(
+    return await handler(
       _RecordedRequest(
         method: options.method,
         path: options.path,

@@ -5,11 +5,13 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'collection_models.dart';
@@ -601,28 +603,45 @@ class CollectionController extends Notifier<CollectionState> {
     }
   }
 
-  Future<CollectionFolder?> createFolder(String name) async {
+  Future<CreateFolderResult> createFolder(String name) async {
     final normalized = name.trim();
     if (state.isUnavailable ||
         state.isLoading ||
         normalized.isEmpty ||
         normalized.length > 50) {
-      return null;
+      return const CreateFolderResult(CreateFolderStatus.failed);
     }
     try {
       final session = ref.read(authControllerProvider).session!;
       final folder = await ref
           .read(collectionRepositoryProvider)
-          .createFolder(session, normalized);
+          .createFolder(
+            session,
+            normalized,
+            localPremiumVerified: ref
+                .read(subscriptionControllerProvider)
+                .isPro,
+          );
       state = state.copyWith(
         dashboard: state.dashboard.copyWith(
           folders: [...state.dashboard.folders, folder],
         ),
       );
       _invalidateFolderDetails();
-      return folder;
+      return CreateFolderResult(CreateFolderStatus.success, folder: folder);
+    } on PortfolioApiException catch (error) {
+      if (error.code == 'PREMIUM_REQUIRED') {
+        await refreshPreservingContent();
+        return const CreateFolderResult(CreateFolderStatus.premiumRequired);
+      }
+      if (error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+        return const CreateFolderResult(
+          CreateFolderStatus.entitlementSyncRequired,
+        );
+      }
+      return const CreateFolderResult(CreateFolderStatus.failed);
     } catch (_) {
-      return null;
+      return const CreateFolderResult(CreateFolderStatus.failed);
     }
   }
 

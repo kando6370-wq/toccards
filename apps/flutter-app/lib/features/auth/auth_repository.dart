@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -8,6 +10,7 @@ import 'auth_storage.dart';
 const oauthAuthorizationFailedMessage =
     'Authorization failed. Please try again.';
 const authApiBaseUrl = kandoApiBaseUrl;
+const authRequestDeadline = Duration(seconds: 15);
 
 Dio createAuthDio({String baseUrl = authApiBaseUrl}) {
   return Dio(
@@ -83,10 +86,15 @@ abstract class AuthRepository {
 }
 
 class HttpAuthRepository implements AuthRepository {
-  const HttpAuthRepository(this._dio, this._storage);
+  const HttpAuthRepository(
+    this._dio,
+    this._storage, {
+    this.requestDeadline = authRequestDeadline,
+  });
 
   final Dio _dio;
   final AuthStorage _storage;
+  final Duration requestDeadline;
 
   @override
   Future<AuthSession?> currentSessionFromStorage() {
@@ -114,13 +122,30 @@ class HttpAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession?> validateStoredSession(AuthSession session) async {
-    final verified = await _readCurrentSession(session);
+    final operation = Stopwatch()..start();
+    Duration remainingDeadline() {
+      final remaining = requestDeadline - operation.elapsed;
+      if (remaining <= Duration.zero) throw const AuthNetworkException();
+      return remaining;
+    }
+
+    final verified = await _readCurrentSession(
+      session,
+      requestTimeout: remainingDeadline(),
+    );
     if (verified != null) return verified;
 
-    final refreshed = await _refreshSession(session);
+    final refreshed = await _refreshSession(
+      session,
+      requestTimeout: remainingDeadline(),
+    );
     if (refreshed == null) return null;
 
-    return await _readCurrentSession(refreshed) ?? refreshed;
+    return await _readCurrentSession(
+          refreshed,
+          requestTimeout: remainingDeadline(),
+        ) ??
+        refreshed;
   }
 
   @override
@@ -305,14 +330,24 @@ class HttpAuthRepository implements AuthRepository {
       return _userSession(data);
     } on AuthApiException {
       throw const OAuthAuthorizationException();
+    } on AuthNetworkException {
+      throw const OAuthAuthorizationException();
     } on DioException {
       throw const OAuthAuthorizationException();
     }
   }
 
-  Future<AuthSession?> _readCurrentSession(AuthSession session) async {
+  Future<AuthSession?> _readCurrentSession(
+    AuthSession session, {
+    Duration? requestTimeout,
+  }) async {
     try {
-      final data = await _requestData('GET', '/auth/me', session: session);
+      final data = await _requestData(
+        'GET',
+        '/auth/me',
+        session: session,
+        requestTimeout: requestTimeout,
+      );
       final ownerType = _requiredString(data['owner_type']);
       if (ownerType == 'anonymous') {
         return AuthSession(
@@ -338,12 +373,16 @@ class HttpAuthRepository implements AuthRepository {
     }
   }
 
-  Future<AuthSession?> _refreshSession(AuthSession session) async {
+  Future<AuthSession?> _refreshSession(
+    AuthSession session, {
+    Duration? requestTimeout,
+  }) async {
     try {
       final data = await _requestData(
         'POST',
         '/auth/token/refresh',
         body: {'refresh_token': session.refreshToken},
+        requestTimeout: requestTimeout,
       );
       return AuthSession(
         ownerType: session.ownerType,
@@ -380,18 +419,37 @@ class HttpAuthRepository implements AuthRepository {
     String path, {
     Map<String, Object?>? body,
     AuthSession? session,
+    Duration? requestTimeout,
   }) async {
-    final response = await _dio.request<Object?>(
-      path,
-      data: body,
-      options: Options(
-        method: method,
-        headers: session == null
-            ? null
-            : {'Authorization': 'Bearer ${session.accessToken}'},
-        validateStatus: (_) => true,
-      ),
-    );
+    final cancelToken = CancelToken();
+    late final Response<Object?> response;
+    try {
+      response = await _dio
+          .request<Object?>(
+            path,
+            data: body,
+            cancelToken: cancelToken,
+            options: Options(
+              method: method,
+              headers: session == null
+                  ? null
+                  : {'Authorization': 'Bearer ${session.accessToken}'},
+              validateStatus: (_) => true,
+            ),
+          )
+          .timeout(
+            requestTimeout ?? requestDeadline,
+            onTimeout: () {
+              cancelToken.cancel('REQUEST_TIMEOUT');
+              throw const AuthNetworkException();
+            },
+          );
+    } on DioException {
+      if (cancelToken.isCancelled) {
+        throw const AuthNetworkException();
+      }
+      rethrow;
+    }
     final envelope = response.data;
     if (envelope is Map && envelope['success'] == true) {
       final data = envelope['data'];

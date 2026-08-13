@@ -23,6 +23,7 @@ import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_page.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
@@ -1382,6 +1383,12 @@ void main() {
     expect(find.text('Terms Of Use'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);
     expect(find.text('Sign in / Sign up'), findsNothing);
+    await tester.fling(
+      find.byKey(const Key('profile-content-list')),
+      const Offset(0, 1200),
+      2000,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('person@example.com').first);
     await tester.pumpAndSettle();
 
@@ -1548,7 +1555,11 @@ void main() {
       await tester.pumpAndSettle();
       await _openProfileTab(tester);
 
+      await tester.ensureVisible(find.text('Score'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Score'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Share With Friends'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Share With Friends'));
       await tester.pumpAndSettle();
@@ -1586,6 +1597,8 @@ void main() {
       await tester.pumpAndSettle();
       await _openProfileTab(tester);
 
+      await tester.ensureVisible(find.text('Share With Friends'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Share With Friends'));
       await tester.pumpAndSettle();
 
@@ -1834,7 +1847,7 @@ void main() {
     expect(feedbackRepository.submissions, isEmpty);
   });
 
-  testWidgets('unsubscribed profile opens the Performance Pro paywall', (
+  testWidgets('unsubscribed Profile banner opens the full Subscription Page', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -1847,13 +1860,13 @@ void main() {
 
     expect(find.text('Upgrade to Pro'), findsOneWidget);
     expect(find.text('Upgrade Now'), findsOneWidget);
-    expect(find.text('Restore'), findsNothing);
+    expect(find.text('Restore'), findsOneWidget);
 
     await tester.tap(find.text('Upgrade Now'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('subscription-sheet-handle')), findsOneWidget);
-    expect(find.text('Performance Pro'), findsOneWidget);
+    expect(find.byKey(const Key('subscription-sheet-handle')), findsNothing);
+    expect(find.text('Choose Your Plan'), findsOneWidget);
     expect(find.text('Unlimited Card Scanning'), findsOneWidget);
     expect(find.text('Yearly'), findsOneWidget);
     final purchaseButton = find.byKey(
@@ -1891,6 +1904,41 @@ void main() {
     expect(find.text('Restore'), findsNothing);
   });
 
+  testWidgets('Profile restore blocks page actions and back navigation', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(initialSession: _userSession());
+
+    await tester.pumpWidget(
+      _testApp(
+        repository,
+        subscriptionController: _RestoringSubscriptionController.new,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profile'));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(
+      tester
+          .widgetList<AbsorbPointer>(find.byType(AbsorbPointer))
+          .any((widget) => widget.absorbing),
+      isTrue,
+    );
+    expect(
+      tester
+          .widgetList<PopScope>(find.byType(PopScope))
+          .any((widget) => !widget.canPop),
+      isTrue,
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    await tester.tap(find.text('Customer Support'), warnIfMissed: false);
+    await tester.pump();
+    expect(find.text('Restore'), findsOneWidget);
+    expect(find.text('Customer Support'), findsOneWidget);
+  });
+
   testWidgets(
     'subscription success confirms the Pro benefits unlocked by the purchase',
     (tester) async {
@@ -1901,15 +1949,15 @@ void main() {
         ),
       );
 
-      expect(find.text('You are Pro now'), findsOneWidget);
+      expect(find.text("You're Premium!"), findsOneWidget);
       expect(
-        find.text('Performance Pro is active on your account'),
+        find.text('Your premium features are now unlocked.'),
         findsOneWidget,
       );
       expect(find.text('Unlimited Card Scanning'), findsOneWidget);
       expect(find.text('Unlimited Portfolio Folders'), findsOneWidget);
       expect(find.text('Extended Price History'), findsOneWidget);
-      expect(find.text('Track Portfolio Performance'), findsNothing);
+      expect(find.text('Track Portfolio Performance'), findsOneWidget);
       expect(
         tester.getSize(find.byKey(const Key('subscription-success-badge'))),
         const Size(128, 135),
@@ -1918,6 +1966,8 @@ void main() {
         find.byKey(const Key('subscription-success-continue')),
         findsOneWidget,
       );
+      expect(find.text('START EXPLORING'), findsOneWidget);
+      expect(find.text('Manage subscription'), findsNothing);
     },
   );
 
@@ -1970,7 +2020,7 @@ void main() {
     ),
   ]) {
     testWidgets(
-      'Figma subscription ${goldenCase.name} keeps the approved 390x844 appearance',
+      'v1.1 PRD subscription ${goldenCase.name} keeps the 390x844 baseline',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
@@ -1978,6 +2028,9 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
 
         await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
         await tester.pumpAndSettle();
 
         await expectLater(
@@ -2256,8 +2309,9 @@ ProviderScope _testApp(
       authRepositoryProvider.overrideWithValue(repository),
       if (authController != null)
         authControllerProvider.overrideWith(authController),
-      if (subscriptionController != null)
-        subscriptionControllerProvider.overrideWith(subscriptionController),
+      subscriptionControllerProvider.overrideWith(
+        subscriptionController ?? _FreeSubscriptionController.new,
+      ),
       authDeviceIdProvider.overrideWithValue('widget-test-device'),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(onboardingStorage),
@@ -2281,15 +2335,43 @@ class _ProSubscriptionController extends SubscriptionController {
   SubscriptionState build() => const SubscriptionState(isPro: true);
 
   @override
-  Future<void> restore() async {}
+  Future<void> restore({
+    SubscriptionRestoreSource source =
+        SubscriptionRestoreSource.subscriptionPage,
+  }) async {}
+}
+
+class _RestoringSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState(
+    premiumState: AppPremiumState.premium,
+    isRestoring: true,
+    isLoading: true,
+  );
 }
 
 class _FreeSubscriptionController extends SubscriptionController {
   @override
-  SubscriptionState build() => const SubscriptionState();
+  SubscriptionState build() => const SubscriptionState(
+    premiumState: AppPremiumState.free,
+    isConfigured: true,
+    displayPrices: {
+      subscriptionWeeklyPlanId: r'$4.99',
+      subscriptionYearlyPlanId: r'$49.99',
+      subscriptionLifetimePlanId: r'$79.99',
+    },
+    availablePlanIds: {
+      subscriptionWeeklyPlanId,
+      subscriptionYearlyPlanId,
+      subscriptionLifetimePlanId,
+    },
+  );
 
   @override
-  Future<void> restore() async {}
+  Future<void> restore({
+    SubscriptionRestoreSource source =
+        SubscriptionRestoreSource.subscriptionPage,
+  }) async {}
 }
 
 ProviderScope _subscriptionGoldenApp(Widget child) {

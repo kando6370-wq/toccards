@@ -8,6 +8,7 @@ import 'package:kando_app/shared/ui/load_state.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../subscription/premium_top_entry.dart';
 import 'search_card_tile.dart';
 import 'search_controller.dart';
 import 'search_models.dart';
@@ -93,14 +94,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           0,
                         ),
                         sliver: SliverToBoxAdapter(
-                          child: widget.fromScan
-                              ? Column(
-                                  children: [
-                                    _BackToScanButton(context: context),
-                                    const SizedBox(height: 8),
-                                  ],
-                                )
-                              : const SizedBox.shrink(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (widget.fromScan) ...[
+                                _BackToScanButton(context: context),
+                                const SizedBox(height: 8),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                       SliverPersistentHeader(
@@ -350,6 +352,7 @@ class _DebouncedSearchFieldState extends State<_DebouncedSearchField> {
                 icon: const Icon(Icons.close, size: 20),
                 color: KandoColors.mutedText,
               ),
+            const PremiumTopEntry(source: 'search'),
             IconButton(
               onPressed: widget.onScan,
               icon: const Icon(Icons.photo_camera_outlined, size: 20),

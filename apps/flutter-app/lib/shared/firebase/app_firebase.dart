@@ -50,6 +50,34 @@ class AppFirebase {
     );
   }
 
+  Future<void> logPurchase({
+    required String transactionId,
+    required String productId,
+    required String planType,
+    required double value,
+    required String currency,
+  }) {
+    return _analytics.logPurchase(
+      transactionId: transactionId,
+      value: value,
+      currency: currency,
+      items: [
+        AnalyticsEventItem(
+          itemId: productId,
+          itemName: planType,
+          price: value,
+          quantity: 1,
+        ),
+      ],
+      parameters: {
+        'product_id': productId,
+        'plan_type': planType,
+        'quantity': 1,
+        'subscription': planType != 'lifetime' ? 1 : 0,
+      },
+    );
+  }
+
   Future<void> setIdentity(String? uid) async {
     await Future.wait([
       _analytics.setUserId(id: uid),

@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
 const cardDataApiBaseUrl = authApiBaseUrl;
 const cardDataResponseVersion = '2';
+const cardDataRequestDeadline = Duration(seconds: 15);
+const cardDataRequestTimeoutCode = 'REQUEST_TIMEOUT';
+const cardDataRequestTimeoutMessage = 'Request timed out. Please try again.';
 
 Dio createCardDataDio({String baseUrl = cardDataApiBaseUrl}) {
   return Dio(
@@ -289,16 +295,30 @@ abstract interface class BatchCardDataApi {
   );
 }
 
+abstract interface class PremiumPriceSeriesApi {
+  Future<List<List<CardDataPricePointDto>>> getPremiumPriceSeriesBatch(
+    AuthSession session,
+    String cardRef,
+    List<CardDataPriceSeriesQuery> requests, {
+    required bool localPremiumVerified,
+  });
+}
+
 class CardDataApiClient
     implements
         CardDataApi,
         PaginatedCardDataApi,
         PaginatedTrendingCardDataApi,
         SetCatalogApi,
-        BatchCardDataApi {
-  const CardDataApiClient(this._dio);
+        BatchCardDataApi,
+        PremiumPriceSeriesApi {
+  const CardDataApiClient(
+    this._dio, {
+    this.requestDeadline = cardDataRequestDeadline,
+  });
 
   final Dio _dio;
+  final Duration requestDeadline;
 
   @override
   Future<List<CardDataCardDto>> searchCards(String query, {String? game}) {
@@ -469,13 +489,37 @@ class CardDataApiClient
   Future<List<List<CardDataPricePointDto>>> getPriceSeriesBatch(
     String cardRef,
     List<CardDataPriceSeriesQuery> requests,
-  ) async {
+  ) => _getPriceSeriesBatch(cardRef, requests);
+
+  @override
+  Future<List<List<CardDataPricePointDto>>> getPremiumPriceSeriesBatch(
+    AuthSession session,
+    String cardRef,
+    List<CardDataPriceSeriesQuery> requests, {
+    required bool localPremiumVerified,
+  }) {
+    return _getPriceSeriesBatch(
+      cardRef,
+      requests,
+      headers: {
+        'Authorization': 'Bearer ${session.accessToken}',
+        if (localPremiumVerified) 'X-Local-Premium-State': 'verified',
+      },
+    );
+  }
+
+  Future<List<List<CardDataPricePointDto>>> _getPriceSeriesBatch(
+    String cardRef,
+    List<CardDataPriceSeriesQuery> requests, {
+    Map<String, Object?>? headers,
+  }) async {
     if (requests.isEmpty) return const [];
     final data = await _requestData(
       'POST',
       '/cards/${Uri.encodeComponent(cardRef)}/price-series/batch',
       queryParameters: {'response_version': cardDataResponseVersion},
       body: {'requests': requests.map((request) => request.toJson()).toList()},
+      headers: headers,
     );
     final results = data['results'];
     if (results is! List || results.length != requests.length) {
@@ -510,13 +554,42 @@ class CardDataApiClient
     String path, {
     Map<String, Object?>? queryParameters,
     Object? body,
+    Map<String, Object?>? headers,
   }) async {
-    final response = await _dio.request<Object?>(
-      path,
-      queryParameters: queryParameters,
-      data: body,
-      options: Options(method: method, validateStatus: (_) => true),
-    );
+    final cancelToken = CancelToken();
+    late final Response<Object?> response;
+    try {
+      response = await _dio
+          .request<Object?>(
+            path,
+            queryParameters: queryParameters,
+            data: body,
+            cancelToken: cancelToken,
+            options: Options(
+              method: method,
+              headers: headers,
+              validateStatus: (_) => true,
+            ),
+          )
+          .timeout(
+            requestDeadline,
+            onTimeout: () {
+              cancelToken.cancel(cardDataRequestTimeoutCode);
+              throw const CardDataApiException(
+                cardDataRequestTimeoutMessage,
+                code: cardDataRequestTimeoutCode,
+              );
+            },
+          );
+    } on DioException {
+      if (cancelToken.isCancelled) {
+        throw const CardDataApiException(
+          cardDataRequestTimeoutMessage,
+          code: cardDataRequestTimeoutCode,
+        );
+      }
+      rethrow;
+    }
     final envelope = response.data;
     if (envelope is Map && envelope['success'] == true) {
       final data = envelope['data'];

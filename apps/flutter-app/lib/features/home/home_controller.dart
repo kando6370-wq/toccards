@@ -229,12 +229,31 @@ class HomeState {
   }
 }
 
+List<PortfolioValuationPointDto> _homeRangePoints(
+  List<PortfolioValuationPointDto> series,
+  HomeChartRange range,
+) {
+  const days = {
+    HomeChartRange.oneDay: 1,
+    HomeChartRange.sevenDays: 7,
+    HomeChartRange.fifteenDays: 15,
+    HomeChartRange.oneMonth: 30,
+    HomeChartRange.threeMonths: 90,
+    HomeChartRange.oneYear: 365,
+  };
+  final pointCount = days[range]! + 1;
+  return series
+      .skip((series.length - pointCount).clamp(0, series.length))
+      .toList();
+}
+
 class HomeController extends Notifier<HomeState> {
   Completer<HomeCoreLoadResult>? _coreLoadCompleter;
   Completer<void>? _trendingLoadCompleter;
   var _loadGeneration = 0;
   var _trendingLoadGeneration = 0;
   var _isSelectingCurrency = false;
+  var _chartRangeGeneration = 0;
   String? _restoringCurrencyCode;
 
   Future<HomeCoreLoadResult> get coreLoadComplete {
@@ -422,7 +441,7 @@ class HomeController extends Notifier<HomeState> {
           previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
       currency: currency,
       amountHidden: _localAmountHidden(previousState),
-      chartRange: previousState?.chartRange ?? HomeChartRange.fifteenDays,
+      chartRange: previousState?.chartRange ?? HomeChartRange.oneMonth,
     );
   }
 
@@ -463,7 +482,7 @@ class HomeController extends Notifier<HomeState> {
               previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
           currency: currency,
           amountHidden: _localAmountHidden(previousState),
-          chartRange: previousState?.chartRange ?? HomeChartRange.fifteenDays,
+          chartRange: previousState?.chartRange ?? HomeChartRange.oneMonth,
         );
         _logLoadFailure(
           'core',
@@ -814,12 +833,65 @@ class HomeController extends Notifier<HomeState> {
         );
   }
 
-  void selectChartRange(HomeChartRange chartRange) {
+  Future<bool> selectChartRange(HomeChartRange chartRange) async {
+    if (chartRange == HomeChartRange.oneYear &&
+        !state.selectedPortfolio.chartValuesByRange.containsKey(chartRange)) {
+      return _loadOneYearChart();
+    }
     if (!state.selectedPortfolio.chartValuesByRange.containsKey(chartRange)) {
-      return;
+      return false;
     }
 
     state = state.copyWith(chartRange: chartRange);
+    return true;
+  }
+
+  Future<bool> _loadOneYearChart() async {
+    final session = ref.read(authControllerProvider).session;
+    if (session == null || state.isLoading || state.isUnavailable) return false;
+    final folderId = state.selectedFolderId;
+    final generation = ++_chartRangeGeneration;
+    try {
+      final valuations = await ref
+          .read(portfolioApiClientProvider)
+          .getValuationHistory(session, days: 365, localPremiumVerified: true)
+          .timeout(const Duration(seconds: 15));
+      if (!ref.mounted ||
+          generation != _chartRangeGeneration ||
+          state.selectedFolderId != folderId) {
+        return false;
+      }
+      final valuation = valuations
+          .where((item) => item.folderId == folderId)
+          .firstOrNull;
+      if (valuation == null) return false;
+      final points = _homeRangePoints(valuation.series, HomeChartRange.oneYear);
+      final portfolio = state.selectedPortfolio;
+      final updated = portfolio.copyWith(
+        chartValuesByRange: {
+          ...portfolio.chartValuesByRange,
+          HomeChartRange.oneYear: points
+              .map((point) => point.valueUsd)
+              .toList(),
+        },
+        chartDatesByRange: {
+          ...portfolio.chartDatesByRange,
+          HomeChartRange.oneYear: points.map((point) => point.date).toList(),
+        },
+      );
+      state = state.copyWith(
+        dashboard: state.dashboard.copyWith(
+          portfoliosByFolderId: {
+            ...state.dashboard.portfoliosByFolderId,
+            folderId: updated,
+          },
+        ),
+        chartRange: HomeChartRange.oneYear,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   HomeChartRange _bestChartRange(
@@ -829,10 +901,6 @@ class HomeController extends Notifier<HomeState> {
     final valuesByRange = portfolio.chartValuesByRange;
     if (preferred != null && valuesByRange.containsKey(preferred)) {
       return preferred;
-    }
-
-    if (valuesByRange.containsKey(HomeChartRange.fifteenDays)) {
-      return HomeChartRange.fifteenDays;
     }
 
     if (valuesByRange.containsKey(HomeChartRange.oneMonth)) {
@@ -845,7 +913,7 @@ class HomeController extends Notifier<HomeState> {
       }
     }
 
-    return preferred ?? HomeChartRange.fifteenDays;
+    return preferred ?? HomeChartRange.oneMonth;
   }
 }
 
