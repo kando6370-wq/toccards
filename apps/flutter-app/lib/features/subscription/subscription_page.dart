@@ -17,7 +17,7 @@ const _benefits = [
   'Extended Price History',
 ];
 
-class SubscriptionPage extends ConsumerWidget {
+class SubscriptionPage extends ConsumerStatefulWidget {
   const SubscriptionPage({
     this.sheet = false,
     this.source,
@@ -30,30 +30,58 @@ class SubscriptionPage extends ConsumerWidget {
   final String? entrySource;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubscriptionPage> createState() => _SubscriptionPageState();
+}
+
+class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        ref.read(subscriptionControllerProvider.notifier).refreshProducts(),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(subscriptionControllerProvider);
     ref.listen(subscriptionControllerProvider, (previous, next) {
       if (next.resultEventCount != previous?.resultEventCount &&
           context.mounted) {
         switch (next.resultEvent) {
           case SubscriptionResultEvent.purchaseSuccess:
-            if (sheet && context.canPop()) {
+            if (widget.sheet && context.canPop()) {
               context.pop(SubscriptionPaywallResult.premiumUnlocked);
-            } else if (source == 'scan' || _preservesSourcePage(source)) {
+            } else if (widget.source == 'scan' ||
+                _preservesSourcePage(widget.source)) {
               unawaited(
                 _showSourceSubscriptionSuccess(
                   context,
-                  source: source!,
-                  entrySource: entrySource,
+                  source: widget.source!,
+                  entrySource: widget.entrySource,
                 ),
               );
             } else {
-              context.go(_subscriptionSuccessLocation(source));
+              context.go(_subscriptionSuccessLocation(widget.source));
             }
           case SubscriptionResultEvent.restoreSuccess:
-            if (sheet && context.canPop()) {
+            if (widget.sheet && context.canPop()) {
               context.pop(SubscriptionPaywallResult.premiumRestored);
-            } else if (source == 'scan' && context.canPop()) {
+            } else if (widget.source == 'scan' && context.canPop()) {
               context.pop(SubscriptionPaywallResult.premiumRestored);
             } else {
               showKandoCenteredSuccessToast(
@@ -64,7 +92,7 @@ class SubscriptionPage extends ConsumerWidget {
               );
               context.canPop()
                   ? context.pop()
-                  : context.go(_subscriptionSourceLocation(source));
+                  : context.go(_subscriptionSourceLocation(widget.source));
             }
           case SubscriptionResultEvent.restoreNotFound:
             showKandoTopToast(
@@ -79,9 +107,9 @@ class SubscriptionPage extends ConsumerWidget {
               message: 'Unable to restore purchases. Please try again.',
             );
           case SubscriptionResultEvent.externalPremium:
-            if (sheet && context.canPop()) {
+            if (widget.sheet && context.canPop()) {
               context.pop(SubscriptionPaywallResult.premiumUnlocked);
-            } else if (source == 'scan' && context.canPop()) {
+            } else if (widget.source == 'scan' && context.canPop()) {
               context.pop(SubscriptionPaywallResult.premiumUnlocked);
             } else {
               showKandoTopToast(
@@ -91,7 +119,7 @@ class SubscriptionPage extends ConsumerWidget {
               );
               context.canPop()
                   ? context.pop()
-                  : context.go(_subscriptionSourceLocation(source));
+                  : context.go(_subscriptionSourceLocation(widget.source));
             }
           case null:
             break;
@@ -115,7 +143,7 @@ class SubscriptionPage extends ConsumerWidget {
       },
       child: Stack(
         children: [
-          Positioned.fill(child: _PaywallBackground(sheet: sheet)),
+          Positioned.fill(child: _PaywallBackground(sheet: widget.sheet)),
           CustomScrollView(
             slivers: [
               const SliverToBoxAdapter(child: SizedBox(height: 98)),
@@ -239,7 +267,7 @@ class SubscriptionPage extends ConsumerWidget {
                       if (context.canPop()) {
                         context.pop();
                       } else {
-                        context.go(_subscriptionSourceLocation(source));
+                        context.go(_subscriptionSourceLocation(widget.source));
                       }
                     },
             ),
@@ -273,7 +301,7 @@ class SubscriptionPage extends ConsumerWidget {
         ],
       ),
     );
-    if (!sheet) {
+    if (!widget.sheet) {
       return Scaffold(
         backgroundColor: KandoColors.ink,
         body: SafeArea(bottom: false, child: content),

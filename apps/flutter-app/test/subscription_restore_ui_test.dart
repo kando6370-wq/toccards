@@ -162,6 +162,32 @@ void main() {
   });
 
   testWidgets(
+    'returning to a mounted subscription container refreshes StoreKit products only while it remains open',
+    (tester) async {
+      final controller = _ProductRefreshController();
+      final host = _RestoreTestHost(controller: controller);
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+      _sendAppToBackground(tester);
+      _returnAppToForeground(tester);
+      await tester.pump();
+
+      expect(controller.productRefreshCount, 1);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      _sendAppToBackground(tester);
+      _returnAppToForeground(tester);
+      await tester.pump();
+
+      expect(controller.productRefreshCount, 1);
+    },
+  );
+
+  testWidgets(
     'Restore Success returns to its source with restore copy and never opens Purchase Success',
     (tester) async {
       final host = _RestoreTestHost();
@@ -355,6 +381,18 @@ void main() {
   );
 }
 
+void _sendAppToBackground(WidgetTester tester) {
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+}
+
+void _returnAppToForeground(WidgetTester tester) {
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+}
+
 class _RestoreTestHost {
   _RestoreTestHost({
     _RestoreTestController? controller,
@@ -480,6 +518,15 @@ class _UnavailableCatalogController extends _RestoreTestController {
       subscriptionLifetimePlanId,
     },
   );
+}
+
+class _ProductRefreshController extends _RestoreTestController {
+  var productRefreshCount = 0;
+
+  @override
+  Future<void> refreshProducts() async {
+    productRefreshCount += 1;
+  }
 }
 
 class _RestoreTestController extends SubscriptionController {

@@ -387,6 +387,27 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     state = state.copyWith(selectedPlanId: planId, clearError: true);
   }
 
+  Future<void> refreshProducts() async {
+    if (!state.isConfigured ||
+        state.isLoading ||
+        state.isPurchasing ||
+        state.isPurchasePending ||
+        state.isRestoring ||
+        _client == null ||
+        _store == null) {
+      return;
+    }
+    state = state.copyWith(isLoading: true);
+    var loaded = false;
+    try {
+      loaded = await _loadProductsWithRetry();
+    } finally {
+      if (ref.mounted) {
+        state = state.copyWith(isLoading: false, clearError: loaded);
+      }
+    }
+  }
+
   Future<void> purchase() async {
     if (state.isLoading || state.isPurchasing || state.isPurchasePending) {
       return;
