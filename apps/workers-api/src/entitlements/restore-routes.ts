@@ -3,7 +3,12 @@ import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
 import { appleAppAttestVerifier, sha256Bytes, type AppleAppAttestVerifier } from "./apple-app-attest";
-import { createAppleVerifier, Environment, type JWSTransactionDecodedPayload } from "./apple-signed-data";
+import {
+  createAppleVerifier,
+  Environment,
+  type AppleVerifierConfiguration,
+  type JWSTransactionDecodedPayload,
+} from "./apple-signed-data";
 import { PREMIUM_ENTITLEMENT_ID } from "./premium-access";
 import { configuredProductIds } from "./routes";
 import { billingOrderFactStatements, businessStatusForAppleTransaction } from "./billing-order-facts";
@@ -15,7 +20,8 @@ const MAX_ATTESTATION_LENGTH = 200_000;
 type Dependencies = {
   now?: () => Date;
   appAttestVerifier?: AppleAppAttestVerifier;
-  createAppleVerifier?: typeof createAppleVerifier;
+  createAppleVerifier?: (env: Env) =>
+    Promise<AppleVerifierConfiguration | null> | AppleVerifierConfiguration | null;
 };
 
 type ChallengeRow = {
@@ -149,7 +155,7 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
     const body = restoreBody(await readJson(c.req));
     if (!body || c.req.header("Idempotency-Key") !== body.requestId) return validationError(c);
     const config = appAttestConfig(c.env);
-    const apple = appleVerifierFactory(c.env);
+    const apple = await appleVerifierFactory(c.env);
     const products = configuredProductIds(c.env.APPLE_IAP_PRODUCT_IDS);
     if (!config || !apple || !products) return c.json(unavailable, 503);
     const evidenceSha256 = await sha256Hex(body.signedTransactionInfo);

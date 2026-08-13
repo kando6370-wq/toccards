@@ -40,7 +40,10 @@ const VERIFICATION_UNAVAILABLE = {
 
 type EntitlementRouteDependencies = {
   now?: () => Date;
-  createVerifier?: (env: Env) => {
+  createVerifier?: (env: Env) => Promise<{
+    environment: Environment;
+    verifier: AppleTransactionVerifier;
+  } | null> | {
     environment: Environment;
     verifier: AppleTransactionVerifier;
   } | null;
@@ -141,7 +144,7 @@ export function createEntitlementRoutes(
       return c.json(VERIFICATION_UNAVAILABLE, 503);
     }
 
-    if (!verifierFactory(c.env)) return c.json(VERIFICATION_UNAVAILABLE, 503);
+    if (!await verifierFactory(c.env)) return c.json(VERIFICATION_UNAVAILABLE, 503);
 
     const createdAt = now();
     const token = crypto.randomUUID();
@@ -202,7 +205,7 @@ export function createEntitlementRoutes(
       return raced ? storedAttemptResponse(c, raced) : internalError(c);
     }
 
-    const configuredVerifier = verifierFactory(c.env);
+    const configuredVerifier = await verifierFactory(c.env);
     const allowedProducts = configuredProductIds(c.env.APPLE_IAP_PRODUCT_IDS);
     if (!configuredVerifier || !allowedProducts) {
       return await finishAttempt(c, auth.owner.session_id, body.requestId, "VERIFICATION_UNAVAILABLE", 503, VERIFICATION_UNAVAILABLE);

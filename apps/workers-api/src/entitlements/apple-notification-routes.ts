@@ -18,7 +18,10 @@ const RETRY_BATCH_SIZE = 20;
 
 type Dependencies = {
   now?: () => Date;
-  createVerifier?: (env: Env) => {
+  createVerifier?: (env: Env) => Promise<{
+    environment: Environment;
+    verifier: AppleNotificationVerifier;
+  } | null> | {
     environment: Environment;
     verifier: AppleNotificationVerifier;
   } | null;
@@ -133,7 +136,7 @@ export async function processAppleNotificationInbox(
   `).bind(inboxId).first<InboxRow>();
   if (!inbox) return;
 
-  const configured = (dependencies.createVerifier ?? createAppleNotificationVerifier)(env);
+  const configured = await (dependencies.createVerifier ?? createAppleNotificationVerifier)(env);
   if (!configured) {
     await failInbox(env.DB, inboxId, "processing_failed", "VERIFIER_NOT_CONFIGURED");
     return;

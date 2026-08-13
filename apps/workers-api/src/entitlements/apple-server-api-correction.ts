@@ -1,8 +1,7 @@
-import {
+import type {
   AppStoreServerAPIClient,
-  Status,
-  type StatusResponse,
-  type TransactionInfoResponse,
+  StatusResponse,
+  TransactionInfoResponse,
 } from "@apple/app-store-server-library";
 import type { Env } from "../env";
 import {
@@ -16,6 +15,13 @@ import {
 const CORRECTION_BATCH_SIZE = 20;
 const CORRECTION_LEASE_MS = 60_000;
 const RETRY_DELAY_MS = 5 * 60_000;
+const APPLE_SUBSCRIPTION_STATUS = {
+  ACTIVE: 1,
+  EXPIRED: 2,
+  BILLING_RETRY: 3,
+  BILLING_GRACE_PERIOD: 4,
+  REVOKED: 5,
+} as const;
 
 export type AppleServerApi = Pick<
   AppStoreServerAPIClient,
@@ -24,8 +30,11 @@ export type AppleServerApi = Pick<
 
 type Dependencies = {
   now?: () => Date;
-  createClient?: (env: Env) => AppleServerApi | null;
-  createVerifier?: (env: Env) => {
+  createClient?: (env: Env) => Promise<AppleServerApi | null> | AppleServerApi | null;
+  createVerifier?: (env: Env) => Promise<{
+    environment: Environment;
+    verifier: AppleNotificationVerifier;
+  } | null> | {
     environment: Environment;
     verifier: AppleNotificationVerifier;
   } | null;
@@ -40,7 +49,7 @@ type CorrectionRow = {
   transaction_id: string | null;
 };
 
-export function createAppleServerApiClient(env: Env): AppleServerApi | null {
+export async function createAppleServerApiClient(env: Env): Promise<AppleServerApi | null> {
   const signingKey = env.APPLE_IAP_PRIVATE_KEY;
   const keyId = env.APPLE_IAP_KEY_ID?.trim();
   const issuerId = env.APPLE_IAP_ISSUER_ID?.trim();
@@ -50,6 +59,7 @@ export function createAppleServerApiClient(env: Env): AppleServerApi | null {
     ? Environment.PRODUCTION
     : Environment.SANDBOX;
   try {
+    const { AppStoreServerAPIClient } = await import("@apple/app-store-server-library");
     return new AppStoreServerAPIClient(signingKey, keyId, issuerId, bundleId, environment);
   } catch {
     return null;
@@ -93,8 +103,8 @@ async function correctApplePurchaseChain(
   `).bind(leaseExpiresAt, row.inbox_id, now.toISOString()).run();
   if (reserved.meta.changes !== 1) return;
 
-  const client = (dependencies.createClient ?? createAppleServerApiClient)(env);
-  const configuredVerifier = (dependencies.createVerifier ?? createAppleNotificationVerifier)(env);
+  const client = await (dependencies.createClient ?? createAppleServerApiClient)(env);
+  const configuredVerifier = await (dependencies.createVerifier ?? createAppleNotificationVerifier)(env);
   if (!client || !configuredVerifier) {
     await deferCorrection(env.DB, row.inbox_id, "SERVER_API_NOT_CONFIGURED", now);
     return;
@@ -179,13 +189,13 @@ function matchesChain(
     (!renewal?.environment || renewal.environment === row.environment);
 }
 
-function mapSubscriptionStatus(status: Status | number): Pick<CorrectedEvidence, "status" | "grantStatus"> | null {
+function mapSubscriptionStatus(status: number): Pick<CorrectedEvidence, "status" | "grantStatus"> | null {
   switch (status) {
-    case Status.ACTIVE: return { status: "ACTIVE", grantStatus: "active" };
-    case Status.EXPIRED: return { status: "EXPIRED", grantStatus: "expired" };
-    case Status.BILLING_RETRY: return { status: "BILLING_RETRY", grantStatus: "expired" };
-    case Status.BILLING_GRACE_PERIOD: return { status: "GRACE_PERIOD", grantStatus: "active" };
-    case Status.REVOKED: return { status: "REVOKED", grantStatus: "revoked" };
+    case APPLE_SUBSCRIPTION_STATUS.ACTIVE: return { status: "ACTIVE", grantStatus: "active" };
+    case APPLE_SUBSCRIPTION_STATUS.EXPIRED: return { status: "EXPIRED", grantStatus: "expired" };
+    case APPLE_SUBSCRIPTION_STATUS.BILLING_RETRY: return { status: "BILLING_RETRY", grantStatus: "expired" };
+    case APPLE_SUBSCRIPTION_STATUS.BILLING_GRACE_PERIOD: return { status: "GRACE_PERIOD", grantStatus: "active" };
+    case APPLE_SUBSCRIPTION_STATUS.REVOKED: return { status: "REVOKED", grantStatus: "revoked" };
     default: return null;
   }
 }

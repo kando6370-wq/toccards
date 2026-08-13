@@ -1,11 +1,20 @@
-import {
-  Environment,
+import type {
+  Environment as AppleEnvironment,
   SignedDataVerifier,
-  type JWSRenewalInfoDecodedPayload,
-  type ResponseBodyV2DecodedPayload,
-  type JWSTransactionDecodedPayload,
+  JWSRenewalInfoDecodedPayload,
+  ResponseBodyV2DecodedPayload,
+  JWSTransactionDecodedPayload,
 } from "@apple/app-store-server-library";
 import type { Env } from "../env";
+
+export const Environment = {
+  SANDBOX: "Sandbox" as AppleEnvironment,
+  PRODUCTION: "Production" as AppleEnvironment,
+  XCODE: "Xcode" as AppleEnvironment,
+  LOCAL_TESTING: "LocalTesting" as AppleEnvironment,
+} as const;
+
+export type Environment = AppleEnvironment;
 
 export type AppleTransactionVerifier = Pick<SignedDataVerifier, "verifyAndDecodeTransaction">;
 export type AppleNotificationVerifier = Pick<
@@ -18,7 +27,7 @@ export type AppleVerifierConfiguration = {
   verifier: AppleTransactionVerifier;
 };
 
-export function createAppleVerifier(
+export async function createAppleVerifier(
   env: Pick<
     Env,
     | "APP_ENVIRONMENT"
@@ -26,22 +35,21 @@ export function createAppleVerifier(
     | "APPLE_IAP_BUNDLE_ID"
     | "APPLE_ROOT_CERTIFICATES_BASE64"
   >,
-): AppleVerifierConfiguration | null {
-  return createSignedDataVerifier(env);
+): Promise<AppleVerifierConfiguration | null> {
+  return await createSignedDataVerifier(env);
 }
 
-export function createAppleNotificationVerifier(
+export async function createAppleNotificationVerifier(
   env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_APP_ID" | "APPLE_IAP_BUNDLE_ID" | "APPLE_ROOT_CERTIFICATES_BASE64">,
-): { environment: Environment; verifier: AppleNotificationVerifier } | null {
-  return createSignedDataVerifier(env);
+): Promise<{ environment: Environment; verifier: AppleNotificationVerifier } | null> {
+  return await createSignedDataVerifier(env);
 }
 
-export { Environment };
 export type { JWSRenewalInfoDecodedPayload, JWSTransactionDecodedPayload, ResponseBodyV2DecodedPayload };
 
-function createSignedDataVerifier(
+async function createSignedDataVerifier(
   env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_APP_ID" | "APPLE_IAP_BUNDLE_ID" | "APPLE_ROOT_CERTIFICATES_BASE64">,
-): { environment: Environment; verifier: SignedDataVerifier } | null {
+): Promise<{ environment: Environment; verifier: SignedDataVerifier } | null> {
   const bundleId = env.APPLE_IAP_BUNDLE_ID?.trim();
   const roots = parseRootCertificates(env.APPLE_ROOT_CERTIFICATES_BASE64);
   if (!bundleId || !roots) return null;
@@ -49,6 +57,7 @@ function createSignedDataVerifier(
   const appAppleId = environment === Environment.PRODUCTION ? parseAppleId(env.APPLE_IAP_APP_ID) : undefined;
   if (environment === Environment.PRODUCTION && appAppleId === null) return null;
   try {
+    const { SignedDataVerifier } = await import("@apple/app-store-server-library");
     return {
       environment,
       verifier: new SignedDataVerifier(roots, true, environment, bundleId, appAppleId ?? undefined),
