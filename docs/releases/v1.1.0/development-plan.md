@@ -38,7 +38,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 ### 当前开发检查点（2026-08-13）
 
-- dev 发布已完成：远程 D1 连续应用 `0025` 至 `0034` 并确认无待迁移；首次 Worker 发布被 Cloudflare `10021` 拒绝，原因是 Apple 官方库的 `jsrsasign` 依赖在模块全局作用域生成随机值。验签器与 Server API Client 改为请求/定时任务内动态加载后，Workers 类型检查、Apple 权益/Restore/通知/校正定向 43 项及真实 Cloudflare 启动校验通过。Worker/Admin 版本为 `0a93b416-e500-4d19-8bfc-bde01d02db25`，`/api/v1/health`、Admin HTML 和实际 JS 资源均返回 HTTP 200。Apple Product ID、Root CA、Server API 密钥仍缺失，不能据此宣称 Sandbox 购买闭环可用；prod 未迁移、未部署。
+- dev 发布已完成：远程 D1 连续应用 `0025` 至 `0034` 并确认无待迁移；首次 Worker 发布被 Cloudflare `10021` 拒绝，原因是 Apple 官方库的 `jsrsasign` 依赖在模块全局作用域生成随机值。验签器与 Server API Client 改为请求/定时任务内动态加载后，Workers 类型检查、Apple 权益/Restore/通知/校正定向 43 项及真实 Cloudflare 启动校验通过。Worker/Admin 版本为 `244bf926-ecdd-442c-923c-ca417f54c50d`，`/api/v1/health`、Admin HTML 和实际 JS 资源均返回 HTTP 200。Apple Product ID、Root CA、Server API 密钥仍缺失，不能据此宣称 Sandbox 购买闭环可用；prod 未迁移、未部署。
 
 - 已实现：鉴权保留 live `session_id`、session grant 表与统一查询、Fresh Purchase challenge、StoreKit 2 JWS 官方验签写链、可恢复处理租约、请求幂等/证据摘要审计和新旧生命周期竞态保护；Flutter Fresh Purchase 已尽力申请 challenge、透传 `applicationUserName`，并在返回本机即时 Premium 前尽力将 JWS 持久化到 session 隔离的 Secure Storage 补偿队列，再于后台同步。安全存储故障会显式记录诊断，但不把 Apple 本机 verified 交易改判为购买失败。
 - App 本机 Restore 已实现：iOS 调用 `AppStore.sync()` 后只读取 Apple verified `Transaction.currentEntitlements`，按配置 SKU 区分 Success/Not Found，配置 SKU 出现 unverified 时进入 Failed；Subscription Page/Paywall/Profile 使用独立 Restore 结果事件，15 秒 Timeout 与 Failed 共用失败 Alert，Success 不进入 Purchase Success，Restore 期间阻断当前容器且拒绝并发操作。

@@ -1,6 +1,6 @@
 # v1.1.0 数据迁移
 
-2026-08-13 已在远程 dev D1 `cards_basic_information_all_dev` 连续应用 `0025` 至 `0034`，Wrangler 随后返回 `No migrations to apply`；订阅购买链、session grant、通知 inbox、Scan Quota 表及订单事实/汇率/自动续订快照字段均经远程只读 SQL 核对存在。prod 与开发者常用 local 仍未执行这些 v1.1 迁移。dev Worker 与 Admin 随后发布为 Cloudflare 版本 `0a93b416-e500-4d19-8bfc-bde01d02db25`，健康接口、Admin HTML 和实际 JS 资源均返回 HTTP 200。Apple Product ID、Root CA 与 Server API 密钥仍未配置，因此部署成功不代表 Apple 购买闭环可用。
+2026-08-13 已在远程 dev D1 `cards_basic_information_all_dev` 连续应用 `0025` 至 `0034`，Wrangler 随后返回 `No migrations to apply`；订阅购买链、session grant、通知 inbox、Scan Quota 表及订单事实/汇率/自动续订快照字段均经远程只读 SQL 核对存在。prod 与开发者常用 local 仍未执行这些 v1.1 迁移。dev Worker 与 Admin 随后发布为 Cloudflare 版本 `244bf926-ecdd-442c-923c-ca417f54c50d`，健康接口、Admin HTML 和实际 JS 资源均返回 HTTP 200。Apple Product ID、Root CA 与 Server API 密钥仍未配置，因此部署成功不代表 Apple 购买闭环可用。
 
 2026-08-12 已使用 Wrangler 4.106.0 在独立 `--local --persist-to` 空库中按顺序执行 `0000` 至 `0033`，34 条迁移全部成功；重复 apply 返回无待执行迁移，关键 v1.1 表及订单事实/汇率快照列均存在。2026-08-13 新增 `0034` 后，Workers 自动化完整迁移链已验证 `0000` 至 `0034` 共 35 条迁移；`0034` 也已在独立 D1 测试中验证历史订单保持空快照及 `0/1/NULL` 约束。Wrangler 实际空库证据仍只到 `0033`，不得改写为已手工执行 `0034`。这些证据不代表已在开发者常用 local、远程 dev 或 prod 执行，也不能替代带真实历史数据的预迁移审计。
 
