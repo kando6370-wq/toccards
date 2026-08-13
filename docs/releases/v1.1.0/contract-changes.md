@@ -74,6 +74,8 @@ Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时�
 
 `0033_billing_exchange_rate_snapshot.sql` 为订单增加可审计的 USD 汇率快照。现有汇率服务口径为 `1 USD = rate × 原币种`，换算使用整数 micros 的除法与 half-away-from-zero 舍入；USD 使用 rate 1。快照固化 rate、base/quote、来源、生效/抓取时间、陈旧标记、换算版本和舍入模式。汇率不可用或币种不支持时订单照常入库，USD 及快照保持空，不以 0 或最新汇率猜测；已固化订单不随未来汇率变化重算。
 
+`0034_billing_auto_renew_snapshot.sql` 为订单增加 nullable `auto_renew_snapshot`。Admin 展示、筛选和导出只读取订单事件快照，不读取 purchase chain 当前 `auto_renew`。Notifications V2 只有在当次已验签续订信息提供 `autoRenewStatus` 时写 `0/1`；Lifetime 固定写 `0`；Fresh Purchase、Restore 及历史订阅订单无法从交易 JWS 证明该值时保持 `NULL` 并显示 `--`，不以当前状态反向覆盖历史。
+
 已验签的 Apple 建单类通知在尚无 App owner 关联时，仍可基于启用的 `billing_product` SKU 创建 purchase chain 与订单。该链以 `original_owner_type=unlinked`、空 `original_owner_id` 表达“Apple 事实已保存但 UID 未关联”；Admin 展示空 UID，UID 筛选和安装时间查询忽略空值。通知流程不会为 `unlinked` 链创建 session grant，未知或未启用 SKU 进入 `correction_required`，因此无 UID 订单记录不会成为 Premium 授权来源。之后只有 Fresh Purchase challenge 或 Restore App Attest 这类绑定 live session 的可信证明，才能把仍为 `unlinked` 的链补关联为当前 owner并创建当前 session grant；已关联 owner 不会被其他 session 改写。
 
 | API | 当前行为 |

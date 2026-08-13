@@ -503,6 +503,7 @@ export const billingTransaction = sqliteTable(
     businessStatus: text("business_status"),
     chargeCount: integer("charge_count"),
     sourceNotificationUuid: text("source_notification_uuid"),
+    autoRenewSnapshot: integer("auto_renew_snapshot"),
     storefrontCountryCode: text("storefront_country_code"),
     amountMicros: integer("amount_micros"),
     currency: text("currency"),
@@ -535,6 +536,10 @@ export const billingTransaction = sqliteTable(
     index("idx_billing_transaction_product_time").on(t.productId, t.purchaseAt),
     index("idx_billing_transaction_business_status_time").on(t.businessStatus, t.purchaseAt),
     index("idx_billing_transaction_charge_count").on(t.chargeCount, t.purchaseAt),
+    check(
+      "ck_billing_transaction_auto_renew_snapshot",
+      sql`${t.autoRenewSnapshot} IS NULL OR ${t.autoRenewSnapshot} IN (0, 1)`,
+    ),
   ],
 );
 

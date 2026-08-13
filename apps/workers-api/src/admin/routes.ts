@@ -179,7 +179,7 @@ const BILLING_TRANSACTION_SELECT_SQL = `SELECT t.id, ${BILLING_UID_SQL} AS uid,
   t.storefront_country_code AS country, t.storefront_country_code AS country_code,
   ${BILLING_INSTALL_TIME_SQL} AS install_time, ${BILLING_ORDER_TIME_SQL} AS order_time,
   t.product_id AS sku, t.business_status AS order_status, c.status AS subscription_status,
-  c.auto_renew, t.environment, t.amount_micros, t.currency, t.amount_usd_micros,
+  t.auto_renew_snapshot AS auto_renew, t.environment, t.amount_micros, t.currency, t.amount_usd_micros,
   t.charge_count, t.refund_completed_at,
   (SELECT n.notification_type FROM apple_server_notification n
     WHERE n.environment = t.environment AND n.transaction_id = t.transaction_id
@@ -1415,7 +1415,7 @@ function billingTransactionQuery(read: (name: string) => string | undefined): Bi
     return { where: "", bindings: [], error: true };
   }
   if (autoRenew === "true" || autoRenew === "false") {
-    conditions.push("c.auto_renew = ?");
+    conditions.push("t.auto_renew_snapshot = ?");
     bindings.push(autoRenew === "true" ? 1 : 0);
   }
   const installFrom = readDateBoundary(read("install_from"), false);

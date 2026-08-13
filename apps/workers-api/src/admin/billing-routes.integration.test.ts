@@ -34,8 +34,11 @@ describe("Admin billing order contract", () => {
     expect(body.data.total).toBe(1);
     expect(body.data.items[0]).toMatchObject({
       uid: "100001", order_id: "transaction-1", install_time: "2026-08-01T00:00:00.000Z",
-      order_status: "initial_purchase", subscription_status: "ACTIVE", charge_count: 1,
+      order_status: "initial_purchase", subscription_status: "ACTIVE", auto_renew: 1, charge_count: 1,
     });
+    await db.prepare("UPDATE billing_purchase_chain SET auto_renew = 0 WHERE id = 'chain-1'").run();
+    expect(((await (await get("/admin/billing/transactions?auto_renew=true")).json()) as any).data.total).toBe(1);
+    expect(((await (await get("/admin/billing/transactions?auto_renew=false")).json()) as any).data.total).toBe(0);
     expect((await get("/admin/billing/transactions?uid=10000")).status).toBe(200);
     expect(((await (await get("/admin/billing/transactions?uid=10000")).json()) as any).data.total).toBe(0);
   });
@@ -92,8 +95,8 @@ describe("Admin billing order contract", () => {
 
   it("sorts by effective order time and keeps the refunded transaction facts", async () => {
     await db.batch([
-      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, refund_completed_at, created_at) VALUES ('order-refunded', 'chain-1', 'Sandbox', 'transaction-refunded', 'com.cardai.tcg.pro.yearly', 'refunded', 2, 'US', 49990000, 'USD', 49990000, '2026-08-13T12:00:00.000Z', '2026-08-11T12:00:00.000Z', '2026-08-13T12:00:00.000Z')"),
-      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-old', 'chain-1', 'Sandbox', 'transaction-old', 'com.cardai.tcg.pro.yearly', 'renewal', 3, 'US', 49990000, 'USD', 49990000, '2026-08-10T12:00:00.000Z', '2026-08-14T12:00:00.000Z')"),
+      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, auto_renew_snapshot, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, refund_completed_at, created_at) VALUES ('order-refunded', 'chain-1', 'Sandbox', 'transaction-refunded', 'com.cardai.tcg.pro.yearly', 'refunded', 2, 1, 'US', 49990000, 'USD', 49990000, '2026-08-13T12:00:00.000Z', '2026-08-11T12:00:00.000Z', '2026-08-13T12:00:00.000Z')"),
+      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, auto_renew_snapshot, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-old', 'chain-1', 'Sandbox', 'transaction-old', 'com.cardai.tcg.pro.yearly', 'renewal', 3, 1, 'US', 49990000, 'USD', 49990000, '2026-08-10T12:00:00.000Z', '2026-08-14T12:00:00.000Z')"),
     ]);
 
     const body = await (await get("/admin/billing/transactions?uid=100001")).json() as any;
@@ -126,7 +129,7 @@ describe("Admin billing order contract", () => {
   it("lists an unlinked Apple order without inventing a UID", async () => {
     await db.batch([
       db.prepare("INSERT INTO billing_purchase_chain (id, environment, original_transaction_id, original_owner_id, status, auto_renew) VALUES ('chain-unlinked', 'Sandbox', 'original-unlinked', '', 'ACTIVE', 1)"),
-      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-unlinked', 'chain-unlinked', 'Sandbox', 'transaction-unlinked', 'com.cardai.tcg.pro.yearly', 'initial_purchase', 1, 'US', 49990000, 'USD', 49990000, ?, ?)").bind(NOW, NOW),
+      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, auto_renew_snapshot, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-unlinked', 'chain-unlinked', 'Sandbox', 'transaction-unlinked', 'com.cardai.tcg.pro.yearly', 'initial_purchase', 1, 1, 'US', 49990000, 'USD', 49990000, ?, ?)").bind(NOW, NOW),
     ]);
 
     const body = await (await get("/admin/billing/transactions?order_id=transaction-unlinked")).json() as any;
@@ -142,7 +145,7 @@ describe("Admin billing order contract", () => {
 
   it("exports all filtered rows as a real XLSX workbook", async () => {
     await db.prepare("INSERT INTO billing_purchase_chain (id, environment, original_transaction_id, original_owner_id, status, auto_renew) VALUES ('chain-other', 'Production', 'original-other', '200002', 'EXPIRED', 0)").run();
-    await db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-other', 'chain-other', 'Production', 'transaction-other', 'other.sku', 'renewal', 2, 'CA', 1000000, 'CAD', 750000, ?, ?)").bind(NOW, NOW).run();
+    await db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, auto_renew_snapshot, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-other', 'chain-other', 'Production', 'transaction-other', 'other.sku', 'renewal', 2, 0, 'CA', 1000000, 'CAD', 750000, ?, ?)").bind(NOW, NOW).run();
     const filters = "uid=100001&country=US&sku=com.cardai.tcg.pro.yearly&status=initial_purchase"
       + "&subscription_status=ACTIVE&auto_renew=true&environment=Sandbox&charge_count=1";
     const list = await (await get(`/admin/billing/transactions?${filters}`)).json() as any;
@@ -246,7 +249,7 @@ describe("Admin billing order contract", () => {
     await db.batch([
       db.prepare("INSERT INTO admin_user VALUES ('admin-1', 'admin@example.com', ?, 'super_admin', 'active', ?)").bind(await hashPassword("password"), NOW),
       db.prepare("INSERT INTO billing_purchase_chain (id, environment, original_transaction_id, original_owner_id, status, auto_renew) VALUES ('chain-1', 'Sandbox', 'original-1', '100001', 'ACTIVE', 1)"),
-      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-1', 'chain-1', 'Sandbox', 'transaction-1', 'com.cardai.tcg.pro.yearly', 'initial_purchase', 1, 'US', 49990000, 'USD', 49990000, ?, ?)").bind(NOW, NOW),
+      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, auto_renew_snapshot, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-1', 'chain-1', 'Sandbox', 'transaction-1', 'com.cardai.tcg.pro.yearly', 'initial_purchase', 1, 1, 'US', 49990000, 'USD', 49990000, ?, ?)").bind(NOW, NOW),
       db.prepare("INSERT INTO app_installation VALUES ('install-1', '100001', 'iOS', 'US', '2026-08-01T00:00:00.000Z', ?)").bind(NOW),
       db.prepare("INSERT INTO session VALUES ('user-session', 'user', '100001', 'refresh-user', '2099-01-01T00:00:00.000Z', ?, NULL)").bind(NOW),
       db.prepare("INSERT INTO billing_session_entitlement_grant VALUES ('grant-1', 'user-session', 'chain-1')"),
@@ -261,7 +264,7 @@ const SCHEMA = [
   "CREATE TABLE admin_user (id TEXT PRIMARY KEY, email TEXT, password_hash TEXT, role TEXT, status TEXT, created_at TEXT)",
   "CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT, owner_id TEXT, refresh_token TEXT UNIQUE, expires_at TEXT, created_at TEXT, revoked_at TEXT)",
   "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, environment TEXT, original_transaction_id TEXT, original_owner_id TEXT, status TEXT, auto_renew INTEGER)",
-  "CREATE TABLE billing_transaction (id TEXT PRIMARY KEY, purchase_chain_id TEXT, environment TEXT, transaction_id TEXT, product_id TEXT, business_status TEXT, charge_count INTEGER, storefront_country_code TEXT, amount_micros INTEGER, currency TEXT, amount_usd_micros INTEGER, purchase_at TEXT, refund_completed_at TEXT, created_at TEXT)",
+  "CREATE TABLE billing_transaction (id TEXT PRIMARY KEY, purchase_chain_id TEXT, environment TEXT, transaction_id TEXT, product_id TEXT, business_status TEXT, charge_count INTEGER, auto_renew_snapshot INTEGER, storefront_country_code TEXT, amount_micros INTEGER, currency TEXT, amount_usd_micros INTEGER, purchase_at TEXT, refund_completed_at TEXT, created_at TEXT)",
   "CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT, purchase_chain_id TEXT)",
   "CREATE TABLE app_installation (installation_id TEXT PRIMARY KEY, uid TEXT, platform TEXT, country_code TEXT, first_seen_at TEXT, last_seen_at TEXT)",
   "CREATE TABLE apple_notification_inbox (id TEXT PRIMARY KEY, payload_sha256 TEXT, request_json TEXT, signed_payload TEXT, processing_status TEXT, attempts INTEGER, processing_expires_at TEXT, notification_uuid TEXT, last_error TEXT, received_at TEXT, processed_at TEXT)",

@@ -52,6 +52,7 @@ describe("Apple entitlement verification rules", () => {
       stateEffectiveAt: "2026-08-12T08:00:00.000Z",
       chainStatus: "ACTIVE",
       autoRenew: 1,
+      autoRenewSnapshot: null,
       storefront: "USA",
       amountMicros: 49_990_000,
       currency: "USD",
@@ -85,6 +86,7 @@ describe("Apple entitlement verification rules", () => {
       chainStatus: "LIFETIME",
       expiresAt: null,
       autoRenew: 0,
+      autoRenewSnapshot: 0,
     });
   });
 

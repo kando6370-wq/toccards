@@ -26,7 +26,7 @@
 
 | PRD 条款 | 实现证据 | 自动化证据 | 状态与剩余边界 |
 |---|---|---|---|
-| [Admin 订单查询与 XLSX](00-product/TCG_Admin_%E8%AE%A2%E5%8D%95%E7%BB%9F%E8%AE%A1%E4%B8%8E%E8%8B%B9%E6%9E%9C%E9%80%9A%E7%9F%A5%E6%B6%88%E6%81%AF_PRD_V1.1_%E8%AE%A2%E9%98%85%E7%9C%9F%E5%80%BC%E6%94%B6%E5%8F%A3%E7%89%88.md#7-订单统计页面) | [Admin API](../../../apps/workers-api/src/admin/routes.ts)、[XLSX](../../../apps/workers-api/src/admin/xlsx.ts)、[Admin Web](../../../apps/admin-web/src/App.tsx)、迁移 `0032-0033` | `billing-routes.integration.test.ts`（11 类筛选的 13 个查询参数 AND 语义、有效订单时间排序、退款事实保留、非法筛选 `422`、列表/导出一致性）、`billing-admin-intent.test.mjs`（含越界页回退、防重复、页码跳转、固定异常文案与缺失值契约）、两项 migration test | 代码已完成，外部验收待完成：有真实订单时的 3 秒查询目标与 10,000 行导出。 |
+| [Admin 订单查询与 XLSX](00-product/TCG_Admin_%E8%AE%A2%E5%8D%95%E7%BB%9F%E8%AE%A1%E4%B8%8E%E8%8B%B9%E6%9E%9C%E9%80%9A%E7%9F%A5%E6%B6%88%E6%81%AF_PRD_V1.1_%E8%AE%A2%E9%98%85%E7%9C%9F%E5%80%BC%E6%94%B6%E5%8F%A3%E7%89%88.md#7-订单统计页面) | [Admin API](../../../apps/workers-api/src/admin/routes.ts)、[XLSX](../../../apps/workers-api/src/admin/xlsx.ts)、[Admin Web](../../../apps/admin-web/src/App.tsx)、迁移 `0032-0034` | `billing-routes.integration.test.ts`（11 类筛选的 13 个查询参数 AND 语义、自动续订订单快照隔离、有效订单时间排序、退款事实保留、非法筛选 `422`、列表/导出一致性）、`billing-admin-intent.test.mjs`（含空快照展示、越界页回退、防重复、页码跳转、固定异常文案与缺失值契约）、三项 migration test | 代码已完成，外部验收待完成：Sandbox 自动续订快照、有真实订单时的 3 秒查询目标与 10,000 行导出。 |
 | [Admin Apple Notifications V2](00-product/TCG_Admin_%E8%AE%A2%E5%8D%95%E7%BB%9F%E8%AE%A1%E4%B8%8E%E8%8B%B9%E6%9E%9C%E9%80%9A%E7%9F%A5%E6%B6%88%E6%81%AF_PRD_V1.1_%E8%AE%A2%E9%98%85%E7%9C%9F%E5%80%BC%E6%94%B6%E5%8F%A3%E7%89%88.md#11-apple-server-notifications-v2-后端接收要求) | [接收与归约](../../../apps/workers-api/src/entitlements/apple-notification-routes.ts)、[Server API 校正](../../../apps/workers-api/src/entitlements/apple-server-api-correction.ts)、[Admin Web](../../../apps/admin-web/src/App.tsx)、迁移 `0029` | `apple-notification-routes.integration.test.ts`（含未知请求字段/通知类型前向兼容）、`apple-server-api-correction.integration.test.ts`、`billing-routes.integration.test.ts`（组合筛选、失败记录倒序分页、非法时间范围）、`billing-admin-intent.test.mjs`（第 14/15 章展示与两列详情布局） | 代码已完成，外部验收待完成：Apple Root CA/Server API Secret、Sandbox 通知及退款/恢复实单。 |
 | [App 归因与收入上报](00-product/TCG_Card_App_v1.1_PRD.md#17-analytics) | [ATT/Singular](../../../apps/flutter-app/lib/shared/attribution/app_attribution.dart)、[收入上报](../../../apps/flutter-app/lib/features/subscription/subscription_revenue_reporter.dart) | `app_attribution_test.dart`（独立安装 marker、预取无 ATT/归因副作用、未完成 Onboarding 重启不重复请求、存量升级不弹框、后台只读同步）、`onboarding_gate_test.dart`（marker 不延长启动门禁）、`onboarding_page_test.dart` 与 `widget_test.dart`（首次安装仍按原节拍进入 Onboarding）、`subscription_revenue_reporter_test.dart`（verified-only、实时/启动并发幂等、失败重试与损坏存储拒绝） | 代码已完成，外部验收待完成：Singular 正式 Key、iOS 真机 ATT 与 Sandbox Revenue。 |
 
@@ -47,7 +47,7 @@
 ## 5. 发布前仍需外部完成
 
 1. 提供并冻结正式 Apple Product ID、Bundle/App ID、Root CA、App Store Server API Secret 与 Singular Key。
-2. 获得授权后按 `0025` 至 `0033` 顺序迁移 dev，再完成数据不变量和回滚演练；prod 必须在 dev 验收通过后另行授权。
+2. 获得授权后按 `0025` 至 `0034` 顺序迁移 dev，再完成数据不变量和回滚演练；prod 必须在 dev 验收通过后另行授权。
 3. 完成 iOS 真机 App Attest、ATT、前后台、切号、Restore、多 entitlement 与离线矩阵。
 4. 完成 Sandbox/TestFlight 购买、续订、Grace/Retry、退款、通知重试和 Revenue 验收。
 5. 使用重度收藏数据验证 1Y Performance，并使用真实订单验证 Admin 查询与导出性能。

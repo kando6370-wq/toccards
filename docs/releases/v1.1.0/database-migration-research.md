@@ -44,7 +44,7 @@ RDS 没有 PlanetScale 的 Cloudflare 控制台创建和统一账单，但基础
 
 | 当前事实 | 选型影响 | 仓库证据 |
 |---|---|---|
-| 单个 D1 同时保存卡牌目录、价格、用户、会话、资产、扫描、Admin 和订阅 | 全量迁移需要通用 OLTP 数据库，不能只买搜索库或时序库 | `src/db/migrations/0000_famous_vector.sql` 至 `0033_billing_exchange_rate_snapshot.sql` |
+| 单个 D1 同时保存卡牌目录、价格、用户、会话、资产、扫描、Admin 和订阅 | 全量迁移需要通用 OLTP 数据库，不能只买搜索库或时序库 | `src/db/migrations/0000_famous_vector.sql` 至 `0034_billing_auto_renew_snapshot.sql` |
 | 用户资产依赖 `owner_type + owner_id` 隔离，订阅依赖 session grant、challenge、通知幂等和额度原子结算 | 必须支持可靠事务、唯一约束、行锁/条件更新和可恢复备份 | `src/portfolio/routes.ts`、`src/billing/`、`src/scan/quota.ts` |
 | 卡牌搜索、详情和 Trending 会关联 `cards_all` 与 `tcg_price` | 全库放入同一个 PostgreSQL 集群可保留 JOIN；按多个 D1 分片会产生跨库查询问题 | `src/data-source/local-db-adapter.ts` |
 | `tcg_price` 把多个等级的价格历史保存为 TEXT JSON 数组 | 原样迁移仍会产生大行重写、容量和索引问题 | `src/db/migrations/0021_consolidate_tcg_price.sql` |

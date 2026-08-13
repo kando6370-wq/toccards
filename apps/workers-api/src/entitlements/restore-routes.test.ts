@@ -29,6 +29,7 @@ describe("Apple Restore transaction rules", () => {
       transactionReason: "RENEWAL",
       appAccountToken: null,
       chainStatus: "ACTIVE",
+      autoRenewSnapshot: null,
     });
   });
 
@@ -42,6 +43,7 @@ describe("Apple Restore transaction rules", () => {
       chainStatus: "LIFETIME",
       expiresAt: null,
       autoRenew: 0,
+      autoRenewSnapshot: 0,
     });
   });
 

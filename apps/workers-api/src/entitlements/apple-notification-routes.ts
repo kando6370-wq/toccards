@@ -359,23 +359,30 @@ async function consumeNotification(
       chain.status,
       transaction,
     );
+    const autoRenewSnapshot = transaction.type === "Non-Consumable"
+      ? 0
+      : renewal?.autoRenewStatus === 0 || renewal?.autoRenewStatus === 1
+        ? renewal.autoRenewStatus
+        : null;
     statements.push(db.prepare(`
       INSERT OR IGNORE INTO billing_transaction
         (id, purchase_chain_id, store, environment, transaction_id, product_id,
          transaction_reason, status, business_status, charge_count, source_notification_uuid,
+         auto_renew_snapshot,
          storefront_country_code, amount_micros, currency,
          amount_usd_micros, usd_exchange_rate, usd_exchange_rate_base, usd_exchange_rate_quote,
          usd_exchange_rate_source, usd_exchange_rate_effective_at, usd_exchange_rate_fetched_at,
          usd_exchange_rate_stale, usd_conversion_version, usd_rounding_mode,
          purchase_at, expires_at, revoked_at, refund_completed_at,
          signed_transaction, created_at, updated_at)
-      VALUES (?, ?, 'app_store', ?, ?, ?, ?, 'purchased', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)
+      VALUES (?, ?, 'app_store', ?, ?, ?, ?, 'purchased', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)
     `).bind(
       createId(now), chain.id, envelope.environment, transaction.transactionId,
       transaction.productId, transaction.transactionReason ?? "PURCHASE",
       businessStatus,
       null,
       envelope.notificationUuid,
+      autoRenewSnapshot,
       transaction.storefront ?? null, applePriceMicros(transaction.price), transaction.currency ?? null,
       usd?.amountUsdMicros ?? null, usd?.rate ?? null, usd?.base ?? null, usd?.quote ?? null,
       usd?.source ?? null, usd?.effectiveAt ?? null, usd?.fetchedAt ?? null, usd?.stale ?? null,
@@ -458,7 +465,9 @@ function lifecycleFor(
   transaction: JWSTransactionDecodedPayload | null,
   renewal: JWSRenewalInfoDecodedPayload | null,
 ): Lifecycle | null {
-  const autoRenew = renewal?.autoRenewStatus === 1 ? 1 : 0;
+  const autoRenew = transaction?.type === "Non-Consumable"
+    ? 0
+    : renewal?.autoRenewStatus === 1 ? 1 : 0;
   const expiresAt = toNullableIso(transaction?.expiresDate);
   const gracePeriodExpiresAt = toNullableIso(renewal?.gracePeriodExpiresDate);
   const base = {

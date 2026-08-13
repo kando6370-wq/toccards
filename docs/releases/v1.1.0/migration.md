@@ -1,8 +1,8 @@
 # v1.1.0 数据迁移
 
-2026-08-12 已使用 Wrangler 4.106.0 在独立 `--local --persist-to` 空库中按顺序执行 `0000` 至 `0033`，34 条迁移全部成功；重复 apply 返回无待执行迁移，关键 v1.1 表及订单事实/汇率快照列均存在。Workers 另有自动化完整迁移链测试。该证据只证明全新空库的顺序与最终 schema，不代表已在开发者常用 local、远程 dev 或 prod 执行，也不能替代带真实历史数据的预迁移审计。
+2026-08-12 已使用 Wrangler 4.106.0 在独立 `--local --persist-to` 空库中按顺序执行 `0000` 至 `0033`，34 条迁移全部成功；重复 apply 返回无待执行迁移，关键 v1.1 表及订单事实/汇率快照列均存在。2026-08-13 新增 `0034` 后，Workers 自动化完整迁移链已验证 `0000` 至 `0034` 共 35 条迁移；`0034` 也已在独立 D1 测试中验证历史订单保持空快照及 `0/1/NULL` 约束。Wrangler 实际空库证据仍只到 `0033`，不得改写为已手工执行 `0034`。这些证据不代表已在开发者常用 local、远程 dev 或 prod 执行，也不能替代带真实历史数据的预迁移审计。
 
-2026-08-13 通过 Wrangler 只读列举确认：远程 dev 与 prod 均待执行 `0025` 至 `0033`；两环境 Secret 列表均未包含 Apple Root CA 或 App Store Server API 的 Issuer ID、Key ID、Private Key。该检查没有执行迁移、写入 Secret 或部署 Worker。
+2026-08-13 通过 Wrangler 只读列举确认：远程 dev 与 prod 当时均待执行 `0025` 至 `0033`；本分支随后新增且未远程执行 `0034`，因此当前待执行范围为 `0025` 至 `0034`。两环境 Secret 列表均未包含 Apple Root CA 或 App Store Server API 的 Issuer ID、Key ID、Private Key。该检查没有执行迁移、写入 Secret 或部署 Worker。
 
 2026-08-13 又通过 Wrangler 只读导出远程 dev D1，并只在仓库外的本地 SQLite 副本执行 `0025` 至 `0033`。导出基线包含 `0000` 至 `0024` 共 25 条迁移、67 个 `collection_item`、145 条 `collection_item_event`、36 个 Folder、1,053,034 条 `tcg_price`、267,682 条 `cards_all`、167 条 `scan_record`、86 条 session 和 30 条 installation。九条 v1.1 迁移连续成功，单条耗时 9-45 ms，`0031` 为 17 ms；迁移后 `quick_check=ok`、外键检查无错误，核心表行数不变。
 
@@ -12,7 +12,7 @@
 
 ## 0025 Billing Admin 基础表
 
-迁移 `0025_billing_admin.sql` 新增 `billing_product`、`billing_purchase_chain`、`billing_transaction`、兼容旧骨架的 owner grant 以及 `apple_server_notification`。后续 `0026` 至 `0033` 均在这些基础表上增加 session grant、验证、生命周期、订单事实和汇率字段，因此远程环境必须从 `0025` 按编号连续执行，不可从 `0026` 起跳过。
+迁移 `0025_billing_admin.sql` 新增 `billing_product`、`billing_purchase_chain`、`billing_transaction`、兼容旧骨架的 owner grant 以及 `apple_server_notification`。后续 `0026` 至 `0034` 均在这些基础表上增加 session grant、验证、生命周期、订单事实、汇率及自动续订快照字段，因此远程环境必须从 `0025` 按编号连续执行，不可从 `0026` 起跳过。
 
 - 迁移只新增表和索引，可先于 v1.1 Worker 上线。
 - `billing_product` 不在 migration 中猜测写入候选 Product ID；商品冻结后由受控配置流程写入三个明确映射。
@@ -106,3 +106,14 @@ Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-a
 - 回滚应用时停止读写新字段并回退 Worker；D1 不安全删除增量列，保留数据供审计。
 
 当前汇率换算、USD 恒等和无汇率非阻断已有确定性测试；除隔离空库验证外，`0033` 尚未应用到常用 local、远程 dev 或 prod。
+
+## 0034 Billing Auto-Renew Snapshot
+
+迁移为 `billing_transaction` 增加 nullable `auto_renew_snapshot`，只允许 `0/1/NULL`。Admin 的自动续订展示、筛选和 XLSX 均读取订单快照，不再读取 `billing_purchase_chain.auto_renew` 当前值，避免后续关闭或恢复自动续订改写历史订单显示。
+
+- Notifications V2 建单时，只有已验签 `signedRenewalInfo.autoRenewStatus` 才为订阅订单写 `0/1`；Lifetime 按产品规则固定写 `0`。
+- Fresh Purchase / Restore 的 signed transaction 不包含可证明的 `autoRenewStatus`，订阅订单写 `NULL`；Admin 显示 `--`，不以当前链路状态猜测。
+- 历史订单不回填。当前 purchase chain 的自动续订值不是历史订单事件快照，不能反向复制。
+- 该列为 nullable 增量，旧 Worker 会忽略；新 Admin/Worker 依赖该列，必须先迁移再上线。回滚应用时停止读写新列并回退 Worker，保留已固化快照。
+
+`0034` 已通过独立 D1 迁移测试和 `0000-0034` 自动化完整迁移链；尚未通过 Wrangler 应用到常用 local、远程 dev 或 prod。

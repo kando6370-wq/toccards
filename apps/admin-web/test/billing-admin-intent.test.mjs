@@ -24,6 +24,7 @@ test("billing admin follows the v1.1 order facts contract without making UID the
   assert.match(app, /locale=\{\{ emptyText: "暂无符合条件的订单" \}\}/);
   assert.match(app, /<Pagination disabled=\{loading\} current=\{page\}.*showQuickJumper/s);
   assert.match(app, /const billingValue = \(value: unknown\).*\? "--"/);
+  assert.match(app, /dataIndex: "auto_renew".*value === null \? "--" : value \? "是" : "否"/);
   assert.match(routes, /adminRoutes\.get\("\/billing\/transactions"/);
   assert.match(routes, /adminRoutes\.get\("\/apple-notifications"/);
   assert.match(routes, /createXlsx/);

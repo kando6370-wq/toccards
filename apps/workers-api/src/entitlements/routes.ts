@@ -351,12 +351,13 @@ export function createEntitlementRoutes(
         INSERT INTO billing_transaction
           (id, purchase_chain_id, store, environment, transaction_id, product_id,
            transaction_reason, status, business_status, charge_count, source_notification_uuid,
+           auto_renew_snapshot,
            storefront_country_code, amount_micros, currency,
            amount_usd_micros, usd_exchange_rate, usd_exchange_rate_base, usd_exchange_rate_quote,
            usd_exchange_rate_source, usd_exchange_rate_effective_at, usd_exchange_rate_fetched_at,
            usd_exchange_rate_stale, usd_conversion_version, usd_rounding_mode,
            purchase_at, expires_at, revoked_at, signed_transaction, created_at, updated_at)
-        SELECT ?, ?, 'app_store', ?, ?, ?, ?, 'purchased', ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?
+        SELECT ?, ?, 'app_store', ?, ?, ?, ?, 'purchased', ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?
         WHERE EXISTS (
           SELECT 1 FROM billing_apple_purchase_challenge
           WHERE token = ? AND consumed_transaction_id = ?
@@ -367,7 +368,8 @@ export function createEntitlementRoutes(
           )
       `).bind(
         createId(attemptedAt), chainId, normalized.environment, normalized.transactionId,
-        normalized.productId, normalized.transactionReason, normalized.businessStatus, normalized.storefront,
+        normalized.productId, normalized.transactionReason, normalized.businessStatus,
+        normalized.autoRenewSnapshot, normalized.storefront,
         normalized.amountMicros, normalized.currency,
         usd?.amountUsdMicros ?? null, usd?.rate ?? null, usd?.base ?? null, usd?.quote ?? null,
         usd?.source ?? null, usd?.effectiveAt ?? null, usd?.fetchedAt ?? null, usd?.stale ?? null,
@@ -477,6 +479,7 @@ type NormalizedTransaction = {
   stateEffectiveAt: string;
   chainStatus: "ACTIVE" | "TRIAL" | "LIFETIME";
   autoRenew: 0 | 1;
+  autoRenewSnapshot: 0 | null;
   storefront: string | null;
   amountMicros: number | null;
   currency: string | null;
@@ -526,6 +529,7 @@ export function normalizeAppleTransaction(
       ? "LIFETIME"
       : transaction.offerDiscountType === "FREE_TRIAL" ? "TRIAL" : "ACTIVE",
     autoRenew: isSubscription ? 1 : 0,
+    autoRenewSnapshot: isLifetime ? 0 : null,
     storefront: transaction.storefront ?? null,
     amountMicros,
     currency: transaction.currency ?? null,

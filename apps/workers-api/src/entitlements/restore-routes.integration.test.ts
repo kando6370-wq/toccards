@@ -114,10 +114,11 @@ describe("Apple Restore proof routes", () => {
       source: "restore",
       status: "active",
     });
-    expect(await db.prepare(`SELECT business_status, charge_count, storefront_country_code
+    expect(await db.prepare(`SELECT business_status, charge_count, auto_renew_snapshot, storefront_country_code
       FROM billing_transaction`).first()).toEqual({
       business_status: "renewal",
       charge_count: 1,
+      auto_renew_snapshot: null,
       storefront_country_code: null,
     });
     expect(await signCount()).toBe(1);
@@ -211,6 +212,6 @@ CREATE TABLE billing_product (store TEXT NOT NULL, product_id TEXT NOT NULL, ent
 CREATE TABLE billing_apple_app_attest_challenge (token TEXT PRIMARY KEY, session_id TEXT NOT NULL, purpose TEXT NOT NULL, request_id TEXT NOT NULL, key_id TEXT, evidence_sha256 TEXT, client_data TEXT NOT NULL, expires_at TEXT NOT NULL, consumed_at TEXT, consumption_id TEXT, result_code TEXT, response_json TEXT, http_status INTEGER, created_at TEXT NOT NULL, UNIQUE(session_id, request_id));
 CREATE TABLE billing_apple_app_attest_key (key_id TEXT PRIMARY KEY, public_key_pem TEXT NOT NULL, receipt_base64 TEXT NOT NULL, sign_count INTEGER NOT NULL, environment TEXT NOT NULL, registered_session_id TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, store TEXT NOT NULL, environment TEXT NOT NULL, original_transaction_id TEXT NOT NULL, product_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, original_owner_type TEXT NOT NULL, original_owner_id TEXT NOT NULL, app_account_token TEXT, status TEXT NOT NULL, auto_renew INTEGER NOT NULL, expires_at TEXT, grace_period_expires_at TEXT, revoked_at TEXT, state_effective_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(store, environment, original_transaction_id));
-CREATE TABLE billing_transaction (id TEXT PRIMARY KEY, purchase_chain_id TEXT NOT NULL, store TEXT NOT NULL, environment TEXT NOT NULL, transaction_id TEXT NOT NULL, product_id TEXT NOT NULL, transaction_reason TEXT NOT NULL, status TEXT NOT NULL, business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT, storefront_country_code TEXT, amount_micros INTEGER, currency TEXT, amount_usd_micros INTEGER, purchase_at TEXT NOT NULL, expires_at TEXT, revoked_at TEXT, signed_transaction TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(store, environment, transaction_id));
+CREATE TABLE billing_transaction (id TEXT PRIMARY KEY, purchase_chain_id TEXT NOT NULL, store TEXT NOT NULL, environment TEXT NOT NULL, transaction_id TEXT NOT NULL, product_id TEXT NOT NULL, transaction_reason TEXT NOT NULL, status TEXT NOT NULL, business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT, auto_renew_snapshot INTEGER, storefront_country_code TEXT, amount_micros INTEGER, currency TEXT, amount_usd_micros INTEGER, purchase_at TEXT NOT NULL, expires_at TEXT, revoked_at TEXT, signed_transaction TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(store, environment, transaction_id));
 CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, purchase_chain_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL, granted_at TEXT NOT NULL, expires_at TEXT, last_verified_at TEXT NOT NULL, revoked_at TEXT, updated_at TEXT NOT NULL, UNIQUE(session_id, purchase_chain_id, entitlement_id));
 `;

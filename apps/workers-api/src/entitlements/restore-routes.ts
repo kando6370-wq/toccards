@@ -211,14 +211,15 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
         c.env.DB.prepare(`
           INSERT INTO billing_transaction
             (id, purchase_chain_id, store, environment, transaction_id, product_id, transaction_reason,
-             status, business_status, charge_count, source_notification_uuid,
+             status, business_status, charge_count, source_notification_uuid, auto_renew_snapshot,
              storefront_country_code, amount_micros, currency, amount_usd_micros,
              purchase_at, expires_at, revoked_at, signed_transaction, created_at, updated_at)
-          SELECT ?, ?, 'app_store', ?, ?, ?, ?, 'purchased', ?, NULL, NULL, ?, ?, ?, NULL, ?, ?, NULL, ?, ?, ?
+          SELECT ?, ?, 'app_store', ?, ?, ?, ?, 'purchased', ?, NULL, NULL, ?, ?, ?, ?, NULL, ?, ?, NULL, ?, ?, ?
           WHERE EXISTS (SELECT 1 FROM billing_purchase_chain WHERE id = ? AND state_effective_at = ?)
           ON CONFLICT(store, environment, transaction_id) DO NOTHING
         `).bind(createId(attemptedAt), chainId, normalized.environment, normalized.transactionId,
           normalized.productId, normalized.transactionReason, normalized.businessStatus,
+          normalized.autoRenewSnapshot,
           normalized.storefront,
           normalized.amountMicros, normalized.currency, normalized.purchaseAt, normalized.expiresAt,
           body.signedTransactionInfo, timestamp, timestamp, chainId, normalized.stateEffectiveAt),
@@ -305,6 +306,7 @@ export function normalizeRestoreTransaction(transaction: JWSTransactionDecodedPa
     chainStatus: lifetime ? "LIFETIME" as const
       : transaction.offerDiscountType === "FREE_TRIAL" ? "TRIAL" as const : "ACTIVE" as const,
     autoRenew: subscription ? 1 as const : 0 as const,
+    autoRenewSnapshot: lifetime ? 0 as const : null,
     storefront: transaction.storefront ?? null, amountMicros, currency: transaction.currency ?? null,
     businessStatus: businessStatusForAppleTransaction("RESTORE", "", transaction) };
 }

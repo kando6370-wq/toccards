@@ -102,6 +102,29 @@ describe("Apple Notifications V2 durable consumption", () => {
     expect((await db.prepare("SELECT processing_status FROM apple_notification_inbox").first())?.processing_status).toBe("processed");
   });
 
+  it("records Lifetime as non-renewing even when unrelated renewal data is present", async () => {
+    await db.prepare("DELETE FROM billing_session_entitlement_grant").run();
+    await db.prepare("DELETE FROM billing_purchase_chain").run();
+    await db.prepare("INSERT INTO billing_product (store, product_id, entitlement_id, active) VALUES ('app_store', 'lifetime', 'performance_pro', 1)").run();
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("lifetime-uuid", "ONE_TIME_CHARGE", 10 * 60 + 5),
+        verifyTransaction: async () => transaction({
+          productId: "lifetime", type: "Non-Consumable", expiresDate: undefined,
+          transactionReason: "PURCHASE",
+        }),
+      }),
+    }) });
+
+    await post(app, env, "lifetime");
+
+    expect(await db.prepare("SELECT status, auto_renew FROM billing_purchase_chain").first())
+      .toMatchObject({ status: "LIFETIME", auto_renew: 0 });
+    expect(await db.prepare("SELECT auto_renew_snapshot FROM billing_transaction").first())
+      .toEqual({ auto_renew_snapshot: 0 });
+  });
+
   it("quarantines an order for an unconfigured SKU because verified Apple evidence must still belong to this app catalog", async () => {
     await db.prepare("DELETE FROM billing_session_entitlement_grant").run();
     await db.prepare("DELETE FROM billing_purchase_chain").run();
@@ -135,8 +158,10 @@ describe("Apple Notifications V2 durable consumption", () => {
     await post(app, env, "older");
 
     expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(1);
-    expect(await db.prepare("SELECT business_status, charge_count FROM billing_transaction").first())
-      .toMatchObject({ business_status: "renewal", charge_count: 1 });
+    expect(await db.prepare("SELECT business_status, charge_count, auto_renew_snapshot FROM billing_transaction").first())
+      .toMatchObject({ business_status: "renewal", charge_count: 1, auto_renew_snapshot: 1 });
+    await db.prepare("UPDATE billing_purchase_chain SET auto_renew = 0").run();
+    expect((await db.prepare("SELECT auto_renew_snapshot FROM billing_transaction").first())?.auto_renew_snapshot).toBe(1);
     expect(await scalar("SELECT COUNT(*) AS value FROM apple_notification_inbox")).toBe(2);
     const chain = await db.prepare("SELECT status, lifecycle_notification_uuid FROM billing_purchase_chain").first();
     expect(chain).toMatchObject({ status: "ACTIVE", lifecycle_notification_uuid: "renewal-uuid" });
@@ -355,7 +380,7 @@ async function post(
 const TRANSACTION_SCHEMA = `CREATE TABLE billing_transaction (
   id TEXT PRIMARY KEY, purchase_chain_id TEXT NOT NULL, store TEXT NOT NULL, environment TEXT NOT NULL,
   transaction_id TEXT NOT NULL, product_id TEXT NOT NULL, transaction_reason TEXT NOT NULL, status TEXT NOT NULL,
-  business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT,
+  business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT, auto_renew_snapshot INTEGER,
   storefront_country_code TEXT, amount_micros INTEGER, currency TEXT, amount_usd_micros INTEGER,
   usd_exchange_rate TEXT, usd_exchange_rate_base TEXT, usd_exchange_rate_quote TEXT,
   usd_exchange_rate_source TEXT, usd_exchange_rate_effective_at TEXT, usd_exchange_rate_fetched_at TEXT,
