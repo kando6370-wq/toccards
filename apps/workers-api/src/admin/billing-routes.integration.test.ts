@@ -40,6 +40,89 @@ describe("Admin billing order contract", () => {
     expect(((await (await get("/admin/billing/transactions?uid=10000")).json()) as any).data.total).toBe(0);
   });
 
+  it("combines every PRD order filter with AND semantics", async () => {
+    const matchingQuery = new URLSearchParams({
+      uid: "100001",
+      order_id: "transaction-1",
+      country: "CA,US",
+      sku: "other.sku,com.cardai.tcg.pro.yearly",
+      status: "renewal,initial_purchase",
+      subscription_status: "EXPIRED,ACTIVE",
+      install_from: "2026-08-01T00:00:00.000Z",
+      install_to: "2026-08-01T23:59:59.999Z",
+      purchase_from: "2026-08-12T00:00:00.000Z",
+      purchase_to: "2026-08-12T23:59:59.999Z",
+      auto_renew: "true",
+      environment: "Sandbox",
+      charge_count: "1",
+    });
+    const response = await get(`/admin/billing/transactions?${matchingQuery}`);
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as any).data).toMatchObject({ total: 1 });
+
+    const nonMatchingValues = new Map<string, string>([
+      ["uid", "other-user"],
+      ["order_id", "other-order"],
+      ["country", "CA"],
+      ["sku", "other.sku"],
+      ["status", "renewal"],
+      ["subscription_status", "EXPIRED"],
+      ["auto_renew", "false"],
+      ["environment", "Production"],
+      ["charge_count", "2"],
+    ]);
+    for (const [name, value] of nonMatchingValues) {
+      const query = new URLSearchParams(matchingQuery);
+      query.set(name, value);
+      const body = await (await get(`/admin/billing/transactions?${query}`)).json() as any;
+      expect(body.data.total, `${name} must participate in the query`).toBe(0);
+    }
+
+    for (const [from, to] of [
+      ["install_from", "install_to"],
+      ["purchase_from", "purchase_to"],
+    ]) {
+      const query = new URLSearchParams(matchingQuery);
+      query.set(from, "2026-08-14T00:00:00.000Z");
+      query.set(to, "2026-08-14T23:59:59.999Z");
+      const body = await (await get(`/admin/billing/transactions?${query}`)).json() as any;
+      expect(body.data.total, `${from}/${to} must participate in the query`).toBe(0);
+    }
+  });
+
+  it("sorts by effective order time and keeps the refunded transaction facts", async () => {
+    await db.batch([
+      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, refund_completed_at, created_at) VALUES ('order-refunded', 'chain-1', 'Sandbox', 'transaction-refunded', 'com.cardai.tcg.pro.yearly', 'refunded', 2, 'US', 49990000, 'USD', 49990000, '2026-08-13T12:00:00.000Z', '2026-08-11T12:00:00.000Z', '2026-08-13T12:00:00.000Z')"),
+      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-old', 'chain-1', 'Sandbox', 'transaction-old', 'com.cardai.tcg.pro.yearly', 'renewal', 3, 'US', 49990000, 'USD', 49990000, '2026-08-10T12:00:00.000Z', '2026-08-14T12:00:00.000Z')"),
+    ]);
+
+    const body = await (await get("/admin/billing/transactions?uid=100001")).json() as any;
+    expect(body.data.items.map((item: any) => item.order_id)).toEqual([
+      "transaction-1", "transaction-refunded", "transaction-old",
+    ]);
+    expect(body.data.items[1]).toMatchObject({
+      order_status: "refunded",
+      order_time: "2026-08-11T12:00:00.000Z",
+      refund_completed_at: "2026-08-11T12:00:00.000Z",
+      amount_micros: 49990000,
+    });
+  });
+
+  it("rejects invalid order filters instead of silently returning unfiltered data", async () => {
+    const invalidQueries = [
+      "install_from=invalid",
+      "install_from=2026-08-13T00:00:00.000Z&install_to=2026-08-12T00:00:00.000Z",
+      "purchase_from=invalid",
+      "purchase_from=2026-08-13T00:00:00.000Z&purchase_to=2026-08-12T00:00:00.000Z",
+      "auto_renew=invalid",
+      "charge_count=invalid",
+    ];
+    for (const query of invalidQueries) {
+      expect((await get(`/admin/billing/transactions?${query}`)).status, query).toBe(422);
+      expect((await get(`/admin/billing/transactions/export?${query}`)).status, query).toBe(422);
+    }
+  });
+
   it("lists an unlinked Apple order without inventing a UID", async () => {
     await db.batch([
       db.prepare("INSERT INTO billing_purchase_chain (id, environment, original_transaction_id, original_owner_id, status, auto_renew) VALUES ('chain-unlinked', 'Sandbox', 'original-unlinked', '', 'ACTIVE', 1)"),
@@ -58,7 +141,14 @@ describe("Admin billing order contract", () => {
   });
 
   it("exports all filtered rows as a real XLSX workbook", async () => {
-    const response = await get("/admin/billing/transactions/export?uid=100001");
+    await db.prepare("INSERT INTO billing_purchase_chain (id, environment, original_transaction_id, original_owner_id, status, auto_renew) VALUES ('chain-other', 'Production', 'original-other', '200002', 'EXPIRED', 0)").run();
+    await db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-other', 'chain-other', 'Production', 'transaction-other', 'other.sku', 'renewal', 2, 'CA', 1000000, 'CAD', 750000, ?, ?)").bind(NOW, NOW).run();
+    const filters = "uid=100001&country=US&sku=com.cardai.tcg.pro.yearly&status=initial_purchase"
+      + "&subscription_status=ACTIVE&auto_renew=true&environment=Sandbox&charge_count=1";
+    const list = await (await get(`/admin/billing/transactions?${filters}`)).json() as any;
+    expect(list.data.items.map((item: any) => item.order_id)).toEqual(["transaction-1"]);
+
+    const response = await get(`/admin/billing/transactions/export?${filters}`);
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("spreadsheetml.sheet");
     const bytes = new Uint8Array(await response.arrayBuffer());
@@ -68,6 +158,7 @@ describe("Admin billing order contract", () => {
     expect(sheet).toContain("原始交易 ID");
     expect(sheet).toContain("transaction-1");
     expect(sheet).toContain("100001");
+    expect(sheet).not.toContain("transaction-other");
   });
 
   it("lists failed inbox records and exposes decoded content without leaking signedPayload", async () => {

@@ -1411,6 +1411,9 @@ function billingTransactionQuery(read: (name: string) => string | undefined): Bi
   addListCondition(conditions, bindings, "c.status", read("subscription_status"));
   addExactCondition(conditions, bindings, "t.environment", read("environment"));
   const autoRenew = read("auto_renew");
+  if (autoRenew && autoRenew !== "true" && autoRenew !== "false") {
+    return { where: "", bindings: [], error: true };
+  }
   if (autoRenew === "true" || autoRenew === "false") {
     conditions.push("c.auto_renew = ?");
     bindings.push(autoRenew === "true" ? 1 : 0);
