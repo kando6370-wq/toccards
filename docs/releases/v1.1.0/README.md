@@ -21,6 +21,7 @@ Portfolio 写请求已统一 15 秒 Deadline，并为 Create Folder、Quick Coll
 ## 当前订阅资料
 
 - [`development-plan.md`](development-plan.md)：基于 PRD、评审结论与当前代码的分阶段开发计划及验收门槛。
+- [`traceability-matrix.md`](traceability-matrix.md)：PRD 条款到实现、迁移、自动化证据和外部验收的可追踪矩阵。
 - [`entitlement-contract.md`](entitlement-contract.md)：P0 Apple 证据、会话授权与服务端受限操作契约。
 - [`contract-changes.md`](contract-changes.md)：订阅数据骨架、当前边界与上线缺口。
 - [`migration.md`](migration.md)：v1.1 数据迁移、兼容性与回滚边界。
