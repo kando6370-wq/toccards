@@ -354,6 +354,92 @@ describe("portfolio folder routes", () => {
     });
   });
 
+  it("replays the same folder create after a lost response because retries must not create duplicate folders", async () => {
+    const db = createDbForOwner("user", "user-1");
+    const idempotencyKey = "11111111-1111-4111-8111-111111111111";
+    const request = {
+      method: "POST",
+      headers: {
+        ...(await authHeaders("user", "user-1")),
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({ name: "Trade Binder" }),
+    };
+
+    const created = await app.request(
+      "/api/v1/portfolio/folders",
+      request,
+      createTestEnv(db),
+    );
+    const replayed = await app.request(
+      "/api/v1/portfolio/folders",
+      request,
+      createTestEnv(db),
+    );
+
+    expect(created.status).toBe(201);
+    expect(replayed.status).toBe(200);
+    expect(await replayed.json()).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        id: idempotencyKey,
+        name: "Trade Binder",
+      }),
+    });
+    expect(db.folders).toHaveLength(1);
+  });
+
+  it("rejects reusing a folder idempotency key for a different name because one operation key has one meaning", async () => {
+    const db = createDbForOwner("user", "user-1");
+    const idempotencyKey = "22222222-2222-4222-8222-222222222222";
+    const headers = {
+      ...(await authHeaders("user", "user-1")),
+      "Idempotency-Key": idempotencyKey,
+    };
+    await app.request(
+      "/api/v1/portfolio/folders",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ name: "Trade Binder" }),
+      },
+      createTestEnv(db),
+    );
+
+    const response = await app.request(
+      "/api/v1/portfolio/folders",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ name: "Sealed" }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(409);
+    expect(db.folders).toHaveLength(1);
+  });
+
+  it("rejects a malformed folder idempotency key because only server-compatible operation ids may become folder ids", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+
+    const response = await app.request(
+      "/api/v1/portfolio/folders",
+      {
+        method: "POST",
+        headers: {
+          ...(await authHeaders("anonymous", "anon-1")),
+          "Idempotency-Key": "not-a-uuid",
+        },
+        body: JSON.stringify({ name: "Trade Binder" }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(422);
+    expect(db.folders).toHaveLength(0);
+  });
+
   it("returns CONFLICT when creating a duplicate folder name because owner folder names are unique", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main", name: "Main" }));

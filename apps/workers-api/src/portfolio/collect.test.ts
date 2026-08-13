@@ -44,6 +44,9 @@ type CollectionItemRow = {
   quantity: number;
   purchase_price: number | null;
   purchase_currency: string | null;
+  performance_start_at: string;
+  purchase_price_effective_at: string;
+  performance_history_available_from: string;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -152,7 +155,7 @@ class FakeD1Statement {
   }
 
   async run(): Promise<{ success: true; meta: { changes: number } }> {
-    if (this.sql.includes("INSERT INTO collection_item")) {
+    if (this.sql.includes("INSERT INTO collection_item\n  (")) {
       const [
         id,
         ownerType,
@@ -168,6 +171,9 @@ class FakeD1Statement {
         quantity,
         purchasePrice,
         purchaseCurrency,
+        performanceStartAt,
+        purchasePriceEffectiveAt,
+        performanceHistoryAvailableFrom,
         notes,
         createdAt,
         updatedAt,
@@ -186,6 +192,9 @@ class FakeD1Statement {
         number,
         number | null,
         string | null,
+        string,
+        string,
+        string,
         string | null,
         string,
         string,
@@ -206,6 +215,9 @@ class FakeD1Statement {
         quantity,
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
+        performance_start_at: performanceStartAt,
+        purchase_price_effective_at: purchasePriceEffectiveAt,
+        performance_history_available_from: performanceHistoryAvailableFrom,
         notes,
         created_at: createdAt,
         updated_at: updatedAt,
@@ -279,6 +291,45 @@ describe("collect shortcut route", () => {
     expect(db.wishlist).toEqual([]);
   });
 
+  it("replays Quick Collect after a lost response because one-tap retries must not become duplicate errors", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main", is_default: 1 }));
+    const idempotencyKey = "55555555-5555-4555-8555-555555555555";
+    const headers = {
+      ...(await authHeaders("anonymous", "anon-1")),
+      "Idempotency-Key": idempotencyKey,
+    };
+    const body = JSON.stringify({
+      folder_id: "main",
+      object_type: "tcg",
+      grader: "Raw",
+      condition: "Near Mint (NM)",
+      grade: null,
+      language: "English",
+      finish: "Holofoil",
+      quantity: 1,
+    });
+
+    const created = await app.request(
+      "/api/v1/cards/card-a/collect",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+    const replayed = await app.request(
+      "/api/v1/cards/card-a/collect",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+
+    expect(created.status).toBe(201);
+    expect(replayed.status).toBe(200);
+    expect(await replayed.json()).toMatchObject({
+      success: true,
+      data: { id: idempotencyKey, card_ref: "card-a" },
+    });
+    expect(db.items).toHaveLength(1);
+  });
+
   it("uses the default folder when folder_id is null because the shortcut supports one-tap Collect without folder picking", async () => {
     const db = createDbForOwner("user", "user-1");
     db.folders.push(
@@ -327,7 +378,10 @@ describe("collect shortcut route", () => {
       id: "owned", owner_type: "anonymous", owner_id: "anon-1", folder_id: "main",
       card_ref: "card-a", object_type: "tcg", grader: "Raw", condition: "Near Mint (NM)",
       grade: null, language: "English", finish: "Holofoil", quantity: 1,
-      purchase_price: null, purchase_currency: null, notes: null, created_at: NOW, updated_at: NOW,
+      purchase_price: null, purchase_currency: null,
+      performance_start_at: NOW, purchase_price_effective_at: NOW,
+      performance_history_available_from: NOW,
+      notes: null, created_at: NOW, updated_at: NOW,
     });
     const headers = await authHeaders("anonymous", "anon-1");
     const request = (finish: string) => app.request("/api/v1/cards/card-a/collect", {

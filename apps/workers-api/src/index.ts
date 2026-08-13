@@ -10,6 +10,10 @@ import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
 import { createScanRoutes } from "./scan/routes";
 import { createCardShareRoutes } from "./card-share/routes";
+import { createEntitlementRoutes } from "./entitlements/routes";
+import { createAppleRestoreRoutes } from "./entitlements/restore-routes";
+import { createAppleNotificationRoutes, retryAppleNotificationInbox } from "./entitlements/apple-notification-routes";
+import { retryAppleServerApiCorrections } from "./entitlements/apple-server-api-correction";
 
 export type { Env } from "./env";
 
@@ -26,7 +30,12 @@ app.use(
   "/api/*",
   cors({
     origin: (origin) => (allowedOrigins.has(origin) ? origin : ""),
-    allowHeaders: ["Authorization", "Content-Type"],
+    allowHeaders: [
+      "Authorization",
+      "Content-Type",
+      "Idempotency-Key",
+      "X-Local-Premium-State",
+    ],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     maxAge: 86400,
   }),
@@ -43,7 +52,17 @@ api.route("/", createFeedbackRoutes());
 api.route("/", createLegalRoutes());
 api.route("/", createPortfolioRoutes());
 api.route("/", createScanRoutes());
+api.route("/", createEntitlementRoutes());
+api.route("/", createAppleRestoreRoutes());
+api.route("/", createAppleNotificationRoutes());
 
 app.notFound((c) => c.json({ error: "NOT_FOUND" }, 404));
 
-export default app;
+export default Object.assign(app, {
+  scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil((async () => {
+      await retryAppleNotificationInbox(env);
+      await retryAppleServerApiCorrections(env);
+    })());
+  },
+});

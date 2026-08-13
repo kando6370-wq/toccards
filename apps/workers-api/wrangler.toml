@@ -3,6 +3,7 @@
 name = "toccards-api"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
 
 [observability.logs]
 enabled = true
@@ -17,9 +18,14 @@ run_worker_first = ["/api/*", "/share/*"]
 name = "toccards-api-prod"
 routes = [{ pattern = "api.tcgcard.fun", custom_domain = true }]
 
+[env.prod.triggers]
+crons = ["*/5 * * * *"]
+
 [env.prod.vars]
 GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com"
 APPLE_CLIENT_ID = "com.cardai.tcg"
+APPLE_APP_ATTEST_APP_ID = "B95U3272HR.com.cardai.tcg"
+APPLE_APP_ATTEST_DEVELOPMENT = "false"
 ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Card Ai"
@@ -44,9 +50,14 @@ bucket_name = "toccards-scan-images"
 name = "toccards-api-dev"
 routes = [{ pattern = "api-dev.tcgcard.fun", custom_domain = true }]
 
+[env.dev.triggers]
+crons = ["*/5 * * * *"]
+
 [env.dev.vars]
 GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com"
 APPLE_CLIENT_ID = "com.cardai.tcg"
+APPLE_APP_ATTEST_APP_ID = "B95U3272HR.com.cardai.tcg"
+APPLE_APP_ATTEST_DEVELOPMENT = "true"
 ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Card Ai Dev"

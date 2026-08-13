@@ -7,7 +7,10 @@ import {
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
+import { LOCAL_PREMIUM_STATE_HEADER } from "../entitlements/premium-access";
+import { resolvePremiumAccess, type PremiumAccess } from "../entitlements/premium-access";
 import { enrichCollectionDashboard } from "./collection-dashboard";
+import { loadPortfolioPerformance, parsePerformanceRange } from "./performance";
 import { loadValuationHistory } from "./valuation-history";
 
 type PortfolioFolderRow = {
@@ -37,6 +40,9 @@ type CollectionItemRow = {
   quantity: number;
   purchase_price: number | null;
   purchase_currency: string | null;
+  performance_start_at: string;
+  purchase_price_effective_at: string;
+  performance_history_available_from: string;
   notes: string | null;
   folder_joined_at: string;
   created_at: string;
@@ -106,6 +112,16 @@ const INTERNAL_ERROR_RESPONSE = {
   },
 } as const;
 
+const PREMIUM_REQUIRED_RESPONSE = {
+  success: false,
+  error: { code: "PREMIUM_REQUIRED", message: "Premium is required." },
+} as const;
+
+const ENTITLEMENT_SYNC_REQUIRED_RESPONSE = {
+  success: false,
+  error: { code: "ENTITLEMENT_SYNC_REQUIRED", message: "Premium access is still syncing." },
+} as const;
+
 const SELECT_FOLDERS_SQL = `
 SELECT id, name, is_default, sort_order, created_at, updated_at
 FROM portfolio_folder
@@ -130,7 +146,12 @@ LIMIT 1
 const INSERT_FOLDER_SQL = `
 INSERT INTO portfolio_folder
   (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
-VALUES (?, ?, ?, ?, 0, ?, ?, ?)
+SELECT ?, ?, ?, ?, 0, ?, ?, ?
+WHERE ? = 'premium' OR (
+  ? = 'free' AND (
+    SELECT COUNT(*) FROM portfolio_folder WHERE owner_type = ? AND owner_id = ?
+  ) < 2
+)
 `;
 
 const UPDATE_FOLDER_NAME_SQL = `
@@ -170,7 +191,11 @@ WHERE owner_type = ? AND owner_id = ? AND id = ?
 
 const SELECT_COLLECTION_ITEMS_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency, notes,
+  finish, quantity, purchase_price, purchase_currency,
+  COALESCE(performance_start_at, created_at) AS performance_start_at,
+  COALESCE(purchase_price_effective_at, created_at) AS purchase_price_effective_at,
+  COALESCE(performance_history_available_from, created_at) AS performance_history_available_from,
+  notes,
   COALESCE(folder_joined_at, created_at) AS folder_joined_at, created_at, updated_at
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ?
@@ -178,7 +203,11 @@ WHERE owner_type = ? AND owner_id = ?
 
 const SELECT_COLLECTION_ITEM_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency, notes,
+  finish, quantity, purchase_price, purchase_currency,
+  COALESCE(performance_start_at, created_at) AS performance_start_at,
+  COALESCE(purchase_price_effective_at, created_at) AS purchase_price_effective_at,
+  COALESCE(performance_history_available_from, created_at) AS performance_history_available_from,
+  notes,
   COALESCE(folder_joined_at, created_at) AS folder_joined_at, created_at, updated_at
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND id = ?
@@ -187,7 +216,11 @@ LIMIT 1
 
 const SELECT_COLLECTION_ITEM_BY_CARD_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency, notes,
+  finish, quantity, purchase_price, purchase_currency,
+  COALESCE(performance_start_at, created_at) AS performance_start_at,
+  COALESCE(purchase_price_effective_at, created_at) AS purchase_price_effective_at,
+  COALESCE(performance_history_available_from, created_at) AS performance_history_available_from,
+  notes,
   COALESCE(folder_joined_at, created_at) AS folder_joined_at, created_at, updated_at
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND card_ref = ?
@@ -197,9 +230,10 @@ LIMIT 1
 const INSERT_COLLECTION_ITEM_SQL = `
 INSERT INTO collection_item
   (id, owner_type, owner_id, folder_id, card_ref, object_type, grader, condition,
-   grade, language, finish, quantity, purchase_price, purchase_currency, notes,
-   created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   grade, language, finish, quantity, purchase_price, purchase_currency,
+   performance_start_at, purchase_price_effective_at,
+   performance_history_available_from, notes, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const UPDATE_COLLECTION_ITEM_SQL = `
@@ -231,8 +265,9 @@ WHERE owner_type = ? AND owner_id = ? AND id = ?
 const INSERT_COLLECTION_ITEM_EVENT_SQL = `
 INSERT INTO collection_item_event
   (id, item_id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
-   condition, grade, language, finish, quantity, event_type, effective_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   condition, grade, language, finish, quantity, purchase_price,
+   purchase_currency, performance_history_available_from, event_type, effective_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const DELETE_WISHLIST_CARD_SQL = `
@@ -286,8 +321,19 @@ const ITEM_SORT_FIELDS = new Set([
 const WISHLIST_SORT_FIELDS = new Set(["created_at", "card_ref"]);
 const ISO_4217_CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
-export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
+type PortfolioRouteDependencies = {
+  resolvePremiumAccess?: (
+    env: Pick<Env, "DB" | "APP_ENVIRONMENT">,
+    sessionId: string,
+    localPremiumState: string | undefined,
+  ) => Promise<PremiumAccess>;
+};
+
+export function createPortfolioRoutes(
+  dependencies: PortfolioRouteDependencies = {},
+): Hono<{ Bindings: Env }> {
   const routes = new Hono<{ Bindings: Env }>();
+  const premiumAccess = dependencies.resolvePremiumAccess ?? resolvePremiumAccess;
 
   routes.get("/collection/dashboard", async (c) => {
     const auth = await authenticateOwner(
@@ -337,7 +383,18 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(UNAUTHORIZED_RESPONSE, 401);
     }
 
-    const days = positiveIntegerOrDefault(c.req.query("days"), 90, 90);
+    const days = positiveIntegerOrDefault(c.req.query("days"), 90, 365);
+    if (days > 90) {
+      const access = await premiumAccess(
+        c.env,
+        auth.owner.session_id,
+        c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+      );
+      if (access === "sync_required") {
+        return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+      }
+      if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
+    }
     const folders = await listFolders(c.env.DB, auth.owner);
     const items = await loadValuationHistory(
       c.env.DB,
@@ -346,6 +403,59 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       days,
     );
     return c.json({ success: true, data: { days, items } });
+  });
+
+  routes.get("/portfolio/performance", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+
+    const range = parsePerformanceRange(c.req.query("range"));
+    if (!range) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    const access = await premiumAccess(
+      c.env,
+      auth.owner.session_id,
+      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+    );
+    if (access === "sync_required") {
+      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    }
+    if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
+
+    const folderId = requiredString(c.req.query("folder_id"));
+    const folder = folderId
+      ? await findFolder(c.env.DB, auth.owner, folderId)
+      : await findDefaultFolder(c.env.DB, auth.owner);
+    if (!folder) return c.json(NOT_FOUND_RESPONSE, 404);
+    const performance = await loadPortfolioPerformance(c.env.DB, auth.owner, range, {
+      folderId: folder.id,
+    });
+    return c.json({ success: true, data: { folder_id: folder.id, ...performance } });
+  });
+
+  routes.get("/portfolio/items/:item_id/performance", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+
+    const range = parsePerformanceRange(c.req.query("range"));
+    if (!range) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    const access = await premiumAccess(
+      c.env,
+      auth.owner.session_id,
+      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+    );
+    if (access === "sync_required") {
+      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    }
+    if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
+
+    const item = await findCollectionItem(c.env.DB, auth.owner, c.req.param("item_id"));
+    if (!item) return c.json(NOT_FOUND_RESPONSE, 404);
+    const performance = await loadPortfolioPerformance(c.env.DB, auth.owner, range, {
+      itemId: item.id,
+    });
+    return c.json({ success: true, data: { item_id: item.id, ...performance } });
   });
 
   routes.post("/cards/:card_ref/collect", async (c) => {
@@ -389,12 +499,25 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
+    const idempotencyKey = c.req.header("Idempotency-Key")?.trim();
+    if (idempotencyKey && !isUuid(idempotencyKey)) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    if (idempotencyKey) {
+      const replay = await findCollectionItem(c.env.DB, auth.owner, idempotencyKey);
+      if (replay) {
+        return collectionItemMatchesDraft(replay, draft)
+          ? c.json({ success: true, data: collectionItemResponse(replay) })
+          : c.json(CONFLICT_RESPONSE, 409);
+      }
+    }
+
     if (await findCollectionItemBySku(c.env.DB, auth.owner, draft)) {
       return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
     }
 
     const now = new Date().toISOString();
-    const itemId = createId();
+    const itemId = idempotencyKey ?? createId();
 
     try {
       await c.env.DB.batch([
@@ -413,6 +536,9 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         draft.quantity,
         draft.purchase_price,
         draft.purchase_currency,
+        now,
+        now,
+        now,
         draft.notes,
         now,
         now,
@@ -420,6 +546,9 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       collectionItemEventStatement(c.env.DB, auth.owner, {
         id: itemId,
         ...draft,
+        performance_start_at: now,
+        purchase_price_effective_at: now,
+        performance_history_available_from: now,
         created_at: now,
         updated_at: now,
       }, "upsert", now),
@@ -431,6 +560,12 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       ]);
     } catch (error) {
       if (isUniqueConstraintError(error)) {
+        if (idempotencyKey) {
+          const replay = await findCollectionItem(c.env.DB, auth.owner, idempotencyKey);
+          if (replay && collectionItemMatchesDraft(replay, draft)) {
+            return c.json({ success: true, data: collectionItemResponse(replay) });
+          }
+        }
         return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
       }
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
@@ -569,6 +704,19 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
+    const idempotencyKey = c.req.header("Idempotency-Key")?.trim();
+    if (idempotencyKey && !isUuid(idempotencyKey)) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    if (idempotencyKey) {
+      const replay = await findWishlistItem(c.env.DB, auth.owner, idempotencyKey);
+      if (replay) {
+        return replay.card_ref === cardRef
+          ? c.json({ success: true, data: wishlistItemResponse(replay) })
+          : c.json(CONFLICT_RESPONSE, 409);
+      }
+    }
+
     const existingCollectionItem = await findCollectionItemByCard(
       c.env.DB,
       auth.owner,
@@ -580,7 +728,7 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
     }
 
     const now = new Date().toISOString();
-    const itemId = createId();
+    const itemId = idempotencyKey ?? createId();
 
     try {
       await c.env.DB.prepare(INSERT_WISHLIST_ITEM_SQL)
@@ -588,6 +736,12 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         .run();
     } catch (error) {
       if (isUniqueConstraintError(error)) {
+        if (idempotencyKey) {
+          const replay = await findWishlistItem(c.env.DB, auth.owner, idempotencyKey);
+          if (replay?.card_ref === cardRef) {
+            return c.json({ success: true, data: wishlistItemResponse(replay) });
+          }
+        }
         return c.json(CONFLICT_RESPONSE, 409);
       }
 
@@ -691,12 +845,25 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(NOT_FOUND_RESPONSE, 404);
     }
 
+    const idempotencyKey = c.req.header("Idempotency-Key")?.trim();
+    if (idempotencyKey && !isUuid(idempotencyKey)) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    if (idempotencyKey) {
+      const replay = await findCollectionItem(c.env.DB, auth.owner, idempotencyKey);
+      if (replay) {
+        return collectionItemMatchesDraft(replay, draft)
+          ? c.json({ success: true, data: collectionItemResponse(replay) })
+          : c.json(CONFLICT_RESPONSE, 409);
+      }
+    }
+
     if (await findCollectionItemBySku(c.env.DB, auth.owner, draft)) {
       return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
     }
 
     const now = new Date().toISOString();
-    const itemId = createId();
+    const itemId = idempotencyKey ?? createId();
 
     try {
       await c.env.DB.batch([
@@ -715,6 +882,9 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
         draft.quantity,
         draft.purchase_price,
         draft.purchase_currency,
+        now,
+        now,
+        now,
         draft.notes,
         now,
         now,
@@ -722,6 +892,9 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       collectionItemEventStatement(c.env.DB, auth.owner, {
         id: itemId,
         ...draft,
+        performance_start_at: now,
+        purchase_price_effective_at: now,
+        performance_history_available_from: now,
         created_at: now,
         updated_at: now,
       }, "upsert", now),
@@ -733,6 +906,12 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       ]);
     } catch (error) {
       if (isUniqueConstraintError(error)) {
+        if (idempotencyKey) {
+          const replay = await findCollectionItem(c.env.DB, auth.owner, idempotencyKey);
+          if (replay && collectionItemMatchesDraft(replay, draft)) {
+            return c.json({ success: true, data: collectionItemResponse(replay) });
+          }
+        }
         return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
       }
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
@@ -963,14 +1142,35 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
+    const idempotencyKey = c.req.header("Idempotency-Key")?.trim();
+    if (idempotencyKey && !isUuid(idempotencyKey)) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    if (idempotencyKey) {
+      const replay = await findFolder(c.env.DB, auth.owner, idempotencyKey);
+      if (replay) {
+        return replay.name === name
+          ? c.json({ success: true, data: folderResponse(replay) })
+          : c.json(CONFLICT_RESPONSE, 409);
+      }
+    }
+
     const existingFolders = await listFolders(c.env.DB, auth.owner);
     const sortOrder =
       Math.max(0, ...existingFolders.map((folder) => folder.sort_order)) + 100;
     const now = new Date().toISOString();
-    const folderId = createId();
+    const folderId = idempotencyKey ?? createId();
+    const access = await premiumAccess(
+      c.env,
+      auth.owner.session_id,
+      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+    );
+    if (access === "sync_required") {
+      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    }
 
     try {
-      await c.env.DB.prepare(INSERT_FOLDER_SQL)
+      const inserted = await c.env.DB.prepare(INSERT_FOLDER_SQL)
         .bind(
           folderId,
           auth.owner.owner_type,
@@ -979,10 +1179,23 @@ export function createPortfolioRoutes(): Hono<{ Bindings: Env }> {
           sortOrder,
           now,
           now,
+          access,
+          access,
+          auth.owner.owner_type,
+          auth.owner.owner_id,
         )
         .run();
+      if (inserted.meta.changes !== 1) {
+        return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
+      }
     } catch (error) {
       if (isUniqueConstraintError(error)) {
+        if (idempotencyKey) {
+          const replay = await findFolder(c.env.DB, auth.owner, idempotencyKey);
+          if (replay?.name === name) {
+            return c.json({ success: true, data: folderResponse(replay) });
+          }
+        }
         return c.json(CONFLICT_RESPONSE, 409);
       }
 
@@ -1266,7 +1479,10 @@ async function findCollectionItemByCard(
 
 function collectionItemResponse(item: CollectionItemRow): Omit<
   CollectionItemRow,
-  "folder_joined_at"
+  | "folder_joined_at"
+  | "performance_start_at"
+  | "purchase_price_effective_at"
+  | "performance_history_available_from"
 > {
   return {
     id: item.id,
@@ -1285,6 +1501,26 @@ function collectionItemResponse(item: CollectionItemRow): Omit<
     created_at: item.created_at,
     updated_at: item.updated_at,
   };
+}
+
+function collectionItemMatchesDraft(
+  item: CollectionItemRow,
+  draft: CollectionItemDraft,
+): boolean {
+  return (
+    item.folder_id === draft.folder_id &&
+    item.card_ref === draft.card_ref &&
+    item.object_type === draft.object_type &&
+    item.grader === draft.grader &&
+    item.condition === draft.condition &&
+    item.grade === draft.grade &&
+    item.language === draft.language &&
+    item.finish === draft.finish &&
+    item.quantity === draft.quantity &&
+    item.purchase_price === draft.purchase_price &&
+    item.purchase_currency === draft.purchase_currency &&
+    item.notes === draft.notes
+  );
 }
 
 async function listWishlistItems(
@@ -1390,6 +1626,9 @@ function collectionItemEventStatement(
     item.language,
     item.finish,
     item.quantity,
+    item.purchase_price,
+    item.purchase_currency,
+    item.performance_history_available_from,
     eventType,
     effectiveAt,
   );
@@ -1457,6 +1696,12 @@ function folderNameFromBody(body: unknown): string | null {
   const name = body.name.trim();
 
   return name.length > 0 && name.length <= 50 ? name : null;
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 }
 
 function folderOrdersFromBody(body: unknown): FolderOrder[] | null {

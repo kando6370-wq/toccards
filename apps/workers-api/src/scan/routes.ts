@@ -5,6 +5,11 @@ import { createLocalDbDataSourceAdapter } from "../data-source/local-db-adapter"
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
+import {
+  LOCAL_PREMIUM_STATE_HEADER,
+  resolvePremiumAccess,
+} from "../entitlements/premium-access";
+import { loadScanQuota, reserveScanQuota, settleScanQuota } from "./quota";
 import { validateScanImage, type ValidatedScanImage } from "./scan-image";
 
 type ScanBindings = { Bindings: Env };
@@ -84,6 +89,24 @@ const DUPLICATE_COLLECTION_ITEM_RESPONSE = {
   },
 } as const;
 
+const ENTITLEMENT_SYNC_REQUIRED_RESPONSE = {
+  success: false,
+  error: {
+    code: "ENTITLEMENT_SYNC_REQUIRED",
+    message: "Premium access is still syncing.",
+  },
+} as const;
+
+const SCAN_QUOTA_EXHAUSTED_RESPONSE = {
+  success: false,
+  error: { code: "SCAN_QUOTA_EXHAUSTED", message: "No free scans remaining." },
+} as const;
+
+const SCAN_REQUEST_CONFLICT_RESPONSE = {
+  success: false,
+  error: { code: "SCAN_REQUEST_CONFLICT", message: "Scan request was already processed." },
+} as const;
+
 const INSERT_SCAN_RECORD_SQL = `
 INSERT INTO scan_record
   (id, owner_type, owner_id, image_url, filename, platform, app_version,
@@ -156,6 +179,32 @@ const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)
 export function createScanRoutes() {
   const routes = new Hono<ScanBindings>();
 
+  routes.get("/scan/quota", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+    if (auth.status === "internal_error") {
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+
+    const access = await resolvePremiumAccess(
+      c.env,
+      auth.owner.session_id,
+      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+    );
+    if (access === "sync_required") {
+      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    }
+    const quota = await loadScanQuota(c.env.DB, auth.owner);
+    return c.json({
+      success: true,
+      data: {
+        access,
+        unlimited: access === "premium",
+        ...quota,
+      },
+    });
+  });
+
   routes.post("/scan/recognize", async (c) => {
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
@@ -168,6 +217,10 @@ export function createScanRoutes() {
 
     const body = await readFormData(c.req);
     if (!body) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    const requestId = readUuid(body.get("request_id"));
+    if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
     const r = readPhash(body.get("r"));
     const g = readPhash(body.get("g"));
     const b = readPhash(body.get("b"));
@@ -178,6 +231,33 @@ export function createScanRoutes() {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
+    const access = await resolvePremiumAccess(
+      c.env,
+      auth.owner.session_id,
+      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+    );
+    if (access === "sync_required") {
+      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    }
+    const reservation = await reserveScanQuota(
+      c.env.DB,
+      auth.owner,
+      requestId,
+      access,
+    );
+    if (reservation.status === "exhausted") {
+      return c.json({ ...SCAN_QUOTA_EXHAUSTED_RESPONSE, quota: reservation.quota }, 403);
+    }
+    if (reservation.status === "existing" && reservation.response !== null) {
+      return new Response(JSON.stringify(reservation.response.body), {
+        status: reservation.response.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (reservation.status === "conflict" || reservation.status === "existing") {
+      return c.json(SCAN_REQUEST_CONFLICT_RESPONSE, 409);
+    }
+
     const outbound = {
       r,
       g,
@@ -185,7 +265,7 @@ export function createScanRoutes() {
       ...(gameId === undefined ? {} : { game_id: gameId }),
     };
 
-    const scanId = createId();
+    const scanId = requestId;
     const createdAt = new Date();
     const imageKey = scanImageKey(
       auth.owner.owner_type,
@@ -205,6 +285,10 @@ export function createScanRoutes() {
       });
     } catch (error) {
       console.error("Failed to store scan image.", error);
+      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", null, {
+        body: INTERNAL_ERROR_RESPONSE,
+        status: 500,
+      });
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
 
@@ -305,26 +389,52 @@ export function createScanRoutes() {
     } catch (error) {
       console.error("Failed to persist scan audit record.", error);
       await deleteUploadedImage(imageBucket, imageKey);
+      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", null, {
+        body: INTERNAL_ERROR_RESPONSE,
+        status: 500,
+      });
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
 
     if (upstreamFailed) {
-      return c.json({ ...OCR_UNAVAILABLE_RESPONSE, scan_id: scanId }, 502);
+      const responseBody = { ...OCR_UNAVAILABLE_RESPONSE, scan_id: scanId };
+      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", scanId, {
+        body: responseBody,
+        status: 502,
+      });
+      return c.json(responseBody, 502);
     }
 
-    return c.json({
+    const quota = reservation.accessMode === "free"
+      ? {
+          ...reservation.quota,
+          reserved: Math.max(0, reservation.quota.reserved - 1),
+          consumed: reservation.quota.consumed + 1,
+        }
+      : reservation.quota;
+    const responseBody = {
       success: true,
       data: {
         scan_id: scanId,
         recognition_status: recognitionStatus,
         cards_detected: candidates.length > 0 ? 1 : 0,
         elapsed: (Date.now() - startedAt) / 1000,
+        quota,
         warnings: recognized?.length === candidates.length
           ? []
           : ["Some recognized cards are missing from the catalog."],
         results,
       },
-    });
+    };
+    await settleScanQuota(
+      c.env.DB,
+      auth.owner,
+      requestId,
+      "consumed",
+      scanId,
+      { body: responseBody, status: 200 },
+    );
+    return c.json(responseBody);
   });
 
   routes.post("/scan/:scan_id/confirm", async (c) => {
@@ -698,6 +808,14 @@ function readString(value: unknown): string | null {
   }
   if (typeof value === "number") return String(value);
   return null;
+}
+
+function readUuid(value: unknown): string | null {
+  const normalized = readString(value);
+  return normalized &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)
+    ? normalized
+    : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

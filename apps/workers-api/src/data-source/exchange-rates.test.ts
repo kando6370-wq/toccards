@@ -46,6 +46,7 @@ describe("loadUsdExchangeRates", () => {
       base: "USD",
       rates: { USD: 1, ...sourcePayload.rates },
       updatedAt: "2026-07-14T00:00:00.000Z",
+      fetchedAt: "2026-07-15T00:00:00.000Z",
       stale: false,
     });
     expect(fetcher).toHaveBeenCalledOnce();

@@ -21,14 +21,18 @@
     "admin:init": "node scripts/create-admin.mjs"
   },
   "dependencies": {
+    "@apple/app-store-server-library": "3.1.0",
+    "@bradford-tech/supabase-integrity-attest": "0.9.1",
     "@kando/auth-core": "workspace:*",
     "drizzle-orm": "^0.38.0",
+    "fflate": "^0.8.2",
     "hono": "^4.6.0",
     "ulid": "^2.3.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
     "drizzle-kit": "^0.30.0",
+    "miniflare": "4.20260630.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.9",
     "wrangler": "^4.106.0"
