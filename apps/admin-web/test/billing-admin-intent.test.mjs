@@ -39,6 +39,10 @@ test("Apple notification inbox is idempotent and remains read-only until JWS ver
 });
 
 test("Apple notification payload stays out of list responses and is copied only from an opened detail", () => {
+  assert.match(app, /description: "查询并查看 Apple App Store Server Notifications V2 订阅通知消息及完整通知内容，用于排查掉单、订单状态异常等问题。"/);
+  assert.match(app, /<ScanFilterField label="环境">.*<ScanFilterField label="主通知类型">.*<ScanFilterField label="子通知类型">/s);
+  assert.match(app, /<Title level=\{4\}>通知消息列表<\/Title>/);
+  assert.match(app, /const notificationValue = \(value: unknown\).*\? "--"/);
   assert.match(app, /async function openDetail\(id: string\).*\/apple-notifications\/\$\{id\}/s);
   assert.match(app, /onClick=\{\(\) => openDetail\(row\.detail_id\)\}>查看详情/);
   assert.match(app, /navigator\.clipboard\.writeText\(prettyJson\(detail\.decoded_payload\)\)/);

@@ -196,7 +196,7 @@ const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: str
 const pageMeta: Record<MenuKey, { title: string; description: string }> = {
   installations: { title: "安装分析", description: "查看各国家与平台安装趋势及明细数据。" },
   "billing-orders": { title: "订单统计", description: "查询并查看用户订阅、续期、试用及 Lifetime 购买记录。" },
-  "apple-notifications": { title: "苹果通知消息", description: "查询 Apple App Store Server Notifications V2 及处理结果。" },
+  "apple-notifications": { title: "苹果通知消息", description: "查询并查看 Apple App Store Server Notifications V2 订阅通知消息及完整通知内容，用于排查掉单、订单状态异常等问题。" },
   users: { title: "用户列表", description: "查看 App 用户的基础信息、登录身份和首次安装时间。" },
   feedbacks: { title: "用户反馈", description: "查看用户提交的反馈内容，并标记处理状态。" },
   scans: { title: "扫描记录管理", description: "查看用户扫描图片、系统识别结果和用户最终确认结果。" },
@@ -557,14 +557,15 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     await navigator.clipboard.writeText(prettyJson(detail.decoded_payload));
     message.success("已复制通知内容");
   }
+  const notificationValue = (value: unknown) => value === null || value === undefined || value === "" ? "--" : String(value);
   const columns: ColumnsType<AppleNotificationRow> = [
-    { title: "UID", dataIndex: "uids", width: 120, ellipsis: true, render: (v) => v || "-" },
-    { title: "原始交易 ID", dataIndex: "original_transaction_id", width: 190, ellipsis: true },
-    { title: "订单 ID", dataIndex: "transaction_id", width: 190, ellipsis: true },
-    { title: "主通知类型", dataIndex: "notification_type", width: 150, render: (v) => v ? <Tag color="cyan">{v}</Tag> : "-" },
-    { title: "子通知类型", dataIndex: "subtype", width: 150, render: (v) => v || "-" },
-    { title: "SKU", dataIndex: "sku", width: 170, ellipsis: true },
-    { title: "环境", dataIndex: "environment", width: 90, render: billingEnvironmentLabel },
+    { title: "UID", dataIndex: "uids", width: 120, ellipsis: true, render: notificationValue },
+    { title: "原始交易 ID", dataIndex: "original_transaction_id", width: 190, ellipsis: true, render: notificationValue },
+    { title: "订单 ID", dataIndex: "transaction_id", width: 190, ellipsis: true, render: notificationValue },
+    { title: "主通知类型", dataIndex: "notification_type", width: 150, render: (v) => v ? <Tag color="cyan">{v}</Tag> : "--" },
+    { title: "子通知类型", dataIndex: "subtype", width: 150, render: notificationValue },
+    { title: "SKU", dataIndex: "sku", width: 170, ellipsis: true, render: notificationValue },
+    { title: "环境", dataIndex: "environment", width: 90, render: (v) => v ? billingEnvironmentLabel(v) : "--" },
     { title: "创建时间（UTC+0）", dataIndex: "received_at", width: 170, render: formatUtcTime },
     { title: "操作", width: 90, render: (_, row) => <Button type="link" onClick={() => openDetail(row.detail_id)}>查看详情</Button> },
   ];
@@ -573,24 +574,24 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
       <ScanFilterField label="UID"><Input value={draft.uid ?? ""} onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="原始交易 ID"><Input value={draft.original_transaction_id ?? ""} onChange={(e) => setDraft({ ...draft, original_transaction_id: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="环境"><Select allowClear value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="主通知类型"><Select showSearch mode="multiple" value={selectedTypes} options={notificationTypeOptions} onChange={(v) => setDraft({ ...draft, notification_type: v.join(","), subtype: "" })} /></ScanFilterField>
       <ScanFilterField label="子通知类型"><Select showSearch mode="multiple" value={csvValues(draft.subtype)} options={subtypeOptions} onChange={(v) => setDraft({ ...draft, subtype: v.join(",") })} /></ScanFilterField>
-      <ScanFilterField label="环境"><Select allowClear value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
       <div className="scans-filter-actions"><Button onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" onClick={() => { setFilters(draft); setPage(1); }}>查询</Button></div>
     </section>
-    <section className="scans-table-panel"><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} scroll={{ x: 1250 }} />
+    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} scroll={{ x: 1250 }} />
       <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
     </section>
     <Drawer title="通知消息详情" width="55%" open={detail !== null} onClose={() => setDetail(null)}>{detail && <Space direction="vertical" size="large" style={{ width: "100%" }}>
       <InfoGrid items={[
-        { label: "UID", value: displayValue(detail.uids) },
-        { label: "原始交易 ID", value: displayValue(detail.original_transaction_id) },
-        { label: "订单 ID", value: displayValue(detail.transaction_id) },
-        { label: "主通知类型", value: displayValue(detail.notification_type) },
-        { label: "子通知类型", value: displayValue(detail.subtype) },
-        { label: "SKU", value: displayValue(detail.sku) },
-        { label: "环境", value: billingEnvironmentLabel(detail.environment) },
+        { label: "UID", value: notificationValue(detail.uids) },
+        { label: "原始交易 ID", value: notificationValue(detail.original_transaction_id) },
+        { label: "订单 ID", value: notificationValue(detail.transaction_id) },
+        { label: "主通知类型", value: notificationValue(detail.notification_type) },
+        { label: "子通知类型", value: notificationValue(detail.subtype) },
+        { label: "SKU", value: notificationValue(detail.sku) },
+        { label: "环境", value: detail.environment ? billingEnvironmentLabel(detail.environment) : "--" },
         { label: "创建时间（UTC+0）", value: formatUtcTime(detail.received_at) },
       ]} />
       <DetailSection title="完整通知内容（Decoded Payload）">
