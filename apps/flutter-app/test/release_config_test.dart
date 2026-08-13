@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -34,6 +35,33 @@ void main() {
 
   test('complete environment-specific release config passes', () {
     expect(validateReleaseConfig(validConfig(), 'production'), isEmpty);
+  });
+
+  test('dev Apple products stay isolated from production configuration', () {
+    final testConfig =
+        jsonDecode(File('config/test.json').readAsStringSync())
+            as Map<String, Object?>;
+    final productionConfig =
+        jsonDecode(File('config/production.json').readAsStringSync())
+            as Map<String, Object?>;
+
+    expect(
+      testConfig,
+      containsPair('SUBSCRIPTION_APP_STORE_WEEKLY_ID', 'cardx.week'),
+    );
+    expect(
+      testConfig,
+      containsPair('SUBSCRIPTION_APP_STORE_YEARLY_ID', 'cardx.year'),
+    );
+    expect(
+      testConfig,
+      containsPair('SUBSCRIPTION_APP_STORE_LIFETIME_ID', 'cardx.lifetime'),
+    );
+    expect(
+      productionConfig.keys.where((key) => key.startsWith('SUBSCRIPTION_')),
+      isEmpty,
+      reason: 'dev Product IDs must not authorize production purchases',
+    );
   });
 
   test(

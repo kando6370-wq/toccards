@@ -4,7 +4,7 @@
 > **日期**：2026-08-10
 > **适用应用**：Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
-> **当前状态**：商品配置可开始；服务端 Apple JWS 验证链已实现，正式购买仍被 Product ID/Apple Secret 配置、D1 迁移和 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。
+> **当前状态**：dev/test 商品 Product ID 已确认，dev D1 商品映射和 Worker 白名单已部署；prod 商品尚未创建或通过审核，prod Product ID 保持未配置。服务端 Apple JWS 验证链已实现，购买闭环仍被 Apple Secret 和 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。
 
 ---
 
@@ -12,11 +12,19 @@
 
 iOS 中的数字内容订阅必须使用 **Apple In-App Purchase（StoreKit）**，不能使用 Apple Pay。
 
-| 套餐 | App Store 商品类型 | 候选 Product ID（待产品/运营冻结） | 归属 |
+| 套餐 | App Store 商品类型 | dev/test Product ID | 归属 |
 |---|---|---|---|
-| Weekly | Auto-Renewable Subscription | `com.cardai.tcg.pro.weekly` | `Performance Pro` 订阅组 |
-| Yearly | Auto-Renewable Subscription | `com.cardai.tcg.pro.yearly` | `Performance Pro` 订阅组 |
-| Lifetime | Non-Consumable | `com.cardai.tcg.pro.lifetime` | 独立内购商品，不属于订阅组 |
+| Weekly | Auto-Renewable Subscription | `cardx.week` | `Performance Pro` 订阅组 |
+| Yearly | Auto-Renewable Subscription | `cardx.year` | `Performance Pro` 订阅组 |
+| Lifetime | Non-Consumable | `cardx.lifetime` | 独立内购商品，不属于订阅组 |
+
+| 套餐 | dev/test Product ID | prod Product ID |
+|---|---|---|
+| Weekly | `cardx.week` | 待 App Store 审核通过后填写 |
+| Yearly | `cardx.year` | 待 App Store 审核通过后填写 |
+| Lifetime | `cardx.lifetime` | 待 App Store 审核通过后填写 |
+
+dev/test Product ID 不得默认复用到 prod。prod 值确认后，必须独立更新 production 构建配置、Workers prod 白名单、prod D1 `billing_product` 映射及本手册。
 
 关键约束：
 
@@ -57,7 +65,7 @@ iOS 中的数字内容订阅必须使用 **Apple In-App Purchase（StoreKit）**
 | 字段 | 配置值 |
 |---|---|
 | Reference Name | `Performance Pro Weekly` |
-| Product ID | `com.cardai.tcg.pro.weekly` |
+| Product ID | `cardx.week` |
 | Subscription Duration | `1 Week` |
 | Availability | 选择计划发布的国家或地区 |
 | Subscription Price | 在 App Store Connect 中选择价格档位 |
@@ -75,7 +83,7 @@ iOS 中的数字内容订阅必须使用 **Apple In-App Purchase（StoreKit）**
 | 字段 | 配置值 |
 |---|---|
 | Reference Name | `Performance Pro Yearly` |
-| Product ID | `com.cardai.tcg.pro.yearly` |
+| Product ID | `cardx.year` |
 | Subscription Duration | `1 Year` |
 | Availability | 与 Weekly 保持一致 |
 | Subscription Price | 在 App Store Connect 中选择价格档位 |
@@ -97,7 +105,7 @@ Weekly 与 Yearly 提供相同的 `performance_pro` 权益，应配置在同一�
 | 字段 | 配置值 |
 |---|---|
 | Reference Name | `Performance Pro Lifetime` |
-| Product ID | `com.cardai.tcg.pro.lifetime` |
+| Product ID | `cardx.lifetime` |
 | Type | `Non-Consumable` |
 | Availability | 选择计划发布的国家或地区 |
 | Price | 在 App Store Connect 中选择价格档位 |
@@ -118,16 +126,16 @@ App Store Connect 中创建的 Product ID 必须与构建参数完全一致：
 | Yearly | `SUBSCRIPTION_APP_STORE_YEARLY_ID` |
 | Lifetime | `SUBSCRIPTION_APP_STORE_LIFETIME_ID` |
 
-PowerShell 构建示例：
+PowerShell dev/test 构建示例：
 
 ```powershell
 flutter build ipa --release `
-  --dart-define=SUBSCRIPTION_APP_STORE_WEEKLY_ID=com.cardai.tcg.pro.weekly `
-  --dart-define=SUBSCRIPTION_APP_STORE_YEARLY_ID=com.cardai.tcg.pro.yearly `
-  --dart-define=SUBSCRIPTION_APP_STORE_LIFETIME_ID=com.cardai.tcg.pro.lifetime
+  --dart-define=SUBSCRIPTION_APP_STORE_WEEKLY_ID=cardx.week `
+  --dart-define=SUBSCRIPTION_APP_STORE_YEARLY_ID=cardx.year `
+  --dart-define=SUBSCRIPTION_APP_STORE_LIFETIME_ID=cardx.lifetime
 ```
 
-最新 App PRD 将正式 Product ID 标记为 Pending Configuration。上表及示例值不得视为已冻结配置；产品/运营确认后，必须同步 App 构建参数、Workers `APPLE_IAP_PRODUCT_IDS`、D1 `billing_product` 和 App Store Connect。当前客户端只请求非空 Product ID：至少配置一个 SKU 即可初始化商店，其余未配置或 StoreKit 未返回的 SKU 显示 `Unavailable` 且不可购买；正式联调验收前仍必须冻结并完整配置三个 SKU。
+dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。远程 dev D1 已将三个 Product ID 映射为 active `performance_pro` 商品，dev Worker 已部署为 `7228b912-c57f-43a3-8f2c-2404f8dac7bc`。production/prod 保持不配置，不能使用本示例构建正式环境。当前客户端只请求非空 Product ID：未配置或 StoreKit 未返回的 SKU 显示 `Unavailable` 且不可购买。
 
 Singular 使用同一份 `--dart-define-from-file` 环境配置注入，不在仓库写入正式密钥：
 
@@ -138,7 +146,7 @@ Singular 使用同一份 `--dart-define-from-file` 环境配置注入，不在�
 
 将两个字段与三个 Product ID 一并写入受控发布 JSON，正式值不得提交仓库。普通开发构建允许缺项并按业务规则降级；`tool/release_ios.sh` 属于正式发布入口，会在构建前强制校验 `APP_ENV`、三个 Product ID、Singular API Key/Secret 均为非空字符串，且三个 Product ID 不重复，缺项时显式终止。
 
-仓库内 `apps/flutter-app/config/test.json` 与 `production.json` 仅为不含密钥的占位配置。发布时通过 `RELEASE_ENV_CONFIG` 指向仓库外的受控文件：
+仓库内 `apps/flutter-app/config/test.json` 记录不敏感的 dev/test Product ID，但仍缺 Singular Key/Secret；`production.json` 仅保留 `APP_ENV`，prod Product ID 与密钥均未配置。发布时通过 `RELEASE_ENV_CONFIG` 指向仓库外的受控文件：
 
 ```bash
 RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env production
@@ -184,10 +192,12 @@ RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env prod
 
 当前已实现 Fresh Purchase challenge、StoreKit 2 JWS 上传和 Workers session grant 写链，但**仍无法宣称正式购买授权端到端完成**。上线阻塞包括：
 
-- 正式 Product ID、Apple Root CA、Production App Apple ID 和 D1 `billing_product` 映射尚未配置/冻结。
+- dev/test Product ID 已确认；远程 dev D1 已写入三个 active `performance_pro` 映射，Workers dev 白名单已随版本 `7228b912-c57f-43a3-8f2c-2404f8dac7bc` 部署，健康接口返回 HTTP 200。
+- prod Product ID 尚未创建或通过审核；production 客户端配置、Workers prod 白名单和 prod D1 映射必须保持空，待正式值确认后独立配置。
+- Apple Root CA、Production App Apple ID 和 App Store Server API Secret 尚未配置。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
 - Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现，但 Apple Secret、通知 URL 和真机/Sandbox 端到端验收尚未完成。
-- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应迁移已通过隔离空库顺序执行，但尚未应用到常用 local、远程 dev 或 prod，仍待 Sandbox/TestFlight 多设备验收。
+- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应迁移已应用到远程 dev，尚未应用到常用 local 或 prod，仍待 Sandbox/TestFlight 多设备验收。
 
 challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。
 

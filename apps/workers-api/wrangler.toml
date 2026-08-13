@@ -58,6 +58,7 @@ GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleus
 APPLE_CLIENT_ID = "com.cardai.tcg"
 APPLE_APP_ATTEST_APP_ID = "B95U3272HR.com.cardai.tcg"
 APPLE_APP_ATTEST_DEVELOPMENT = "true"
+APPLE_IAP_PRODUCT_IDS = "cardx.week,cardx.year,cardx.lifetime"
 ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Card Ai Dev"
