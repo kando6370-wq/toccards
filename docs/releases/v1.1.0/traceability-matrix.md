@@ -42,6 +42,7 @@
 | P1-C Payload/导出安全 | 已落实按需详情、默认不返回 `signedPayload`、10,000 行上限与 XLSX 公式注入防护。新版 PRD 明确沿用现有后台权限，未要求查看/复制审计表，因此不扩展该范围。 | Admin PRD 3.2、4、7.6、15.3；Admin API 集成测试。 |
 | P1-D Performance 历史 | 自然 Range、可靠历史起点、成本/数量/Folder Move 历史和迁移均已实现。 | 迁移 `0031` 与 Performance 测试。 |
 | P1-E USD 汇率快照 | 除法口径、USD=1、快照、舍入、缺失非阻断均已实现。 | 迁移 `0033`、`billing-currency.test.ts`。 |
+| Android Premium 范围 | 产品待决。三份 v1.1 PRD只定义 Apple 购买真值；当前 App 仅在 iOS 激活订阅，Android Free 业务可用但不误售、不误授权。Google Play 抽象保留而不激活。 | `subscription_restore_ui_test.dart` 平台边界用例。 |
 
 ## 5. 发布前仍需外部完成
 
@@ -51,3 +52,4 @@
 4. 完成 Sandbox/TestFlight 购买、续订、Grace/Retry、退款、通知重试和 Revenue 验收。
 5. 使用重度收藏数据验证 1Y Performance，并使用真实订单验证 Admin 查询与导出性能。
 6. 由产品冻结 Lifetime 本地兜底最长时间；确认前保持 `产品待决`。
+7. 由产品确认 Android v1.1 是否包含 Premium；若包含，需另行冻结 Google Play 商品、购买证据、服务端验签/proof 和生命周期契约。

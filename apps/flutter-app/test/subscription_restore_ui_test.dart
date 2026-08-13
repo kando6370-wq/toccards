@@ -52,6 +52,19 @@ void main() {
   });
 
   test(
+    'Android keeps subscription sales disabled because v1.1 has no Google Play proof contract',
+    () {
+      final configuration = AppSubscriptionConfiguration.fromEnvironment(
+        platform: TargetPlatform.android,
+      );
+
+      expect(configuration.store, isNull);
+      expect(configuration.configuredProductIds, isEmpty);
+      expect(configuration.isConfigured, isFalse);
+    },
+  );
+
+  test(
     'product loading retries three transient failures within one deadline',
     () async {
       var attempts = 0;

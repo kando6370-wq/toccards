@@ -32,6 +32,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 产品待决项：评审 P1-B 要求冻结 Lifetime 在 StoreKit 与服务端均不可用时的最长本地兜底时间。最新 App PRD 仅定义“可临时保持 Premium”，没有给出可测试期限；当前代码按该 PRD 持续使用已验证 Lifetime 缓存。该期限会改变离线用户权益，开发不得自行设定，需产品确认后再实现超时转 Unknown 及对应验收矩阵。
 
+平台范围冲突已显式选择最新 Apple PRD：v1.1 App 只在 iOS 激活 Apple Subscription 销售；Android、macOS 和桌面端不读取或激活订阅 SKU，保持 Free 业务可用、权益 Unknown 且不误售/误授权。`subscription-core` 的 Google Play 抽象继续保留，但在产品定义 Android Premium 范围、Google Play 商品和服务端可信 proof 契约前不由 App 激活。该边界的订阅 UI 14 项及实现/测试文件静态分析通过。
+
 ## 3. 阶段与验收门槛
 
 ### 当前开发检查点（2026-08-13）

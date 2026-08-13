@@ -66,38 +66,27 @@ class AppSubscriptionConfiguration {
     required this.productIds,
   });
 
-  factory AppSubscriptionConfiguration.fromEnvironment() {
-    final store = switch (defaultTargetPlatform) {
-      TargetPlatform.iOS || TargetPlatform.macOS => SubscriptionStore.appStore,
-      TargetPlatform.android => SubscriptionStore.googlePlay,
+  factory AppSubscriptionConfiguration.fromEnvironment({
+    TargetPlatform? platform,
+  }) {
+    final store = switch (platform ?? defaultTargetPlatform) {
+      TargetPlatform.iOS => SubscriptionStore.appStore,
       _ => null,
     };
     if (store == null) {
       return const AppSubscriptionConfiguration(store: null, productIds: {});
     }
-    final productIds = store == SubscriptionStore.appStore
-        ? const {
-            subscriptionWeeklyPlanId: String.fromEnvironment(
-              'SUBSCRIPTION_APP_STORE_WEEKLY_ID',
-            ),
-            subscriptionYearlyPlanId: String.fromEnvironment(
-              'SUBSCRIPTION_APP_STORE_YEARLY_ID',
-            ),
-            subscriptionLifetimePlanId: String.fromEnvironment(
-              'SUBSCRIPTION_APP_STORE_LIFETIME_ID',
-            ),
-          }
-        : const {
-            subscriptionWeeklyPlanId: String.fromEnvironment(
-              'SUBSCRIPTION_GOOGLE_PLAY_WEEKLY_ID',
-            ),
-            subscriptionYearlyPlanId: String.fromEnvironment(
-              'SUBSCRIPTION_GOOGLE_PLAY_YEARLY_ID',
-            ),
-            subscriptionLifetimePlanId: String.fromEnvironment(
-              'SUBSCRIPTION_GOOGLE_PLAY_LIFETIME_ID',
-            ),
-          };
+    const productIds = {
+      subscriptionWeeklyPlanId: String.fromEnvironment(
+        'SUBSCRIPTION_APP_STORE_WEEKLY_ID',
+      ),
+      subscriptionYearlyPlanId: String.fromEnvironment(
+        'SUBSCRIPTION_APP_STORE_YEARLY_ID',
+      ),
+      subscriptionLifetimePlanId: String.fromEnvironment(
+        'SUBSCRIPTION_APP_STORE_LIFETIME_ID',
+      ),
+    };
     return AppSubscriptionConfiguration(store: store, productIds: productIds);
   }
 
@@ -221,25 +210,27 @@ List<AppleCurrentEntitlement> applyAppleLifecycleCorrections(
   List<ApplePurchaseChainLifecycle>? lifecycle,
 ) {
   if (lifecycle == null) return entitlements;
-  return entitlements.where((entitlement) {
-    final payload = decodeStoreKitJwsPayload(
-      entitlement.signedTransactionInfo,
-    );
-    final originalTransactionId = payload?['originalTransactionId'];
-    final signedDate = payload?['signedDate'];
-    if (originalTransactionId is! String || signedDate is! num) return true;
-    final signedAt = DateTime.fromMillisecondsSinceEpoch(
-      signedDate.toInt(),
-      isUtc: true,
-    );
-    return !lifecycle.any(
-      (item) =>
-          item.originalTransactionId == originalTransactionId &&
-          item.isExplicitlyInactive &&
-          item.stateEffectiveAt != null &&
-          !item.stateEffectiveAt!.isBefore(signedAt),
-    );
-  }).toList(growable: false);
+  return entitlements
+      .where((entitlement) {
+        final payload = decodeStoreKitJwsPayload(
+          entitlement.signedTransactionInfo,
+        );
+        final originalTransactionId = payload?['originalTransactionId'];
+        final signedDate = payload?['signedDate'];
+        if (originalTransactionId is! String || signedDate is! num) return true;
+        final signedAt = DateTime.fromMillisecondsSinceEpoch(
+          signedDate.toInt(),
+          isUtc: true,
+        );
+        return !lifecycle.any(
+          (item) =>
+              item.originalTransactionId == originalTransactionId &&
+              item.isExplicitlyInactive &&
+              item.stateEffectiveAt != null &&
+              !item.stateEffectiveAt!.isBefore(signedAt),
+        );
+      })
+      .toList(growable: false);
 }
 
 class SubscriptionState {
