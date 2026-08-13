@@ -37,14 +37,17 @@ class SubscriptionRevenueRecord {
     final currency = value['currency'];
     if (transactionId is! String ||
         transactionId.isEmpty ||
+        transactionId != transactionId.trim() ||
         productId is! String ||
         productId.isEmpty ||
+        productId != productId.trim() ||
         planType is! String ||
-        planType.isEmpty ||
+        !const {'weekly', 'yearly', 'lifetime'}.contains(planType) ||
         amount is! num ||
         !amount.isFinite ||
+        amount < 0 ||
         currency is! String ||
-        currency.isEmpty) {
+        !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
       return null;
     }
     return SubscriptionRevenueRecord(
@@ -224,13 +227,17 @@ class SubscriptionRevenueReporter {
     final currency = payload?['currency'];
     if (transactionId is! String ||
         transactionId.isEmpty ||
+        transactionId != transactionId.trim() ||
         transactionId != purchase.transactionId ||
         productId is! String ||
+        productId.isEmpty ||
+        productId != productId.trim() ||
         productId != purchase.storeProductId ||
         price is! num ||
+        !price.isFinite ||
         price < 0 ||
         currency is! String ||
-        currency.isEmpty) {
+        !RegExp(r'^[A-Za-z]{3}$').hasMatch(currency)) {
       return null;
     }
     return SubscriptionRevenueRecord(

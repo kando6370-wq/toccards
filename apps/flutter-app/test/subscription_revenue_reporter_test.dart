@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -59,6 +60,53 @@ void main() {
       expect(sink.records, hasLength(1));
       expect(storage.pending, isEmpty);
       expect(storage.reported, {'transaction-1'});
+    },
+  );
+
+  test(
+    'startup flush and a repeated purchase callback serialize one transaction report',
+    () async {
+      final storage = _MemoryRevenueStorage()
+        ..pending['transaction-1'] = SubscriptionRevenueRecord.fromJson(
+          _recordJson(transactionId: 'transaction-1'),
+        )!;
+      final sink = _BlockingRevenueSink();
+      final reporter = SubscriptionRevenueReporter(
+        storage: storage,
+        sink: sink,
+      );
+
+      final flush = reporter.flush();
+      await sink.started.future;
+      final repeatedCallback = reporter.enqueueVerifiedPurchase(_event());
+      sink.release.complete();
+      await Future.wait([flush, repeatedCallback]);
+
+      expect(sink.records, hasLength(1));
+      expect(storage.reported, {'transaction-1'});
+      expect(storage.pending, isEmpty);
+    },
+  );
+
+  test(
+    'two simultaneous callbacks for one verified transaction report once',
+    () async {
+      final storage = _MemoryRevenueStorage();
+      final sink = _BlockingRevenueSink();
+      final reporter = SubscriptionRevenueReporter(
+        storage: storage,
+        sink: sink,
+      );
+
+      final first = reporter.enqueueVerifiedPurchase(_event());
+      final second = reporter.enqueueVerifiedPurchase(_event());
+      await sink.started.future;
+      sink.release.complete();
+      await Future.wait([first, second]);
+
+      expect(sink.records, hasLength(1));
+      expect(storage.reported, {'transaction-1'});
+      expect(storage.pending, isEmpty);
     },
   );
 
@@ -133,6 +181,31 @@ void main() {
         SubscriptionRevenueRecord.fromJson({
           ..._recordJson(transactionId: 'transaction-infinite'),
           'value': double.infinity,
+        }),
+        isNull,
+      );
+      expect(
+        SubscriptionRevenueRecord.fromJson({
+          ..._recordJson(transactionId: 'transaction-negative'),
+          'value': -0.01,
+        }),
+        isNull,
+      );
+      expect(
+        SubscriptionRevenueRecord.fromJson(_recordJson(transactionId: '   ')),
+        isNull,
+      );
+      expect(
+        SubscriptionRevenueRecord.fromJson({
+          ..._recordJson(transactionId: 'transaction-currency'),
+          'currency': ' usd ',
+        }),
+        isNull,
+      );
+      expect(
+        SubscriptionRevenueRecord.fromJson({
+          ..._recordJson(transactionId: 'transaction-plan'),
+          'plan_type': 'prototype',
         }),
         isNull,
       );
@@ -224,6 +297,19 @@ class _RecordingRevenueSink implements SubscriptionRevenueSink {
       failuresRemaining--;
       throw StateError('Firebase unavailable');
     }
+    records.add(record);
+  }
+}
+
+class _BlockingRevenueSink implements SubscriptionRevenueSink {
+  final started = Completer<void>();
+  final release = Completer<void>();
+  final records = <SubscriptionRevenueRecord>[];
+
+  @override
+  Future<void> report(SubscriptionRevenueRecord record) async {
+    if (!started.isCompleted) started.complete();
+    await release.future;
     records.add(record);
   }
 }
