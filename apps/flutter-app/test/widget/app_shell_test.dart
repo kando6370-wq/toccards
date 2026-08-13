@@ -157,7 +157,6 @@ void main() {
         ),
       ),
     );
-
     await expectLater(
       find.byKey(const Key('kando-tab-bar')),
       matchesGoldenFile('goldens/rendered/figma_tab_bar_home_390x844.png'),
