@@ -34,7 +34,7 @@ class OnboardingController extends AsyncNotifier<bool> {
     final completedValue = await completed;
     await ref
         .read(appAttributionCoordinatorProvider)
-        .prepareForStartup(firstInstall: !completedValue);
+        .prepareForStartup(allowInitialRequest: !completedValue);
     ref.read(startupProgressFinishingProvider.notifier).finish();
     await Future<void>.delayed(
       progressCompletionDuration + completedProgressHoldDuration,

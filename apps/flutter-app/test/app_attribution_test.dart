@@ -1,7 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/attribution/app_attribution.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   test(
     'first install requests ATT only after reading notDetermined and initializes attribution with the final choice',
     () async {
@@ -15,9 +22,10 @@ void main() {
       final coordinator = AppAttributionCoordinator(
         tracking: tracking,
         attribution: attribution,
+        startupStorage: const PreferencesAppAttributionStartupStorage(),
       );
 
-      await coordinator.prepareForStartup(firstInstall: true);
+      await coordinator.prepareForStartup(allowInitialRequest: true);
 
       expect(events, ['read', 'request', 'attribution:authorized']);
     },
@@ -34,9 +42,10 @@ void main() {
           events: events,
         ),
         attribution: _AttributionGateway(events),
+        startupStorage: _StartupStorage(firstStartup: false),
       );
 
-      await coordinator.prepareForStartup(firstInstall: false);
+      await coordinator.prepareForStartup(allowInitialRequest: false);
 
       expect(events, ['read', 'attribution:notDetermined']);
     },
@@ -51,9 +60,10 @@ void main() {
         events: events,
       ),
       attribution: _AttributionGateway(events),
+      startupStorage: _StartupStorage(firstStartup: false),
     );
 
-    await coordinator.prepareForStartup(firstInstall: false);
+    await coordinator.prepareForStartup(allowInitialRequest: false);
     events.clear();
     await coordinator.refreshWithoutPrompt();
 
@@ -71,6 +81,7 @@ void main() {
           events: events,
         ),
         attribution: _AttributionGateway(events),
+        startupStorage: _StartupStorage(firstStartup: false),
       );
 
       await coordinator.refreshWithoutPrompt();
@@ -83,13 +94,88 @@ void main() {
     final coordinator = AppAttributionCoordinator(
       tracking: _ThrowingTrackingGateway(),
       attribution: _ThrowingAttributionGateway(),
+      startupStorage: _ThrowingStartupStorage(),
     );
 
     await expectLater(
-      coordinator.prepareForStartup(firstInstall: true),
+      coordinator.prepareForStartup(allowInitialRequest: true),
       completes,
     );
   });
+
+  test(
+    'unfinished onboarding does not make a later cold start request ATT again',
+    () async {
+      final firstEvents = <String>[];
+      final firstLaunch = AppAttributionCoordinator(
+        tracking: _TrackingGateway(
+          status: AppTrackingStatus.notDetermined,
+          requestedStatus: AppTrackingStatus.notDetermined,
+          events: firstEvents,
+        ),
+        attribution: _AttributionGateway(firstEvents),
+        startupStorage: const PreferencesAppAttributionStartupStorage(),
+      );
+      await firstLaunch.prepareForStartup(allowInitialRequest: true);
+
+      final restartEvents = <String>[];
+      final restartedBeforeOnboardingCompletion = AppAttributionCoordinator(
+        tracking: _TrackingGateway(
+          status: AppTrackingStatus.notDetermined,
+          requestedStatus: AppTrackingStatus.authorized,
+          events: restartEvents,
+        ),
+        attribution: _AttributionGateway(restartEvents),
+        startupStorage: const PreferencesAppAttributionStartupStorage(),
+      );
+      await restartedBeforeOnboardingCompletion.prepareForStartup(
+        allowInitialRequest: true,
+      );
+
+      expect(firstEvents, ['read', 'request', 'attribution:notDetermined']);
+      expect(restartEvents, ['read', 'attribution:notDetermined']);
+    },
+  );
+
+  test(
+    'existing installations claim the new marker without opening ATT',
+    () async {
+      final events = <String>[];
+      final coordinator = AppAttributionCoordinator(
+        tracking: _TrackingGateway(
+          status: AppTrackingStatus.notDetermined,
+          requestedStatus: AppTrackingStatus.authorized,
+          events: events,
+        ),
+        attribution: _AttributionGateway(events),
+        startupStorage: const PreferencesAppAttributionStartupStorage(),
+      );
+
+      await coordinator.prepareForStartup(allowInitialRequest: false);
+
+      expect(events, ['read', 'attribution:notDetermined']);
+      expect(
+        SharedPreferences.getInstance().then(
+          (preferences) => preferences.getBool('attribution.startup_prepared'),
+        ),
+        completion(isTrue),
+      );
+    },
+  );
+}
+
+class _StartupStorage implements AppAttributionStartupStorage {
+  _StartupStorage({required this.firstStartup});
+
+  final bool firstStartup;
+
+  @override
+  Future<bool> claimFirstStartup() async => firstStartup;
+}
+
+class _ThrowingStartupStorage implements AppAttributionStartupStorage {
+  @override
+  Future<bool> claimFirstStartup() => Future.error(StateError('storage'));
 }
 
 class _TrackingGateway implements AppTrackingGateway {

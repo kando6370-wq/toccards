@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:singular_flutter_sdk/singular.dart';
 import 'package:singular_flutter_sdk/singular_config.dart';
 
@@ -23,6 +24,24 @@ abstract interface class AppAttributionGateway {
   Future<void> updateTrackingStatus(AppTrackingStatus status);
 }
 
+abstract interface class AppAttributionStartupStorage {
+  Future<bool> claimFirstStartup();
+}
+
+class PreferencesAppAttributionStartupStorage
+    implements AppAttributionStartupStorage {
+  const PreferencesAppAttributionStartupStorage();
+
+  static const _preparedKey = 'attribution.startup_prepared';
+
+  @override
+  Future<bool> claimFirstStartup() async {
+    final preferences = await SharedPreferences.getInstance();
+    if (preferences.getBool(_preparedKey) == true) return false;
+    return preferences.setBool(_preparedKey, true);
+  }
+}
+
 final appTrackingGatewayProvider = Provider<AppTrackingGateway>((ref) {
   return const PluginAppTrackingGateway();
 });
@@ -31,12 +50,18 @@ final appAttributionGatewayProvider = Provider<AppAttributionGateway>((ref) {
   return SingularAttributionGateway();
 });
 
+final appAttributionStartupStorageProvider =
+    Provider<AppAttributionStartupStorage>(
+      (ref) => const PreferencesAppAttributionStartupStorage(),
+    );
+
 final appAttributionCoordinatorProvider = Provider<AppAttributionCoordinator>((
   ref,
 ) {
   return AppAttributionCoordinator(
     tracking: ref.watch(appTrackingGatewayProvider),
     attribution: ref.watch(appAttributionGatewayProvider),
+    startupStorage: ref.watch(appAttributionStartupStorageProvider),
   );
 });
 
@@ -44,20 +69,26 @@ class AppAttributionCoordinator {
   AppAttributionCoordinator({
     required AppTrackingGateway tracking,
     required AppAttributionGateway attribution,
+    required AppAttributionStartupStorage startupStorage,
   }) : _tracking = tracking,
-       _attribution = attribution;
+       _attribution = attribution,
+       _startupStorage = startupStorage;
 
   final AppTrackingGateway _tracking;
   final AppAttributionGateway _attribution;
+  final AppAttributionStartupStorage _startupStorage;
   Future<void>? _startup;
 
-  Future<void> prepareForStartup({required bool firstInstall}) {
-    return _startup ??= _prepare(firstInstall: firstInstall);
+  Future<void> prepareForStartup({required bool allowInitialRequest}) {
+    return _startup ??= _prepare(allowInitialRequest: allowInitialRequest);
   }
 
-  Future<void> _prepare({required bool firstInstall}) async {
+  Future<void> _prepare({required bool allowInitialRequest}) async {
+    final firstStartup = _claimFirstStartup();
     var status = await _readStatus();
-    if (firstInstall && status == AppTrackingStatus.notDetermined) {
+    if (allowInitialRequest &&
+        (await firstStartup) &&
+        status == AppTrackingStatus.notDetermined) {
       try {
         status = await _tracking.requestAuthorization();
       } on Object {
@@ -65,6 +96,14 @@ class AppAttributionCoordinator {
       }
     }
     await _updateAttribution(status);
+  }
+
+  Future<bool> _claimFirstStartup() async {
+    try {
+      return await _startupStorage.claimFirstStartup();
+    } on Object {
+      return false;
+    }
   }
 
   Future<void> refreshWithoutPrompt() async {
