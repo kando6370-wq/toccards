@@ -592,7 +592,7 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button onClick={reload}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} scroll={{ x: 1250 }} />
       <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
     </section>
-    <Drawer title="通知消息详情" width="55%" open={detail !== null} onClose={() => setDetail(null)}>{detail && <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Drawer className="notification-detail-drawer" title="通知消息详情" width="55%" open={detail !== null} onClose={() => setDetail(null)}>{detail && <Space direction="vertical" size="large" style={{ width: "100%" }}>
       <InfoGrid items={[
         { label: "UID", value: notificationValue(detail.uids) },
         { label: "原始交易 ID", value: notificationValue(detail.original_transaction_id) },

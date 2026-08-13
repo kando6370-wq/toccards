@@ -91,6 +91,36 @@ describe("Admin billing order contract", () => {
     expect(JSON.stringify(success)).not.toContain("signed.success.jws");
   });
 
+  it("filters and paginates notification inbox records without dropping failed deliveries", async () => {
+    const filtered = await (await get(
+      "/admin/apple-notifications?uid=100001&original_transaction_id=original-1&order_id=transaction-1"
+        + "&environment=Sandbox&notification_type=DID_RENEW&created_from=2026-08-12T10:59:00.000Z"
+        + "&created_to=2026-08-12T11:01:00.000Z",
+    )).json() as any;
+    expect(filtered.data.total).toBe(1);
+    expect(filtered.data.items[0]).toMatchObject({
+      detail_id: "notification-1",
+      notification_type: "DID_RENEW",
+      original_transaction_id: "original-1",
+      transaction_id: "transaction-1",
+      uids: "100001",
+    });
+
+    const firstPage = await (await get("/admin/apple-notifications?page=1&page_size=1")).json() as any;
+    const secondPage = await (await get("/admin/apple-notifications?page=2&page_size=1")).json() as any;
+    expect(firstPage.data).toMatchObject({ total: 2, page: 1, page_size: 1 });
+    expect(secondPage.data).toMatchObject({ total: 2, page: 2, page_size: 1 });
+    expect(firstPage.data.items[0].processing_status).toBe("verification_failed");
+    expect(secondPage.data.items[0].processing_status).toBe("processed");
+  });
+
+  it("rejects invalid notification date ranges instead of silently changing their meaning", async () => {
+    expect((await get("/admin/apple-notifications?created_from=invalid")).status).toBe(422);
+    expect((await get(
+      "/admin/apple-notifications?created_from=2026-08-13T00:00:00.000Z&created_to=2026-08-12T00:00:00.000Z",
+    )).status).toBe(422);
+  });
+
   it("shows future Apple notification types and decoded fields without a product dictionary update", async () => {
     await db.batch([
       db.prepare(`INSERT INTO apple_notification_inbox VALUES

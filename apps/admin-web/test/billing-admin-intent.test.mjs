@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const app = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+const styles = await readFile(new URL("../src/App.css", import.meta.url), "utf8");
 const routes = await readFile(new URL("../../workers-api/src/admin/routes.ts", import.meta.url), "utf8");
 const migration = await readFile(new URL("../../workers-api/src/db/migrations/0025_billing_admin.sql", import.meta.url), "utf8");
 const orderFactsMigration = await readFile(new URL("../../workers-api/src/db/migrations/0032_billing_order_facts.sql", import.meta.url), "utf8");
@@ -48,6 +49,8 @@ test("Apple notification payload stays out of list responses and is copied only 
   assert.match(app, /<ScanFilterField label="创建时间（UTC\+0）"><DatePicker\.RangePicker key=\{dateKey\} showTime/);
   assert.match(app, /<Title level=\{4\}>通知消息列表<\/Title>/);
   assert.match(app, /<Title level=\{4\}>通知消息列表<\/Title><Button onClick=\{reload\}>刷新<\/Button>/);
+  assert.match(app, /<Drawer className="notification-detail-drawer" title="通知消息详情" width="55%"/);
+  assert.match(styles, /\.notification-detail-drawer \.info-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s);
   assert.match(app, /const notificationValue = \(value: unknown\).*\? "--"/);
   assert.match(app, /async function openDetail\(id: string\).*\/apple-notifications\/\$\{id\}/s);
   assert.match(app, /onClick=\{\(\) => openDetail\(row\.detail_id\)\}>查看详情/);

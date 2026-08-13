@@ -634,7 +634,8 @@ body {
   padding-left: 10px;
 }
 
-.scan-detail-drawer .info-grid {
+.scan-detail-drawer .info-grid,
+.notification-detail-drawer .info-grid {
   background: #f7fafb;
   border: 1px solid #dce5eb;
   border-radius: 6px;
@@ -644,12 +645,14 @@ body {
   padding: 16px;
 }
 
-.scan-detail-drawer .info-item {
+.scan-detail-drawer .info-item,
+.notification-detail-drawer .info-item {
   display: grid;
   gap: 4px;
 }
 
-.scan-detail-drawer .info-item strong {
+.scan-detail-drawer .info-item strong,
+.notification-detail-drawer .info-item strong {
   color: #17212b;
   font-weight: 700;
 }
