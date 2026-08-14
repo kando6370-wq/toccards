@@ -2046,7 +2046,8 @@ class _ScanCameraView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topInset = MediaQuery.paddingOf(context).top + 10;
+    final safeTop = MediaQuery.paddingOf(context).top;
+    final topInset = safeTop + 10;
     return Stack(
       children: [
         if (cameraPreview != null)
@@ -2085,45 +2086,10 @@ class _ScanCameraView extends StatelessWidget {
           top: 0,
           left: 0,
           right: 0,
-          height: topInset,
+          height: safeTop,
           child: const ColoredBox(
             key: Key('scan-figma-top-safe-band'),
             color: Color(0xFF10100B),
-          ),
-        ),
-        Positioned(
-          key: const Key('scan-figma-top-controls'),
-          top: topInset,
-          left: 8,
-          right: 8,
-          child: _FigmaRevealEntrance(
-            animation: revealAnimation,
-            active: revealing,
-            opacityStart: 0,
-            opacityEnd: 0.26146,
-            translateStart: 0,
-            translateEnd: 0.39219,
-            initialOffsetY: -40,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ScanTopBar(
-                  onClosePressed: onClosePressed,
-                  onFlashPressed: onFlashPressed,
-                  flashEnabled: flashEnabled,
-                  onSearchPressed: onSearchPressed,
-                ),
-                const SizedBox(height: 2),
-                const _AlignCardPill(),
-                if (remainingScans != null) ...[
-                  const SizedBox(height: 6),
-                  _ScanQuotaPill(
-                    remainingScans: remainingScans!,
-                    onPressed: onUpgradePressed,
-                  ),
-                ],
-              ],
-            ),
           ),
         ),
         Positioned(
@@ -2190,6 +2156,41 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ),
+        Positioned(
+          key: const Key('scan-figma-top-controls'),
+          top: topInset,
+          left: 8,
+          right: 8,
+          child: _FigmaRevealEntrance(
+            animation: revealAnimation,
+            active: revealing,
+            opacityStart: 0,
+            opacityEnd: 0.26146,
+            translateStart: 0,
+            translateEnd: 0.39219,
+            initialOffsetY: -40,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ScanTopBar(
+                  onClosePressed: onClosePressed,
+                  onFlashPressed: onFlashPressed,
+                  flashEnabled: flashEnabled,
+                  onSearchPressed: onSearchPressed,
+                ),
+                const SizedBox(height: 2),
+                const _AlignCardPill(),
+                if (remainingScans != null) ...[
+                  const SizedBox(height: 6),
+                  _ScanQuotaPill(
+                    remainingScans: remainingScans!,
+                    onPressed: onUpgradePressed,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -2211,17 +2212,24 @@ class _ScanTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 42,
+      key: const Key('scan-figma-top-bar'),
+      height: 32,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Align(
             alignment: Alignment.centerLeft,
             child: IconButton(
+              key: const Key('scan-figma-close-button'),
               tooltip: 'Close Scan',
               onPressed: onClosePressed,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
               padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(30, 30),
+                maximumSize: const Size(30, 30),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               icon: SvgPicture.asset(
                 'assets/scan/close.svg',
                 key: const Key('scan-figma-close-icon'),
@@ -2231,11 +2239,15 @@ class _ScanTopBar extends StatelessWidget {
             ),
           ),
           IconButton(
+            key: const Key('scan-figma-flash-button'),
             tooltip: flashEnabled ? 'Turn flash off' : 'Turn flash on',
             onPressed: onFlashPressed,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints.tightFor(width: 25, height: 25),
             style: IconButton.styleFrom(
+              minimumSize: const Size(25, 25),
+              maximumSize: const Size(25, 25),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               backgroundColor: flashEnabled
                   ? const Color(0xFFF0FE6F)
                   : const Color(0xFF222222).withValues(alpha: 0.82),
@@ -2256,10 +2268,16 @@ class _ScanTopBar extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: IconButton(
+              key: const Key('scan-figma-search-button'),
               tooltip: 'Search Cards',
               onPressed: onSearchPressed,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
               padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(30, 30),
+                maximumSize: const Size(30, 30),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               icon: SvgPicture.asset(
                 'assets/scan/search.svg',
                 key: const Key('scan-figma-search-icon'),
@@ -2326,64 +2344,89 @@ class _ScanQuotaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    return DecoratedBox(
       key: const Key('scan-free-quota-pill'),
-      color: const Color(0xEB222222),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onPressed,
+      decoration: BoxDecoration(
+        color: const Color(0xFF222222),
         borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          height: 44,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x40000000),
+            offset: Offset(0, 23.585),
+            blurRadius: 23.585,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 9),
+            padding: const EdgeInsets.all(8),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(9),
-                    border: Border.all(color: KandoColors.borderFocus),
-                    color: KandoColors.accentGlow10,
-                  ),
-                  child: const Text(
-                    'PRO',
-                    style: TextStyle(
-                      color: KandoColors.accent,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                    ),
+                SizedBox.square(
+                  key: const Key('scan-free-quota-pro-badge'),
+                  dimension: 24,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/scan/pro_badge.svg',
+                        width: 24,
+                        height: 24,
+                      ),
+                      const Text(
+                        'PRO',
+                        style: TextStyle(
+                          color: KandoColors.elevatedSurface,
+                          fontFamily: 'Fraunces',
+                          fontSize: 7,
+                          fontWeight: FontWeight.w600,
+                          height: 20 / 7,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$remainingScans scans remaining',
-                      style: const TextStyle(
-                        color: KandoColors.text,
-                        fontSize: 11,
+                SizedBox(
+                  key: const Key('scan-free-quota-copy'),
+                  width: 161,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$remainingScans scans remaining',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFFE4E3D3),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 16 / 13,
+                          letterSpacing: 0,
+                        ),
                       ),
-                    ),
-                    const Text(
-                      'Tap to get unlimited scans',
-                      style: TextStyle(
-                        color: KandoColors.mutedText,
-                        fontSize: 9,
+                      const Text(
+                        'Tap to get unlimited scans',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Color(0xFFE4E3D3),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 16 / 13,
+                          letterSpacing: 0,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.arrow_upward_rounded,
-                  color: KandoColors.accent,
-                  size: 18,
+                    ],
+                  ),
                 ),
               ],
             ),

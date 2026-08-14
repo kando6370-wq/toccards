@@ -129,6 +129,29 @@ void main() {
   );
 
   testWidgets(
+    'the quota prompt stays tappable where it overlaps the viewfinder',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 62);
+      addTearDown(tester.view.reset);
+      await _pumpScanTestApp(tester);
+
+      final quotaPrompt = tester.getRect(
+        find.byKey(const Key('scan-free-quota-pill')),
+      );
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      expect(quotaPrompt.bottom, greaterThan(viewfinder.top));
+
+      await tester.tapAt(Offset(quotaPrompt.center.dx, quotaPrompt.bottom - 2));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Subscription'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'a completed free scan consumes one allowance so the displayed limit stays truthful',
     (tester) async {
       await _pumpScanTestApp(tester);
@@ -395,6 +418,7 @@ void main() {
       'assets/scan/align.svg',
       'assets/scan/gallery.svg',
       'assets/scan/done.svg',
+      'assets/scan/pro_badge.svg',
     ];
 
     for (final asset in iconAssets) {
@@ -1404,11 +1428,76 @@ void main() {
       final topControls = tester.getRect(
         find.byKey(const Key('scan-figma-top-controls')),
       );
+      final topBar = tester.getRect(
+        find.byKey(const Key('scan-figma-top-bar')),
+      );
+      final closeButton = tester.getRect(
+        find.byKey(const Key('scan-figma-close-button')),
+      );
+      final flashButton = tester.getRect(
+        find.byKey(const Key('scan-figma-flash-button')),
+      );
+      final searchButton = tester.getRect(
+        find.byKey(const Key('scan-figma-search-button')),
+      );
+      final quotaPillFinder = find.byKey(const Key('scan-free-quota-pill'));
+      final quotaPill = tester.getRect(quotaPillFinder);
+      final quotaBadge = tester.getRect(
+        find.byKey(const Key('scan-free-quota-pro-badge')),
+      );
+      final quotaCopy = tester.getRect(
+        find.byKey(const Key('scan-free-quota-copy')),
+      );
       final safeTop = MediaQuery.paddingOf(
         tester.element(find.byType(ScanPage)),
       ).top;
-      expect(topBand.height, safeTop + 10);
-      expect(topControls.top, topBand.bottom);
+      expect(topBand.height, safeTop);
+      expect(topControls.top, topBand.bottom + 10);
+      expect(topBar.height, 32);
+      expect(closeButton.size, const Size(30, 30));
+      expect(flashButton.size, const Size(25, 25));
+      expect(searchButton.size, const Size(30, 30));
+      expect(closeButton.center.dy, topBar.center.dy);
+      expect(flashButton.center.dy, topBar.center.dy);
+      expect(searchButton.center.dy, topBar.center.dy);
+      expect(quotaPill.height, 48);
+      expect(quotaPill.width, 209);
+      expect(quotaBadge.size, const Size(24, 24));
+      expect(quotaBadge.left, quotaPill.left + 8);
+      expect(quotaBadge.center.dy, quotaPill.center.dy);
+      expect(quotaCopy.left, quotaBadge.right + 8);
+      expect(quotaCopy.width, 161);
+      expect(quotaCopy.height, 32);
+      expect(quotaCopy.right, quotaPill.right - 8);
+      final quotaDecoration =
+          tester.widget<DecoratedBox>(quotaPillFinder).decoration
+              as BoxDecoration;
+      expect(quotaDecoration.color, const Color(0xFF222222));
+      expect(quotaDecoration.borderRadius, BorderRadius.circular(12));
+      expect(quotaDecoration.boxShadow, const [
+        BoxShadow(
+          color: Color(0x40000000),
+          offset: Offset(0, 23.585),
+          blurRadius: 23.585,
+        ),
+      ]);
+      final quotaTitle = tester.widget<Text>(find.text('10 scans remaining'));
+      final quotaSubtitle = tester.widget<Text>(
+        find.text('Tap to get unlimited scans'),
+      );
+      for (final text in [quotaTitle, quotaSubtitle]) {
+        expect(text.style?.color, const Color(0xFFE4E3D3));
+        expect(text.style?.fontSize, 13);
+        expect(text.style?.height, 16 / 13);
+        expect(text.style?.letterSpacing, 0);
+      }
+      expect(
+        find.descendant(
+          of: quotaPillFinder,
+          matching: find.byIcon(Icons.arrow_upward_rounded),
+        ),
+        findsNothing,
+      );
     },
   );
 
