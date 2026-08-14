@@ -36,6 +36,7 @@ iOS 内部测试包允许不注入 Singular Key，SDK 会按既有非阻断规�
 ## 架构调研
 
 - [`database-migration-research.md`](database-migration-research.md)：D1 全量迁移的 PostgreSQL 与云服务商选型、Cloudflare 适配、成本比较及采购建议。
+- [`price-history-database-capacity-analysis.md`](price-history-database-capacity-analysis.md)：面向技术决策评审，按年末中心约 924.81 万个 365 天历史 JSON、约 135.03 GB 原始内容评估 PostgreSQL 查询/写入/存储，比较月度 JSON、逐日行、时序与列式方案，并审查当前业务和表结构。
 
 ## 按需创建
 
