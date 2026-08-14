@@ -120,11 +120,6 @@ class _HomePageState extends ConsumerState<HomePage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Align(
-                    alignment: Alignment.centerRight,
-                    child: PremiumTopEntry(source: 'home'),
-                  ),
-                  const SizedBox(height: 8),
                   _Header(
                     currencyCode: state.currencyCode,
                     currencySymbol: state.currency.symbol,
@@ -467,36 +462,11 @@ class _Header extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            width: 222,
-            height: 42,
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: const Color(0x1FFFFFFF),
-              borderRadius: BorderRadius.circular(21),
-              border: Border.all(color: const Color(0x99F0FE6F)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _HomeModeSegment(
-                    key: const Key('home-overview-tab'),
-                    selected: !performanceSelected,
-                    label: 'Overview',
-                    iconAsset: 'assets/home/overview.svg',
-                    onTap: onOverviewPressed,
-                  ),
-                ),
-                Expanded(
-                  child: _HomeModeSegment(
-                    key: const Key('home-performance-tab'),
-                    selected: performanceSelected,
-                    label: 'Performance',
-                    icon: Icons.workspace_premium_outlined,
-                    onTap: onPerformancePressed,
-                  ),
-                ),
-              ],
+          Flexible(
+            child: _HomeModeTabs(
+              performanceSelected: performanceSelected,
+              onOverviewPressed: onOverviewPressed,
+              onPerformancePressed: onPerformancePressed,
             ),
           ),
           SizedBox(
@@ -598,58 +568,114 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _HomeModeTabs extends StatelessWidget {
+  const _HomeModeTabs({
+    required this.performanceSelected,
+    required this.onOverviewPressed,
+    required this.onPerformancePressed,
+  });
+
+  final bool performanceSelected;
+  final VoidCallback onOverviewPressed;
+  final VoidCallback onPerformancePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desiredOverviewWidth = performanceSelected ? 69.0 : 92.0;
+        final desiredPerformanceWidth = performanceSelected ? 115.0 : 92.0;
+        const desiredTabsWidth = 194.0;
+        final availableTabsWidth = (constraints.maxWidth - 40).clamp(
+          0.0,
+          desiredTabsWidth,
+        );
+        final widthScale = availableTabsWidth / desiredTabsWidth;
+
+        return Row(
+          children: [
+            Container(
+              key: const Key('home-mode-tabs'),
+              width: availableTabsWidth,
+              height: 42,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(9999),
+                border: Border.all(color: KandoColors.borderFocus),
+              ),
+              child: Row(
+                children: [
+                  _HomeModeSegment(
+                    key: const Key('home-overview-tab'),
+                    width: desiredOverviewWidth * widthScale,
+                    selected: !performanceSelected,
+                    label: 'Overview',
+                    onTap: onOverviewPressed,
+                  ),
+                  _HomeModeSegment(
+                    key: const Key('home-performance-tab'),
+                    width: desiredPerformanceWidth * widthScale,
+                    selected: performanceSelected,
+                    label: 'Performance',
+                    onTap: onPerformancePressed,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const PremiumTopEntry(source: 'home'),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _HomeModeSegment extends StatelessWidget {
   const _HomeModeSegment({
     super.key,
+    required this.width,
     required this.selected,
     required this.label,
     required this.onTap,
-    this.icon,
-    this.iconAsset,
   });
 
+  final double width;
   final bool selected;
   final String label;
   final VoidCallback onTap;
-  final IconData? icon;
-  final String? iconAsset;
 
   @override
   Widget build(BuildContext context) {
     final foreground = selected
         ? KandoColors.primaryOnDefault
-        : KandoColors.mutedText;
+        : const Color(0xFF615D3B);
     return Material(
       color: selected ? KandoColors.accent : Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(9999),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (iconAsset != null)
-              SvgPicture.asset(
-                key: const Key('home-overview-icon'),
-                iconAsset!,
-                width: 14,
-                height: 14,
-                colorFilter: ColorFilter.mode(foreground, BlendMode.srcIn),
-              )
-            else
-              Icon(icon, size: 14, color: foreground),
-            const SizedBox(width: 4),
-            Flexible(
+        borderRadius: BorderRadius.circular(9999),
+        child: SizedBox(
+          width: width,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: selected ? 9 : 8),
+            child: Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
                   label,
                   maxLines: 1,
-                  style: TextStyle(color: foreground, fontSize: 14),
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: selected ? 16 : 12,
+                    fontWeight: FontWeight.w400,
+                    height: selected ? 24 / 16 : 16 / 12,
+                  ),
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

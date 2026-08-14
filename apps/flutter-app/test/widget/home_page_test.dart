@@ -186,6 +186,32 @@ void main() {
     await tester.pumpWidget(_mockHomeApp());
 
     expect(find.text('Overview'), findsOneWidget);
+    final modeTabs = find.byKey(const Key('home-mode-tabs'));
+    final premiumEntry = find.byKey(const Key('home-premium-top-entry'));
+    expect(tester.getSize(modeTabs).height, 42);
+    expect(tester.getSize(modeTabs).width, 194);
+    expect(tester.getSize(premiumEntry), const Size(32, 32));
+    expect(
+      tester.getRect(premiumEntry).left - tester.getRect(modeTabs).right,
+      8,
+    );
+    final modeTabsRect = tester.getRect(modeTabs);
+    final premiumEntryRect = tester.getRect(premiumEntry);
+    await tester.tap(find.text('Performance'));
+    await tester.pump();
+    expect(tester.getRect(modeTabs), modeTabsRect);
+    expect(tester.getRect(premiumEntry), premiumEntryRect);
+    await tester.tap(find.text('Overview'));
+    await tester.pump();
+    expect(tester.widget<Text>(find.text('Overview')).style?.fontSize, 16);
+    expect(tester.widget<Text>(find.text('Overview')).style?.height, 24 / 16);
+    expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 12);
+    expect(
+      tester.widget<Text>(find.text('Performance')).style?.height,
+      16 / 12,
+    );
+    expect(find.byKey(const Key('home-overview-icon')), findsNothing);
+    expect(find.byIcon(Icons.workspace_premium_outlined), findsNothing);
     expect(find.text('PORTFOLIO'), findsOneWidget);
     expect(find.byKey(const Key('home-pull-to-refresh')), findsOneWidget);
     expect(find.text('PORTDOLIO'), findsNothing);
@@ -226,6 +252,11 @@ void main() {
     expect(find.text('Trending Today'), findsOneWidget);
     expect(find.text('Ragavan, Nimble Pilferer'), findsOneWidget);
     expect(find.text('+12.34%'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('home-performance-tab')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.text('Overview')).style?.fontSize, 12);
+    expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 16);
   });
 
   testWidgets(
@@ -501,26 +532,18 @@ void main() {
     );
   });
 
-  testWidgets(
-    'Overview uses the Figma SVG icon and compact inverse segment label',
-    (tester) async {
-      await tester.pumpWidget(_mockHomeApp());
+  testWidgets('Home mode tabs use the Figma text-only states', (tester) async {
+    await tester.pumpWidget(_mockHomeApp());
 
-      final overview = tester.widget<Text>(find.text('Overview'));
-      expect(overview.style?.fontSize, 14);
-      expect(overview.style?.color, KandoColors.primaryOnDefault);
-
-      final icon = tester.widget<SvgPicture>(
-        find.byKey(const Key('home-overview-icon')),
-      );
-      expect(icon.width, 14);
-      expect(icon.height, 14);
-      expect(
-        (icon.bytesLoader as SvgAssetLoader).assetName,
-        'assets/home/overview.svg',
-      );
-    },
-  );
+    final overview = tester.widget<Text>(find.text('Overview'));
+    final performance = tester.widget<Text>(find.text('Performance'));
+    expect(overview.style?.fontSize, 16);
+    expect(overview.style?.color, KandoColors.primaryOnDefault);
+    expect(performance.style?.fontSize, 12);
+    expect(performance.style?.color, const Color(0xFF615D3B));
+    expect(find.byKey(const Key('home-overview-icon')), findsNothing);
+    expect(find.byIcon(Icons.workspace_premium_outlined), findsNothing);
+  });
 
   testWidgets('Home View all links use 16px text', (tester) async {
     await tester.pumpWidget(_mockHomeApp());

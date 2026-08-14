@@ -72,6 +72,10 @@ void main() {
 
       expect(find.byKey(const Key('search-premium-top-entry')), findsOneWidget);
       expect(find.byTooltip('View Premium plans'), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const Key('search-premium-top-entry'))),
+        const Size(32, 32),
+      );
       await tester.tap(find.byKey(const Key('search-premium-top-entry')));
       await tester.pumpAndSettle();
       expect(find.textContaining('source=search'), findsOneWidget);

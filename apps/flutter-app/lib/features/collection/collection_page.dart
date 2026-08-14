@@ -185,8 +185,9 @@ class _SegmentedTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 52,
-      padding: const EdgeInsets.all(5),
+      key: const Key('collection-segmented-tabs'),
+      height: 44,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: KandoColors.surface,
         borderRadius: BorderRadius.circular(999),
@@ -255,34 +256,53 @@ class _SearchField extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       borderSide: const BorderSide(color: KandoColors.border),
     );
-    return TextField(
-      key: fieldKey,
-      onChanged: onChanged,
-      style: const TextStyle(color: KandoColors.text, fontSize: 15),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: KandoColors.surface,
-        prefixIcon: const Icon(
-          Icons.search,
-          color: KandoColors.mutedText,
-          size: 20,
-        ),
-        hintText: 'Search cards',
-        hintStyle: const TextStyle(color: KandoColors.mutedText, fontSize: 15),
-        suffixIcon: IconButton(
-          key: const Key('collection-filter-button'),
-          onPressed: onFilterPressed,
-          icon: const Icon(Icons.tune, color: KandoColors.mutedText, size: 20),
-        ),
-        border: base,
-        enabledBorder: base,
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: KandoColors.accent),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+    return SizedBox(
+      key: const Key('collection-search-field'),
+      height: 44,
+      child: TextField(
+        key: fieldKey,
+        onChanged: onChanged,
+        style: const TextStyle(color: KandoColors.text, fontSize: 15),
+        decoration: InputDecoration(
+          isDense: true,
+          filled: true,
+          fillColor: KandoColors.surface,
+          prefixIcon: const Icon(
+            Icons.search,
+            color: KandoColors.mutedText,
+            size: 20,
+          ),
+          prefixIconConstraints: const BoxConstraints.tightFor(
+            width: 44,
+            height: 44,
+          ),
+          hintText: 'Search cards',
+          hintStyle: const TextStyle(
+            color: KandoColors.mutedText,
+            fontSize: 15,
+          ),
+          suffixIcon: IconButton(
+            key: const Key('collection-filter-button'),
+            onPressed: onFilterPressed,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            icon: const Icon(
+              Icons.tune,
+              color: KandoColors.mutedText,
+              size: 20,
+            ),
+          ),
+          suffixIconConstraints: const BoxConstraints.tightFor(
+            width: 44,
+            height: 44,
+          ),
+          border: base,
+          enabledBorder: base,
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: KandoColors.accent),
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
     );
@@ -306,89 +326,127 @@ class _PortfolioSummaryCard extends StatelessWidget {
     return Container(
       key: const Key('collection-portfolio-summary'),
       width: double.infinity,
-      height: 142,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
+      height: 110,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            KandoColors.accent.withValues(alpha: 0.10),
-            KandoColors.surface.withValues(alpha: 0.30),
+            Color.fromRGBO(116, 123, 38, 0.12),
+            Color.fromRGBO(20, 21, 6, 0.04),
           ],
         ),
-        color: KandoColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: KandoColors.accent.withValues(alpha: 0.20)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'PORTFOLIO',
-                  style: TextStyle(
-                    fontSize: 13,
-                    letterSpacing: 0.6,
-                    color: KandoColors.mutedText,
+          Positioned(
+            top: -48,
+            right: -48,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [KandoColors.accentGlow10, Color(0x00F0FE6F)],
+                ),
+              ),
+              child: const SizedBox.square(dimension: 128),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'PORTFOLIO',
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 20 / 14,
+                          letterSpacing: 0.2,
+                          color: Color(0xFF92927D),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 40,
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                summary.totalValueText,
+                                key: const Key('collection-portfolio-total'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  height: 40 / 24,
+                                  fontWeight: FontWeight.w600,
+                                  color: KandoColors.accent,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            _HideAmountButton(
+                              hidden: state.amountHidden,
+                              onPressed: onHidePressed,
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        height: 16,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            children: [
+                              Text(
+                                '${summary.cardCount} cards',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 16 / 13,
+                                  color: KandoColors.mutedText,
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  '•',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 16 / 13,
+                                    color: KandoColors.mutedText,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${summary.gradedCount} graded',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 16 / 13,
+                                  color: KandoColors.mutedText,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              _FolderButton(
-                name: state.selectedFolder.name,
-                onPressed: onFolderPressed,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  summary.totalValueText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w700,
-                    color: KandoColors.accent,
-                  ),
+                const SizedBox(width: 12),
+                _FolderButton(
+                  name: state.selectedFolder.name,
+                  onPressed: onFolderPressed,
                 ),
-              ),
-              const SizedBox(width: 10),
-              _HideAmountButton(
-                hidden: state.amountHidden,
-                onPressed: onHidePressed,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                '${summary.cardCount} cards',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: KandoColors.mutedText,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  '•',
-                  style: TextStyle(color: KandoColors.mutedText),
-                ),
-              ),
-              Text(
-                '${summary.gradedCount} graded',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: KandoColors.mutedText,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -408,7 +466,10 @@ class _FolderButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onPressed,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        key: const Key('collection-folder-button'),
+        height: 24,
+        constraints: const BoxConstraints(maxWidth: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: KandoColors.accent.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
@@ -423,16 +484,21 @@ class _FolderButton extends StatelessWidget {
             SvgPicture.asset(
               'assets/home/folder_switch.svg',
               key: const Key('collection-folder-switch-icon'),
-              width: 10.5,
-              height: 8.24644,
+              width: 12,
+              height: 12,
             ),
             const SizedBox(width: 4),
-            Text(
-              name,
-              style: const TextStyle(
-                fontSize: 15,
-                color: KandoColors.accent,
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 24 / 14,
+                  color: KandoColors.accent,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
             ),
           ],
@@ -450,17 +516,33 @@ class _HideAmountButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      key: const Key('collection-hide-amount'),
-      onPressed: onPressed,
-      tooltip: hidden ? 'Show portfolio amount' : 'Hide portfolio amount',
-      padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      icon: Icon(
-        hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-        size: 18,
-        color: KandoColors.mutedText,
+    final tooltip = hidden ? 'Show portfolio amount' : 'Hide portfolio amount';
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: Container(
+            key: const Key('collection-hide-amount'),
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: KandoColors.border),
+            ),
+            child: Icon(
+              hidden
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              size: 13.333,
+              color: KandoColors.mutedText,
+            ),
+          ),
+        ),
       ),
     );
   }

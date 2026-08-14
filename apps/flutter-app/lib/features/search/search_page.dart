@@ -204,7 +204,7 @@ class _SearchControlsHeader extends StatelessWidget {
         child: Column(
           children: [
             SizedBox(
-              height: 48,
+              height: 44,
               child: _DebouncedSearchField(
                 key: ValueKey('search-field-${state.selectedTab}'),
                 searchText: state.searchText,
@@ -231,7 +231,7 @@ class _SearchControlsHeader extends StatelessWidget {
 class _SearchControlsHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _SearchControlsHeaderDelegate({required this.child});
 
-  static const extent = 196.0;
+  static const extent = 176.0;
   final Widget child;
 
   @override
@@ -341,7 +341,7 @@ class _DebouncedSearchFieldState extends State<_DebouncedSearchField> {
         hintText: 'Search cards, sets, or characters',
         hintStyle: const TextStyle(fontSize: 15, color: KandoColors.mutedText),
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
         filled: true,
         fillColor: KandoColors.surface,
         prefixIcon: const Icon(
@@ -395,7 +395,7 @@ class _GameSelectorField extends StatelessWidget {
         onTap: onPressed,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          height: 52,
+          height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
@@ -440,8 +440,8 @@ class _SearchTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: const Key('search-tabs'),
-      height: 52,
-      padding: const EdgeInsets.all(5),
+      height: 44,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: KandoColors.surface,
         borderRadius: BorderRadius.circular(999),
@@ -492,7 +492,7 @@ class _SearchTabButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         child: Container(
           alignment: Alignment.center,
-          height: 42,
+          height: 34,
           child: Text(
             label,
             style: TextStyle(

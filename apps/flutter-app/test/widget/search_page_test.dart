@@ -61,6 +61,12 @@ void main() {
     expect(find.text(r'$32.13'), findsOneWidget);
     expect(find.text('+4.76%'), findsOneWidget);
     expect(find.text('+8.10%'), findsOneWidget);
+    expect(tester.getSize(find.byKey(const Key('search-field'))).height, 44);
+    expect(
+      tester.getSize(find.byKey(const Key('search-game-selector'))).height,
+      44,
+    );
+    expect(tester.getSize(find.byKey(const Key('search-tabs'))).height, 44);
     expect(
       tester.getRect(find.byKey(const Key('search-results-grid'))).left,
       tester.getRect(find.byKey(const Key('search-field'))).left,

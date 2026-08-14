@@ -124,6 +124,35 @@ void main() {
     expect(find.text(r'$1,245.00'), findsOneWidget);
     expect(find.text('4 cards'), findsOneWidget);
     expect(find.text('2 graded'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('collection-segmented-tabs'))).height,
+      44,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('collection-search-field'))).height,
+      44,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('collection-portfolio-summary')))
+          .height,
+      110,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('collection-folder-button'))).height,
+      24,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('collection-hide-amount'))).height,
+      24,
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('collection-portfolio-total')))
+          .style
+          ?.fontSize,
+      24,
+    );
     expect(find.text('Charizard ex'), findsOneWidget);
     expect(find.text('Pokemon · Obsidian Flames'), findsOneWidget);
     expect(find.text('Special Illustration Rare · 223'), findsOneWidget);

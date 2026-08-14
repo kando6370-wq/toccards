@@ -123,18 +123,39 @@ class PremiumTopEntry extends ConsumerWidget {
       );
     }
 
-    return SizedBox.square(
-      dimension: 42,
-      child: IconButton(
-        key: Key('$source-premium-top-entry'),
-        tooltip: 'View Premium plans',
-        style: IconButton.styleFrom(
-          backgroundColor: KandoColors.accentGlow10,
-          foregroundColor: KandoColors.accent,
-          side: const BorderSide(color: KandoColors.borderFocus),
+    return Tooltip(
+      message: 'View Premium plans',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(9999),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: Key('$source-premium-top-entry'),
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(9999),
+              child: Ink(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(9999),
+                  border: Border.all(
+                    color: KandoColors.borderFocus,
+                    width: 0.5,
+                  ),
+                ),
+                child: Center(
+                  child: SvgPicture.asset(
+                    'assets/profile/premium_crown.svg',
+                    width: 16,
+                    height: 16,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
-        onPressed: onPressed,
-        icon: const Icon(Icons.workspace_premium_outlined, size: 22),
       ),
     );
   }
