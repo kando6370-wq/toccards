@@ -15,7 +15,7 @@ pnpm app:chrome:prod
 Build a TestFlight package against test services with:
 
 ```bash
-flutter build ipa --release --dart-define-from-file=config/test.json
+flutter build ipa --release --flavor=test --dart-define-from-file=config/test.json
 ```
 
 Build an App Store package against production services with:
@@ -25,6 +25,24 @@ flutter build ipa --release --dart-define-from-file=config/production.json
 ```
 
 Run these `flutter build` commands from `apps/flutter-app`.
+
+The iOS test flavor uses Bundle ID `com.kando.kandoApp.beta` and the Firebase
+configuration in `ios/Runner/Firebase/test`. Production keeps
+`com.cardai.tcg` and its separate Firebase configuration.
+
+## iOS simulator
+
+Google ML Kit's iOS binaries do not support arm64 simulators. Run the test
+environment with the simulator wrapper so local card-number OCR is disabled and
+the scan request falls back to server recognition:
+
+```bash
+./tool/run_ios_simulator.sh -d <simulator-udid>
+```
+
+This override only applies to that simulator process. iOS device, release, and
+Android builds continue to include ML Kit. When the simulator process exits,
+the wrapper restores the standard device Pods automatically.
 
 ## iOS release script
 
@@ -38,6 +56,9 @@ From `apps/flutter-app`, build and validate a clean production App Store IPA:
 The script increments the current build number automatically. Installation and
 upload are opt-in. Production is the default environment; use `--env
 test` to select the test API, Xcode scheme, and Firebase configuration:
+
+Internal test builds may omit Singular keys. Production builds still require
+`SINGULAR_API_KEY` and `SINGULAR_SECRET_KEY` through the selected release JSON.
 
 ```bash
 # 构建并验证测试环境的 IPA（不安装、不上传）

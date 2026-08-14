@@ -18,6 +18,12 @@
 
 Portfolio 写请求已统一 15 秒 Deadline，并为 Create Folder、Quick Collect、完整 Add Collection Item 和 Add Wishlist 建立客户端超时重试与服务端结果重放闭环；该代码闭环不替代真实弱网与多设备发布验收。
 
+iOS arm64 模拟器使用 `apps/flutter-app/tool/run_ios_simulator.sh` 启动测试环境。该路径以 Stub Pods 替代不支持 arm64 模拟器的 Google ML Kit iOS 二进制，并通过 Dart 编译参数关闭本地卡号 OCR；扫描仍回退到服务端识别。脚本退出时自动恢复标准 iOS Pods；普通 iOS 真机、Release 与 Android 构建不启用该覆盖，继续包含 ML Kit。本地模拟器验证不能替代 iOS 真机 OCR 验收。
+
+iOS 测试 flavor 使用独立 Bundle ID `com.kando.kandoApp.beta` 与 Firebase 测试 App，正式环境继续使用 `com.cardai.tcg`；Google OAuth 仍复用既有 Client ID。test 的三个 Xcode 配置使用 App Attest `development` entitlement，production 的三个配置使用 `production`，并分别与 Workers dev/prod 的 Apple Client ID、App Attest App ID 及验证环境保持一致，避免身份令牌 audience 或 App Attest 验证失败。
+
+iOS 内部测试包允许不注入 Singular Key，SDK 会按既有非阻断规则保持关闭；production 发布仍强制要求 Singular API Key/Secret，不能用测试规则绕过正式归因配置门禁。
+
 ## 当前订阅资料
 
 - [`development-plan.md`](development-plan.md)：基于 PRD、评审结论与当前代码的分阶段开发计划及验收门槛。

@@ -7,7 +7,7 @@ import '../tool/validate_release_config.dart';
 
 void main() {
   test(
-    'release config requires every v1.1 subscription and attribution key',
+    'production release requires every subscription and attribution key',
     () {
       expect(validateReleaseConfig({'APP_ENV': 'production'}, 'production'), [
         'SUBSCRIPTION_APP_STORE_WEEKLY_ID must be a non-empty string.',
@@ -35,6 +35,15 @@ void main() {
 
   test('complete environment-specific release config passes', () {
     expect(validateReleaseConfig(validConfig(), 'production'), isEmpty);
+  });
+
+  test('internal test release permits missing Singular keys', () {
+    final config = validConfig()
+      ..['APP_ENV'] = 'test'
+      ..remove('SINGULAR_API_KEY')
+      ..remove('SINGULAR_SECRET_KEY');
+
+    expect(validateReleaseConfig(config, 'test'), isEmpty);
   });
 
   test('dev Apple products stay isolated from production configuration', () {
@@ -81,6 +90,51 @@ void main() {
         isNot(
           contains('dart run "\$APP_DIR/tool/validate_release_config.dart"'),
         ),
+      );
+    },
+  );
+
+  test(
+    'iOS test builds use the beta bundle and keep the existing Google client',
+    () {
+      final project = File(
+        'ios/Runner.xcodeproj/project.pbxproj',
+      ).readAsStringSync();
+      final firebaseConfig = File(
+        'ios/Runner/Firebase/test/GoogleService-Info.plist',
+      ).readAsStringSync();
+      final oauthAuthorizer = File(
+        'lib/features/auth/oauth_authorizer.dart',
+      ).readAsStringSync();
+      final releaseScript = File('tool/release_ios.sh').readAsStringSync();
+
+      expect(
+        'PRODUCT_BUNDLE_IDENTIFIER = com.kando.kandoApp.beta;'.allMatches(
+          project,
+        ),
+        hasLength(3),
+      );
+      expect(
+        'APP_ATTEST_ENVIRONMENT = development;'.allMatches(project),
+        hasLength(3),
+      );
+      expect(
+        'APP_ATTEST_ENVIRONMENT = production;'.allMatches(project),
+        hasLength(3),
+      );
+      expect(
+        firebaseConfig,
+        contains('<string>com.kando.kandoApp.beta</string>'),
+      );
+      expect(
+        oauthAuthorizer,
+        contains(
+          '1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com',
+        ),
+      );
+      expect(
+        releaseScript,
+        contains('BUNDLE_ID="\${BUNDLE_ID:-com.kando.kandoApp.beta}"'),
       );
     },
   );

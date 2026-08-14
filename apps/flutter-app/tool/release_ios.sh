@@ -13,7 +13,7 @@ APP_STORE_IPA_DIR="$BUILD_ROOT/ipa"
 DEVICE_IPA_DIR="$BUILD_ROOT/device-ipa"
 
 TEAM_ID="${TEAM_ID:-B95U3272HR}"
-BUNDLE_ID="${BUNDLE_ID:-com.cardai.tcg}"
+BUNDLE_ID="${BUNDLE_ID:-}"
 ENVIRONMENT="production"
 ENV_CONFIG=""
 API_BASE_URL=""
@@ -274,9 +274,11 @@ require_command cmp
 case "$ENVIRONMENT" in
   production)
     API_BASE_URL="https://api.tcgcard.fun/api/v1"
+    BUNDLE_ID="${BUNDLE_ID:-com.cardai.tcg}"
     ;;
   test)
     API_BASE_URL="https://api-dev.tcgcard.fun/api/v1"
+    BUNDLE_ID="${BUNDLE_ID:-com.kando.kandoApp.beta}"
     ;;
   *)
     die "Unsupported environment '$ENVIRONMENT'. Use test or production."

@@ -55,8 +55,8 @@ crons = ["*/5 * * * *"]
 
 [env.dev.vars]
 GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com"
-APPLE_CLIENT_ID = "com.cardai.tcg"
-APPLE_APP_ATTEST_APP_ID = "B95U3272HR.com.cardai.tcg"
+APPLE_CLIENT_ID = "com.kando.kandoApp.beta"
+APPLE_APP_ATTEST_APP_ID = "B95U3272HR.com.kando.kandoApp.beta"
 APPLE_APP_ATTEST_DEVELOPMENT = "true"
 APPLE_IAP_PRODUCT_IDS = "cardx.week,cardx.year,cardx.lifetime"
 ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"

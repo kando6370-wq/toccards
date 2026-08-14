@@ -144,9 +144,9 @@ Singular 使用同一份 `--dart-define-from-file` 环境配置注入，不在�
 | Singular API Key | `SINGULAR_API_KEY` |
 | Singular Secret Key | `SINGULAR_SECRET_KEY` |
 
-将两个字段与三个 Product ID 一并写入受控发布 JSON，正式值不得提交仓库。普通开发构建允许缺项并按业务规则降级；`tool/release_ios.sh` 属于正式发布入口，会在构建前强制校验 `APP_ENV`、三个 Product ID、Singular API Key/Secret 均为非空字符串，且三个 Product ID 不重复，缺项时显式终止。
+正式环境将两个字段与三个 Product ID 一并写入受控发布 JSON，正式值不得提交仓库。普通开发构建按业务规则降级；`tool/release_ios.sh` 的 test 内部测试包强制校验 `APP_ENV` 和三个不重复的 Product ID，但允许缺少 Singular Key 并保持归因关闭。production 发布额外强制校验 Singular API Key/Secret，缺项时显式终止，不能沿用 test 的放宽规则。
 
-仓库内 `apps/flutter-app/config/test.json` 记录不敏感的 dev/test Product ID，但仍缺 Singular Key/Secret；`production.json` 仅保留 `APP_ENV`，prod Product ID 与密钥均未配置。发布时通过 `RELEASE_ENV_CONFIG` 指向仓库外的受控文件：
+仓库内 `apps/flutter-app/config/test.json` 记录不敏感的 dev/test Product ID，可直接用于不启用 Singular 的内部测试包；`production.json` 仅保留 `APP_ENV`，prod Product ID 与 Singular 密钥均未配置。production 发布时通过 `RELEASE_ENV_CONFIG` 指向仓库外的受控文件：
 
 ```bash
 RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env production

@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
-const requiredReleaseKeys = <String>[
+const requiredSubscriptionKeys = <String>[
   'SUBSCRIPTION_APP_STORE_WEEKLY_ID',
   'SUBSCRIPTION_APP_STORE_YEARLY_ID',
   'SUBSCRIPTION_APP_STORE_LIFETIME_ID',
+];
+
+const requiredProductionAttributionKeys = <String>[
   'SINGULAR_API_KEY',
   'SINGULAR_SECRET_KEY',
 ];
@@ -17,14 +20,17 @@ List<String> validateReleaseConfig(
   if (config['APP_ENV'] != environment) {
     errors.add('APP_ENV must equal $environment.');
   }
-  for (final key in requiredReleaseKeys) {
+  final requiredKeys = <String>[
+    ...requiredSubscriptionKeys,
+    if (environment == 'production') ...requiredProductionAttributionKeys,
+  ];
+  for (final key in requiredKeys) {
     final value = config[key];
     if (value is! String || value.trim().isEmpty) {
       errors.add('$key must be a non-empty string.');
     }
   }
-  final productIds = requiredReleaseKeys
-      .where((key) => key.startsWith('SUBSCRIPTION_'))
+  final productIds = requiredSubscriptionKeys
       .map((key) => config[key])
       .whereType<String>()
       .map((value) => value.trim())
