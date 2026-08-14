@@ -1850,6 +1850,11 @@ void main() {
   testWidgets('unsubscribed Profile banner opens the full Subscription Page', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
     final repository = _WidgetAuthRepository(
       initialSession: _anonymousSession('anon-existing'),
     );
@@ -1858,8 +1863,21 @@ void main() {
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
 
+    expect(find.text('Profile'), findsWidgets);
+    expect(find.text('PRO'), findsOneWidget);
     expect(find.text('Upgrade to Pro'), findsOneWidget);
     expect(find.text('Upgrade Now'), findsOneWidget);
+    final bannerSize = tester.getSize(
+      find.byKey(const Key('profile-upgrade-banner')),
+    );
+    expect(bannerSize, const Size(350, 152));
+
+    tester.view.physicalSize = const Size(430, 932);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byKey(const Key('profile-upgrade-banner'))),
+      const Size(390, 152),
+    );
     expect(find.text('Restore'), findsOneWidget);
 
     await tester.tap(find.text('Upgrade Now'));
@@ -1894,6 +1912,8 @@ void main() {
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
 
+    expect(find.text('Profile'), findsWidgets);
+    expect(find.text('PRO'), findsNothing);
     expect(find.text('Upgrade to Pro'), findsNothing);
     expect(find.text('Upgrade Now'), findsNothing);
     expect(find.text('SUBSCRIBE'), findsOneWidget);

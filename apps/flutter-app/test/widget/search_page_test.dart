@@ -40,7 +40,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('search-premium-page-header')), findsOneWidget);
     expect(find.text('Search'), findsWidgets);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('search-field')),
+        matching: find.byKey(const Key('search-premium-top-entry')),
+      ),
+      findsNothing,
+    );
     expect(find.byKey(const Key('search-pull-to-refresh')), findsOneWidget);
     expect(find.text('Pokemon'), findsOneWidget);
     expect(find.text('Cards'), findsWidgets);
@@ -141,13 +149,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final topPadding = tester.widget<SliverPadding>(
-        find.byKey(const Key('search-content-top-padding')),
+      final header = tester.widget<Padding>(
+        find.byKey(const Key('search-fixed-header')),
       );
 
       expect(
-        topPadding.padding,
-        const EdgeInsets.fromLTRB(16, KandoLayout.mainTabTopPadding, 16, 0),
+        header.padding,
+        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 16),
       );
     },
   );

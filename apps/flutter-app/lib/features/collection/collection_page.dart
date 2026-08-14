@@ -59,9 +59,9 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                         20,
                         8,
                       ),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: PremiumTopEntry(source: 'collection'),
+                      child: PremiumPageHeader(
+                        title: 'Collection',
+                        source: 'collection',
                       ),
                     ),
                     if (state.loadStatus == KandoLoadStatus.loading)
@@ -90,11 +90,11 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                   ),
                   child: Column(
                     children: [
-                      const Align(
-                        alignment: Alignment.centerRight,
-                        child: PremiumTopEntry(source: 'collection'),
+                      const PremiumPageHeader(
+                        title: 'Collection',
+                        source: 'collection',
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       _SegmentedTabs(
                         selected: state.selectedTab,
                         onSelect: controller.selectTab,

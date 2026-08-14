@@ -7,6 +7,39 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 
 void main() {
+  testWidgets('page header matches the shared Figma title and PRO layout', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          subscriptionControllerProvider.overrideWith(
+            _FreeSubscriptionController.new,
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: PremiumPageHeader(title: 'Search', source: 'search'),
+          ),
+        ),
+      ),
+    );
+
+    final header = find.byKey(const Key('search-premium-page-header'));
+    final title = tester.widget<Text>(
+      find.byKey(const Key('search-premium-page-title')),
+    );
+    expect(tester.getSize(header).height, 32);
+    expect(title.data, 'Search');
+    expect(title.style?.fontFamily, 'Fraunces');
+    expect(title.style?.fontSize, 24);
+    expect(find.text('PRO'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('search-premium-top-entry'))).height,
+      32,
+    );
+  });
+
   testWidgets(
     'only explicit Free shows the top entry and preserves its PRD source context',
     (tester) async {

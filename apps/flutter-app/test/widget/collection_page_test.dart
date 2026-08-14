@@ -108,7 +108,12 @@ void main() {
     await _pumpCollection(tester);
 
     expect(find.byKey(const Key('collection-pull-to-refresh')), findsOneWidget);
-    expect(find.text('Collection'), findsOneWidget);
+    expect(find.text('Collection'), findsWidgets);
+    expect(
+      find.byKey(const Key('collection-premium-page-header')),
+      findsOneWidget,
+    );
+    expect(find.text('PRO'), findsOneWidget);
     expect(find.text('Portfolio'), findsWidgets);
     expect(find.text('Wishlist'), findsOneWidget);
     expect(find.text('Main'), findsOneWidget);
@@ -261,7 +266,7 @@ void main() {
 
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
-    expect(find.text('Collection'), findsOneWidget);
+    expect(find.text('Collection'), findsWidgets);
     expect(repository.calls, 1);
 
     await tester.tap(find.text(refreshText));
@@ -662,6 +667,11 @@ void main() {
 
     final card = find.byKey(const Key('search-card-charizard-ex'));
     await tester.ensureVisible(card);
+    await tester.drag(
+      find.byKey(const Key('collection-content-list')),
+      const Offset(0, -120),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(card);
     await tester.pumpAndSettle();
 

@@ -54,11 +54,11 @@ class ProfilePage extends ConsumerWidget {
                         20,
                         KandoLayout.mainTabTopPadding,
                         20,
-                        8,
+                        0,
                       ),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: PremiumTopEntry(source: 'profile'),
+                      child: PremiumPageHeader(
+                        title: 'Profile',
+                        source: 'profile',
                       ),
                     ),
                     Expanded(
@@ -175,20 +175,15 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
         );
 
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 390),
+      child: SizedBox(
+        width: double.infinity,
         child: RefreshIndicator(
           key: const Key('profile-pull-to-refresh'),
           onRefresh: widget.onRefresh,
           child: ListView(
             key: const Key('profile-content-list'),
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(
-              20,
-              KandoLayout.mainTabTopPadding,
-              20,
-              96,
-            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
             children: [
               if (subscription.premiumState == AppPremiumState.free) ...[
                 _UpgradeBanner(
@@ -442,46 +437,101 @@ class _UpgradeBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF34381C), Color(0xFF1A1C14)],
-        ),
-        border: Border.all(color: KandoColors.borderFocus),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: KandoColors.accentGlow10,
+    return SizedBox(
+      key: const Key('profile-upgrade-banner'),
+      width: double.infinity,
+      height: 152,
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: KandoColors.accent.withValues(alpha: 0.2),
               ),
-              child: const Icon(
-                Icons.workspace_premium_outlined,
-                color: KandoColors.accent,
+              gradient: const LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [Color(0xFF1C1E15), Color(0xFF2A341C)],
               ),
             ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Text(
-                'Upgrade to Pro',
-                style: TextStyle(
-                  color: KandoColors.text,
-                  fontFamily: 'Fraunces',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Image.asset(
+                      'assets/profile/upgrade_to_pro.png',
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                    ),
+                  ),
+                  const Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0x005C6600), Color(0x45CCCC00)],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    left: 25,
+                    top: 25,
+                    child: Text(
+                      'Upgrade to Pro',
+                      style: TextStyle(
+                        color: Color(0xFFE3E3D6),
+                        fontFamily: 'Fraunces',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        height: 26 / 20,
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    left: 25,
+                    top: 55,
+                    width: 155,
+                    child: Text(
+                      'Unlock the full potential of your collection.',
+                      style: TextStyle(
+                        color: KandoColors.mutedText,
+                        fontSize: 11,
+                        height: 14 / 11,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 25,
+                    bottom: 25,
+                    child: Container(
+                      width: 152,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: KandoColors.accent,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: const Text(
+                        'Upgrade Now',
+                        style: TextStyle(
+                          color: KandoColors.primaryOnDefault,
+                          fontSize: 13,
+                          height: 16 / 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            TextButton(onPressed: onTap, child: const Text('Upgrade Now')),
-          ],
+          ),
         ),
       ),
     );
