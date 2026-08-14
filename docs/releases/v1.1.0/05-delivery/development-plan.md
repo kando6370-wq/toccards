@@ -6,9 +6,9 @@
 
 发生冲突时按以下顺序裁决：
 
-1. App 页面、交互、异常和验收行为以 [`TCG Card App v1.1 PRD`](00-product/TCG_Card_App_v1.1_PRD.md) 为主。
-2. Apple ownership、可信证据、生命周期和跨设备规则以 [`Apple Subscription & Premium 权益统一方案`](00-product/Apple_Subscription_Premium_%E6%9D%83%E7%9B%8A%E7%BB%9F%E4%B8%80%E6%96%B9%E6%A1%88.md) 为上位规则。
-3. 订单、通知和 Admin 目标行为以 [`Admin PRD`](00-product/TCG_Admin_%E8%AE%A2%E5%8D%95%E7%BB%9F%E8%AE%A1%E4%B8%8E%E8%8B%B9%E6%9E%9C%E9%80%9A%E7%9F%A5%E6%B6%88%E6%81%AF_PRD_V1.1_%E8%AE%A2%E9%98%85%E7%9C%9F%E5%80%BC%E6%94%B6%E5%8F%A3%E7%89%88.md) 为主。
+1. App 页面、交互、异常和验收行为以 [`TCG Card App v1.1 PRD`](../00-product/TCG_Card_App_v1.1_PRD.md) 为主。
+2. Apple ownership、可信证据、生命周期和跨设备规则以 [`Apple Subscription & Premium 权益统一方案`](../00-product/Apple_Subscription_Premium_%E6%9D%83%E7%9B%8A%E7%BB%9F%E4%B8%80%E6%96%B9%E6%A1%88.md) 为上位规则。
+3. 订单、通知和 Admin 目标行为以 [`Admin PRD`](../00-product/TCG_Admin_%E8%AE%A2%E5%8D%95%E7%BB%9F%E8%AE%A1%E4%B8%8E%E8%8B%B9%E6%9E%9C%E9%80%9A%E7%9F%A5%E6%B6%88%E6%81%AF_PRD_V1.1_%E8%AE%A2%E9%98%85%E7%9C%9F%E5%80%BC%E6%94%B6%E5%8F%A3%E7%89%88.md) 为主。
 4. 当前代码只证明已实现状态。代码与 PRD 不一致时列为开发差距，不以现状削减 PRD。
 
 原始 PRD 保持只读。实现契约、迁移、验收结果和发布边界维护在本目录。每个业务增量必须在同一开发检查点同步记录实现状态、契约或迁移影响、验证结果和未完成边界；文档未同步或必要验证未执行时，该项不得标记为完成。
@@ -82,7 +82,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 - iOS 发布入口已增加分环境配置门禁：`tool/release_ios.sh` 可通过 `RELEASE_ENV_CONFIG` 读取仓库外受控 JSON；test 内部测试包校验环境和三个不重复的 dev Product ID，允许缺少 Singular Key 并保持归因关闭；production 额外强制校验 Singular API Key/Secret。当前 test 配置满足内部测试包门禁，production 仍因 Product ID 与 Singular 配置均为空被拒绝，避免跨环境误发。Windows 环境没有 Bash，完整 IPA 流程仍需 macOS CI/开发机执行。
 - 2026-08-13 最新工程回归：Workers 50 个文件 395 项、Admin 13 项、根 TypeScript 7 个 package type-check、全仓 build、Dart/Flutter analyze、依赖方向检查、Workers dev/prod dry-run 均通过；Flutter 全量为 679 项通过、10 项跳过、1 项 App Shell Golden 失败，不能标记全绿。Workers 首轮全量曾因 Miniflare 临时端口命中 Undici `bad port` 导致 Folder 并发集成测试未执行完成；该文件单独 3 项及随后全量均通过，归类为一次性测试基础设施故障。Wrangler dry-run 因沙箱不能写用户目录日志打印 `EPERM`，但 prod/dev 打包、bindings 检查及命令退出均成功；dry-run 不证明 Apple Secret 已配置或远程环境已部署。
 - iOS release 配置门禁会区分环境：`config/test.json` 保存三个不敏感的 dev Product ID，可构建不启用 Singular 的内部测试包；`config/production.json` 只保存 `APP_ENV`，prod Product ID 与 Singular 配置均为空。环境隔离测试禁止把 `cardx.*` 复用到 production；正式发布必须通过 `RELEASE_ENV_CONFIG` 注入仓库外受控文件并包含 Singular Key/Secret。
-- 2026-08-13 远程只读发布审计：dev/prod Worker 均只有既有 JWT、Mixpanel、ZeptoMail Secret，缺 Apple Root CA 和 App Store Server API Issuer/Key/Private Key；`wrangler.toml` 也尚未配置正式 Product ID 白名单、IAP Bundle ID、Production App Apple ID。当时两环境 D1 待执行 `0025` 至 `0033`，本分支新增且未远程执行 `0034` 后，当前待执行范围为 `0025` 至 `0034`。因此当前部署即使可打包，Fresh Purchase/通知验签/Server API 校正仍会显式不可用；本轮未写 Secret、未迁移、未部署。
+- 历史检查点（2026-08-13，早于同日后续 dev 迁移与部署）：远程只读发布审计显示 dev/prod Worker 当时均只有既有 JWT、Mixpanel、ZeptoMail Secret，缺 Apple Root CA 和 App Store Server API Issuer/Key/Private Key；`wrangler.toml` 也尚未配置正式 Product ID 白名单、IAP Bundle ID、Production App Apple ID。当时两环境 D1 待执行 `0025` 至 `0033`，本分支新增且尚未远程执行 `0034` 后，该检查点的待执行范围为 `0025` 至 `0034`。因此当时部署即使可打包，Fresh Purchase/通知验签/Server API 校正仍会显式不可用；该次审计未写 Secret、未迁移、未部署。远程 dev 的较晚执行结果以本节首段为准。
 - 2026-08-13 真实历史迁移预演：通过 Wrangler 只读导出远程 dev D1，在仓库外本地 SQLite 副本连续执行 `0025` 至 `0033`。迁移前后核心表行数一致，`quick_check=ok`、外键检查无错误；67/67 个既有 Item 的逻辑起点保持原 `created_at`，可靠历史起点统一为迁移时刻，145 条 Event 未删除或重排。单条迁移耗时 9-45 ms，`0031` 为 17 ms。当前 dev 最大 owner 只有 24 条 Event、12 个现存 Item，Performance 数据库查询本地 20 次中位数为 Event 6.71 ms、价格 7.72 ms；Admin 订单表为空，空列表/计数中位数分别为 6.52/6.41 ms。这些结果不包含 Cloudflare 网络与 Worker JS 计算，也不覆盖有订单或重度收藏用户，不能替代 App 15 秒和 Admin 普通查询 3 秒的发布环境验收。本轮未写远程 D1。
 
 - Notifications V2 前向兼容已收口：HTTP 包络允许 `signedPayload` 之外的 Apple 新增顶层字段并在 inbox `request_json` 原样保存；未知但已验签的主通知类型与 Payload 字段进入结构化记录和 Admin 展示，在无已定义语义时不建单、不修改权益。真实 D1 集成测试同时保护原始字段、Decoded Payload 和零业务副作用。

@@ -1,93 +1,100 @@
-# kando-global-project
+# Kando Global Project
 
+Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
+## 系统概览
 
-## Getting started
+```text
+Flutter App ------------+
+                         +--> Cloudflare Workers (`/api/v1`)
+React Admin -- assets ---+        |-- D1: 账号、目录、资产、订阅和运营真源
+                                  |-- KV: 可重建缓存
+                                  |-- R2: 扫描图片
+                                  +-- OAuth、邮件、OCR、汇率和 Apple 服务
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin http://gitlab.gd.aaa/dev-team3/kando-global-project.git
-git branch -M master
-git push -uf origin master
+Marketing Web -----------------> 独立 Cloudflare 静态站点
 ```
 
-## Integrate with your tools
+Workers 是 App 与 Admin 的服务端安全边界。客户端不得直连 D1、KV 或 R2；Admin 构建产物由 Workers assets 托管，营销站点独立部署。
 
-- [ ] [Set up project integrations](http://gitlab.gd.aaa/dev-team3/kando-global-project/-/settings/integrations)
+## 仓库结构
 
-## Collaborate with your team
+| 路径 | 职责 |
+|---|---|
+| `apps/flutter-app` | iOS、Android 和 Web Flutter 客户端 |
+| `apps/workers-api` | Hono API、Drizzle Schema、D1 迁移与 Worker 部署入口 |
+| `apps/admin-web` | React 管理后台 |
+| `apps/marketing-web` | 营销、法律和公开站点 |
+| `dart-packages/subscription-core` | 可配置的 Apple/Google 订阅业务模块 |
+| `packages/*` | TypeScript 共享认证、API、UI 和 Workers 能力 |
+| `docs/releases` | 按版本冻结的产品输入与实现文档 |
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+完整边界见 [v1.1 Monorepo 文档](docs/releases/v1.1.0/02-architecture/monorepo.md)。
 
-## Test and Deploy
+## 环境要求
 
-Use the built-in continuous integration in GitLab.
+- Node.js `>=22`
+- pnpm `11.9.0`（以根 `packageManager` 为准）
+- Dart SDK `^3.9.2`
+- Flutter `>=3.44.0`
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+安装依赖：
 
-***
+```powershell
+pnpm install --frozen-lockfile
+flutter pub get
+```
 
-# Editing this README
+环境 URL、Cloudflare bindings 和第三方服务配置按目标环境注入。密钥只通过受控 secret 管理，不写入仓库。
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## 本地开发
 
-## Suggestions for a good README
+```powershell
+# Flutter Web，使用测试环境配置
+pnpm app:chrome:dev
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+# Workers API
+pnpm --filter @kando/workers-api dev
 
-## Name
-Choose a self-explaining name for your project.
+# React Admin
+pnpm --filter @kando/admin-web dev
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+# Marketing Web
+pnpm --filter @kando/marketing-web dev
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+各进程仍需要其目标环境可用的配置和本地/远程 Cloudflare 资源；启动命令成功不等于 Apple、OCR、邮件或生产资源已配置。
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## 质量检查
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```powershell
+# TypeScript / Node
+pnpm build
+pnpm type-check
+pnpm lint
+pnpm --filter @kando/workers-api test
+pnpm --filter @kando/admin-web test
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+# Dart / Flutter workspace
+dart run melos run analyze
+dart run melos run test
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+只运行与变更相关的最窄检查时，交付记录必须明确列出未运行项，不能把局部验证写成全仓通过。
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## 部署边界
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+- Workers 与 Admin dev：`pnpm --filter @kando/workers-api run deploy:dev`。
+- Workers 与 Admin prod：`pnpm --filter @kando/workers-api run deploy:prod`。
+- Marketing：`pnpm --filter @kando/marketing-web run deploy`。
+- iOS GitHub Actions 当前只执行 unsigned release compile gate，不等于签名、TestFlight 或真机验收。
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+部署、远程迁移、生产写入和发布都需要单独明确授权；Git push 不会自动代表这些操作已获授权。
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+## 文档入口
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- [项目文档索引](docs/README.md)
+- [v1.0.0 已发布冻结基线](docs/releases/v1.0.0/README.md)
+- [v1.1.0 当前增量](docs/releases/v1.1.0/README.md)
+- [v1.1.0 系统架构](docs/releases/v1.1.0/02-architecture/architecture.md)
+- [v1.1.0 业务上下文](docs/releases/v1.1.0/01-flows/business-context.md)

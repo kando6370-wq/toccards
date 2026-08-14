@@ -127,7 +127,7 @@ Home Performance 的 Folder 归属遵循 App PRD 的整体迁移规则：每个 
 
 同一点位同时增加 nullable `market_value_change_usd` 与 `profit_loss_change_usd`，供 Card Detail Performance 使用。两项均由服务端以未提前舍入的目标 Item 历史值和 `t_prev` 计算，Range 首点沿用范围外紧邻可靠节点；不存在可信前态或成本不可计算时返回 `null`。正常状态曲线使用 Profit/Loss，Tooltip 仅展示 Date、Daily Change、Market Value、Profit/Loss、Qty；Purchase Price 缺失状态曲线使用 Market Value，Tooltip 不得展示 Profit/Loss、Purchase Cost 或 Return。1D 单点仍可点击，切 Range 或离开 Performance 会销毁旧 Tooltip 状态。
 
-`0031_performance_history.sql` 增加购买价、币种、生效时间、历史可用起点和 Folder 加入时间等事件事实。该迁移已在隔离空库及远程 dev 只读导出的本地副本执行并验证；尚未写入远程 dev 或 prod。
+`0031_performance_history.sql` 增加购买价、币种、生效时间、历史可用起点和 Folder 加入时间等事件事实。该迁移已在隔离空库及远程 dev 只读导出的本地副本执行并验证，并于 2026-08-13 应用到远程 dev；尚未应用到开发者常用 local 或 prod。
 
 Card Detail 普通价格历史 1Y 的服务端防绕过已关闭：Free 仍可读取 1D 至 3M；1Y 要求当前 live session 的有效服务端 grant，同 UID 的另一 session 不继承。本机 verified 只区分 `ENTITLEMENT_SYNC_REQUIRED`，不能作为授权。该变更不新增 schema 或迁移。
 

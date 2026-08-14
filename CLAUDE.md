@@ -1,0 +1,3 @@
+<!-- AI-HARNESS:BEGIN file=CLAUDE.md version=1.0.0 sha256=918b1c90559355ef78f33fdf3562f2b021ef8bdfd8a5c8415e5decd44934de55 -->
+@AGENTS.md
+<!-- AI-HARNESS:END file=CLAUDE.md -->

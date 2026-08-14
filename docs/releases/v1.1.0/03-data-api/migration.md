@@ -1,10 +1,10 @@
 # v1.1.0 数据迁移
 
-2026-08-13 已在远程 dev D1 `cards_basic_information_all_dev` 连续应用 `0025` 至 `0034`，Wrangler 随后返回 `No migrations to apply`；订阅购买链、session grant、通知 inbox、Scan Quota 表及订单事实/汇率/自动续订快照字段均经远程只读 SQL 核对存在。prod 与开发者常用 local 仍未执行这些 v1.1 迁移。dev Worker 与 Admin 的手动部署及后续 `dev` push 自动发布均通过，健康接口、Admin HTML 和实际 JS 资源均返回 HTTP 200；当前版本以 Cloudflare deployment status 为准。Apple Product ID、Root CA 与 Server API 密钥仍未配置，因此部署成功不代表 Apple 购买闭环可用。
+2026-08-13 已在远程 dev D1 `cards_basic_information_all_dev` 连续应用 `0025` 至 `0034`，Wrangler 随后返回 `No migrations to apply`；订阅购买链、session grant、通知 inbox、Scan Quota 表及订单事实/汇率/自动续订快照字段均经远程只读 SQL 核对存在。prod 与开发者常用 local 当时仍未执行这些 v1.1 迁移。dev Worker 与 Admin 的手动部署及后续 `dev` push 自动发布均通过，健康接口、Admin HTML 和实际 JS 资源均返回 HTTP 200。上述环境事实是 2026-08-13 历史快照；当前部署与配置状态必须重新查询 Cloudflare 后确认。该快照中 Apple Product ID、Root CA 与 Server API 密钥仍未配置，因此部署成功不代表 Apple 购买闭环可用。
 
-2026-08-12 已使用 Wrangler 4.106.0 在独立 `--local --persist-to` 空库中按顺序执行 `0000` 至 `0033`，34 条迁移全部成功；重复 apply 返回无待执行迁移，关键 v1.1 表及订单事实/汇率快照列均存在。2026-08-13 新增 `0034` 后，Workers 自动化完整迁移链已验证 `0000` 至 `0034` 共 35 条迁移；`0034` 也已在独立 D1 测试中验证历史订单保持空快照及 `0/1/NULL` 约束。Wrangler 实际空库证据仍只到 `0033`，不得改写为已手工执行 `0034`。这些证据不代表已在开发者常用 local、远程 dev 或 prod 执行，也不能替代带真实历史数据的预迁移审计。
+2026-08-12 已使用 Wrangler 4.106.0 在独立 `--local --persist-to` 空库中按顺序执行 `0000` 至 `0033`，34 条迁移全部成功；重复 apply 返回无待执行迁移，关键 v1.1 表及订单事实/汇率快照列均存在。2026-08-13 新增 `0034` 后，Workers 自动化完整迁移链已验证 `0000` 至 `0034` 共 35 条迁移；`0034` 也已在独立 D1 测试中验证历史订单保持空快照及 `0/1/NULL` 约束。Wrangler 实际空库证据仍只到 `0033`，不得改写为已手工执行 `0034`。这批本地与自动化证据在各自验证时不代表开发者常用 local、远程 dev 或 prod 已执行，也不能替代带真实历史数据的预迁移审计；远程 dev 的较晚执行结果以首段为准。
 
-2026-08-13 通过 Wrangler 只读列举确认：远程 dev 与 prod 当时均待执行 `0025` 至 `0033`；本分支随后新增且未远程执行 `0034`，因此当前待执行范围为 `0025` 至 `0034`。两环境 Secret 列表均未包含 Apple Root CA 或 App Store Server API 的 Issuer ID、Key ID、Private Key。该检查没有执行迁移、写入 Secret 或部署 Worker。
+历史检查点（2026-08-13，早于首段所述远程 dev 迁移）：Wrangler 只读列举确认远程 dev 与 prod 当时均待执行 `0025` 至 `0033`；本分支随后新增且当时未远程执行 `0034`，所以该检查点的待执行范围为 `0025` 至 `0034`。两环境 Secret 列表当时均未包含 Apple Root CA 或 App Store Server API 的 Issuer ID、Key ID、Private Key。该检查没有执行迁移、写入 Secret 或部署 Worker；不得把这一历史待迁移状态解释为当前远程 dev 状态。
 
 2026-08-13 又通过 Wrangler 只读导出远程 dev D1，并只在仓库外的本地 SQLite 副本执行 `0025` 至 `0033`。导出基线包含 `0000` 至 `0024` 共 25 条迁移、67 个 `collection_item`、145 条 `collection_item_event`、36 个 Folder、1,053,034 条 `tcg_price`、267,682 条 `cards_all`、167 条 `scan_record`、86 条 session 和 30 条 installation。九条 v1.1 迁移连续成功，单条耗时 9-45 ms，`0031` 为 17 ms；迁移后 `quick_check=ok`、外键检查无错误，核心表行数不变。
 

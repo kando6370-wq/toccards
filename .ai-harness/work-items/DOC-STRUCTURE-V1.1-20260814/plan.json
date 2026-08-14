@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "DOC-STRUCTURE-V1.1-20260814",
+  "mode": "single",
+  "rationale": "文档导航、相对链接和版本事实强耦合；由单代理按依赖连续执行可避免并行写入冲突与口径漂移",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "重写项目导航并建立 v1.1 架构文档",
+      "module": "documentation-architecture",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [
+        "T2"
+      ],
+      "writeScopes": [
+        "README.md",
+        "docs/README.md",
+        "AGENTS.md",
+        "docs/releases/v1.1.0/README.md",
+        "docs/releases/v1.1.0/02-architecture/**"
+      ],
+      "verification": [
+        "根导航、架构事实、工作区和 CI 版本与当前 manifest/config 一致",
+        "相关 Markdown 本地链接有效且 git diff --check 通过"
+      ],
+      "docsImpact": [
+        "README.md",
+        "docs/README.md",
+        "docs/releases/v1.1.0/README.md",
+        "docs/releases/v1.1.0/02-architecture/**"
+      ],
+      "reviewBatch": "R-DOCS",
+      "risk": "medium",
+      "owner": "ai",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "3fab2666-3d03-4435-8574-2b76efbf189c",
+        "70564cd4-15fa-408c-a891-0c565efd0f38"
+      ],
+      "deferralApproval": null
+    },
+    {
+      "id": "T2",
+      "title": "恢复 v1.1 业务上下文与 Admin 实现文档",
+      "module": "business-admin",
+      "status": "COMPLETED",
+      "blockedBy": [
+        "T1"
+      ],
+      "blocks": [
+        "T3"
+      ],
+      "writeScopes": [
+        "docs/releases/v1.1.0/requirements.md",
+        "docs/releases/v1.1.0/01-flows/**",
+        "docs/releases/v1.1.0/04-admin/**"
+      ],
+      "verification": [
+        "主流程、角色、权限、状态、数据实体和未决项均有当前代码或测试证据",
+        "业务与 Admin 文档本地链接有效"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/01-flows/**",
+        "docs/releases/v1.1.0/04-admin/**"
+      ],
+      "reviewBatch": "R-DOCS",
+      "risk": "medium",
+      "owner": "ai",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "09784a14-b33e-488f-9e0b-0fc0106377dd",
+        "e73e5255-0a06-46bb-9f57-7f290b999626"
+      ],
+      "deferralApproval": null
+    },
+    {
+      "id": "T3",
+      "title": "迁移数据与交付文档并统一修复链接",
+      "module": "data-delivery",
+      "status": "COMPLETED",
+      "blockedBy": [
+        "T2"
+      ],
+      "blocks": [],
+      "writeScopes": [
+        "docs/releases/v1.1.0/contract-changes.md",
+        "docs/releases/v1.1.0/entitlement-contract.md",
+        "docs/releases/v1.1.0/migration.md",
+        "docs/releases/v1.1.0/database-migration-research.md",
+        "docs/releases/v1.1.0/price-history-database-capacity-analysis.md",
+        "docs/releases/v1.1.0/development-plan.md",
+        "docs/releases/v1.1.0/traceability-matrix.md",
+        "docs/releases/v1.1.0/app-store-connect-subscription-setup.md",
+        "docs/releases/v1.1.0/03-data-api/**",
+        "docs/releases/v1.1.0/05-delivery/**"
+      ],
+      "verification": [
+        "旧根级实现文档路径无残留且所有 Markdown 本地链接与锚点有效",
+        "v1.0.0 与 v1.1.0/00-product 冻结树和 PRD 哈希不变",
+        "git diff --check、Harness doctor、Runtime tests 与 check --ci 通过"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/**",
+        "docs/releases/v1.1.0/05-delivery/**"
+      ],
+      "reviewBatch": "R-DOCS",
+      "risk": "medium",
+      "owner": "ai",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "eac356fd-c218-481c-afd1-3fc193f03250",
+        "f05c8ae1-6881-46c8-8b99-cb4804327f37",
+        "a1210d13-fab1-4145-89a6-55ebf3b0983a"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R-DOCS",
+      "title": "v1.1 文档结构与事实一致性统一复核",
+      "risk": "medium",
+      "taskIds": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-14T09:53:04.836Z",
+  "updatedAt": "2026-08-14T10:22:32.360Z"
+}

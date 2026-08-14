@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"d8bd97c8-0092-4073-bf6b-4fb9f7715bf8","workItemId":"DOC-STRUCTURE-ANALYSIS-20260814","taskId":null,"kind":"analysis","status":"pass","summary":"已基于当前 dev 代码、workspace 配置、迁移、CI 和版本文档给出保留历史的重整方案，并明确实施前范围决策。","timestamp":"2026-08-14T09:32:04.684Z","command":null,"independent":false}

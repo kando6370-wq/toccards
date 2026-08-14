@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "UPSTREAM-FAST-FORWARD-20260814",
+  "mode": "single",
+  "rationale": "单任务只验证并归属两个已授权上游提交，不执行产品文件写入",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "验证并登记授权快进范围",
+      "module": "git-upstream-sync",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/assets/scan/pro_badge.svg",
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/pubspec.yaml",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png",
+        "apps/flutter-app/test/widget/scan_page_test.dart",
+        "docs/releases/v1.1.0/development-plan.md"
+      ],
+      "verification": [
+        "HEAD/远程 SHA、祖先关系、提交路径和 8 个 App 路径工作树状态一致"
+      ],
+      "docsImpact": [
+        ".ai-harness/work-items/UPSTREAM-FAST-FORWARD-20260814/solution.md"
+      ],
+      "reviewBatch": "R-FF",
+      "risk": "medium",
+      "owner": "ai",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "597e7b97-e938-437b-b601-36a32a79c449",
+        "5ab9e7fd-a826-405c-8bcd-0f3ae909e7b4"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R-FF",
+      "title": "上游纯快进范围复核",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-14T10:26:19.246Z",
+  "updatedAt": "2026-08-14T10:27:15.854Z"
+}

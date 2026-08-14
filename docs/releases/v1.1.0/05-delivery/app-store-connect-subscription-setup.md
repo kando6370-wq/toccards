@@ -4,7 +4,7 @@
 > **日期**：2026-08-10
 > **适用应用**：Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
-> **当前状态**：dev/test 商品 Product ID 已确认，dev D1 商品映射和 Worker 白名单已部署；prod 商品尚未创建或通过审核，prod Product ID 保持未配置。服务端 Apple JWS 验证链已实现，购买闭环仍被 Apple Secret 和 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。
+> **状态快照（2026-08-13）**：dev/test 商品 Product ID 已确认，dev D1 商品映射和 Worker 白名单已部署；prod 商品尚未创建或通过审核，prod Product ID 保持未配置。服务端 Apple JWS 验证链已实现，购买闭环仍被 Apple Secret 和 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。远程环境的实时状态必须重新查询后确认。
 
 ---
 
@@ -135,7 +135,7 @@ flutter build ipa --release `
   --dart-define=SUBSCRIPTION_APP_STORE_LIFETIME_ID=cardx.lifetime
 ```
 
-dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。远程 dev D1 已将三个 Product ID 映射为 active `performance_pro` 商品，dev Worker 已部署为 `7228b912-c57f-43a3-8f2c-2404f8dac7bc`。production/prod 保持不配置，不能使用本示例构建正式环境。当前客户端只请求非空 Product ID：未配置或 StoreKit 未返回的 SKU 显示 `Unavailable` 且不可购买。
+dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。截至 2026-08-13，远程 dev D1 已将三个 Product ID 映射为 active `performance_pro` 商品，dev Worker 已部署为 `7228b912-c57f-43a3-8f2c-2404f8dac7bc`。production/prod 在该快照中保持不配置，不能使用本示例构建正式环境。当前客户端只请求非空 Product ID：未配置或 StoreKit 未返回的 SKU 显示 `Unavailable` 且不可购买。
 
 Singular 使用同一份 `--dart-define-from-file` 环境配置注入，不在仓库写入正式密钥：
 
@@ -192,12 +192,12 @@ RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env prod
 
 当前已实现 Fresh Purchase challenge、StoreKit 2 JWS 上传和 Workers session grant 写链，但**仍无法宣称正式购买授权端到端完成**。上线阻塞包括：
 
-- dev/test Product ID 已确认；远程 dev D1 已写入三个 active `performance_pro` 映射，Workers dev 白名单已随版本 `7228b912-c57f-43a3-8f2c-2404f8dac7bc` 部署，健康接口返回 HTTP 200。
+- 截至 2026-08-13，dev/test Product ID 已确认；远程 dev D1 已写入三个 active `performance_pro` 映射，Workers dev 白名单已随版本 `7228b912-c57f-43a3-8f2c-2404f8dac7bc` 部署，健康接口返回 HTTP 200。
 - prod Product ID 尚未创建或通过审核；production 客户端配置、Workers prod 白名单和 prod D1 映射必须保持空，待正式值确认后独立配置。
 - Apple Root CA、Production App Apple ID 和 App Store Server API Secret 尚未配置。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
 - Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现，但 Apple Secret、通知 URL 和真机/Sandbox 端到端验收尚未完成。
-- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应迁移已应用到远程 dev，尚未应用到常用 local 或 prod，仍待 Sandbox/TestFlight 多设备验收。
+- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；截至 2026-08-13，对应迁移已应用到远程 dev，尚未应用到常用 local 或 prod，仍待 Sandbox/TestFlight 多设备验收。
 
 challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。
 
