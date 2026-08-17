@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817",
+  "mode": "single",
+  "rationale": "单一已证实的 iOS 背景绘制缺陷，使用一个任务完成最小 UI 修复、Golden 与文档更新",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "裁剪 iOS Sheet 背景右侧导出边缘",
+      "module": "apps/flutter-app/subscription",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/subscription/subscription_page.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_subscription_sheet_1651_9467_390x844.png",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "dart format --output=none --set-exit-if-changed apps/flutter-app/lib/features/subscription/subscription_page.dart",
+        "flutter test test/widget/auth_profile_test.dart --plain-name 'v1.1 PRD subscription bottom sheet keeps the 390x844 baseline'",
+        "flutter test test/widget/auth_profile_test.dart --plain-name 'latest subscription sheet visuals are limited to iOS'",
+        "flutter test test/subscription_restore_ui_test.dart",
+        "flutter analyze apps/flutter-app",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "low",
+      "owner": "root",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "0e29c978-f174-4e11-bf8a-ead2f586b3c3",
+        "2aa4ab5b-20c6-4bcb-a3cd-407f64ae513b"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "iOS Sheet 右边缘裁剪复核",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T04:05:16.182Z",
+  "updatedAt": "2026-08-17T04:10:44.857Z"
+}

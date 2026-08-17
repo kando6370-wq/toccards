@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "id": "ITER-IOS-SIM-20260817",
+  "type": "ITERATION",
+  "title": "重新运行 Flutter App 到 iOS 模拟器",
+  "status": "DONE",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "autonomous",
+    "source": "用户在当前任务明确要求重新运行到模拟器"
+  },
+  "input": {
+    "references": [
+      "用户已更新大量代码和依赖，要求重新下载依赖并运行到 iOS 模拟器"
+    ],
+    "acceptance": [
+      "Flutter 依赖解析成功；test flavor iOS 构建成功；App 安装并启动到可用模拟器；进程存活且页面非白屏；不覆盖用户改动"
+    ],
+    "nonGoals": [],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "doctor: branch dev at 9224e51ef3307cf15bb928c80a597916fa42651d, clean worktree, harness healthy"
+    ],
+    "completedAt": "2026-08-17T01:16:50.963Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "9224e51ef3307cf15bb928c80a597916fa42651d",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/state.json"
+      ],
+      "fingerprints": {
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/events.jsonl": "a72092b2552cde7e750d6c5def93372b61b05cb3798b6b1502b2e4a67ffe5221",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/state.json": "bfde55c866e0e37cc9ac127ae1ac4fdd0878b75f5e2fce8aa63c8c8b0f33359d"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": "apps/flutter-app/tool/run_ios_simulator.sh",
+    "evidence": [
+      "沿用已有 test flavor 模拟器脚本；iOS 26.5 arm64 使用 ML Kit Stub，退出时恢复真机 Pods；不改变业务代码，Android 不受影响"
+    ],
+    "completedAt": "2026-08-17T01:17:27.179Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅本地依赖解析、iOS 模拟器构建安装与启动，不涉及 Schema、迁移、查询或远程数据写入"
+    ],
+    "completedAt": "2026-08-17T01:17:27.244Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ITER-IOS-SIM-20260817/plan.json",
+    "approved": true,
+    "approvalRef": "用户明确要求重新运行到模拟器"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "dc2d0405-f1f1-45c0-9309-a7dfb96ac527"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "2c6394e4-9c18-45e4-b6e5-491e169f148a"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "1d6b2bad-0596-4e06-b85a-05c9721fb1e6"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "not-applicable",
+    "evidence": [
+      "7507cf0e-daef-47c0-8050-f16571cff6f2"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-17T01:16:37.333Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-17T01:16:50.819Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-17T01:16:51.047Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-17T01:17:27.654Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-17T01:17:27.761Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-17T01:25:42.178Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-17T01:25:42.491Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-17T01:25:42.710Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-17T01:25:42.884Z",
+      "reason": "gate-passed"
+    }
+  ],
+  "createdAt": "2026-08-17T01:16:37.333Z",
+  "updatedAt": "2026-08-17T01:25:42.884Z"
+}

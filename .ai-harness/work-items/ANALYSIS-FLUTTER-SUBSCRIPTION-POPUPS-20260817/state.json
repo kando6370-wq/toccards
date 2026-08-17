@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "id": "ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817",
+  "type": "ANALYSIS",
+  "title": "统计 Flutter 客户端订阅弹窗",
+  "status": "ANSWERED",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/analysis.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户只读查询"
+  },
+  "input": {
+    "references": [
+      "用户问题：apps/flutter-app 项目中有几个订阅弹窗"
+    ],
+    "acceptance": [
+      "基于当前检出代码给出订阅弹窗实现数量，并区分调用入口"
+    ],
+    "nonGoals": [
+      "不修改产品代码或文档"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "当前分支 dev，提交 9224e51ef3307cf15bb928c80a597916fa42651d；工作树存在用户未提交改动，统计以当前工作树为准",
+      "分析范围：apps/flutter-app/lib、相关测试及 v1.0/v1.1 文档"
+    ],
+    "completedAt": "2026-08-17T02:20:41.997Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "9224e51ef3307cf15bb928c80a597916fa42651d",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/state.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/plan.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/state.json",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/plan.json",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/solution.md",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/state.json",
+        "apps/flutter-app/assets/profile/upgrade_to_pro.png",
+        "apps/flutter-app/lib/features/profile/profile_page.dart",
+        "apps/flutter-app/test/goldens/rendered/figma_profile_upgrade_banner_2210_17750_350x152.png",
+        "apps/flutter-app/test/widget/auth_profile_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/assets/profile/upgrade_to_pro.png": "19642a98c2fb0935a8633756bc87ee9b37a7f084b7bc5af36cea46eeece039cb",
+        "apps/flutter-app/lib/features/profile/profile_page.dart": "f56070637d0ff9f562ce33a87091ebe4bfcdc615cc003049f062fddb5b945f9c",
+        "apps/flutter-app/test/widget/auth_profile_test.dart": "66157963a53dee0d89fc3d140abcbde25f975a8a3bc67771c2fcb18636497443",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "740fcd2ebc642de3ae153abe429cb899000fbc0bc9067c4ecc120e6ad84ab447",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/events.jsonl": "345ddd170017ad5208c3741a1979f56dbe3bce6f9f15392dd1bdea099fb88fde",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/state.json": "3a37bb4a1200518b3313c624cb0db78904c110b00af2273aa8bce6aa20fe92fb",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/events.jsonl": "a90631285e47f6af039a86706124da75df2c2d8df6a677849a399870f6bc1daf",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/evidence.jsonl": "98524e5cc4c6f120583c8ac1b7163c3445cc4aee6d9fd49f813be06aa6690590",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/plan.json": "01c74a1aafc752c82ca40351abfcb2918a262caa2ffac2301c599038829be069",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/state.json": "1d0b7eab750db3a88850b7130c387a0b3e5d9597262a75fba86202a19365a7fa",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/events.jsonl": "2315046f11e18bc8780f480fd2d46a8302ac80d70830edcc6917769fbbe41e3b",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/evidence.jsonl": "b77594cc4b649520adebc64a05fc3897bcac35ea6444621dcdcacb2dceee4c13",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/plan.json": "e177d497cddc541b518ffb0d32c3e1dbb6a902d37ad04c3c1fe6fdf6bc356e74",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/solution.md": "b1a2b8d408e90842f85bc0bcf78ca550198a01b9c5fd77ef9b611f732d6ab14d",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/state.json": "f131c3b557845ef432a04a128d2ef4c1ae8934c941e97e94064f26cd4fba4c00",
+        "apps/flutter-app/test/goldens/rendered/figma_profile_upgrade_banner_2210_17750_350x152.png": "b8518fa747382b8a2e6cc22444bee6826697c297e36b0abd468e19385fada553"
+      }
+    }
+  },
+  "solution": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null
+  },
+  "database": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null,
+    "impact": "unknown"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/plan.json",
+    "approved": false,
+    "approvalRef": null
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pass",
+    "evidence": [
+      "2dd0c3f1-7065-48c5-948b-26be8dff064c"
+    ],
+    "conclusions": [
+      {
+        "id": "69f921a1-f769-44b4-9d6e-d9d159946dc8",
+        "status": "PROVEN",
+        "text": "严格按 Modal/弹窗统计，当前 Flutter 客户端只有 1 个订阅弹窗：SubscriptionPage(sheet: true) 的 Functional Paywall bottom sheet；它通过统一 /subscription?presentation=sheet 路由复用。",
+        "evidence": [
+          "apps/flutter-app/lib/features/subscription/subscription_page.dart:20-30,325-348",
+          "apps/flutter-app/lib/app/router.dart:125-152",
+          "apps/flutter-app/lib/features/subscription/subscription_controller.dart:22"
+        ]
+      },
+      {
+        "id": "52f346dd-3c1d-49c2-99c5-6b3f3ca28d8d",
+        "status": "PROVEN",
+        "text": "若按订阅流程的独立视觉形态统计，共 3 个：完整 Subscription Page、Functional Paywall bottom sheet、Subscription Success Page；其中前两者复用同一 SubscriptionPage 组件，Success 是独立页面。",
+        "evidence": [
+          "apps/flutter-app/test/widget/auth_profile_test.dart:2036-2051",
+          "apps/flutter-app/lib/features/subscription/subscription_page.dart:20-33,392-400",
+          "docs/releases/v1.1.0/03-data-api/contract-changes.md:63-67"
+        ]
+      },
+      {
+        "id": "49159a44-1291-4de7-b02e-889c6058ec63",
+        "status": "PROVEN",
+        "text": "统一 Functional Paywall 在产品代码中有 7 个静态 push 调用点，覆盖 Home 2、Card Detail 2、Collection 2、Scan 1；这些是入口调用点而不是 7 套弹窗。",
+        "evidence": [
+          "apps/flutter-app/lib/features/home/home_page.dart:247,277",
+          "apps/flutter-app/lib/features/card_detail/card_detail_page.dart:897,3741",
+          "apps/flutter-app/lib/features/collection/collection_page.dart:1187,1236",
+          "apps/flutter-app/lib/features/scan/scan_page.dart:742-744"
+        ]
+      }
+    ],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-17T02:20:25.641Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-17T02:20:32.540Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "BASELINING",
+      "to": "ANALYZING",
+      "at": "2026-08-17T02:20:49.317Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "ANALYZING",
+      "to": "ANSWERED",
+      "at": "2026-08-17T02:22:51.636Z",
+      "reason": "gate-passed"
+    }
+  ],
+  "createdAt": "2026-08-17T02:20:25.641Z",
+  "updatedAt": "2026-08-17T02:22:51.636Z"
+}

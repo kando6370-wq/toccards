@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-IOS-SIM-20260817",
+  "mode": "single",
+  "rationale": "单一移动端本地运行流程，依赖解析、构建、安装和视觉验证顺序执行",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "刷新依赖并运行 test App 到 iOS 模拟器",
+      "module": "apps/flutter-app",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "仅生成依赖缓存、Pods、build 与模拟器安装数据；不修改产品源码"
+      ],
+      "verification": [
+        "依赖命令成功、iOS build 成功、simctl 进程存活、截图非白屏、git 用户差异保留"
+      ],
+      "docsImpact": [
+        "N/A: 本次仅执行已有本地运行流程，不改变行为、配置或运维契约"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "ad16fe99-446d-4a7e-ad2b-7e6854d21f17",
+        "f33454c9-6030-4d86-93db-c9b24a69db67"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "iOS 模拟器重新运行",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T01:17:27.328Z",
+  "updatedAt": "2026-08-17T01:25:42.059Z"
+}

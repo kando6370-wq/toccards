@@ -1,0 +1,303 @@
+{
+  "schemaVersion": 1,
+  "id": "BUGFIX-IOS-SUBSCRIPTION-SHEET-BACKGROUND-ALIGNMENT-20260817",
+  "type": "BUGFIX",
+  "title": "修正 iOS 订阅 Sheet 背景顶部层级与右侧亮边",
+  "status": "DONE",
+  "flags": [
+    "mobile",
+    "frontend"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/bugfix.md",
+    ".ai-harness/policies/mobile.md",
+    ".ai-harness/policies/frontend.md"
+  ],
+  "authorization": {
+    "mode": "autonomous",
+    "source": "用户明确要求修复右侧残留白线并让顶部拖拽条属于背景区域"
+  },
+  "input": {
+    "references": [
+      "用户反馈：iOS 订阅弹窗右侧仍有少量白线，顶部拖拽条未落在背景区域",
+      "Figma DjacfTioobtRy59SnqH7SY node 1651:9915"
+    ],
+    "acceptance": [
+      "iOS Functional Paywall 右侧不显示亮色像素边缘",
+      "背景从弹窗顶部开始，顶部拖拽条覆盖在背景区域，与 Figma 1651:9915 一致",
+      "Android、完整 Subscription Page 与全部订阅业务逻辑保持不变"
+    ],
+    "nonGoals": [
+      "不修改购买、Restore、权益、路由、API、Schema、商品配置或 Android UI"
+    ],
+    "version": "v1.1.0"
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": {
+    "actual": "iOS Sheet 背景随内容整体下移 32px，Handle 落在纯色区域；右侧仍可见少量亮色导出边缘",
+    "expected": "Figma 背景从 top≈0 开始且由父层裁剪，Handle 位于背景上方，右侧无独立亮线",
+    "reproduction": "在 iOS 打开 presentation=sheet 的 Functional Paywall，观察顶部 Handle 周围及弹窗右侧；390x844 Golden 可复现背景从 y=32 开始和右侧亮边"
+  },
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "Figma get_design_context 1651:9915：外层 overflow-clip、顶部圆角 24px；背景层 1651:11958 top=-0.73px left=0.47px width=390px；Handle 1651:9944 位于 pt=21 的背景上方",
+      "当前 subscription_page.dart 在 Sheet 外层用 Padding(top:32) 包裹整个 content，导致 content 内背景与正文一起从 y=32 开始，而 Handle 单独位于 top=21",
+      "当前 390x844 Golden 右上裁片可见背景起点与右侧残余亮边；需用同一 Golden 路径验证",
+      "subscription_page.dart 同时包含另一个 Subscription Success UI 工作项的未提交改动，本修复必须只增量编辑 Sheet 结构并保留这些改动"
+    ],
+    "completedAt": "2026-08-17T06:10:19.198Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "9224e51ef3307cf15bb928c80a597916fa42651d",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/state.json",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-BACKGROUND-ALIGNMENT-20260817/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-BACKGROUND-ALIGNMENT-20260817/state.json",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817/plan.json",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817/solution.md",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817/state.json",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-SUCCESS-REPLAY-20260817/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-SUCCESS-REPLAY-20260817/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-SUCCESS-REPLAY-20260817/plan.json",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-SUCCESS-REPLAY-20260817/state.json",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/plan.json",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/solution.md",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/state.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/plan.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/state.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-2-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-2-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-2-20260817/plan.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-2-20260817/state.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-20260817/plan.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-20260817/state.json",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/plan.json",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/solution.md",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/state.json",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/plan.json",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/solution.md",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/state.json",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SUCCESS-UI-2090-17166-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SUCCESS-UI-2090-17166-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SUCCESS-UI-2090-17166-20260817/plan.json",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SUCCESS-UI-2090-17166-20260817/state.json",
+        "apps/flutter-app/assets/home/performance_info.svg",
+        "apps/flutter-app/assets/home/performance_tooltip_notch.svg",
+        "apps/flutter-app/assets/profile/upgrade_to_pro.png",
+        "apps/flutter-app/assets/subscription/sheet_background_1651_9915.png",
+        "apps/flutter-app/assets/subscription/success_trophy_2090_17166.svg",
+        "apps/flutter-app/lib/features/home/home_page.dart",
+        "apps/flutter-app/lib/features/profile/profile_page.dart",
+        "apps/flutter-app/lib/features/subscription/subscription_page.dart",
+        "apps/flutter-app/test/goldens/rendered/figma_home_performance_header_1911_8120_350x56.png",
+        "apps/flutter-app/test/goldens/rendered/figma_home_performance_tip_2209_15661_242x54.png",
+        "apps/flutter-app/test/goldens/rendered/figma_profile_upgrade_banner_2210_17750_350x152.png",
+        "apps/flutter-app/test/widget/auth_profile_test.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_subscription_sheet_1651_9467_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_subscription_success_2090_17166_390x844.png",
+        "apps/flutter-app/test/widget/home_page_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/assets/profile/upgrade_to_pro.png": "19642a98c2fb0935a8633756bc87ee9b37a7f084b7bc5af36cea46eeece039cb",
+        "apps/flutter-app/lib/features/home/home_page.dart": "bbb4f6c8697a0b4db2ec80b60d90b73ce1f4b13cb8c4a77fe68e4390dfe3c250",
+        "apps/flutter-app/lib/features/profile/profile_page.dart": "f56070637d0ff9f562ce33a87091ebe4bfcdc615cc003049f062fddb5b945f9c",
+        "apps/flutter-app/lib/features/subscription/subscription_page.dart": "838a2fff398f0cbe5a4530aa03572ec98e5999683da7d6e399cf5f26bf4c7bd2",
+        "apps/flutter-app/test/widget/auth_profile_test.dart": "ddeb9595aecba1c9fdb6ff136fbdce0150d2a7fe160e2133dceabeac9539e94b",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_subscription_sheet_1651_9467_390x844.png": "30ef95bfdcb6557e8928d2853f2be63febd20fbe1edb2d01d00328ed688cc61c",
+        "apps/flutter-app/test/widget/home_page_test.dart": "0448bfcf8ecd6be66026ac260022ee6b0d8bf9324fd7e0c13ffa71d4f1f7c1b5",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "e2257a4d63efbe2418cc1c30c627d5df3187e2e51db3c15372115098a466c893",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/events.jsonl": "805fd094c40e58b78045295de5049b01ac5b90dd02e188983c2efbf9f428ab9d",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/evidence.jsonl": "c1706b066d3bc687d16dc97e00598674aa843f4b05f1a08e43bc396c2e34148e",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/state.json": "1cd03c5d447cbea5bd7b7a136f6b42a04561ecc2c2b898daa3a5bcad884eddd0",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-BACKGROUND-ALIGNMENT-20260817/events.jsonl": "1465736f4323c596a74d789c55a7e0d10ae6720736a40639244a2d1d65159def",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-BACKGROUND-ALIGNMENT-20260817/state.json": "4a5bb8141bfbf7dd0637c66e24549171e15a7119104865721815f5484d296aae",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817/events.jsonl": "f98bd9f20a41d3357b4eb0a2188bf02462323fefe437ac493d1455d21486a1e0",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817/evidence.jsonl": "2660bc680719589cc20459391f412c22643dce3716e31e74e0b38b7f8610c446",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817/plan.json": "1a977610f9800408cc2a73c26ec0986b43d698ae31708f6e6af9e1ba9b3bb086",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817/solution.md": "730e8ee72f8bd44948b0d081bfc05127592bd3091fc8ca0bd38176ec799f1e5e",
+        ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-RIGHT-LINE-20260817/state.json": "54556725861a402419fa112cadc3418718ecbde15fac7ed199015fb177a66a50",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-SUCCESS-REPLAY-20260817/events.jsonl": "14d3b4e09795f34074cc914afef5017c418041b720603d39fd6d6c38505f0265",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-SUCCESS-REPLAY-20260817/evidence.jsonl": "404492aba52e644cf1bc2336e1a9a9dd74c55663d1419bf50aa156b62aa4f0c2",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-SUCCESS-REPLAY-20260817/plan.json": "30e82afb6e5e533003081664ca19d6f0ab76fd15fd6456e789bd7f1b83d5bad2",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-SUCCESS-REPLAY-20260817/state.json": "c405ae29cc290ea62a27c61933a16e62f237b8eb298f0a1988c203c8c4e17f86",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/events.jsonl": "dd9ff5fc0ad4df347a10a91bbafb7ca7b16a47fd379e15152a8530c6ec0731f5",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/evidence.jsonl": "039e04a36806871bc062c47fbf9f69621f917a2b816a2c7c28bbfbcfb521b932",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/plan.json": "a8c3a36c67019b4a0bf185c99353ac9da1b1ff591690d5506ab5dbff4b0c943b",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/solution.md": "9863bc61a5dc77e0e4e42345cbd14369fadf43ebdad6bf28cf98c2bfd8f3cb3a",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/state.json": "c35f421f268032436c582b8f381b08dc77999aa489e509d8586a17c845c24eea",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/events.jsonl": "a90631285e47f6af039a86706124da75df2c2d8df6a677849a399870f6bc1daf",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/evidence.jsonl": "98524e5cc4c6f120583c8ac1b7163c3445cc4aee6d9fd49f813be06aa6690590",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/plan.json": "01c74a1aafc752c82ca40351abfcb2918a262caa2ffac2301c599038829be069",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/state.json": "1d0b7eab750db3a88850b7130c387a0b3e5d9597262a75fba86202a19365a7fa",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-2-20260817/events.jsonl": "ade0e78129455548bcea441c7ccff9a5fa310a4c411c972f9ca5ac6dd77a7be9",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-2-20260817/evidence.jsonl": "115e2961fbfc27378e01da35f59ad0434c51aba5707f696532e984b579b4b2fa",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-2-20260817/plan.json": "0c32e816690b7a6c7f7d079a8f4160501ca5473de35a4c1bd3ddeec111fdbd8f",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-2-20260817/state.json": "212525e5d5e17924d1debf472169cd837470157312e69e59f2426b1d7474e87c",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-20260817/events.jsonl": "bfe985c4d6edcfae77c60e4595b456f0bfdf94324788082fff83d8056b733aa0",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-20260817/evidence.jsonl": "d0505a75ef9b0e314a9316e2f07d6885132da80764ef4f0792ea842dd2431609",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-20260817/plan.json": "71a81abb087e2b91352f7bb32f9e717d7e475a3becfba4b0cb095fa165f19f6e",
+        ".ai-harness/work-items/ITER-IOS-SIM-RESTART-20260817/state.json": "d7f0a58ffa6892d710b8fc2d3934446fcfb480e80c2585856c7fb57556a9e479",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/events.jsonl": "1ff34a80e5e3e14dd80298088f1bc128527240bd930329dd943d90978b86d950",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/evidence.jsonl": "cab0af19db10ec5bf9d185ff7b4cbb8a375657c3372f1a6a086477df8f8fda09",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/plan.json": "d3416e4d625c208de78413cd053772bf7111208eae6000a45d39518aa3145e78",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/solution.md": "b1a2b8d408e90842f85bc0bcf78ca550198a01b9c5fd77ef9b611f732d6ab14d",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/state.json": "607bb8f322de15babe2da9b38180f812f6251851dac4ac34191d64b971a3e129",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/events.jsonl": "24d5eb04a638f7a33e7a21cab7cd05fe42585a64fdffaa92291e2109a64b81f6",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/evidence.jsonl": "227f918211c40d0b289164a8476fa0c8054d5f02d41fe39d16592ac96f1d1169",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/plan.json": "3fb69964c59ee59b827d51028c27f89b2770d3b804ff7e1f53628005bb0ec169",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/solution.md": "c550fdcefc546fa4b9afd79e29c4b21d5a7cd2e7fe9c85ec227d3081bd8e11a4",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/state.json": "97f2828de77846f15a42eafdf7009869b7bfa6f1ebd81af1a4a5336e413aa9ed",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SUCCESS-UI-2090-17166-20260817/events.jsonl": "4df4828ee9a13b4e224e9ded42a15c2fae4c73957c28e1658e0c4b35417fe305",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SUCCESS-UI-2090-17166-20260817/evidence.jsonl": "52b29da40659233abdc7885d4b5ed4ff1e30bf666bc9a61390a57d5b819d9202",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SUCCESS-UI-2090-17166-20260817/plan.json": "e066b17ae7b849cb9d886da477aac6b77eff978468fff6ffec8a5c48e75087db",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SUCCESS-UI-2090-17166-20260817/state.json": "c129ebab9b1a1c9d979004365a3b76ec358ad21da4ca95e303016cbd9499b3fd",
+        "apps/flutter-app/assets/home/performance_info.svg": "2384ff89bf872fb1537e716c431368686b7cc1e2ac691e80754e7630bf33d018",
+        "apps/flutter-app/assets/home/performance_tooltip_notch.svg": "b79be6010d268f5297b9bdb5e12521011020b7aec352039abd65d6c59e1b94d8",
+        "apps/flutter-app/assets/subscription/sheet_background_1651_9915.png": "43626769c01a0f19968b14883aaf8e252dd8537d807a9243e8fcc7a4266d5bef",
+        "apps/flutter-app/assets/subscription/success_trophy_2090_17166.svg": "82016956f17bd4e7a5406f2cccdf737715e40cb76c3a766c51ce5ddb0d0b9285",
+        "apps/flutter-app/test/goldens/rendered/figma_home_performance_header_1911_8120_350x56.png": "e8014ca96384145d1fdf0e0ffea641cbdb3a2b101952c4ee662dd552b3c1c007",
+        "apps/flutter-app/test/goldens/rendered/figma_home_performance_tip_2209_15661_242x54.png": "4efb0290535a10833d364261d898d44762c697dde8f4fe4fbd5c9e0f5079350f",
+        "apps/flutter-app/test/goldens/rendered/figma_profile_upgrade_banner_2210_17750_350x152.png": "b8518fa747382b8a2e6cc22444bee6826697c297e36b0abd468e19385fada553",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_subscription_success_2090_17166_390x844.png": "cfe478dc69549960ffe716a3732d158692a2d3ae63df37280389588f4a0cfc88"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-BACKGROUND-ALIGNMENT-20260817/solution.md",
+    "evidence": [
+      "Figma 1651:9915 and 1651:9993 confirm background top layer, Handle ordering, 74px SKU geometry, pricing text metrics, active border/fill/glow/radio, and Badge styles",
+      "Current source confirms background is inside 32px content Padding and selected visual is derived from selected && enabled"
+    ],
+    "completedAt": "2026-08-17T06:14:15.292Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅调整 Flutter iOS Sheet 背景层级、裁剪和 SKU 视觉状态；不涉及数据、查询、写入、Schema、迁移、事务或服务端契约"
+    ],
+    "completedAt": "2026-08-17T06:14:25.308Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/BUGFIX-IOS-SUBSCRIPTION-SHEET-BACKGROUND-ALIGNMENT-20260817/plan.json",
+    "approved": true,
+    "approvalRef": "用户明确要求仔细对照 Figma 后修正背景、右侧亮边、SKU 样式和点击后选中态消失问题"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "0f04a1fe-9e78-4f45-ae90-fe55f2c89add"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "0209b8b7-da60-4245-94e6-a9a8a533aff5"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "f78c75b2-bee8-406b-a784-097f29f4facb"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "b0e54429-0a8b-496b-82ba-07298977f272"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-17T06:09:36.418Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-17T06:10:09.309Z",
+      "reason": "开始记录 Figma 背景层级、当前 Flutter 结构与脏工作树基线"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-17T06:11:12.897Z",
+      "reason": "Figma 层级与当前 Padding 根因已确认，进入最小 UI 修复设计"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-17T06:15:19.904Z",
+      "reason": "数据库影响 none、单任务写入范围、验证与 Review Batch 已批准"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-17T06:15:29.829Z",
+      "reason": "开始实施已批准的 iOS Sheet UI 修复"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-17T06:33:56.119Z",
+      "reason": "唯一实施任务已完成并通过任务级验证与 Review。"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-17T06:34:15.479Z",
+      "reason": "最终验证与 v1.1 文档同步均通过。"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-17T06:34:29.900Z",
+      "reason": "最终 Code Review 通过，无需独立复核。"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-17T06:34:47.061Z",
+      "reason": "用户要求的 iOS Sheet UI 修复与回归验证均已完成。"
+    }
+  ],
+  "createdAt": "2026-08-17T06:09:36.418Z",
+  "updatedAt": "2026-08-17T06:34:47.061Z"
+}

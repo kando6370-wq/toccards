@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-IOS-SUBSCRIPTION-SKU-TAG-STATES-20260817",
+  "mode": "single",
+  "rationale": "单组件 iOS-only 状态视觉调整，复用 _PlanTile isSelected",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "实现并验证 iOS SKU Tag 两态切换",
+      "module": "apps/flutter-app/subscription",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/subscription/subscription_page.dart",
+        "apps/flutter-app/test/subscription_restore_ui_test.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_subscription_sheet_1651_9467_390x844.png",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "flutter test test/subscription_restore_ui_test.dart --no-pub",
+        "flutter test test/widget/auth_profile_test.dart --plain-name 'v1.1 PRD subscription bottom sheet keeps the 390x844 baseline' --no-pub",
+        "flutter analyze apps/flutter-app",
+        "dart format and task-path diff checks"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "low",
+      "owner": "root",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "4f4eaff5-4485-48cc-8177-1a1f327a42b0",
+        "374ef6cf-c5f3-43cd-97a6-4fb7b22eb946"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "iOS SKU Tag 状态复核",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T07:17:47.394Z",
+  "updatedAt": "2026-08-17T07:24:52.620Z"
+}

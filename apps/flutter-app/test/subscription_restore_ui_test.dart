@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,7 @@ import 'package:kando_app/features/subscription/apple_current_entitlements.dart'
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_page.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
@@ -327,6 +329,324 @@ void main() {
   );
 
   testWidgets(
+    'iOS full page reuses the sheet SKU surfaces, spacing, badges, and transition',
+    (tester) async {
+      final host = _RestoreTestHost();
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        host.router.push('/subscription');
+        await tester.pumpAndSettle();
+        await tester.drag(
+          find.byType(CustomScrollView).last,
+          const Offset(0, -120),
+        );
+        await tester.pumpAndSettle();
+
+        double selectedOpacity(String planId) {
+          final fade = tester.widget<FadeTransition>(
+            find
+                .descendant(
+                  of: find.byKey(
+                    Key('subscription-plan-$planId-selected-overlay'),
+                  ),
+                  matching: find.byType(FadeTransition),
+                )
+                .first,
+          );
+          return fade.opacity.value;
+        }
+
+        final weeklySurface = find.byKey(
+          const Key('subscription-plan-weekly-surface'),
+        );
+        final yearlySurface = find.byKey(
+          const Key('subscription-plan-yearly-surface'),
+        );
+        final lifetimeSurface = find.byKey(
+          const Key('subscription-plan-lifetime-surface'),
+        );
+        for (final surface in [weeklySurface, yearlySurface, lifetimeSurface]) {
+          expect(tester.getSize(surface).height, 74);
+        }
+        expect(
+          tester.getRect(yearlySurface).top -
+              tester.getRect(weeklySurface).bottom,
+          22,
+        );
+        expect(
+          tester.getRect(lifetimeSurface).top -
+              tester.getRect(yearlySurface).bottom,
+          22,
+        );
+
+        final selectedSurface = tester.widget<DecoratedBox>(
+          find.byKey(const Key('subscription-plan-yearly-selected-surface')),
+        );
+        final selectedDecoration = selectedSurface.decoration as BoxDecoration;
+        expect(selectedDecoration.color, const Color(0xFF38372D));
+        expect(selectedDecoration.gradient, isNull);
+        expect(
+          (selectedDecoration.border! as Border).top.color,
+          KandoColors.accent,
+        );
+        expect(
+          find.byKey(const Key('subscription-plan-yearly-badge-blur')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('subscription-plan-lifetime-badge-blur')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('subscription-plan-lifetime')));
+        await tester.pump();
+        expect(selectedOpacity(subscriptionYearlyPlanId), 1);
+        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
+        await tester.pump(const Duration(milliseconds: 140));
+        expect(selectedOpacity(subscriptionYearlyPlanId), 0);
+        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
+        await tester.pump(const Duration(milliseconds: 140));
+        expect(selectedOpacity(subscriptionYearlyPlanId), 0);
+        expect(selectedOpacity(subscriptionLifetimePlanId), 1);
+        expect(
+          host.controller.state.selectedPlanId,
+          subscriptionLifetimePlanId,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets('Android full page keeps the existing SKU presentation', (
+    tester,
+  ) async {
+    final host = _RestoreTestHost();
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, -120),
+      );
+      await tester.pumpAndSettle();
+
+      final weeklySurface = find.byKey(
+        const Key('subscription-plan-weekly-surface'),
+      );
+      final yearlySurface = find.byKey(
+        const Key('subscription-plan-yearly-surface'),
+      );
+      final lifetimeSurface = find.byKey(
+        const Key('subscription-plan-lifetime-surface'),
+      );
+      for (final surface in [weeklySurface, yearlySurface, lifetimeSurface]) {
+        expect(tester.widget<AnimatedContainer>(surface), isNotNull);
+        expect(tester.getSize(surface).height, 76);
+      }
+      expect(
+        tester.getRect(yearlySurface).top -
+            tester.getRect(weeklySurface).bottom,
+        12,
+      );
+      expect(
+        tester.getRect(lifetimeSurface).top -
+            tester.getRect(yearlySurface).bottom,
+        12,
+      );
+      expect(
+        find.byKey(const Key('subscription-plan-yearly-selected-overlay')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('subscription-plan-yearly-badge-blur')),
+        findsNothing,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets(
+    'iOS sheet synchronizes SKU selection transition and keeps it in flight',
+    (tester) async {
+      final controller = _InFlightPurchaseController();
+      final host = _RestoreTestHost(controller: controller);
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        host.router.push('/subscription?sheet=true');
+        await tester.pumpAndSettle();
+        await tester.drag(
+          find.byType(CustomScrollView).last,
+          const Offset(0, -120),
+        );
+        await tester.pumpAndSettle();
+
+        double selectedOpacity(String planId) {
+          final fade = tester.widget<FadeTransition>(
+            find
+                .descendant(
+                  of: find.byKey(
+                    Key('subscription-plan-$planId-selected-overlay'),
+                  ),
+                  matching: find.byType(FadeTransition),
+                )
+                .first,
+          );
+          return fade.opacity.value;
+        }
+
+        BoxDecoration selectedDecoration(String planId) {
+          final surface = tester.widget<DecoratedBox>(
+            find.byKey(Key('subscription-plan-$planId-selected-surface')),
+          );
+          return surface.decoration as BoxDecoration;
+        }
+
+        BoxDecoration badgeDecoration(String planId) {
+          final badge = tester.widget<AnimatedContainer>(
+            find.byKey(Key('subscription-plan-$planId-badge-surface')),
+          );
+          return badge.decoration! as BoxDecoration;
+        }
+
+        void expectBadgeState(String planId, {required bool selected}) {
+          final decoration = badgeDecoration(planId);
+          expect(
+            decoration.color,
+            selected ? const Color(0x33F1FE70) : const Color(0xFF34362D),
+          );
+          expect(
+            (decoration.border! as Border).top.color,
+            selected ? const Color(0x4DF1FE70) : const Color(0x4D474836),
+          );
+        }
+
+        final weeklySurface = find.byKey(
+          const Key('subscription-plan-weekly-surface'),
+        );
+        final yearlySurface = find.byKey(
+          const Key('subscription-plan-yearly-surface'),
+        );
+        final lifetimeSurface = find.byKey(
+          const Key('subscription-plan-lifetime-surface'),
+        );
+        final decoration = selectedDecoration(subscriptionYearlyPlanId);
+        expect((decoration.border! as Border).top.color, KandoColors.accent);
+        expect(decoration.color, const Color(0xFF38372D));
+        expect(decoration.gradient, isNull);
+        expect(selectedOpacity(subscriptionWeeklyPlanId), 0);
+        expect(selectedOpacity(subscriptionYearlyPlanId), 1);
+        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
+        for (final surface in [weeklySurface, yearlySurface, lifetimeSurface]) {
+          expect(tester.getSize(surface).height, 74);
+        }
+        final weeklyRect = tester.getRect(weeklySurface);
+        final yearlyRect = tester.getRect(yearlySurface);
+        final lifetimeRect = tester.getRect(lifetimeSurface);
+        expect(yearlyRect.top - weeklyRect.bottom, 22);
+        expect(lifetimeRect.top - yearlyRect.bottom, 22);
+        expectBadgeState(subscriptionYearlyPlanId, selected: true);
+        expectBadgeState(subscriptionLifetimePlanId, selected: false);
+        expect(
+          find.byKey(const Key('subscription-plan-yearly-badge-blur')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('subscription-plan-lifetime-badge-blur')),
+          findsOneWidget,
+        );
+
+        await tester.ensureVisible(
+          find.byKey(const Key('subscription-plan-lifetime')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('subscription-plan-lifetime')));
+        await tester.pump();
+        expect(selectedOpacity(subscriptionYearlyPlanId), 1);
+        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
+        await tester.pump(const Duration(milliseconds: 70));
+        final fadingYearlyOpacity = selectedOpacity(subscriptionYearlyPlanId);
+        expect(fadingYearlyOpacity, inExclusiveRange(0, 1));
+        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
+        await tester.pump(const Duration(milliseconds: 70));
+        expect(selectedOpacity(subscriptionYearlyPlanId), 0);
+        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
+        await tester.pump(const Duration(milliseconds: 70));
+        expect(selectedOpacity(subscriptionYearlyPlanId), 0);
+        expect(
+          selectedOpacity(subscriptionLifetimePlanId),
+          inExclusiveRange(0, 1),
+        );
+        await tester.pumpAndSettle();
+        expect(controller.state.selectedPlanId, subscriptionLifetimePlanId);
+        expect(selectedOpacity(subscriptionYearlyPlanId), 0);
+        expect(selectedOpacity(subscriptionLifetimePlanId), 1);
+        expectBadgeState(subscriptionYearlyPlanId, selected: false);
+        expectBadgeState(subscriptionLifetimePlanId, selected: true);
+
+        await tester.ensureVisible(
+          find.byKey(const Key('subscription-plan-yearly')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('subscription-plan-yearly')));
+        await tester.pumpAndSettle();
+        expect(controller.state.selectedPlanId, subscriptionYearlyPlanId);
+        expect(selectedOpacity(subscriptionYearlyPlanId), 1);
+        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
+        expectBadgeState(subscriptionYearlyPlanId, selected: true);
+        expectBadgeState(subscriptionLifetimePlanId, selected: false);
+        await tester.drag(
+          find.byType(CustomScrollView).last,
+          const Offset(0, -600),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const Key('subscription-purchase-button')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('subscription-purchase-button')));
+        await tester.pump();
+
+        expect(controller.state.isPurchasing, isTrue);
+        expect(controller.state.selectedPlanId, subscriptionYearlyPlanId);
+        final purchasingDecoration = selectedDecoration(
+          subscriptionYearlyPlanId,
+        );
+        expect(
+          (purchasingDecoration.border! as Border).top.color,
+          KandoColors.accent,
+        );
+        expect(purchasingDecoration.color, const Color(0xFF38372D));
+        expect(purchasingDecoration.gradient, isNull);
+        expect(selectedOpacity(subscriptionYearlyPlanId), 1);
+        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
+        expect(tester.getSize(yearlySurface).height, 74);
+        expectBadgeState(subscriptionYearlyPlanId, selected: true);
+        expectBadgeState(subscriptionLifetimePlanId, selected: false);
+        expect(
+          tester
+              .widget<InkWell>(
+                find.byKey(const Key('subscription-plan-yearly')),
+              )
+              .onTap,
+          isNull,
+        );
+      } finally {
+        controller.completePurchase();
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
     'Purchase Pending disables purchase and restore while Close remains available',
     (tester) async {
       final host = _RestoreTestHost(controller: _PendingPurchaseController());
@@ -526,6 +846,22 @@ class _PendingPurchaseController extends _RestoreTestController {
     availablePlanIds: {subscriptionYearlyPlanId},
     isPurchasePending: true,
   );
+}
+
+class _InFlightPurchaseController extends _RestoreTestController {
+  final _purchaseCompleter = Completer<void>();
+
+  @override
+  Future<void> purchase() async {
+    state = state.copyWith(isPurchasing: true);
+    await _purchaseCompleter.future;
+  }
+
+  void completePurchase() {
+    if (!_purchaseCompleter.isCompleted) {
+      _purchaseCompleter.complete();
+    }
+  }
 }
 
 class _UnavailableCatalogController extends _RestoreTestController {

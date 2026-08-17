@@ -146,6 +146,7 @@ class _HomePageState extends ConsumerState<HomePage>
                       state: state,
                       performance: performance,
                       isPro: isPro,
+                      onHidePressed: controller.toggleAmountHidden,
                       onFolderPressed: () => _showFolderSheet(context, ref),
                       onRangeSelected: (range) => ref
                           .read(homePerformanceControllerProvider.notifier)
@@ -687,6 +688,7 @@ class _PerformanceSection extends StatefulWidget {
     required this.state,
     required this.performance,
     required this.isPro,
+    required this.onHidePressed,
     required this.onFolderPressed,
     required this.onRangeSelected,
     required this.onUnlock,
@@ -696,6 +698,7 @@ class _PerformanceSection extends StatefulWidget {
   final HomeState state;
   final HomePerformanceState performance;
   final bool isPro;
+  final VoidCallback onHidePressed;
   final VoidCallback onFolderPressed;
   final ValueChanged<PerformanceRange> onRangeSelected;
   final VoidCallback onUnlock;
@@ -707,7 +710,8 @@ class _PerformanceSection extends StatefulWidget {
 
 class _PerformanceSectionState extends State<_PerformanceSection> {
   final _chartKey = GlobalKey<_InteractiveChartState>();
-  final _infoController = MenuController();
+  final _infoLayerLink = LayerLink();
+  OverlayEntry? _infoOverlay;
 
   @override
   void didUpdateWidget(covariant _PerformanceSection oldWidget) {
@@ -715,9 +719,15 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
     if (oldWidget.state.selectedFolderId != widget.state.selectedFolderId ||
         oldWidget.performance.selectedRange !=
             widget.performance.selectedRange) {
-      _infoController.close();
+      _removeInfoTip();
       _chartKey.currentState?.clearSelection();
     }
+  }
+
+  @override
+  void dispose() {
+    _removeInfoTip();
+    super.dispose();
   }
 
   @override
@@ -727,32 +737,91 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'PERFORMANCE ⓘ',
-                style: TextStyle(
-                  color: KandoColors.text,
-                  fontFamily: 'Fraunces',
-                  fontSize: 24,
+        RepaintBoundary(
+          key: const Key('home-performance-header'),
+          child: SizedBox(
+            height: 56,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 32,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Text(
+                              'PERFORMANCE',
+                              style: TextStyle(
+                                color: KandoColors.text,
+                                fontFamily: 'Fraunces',
+                                fontSize: 24,
+                                fontWeight: FontWeight.w400,
+                                height: 32 / 24,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _AmountVisibilityButton(
+                              key: const Key('home-performance-hide-amount'),
+                              amountHidden: state.amountHidden,
+                              onPressed: widget.onHidePressed,
+                            ),
+                          ],
+                        ),
+                      ),
+                      _FolderPill(
+                        key: const Key('home-performance-folder'),
+                        label: state.selectedFolder.name,
+                        onPressed: () {
+                          _clearOverlays();
+                          widget.onFolderPressed();
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 20,
+                  child: Row(
+                    children: [
+                      const Flexible(
+                        fit: FlexFit.loose,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Cards with purchase price',
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: KandoColors.mutedText,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              height: 20 / 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Center(
+                        child: CompositedTransformTarget(
+                          link: _infoLayerLink,
+                          child: TapRegion(
+                            onTapOutside: (_) => _removeInfoTip(),
+                            child: _PerformanceInfoButton(
+                              key: const Key('home-performance-partial-info'),
+                              onPressed: _toggleInfoTip,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            _FolderPill(
-              key: const Key('home-performance-folder'),
-              label: state.selectedFolder.name,
-              onPressed: () {
-                _clearOverlays();
-                widget.onFolderPressed();
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Cards with purchase price',
-          style: TextStyle(color: KandoColors.mutedText, fontSize: 14),
+          ),
         ),
         const SizedBox(height: 20),
         if (!widget.isPro)
@@ -863,7 +932,7 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                       semanticLabel: 'Portfolio performance chart',
                       persistentSelection: true,
                       onSelectionChanged: (selected) {
-                        if (selected) _infoController.close();
+                        if (selected) _removeInfoTip();
                       },
                       values: data.series
                           .map((point) => point.marketValueUsd)
@@ -887,38 +956,6 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                 ],
               ),
             ),
-            if (data.purchasePriceStatus == PurchasePriceStatus.partial)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: MenuAnchor(
-                  controller: _infoController,
-                  menuChildren: const [
-                    Padding(
-                      padding: EdgeInsets.all(12),
-                      child: SizedBox(
-                        width: 260,
-                        child: Text(
-                          'Profit and return are calculated only from cards with purchase prices.',
-                        ),
-                      ),
-                    ),
-                  ],
-                  builder: (context, controller, child) => IconButton(
-                    key: const Key('home-performance-partial-info'),
-                    tooltip: 'Purchase price coverage',
-                    onPressed: () {
-                      if (controller.isOpen) {
-                        controller.close();
-                      } else {
-                        _chartKey.currentState?.clearSelection();
-                        controller.open();
-                      }
-                    },
-                    icon: const Icon(Icons.info_outline),
-                    color: KandoColors.mutedText,
-                  ),
-                ),
-              ),
             if (data.purchasePriceStatus == PurchasePriceStatus.missing)
               const Padding(
                 padding: EdgeInsets.only(top: 12),
@@ -931,8 +968,145 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
   }
 
   void _clearOverlays() {
-    _infoController.close();
+    _removeInfoTip();
     _chartKey.currentState?.clearSelection();
+  }
+
+  void _toggleInfoTip() {
+    if (_infoOverlay != null) {
+      _removeInfoTip();
+      return;
+    }
+    _chartKey.currentState?.clearSelection();
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final entry = OverlayEntry(
+      builder: (context) => Positioned.fill(
+        child: IgnorePointer(
+          child: Stack(
+            children: [
+              CompositedTransformFollower(
+                link: _infoLayerLink,
+                showWhenUnlinked: false,
+                targetAnchor: Alignment.topCenter,
+                followerAnchor: Alignment.bottomCenter,
+                offset: const Offset(0, -3),
+                child: const Material(
+                  color: Colors.transparent,
+                  child: _PerformanceInfoTip(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    _infoOverlay = entry;
+    overlay.insert(entry);
+  }
+
+  void _removeInfoTip() {
+    _infoOverlay?.remove();
+    _infoOverlay = null;
+  }
+}
+
+class _PerformanceInfoButton extends StatelessWidget {
+  const _PerformanceInfoButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Purchase price coverage',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed,
+        child: Container(
+          width: 13,
+          height: 13,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: KandoColors.accent.withValues(alpha: .6),
+              width: .5,
+            ),
+          ),
+          child: SvgPicture.asset(
+            'assets/home/performance_info.svg',
+            key: const Key('home-performance-info-icon'),
+            width: 13,
+            height: 13,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PerformanceInfoTip extends StatelessWidget {
+  const _PerformanceInfoTip();
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      key: const Key('home-performance-info-tip'),
+      child: SizedBox(
+        width: 242,
+        height: 53.5,
+        child: Column(
+          children: [
+            Container(
+              width: 242,
+              height: 46,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: .6),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x26000000),
+                    offset: Offset(0, 4),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+              child: ColoredBox(
+                color: Colors.black.withValues(alpha: .8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+                  child: Text(
+                    'Profit and return are calculated only from cards\n'
+                    'with purchase prices',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400,
+                      height: 14 / 10,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 19,
+              height: 7.5,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: SvgPicture.asset(
+                  'assets/home/performance_tooltip_notch.svg',
+                  key: const Key('home-performance-info-notch'),
+                  width: 19,
+                  height: 6.70087,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1181,31 +1355,10 @@ class _PortfolioCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Semantics(
-                    button: true,
-                    label: state.amountHidden
-                        ? 'Show portfolio amount'
-                        : 'Hide portfolio amount',
-                    child: GestureDetector(
-                      key: const Key('home-hide-amount'),
-                      onTap: onHidePressed,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF464835)),
-                        ),
-                        child: Icon(
-                          state.amountHidden
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          size: 14,
-                          color: KandoColors.accent,
-                        ),
-                      ),
-                    ),
+                  _AmountVisibilityButton(
+                    key: const Key('home-hide-amount'),
+                    amountHidden: state.amountHidden,
+                    onPressed: onHidePressed,
                   ),
                 ],
               ),
@@ -1266,6 +1419,45 @@ class _PortfolioCard extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _AmountVisibilityButton extends StatelessWidget {
+  const _AmountVisibilityButton({
+    super.key,
+    required this.amountHidden,
+    required this.onPressed,
+  });
+
+  final bool amountHidden;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: amountHidden ? 'Show portfolio amount' : 'Hide portfolio amount',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed,
+        child: Container(
+          width: 24,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFF464835)),
+          ),
+          child: Icon(
+            amountHidden
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
+            size: 14,
+            color: KandoColors.accent,
+          ),
+        ),
+      ),
     );
   }
 }

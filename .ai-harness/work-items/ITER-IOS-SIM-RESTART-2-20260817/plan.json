@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-IOS-SIM-RESTART-2-20260817",
+  "mode": "single",
+  "rationale": "单一 iOS 本地运行流程，按重启、依赖、构建、安装、验证顺序执行",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "重启模拟器并运行最新 test App",
+      "module": "apps/flutter-app",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "仅模拟器状态、依赖缓存、Pods 和 build 产物；保护所有基线中的用户文件差异"
+      ],
+      "verification": [
+        "simulator shutdown/boot 成功、依赖解析成功、Xcode build 成功、App 进程存活、用户差异保持"
+      ],
+      "docsImpact": [
+        "N/A: 仅执行已有开发运行流程，不改变行为或文档契约"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "378b3842-d2ac-4326-8433-aab4decf742d",
+        "080ad249-8c6e-48e8-be35-0c973a750e3c"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "iOS 模拟器重启验证",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T05:40:42.390Z",
+  "updatedAt": "2026-08-17T05:45:08.659Z"
+}

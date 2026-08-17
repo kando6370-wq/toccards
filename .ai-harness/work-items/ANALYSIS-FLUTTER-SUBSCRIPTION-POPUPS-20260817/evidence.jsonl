@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"2dd0c3f1-7065-48c5-948b-26be8dff064c","workItemId":"ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已交叉核对订阅组件、GoRouter 路由、全部 presentation=sheet 调用点、Widget Golden 用例和 v1.1 当前契约；结论区分严格弹窗数量、订阅视觉形态数量及调用入口数量。","timestamp":"2026-08-17T02:22:46.371Z","command":null,"independent":false}

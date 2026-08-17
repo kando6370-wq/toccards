@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-IOS-SIM-CLEAN-INSTALL-3-20260817",
+  "mode": "single",
+  "rationale": "单一模拟器 App 干净重装流程，按精确目标核对、卸载、依赖解析、构建、安装、验证执行",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "卸载并重新安装最新 test App",
+      "module": "apps/flutter-app",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "仅 iPhone 17 模拟器内 com.kando.kandoApp.beta 容器、依赖缓存、Pods 和 build 产物；保护仓库所有基线差异"
+      ],
+      "verification": [
+        "旧容器卸载成功、新容器路径不同、依赖解析成功、Xcode build 成功、App 进程存活、截图非白屏、仓库差异保持"
+      ],
+      "docsImpact": [
+        "N/A: 仅执行已有开发运行流程，不改变行为或文档契约"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "35ab74d0-69d9-4429-a987-f8d54e07fe6f",
+        "0aa6483b-ff20-4fdd-ba1f-a131d9fbd39f"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "iOS 模拟器 App 干净重装验证",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T08:59:40.367Z",
+  "updatedAt": "2026-08-17T09:03:04.391Z"
+}

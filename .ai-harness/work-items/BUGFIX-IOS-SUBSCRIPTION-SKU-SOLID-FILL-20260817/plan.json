@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-IOS-SUBSCRIPTION-SKU-SOLID-FILL-20260817",
+  "mode": "single",
+  "rationale": "单组件 iOS-only UI 修复，保留现有业务与平台分支",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "对齐 iOS SKU 纯色选中态、高度与间距",
+      "module": "apps/flutter-app/subscription",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/subscription/subscription_page.dart",
+        "apps/flutter-app/test/subscription_restore_ui_test.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_subscription_sheet_1651_9467_390x844.png",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "flutter test test/subscription_restore_ui_test.dart --plain-name 'iOS sheet keeps the selected SKU visual while purchase is in flight' --no-pub",
+        "flutter test test/widget/auth_profile_test.dart --plain-name 'v1.1 PRD subscription bottom sheet keeps the 390x844 baseline' --no-pub",
+        "flutter analyze apps/flutter-app",
+        "dart format --output=none --set-exit-if-changed apps/flutter-app/lib/features/subscription/subscription_page.dart apps/flutter-app/test/subscription_restore_ui_test.dart",
+        "git diff --check on task paths"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "low",
+      "owner": "root",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "502dbb89-c3ca-475b-9f09-4d2a29e4c947",
+        "adf7e411-ae9b-4c55-9dbd-c63e173e4d19"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "iOS SKU 视觉复核",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T06:49:15.636Z",
+  "updatedAt": "2026-08-17T06:57:42.595Z"
+}

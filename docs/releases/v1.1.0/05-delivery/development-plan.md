@@ -49,9 +49,11 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 - StoreKit 静默刷新会遍历全部 verified current entitlements：单条损坏证据不遮蔽其他有效权益，Lifetime 优先于可续订商品；没有 Lifetime 时缓存到期最晚的有效订阅。该选择规则已有纯业务测试，仍待 Sandbox 多 entitlement 实单顺序验收。
 - Revenue 持久化边界已强化：reported transaction ID 会过滤空值，pending Map key 必须与记录内 `transaction_id` 完全一致；持久化记录只接受非负有限金额、三位大写币种、非空且无首尾空格的交易/SKU，以及 `weekly/yearly/lifetime` plan。损坏本地记录不能绕过幂等、形成永久待重试项或在重启 flush 时伪造收入。实时重复回调、启动 flush 与购买回调并发均按 `transaction_id` 串行去重；Restore、Pending、Unverified 仍不记录收入。Revenue 定向 7 项、ATT 定向 8 项、`subscription-core` 9 项及 Flutter analyze 已通过。
 - 首次完成 Onboarding 后和后续完整冷启动已接入一次性启动门禁：权益刷新最长 15 秒，明确 Free 展示完整 Subscription Page，并分别保留 `source=onboarding` 或 `source=cold_start`；Premium 与 Unknown 进入 Home，Unknown 不伪装成 Free。门禁只存在于根启动流程，App 后台回前台或使用中变 Free 不会自动弹 Subscription Page。ATT/Singular 已排在 Splash/启动预加载结束与 Onboarding 之间；仓库不存在产品所述“现有网络授权”，因此按 PRD 禁止新增无业务需要权限的规则不伪造该步骤。
-- Subscription Page 与 Subscription Success 的固定内容已按 App PRD 收口：标题分别为 `Choose Your Plan` 和 `You're Premium!`，两页仅展示四项 Premium Benefits，Wishlist 不作为 Premium；Success 主按钮为 `Start Exploring`，不再增加 `Manage subscription` 第二出口。
+- Subscription Page 与 Subscription Success 的固定内容已按 App PRD 收口：标题分别为 `Choose Your Plan` 和 `You're Premium!`，两页仅展示四项 Premium Benefits，Wishlist 不作为 Premium；Success 主按钮为 `Start Exploring`，不再增加 `Manage subscription` 第二出口。Success 页面样式已同步 Figma `2090:17166` 的 `#070905` 背景、`PREMIUM ACTIVE` 标签、208px 奖杯光环、紧凑权益卡与 56px CTA；入场动画仍只播放一次并停留在完整可见状态，不采用设计节点中的循环播放，也不循环重置标题、权益或按钮；`Start Exploring` 的既有来源跳转保持不变。
+- iOS Functional Paywall Bottom Sheet 已同步最新 Figma `1651:9915`、选中态 `2228:18613` 与 Badge 两态 `2228:18625`/`2228:18638`：仅更新 iOS `presentation=sheet` 的 Charizard 卡面背景、权益列表暗面与描边、套餐暗面/选中微光/Radio 和差异化 Badge；背景从 Sheet 顶部开始并承载 Handle，右侧导出亮边由父层超扫裁剪；三个 SKU 统一为 74px 高度、17px 水平内边距和 22px 相邻间距，选中项使用截图确认的 `#38372D` 无渐变纯色 Surface，并保留对应价格/周期文字层级；`MOST POPULAR` 与 `BEST VALUE` 保留各自 SKU 文案，Tag 的背景、描边和 6px 模糊跟随 SKU 选中状态在激活/未激活样式间切换；切换 SKU 使用两段 140ms ease-out，旧项的选中纯色、accent 描边、微光、Radio 和 Tag 完全退场后，新项才开始进入激活态，价格层级使用同一动画规格；购买进入不可点击状态时仍保留当前 SKU 的选中视觉。Android 保持原 Sheet UI，完整 Subscription Page、Success Page、商品状态、购买/Restore、typed success 与来源动作恢复逻辑均保持不变。
 - Home/Search/Collection/Profile 顶部订阅入口已按 App PRD 补齐：仅明确 Free 时显示 42px Premium 图标，Unknown/Premium 隐藏；Scan 和二级页面不挂载。四个入口均打开完整 Subscription Page，并携带各自 `source` 与 `entry_source=top_subscription_entry`；Profile Banner 使用 `source=profile&entry_source=profile_banner`。Purchase Success 经 Success Page 的 `Start Exploring` 逐层返回原一级页面实例，Restore Success/外部解锁直接关闭订阅页，因此可保留输入、Tab、Range、滚动位置和已加载数据；`onboarding/cold_start` 仍按启动门禁进入 Home，Scan 保留原实例返回链。
 - 当前入口相关验证：共享三态/URL 契约 3 项、Subscription 商品/Restore/来源返回、平台边界、前台刷新及法律外链上下文 15 项、Collection 24 项、Profile 相关 3 项和 `flutter analyze` 已通过。Terms/Privacy 使用系统外部应用模式；Full Subscription Page 与 Functional Paywall 的直接 Widget 验收已证明打开外链后原订阅容器、非默认 Plan 选择及来源页面状态均保持。StoreKit Product Loading 已实现首次请求加最多 3 次后台重试，默认间隔 1/3/8 秒并共享 15 秒总 Deadline；同一时刻复用单个请求周期，Deadline 或页面销毁后以周期标识拒绝迟到 StoreKit 结果写回。订阅容器停留期间从后台回前台会主动刷新一次商品，购买、Pending 或 Restore 期间跳过；原 Selected SKU 仍可用时保持，否则切换到第一个可用 SKU，页面关闭后不再触发刷新。任一可用 SKU 返回后立即开放真实商品，其余 SKU 保持不可用且不显示 Selected，不伪造价格。全部失败、购买无法启动及普通交易失败分别使用 App PRD 固定文案，自动重试仅限商品读取，不自动重试 Purchase。Search 既有回归已按当前代码与 PRD 收口，23 项全部通过。2026-08-13 最新全量回归为 App 679 项通过、10 项跳过、1 项失败，`subscription_core` 9 项通过；唯一失败仍是既有 App Shell Golden。该基线最初在测试显式加载 `Geist-Regular.ttf` 时生成，历史提交 `369cd7a` 后字体资源与加载逻辑被删除但 Golden 未同步，Flutter 3.44.7 因此以测试占位字体渲染并产生差异。v1.1 App PRD 未变更底部导航，该问题不作为本期业务需求差距；但在产品/视觉确认恢复 Geist 资产或批准新基线前不得覆盖 Golden，Flutter 全量测试仍不得标记为通过。
+- Profile 非订阅 Banner 已同步 Figma `2210:17750`：保留 152px 高度、响应式页面宽度、现有标题/说明/按钮与 `profile_banner` 订阅来源，仅将背景替换为卡牌、票券和上升箭头插画，并按设计稿右对齐放大裁切；Premium/Unknown 仍不显示该入口。Banner 视觉 Golden 与 Free/Premium 显隐、尺寸和跳转回归覆盖本次变更。
 - 前台商品刷新新增 1 项上下文失效回归：页面关闭后，迟到 StoreKit 结果不得写回商品目录，且同一刷新周期不再继续重试；本段 Subscription 定向测试现为 16 项通过。
 - Profile Restore Blocking Loading 已有直接 Widget 验收：Restore 期间全页业务点击由 `AbsorbPointer` 吸收，系统返回由 `PopScope` 拦截，并持续显示全屏 Loading 遮罩；点击 Customer Support 不会导航，符合 App PRD 第 99 条。
 - Restore proof 代码已实现：iOS `DCAppAttestService` 注册安装级 key，对 Workers 返回且绑定 live session、一次性 nonce、request ID、key ID 和 StoreKit JWS 摘要的 canonical client data 签名；Workers 使用 WebCrypto 验证 Apple 证书链、nonce、App ID、AAGUID、key ID、assertion 与递增 counter，原子消费 challenge 后只为当前 session 写 `source=restore` grant。同 UID 另一 session 盗用与重放已通过真实 Miniflare D1 集成测试拒绝。
@@ -128,6 +130,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 - 按 PRD 实现统一 15 秒 deadline、迟到响应防覆盖和写操作幂等键。
 - 已按页面实例保留最小 `blocked_action` 来源上下文；Functional Paywall 成功不进入 Success Page，非成功或目标失效不执行旧动作。
 - 已实现商品局部缺失时其余 SKU 仍可购买、商品读取 1/3/8 秒自动重试共享 15 秒总 Deadline、同次 Subscribe 重新拉取，以及 Pending、Cancelled、Failed、Unverified、Purchase unavailable 和商品重载 Timeout；仍需完成前后台完整矩阵与真机验证。
+- iOS 完整订阅页面与订阅弹窗已统一 SKU 的 74px 高度、22px 间距、选中/未选中 Surface、Radio、Tag、价格层级和两阶段切换过渡；Android 保持原展示，购买与 Restore 业务逻辑不变。
 - 已实现 Unknown 主动刷新、Premium 变 Free、Lifetime/自动续订缓存期限和 Home/Card Detail/Folder/Scan/Profile 页面收敛；仍需 iOS 真机前后台与续订过期矩阵验证。
 - 首次安装 ATT 与 Singular 初始化代码已完成；仍需注入正式 Key 并完成 iOS 系统弹窗、归因回传及真实 Firebase/App Store 收入验收。
 
@@ -141,7 +144,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 - 新增 `performance_start_at`、`performance_history_available_from` 和 v1.0 不可恢复历史 baseline。
 - 保存 Purchase Price/Currency、Quantity、价格映射属性及 Folder Move 历史。
 - 实现 Home/Card Detail 计算、缺失购买价分支、货币换算和精度规则。
-- Home Performance 已实现 Market/Portfolio 变化分解、Tooltip 字段白名单、Qty 差值、金额隐藏、Partial Info Popover 互斥及 Range/Folder/Tab 清理；仍需真实历史数据规模与多设备远端删除人工验收。
+- Home Performance 已实现 Market/Portfolio 变化分解、Tooltip 字段白名单、Qty 差值和金额隐藏；标题区已同步 Figma `1911:8120` 的 24px 眼睛入口及 13px 购买价说明入口，说明 Tips 按 `2209:15661` 以根 Overlay 锚定在图标上方，并与图表 Tooltip、Range、Folder、Tab 切换互斥清理。仍需真实历史数据规模与多设备远端删除人工验收。
 
 验收：计算样例覆盖 PRD 第 10-14 章；迁移可重复且不伪造 v1.0 历史；1Y 查询达到性能门槛。
 

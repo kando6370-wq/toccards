@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "id": "ITER-HOME-PERFORMANCE-HEADER-20260817",
+  "type": "ITERATION",
+  "title": "同步 Home Performance 收藏夹标题与说明 Tips",
+  "status": "DONE",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "autonomous",
+    "source": "用户 2026-08-17 当前消息明确要求实现两个 Figma 节点"
+  },
+  "input": {
+    "references": [
+      "Figma 1911:8120 和 2209:15661；用户要求标题眼睛图标、副标题感叹号及上方 Tips"
+    ],
+    "acceptance": [
+      "Home Performance 标题区图标、尺寸、间距与 Figma 一致；眼睛沿用金额隐藏行为；点击感叹号在其上方显示 242x53.5 Tips；切 Range、Folder、Tab 或点外部关闭；iOS 定向测试、静态分析和模拟器视觉确认通过"
+    ],
+    "nonGoals": [
+      "不修改 Performance API/数据库；不新增购买价卡牌数量字段；按用户最新要求暂不做 Android 构建验收"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "dev@9224e51ef3307cf15bb928c80a597916fa42651d；保留已完成 Profile Banner 产品改动与现有 Runtime 目录；Home Performance 现有标题为文本 ⓘ，副标题无图标，partial Tips 位于图表下方 MenuAnchor"
+    ],
+    "completedAt": "2026-08-17T02:48:35.691Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "9224e51ef3307cf15bb928c80a597916fa42651d",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/state.json",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/state.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/plan.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/state.json",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/plan.json",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/solution.md",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/state.json",
+        "apps/flutter-app/assets/profile/upgrade_to_pro.png",
+        "apps/flutter-app/lib/features/profile/profile_page.dart",
+        "apps/flutter-app/test/goldens/rendered/figma_profile_upgrade_banner_2210_17750_350x152.png",
+        "apps/flutter-app/test/widget/auth_profile_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/assets/profile/upgrade_to_pro.png": "19642a98c2fb0935a8633756bc87ee9b37a7f084b7bc5af36cea46eeece039cb",
+        "apps/flutter-app/lib/features/profile/profile_page.dart": "f56070637d0ff9f562ce33a87091ebe4bfcdc615cc003049f062fddb5b945f9c",
+        "apps/flutter-app/test/widget/auth_profile_test.dart": "66157963a53dee0d89fc3d140abcbde25f975a8a3bc67771c2fcb18636497443",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "740fcd2ebc642de3ae153abe429cb899000fbc0bc9067c4ecc120e6ad84ab447",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/events.jsonl": "805fd094c40e58b78045295de5049b01ac5b90dd02e188983c2efbf9f428ab9d",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/evidence.jsonl": "c1706b066d3bc687d16dc97e00598674aa843f4b05f1a08e43bc396c2e34148e",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/state.json": "1cd03c5d447cbea5bd7b7a136f6b42a04561ecc2c2b898daa3a5bcad884eddd0",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/events.jsonl": "90d7e3b594fe685c12f044b83dd2f52c5f0a619deeeed5701f086d572f5f526a",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/state.json": "a5f467645d7fb463fbd72f33f173332a70cae02d76f454b8aba4ac99e56d0f33",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/events.jsonl": "a90631285e47f6af039a86706124da75df2c2d8df6a677849a399870f6bc1daf",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/evidence.jsonl": "98524e5cc4c6f120583c8ac1b7163c3445cc4aee6d9fd49f813be06aa6690590",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/plan.json": "01c74a1aafc752c82ca40351abfcb2918a262caa2ffac2301c599038829be069",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/state.json": "1d0b7eab750db3a88850b7130c387a0b3e5d9597262a75fba86202a19365a7fa",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/events.jsonl": "1ff34a80e5e3e14dd80298088f1bc128527240bd930329dd943d90978b86d950",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/evidence.jsonl": "cab0af19db10ec5bf9d185ff7b4cbb8a375657c3372f1a6a086477df8f8fda09",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/plan.json": "d3416e4d625c208de78413cd053772bf7111208eae6000a45d39518aa3145e78",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/solution.md": "b1a2b8d408e90842f85bc0bcf78ca550198a01b9c5fd77ef9b611f732d6ab14d",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/state.json": "607bb8f322de15babe2da9b38180f812f6251851dac4ac34191d64b971a3e129",
+        "apps/flutter-app/test/goldens/rendered/figma_profile_upgrade_banner_2210_17750_350x152.png": "b8518fa747382b8a2e6cc22444bee6826697c297e36b0abd468e19385fada553"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/solution.md",
+    "evidence": [
+      "Figma get_design_context/metadata 已确认 1911:8120 为 350x56 标题区、2209:15661 为 242x53.5 上方 Tips；现有 MenuAnchor/金额隐藏/图表互斥调用方与测试已读取"
+    ],
+    "completedAt": "2026-08-17T02:49:21.596Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅 Flutter 视图、SVG、Overlay 与 Widget/Golden 测试；不改变 Performance DTO/API、D1、KV、R2、查询、事务或迁移"
+    ],
+    "completedAt": "2026-08-17T02:49:21.672Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/plan.json",
+    "approved": true,
+    "approvalRef": "用户 2026-08-17 明确要求按 Figma 1911:8120 与 2209:15661 修改，且仅验收 iOS"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "8dccfd01-666e-4363-961d-f3c9bde08691"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "dadbcde0-9d57-431d-98cd-f197d865b61a"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "4887d25f-5302-4059-94cf-7a9713d50aa7"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "29038432-0fbe-4c69-8fad-38299bb1e021"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-17T02:48:35.431Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-17T02:48:35.526Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-17T02:48:35.781Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-17T02:49:22.149Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-17T02:49:22.236Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-17T03:11:25.331Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-17T03:11:47.803Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-17T03:12:02.268Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-17T03:12:52.920Z",
+      "reason": "gate-passed"
+    }
+  ],
+  "createdAt": "2026-08-17T02:48:35.431Z",
+  "updatedAt": "2026-08-17T03:12:52.920Z"
+}

@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
@@ -16,6 +19,15 @@ const _benefits = [
   'Track Portfolio Performance',
   'Extended Price History',
 ];
+
+const _subscriptionSheetBackgroundAsset =
+    'assets/subscription/sheet_background_1651_9915.png';
+const _subscriptionSuccessTrophyAsset =
+    'assets/subscription/success_trophy_2090_17166.svg';
+const _subscriptionSheetItemBorder = Color(0xFF2A2D20);
+const _subscriptionSheetSelectedSurface = Color(0xFF38372D);
+const _subscriptionSheetSecondaryText = Color(0xFF999578);
+const _subscriptionSheetSelectionPhaseDuration = Duration(milliseconds: 140);
 
 class SubscriptionPage extends ConsumerStatefulWidget {
   const SubscriptionPage({
@@ -61,6 +73,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(subscriptionControllerProvider);
+    final useUpdatedSkuUi = defaultTargetPlatform == TargetPlatform.iOS;
+    final useUpdatedSheetUi = widget.sheet && useUpdatedSkuUi;
     ref.listen(subscriptionControllerProvider, (previous, next) {
       if (next.resultEventCount != previous?.resultEventCount &&
           context.mounted) {
@@ -145,7 +159,13 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
       },
       child: Stack(
         children: [
-          Positioned.fill(child: _PaywallBackground(sheet: widget.sheet)),
+          if (!useUpdatedSheetUi)
+            Positioned.fill(
+              child: _PaywallBackground(
+                sheet: widget.sheet,
+                useUpdatedSheetUi: false,
+              ),
+            ),
           CustomScrollView(
             slivers: [
               const SliverToBoxAdapter(child: SizedBox(height: 98)),
@@ -163,11 +183,22 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                       ),
                     ),
                     const SizedBox(height: 24),
-                    ..._benefits.map(_BenefitRow.new),
+                    ..._benefits.map(
+                      (benefit) => _BenefitRow(
+                        benefit,
+                        useUpdatedSheetUi: useUpdatedSheetUi,
+                      ),
+                    ),
                     const SizedBox(height: 18),
                     ...subscriptionPlans.map(
                       (plan) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: EdgeInsets.only(
+                          bottom:
+                              useUpdatedSkuUi &&
+                                  plan.id != subscriptionLifetimePlanId
+                              ? 22
+                              : 12,
+                        ),
                         child: _PlanTile(
                           plan: plan,
                           price:
@@ -181,6 +212,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                               !state.isLoading &&
                               !state.isPurchasing &&
                               !state.isPurchasePending,
+                          useUpdatedSheetUi: useUpdatedSkuUi,
                           onTap: () => ref
                               .read(subscriptionControllerProvider.notifier)
                               .selectPlan(plan.id),
@@ -319,12 +351,19 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
             color: KandoColors.ink,
             child: Stack(
               children: [
+                if (useUpdatedSheetUi)
+                  const Positioned.fill(
+                    child: _PaywallBackground(
+                      sheet: true,
+                      useUpdatedSheetUi: true,
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.only(top: 32),
                   child: content,
                 ),
                 Positioned(
-                  top: 10,
+                  top: useUpdatedSheetUi ? 21 : 10,
                   left: 0,
                   right: 0,
                   child: Center(
@@ -416,8 +455,8 @@ class _SubscriptionSuccessPageState extends State<SubscriptionSuccessPage>
       _controller
         ..stop()
         ..value = 1;
-    } else if (!_controller.isAnimating) {
-      _controller.repeat();
+    } else if (!_controller.isAnimating && !_controller.isCompleted) {
+      _controller.forward();
     }
   }
 
@@ -430,50 +469,84 @@ class _SubscriptionSuccessPageState extends State<SubscriptionSuccessPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: KandoColors.ink,
+      backgroundColor: const Color(0xFF070905),
       body: SafeArea(
-        child: Center(
+        bottom: false,
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 390),
+            constraints: const BoxConstraints(maxWidth: 480),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 83, 20, 32),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               child: Column(
                 children: [
+                  const SizedBox(
+                    key: Key('subscription-success-premium-active'),
+                    height: 18,
+                    child: Center(
+                      child: Text(
+                        'PREMIUM ACTIVE',
+                        style: TextStyle(
+                          color: Color(0xFFE5FF3B),
+                          fontSize: 13,
+                          height: 18 / 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 59),
                   _SuccessBadgeReveal(controller: _controller),
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 14),
                   _SuccessReveal(
                     key: const Key('subscription-success-title-reveal'),
                     controller: _controller,
                     begin: 0.29545,
                     end: 0.40909,
-                    child: const Text(
-                      "You're Premium!",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: KandoColors.text,
-                        fontFamily: 'Fraunces',
-                        fontSize: 32,
-                        height: 1.25,
-                        fontWeight: FontWeight.w600,
+                    child: const SizedBox(
+                      width: 350,
+                      height: 40,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          "You're Premium!",
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: Color(0xFFE3E3D6),
+                            fontFamily: 'Fraunces',
+                            fontSize: 32,
+                            height: 1.25,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 9),
                   _SuccessReveal(
                     controller: _controller,
                     begin: 0.29545,
                     end: 0.40909,
-                    child: const Text(
-                      'Your premium features are now unlocked.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: KandoColors.text,
-                        fontSize: 16,
-                        height: 1.5,
+                    child: const SizedBox(
+                      width: 322,
+                      height: 22,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Your premium features are now unlocked.',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: Color(0xFFC8C8B1),
+                            fontSize: 15,
+                            height: 22 / 15,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 25),
                   _SuccessReveal(
                     key: const Key('subscription-success-benefit-0-reveal'),
                     controller: _controller,
@@ -509,8 +582,9 @@ class _SubscriptionSuccessPageState extends State<SubscriptionSuccessPage>
                     end: 0.71818,
                     child: const _SuccessBenefitRow('Extended Price History'),
                   ),
-                  const SizedBox(height: 44),
+                  const SizedBox(height: 33),
                   _SuccessReveal(
+                    key: const Key('subscription-success-button-reveal'),
                     controller: _controller,
                     begin: 0.80909,
                     end: 0.92273,
@@ -519,6 +593,21 @@ class _SubscriptionSuccessPageState extends State<SubscriptionSuccessPage>
                       height: 56,
                       child: FilledButton(
                         key: const Key('subscription-success-continue'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: KandoColors.accent,
+                          foregroundColor: KandoColors.primaryOnDefault,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 16,
+                          ),
+                          shape: const StadiumBorder(),
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            height: 24 / 14,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
                         onPressed: () {
                           if ((widget.source == 'scan' ||
                                   _preservesSourcePage(widget.source)) &&
@@ -624,69 +713,135 @@ class _SuccessBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       key: const Key('subscription-success-badge'),
-      width: 128,
-      height: 135,
+      width: 208,
+      height: 208,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
           Container(
-            width: 128,
-            height: 128,
+            width: 208,
+            height: 208,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0x1AE6FF3B),
+            ),
+          ),
+          Container(
+            width: 166,
+            height: 166,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0x29E6FF3B),
+            ),
+          ),
+          Container(
+            width: 116,
+            height: 116,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: KandoColors.accentGlow10,
-              border: Border.all(color: KandoColors.accent, width: 2),
-              boxShadow: const [
-                BoxShadow(color: Color(0x403E4910), blurRadius: 22),
-                BoxShadow(color: Color(0x332F3A00), blurRadius: 42),
-              ],
+              color: const Color(0xFF404D1A),
+              border: Border.all(color: const Color(0xFFE6FF3B), width: 1.5),
             ),
-            child: const Icon(
-              Icons.check_rounded,
-              size: 54,
-              color: KandoColors.accent,
+            child: SvgPicture.asset(
+              _subscriptionSuccessTrophyAsset,
+              width: 60,
+              height: 52,
             ),
           ),
-          const Positioned(
-            left: -22,
-            top: 5,
-            child: Icon(
-              Icons.auto_awesome,
-              size: 14,
-              color: KandoColors.accent,
-            ),
+          const _SuccessConfetti(
+            left: -21,
+            top: 41,
+            size: 7,
+            angle: 0.418879,
+            color: Color(0xFFE5FF3B),
           ),
-          const Positioned(
-            right: -18,
-            top: 34,
-            child: Icon(
-              Icons.auto_awesome,
-              size: 10,
-              color: KandoColors.accent,
-            ),
+          const _SuccessConfetti(
+            left: 210,
+            top: 48,
+            size: 6,
+            angle: -0.488692,
+            color: Color(0xFFF0F0E0),
           ),
-          Positioned(
-            bottom: 0,
-            child: Container(
-              height: 24,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: KandoColors.accent,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: const Text(
-                'PRO',
-                style: TextStyle(
-                  color: Color(0xFF5B6300),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+          const _SuccessConfetti(
+            left: -6,
+            top: 161,
+            size: 5,
+            angle: 0.418879,
+            color: Color(0xFFF0F0E0),
+          ),
+          const _SuccessConfetti(
+            left: 198,
+            top: 162,
+            size: 8,
+            angle: -0.488692,
+            color: Color(0xFFE5FF3B),
+          ),
+          const _SuccessConfetti(
+            left: 26,
+            top: -9,
+            size: 5,
+            angle: 0.418879,
+            color: Color(0xFFE5FF3B),
+          ),
+          const _SuccessConfetti(
+            left: 180,
+            top: -5,
+            size: 5,
+            angle: -0.488692,
+            color: Color(0xFFF0F0E0),
+          ),
+          const _SuccessConfetti(
+            left: -37,
+            top: 111,
+            size: 4,
+            angle: 0.418879,
+            color: Color(0xFFE5FF3B),
+          ),
+          const _SuccessConfetti(
+            left: 236,
+            top: 114,
+            size: 4,
+            angle: -0.488692,
+            color: Color(0xFFF0F0E0),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SuccessConfetti extends StatelessWidget {
+  const _SuccessConfetti({
+    required this.left,
+    required this.top,
+    required this.size,
+    required this.angle,
+    required this.color,
+  });
+
+  final double left;
+  final double top;
+  final double size;
+  final double angle;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: left,
+      top: top,
+      child: Transform.rotate(
+        angle: angle,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
       ),
     );
   }
@@ -703,9 +858,9 @@ class _SuccessBenefitRow extends StatelessWidget {
       height: 58,
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1C14),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x33D4E157)),
+        color: const Color(0xFF1E2018),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0x4D474836)),
       ),
       child: Row(
         children: [
@@ -714,18 +869,22 @@ class _SuccessBenefitRow extends StatelessWidget {
             height: 24,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: KandoColors.accentGlow10,
+              color: KandoColors.accent,
             ),
-            child: const Icon(Icons.check, size: 14, color: KandoColors.accent),
+            child: const Icon(
+              Icons.check_rounded,
+              size: 14,
+              color: KandoColors.primaryOnDefault,
+            ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               label,
               style: const TextStyle(
-                color: KandoColors.text,
-                fontSize: 16,
-                height: 1.5,
+                color: KandoColors.mutedText,
+                fontSize: 14,
+                height: 20 / 14,
               ),
             ),
           ),
@@ -736,12 +895,44 @@ class _SuccessBenefitRow extends StatelessWidget {
 }
 
 class _PaywallBackground extends StatelessWidget {
-  const _PaywallBackground({required this.sheet});
+  const _PaywallBackground({
+    required this.sheet,
+    required this.useUpdatedSheetUi,
+  });
 
   final bool sheet;
+  final bool useUpdatedSheetUi;
 
   @override
   Widget build(BuildContext context) {
+    if (useUpdatedSheetUi) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final imageWidth = constraints.maxWidth + 2;
+          return ColoredBox(
+            color: const Color(0xFF222222),
+            child: ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topLeft,
+                minWidth: imageWidth,
+                maxWidth: imageWidth,
+                minHeight: 0,
+                maxHeight: double.infinity,
+                child: Transform.translate(
+                  offset: const Offset(0, -1),
+                  child: Image.asset(
+                    _subscriptionSheetBackgroundAsset,
+                    width: imageWidth,
+                    fit: BoxFit.fitWidth,
+                    alignment: Alignment.topLeft,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
     if (sheet) {
       return Stack(
         children: [
@@ -876,20 +1067,27 @@ class _SheetBackgroundCard extends StatelessWidget {
 }
 
 class _BenefitRow extends StatelessWidget {
-  const _BenefitRow(this.label);
+  const _BenefitRow(this.label, {required this.useUpdatedSheetUi});
 
   final String label;
+  final bool useUpdatedSheetUi;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final row = Container(
       height: 50,
       margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: EdgeInsets.symmetric(horizontal: useUpdatedSheetUi ? 13 : 12),
       decoration: BoxDecoration(
-        color: KandoColors.ink.withValues(alpha: 0.72),
+        color: useUpdatedSheetUi
+            ? KandoColors.surface.withValues(alpha: 0.4)
+            : KandoColors.ink.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: KandoColors.borderSubtle),
+        border: Border.all(
+          color: useUpdatedSheetUi
+              ? _subscriptionSheetItemBorder
+              : KandoColors.borderSubtle,
+        ),
       ),
       child: Row(
         children: [
@@ -912,15 +1110,24 @@ class _BenefitRow extends StatelessWidget {
         ],
       ),
     );
+    if (!useUpdatedSheetUi) return row;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+        child: row,
+      ),
+    );
   }
 }
 
-class _PlanTile extends StatelessWidget {
+class _PlanTile extends StatefulWidget {
   const _PlanTile({
     required this.plan,
     required this.price,
     required this.selected,
     required this.enabled,
+    required this.useUpdatedSheetUi,
     required this.onTap,
   });
 
@@ -928,102 +1135,324 @@ class _PlanTile extends StatelessWidget {
   final String price;
   final bool selected;
   final bool enabled;
+  final bool useUpdatedSheetUi;
   final VoidCallback onTap;
 
   @override
+  State<_PlanTile> createState() => _PlanTileState();
+}
+
+class _PlanTileState extends State<_PlanTile> {
+  late bool _visualSelected;
+  var _transitionGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _visualSelected = widget.selected;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PlanTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.useUpdatedSheetUi) {
+      _visualSelected = widget.selected;
+      return;
+    }
+    if (oldWidget.selected == widget.selected) return;
+
+    final generation = ++_transitionGeneration;
+    if (!widget.selected) {
+      _visualSelected = false;
+      return;
+    }
+
+    _visualSelected = false;
+    Future<void>.delayed(_subscriptionSheetSelectionPhaseDuration, () {
+      if (!mounted || generation != _transitionGeneration || !widget.selected) {
+        return;
+      }
+      setState(() => _visualSelected = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _transitionGeneration++;
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final plan = widget.plan;
+    final price = widget.price;
+    final selected = widget.selected;
+    final enabled = widget.enabled;
+    final useUpdatedSheetUi = widget.useUpdatedSheetUi;
+    final isSelected = useUpdatedSheetUi ? selected : selected && enabled;
+    final visualSelected = useUpdatedSheetUi ? _visualSelected : isSelected;
+    final usesPrimaryText = enabled || isSelected;
+    final titleStyle = TextStyle(
+      color: usesPrimaryText ? KandoColors.text : KandoColors.mutedText,
+      fontSize: 18,
+      fontWeight: useUpdatedSheetUi ? FontWeight.w500 : null,
+      height: useUpdatedSheetUi ? 22 / 18 : null,
+    );
+    final priceStyle = TextStyle(
+      color: usesPrimaryText ? KandoColors.text : KandoColors.mutedText,
+      fontSize: useUpdatedSheetUi && !visualSelected ? 16 : 18,
+      fontWeight: visualSelected ? FontWeight.w700 : FontWeight.w600,
+      height: useUpdatedSheetUi
+          ? visualSelected
+                ? 27 / 18
+                : 24 / 16
+          : null,
+    );
+    final content = Padding(
+      padding: EdgeInsets.symmetric(horizontal: useUpdatedSheetUi ? 17 : 16),
+      child: Row(
+        children: [
+          if (useUpdatedSheetUi)
+            _SheetPlanRadio(selected: visualSelected, enabled: enabled)
+          else
+            Icon(
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: isSelected ? KandoColors.accent : KandoColors.border,
+              size: 22,
+            ),
+          SizedBox(width: useUpdatedSheetUi ? 16 : 14),
+          Expanded(
+            child: useUpdatedSheetUi
+                ? AnimatedDefaultTextStyle(
+                    duration: _subscriptionSheetSelectionPhaseDuration,
+                    curve: Curves.easeOutCubic,
+                    style: titleStyle,
+                    child: Text(plan.title),
+                  )
+                : Text(plan.title, style: titleStyle),
+          ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (useUpdatedSheetUi)
+                AnimatedDefaultTextStyle(
+                  duration: _subscriptionSheetSelectionPhaseDuration,
+                  curve: Curves.easeOutCubic,
+                  style: priceStyle,
+                  child: Text(price),
+                )
+              else
+                Text(price, style: priceStyle),
+              Text(
+                plan.periodLabel,
+                style: TextStyle(
+                  color: useUpdatedSheetUi
+                      ? _subscriptionSheetSecondaryText
+                      : KandoColors.mutedText,
+                  fontSize: 12,
+                  height: useUpdatedSheetUi ? 16 / 12 : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    final surface = useUpdatedSheetUi
+        ? SizedBox(
+            key: Key('subscription-plan-${plan.id}-surface'),
+            height: 74,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                DecoratedBox(
+                  key: Key('subscription-plan-${plan.id}-unselected-surface'),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF1C1E15), Color(0xFF12140D)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _subscriptionSheetItemBorder),
+                  ),
+                ),
+                AnimatedOpacity(
+                  key: Key('subscription-plan-${plan.id}-selected-overlay'),
+                  opacity: visualSelected ? 1 : 0,
+                  duration: _subscriptionSheetSelectionPhaseDuration,
+                  curve: Curves.easeOutCubic,
+                  child: DecoratedBox(
+                    key: Key('subscription-plan-${plan.id}-selected-surface'),
+                    decoration: BoxDecoration(
+                      color: _subscriptionSheetSelectedSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: KandoColors.accent),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x26F0FE6F),
+                          blurRadius: 15,
+                          spreadRadius: -3,
+                        ),
+                        BoxShadow(
+                          color: Color(0x1AF0FE6F),
+                          blurRadius: 6,
+                          spreadRadius: -2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                content,
+              ],
+            ),
+          )
+        : AnimatedContainer(
+            key: Key('subscription-plan-${plan.id}-surface'),
+            duration: const Duration(milliseconds: 160),
+            height: 76,
+            decoration: BoxDecoration(
+              color: KandoColors.surface.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? KandoColors.accent : KandoColors.border,
+              ),
+            ),
+            child: content,
+          );
     return Stack(
       clipBehavior: Clip.none,
       children: [
         InkWell(
           key: Key('subscription-plan-${plan.id}'),
-          onTap: enabled ? onTap : null,
+          onTap: enabled ? widget.onTap : null,
           borderRadius: BorderRadius.circular(12),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            height: 76,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: KandoColors.surface.withValues(alpha: 0.72),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: selected && enabled
-                    ? KandoColors.accent
-                    : KandoColors.border,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  selected
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_off,
-                  color: selected && enabled
-                      ? KandoColors.accent
-                      : KandoColors.border,
-                  size: 22,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    plan.title,
-                    style: TextStyle(
-                      color: enabled ? KandoColors.text : KandoColors.mutedText,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      price,
-                      style: TextStyle(
-                        color: enabled
-                            ? KandoColors.text
-                            : KandoColors.mutedText,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      plan.periodLabel,
-                      style: const TextStyle(
-                        color: KandoColors.mutedText,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          child: surface,
         ),
         if (plan.badge != null)
           Positioned(
             right: 16,
-            top: -10,
-            child: Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: const Color(0xFF4A4F20),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: KandoColors.borderFocus),
-              ),
-              child: Text(
-                plan.badge!,
-                style: const TextStyle(
-                  color: KandoColors.accent,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+            top: useUpdatedSheetUi ? -12 : -10,
+            child: _PlanBadge(
+              planId: plan.id,
+              label: plan.badge!,
+              selected: visualSelected,
+              useUpdatedSheetUi: useUpdatedSheetUi,
             ),
           ),
       ],
+    );
+  }
+}
+
+class _PlanBadge extends StatelessWidget {
+  const _PlanBadge({
+    required this.planId,
+    required this.label,
+    required this.selected,
+    required this.useUpdatedSheetUi,
+  });
+
+  final String planId;
+  final String label;
+  final bool selected;
+  final bool useUpdatedSheetUi;
+
+  @override
+  Widget build(BuildContext context) {
+    final decoration = BoxDecoration(
+      color: useUpdatedSheetUi
+          ? selected
+                ? const Color(0x33F1FE70)
+                : const Color(0xFF34362D)
+          : const Color(0xFF4A4F20),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(
+        color: useUpdatedSheetUi
+            ? selected
+                  ? const Color(0x4DF1FE70)
+                  : const Color(0x4D474836)
+            : KandoColors.borderFocus,
+      ),
+    );
+    final badgeChild = Text(
+      label,
+      style: TextStyle(
+        color: KandoColors.accent,
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        height: useUpdatedSheetUi ? 1.5 : null,
+        letterSpacing: 0,
+      ),
+    );
+    if (!useUpdatedSheetUi) {
+      return Container(
+        key: Key('subscription-plan-$planId-badge-surface'),
+        height: 28,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        alignment: Alignment.center,
+        decoration: decoration,
+        child: badgeChild,
+      );
+    }
+    final badge = AnimatedContainer(
+      key: Key('subscription-plan-$planId-badge-surface'),
+      duration: _subscriptionSheetSelectionPhaseDuration,
+      curve: Curves.easeOutCubic,
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      alignment: Alignment.center,
+      decoration: decoration,
+      child: badgeChild,
+    );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        key: Key('subscription-plan-$planId-badge-blur'),
+        filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+        child: badge,
+      ),
+    );
+  }
+}
+
+class _SheetPlanRadio extends StatelessWidget {
+  const _SheetPlanRadio({required this.selected, required this.enabled});
+
+  final bool selected;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected
+        ? KandoColors.accent
+        : enabled
+        ? KandoColors.border
+        : KandoColors.border.withValues(alpha: 0.45);
+    return AnimatedContainer(
+      duration: _subscriptionSheetSelectionPhaseDuration,
+      curve: Curves.easeOutCubic,
+      width: 20,
+      height: 20,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: borderColor, width: 1.667),
+        boxShadow: selected
+            ? const [BoxShadow(color: Color(0x66F1FE70), blurRadius: 6.667)]
+            : null,
+      ),
+      child: AnimatedContainer(
+        duration: _subscriptionSheetSelectionPhaseDuration,
+        curve: Curves.easeOutCubic,
+        width: selected ? 8.333 : 0,
+        height: selected ? 8.333 : 0,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: KandoColors.accent,
+        ),
+      ),
     );
   }
 }

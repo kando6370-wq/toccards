@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-IOS-SUBSCRIPTION-SHEET-BACKGROUND-ALIGNMENT-20260817",
+  "mode": "single",
+  "rationale": "同一 iOS Subscription Sheet 的背景层级、右边缘和 SKU 视觉状态修复，单任务可保持最小写入范围并统一 Golden 验收",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "对齐 iOS Sheet 背景与 SKU 选中视觉",
+      "module": "apps/flutter-app/subscription",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/subscription/subscription_page.dart",
+        "apps/flutter-app/test/subscription_restore_ui_test.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_subscription_sheet_1651_9467_390x844.png",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "flutter test test/widget/auth_profile_test.dart --plain-name 'v1.1 PRD subscription bottom sheet keeps the 390x844 baseline' --no-pub",
+        "flutter test test/widget/auth_profile_test.dart --plain-name 'latest subscription sheet visuals are limited to iOS' --no-pub",
+        "flutter test test/subscription_restore_ui_test.dart --no-pub",
+        "flutter analyze apps/flutter-app",
+        "dart format --output=none --set-exit-if-changed apps/flutter-app/lib/features/subscription/subscription_page.dart apps/flutter-app/test/subscription_restore_ui_test.dart",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "low",
+      "owner": "root",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "db588dcf-ca22-497f-b1bc-90209a9dbb77",
+        "3fe302b2-6782-422f-9ee8-666be32c8e14"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "iOS Sheet Figma 对齐复核",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T06:14:36.764Z",
+  "updatedAt": "2026-08-17T06:33:48.004Z"
+}

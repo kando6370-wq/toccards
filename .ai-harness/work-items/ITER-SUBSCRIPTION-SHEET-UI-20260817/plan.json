@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-SUBSCRIPTION-SHEET-UI-20260817",
+  "mode": "single",
+  "rationale": "改动集中在同一 Flutter 订阅视图边界；单任务连续完成 UI、资产、Golden 和版本文档可避免跨任务覆盖当前脏工作树中的用户改动",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "实现并验证 Figma 订阅 Bottom Sheet UI",
+      "module": "apps/flutter-app/subscription",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/subscription/subscription_page.dart",
+        "apps/flutter-app/assets/subscription/sheet_background_1651_9915.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_subscription_sheet_1651_9467_390x844.png",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "dart format --output=none --set-exit-if-changed apps/flutter-app/lib/features/subscription/subscription_page.dart",
+        "flutter test test/widget/auth_profile_test.dart --plain-name bottom sheet",
+        "flutter test test/subscription_restore_ui_test.dart",
+        "flutter analyze",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "medium",
+      "owner": "root",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "45efc453-34e1-4aa9-ae16-9fe69fc6398f",
+        "ef9b68dc-b419-424e-9244-cc5f7357534d"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "订阅 Bottom Sheet 视觉与业务边界复核",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T02:56:05.076Z",
+  "updatedAt": "2026-08-17T03:12:44.470Z"
+}

@@ -336,7 +336,8 @@ void main() {
       );
       expect(
         find.text(
-          'Profit and return are calculated only from cards with purchase prices.',
+          'Profit and return are calculated only from cards\n'
+          'with purchase prices',
         ),
         findsOneWidget,
       );
@@ -345,7 +346,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'Profit and return are calculated only from cards with purchase prices.',
+          'Profit and return are calculated only from cards\n'
+          'with purchase prices',
         ),
         findsNothing,
       );
@@ -363,10 +365,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'Profit and return are calculated only from cards with purchase prices.',
+          'Profit and return are calculated only from cards\n'
+          'with purchase prices',
         ),
         findsNothing,
       );
+      expect(find.text('PORTFOLIO'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('home-performance-tab')));
       await tester.pumpAndSettle();
@@ -383,6 +387,94 @@ void main() {
   );
 
   testWidgets(
+    'Performance header and purchase-price tip match the Figma geometry and visibility behavior',
+    (tester) async {
+      await (FontLoader('Fraunces')..addFont(
+            rootBundle.load('assets/fonts/Baskerville-BaskervilleSemiBold.ttf'),
+          ))
+          .load();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _FreeHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      final header = find.byKey(const Key('home-performance-header'));
+      final title = find.text('PERFORMANCE');
+      final eye = find.byKey(const Key('home-performance-hide-amount'));
+      final subtitle = find.text('Cards with purchase price');
+      final info = find.byKey(const Key('home-performance-partial-info'));
+      expect(tester.getSize(header), const Size(350, 56));
+      expect(tester.getSize(eye), const Size(24, 24));
+      expect(tester.getSize(info), const Size(13, 13));
+      expect(tester.getRect(eye).left - tester.getRect(title).right, 8);
+      expect(tester.getRect(info).left - tester.getRect(subtitle).right, 4);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is SvgPicture &&
+              widget.bytesLoader is SvgAssetLoader &&
+              (widget.bytesLoader as SvgAssetLoader).assetName ==
+                  'assets/home/performance_info.svg',
+        ),
+        findsOneWidget,
+      );
+      await expectLater(
+        header,
+        matchesGoldenFile(
+          '../goldens/rendered/figma_home_performance_header_1911_8120_350x56.png',
+        ),
+      );
+
+      await tester.tap(info);
+      await tester.pump();
+      final tip = find.byKey(const Key('home-performance-info-tip'));
+      expect(tester.getSize(tip), const Size(242, 53.5));
+      final tipRect = tester.getRect(tip);
+      final infoRect = tester.getRect(info);
+      expect(tipRect.bottom, closeTo(infoRect.top - 3, .01));
+      expect(tipRect.center.dx, closeTo(infoRect.center.dx, .01));
+      expect(
+        find.text(
+          'Profit and return are calculated only from cards\n'
+          'with purchase prices',
+        ),
+        findsOneWidget,
+      );
+      final notch = tester.widget<SvgPicture>(
+        find.byKey(const Key('home-performance-info-notch')),
+      );
+      expect(notch.width, 19);
+      expect(notch.height, 6.70087);
+      expect(
+        (notch.bytesLoader as SvgAssetLoader).assetName,
+        'assets/home/performance_tooltip_notch.svg',
+      );
+      await expectLater(
+        tip,
+        matchesGoldenFile(
+          '../goldens/rendered/figma_home_performance_tip_2209_15661_242x54.png',
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('home-overview-tab')));
+      await tester.pumpAndSettle();
+      expect(tip, findsNothing);
+      expect(find.text('PORTFOLIO'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     '1D Performance keeps Qty visible while hidden amounts stay hidden because privacy applies to tooltip money only',
     (tester) async {
       await tester.pumpWidget(
@@ -394,10 +486,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('home-hide-amount')));
-      await tester.pump();
       await tester.tap(find.byKey(const Key('home-performance-tab')));
       await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+      await tester.tap(find.byKey(const Key('home-performance-hide-amount')));
+      await tester.pump();
+      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
       await tester.tap(find.byKey(const Key('home-performance-range-1D')));
       await tester.pumpAndSettle();
 

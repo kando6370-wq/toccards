@@ -463,10 +463,13 @@ class _UpgradeBanner extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: Image.asset(
-                      'assets/profile/upgrade_to_pro.png',
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
+                    child: Transform(
+                      alignment: Alignment.centerRight,
+                      transform: Matrix4.diagonal3Values(1.07, 1.067, 1),
+                      child: Image.asset(
+                        'assets/profile/upgrade_to_pro.png',
+                        fit: BoxFit.fill,
+                      ),
                     ),
                   ),
                   const Positioned.fill(

@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"ab23fcdd-3b65-46c0-9bf8-5283a9024839","workItemId":"ANALYSIS-IOS-SANDBOX-PURCHASE-HANG-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已完成两次实时复现跟踪，结论区分本地已证实事实、推断与 Apple 账户侧未知项，未修改产品代码","timestamp":"2026-08-17T08:05:18.019Z","command":null,"independent":false}

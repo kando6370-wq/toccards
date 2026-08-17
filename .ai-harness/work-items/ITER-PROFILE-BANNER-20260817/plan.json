@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-PROFILE-BANNER-20260817",
+  "mode": "single",
+  "rationale": "Profile 订阅 Banner 为单一 Flutter UI 区域，沿用现有交互，仅更新背景资源与裁切并增加视觉回归",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "按 Figma 更新 Profile 订阅 Banner",
+      "module": "apps/flutter-app/profile",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/assets/profile/upgrade_to_pro.png",
+        "apps/flutter-app/lib/features/profile/profile_page.dart",
+        "apps/flutter-app/test/widget/auth_profile_test.dart",
+        "apps/flutter-app/test/goldens/rendered/figma_profile_upgrade_banner_2210_17750_350x152.png",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "Profile Free/Premium widget tests",
+        "Profile Banner golden test",
+        "flutter analyze",
+        "Android debug build",
+        "iOS simulator build and visual inspection",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "Codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "4bf8cc11-6714-4386-9c4e-209b1c49261b",
+        "792f10af-59e7-4c91-ad67-b2e5a5edc9d4"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "Profile Banner UI 与回归",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T02:02:24.728Z",
+  "updatedAt": "2026-08-17T02:44:19.102Z"
+}

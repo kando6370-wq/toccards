@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "id": "ITER-SUBSCRIPTION-SHEET-UI-20260817",
+  "type": "ITERATION",
+  "title": "按 Figma 更新订阅底部弹窗 UI",
+  "status": "DONE",
+  "flags": [
+    "mobile",
+    "frontend"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md",
+    ".ai-harness/policies/mobile.md",
+    ".ai-harness/policies/frontend.md"
+  ],
+  "authorization": {
+    "mode": "autonomous",
+    "source": "用户在当前对话明确要求按指定 Figma 节点修改且严格限制为 UI 层"
+  },
+  "input": {
+    "references": [
+      "Figma DjacfTioobtRy59SnqH7SY node 1651:9915",
+      "用户要求只修改 UI，不得修改任何业务逻辑"
+    ],
+    "acceptance": [
+      "Functional Paywall bottom sheet 的背景、权益列表项、套餐项和视觉间距匹配 Figma 1651:9915",
+      "全屏 Subscription Page、购买/恢复/路由/权益/来源恢复逻辑保持不变",
+      "iOS 与 Android 共用 Flutter 实现且相关 Widget/Golden 回归通过"
+    ],
+    "nonGoals": [
+      "不修改订阅业务逻辑、控制器、路由、API、Schema、平台桥接和商品配置"
+    ],
+    "version": "v1.1.0"
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "当前分支 dev，提交 9224e51ef3307cf15bb928c80a597916fa42651d；工作树已有用户改动，subscription_page.dart 与订阅 sheet Golden 当前无未提交差异，auth_profile_test.dart 有 Profile Banner 相关未提交差异，修改时必须保留",
+      "Figma get_design_context 已于 2026-08-17 读取 file DjacfTioobtRy59SnqH7SY node 1651:9915，目标为 390x约786 bottom sheet",
+      "目标平台 iOS/Android 共用 Flutter widget；无平台原生视觉实现"
+    ],
+    "completedAt": "2026-08-17T02:49:30.232Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "9224e51ef3307cf15bb928c80a597916fa42651d",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/state.json",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/plan.json",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/solution.md",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/state.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/plan.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/state.json",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/evidence.jsonl",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/plan.json",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/solution.md",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/state.json",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/events.jsonl",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/state.json",
+        "apps/flutter-app/assets/profile/upgrade_to_pro.png",
+        "apps/flutter-app/lib/features/profile/profile_page.dart",
+        "apps/flutter-app/test/goldens/rendered/figma_profile_upgrade_banner_2210_17750_350x152.png",
+        "apps/flutter-app/test/widget/auth_profile_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/assets/profile/upgrade_to_pro.png": "19642a98c2fb0935a8633756bc87ee9b37a7f084b7bc5af36cea46eeece039cb",
+        "apps/flutter-app/lib/features/profile/profile_page.dart": "f56070637d0ff9f562ce33a87091ebe4bfcdc615cc003049f062fddb5b945f9c",
+        "apps/flutter-app/test/widget/auth_profile_test.dart": "66157963a53dee0d89fc3d140abcbde25f975a8a3bc67771c2fcb18636497443",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "740fcd2ebc642de3ae153abe429cb899000fbc0bc9067c4ecc120e6ad84ab447",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/events.jsonl": "805fd094c40e58b78045295de5049b01ac5b90dd02e188983c2efbf9f428ab9d",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/evidence.jsonl": "c1706b066d3bc687d16dc97e00598674aa843f4b05f1a08e43bc396c2e34148e",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SUBSCRIPTION-POPUPS-20260817/state.json": "1cd03c5d447cbea5bd7b7a136f6b42a04561ecc2c2b898daa3a5bcad884eddd0",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/events.jsonl": "2e6918c608bb20c4103f047872dfaac88b2e84299986b3efbce3d3240ccbcdfb",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/plan.json": "8dc772a6c01cb9dd03f76178b47ac5795d9ae13cd473a132d5459e718ed0376f",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/solution.md": "9863bc61a5dc77e0e4e42345cbd14369fadf43ebdad6bf28cf98c2bfd8f3cb3a",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-HEADER-20260817/state.json": "9c576628e79415bc2b5a02aa03df1672f37cefc7168f3b206c63279dac546f83",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/events.jsonl": "a90631285e47f6af039a86706124da75df2c2d8df6a677849a399870f6bc1daf",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/evidence.jsonl": "98524e5cc4c6f120583c8ac1b7163c3445cc4aee6d9fd49f813be06aa6690590",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/plan.json": "01c74a1aafc752c82ca40351abfcb2918a262caa2ffac2301c599038829be069",
+        ".ai-harness/work-items/ITER-IOS-SIM-20260817/state.json": "1d0b7eab750db3a88850b7130c387a0b3e5d9597262a75fba86202a19365a7fa",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/events.jsonl": "1ff34a80e5e3e14dd80298088f1bc128527240bd930329dd943d90978b86d950",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/evidence.jsonl": "cab0af19db10ec5bf9d185ff7b4cbb8a375657c3372f1a6a086477df8f8fda09",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/plan.json": "d3416e4d625c208de78413cd053772bf7111208eae6000a45d39518aa3145e78",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/solution.md": "b1a2b8d408e90842f85bc0bcf78ca550198a01b9c5fd77ef9b611f732d6ab14d",
+        ".ai-harness/work-items/ITER-PROFILE-BANNER-20260817/state.json": "607bb8f322de15babe2da9b38180f812f6251851dac4ac34191d64b971a3e129",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/events.jsonl": "dc5125e6a95576784f9f732b5ec2ced6923cf38096a7b207821faff450b20721",
+        ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/state.json": "80774c5bbc6b9313f6f9510d9b67a3f5b0551b5022ff41ac2e62104552bab86a",
+        "apps/flutter-app/test/goldens/rendered/figma_profile_upgrade_banner_2210_17750_350x152.png": "b8518fa747382b8a2e6cc22444bee6826697c297e36b0abd468e19385fada553"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/solution.md",
+    "evidence": [
+      "Figma get_design_context: DjacfTioobtRy59SnqH7SY/1651:9915",
+      "Figma background-only export node: 1651:11958, 390x786 PNG",
+      "现有实现边界：subscription_page.dart 的 widget.sheet 分支；业务逻辑保持在原 ref.listen、purchase、restore 和 context.pop/go 回调中",
+      "设计规范：docs/releases/v1.0.0/00-product/ui-design-system.md；增量契约：docs/releases/v1.1.0/03-data-api/contract-changes.md:63-67"
+    ],
+    "completedAt": "2026-08-17T02:55:24.511Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅修改 Flutter widget 样式与本地位图资产；不涉及查询、写入、Schema、迁移、事务、D1/KV/R2 或服务端契约"
+    ],
+    "completedAt": "2026-08-17T02:55:34.006Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ITER-SUBSCRIPTION-SHEET-UI-20260817/plan.json",
+    "approved": true,
+    "approvalRef": "用户当前消息：严格按 Figma 1651:9915 修改 UI，禁止修改业务逻辑"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "b4c81184-98c1-42da-80f5-e18e496ba3ed"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "ad15a03d-99f2-453e-82e0-494943f17e87"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "50302630-92c8-4b96-88ee-a2ed7280c166"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "4f7d32e9-eb5e-4c13-93d5-ae4d47822a2a"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-17T02:49:13.535Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-17T02:49:21.596Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-17T02:49:50.336Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-17T02:56:49.480Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-17T02:57:33.125Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-17T03:12:51.158Z",
+      "reason": "任务实现、定向验证与批次 Review 已完成"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-17T03:13:16.900Z",
+      "reason": "工作项验证和文档检查通过"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-17T03:13:33.894Z",
+      "reason": "Code Review 通过，进入用户最新 iOS-only 范围验收"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-17T03:13:55.703Z",
+      "reason": "iOS-only UI 交付满足最新用户要求，验证、Review 与验收均通过"
+    }
+  ],
+  "createdAt": "2026-08-17T02:49:13.535Z",
+  "updatedAt": "2026-08-17T03:13:55.703Z"
+}

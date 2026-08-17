@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1871,6 +1872,17 @@ void main() {
       find.byKey(const Key('profile-upgrade-banner')),
     );
     expect(bannerSize, const Size(350, 152));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    await expectLater(
+      find.byKey(const Key('profile-upgrade-banner')),
+      matchesGoldenFile(
+        '../goldens/rendered/'
+        'figma_profile_upgrade_banner_2210_17750_350x152.png',
+      ),
+    );
 
     tester.view.physicalSize = const Size(430, 932);
     await tester.pumpAndSettle();
@@ -1962,6 +1974,11 @@ void main() {
   testWidgets(
     'subscription success confirms the Pro benefits unlocked by the purchase',
     (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         MaterialApp(
           theme: buildKandoTheme(),
@@ -1978,9 +1995,10 @@ void main() {
       expect(find.text('Unlimited Portfolio Folders'), findsOneWidget);
       expect(find.text('Extended Price History'), findsOneWidget);
       expect(find.text('Track Portfolio Performance'), findsOneWidget);
+      expect(find.text('PREMIUM ACTIVE'), findsOneWidget);
       expect(
         tester.getSize(find.byKey(const Key('subscription-success-badge'))),
-        const Size(128, 135),
+        const Size(208, 208),
       );
       expect(
         find.byKey(const Key('subscription-success-continue')),
@@ -1988,11 +2006,102 @@ void main() {
       );
       expect(find.text('START EXPLORING'), findsOneWidget);
       expect(find.text('Manage subscription'), findsNothing);
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+        const Color(0xFF070905),
+      );
+      expect(
+        tester.getSize(
+          find.byKey(const Key('subscription-success-benefit-0-reveal')),
+        ),
+        const Size(350, 58),
+      );
+      expect(
+        tester.getSize(
+          find.byKey(const Key('subscription-success-button-reveal')),
+        ),
+        const Size(350, 56),
+      );
     },
   );
 
   testWidgets(
-    'subscription success reveals identity before benefits because the Figma sequence builds purchase confirmation in stages',
+    'subscription success follows Figma 2090:17166 geometry while wider phones keep 20px margins',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 59);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPadding);
+
+      await tester.pumpWidget(
+        _subscriptionGoldenApp(const SubscriptionSuccessPage()),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const Key('subscription-success-premium-active')),
+            )
+            .dy,
+        59,
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('subscription-success-badge')))
+            .dy,
+        136,
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const Key('subscription-success-title-reveal')),
+            )
+            .dy,
+        358,
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const Key('subscription-success-benefit-0-reveal')),
+            )
+            .dy,
+        454,
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const Key('subscription-success-button-reveal')),
+            )
+            .dy,
+        755,
+      );
+
+      tester.view.physicalSize = const Size(430, 932);
+      await tester.pump();
+      expect(
+        tester
+            .getSize(
+              find.byKey(const Key('subscription-success-benefit-0-reveal')),
+            )
+            .width,
+        390,
+      );
+      expect(
+        tester
+            .getSize(
+              find.byKey(const Key('subscription-success-button-reveal')),
+            )
+            .width,
+        390,
+      );
+    },
+  );
+
+  testWidgets(
+    'subscription success reveals once and stays complete because purchase confirmation must not replay',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -2019,6 +2128,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
       expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 1);
       expect(opacityFor(const Key('subscription-success-benefit-2-reveal')), 1);
+
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(opacityFor(const Key('subscription-success-title-reveal')), 1);
+      expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 1);
+      expect(opacityFor(const Key('subscription-success-benefit-2-reveal')), 1);
+      expect(opacityFor(const Key('subscription-success-button-reveal')), 1);
     },
   );
 
@@ -2035,31 +2150,86 @@ void main() {
     ),
     (
       name: 'success page',
-      file: 'figma_subscription_success_1706_12964_390x844.png',
+      file: 'figma_subscription_success_2090_17166_390x844.png',
       child: const SubscriptionSuccessPage(),
     ),
   ]) {
     testWidgets(
       'v1.1 PRD subscription ${goldenCase.name} keeps the 390x844 baseline',
       (tester) async {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
+        final overridesPlatform = goldenCase.name == 'bottom sheet';
+        if (overridesPlatform) {
+          debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        }
+        try {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          if (goldenCase.name == 'success page') {
+            tester.view.padding = const FakeViewPadding(top: 59);
+            addTearDown(tester.view.resetPadding);
+          }
 
-        await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 100)),
-        );
-        await tester.pumpAndSettle();
+          await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle();
 
-        await expectLater(
-          find.byKey(const Key('subscription-golden-boundary')),
-          matchesGoldenFile('goldens/rendered/${goldenCase.file}'),
-        );
+          await expectLater(
+            find.byKey(const Key('subscription-golden-boundary')),
+            matchesGoldenFile('goldens/rendered/${goldenCase.file}'),
+          );
+        } finally {
+          if (overridesPlatform) {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        }
       },
     );
   }
+
+  testWidgets('latest subscription sheet visuals are limited to iOS', (
+    tester,
+  ) async {
+    Iterable<String> renderedAssetNames() => tester
+        .widgetList<Image>(find.byType(Image))
+        .map((image) => image.image)
+        .whereType<AssetImage>()
+        .map((image) => image.assetName);
+
+    try {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await tester.pumpWidget(
+        _subscriptionGoldenApp(const SubscriptionPage(sheet: true)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        renderedAssetNames(),
+        isNot(contains('assets/subscription/sheet_background_1651_9915.png')),
+      );
+      expect(renderedAssetNames(), contains('assets/subscription/card_4.png'));
+
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      await tester.pumpWidget(
+        _subscriptionGoldenApp(const SubscriptionPage(sheet: true)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        renderedAssetNames(),
+        contains('assets/subscription/sheet_background_1651_9915.png'),
+      );
+      expect(
+        renderedAssetNames(),
+        isNot(contains('assets/subscription/card_4.png')),
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 
   testWidgets(
     'logout from account creates a guest profile without previous anonymous',
