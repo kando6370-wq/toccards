@@ -9,6 +9,8 @@ const workerDirectory = join(scriptDirectory, "..", "..");
 const wranglerEntrypoint = join(workerDirectory, "node_modules", "wrangler", "bin", "wrangler.js");
 const configPath = join(workerDirectory, "wrangler.migration.toml");
 const argumentsSet = new Set(process.argv.slice(2));
+const verifyCutoverStateRequested = argumentsSet.has("--verify-cutover-state");
+const sourceWriteFrozenConfirmed = argumentsSet.has("--confirm-source-write-frozen");
 
 if (!argumentsSet.has("--confirm-dev")) {
   fail("必须显式传入 --confirm-dev；该工具只允许迁移 dev D1。", 2);
@@ -22,7 +24,13 @@ const mode = argumentsSet.has("--schema-only")
   : argumentsSet.has("--verify-only")
     ? "verify-only"
     : "migrate-and-verify";
-if (mode === "migrate-and-verify" && !argumentsSet.has("--confirm-source-write-frozen")) {
+if (verifyCutoverStateRequested && mode === "schema-only") {
+  fail("--verify-cutover-state 必须与完整 --verify-only 或正式迁移一起执行。", 2);
+}
+if (verifyCutoverStateRequested && !sourceWriteFrozenConfirmed) {
+  fail("--verify-cutover-state 前必须确认 dev D1 写入已冻结。", 2);
+}
+if (mode === "migrate-and-verify" && !sourceWriteFrozenConfirmed) {
   fail(
     "完整迁移前必须先冻结 dev D1 写入，并显式传入 --confirm-source-write-frozen。",
     2,
@@ -111,6 +119,7 @@ try {
     for (const table of manifest.migrationTables) {
       verification.push(await verifyTable(table, sourceSchemas.get(table.name)));
     }
+    if (verifyCutoverStateRequested) await verifyCutoverState(sourceSchemas);
     console.log(JSON.stringify({
       ok: true,
       mode,
@@ -131,6 +140,38 @@ try {
   process.removeListener("SIGINT", stopForSignal);
   process.removeListener("SIGTERM", stopForSignal);
   await stopWorker(worker);
+}
+
+async function verifyCutoverState(sourceSchemas) {
+  const result = await requestJson("/cutover-state");
+  assert(result.ok, "PostgreSQL cutover state 读取失败");
+  assert(result.priceTableCounts.length === 7, "PostgreSQL 新价格域表计数不完整");
+  for (const table of result.priceTableCounts) {
+    assert(Number(table.row_count) === 0, `PostgreSQL 新价格表 ${table.table_name} 不是空表`);
+  }
+
+  const sourceInboxRows = sourceSchemas.get("apple_notification_inbox")?.rowCount;
+  assert(Number.isInteger(sourceInboxRows), "缺少 dev D1 Apple inbox 源计数");
+  const inboxCounts = new Map(
+    result.appleInboxByEnvironment.map((row) => [row.environment, Number(row.row_count)]),
+  );
+  assert(
+    (inboxCounts.get("Sandbox") ?? 0) === sourceInboxRows,
+    "PostgreSQL Sandbox Apple inbox 行数与 dev D1 不一致",
+  );
+  assert(
+    (inboxCounts.get("Production") ?? 0) === 0,
+    "PostgreSQL 在 dev cutover 前已存在 Production Apple inbox 行",
+  );
+  assert(
+    [...inboxCounts.values()].reduce((sum, count) => sum + count, 0) === sourceInboxRows,
+    "PostgreSQL Apple inbox 存在未分类或重复环境行",
+  );
+  console.log(JSON.stringify({
+    phase: "cutover-state-verified",
+    priceTableCounts: result.priceTableCounts,
+    appleInboxByEnvironment: result.appleInboxByEnvironment,
+  }));
 }
 
 async function verifySourceSchemas(tables) {

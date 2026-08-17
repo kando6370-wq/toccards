@@ -91,6 +91,25 @@ describe("D1 to PostgreSQL migration batches", () => {
     expect(migrationRunnerSource).toContain("idx_apple_notification_inbox_processing");
     expect(migrationRunnerSource).toContain("ck_price_history_month_payload_bytes");
     expect(migrationRunnerSource).toContain("inventory.migrations.length === 5");
+    expect(migrationRunnerSource).toContain("--verify-cutover-state");
+    expect(migrationRunnerSource).toContain("/cutover-state");
+    expect(migrationWorkerSource).toContain("priceTableCounts");
+    expect(migrationWorkerSource).toContain("appleInboxByEnvironment");
+  });
+
+  it("rejects cutover-state checks in schema-only mode because cutover proof requires all business digests", () => {
+    expect(migrationRunnerSource).toContain(
+      'verifyCutoverStateRequested && mode === "schema-only"',
+    );
+    expect(migrationRunnerSource).toContain(
+      "--verify-cutover-state 必须与完整 --verify-only 或正式迁移一起执行。",
+    );
+    expect(migrationRunnerSource).toContain(
+      "verifyCutoverStateRequested && !sourceWriteFrozenConfirmed",
+    );
+    expect(migrationRunnerSource).toContain(
+      "--verify-cutover-state 前必须确认 dev D1 写入已冻结。",
+    );
   });
 
   it("caps monthly JSON so 1600 history rows leave headroom below Hyperdrive's 50 MB response limit", () => {

@@ -84,14 +84,14 @@ Drizzle `src/db/schema.ts` 与 SQL `0000-0034` 是冻结前 D1 演进事实；Po
 
 | 环境 | Worker | 域名 | 数据资源 |
 |---|---|---|---|
-| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 线上仍为 dev D1/KV/R2；目标为共享 PG + 独立 dev KV/R2 |
+| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | D1 非价格数据已迁入共享 PG；当前为写入冻结维护版本，正式 PG Worker/Admin 待部署 |
 | prod | `toccards-api-prod` | `api.tcgcard.fun` | 线上仍为 prod D1/KV/R2；目标为共享 PG + 独立 prod KV/R2，本任务不部署 prod |
 
 Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev 与 prod 共用业务 PostgreSQL 是本次明确的成本决策，但 `APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。
 
 ## 7. 当前与目标架构的区分
 
-当前处于迁移中间态：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 兼容访问层、PostgreSQL 业务方言和新价格域读取已经实现，并通过 Workers 回归与本地 remote preview 的真实 Hyperdrive 只读查询验证；线上 dev/prod 仍运行旧 D1 部署，dev 业务数据也尚未复制。只有冻结 dev D1 写入、全量迁移与摘要校验、关闭 Hyperdrive 查询缓存并部署验收 dev 后，才能把 dev 标记为 PostgreSQL 已切换；prod 本任务只准备配置，不部署。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
+当前处于迁移切换窗口：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 兼容访问层、PostgreSQL 业务方言和新价格域读取已经实现；dev D1 的 33 张非价格业务表、270,577 行已在写入冻结后迁入共享 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存也已关闭。dev 当前运行明确返回 503 的维护版本，只有正式 PostgreSQL Worker/Admin 部署并完成业务烟测后才能标记切换完成。prod 仍运行旧 D1 部署，本任务只准备配置而不部署。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
 
 ## 8. 证据索引
 

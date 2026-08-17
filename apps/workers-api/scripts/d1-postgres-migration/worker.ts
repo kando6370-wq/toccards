@@ -90,6 +90,9 @@ export default {
       if (request.method === "GET" && url.pathname === "/schema") {
         return json(await inspectSchema(sql));
       }
+      if (request.method === "GET" && url.pathname === "/cutover-state") {
+        return json(await inspectCutoverState(sql));
+      }
       if (request.method === "POST" && url.pathname === "/schema-guards") {
         return json(await verifySchemaGuards(sql, env.HYPERDRIVE.connectionString));
       }
@@ -218,6 +221,32 @@ async function inspectSchema(sql: ReturnType<typeof postgres>) {
     expectedTables: EXPECTED_TARGET_TABLES,
     excludedTables: EXCLUDED_SOURCE_TABLES,
   };
+}
+
+async function inspectCutoverState(sql: ReturnType<typeof postgres>) {
+  const priceTableCounts = await sql`
+    SELECT 'price_source' AS table_name, COUNT(*)::bigint AS row_count FROM price_source
+    UNION ALL
+    SELECT 'price_series', COUNT(*)::bigint FROM price_series
+    UNION ALL
+    SELECT 'price_ingest_batch', COUNT(*)::bigint FROM price_ingest_batch
+    UNION ALL
+    SELECT 'price_current_snapshot', COUNT(*)::bigint FROM price_current_snapshot
+    UNION ALL
+    SELECT 'current_price_pointer', COUNT(*)::bigint FROM current_price_pointer
+    UNION ALL
+    SELECT 'price_history_month', COUNT(*)::bigint FROM price_history_month
+    UNION ALL
+    SELECT 'card_trending_snapshot', COUNT(*)::bigint FROM card_trending_snapshot
+    ORDER BY table_name
+  `;
+  const appleInboxByEnvironment = await sql`
+    SELECT environment, COUNT(*)::bigint AS row_count
+    FROM apple_notification_inbox
+    GROUP BY environment
+    ORDER BY environment
+  `;
+  return { ok: true, priceTableCounts, appleInboxByEnvironment };
 }
 
 async function verifySchemaGuards(

@@ -115,7 +115,7 @@
       "id": "T4",
       "title": "迁移并校验 dev D1 非价格业务数据",
       "module": "database/migration",
-      "status": "READY",
+      "status": "COMPLETED",
       "blockedBy": [
         "T3"
       ],
@@ -135,16 +135,23 @@
       "reviewBatch": "R3",
       "risk": "high",
       "owner": "codex",
-      "verificationStatus": "pending",
-      "reviewStatus": "pending",
-      "evidence": [],
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "e3be505a-6497-4cc7-aa69-5c8f3554b85d",
+        "ba7efcbd-4972-4c97-9122-ffcb5a98f48b",
+        "32330b01-6222-4ffb-8395-354db130a006",
+        "67ce9712-9e8d-44b3-a985-3d994b686e1c",
+        "bc2f126b-4674-44a1-947b-864ba21db780",
+        "12513452-dee4-49b0-9de5-92858203d45a"
+      ],
       "deferralApproval": null
     },
     {
       "id": "T5",
       "title": "同步文档并仅部署验收 dev API/Admin",
       "module": "delivery",
-      "status": "PENDING",
+      "status": "READY",
       "blockedBy": [
         "T4"
       ],
@@ -206,5 +213,5 @@
     }
   ],
   "createdAt": "2026-08-17T10:05:33.978Z",
-  "updatedAt": "2026-08-17T12:51:54.480Z"
+  "updatedAt": "2026-08-17T13:30:01.123Z"
 }
