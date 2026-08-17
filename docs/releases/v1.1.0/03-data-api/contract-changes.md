@@ -131,6 +131,16 @@ Home Performance 的 Folder 归属遵循 App PRD 的整体迁移规则：每个 
 
 Card Detail 普通价格历史 1Y 的服务端防绕过已关闭：Free 仍可读取 1D 至 3M；1Y 要求当前 live session 的有效服务端 grant，同 UID 的另一 session 不继承。本机 verified 只区分 `ENTITLEMENT_SYNC_REQUIRED`，不能作为授权。该变更不新增 schema 或迁移。
 
+## PostgreSQL 查询切换
+
+Workers 业务 API 的路径、请求/响应字段、鉴权、owner 隔离、幂等、Premium 和错误语义保持不变；底层查询已从 SQLite/D1 方言改为 PostgreSQL 兼容方言。运行时同时看到 `HYPERDRIVE` 与旧 `DB` binding 时必须选择 Hyperdrive，只有测试或兼容环境缺少 Hyperdrive 时才使用注入的 `DB`。因此遗留 D1 binding 不能让已切换 Worker 静默回读旧库。
+
+旧 `tcg_price` 不参与运行时查询。Search、卡片详情、市场价、Price Series、Trending、Shop 和 Portfolio 估值统一读取 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month` 与 `card_trending_snapshot`。当前价只读取 `status=published` 且被 `current:%` pointer 指向的批次；月历史只读取同来源、同 scope 的 `published/superseded` lineage，并要求该来源和 scope 仍有已发布 current pointer。不同 scope 不能互相授权历史可见性；任何月块内容或 checksum 变化都必须记录新的 batch lineage，不能保留旧 `last_batch_id` 原地改写。七张新价格表为空时，市场价和 Trending 返回空集合，不回退旧 D1 价格或旧 KV Trending 缓存。
+
+Hyperdrive 查询边界固定如下：当前价格按最多 40 个 card ref 分块，单块最多接收 1,000 行；历史按最多 100 个 series 分块，单块最多接收 1,600 个自然月块；数据库把每个月块的 JSONB 文本限制为 24 KiB，因此一批历史 JSON 理论上限为 39,321,600 bytes（37.5 MiB），并为 50 MB 响应边界中的其他列与协议开销保留余量；单次历史范围最多 400 天；Portfolio 估值事件一次最多接收 10,000 行。超出任一行数或月块字节上限均显式失败，不截断后继续返回不完整业务结果。`POST /api/v1/cards/:card_ref/price-series/batch` 继续最多接收 100 项，但默认 PostgreSQL 实现改为当前快照集合查询加历史集合查询，不再对 100 项执行 `Promise.all` 查询扇出。
+
+价格金额在 PostgreSQL 使用整数 `amount_micros`，API 边界转换为美元数值；月度 JSONB 同时支持紧凑 `{d,a}` 与既有 `{date,price}` 点位格式。Search、Trending、Price Series、Market Prices 与 Sold Listings 的缓存版本已分别提升，防止迁移前 D1 价格结果跨切换复用。
+
 ## Apple Notifications V2
 
 | API/任务 | 当前行为 |
@@ -138,6 +148,8 @@ Card Detail 普通价格历史 1Y 的服务端防绕过已关闭：Free 仍可�
 | `POST /api/v1/apple/notifications/v2` | 无 App 用户鉴权；要求存在有界非空 `signedPayload`，允许 Apple 增加其他顶层字段并在 `request_json` 中原样保留；先写原始收件箱，再用 Apple 官方库验签并消费。原始落库失败返回非 2xx。 |
 | 每 5 分钟 Cron | 重试 `pending`、`processing_failed` 或处理租约已过期的收件箱记录。 |
 | Apple Server API 校正 | Cron 查询 `correction_required` 对应的现有 purchase chain，调用 Apple 当前订阅状态/交易接口并再次验签嵌套 JWS；只修正同链状态与已有 grant。 |
+
+dev/prod 共用 PostgreSQL 后，`apple_notification_inbox.environment` 是通知队列的持久化归属。入站去重键为 `(environment, payload_sha256)`；通知重试、processing lease、完成/失败更新和 Server API 校正均同时过滤运行时环境。dev 只能领取 `Sandbox`，prod 只能领取 `Production`，不能由一个环境处理另一环境的队列。dev D1 inbox 在正式迁移时明确标记为 `Sandbox`；无法证明环境的既有 PostgreSQL 行会阻止 schema migration，不静默猜测。
 
 未知但已验签的主通知类型和 Payload 字段会完整进入结构化通知及 Admin 动态选项/详情；在没有已定义业务语义时标记为 `processed`，不猜测建单或修改 purchase chain/grant。验签后的通知以 `notificationUUID` 幂等，新订单以 `environment + transactionId` 幂等。purchase chain 生命周期按 `(signedDate, notificationUUID)` 保护：更早事件不能覆盖更新状态，同一时点冲突进入 `correction_required`。Grace 保持 grant 有效至 `gracePeriodExpiresDate`，Billing Retry/Expired 使 grant 失效，Refund 修改原交易并撤销同链 grant；`REFUND_REVERSED` 等不能从通知本身确定终态的事件先进入校正，再由 Apple Server API 当前状态恢复受影响订单/链路。校正不会创建 owner/session grant，也不按 UID 传播 Premium。
 

@@ -44,20 +44,20 @@ const SELECT_OAUTH_IDENTITY_SQL = `
 
 const SELECT_LIVE_USER_BY_ID_SQL = `
   SELECT id
-  FROM user
+  FROM "user"
   WHERE id = ? AND status = 'active'
   LIMIT 1
 `;
 
 const SELECT_USER_BY_EMAIL_FOR_OAUTH_SQL = `
   SELECT id, status
-  FROM user
+  FROM "user"
   WHERE email = ? AND status <> 'deleted'
   LIMIT 1
 `;
 
 const INSERT_OAUTH_USER_SQL = `
-  INSERT INTO user
+  INSERT INTO "user"
     (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
   VALUES (?, ?, NULL, NULL, ?, ?, NULL)
 `;
@@ -69,7 +69,7 @@ const INSERT_AUTH_IDENTITY_SQL = `
 `;
 
 const INSERT_OAUTH_USER_FOR_UPGRADED_GUEST_SQL = `
-  INSERT INTO user
+  INSERT INTO "user"
     (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
   SELECT ?, ?, NULL, NULL, ?, ?, NULL
   WHERE EXISTS (
@@ -226,12 +226,17 @@ async function completeOAuthAccountFlowOnce(
 }
 
 function isOAuthUniqueConstraintError(error: unknown): boolean {
+  const postgresError = error as { code?: unknown; constraint_name?: unknown };
   return (
     error instanceof Error &&
     (error.message.includes("UNIQUE constraint failed: user.email") ||
       error.message.includes(
         "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",
-      ))
+      ) ||
+      (postgresError.code === "23505" && (
+        postgresError.constraint_name === "uq_user_non_deleted_email" ||
+        postgresError.constraint_name === "uq_auth_identity_provider"
+      )))
   );
 }
 

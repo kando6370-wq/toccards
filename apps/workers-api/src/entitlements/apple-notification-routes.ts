@@ -29,6 +29,7 @@ type Dependencies = {
 
 type InboxRow = {
   id: string;
+  environment: "Production" | "Sandbox";
   signed_payload: string;
   processing_status: string;
   processing_expires_at: string | null;
@@ -67,23 +68,34 @@ export function createAppleNotificationRoutes(
     if (!signedPayload) return c.json({ error: "INVALID_REQUEST" }, 400);
 
     const receivedAt = now();
+    const environment = runtimeAppleEnvironment(c.env);
     const payloadSha256 = await sha256Hex(signedPayload);
     const inboxId = createId(receivedAt);
     try {
       await c.env.DB.prepare(`
-        INSERT OR IGNORE INTO apple_notification_inbox
+        INSERT INTO apple_notification_inbox
           (id, payload_sha256, request_json, signed_payload, processing_status, attempts,
-           processing_expires_at, notification_uuid, last_error, received_at, processed_at)
-        VALUES (?, ?, ?, ?, 'pending', 0, NULL, NULL, NULL, ?, NULL)
-      `).bind(inboxId, payloadSha256, requestJson, signedPayload, receivedAt.toISOString()).run();
+           environment, processing_expires_at, notification_uuid, last_error, received_at,
+           processed_at)
+        VALUES (?, ?, ?, ?, 'pending', 0, ?, NULL, NULL, NULL, ?, NULL)
+        ON CONFLICT DO NOTHING
+      `).bind(
+        inboxId,
+        payloadSha256,
+        requestJson,
+        signedPayload,
+        environment,
+        receivedAt.toISOString(),
+      ).run();
     } catch {
       return c.json({ error: "PERSISTENCE_FAILED" }, 500);
     }
 
     const inbox = await c.env.DB.prepare(`
-      SELECT id, signed_payload, processing_status, processing_expires_at
-      FROM apple_notification_inbox WHERE payload_sha256 = ? LIMIT 1
-    `).bind(payloadSha256).first<InboxRow>();
+      SELECT id, environment, signed_payload, processing_status, processing_expires_at
+      FROM apple_notification_inbox
+      WHERE environment = ? AND payload_sha256 = ? LIMIT 1
+    `).bind(environment, payloadSha256).first<InboxRow>();
     if (!inbox) return c.json({ error: "PERSISTENCE_FAILED" }, 500);
 
     const processing = processAppleNotificationInbox(c.env, inbox.id, dependencies);
@@ -103,12 +115,15 @@ export async function retryAppleNotificationInbox(
   dependencies: Dependencies = {},
 ): Promise<void> {
   const now = dependencies.now?.() ?? new Date();
+  const environment = runtimeAppleEnvironment(env);
   const { results = [] } = await env.DB.prepare(`
     SELECT id FROM apple_notification_inbox
-    WHERE processing_status IN ('pending', 'processing_failed')
-       OR (processing_status = 'processing' AND processing_expires_at <= ?)
+    WHERE environment = ? AND (
+      processing_status IN ('pending', 'processing_failed')
+      OR (processing_status = 'processing' AND processing_expires_at <= ?)
+    )
     ORDER BY received_at ASC LIMIT ?
-  `).bind(now.toISOString(), RETRY_BATCH_SIZE).all<{ id: string }>();
+  `).bind(environment, now.toISOString(), RETRY_BATCH_SIZE).all<{ id: string }>();
   for (const row of results) await processAppleNotificationInbox(env, row.id, dependencies);
 }
 
@@ -118,27 +133,38 @@ export async function processAppleNotificationInbox(
   dependencies: Dependencies = {},
 ): Promise<void> {
   const now = dependencies.now?.() ?? new Date();
+  const environment = runtimeAppleEnvironment(env);
   const leaseExpiresAt = new Date(now.getTime() + PROCESSING_LEASE_MS).toISOString();
   const reserved = await env.DB.prepare(`
     UPDATE apple_notification_inbox
     SET processing_status = 'processing', attempts = attempts + 1,
         processing_expires_at = ?, last_error = NULL
-    WHERE id = ? AND (
+    WHERE id = ? AND environment = ? AND (
       processing_status IN ('pending', 'processing_failed')
       OR (processing_status = 'processing' AND processing_expires_at <= ?)
     )
-  `).bind(leaseExpiresAt, inboxId, now.toISOString()).run();
+  `).bind(leaseExpiresAt, inboxId, environment, now.toISOString()).run();
   if (reserved.meta.changes !== 1) return;
 
   const inbox = await env.DB.prepare(`
-    SELECT id, signed_payload, processing_status, processing_expires_at
-    FROM apple_notification_inbox WHERE id = ? LIMIT 1
-  `).bind(inboxId).first<InboxRow>();
+    SELECT id, environment, signed_payload, processing_status, processing_expires_at
+    FROM apple_notification_inbox WHERE id = ? AND environment = ? LIMIT 1
+  `).bind(inboxId, environment).first<InboxRow>();
   if (!inbox) return;
 
   const configured = await (dependencies.createVerifier ?? createAppleNotificationVerifier)(env);
   if (!configured) {
-    await failInbox(env.DB, inboxId, "processing_failed", "VERIFIER_NOT_CONFIGURED");
+    await failInbox(env.DB, inboxId, environment, "processing_failed", "VERIFIER_NOT_CONFIGURED");
+    return;
+  }
+  if (configured.environment !== environment) {
+    await failInbox(
+      env.DB,
+      inboxId,
+      environment,
+      "processing_failed",
+      "VERIFIER_ENVIRONMENT_MISMATCH",
+    );
     return;
   }
 
@@ -146,13 +172,13 @@ export async function processAppleNotificationInbox(
   try {
     notification = await configured.verifier.verifyAndDecodeNotification(inbox.signed_payload);
   } catch {
-    await failInbox(env.DB, inboxId, "verification_failed", "NOTIFICATION_JWS_INVALID", now);
+    await failInbox(env.DB, inboxId, environment, "verification_failed", "NOTIFICATION_JWS_INVALID", now);
     return;
   }
 
   const envelope = normalizeEnvelope(notification, configured.environment);
   if (!envelope) {
-    await failInbox(env.DB, inboxId, "parse_failed", "NOTIFICATION_PAYLOAD_INVALID", now);
+    await failInbox(env.DB, inboxId, environment, "parse_failed", "NOTIFICATION_PAYLOAD_INVALID", now);
     return;
   }
 
@@ -166,12 +192,12 @@ export async function processAppleNotificationInbox(
       renewal = await configured.verifier.verifyAndDecodeRenewalInfo(notification.data.signedRenewalInfo);
     }
   } catch {
-    await failInbox(env.DB, inboxId, "parse_failed", "NESTED_JWS_INVALID", now);
+    await failInbox(env.DB, inboxId, environment, "parse_failed", "NESTED_JWS_INVALID", now);
     return;
   }
 
   if (!nestedEvidenceMatches(transaction, renewal, envelope.environment)) {
-    await failInbox(env.DB, inboxId, "parse_failed", "NESTED_EVIDENCE_MISMATCH", now);
+    await failInbox(env.DB, inboxId, environment, "parse_failed", "NESTED_EVIDENCE_MISMATCH", now);
     return;
   }
 
@@ -180,7 +206,7 @@ export async function processAppleNotificationInbox(
     WHERE notification_uuid = ? LIMIT 1
   `).bind(envelope.notificationUuid).first<StructuredRow>();
   if (existingNotification && existingNotification.signed_payload !== inbox.signed_payload) {
-    await failInbox(env.DB, inboxId, "correction_required", "NOTIFICATION_UUID_CONFLICT", now);
+    await failInbox(env.DB, inboxId, environment, "correction_required", "NOTIFICATION_UUID_CONFLICT", now);
     return;
   }
 
@@ -190,17 +216,18 @@ export async function processAppleNotificationInbox(
   const decodedPayload = JSON.stringify({ notification, transaction, renewal_info: renewal });
   try {
     await env.DB.prepare(`
-      INSERT OR IGNORE INTO apple_server_notification
+      INSERT INTO apple_server_notification
         (id, inbox_id, notification_uuid, notification_type, subtype, environment,
          original_transaction_id, transaction_id, product_id, signed_payload,
          decoded_payload, processing_status, attempts, last_error, signed_at,
          received_at, processed_at)
       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, NULL, ?, received_at, NULL
-      FROM apple_notification_inbox WHERE id = ?
+      FROM apple_notification_inbox WHERE id = ? AND environment = ?
+      ON CONFLICT DO NOTHING
     `).bind(
       createId(now), inboxId, envelope.notificationUuid, envelope.notificationType,
       envelope.subtype, envelope.environment, originalTransactionId, transactionId,
-      productId, inbox.signed_payload, decodedPayload, envelope.signedAt, inboxId,
+      productId, inbox.signed_payload, decodedPayload, envelope.signedAt, inboxId, environment,
     ).run();
 
     const amountMicros = applePriceMicros(transaction?.price);
@@ -218,9 +245,15 @@ export async function processAppleNotificationInbox(
       now,
       usd,
     );
-    await completeInbox(env.DB, inboxId, envelope.notificationUuid, outcome, now);
+    await completeInbox(env.DB, inboxId, environment, envelope.notificationUuid, outcome, now);
   } catch {
-    await failInbox(env.DB, inboxId, "processing_failed", "BUSINESS_CONSUMPTION_FAILED");
+    await failInbox(
+      env.DB,
+      inboxId,
+      environment,
+      "processing_failed",
+      "BUSINESS_CONSUMPTION_FAILED",
+    );
   }
 }
 
@@ -297,11 +330,12 @@ async function consumeNotification(
     if (!product) return "correction_required";
     const chainId = createId(now);
     await db.prepare(`
-      INSERT OR IGNORE INTO billing_purchase_chain
+      INSERT INTO billing_purchase_chain
         (id, store, environment, original_transaction_id, product_id, entitlement_id,
          original_owner_type, original_owner_id, status, auto_renew, expires_at,
          grace_period_expires_at, revoked_at, state_effective_at, created_at, updated_at)
       VALUES (?, 'app_store', ?, ?, ?, ?, 'unlinked', '', ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT DO NOTHING
     `).bind(
       chainId, envelope.environment, originalTransactionId, transaction.productId,
       product.entitlement_id, lifecycle.status, lifecycle.autoRenew, lifecycle.expiresAt,
@@ -368,7 +402,7 @@ async function consumeNotification(
         ? renewal.autoRenewStatus
         : null;
     statements.push(db.prepare(`
-      INSERT OR IGNORE INTO billing_transaction
+      INSERT INTO billing_transaction
         (id, purchase_chain_id, store, environment, transaction_id, product_id,
          transaction_reason, status, business_status, charge_count, source_notification_uuid,
          auto_renew_snapshot,
@@ -379,6 +413,7 @@ async function consumeNotification(
          purchase_at, expires_at, revoked_at, refund_completed_at,
          signed_transaction, created_at, updated_at)
       VALUES (?, ?, 'app_store', ?, ?, ?, ?, 'purchased', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)
+      ON CONFLICT DO NOTHING
     `).bind(
       createId(now), chain.id, envelope.environment, transaction.transactionId,
       transaction.productId, transaction.transactionReason ?? "PURCHASE",
@@ -521,6 +556,7 @@ function validTransaction(
 async function completeInbox(
   db: D1Database,
   inboxId: string,
+  environment: "Production" | "Sandbox",
   notificationUuid: string,
   outcome: ConsumptionOutcome,
   now: Date,
@@ -530,19 +566,20 @@ async function completeInbox(
     db.prepare(`
       UPDATE apple_server_notification
       SET processing_status = ?, attempts = attempts + 1, last_error = ?, processed_at = ?
-      WHERE inbox_id = ?
-    `).bind(outcome, error, now.toISOString(), inboxId),
+      WHERE inbox_id = ? AND environment = ?
+    `).bind(outcome, error, now.toISOString(), inboxId, environment),
     db.prepare(`
       UPDATE apple_notification_inbox
       SET processing_status = ?, processing_expires_at = NULL, notification_uuid = ?,
-          last_error = ?, processed_at = ? WHERE id = ?
-    `).bind(outcome, notificationUuid, error, now.toISOString(), inboxId),
+          last_error = ?, processed_at = ? WHERE id = ? AND environment = ?
+    `).bind(outcome, notificationUuid, error, now.toISOString(), inboxId, environment),
   ]);
 }
 
 async function failInbox(
   db: D1Database,
   inboxId: string,
+  environment: "Production" | "Sandbox",
   status: "verification_failed" | "parse_failed" | "correction_required" | "processing_failed",
   error: string,
   now?: Date,
@@ -550,8 +587,12 @@ async function failInbox(
   await db.prepare(`
     UPDATE apple_notification_inbox
     SET processing_status = ?, processing_expires_at = NULL, last_error = ?, processed_at = ?
-    WHERE id = ?
-  `).bind(status, error, now?.toISOString() ?? null, inboxId).run();
+    WHERE id = ? AND environment = ?
+  `).bind(status, error, now?.toISOString() ?? null, inboxId, environment).run();
+}
+
+function runtimeAppleEnvironment(env: Env): "Production" | "Sandbox" {
+  return env.APP_ENVIRONMENT === "production" ? "Production" : "Sandbox";
 }
 
 function readSignedPayload(requestJson: string): string | null {

@@ -10,6 +10,7 @@ import type {
   SoldListing,
 } from "./adapter";
 import { createDataSourceRoutes } from "./routes";
+import { PriceQueryLimitError } from "./postgres-price-store";
 import { createMockDataSourceAdapter } from "./test-support/mock-data-source-adapter";
 
 class FakeKvNamespace {
@@ -340,6 +341,20 @@ class MissingCardDataSourceAdapter implements DataSourceAdapter {
 
   async getSoldListings(): Promise<SoldListing[]> {
     return [];
+  }
+}
+
+class LimitedDataSourceAdapter extends FailingDataSourceAdapter {
+  override async searchCards(): Promise<CardSearchResult[]> {
+    throw new PriceQueryLimitError("Published price query exceeded 1000 rows");
+  }
+
+  override async getPriceSeries(): Promise<PricePoint[]> {
+    throw new PriceQueryLimitError("Price history query exceeded 1600 monthly rows");
+  }
+
+  override async getMarketPrices(): Promise<MarketPrice[]> {
+    throw new PriceQueryLimitError("Published price query exceeded 1000 rows");
   }
 }
 
@@ -1147,6 +1162,26 @@ describe("data source routes", () => {
       success: false,
       error: { code: "NOT_FOUND", message: "Not found." },
     });
+  });
+
+  it("fails price-query limit breaches loudly because an oversized Hyperdrive response is not empty business data", async () => {
+    const routeApp = new Hono<{ Bindings: Env }>();
+    routeApp.route("/", createDataSourceRoutes({
+      createAdapter: () => new LimitedDataSourceAdapter(),
+    }));
+    const env = createTestEnv();
+
+    const responses = await Promise.all([
+      routeApp.request("/cards/search?q=charizard", {}, env),
+      routeApp.request("/cards/100/market-prices", {}, env),
+      routeApp.request(
+        "/cards/100/price-series?grader=Raw&condition=Near%20Mint&days=30",
+        {},
+        env,
+      ),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([500, 500, 500]);
   });
 
   it("batches price series in request order because Card Detail must avoid one HTTP round trip per chart dimension", async () => {

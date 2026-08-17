@@ -71,25 +71,27 @@ Apple Notifications V2 + Server API --> purchase chain lifecycle correction
 
 | 资源 | 当前职责 | 一致性边界 |
 |---|---|---|
-| D1 | 卡牌目录/价格、账号/session、资产、扫描、订阅、通知和 Admin | 当前业务真源 |
+| D1 | 已部署 Worker 的当前业务真源；dev 也是正式迁移的只读源 | 完成冻结、迁移、校验和 dev 切换前不得停止或清理 |
+| PlanetScale PostgreSQL | 已创建 33 张业务表与 7 张新价格域表，业务数据尚未迁入 | dev/prod 切换后共享业务数据；环境配置、KV、R2 和 Apple 契约仍分离 |
+| Hyperdrive | 已为 dev/prod 目标配置同一连接，代码通过 Postgres.js 兼容层访问 | 查询缓存须在切换前关闭；每请求或 cron 独立 client，后台任务结束后关闭 |
 | KV | 目录查询和汇率等可重新获取数据 | 缓存失败不得改变授权或业务真值 |
 | R2 | 扫描原图等对象 | 读取受 Admin 授权保护 |
 | Flutter 安全存储 | 会话、已验证 Premium 缓存和待同步证据 | 只辅助本机体验，不替代服务端授权 |
 
-Drizzle `src/db/schema.ts` 是 TypeScript Schema 入口，SQL `0000-0034` 是数据库演进事实。v1.1 主要增加购买链、session grant、Apple 验证与通知、Scan Quota、Performance 历史和订单事实。
+Drizzle `src/db/schema.ts` 与 SQL `0000-0034` 是冻结前 D1 演进事实；PostgreSQL 目标结构以 `src/db/postgres/migrations/0000_business_schema.sql` 至 `0004_price_history_month_payload_limit.sql` 为准。运行时代码保留现有 `prepare/bind/first/all/run/batch` 调用形状，PostgreSQL 适配器把问号占位符转换为参数化查询，并把 `batch` 放在单一事务中顺序执行。共享 PostgreSQL 中 Apple inbox 以 `environment` 持久化队列归属，通知与校正 cron 只能领取当前 `APP_ENVIRONMENT` 对应的 Sandbox 或 Production 行；价格月历史只对同来源、同 `current:%` scope 的已发布 pointer 可见，单个月块 JSONB 文本不得超过 24 KiB。
 
 ## 6. 环境与部署
 
 | 环境 | Worker | 域名 | 数据资源 |
 |---|---|---|---|
-| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 独立 dev D1/KV/R2 |
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 独立 prod D1/KV/R2 |
+| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 线上仍为 dev D1/KV/R2；目标为共享 PG + 独立 dev KV/R2 |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | 线上仍为 prod D1/KV/R2；目标为共享 PG + 独立 prod KV/R2，本任务不部署 prod |
 
-Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev 与 prod 的 Apple Bundle、Product ID、D1/KV/R2 不得混用。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。
+Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev 与 prod 共用业务 PostgreSQL 是本次明确的成本决策，但 `APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。
 
 ## 7. 当前与目标架构的区分
 
-当前代码仍使用 D1。PostgreSQL、Hyperdrive、价格历史月度 JSON、TimescaleDB 或 ClickHouse 都不是已实施架构；它们只存在于 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中，需单独决策、设计、迁移和验收。
+当前处于迁移中间态：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 兼容访问层、PostgreSQL 业务方言和新价格域读取已经实现，并通过 Workers 回归与本地 remote preview 的真实 Hyperdrive 只读查询验证；线上 dev/prod 仍运行旧 D1 部署，dev 业务数据也尚未复制。只有冻结 dev D1 写入、全量迁移与摘要校验、关闭 Hyperdrive 查询缓存并部署验收 dev 后，才能把 dev 标记为 PostgreSQL 已切换；prod 本任务只准备配置，不部署。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
 
 ## 8. 证据索引
 

@@ -33,6 +33,24 @@ export function createCacheApiDataSourceAdapter(
       );
     },
 
+    async getPriceSeriesBatch(card_ref, requests) {
+      if (source.getPriceSeriesBatch) {
+        return source.getPriceSeriesBatch(card_ref, requests);
+      }
+      const results = [];
+      for (const request of requests) {
+        results.push(await source.getPriceSeries(
+          card_ref,
+          request.grader,
+          request.grade,
+          request.condition,
+          request.days,
+          request.finish,
+        ));
+      }
+      return results;
+    },
+
     getMarketPrices(card_ref, finish, language) {
       return readThroughCacheApi(cache, marketPricesCacheKey(card_ref, finish, language), () =>
         source.getMarketPrices(card_ref, finish, language),
@@ -110,12 +128,12 @@ function marketPricesCacheKey(
   language?: string | null,
 ): string {
   if (!language) {
-    if (!finish) return ["getMarketPrices", "v3", cacheKeyPart(card_ref)].join(":");
-    return ["getMarketPrices", "v4", cacheKeyPart(card_ref), cacheKeyPart(finish)].join(":");
+    if (!finish) return ["getMarketPrices", "v6", cacheKeyPart(card_ref)].join(":");
+    return ["getMarketPrices", "v6", cacheKeyPart(card_ref), cacheKeyPart(finish)].join(":");
   }
   return [
     "getMarketPrices",
-    "v5",
+    "v6",
     cacheKeyPart(card_ref),
     finish ? cacheKeyPart(finish) : "none",
     cacheKeyPart(language),
@@ -132,7 +150,7 @@ function priceSeriesCacheKey(
 ): string {
   const parts = [
     "getPriceSeries",
-    "v2",
+    "v3",
     cacheKeyPart(card_ref),
     cacheKeyPart(grader),
     nullableCacheKeyPart(grade),
@@ -144,7 +162,7 @@ function priceSeriesCacheKey(
 }
 
 function soldListingsCacheKey(card_ref: string): string {
-  return ["getSoldListings", "v4", cacheKeyPart(card_ref)].join(":");
+  return ["getSoldListings", "v5", cacheKeyPart(card_ref)].join(":");
 }
 
 function nullableCacheKeyPart(value: string | number | null): string {

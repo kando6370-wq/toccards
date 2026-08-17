@@ -56,13 +56,18 @@ export type PerformanceResult = {
   series: PerformancePoint[];
 };
 
+const PERFORMANCE_EVENT_LIMIT = 10_000;
+
 const SELECT_PERFORMANCE_EVENTS_SQL = `
 SELECT id, item_id, folder_id, card_ref, grader, condition, grade, language,
   finish, quantity, purchase_price, purchase_currency,
   performance_history_available_from, event_type, effective_at
 FROM collection_item_event
-WHERE owner_type = ? AND owner_id = ?
+WHERE owner_type = ? AND owner_id = ?`;
+
+const SELECT_PERFORMANCE_EVENTS_ORDER_LIMIT_SQL = `
 ORDER BY effective_at ASC, id ASC
+LIMIT ${PERFORMANCE_EVENT_LIMIT + 1}
 `;
 
 export function parsePerformanceRange(value: string | undefined): PerformanceRange | null {
@@ -76,17 +81,24 @@ export async function loadPortfolioPerformance(
   range: PerformanceRange,
   options: { folderId?: string; itemId?: string; now?: Date } = {},
 ): Promise<PerformanceResult> {
+  const itemClause = options.itemId ? " AND item_id = ?" : "";
+  const bindings = options.itemId
+    ? [owner.owner_type, owner.owner_id, options.itemId]
+    : [owner.owner_type, owner.owner_id];
   const result = await db
-    .prepare(SELECT_PERFORMANCE_EVENTS_SQL)
-    .bind(owner.owner_type, owner.owner_id)
+    .prepare(`${SELECT_PERFORMANCE_EVENTS_SQL}${itemClause}${SELECT_PERFORMANCE_EVENTS_ORDER_LIMIT_SQL}`)
+    .bind(...bindings)
     .all<PerformanceEventRow>();
-  const allEvents = result.results ?? [];
-  const scopedEvents = allEvents.filter((event) =>
-    options.itemId ? event.item_id === options.itemId : true,
-  );
+  const scopedEvents = result.results ?? [];
+  if (scopedEvents.length > PERFORMANCE_EVENT_LIMIT) {
+    throw new Error(`Portfolio performance query exceeded ${PERFORMANCE_EVENT_LIMIT} events`);
+  }
+  const now = options.now ?? new Date();
   const skus = await loadSkus(
     db,
     [...new Set(scopedEvents.map((event) => event.card_ref))],
+    performanceRangeStart(range, now),
+    dateKey(now),
   );
   return calculatePerformance(scopedEvents, skus, range, options);
 }

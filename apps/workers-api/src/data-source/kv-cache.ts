@@ -14,13 +14,9 @@ export type DataSourceKvNamespace = {
 
 const SEARCH_CARDS_TTL_SECONDS = 60 * 60;
 const TRENDING_LAST_GOOD_TTL_SECONDS = 24 * 60 * 60;
-const CARD_RESPONSE_CACHE_VERSION = "v10";
-const TRENDING_RESPONSE_CACHE_VERSION = "v8";
-const TRENDING_LEGACY_CACHE_KEYS = [
-  "v6:getTrending:1:10:last-known-good",
-  "v5:getTrending:last-known-good",
-  "v4:getTrending",
-];
+const CARD_RESPONSE_CACHE_VERSION = "v11";
+const TRENDING_RESPONSE_CACHE_VERSION = "v9";
+const TRENDING_LEGACY_CACHE_KEYS: string[] = [];
 const DEFAULT_SEARCH_PAGE = 1;
 const DEFAULT_SEARCH_PAGE_SIZE = 20;
 
@@ -48,6 +44,24 @@ export function createKvCachedDataSourceAdapter(
 
     getPriceSeries(card_ref, grader, grade, condition, days, finish) {
       return source.getPriceSeries(card_ref, grader, grade, condition, days, finish);
+    },
+
+    async getPriceSeriesBatch(card_ref, requests) {
+      if (source.getPriceSeriesBatch) {
+        return source.getPriceSeriesBatch(card_ref, requests);
+      }
+      const results = [];
+      for (const request of requests) {
+        results.push(await source.getPriceSeries(
+          card_ref,
+          request.grader,
+          request.grade,
+          request.condition,
+          request.days,
+          request.finish,
+        ));
+      }
+      return results;
     },
 
     getMarketPrices(card_ref, finish, language) {

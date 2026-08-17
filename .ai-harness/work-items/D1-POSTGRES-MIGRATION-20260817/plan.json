@@ -42,7 +42,7 @@
       "id": "T2",
       "title": "实现 PostgreSQL 兼容数据库接口与 Worker 生命周期",
       "module": "workers-api/runtime",
-      "status": "READY",
+      "status": "COMPLETED",
       "blockedBy": [
         "T1"
       ],
@@ -65,16 +65,20 @@
       "reviewBatch": "R2",
       "risk": "high",
       "owner": "codex",
-      "verificationStatus": "pending",
-      "reviewStatus": "pending",
-      "evidence": [],
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "f9525497-9ec1-43c6-930b-c815c5e0237c",
+        "7a5b5495-d184-4ff8-b1f2-2489c7c1d320",
+        "129a65f7-328b-4520-82fb-aa4196564ca4"
+      ],
       "deferralApproval": null
     },
     {
       "id": "T3",
       "title": "将价格域和 SQLite 专用业务查询切换 PostgreSQL",
       "module": "workers-api/queries",
-      "status": "PENDING",
+      "status": "COMPLETED",
       "blockedBy": [
         "T2"
       ],
@@ -97,16 +101,21 @@
       "reviewBatch": "R2",
       "risk": "high",
       "owner": "codex",
-      "verificationStatus": "pending",
-      "reviewStatus": "pending",
-      "evidence": [],
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "a66781cf-6c12-46ac-bb17-c8c288e7ebaa",
+        "1af7cf89-4b29-4fc2-ade5-9f10a7b5bb76",
+        "dba3b174-8662-47f2-b5ee-4664e9df470b",
+        "db6ef60c-f749-4429-9afb-bc750bafb3e8"
+      ],
       "deferralApproval": null
     },
     {
       "id": "T4",
       "title": "迁移并校验 dev D1 非价格业务数据",
       "module": "database/migration",
-      "status": "PENDING",
+      "status": "READY",
       "blockedBy": [
         "T3"
       ],
@@ -197,5 +206,5 @@
     }
   ],
   "createdAt": "2026-08-17T10:05:33.978Z",
-  "updatedAt": "2026-08-17T10:50:45.610Z"
+  "updatedAt": "2026-08-17T12:51:54.480Z"
 }

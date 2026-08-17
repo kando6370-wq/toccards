@@ -529,7 +529,7 @@ CREATE TABLE price_history_month (
 | `last_batch_id` | `bigint`，FK | 最后一次确定该月内容的完整批次。 |
 | `created_at`、`updated_at` | `timestamptz` | 月块审计时间。 |
 
-数据库只验证顶层 JSON 是数组且元素数一致。元素字段、日期排序、同日重复、金额类型和 checksum 必须由确定性导入校验器处理；不为 `points` 建 GIN，因为当前查询只按 series/month 整块读取。
+数据库验证顶层 JSON 是数组、元素数一致，并由 `0004_price_history_month_payload_limit.sql` 限制 `octet_length(points::text) <= 24576`。元素字段、日期排序、同日重复、金额类型和 checksum 必须由确定性导入校验器处理；不为 `points` 建 GIN，因为当前查询只按 series/month 整块读取。配合单次最多 1,600 个自然月块，JSON 文本理论上限为 39,321,600 bytes（37.5 MiB），为 Hyperdrive 50 MB 响应边界中的其他列和协议开销保留余量。
 
 ```sql
 -- 月分区模板：上界不包含。
@@ -602,9 +602,9 @@ CREATE TABLE card_trending_snapshot (
 2. 用 `(scope_code, idempotency_key)` 插入 `loading` batch；唯一冲突时读取既有 batch 状态，不另建重复批次。
 3. 为 current batch 创建独立 LIST 分区；用临时 staging 表和 `COPY` 批量加载。
 4. 用集合 SQL 校验 source、series、重复、日期、金额、预期数、实际数和 checksum；任何拒绝记录都使 batch 失败。
-5. 把 current 行写入该 batch 分区；月历史按 `(series_id, month_start)` 幂等 upsert，并记录 `last_batch_id`。
+5. 把 current 行写入该 batch 分区；月历史先保留在本批次 staging，不能在发布事务外改写 `price_history_month`。
 6. 生成 Trending 派生 manifest 和独立 batch，写入 `card_trending_snapshot`。
-7. 只有计数、日期和 checksum 全部通过，才把 batch 从 `validated` 发布并切换 pointer。
+7. 只有计数、日期和 checksum 全部通过，才在同一发布事务内按 `(series_id, month_start)` 幂等 upsert 月历史、把 batch 从 `validated` 发布并切换 pointer。
 
 staging 表只存在于导入会话或独立 staging schema，成功/失败后均可重建，不属于业务真源。对 900 万级 current 行使用 `COPY` 和集合 SQL，不执行逐行 Worker `Promise.all`。
 
@@ -623,7 +623,7 @@ WHERE snapshot.batch_id = $1
 
 ### 4.2 发布事务
 
-同一 scope 的发布必须串行。下面的 `$1` 是 `scope_code`，`$2` 是新 `batch_id`，`$3` 是受信任发布器标识；应用在同一事务内保存锁定时读到的旧 batch ID。
+同一 `current:%` scope 的发布必须串行。月历史 upsert、batch 从 `validated` 变为 `published`、current pointer 切换和旧 batch supersede 必须在同一事务内完成；任一步失败都回滚，禁止先提交历史再切 pointer。`0003_price_history_visibility_guard.sql` 用 immediate BEFORE trigger 要求 INSERT/UPDATE 执行时的新 batch 属于同来源、`current:%` scope 且仍为 `validated`，再用 deferred constraint trigger 在提交时要求它已变为 `published` 并正被同 scope pointer 指向；因此 published batch 不能事后补写历史。内容、计数、覆盖日期或 checksum 变化还必须同时写入新的 `last_batch_id`，不能借用旧 lineage 原地改写。下面的 `$1` 是 `scope_code`，`$2` 是新 `batch_id`，`$3` 是受信任发布器标识；应用在同一事务内保存锁定时读到的旧 batch ID。`staging_price_history_month` 代表导入器为该 batch 校验完成的 staging 关系。
 
 ```sql
 BEGIN;
@@ -643,6 +643,25 @@ WHERE batch_id = $2
 FOR UPDATE;
 
 -- 上一条必须恰好返回一行，否则应用回滚，不继续执行。
+INSERT INTO price_history_month (
+  series_id, month_start, points, point_count,
+  first_observed_on, last_observed_on, content_checksum_sha256,
+  last_batch_id, created_at, updated_at
+)
+SELECT series_id, month_start, points, point_count,
+  first_observed_on, last_observed_on, content_checksum_sha256,
+  $2, now(), now()
+FROM staging_price_history_month
+WHERE batch_id = $2
+ON CONFLICT (series_id, month_start) DO UPDATE
+SET points = EXCLUDED.points,
+    point_count = EXCLUDED.point_count,
+    first_observed_on = EXCLUDED.first_observed_on,
+    last_observed_on = EXCLUDED.last_observed_on,
+    content_checksum_sha256 = EXCLUDED.content_checksum_sha256,
+    last_batch_id = EXCLUDED.last_batch_id,
+    updated_at = now();
+
 UPDATE price_ingest_batch
 SET status = 'published',
     published_at = now(),

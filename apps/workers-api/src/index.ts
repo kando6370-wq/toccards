@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { authRoutes } from "./auth/anonymous";
 import { createDataSourceRoutes } from "./data-source/routes";
-import type { Env } from "./env";
+import type { Env, RuntimeEnv } from "./env";
 import { createFeedbackRoutes } from "./feedback/routes";
 import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
@@ -14,6 +14,7 @@ import { createEntitlementRoutes } from "./entitlements/routes";
 import { createAppleRestoreRoutes } from "./entitlements/restore-routes";
 import { createAppleNotificationRoutes, retryAppleNotificationInbox } from "./entitlements/apple-notification-routes";
 import { retryAppleServerApiCorrections } from "./entitlements/apple-server-api-correction";
+import { createPostgresDatabase, runWithDatabaseLifecycle } from "./db/postgres-database";
 
 export type { Env } from "./env";
 
@@ -58,11 +59,55 @@ api.route("/", createAppleNotificationRoutes());
 
 app.notFound((c) => c.json({ error: "NOT_FOUND" }, 404));
 
-export default Object.assign(app, {
-  scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+const honoFetch = app.fetch.bind(app);
+
+async function fetch(
+  request: Request,
+  env: RuntimeEnv,
+  ctx?: ExecutionContext,
+): Promise<Response> {
+  if (env?.HYPERDRIVE) {
+    if (!ctx) throw new Error("ExecutionContext is required for PostgreSQL requests");
+    const database = createPostgresDatabase(env.HYPERDRIVE.connectionString);
+    const requestEnv = { ...env, DB: database } as Env;
+    return runWithDatabaseLifecycle(database, ctx, (trackedContext) =>
+      Promise.resolve(honoFetch(request, requestEnv, trackedContext)));
+  }
+  if (env?.DB) return Promise.resolve(honoFetch(request, env as Env, ctx));
+  throw new Error("HYPERDRIVE binding is required");
+}
+
+function scheduled(
+  _controller: ScheduledController,
+  env: RuntimeEnv,
+  ctx: ExecutionContext,
+): void {
+  if (env.HYPERDRIVE) {
+    const database = createPostgresDatabase(env.HYPERDRIVE.connectionString);
+    const scheduledEnv = { ...env, DB: database } as Env;
     ctx.waitUntil((async () => {
-      await retryAppleNotificationInbox(env);
-      await retryAppleServerApiCorrections(env);
+      try {
+        await runScheduledTasks(scheduledEnv);
+      } finally {
+        await database.close();
+      }
     })());
-  },
-});
+    return;
+  }
+  if (env.DB) {
+    ctx.waitUntil(runScheduledTasks(env as Env));
+    return;
+  }
+  throw new Error("HYPERDRIVE binding is required");
+}
+
+async function runScheduledTasks(env: Env): Promise<void> {
+  await retryAppleNotificationInbox(env);
+  await retryAppleServerApiCorrections(env);
+}
+
+export default {
+  fetch,
+  request: app.request.bind(app),
+  scheduled,
+};

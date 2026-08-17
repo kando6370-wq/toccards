@@ -307,6 +307,7 @@ class FakeD1 {
   failRunOnSql: string | null = null;
   createConflictingUserBeforeNextUserInsert = false;
   createConflictingIdentityBeforeNextAuthIdentityInsert = false;
+  uniqueErrorMode: "sqlite" | "postgres" = "sqlite";
   concurrentResetCodeLookupBarrierSize = 0;
   concurrentResetCodeLookupResolutions: Array<() => void> = [];
   upgradeAnonymousBeforeUpgrade = false;
@@ -902,7 +903,10 @@ class FakeD1 {
       }
 
       if (this.users.some((row) => row.email === email && reservesEmail(row))) {
-        throw new Error("UNIQUE constraint failed: user.email");
+        throw this.uniqueConstraintError(
+          "uq_user_non_deleted_email",
+          "UNIQUE constraint failed: user.email",
+        );
       }
 
       this.users.push({
@@ -961,7 +965,10 @@ class FakeD1 {
       }
 
       if (this.users.some((row) => row.email === email && reservesEmail(row))) {
-        throw new Error("UNIQUE constraint failed: user.email");
+        throw this.uniqueConstraintError(
+          "uq_user_non_deleted_email",
+          "UNIQUE constraint failed: user.email",
+        );
       }
 
       this.users.push({
@@ -1124,7 +1131,10 @@ class FakeD1 {
       }
 
       if (this.users.some((row) => row.email === email && reservesEmail(row))) {
-        throw new Error("UNIQUE constraint failed: user.email");
+        throw this.uniqueConstraintError(
+          "uq_user_non_deleted_email",
+          "UNIQUE constraint failed: user.email",
+        );
       }
 
       this.users.push({
@@ -1173,7 +1183,8 @@ class FakeD1 {
             row.provider === provider && row.provider_uid === providerUid,
         )
       ) {
-        throw new Error(
+        throw this.uniqueConstraintError(
+          "uq_auth_identity_provider",
           "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",
         );
       }
@@ -1210,7 +1221,10 @@ class FakeD1 {
       }
 
       if (this.users.some((row) => row.email === email && reservesEmail(row))) {
-        throw new Error("UNIQUE constraint failed: user.email");
+        throw this.uniqueConstraintError(
+          "uq_user_non_deleted_email",
+          "UNIQUE constraint failed: user.email",
+        );
       }
 
       this.users.push({
@@ -1265,7 +1279,8 @@ class FakeD1 {
             row.provider === provider && row.provider_uid === providerUid,
         )
       ) {
-        throw new Error(
+        throw this.uniqueConstraintError(
+          "uq_auth_identity_provider",
           "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",
         );
       }
@@ -2386,6 +2401,14 @@ class FakeD1 {
     });
   }
 
+  private uniqueConstraintError(constraintName: string, sqliteMessage: string): Error {
+    if (this.uniqueErrorMode === "sqlite") return new Error(sqliteMessage);
+    return Object.assign(
+      new Error(`duplicate key value violates unique constraint "${constraintName}"`),
+      { code: "23505", constraint_name: constraintName },
+    );
+  }
+
   private hasUpgradedAnonymousAccount(id: string, userId: string): boolean {
     return this.anonymousAccounts.some(
       (row) => row.id === id && row.upgraded_user_id === userId,
@@ -3110,7 +3133,7 @@ const REVOKE_SESSION_SQL = normalizeSql(`
 `);
 
 function normalizeSql(sql: string): string {
-  return sql.replace(/\s+/g, " ").trim();
+  return sql.replaceAll('"user"', "user").replace(/\s+/g, " ").trim();
 }
 
 function okResult<T = unknown>(changes = 1): D1Result<T> {
@@ -3603,9 +3626,10 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     ]);
   });
 
-  it("google oauth signs in after a concurrent user email insert because duplicate callbacks must not become 500s", async () => {
+  it.each(["sqlite", "postgres"] as const)("google oauth signs in after a concurrent user email insert because duplicate callbacks must not become 500s (%s)", async (uniqueErrorMode) => {
     const env = createTestEnv();
     const db = fakeD1(env);
+    db.uniqueErrorMode = uniqueErrorMode;
     db.createConflictingUserBeforeNextUserInsert = true;
 
     const response = await requestGoogleOAuthCallback(env, {
@@ -3643,9 +3667,10 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     ]);
   });
 
-  it("google oauth signs in after a concurrent identity bind because retried callbacks should use the stable provider key", async () => {
+  it.each(["sqlite", "postgres"] as const)("google oauth signs in after a concurrent identity bind because retried callbacks should use the stable provider key (%s)", async (uniqueErrorMode) => {
     const env = createTestEnv();
     const db = fakeD1(env);
+    db.uniqueErrorMode = uniqueErrorMode;
     db.users.push({
       id: "identity-race-user",
       email: "identity-race@example.com",
@@ -5856,9 +5881,10 @@ describe("POST /api/v1/auth/register/verify", () => {
     expect(code.used_at).not.toBeNull();
   });
 
-  it("returns 409 when user insert hits an email unique race because conflict semantics must survive concurrent registration", async () => {
+  it.each(["sqlite", "postgres"] as const)("returns 409 when user insert hits an email unique race because conflict semantics must survive concurrent registration (%s)", async (uniqueErrorMode) => {
     const env = createTestEnv();
     const db = fakeD1(env);
+    db.uniqueErrorMode = uniqueErrorMode;
     const sendResponse = await requestRegisterSendCode(env, {
       email: "race@example.com",
     });

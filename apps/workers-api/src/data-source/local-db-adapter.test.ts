@@ -25,6 +25,10 @@ type SetRow = {
 
 type SkuRow = {
   sku_id: number | null;
+  series_id: number;
+  source_code: string;
+  source_record_id: string;
+  metric_code: string;
   product_id: string;
   condition_code: string | null;
   condition_name: string | null;
@@ -32,13 +36,17 @@ type SkuRow = {
   language_name: string | null;
   variant_code: string | null;
   variant_name: string | null;
+  grader_code: string;
+  grade_min_x10: number | null;
+  grade_max_x10: number | null;
+  observed_on: string;
+  amount_micros: number;
+  baseline_1d_on: string | null;
+  baseline_1d_amount_micros: number | null;
+  baseline_30d_on: string | null;
+  baseline_30d_amount_micros: number | null;
   price_history: string;
   increase_rate: number | null;
-};
-
-type PriceHistoryRow = Record<string, string | number | null> & {
-  product_id: string;
-  product_sub_type: string | null;
 };
 
 class FakeCardDatabase {
@@ -47,10 +55,10 @@ class FakeCardDatabase {
     private readonly skus: SkuRow[],
     private readonly sets: SetRow[] = [],
     private readonly hasNumberColumn = true,
-    private readonly priceHistories: PriceHistoryRow[] = [],
   ) {}
 
   readonly preparedSql: string[] = [];
+  readonly boundCalls: Array<{ sql: string; values: unknown[] }> = [];
 
   prepare(sql: string): FakeStatement {
     this.preparedSql.push(sql);
@@ -62,7 +70,7 @@ class FakeCardDatabase {
       this.cards,
       this.skus,
       this.sets,
-      this.priceHistories,
+      this.boundCalls,
     );
   }
 }
@@ -73,16 +81,16 @@ class FakeStatement {
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
     private readonly sets: SetRow[],
-    private readonly priceHistories: PriceHistoryRow[],
+    private readonly boundCalls: Array<{ sql: string; values: unknown[] }>,
   ) {}
 
   bind(...values: unknown[]): FakeBoundStatement {
+    this.boundCalls.push({ sql: this.sql, values });
     return new FakeBoundStatement(
       this.sql,
       this.cards,
       this.skus,
       this.sets,
-      this.priceHistories,
       values,
     );
   }
@@ -93,7 +101,6 @@ class FakeStatement {
       this.cards,
       this.skus,
       this.sets,
-      this.priceHistories,
       [],
     ).all<T>();
   }
@@ -105,23 +112,25 @@ class FakeBoundStatement {
     private readonly cards: CardRow[],
     private readonly skus: SkuRow[],
     private readonly sets: SetRow[],
-    private readonly priceHistories: PriceHistoryRow[],
     private readonly values: unknown[],
   ) {}
 
   async all<T>(): Promise<{ results: T[] }> {
-    if (
-      this.sql.includes("price_Grade_7") ||
-      this.sql.includes("variant_name AS product_sub_type")
-    ) {
-      const productId = String(this.values[0]);
+    if (this.sql.includes("FROM price_history_month AS history")) {
+      const seriesIds = new Set(this.values.filter((value): value is number =>
+        typeof value === "number"
+      ));
       return {
-        results: this.priceHistories.filter(
-          (row) => row.product_id === productId,
-        ) as T[],
+        results: this.skus.filter((row) => seriesIds.has(row.series_id)).map((row) => ({
+          series_id: row.series_id,
+          points_json: row.price_history,
+        })) as T[],
       };
     }
-    if (this.sql.includes("FROM tcg_price AS sku")) {
+    if (
+      this.sql.includes("FROM current_price_pointer AS pointer")
+      && this.sql.includes("JOIN card_trending_snapshot AS trend")
+    ) {
       const highestSkuByProduct = new Map<string, SkuRow>();
       for (const sku of this.skus.filter(
         (row) => row.increase_rate !== null && row.increase_rate > 0,
@@ -136,19 +145,28 @@ class FakeBoundStatement {
           highestSkuByProduct.set(productId, sku);
         }
       }
+      const limit = Number(this.values[0] ?? 10);
+      const offset = Number(this.values[1] ?? 0);
       const results = [...highestSkuByProduct.values()]
         .sort(
           (left, right) =>
             right.increase_rate! - left.increase_rate! || naturalKey(left).localeCompare(naturalKey(right)),
         )
-        .slice(0, 10)
+        .slice(offset, offset + limit)
         .flatMap((sku) => {
           const card = this.cards.find(
             (candidate) => candidate.product_id === String(sku.product_id),
           );
-          return card ? [{ ...card, ...sku, product_id: card.product_id }] : [];
+          return card ? [{ ...card, ...sku, rank: 1, product_id: card.product_id }] : [];
         });
       return { results: results as T[] };
+    }
+
+    if (this.sql.includes("FROM price_series AS series")) {
+      const productIds = new Set(this.values.map(String));
+      return {
+        results: this.skus.filter((sku) => productIds.has(sku.product_id)) as T[],
+      };
     }
 
     if (this.sql.includes("FROM sets s")) {
@@ -255,15 +273,6 @@ class FakeBoundStatement {
       return { results: this.cards as T[] };
     }
 
-    if (this.sql.includes("FROM tcg_price")) {
-      const productIds = new Set(this.values.map(String));
-      return {
-        results: this.skus.filter((sku) =>
-          productIds.has(String(sku.product_id)),
-        ).map((sku) => ({ ...sku, product_id: String(sku.product_id) })) as T[],
-      };
-    }
-
     return { results: [] };
   }
 
@@ -351,7 +360,7 @@ describe("local D1 card data source adapter", () => {
     });
   });
 
-  it("parses tcg_price price_Ungraded with JSON because price strings must become numeric market data", async () => {
+  it("converts published micros and monthly points because API prices remain numeric after PostgreSQL migration", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [card({ product_id: "100", name: "Charizard" })],
@@ -399,7 +408,7 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
-  it("adds only real graded history while raw pricing stays on tcg_price.price_Ungraded", async () => {
+  it("returns normalized graded series without exposing unrelated raw series as a grade", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [card({ product_id: "100", name: "Charizard" })],
@@ -411,10 +420,8 @@ describe("local D1 card data source adapter", () => {
               { price: "15.75", date: "2026-07-30" },
             ]),
           }),
+          gradedPrice(),
         ],
-        [],
-        true,
-        [gradedPriceHistory()],
       ) as unknown as D1Database,
     );
 
@@ -433,6 +440,87 @@ describe("local D1 card data source adapter", () => {
     );
     expect(prices.some((price) => price.grader === "ACE")).toBe(false);
     expect(prices.some((price) => price.price === 9999)).toBe(false);
+  });
+
+  it("loads the requested graded series because Card Detail sends Raw and Graded ranges through one batch", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [
+          sku({
+            product_id: "100",
+            variant_name: "Foil",
+            price_history: JSON.stringify([{ price: 15.75, date: "2026-07-30" }]),
+          }),
+          gradedPrice({
+            product_id: "100",
+            grade_min_x10: 95,
+            grade_max_x10: 100,
+            price_history: JSON.stringify([
+              { price: 340, date: "2026-07-29" },
+              { price: 360, date: "2026-07-30" },
+            ]),
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getPriceSeriesBatch!("100", [
+      { grader: "Raw", grade: null, condition: "Near Mint", days: 30, finish: "Foil" },
+      { grader: "PSA", grade: 10, condition: null, days: 365, finish: "Foil" },
+    ])).resolves.toEqual([
+      [{ date: "2026-07-30", price: 15.75 }],
+      [
+        { date: "2026-07-29", price: 340 },
+        { date: "2026-07-30", price: 360 },
+      ],
+    ]);
+  });
+
+  it("splits independently valid 365-day series windows because freshness gaps must not trip the 400-day query guard", async () => {
+    const db = new FakeCardDatabase(
+      [card({ product_id: "100", name: "Charizard" })],
+      [
+        sku({
+          product_id: "100",
+          observed_on: "2026-08-01",
+          price_history: JSON.stringify([{ price: 15.75, date: "2026-08-01" }]),
+        }),
+        gradedPrice({
+          product_id: "100",
+          observed_on: "2026-06-01",
+          price_history: JSON.stringify([{ price: 360, date: "2026-06-01" }]),
+        }),
+      ],
+    );
+    const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
+
+    await expect(adapter.getPriceSeriesBatch!("100", [
+      { grader: "Raw", grade: null, condition: "Near Mint", days: 365, finish: null },
+      { grader: "PSA", grade: 10, condition: null, days: 365, finish: null },
+    ])).resolves.toHaveLength(2);
+
+    expect(db.preparedSql.filter((sql) =>
+      sql.includes("FROM price_history_month AS history")
+    )).toHaveLength(2);
+  });
+
+  it("starts market history from each series freshness because older graded series still need their own 90 days", async () => {
+    const db = new FakeCardDatabase(
+      [card({ product_id: "100", name: "Charizard" })],
+      [
+        sku({ product_id: "100", observed_on: "2026-07-30" }),
+        gradedPrice({ product_id: "100", observed_on: "2026-01-15" }),
+      ],
+    );
+    const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
+
+    await adapter.getMarketPrices("100");
+
+    const historyCall = db.boundCalls.find((call) =>
+      call.sql.includes("FROM price_history_month AS history")
+    );
+    expect(historyCall?.values).toContain("2025-10-01");
   });
 
   it("searches by card name and number together because collectors use the number to identify an exact printing", async () => {
@@ -698,27 +786,34 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
-  it("falls back to Ungraded for the same product subtype only when that finish has no SKU history", async () => {
-    const normalHistory = {
-      ...gradedPriceHistory(),
-      product_id: "180865",
-      product_sub_type: "Normal",
-      price_Ungraded: JSON.stringify([{ price: 30, date: "2026-07-30" }]),
-      increase_Ungraded: 5,
-      price_PSA_10: "[]",
-    };
-    const foilHistory = {
-      ...gradedPriceHistory(),
-      product_id: "180865",
-      price_Ungraded: JSON.stringify([{ price: 60, date: "2026-07-30" }]),
-    };
+  it("uses normalized PriceCharting ungraded series for the requested finish when no TCGplayer series exists", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [card({ product_id: "180865" })],
-        [sku({ product_id: "180865", price_history: "[]" })],
-        [],
-        true,
-        [normalHistory, foilHistory],
+        [
+          sku({
+            product_id: "180865",
+            source_code: "pricecharting",
+            source_record_id: "pc-normal",
+            condition_code: null,
+            condition_name: "Ungraded",
+            variant_name: "Normal",
+            price_history: JSON.stringify([{ price: 30, date: "2026-07-30" }]),
+            increase_rate: 5,
+          }),
+          sku({
+            sku_id: 2,
+            series_id: 2,
+            product_id: "180865",
+            source_code: "pricecharting",
+            source_record_id: "pc-foil",
+            condition_code: null,
+            condition_name: "Ungraded",
+            variant_code: "F",
+            variant_name: "Foil",
+            price_history: JSON.stringify([{ price: 60, date: "2026-07-30" }]),
+          }),
+        ],
       ) as unknown as D1Database,
     );
 
@@ -755,11 +850,6 @@ describe("local D1 card data source adapter", () => {
               { price: 12, date: "2026-07-10" },
             ]),
           }),
-          sku({
-            sku_id: 2,
-            variant_name: "Foil",
-            price_history: "[]",
-          }),
         ],
       ) as unknown as D1Database,
     );
@@ -782,7 +872,7 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
-  it("ranks only positive Trending Today cards by stored increase_Ungraded because Home and View all share that daily metric", async () => {
+  it("reads the published Trending snapshot because Home must not scan all current prices", async () => {
     const db = new FakeCardDatabase(
         [
           card({ product_id: "100", name: "Small Mover" }),
@@ -859,32 +949,30 @@ describe("local D1 card data source adapter", () => {
         name: "Largest Mover",
         finish: "Cold Foil",
         price_usd: 54,
-        previous_30d_price_usd: 30,
+        previous_1d_price_usd: 30,
         price_change_1d_percent: 80,
       },
       {
         card_ref: "100",
         name: "Small Mover",
         price_usd: 11,
-        previous_30d_price_usd: 10,
+        previous_1d_price_usd: 10,
         price_change_1d_percent: 5,
       },
     ]);
     const trendingSql = db.preparedSql.find((sql) =>
-      sql.includes("FROM tcg_price AS sku"),
+      sql.includes("JOIN card_trending_snapshot AS trend"),
     );
-    expect(trendingSql).toContain("NOT EXISTS");
+    expect(trendingSql).toContain("pointer.scope_code = 'trending:global'");
     expect(trendingSql).toContain(
-      "cards_all.product_id = sku.product_id",
+      "cards.product_id = trend.card_ref",
     );
-    expect(trendingSql).not.toContain("sku_id IS NOT NULL");
-    expect(trendingSql).not.toContain("pricecharting_id");
+    expect(trendingSql).not.toContain("NOT EXISTS");
+    expect(trendingSql).not.toContain("tcg_price");
     expect(
       db.preparedSql.every((sql) => !/sku_id|pricecharting_id/i.test(sql)),
     ).toBe(true);
-    expect(trendingSql).toContain("idx_tcg_price_increase_ungraded");
-    expect(trendingSql).toContain("sku.increase_Ungraded > 0");
-    expect(trendingSql).not.toContain("CAST(");
+    expect(trendingSql).toContain("ORDER BY trend.rank");
   });
 });
 
@@ -904,9 +992,17 @@ function card(overrides: Partial<CardRow>): CardRow {
   };
 }
 
+let nextSeriesId = 1;
+
 function sku(overrides: Partial<SkuRow>): SkuRow {
-  return {
+  const seriesId = overrides.series_id
+    ?? (typeof overrides.sku_id === "number" ? overrides.sku_id : nextSeriesId++);
+  const row: SkuRow = {
     sku_id: 1,
+    series_id: seriesId,
+    source_code: "tcgplayer",
+    source_record_id: `sku-${seriesId}`,
+    metric_code: "ungraded",
     product_id: "100",
     condition_code: "NM",
     condition_name: "Near Mint",
@@ -914,9 +1010,35 @@ function sku(overrides: Partial<SkuRow>): SkuRow {
     language_name: "English",
     variant_code: "N",
     variant_name: "Normal",
+    grader_code: "RAW",
+    grade_min_x10: null,
+    grade_max_x10: null,
+    observed_on: "2026-07-30",
+    amount_micros: 0,
+    baseline_1d_on: null,
+    baseline_1d_amount_micros: null,
+    baseline_30d_on: null,
+    baseline_30d_amount_micros: null,
     price_history: "[]",
     increase_rate: null,
     ...overrides,
+  };
+  const points = JSON.parse(row.price_history) as Array<{ date: string; price: number | string }>;
+  const sorted = points.sort((left, right) => left.date.localeCompare(right.date));
+  const latest = sorted.at(-1);
+  const previous = sorted.at(-2);
+  const first = sorted[0];
+  return {
+    ...row,
+    observed_on: overrides.observed_on ?? latest?.date ?? row.observed_on,
+    amount_micros: overrides.amount_micros
+      ?? (latest ? Number(latest.price) * 1_000_000 : row.amount_micros),
+    baseline_1d_on: overrides.baseline_1d_on ?? previous?.date ?? null,
+    baseline_1d_amount_micros: overrides.baseline_1d_amount_micros
+      ?? (previous ? Number(previous.price) * 1_000_000 : null),
+    baseline_30d_on: overrides.baseline_30d_on ?? first?.date ?? null,
+    baseline_30d_amount_micros: overrides.baseline_30d_amount_micros
+      ?? (first ? Number(first.price) * 1_000_000 : null),
   };
 }
 
@@ -926,34 +1048,25 @@ function naturalKey(row: SkuRow): string {
     .join("\u0000");
 }
 
-function gradedPriceHistory(): PriceHistoryRow {
-  return {
-    product_id: "100",
-    product_sub_type: "Foil",
-    price_Ungraded: JSON.stringify([
-      { price: "9999", date: "2026-07-30" },
-    ]),
-    increase_Ungraded: 999,
-    price_Grade_7: "[]",
-    price_Grade_8: "[]",
-    price_Grade_9: "[]",
-    price_Grade_9_5: "[]",
-    price_PSA_10: JSON.stringify([
-      { price: "360", date: "2026-07-30" },
+function gradedPrice(overrides: Partial<SkuRow> = {}): SkuRow {
+  return sku({
+    sku_id: 2,
+    series_id: 2,
+    source_code: "pricecharting",
+    source_record_id: "pricecharting-2",
+    metric_code: "psa_100",
+    variant_code: "F",
+    variant_name: "Foil",
+    grader_code: "PSA",
+    grade_min_x10: 100,
+    grade_max_x10: 100,
+    price_history: JSON.stringify([
       { price: "300", date: "2026-07-29" },
+      { price: "360", date: "2026-07-30" },
     ]),
-    price_BGS_10: "[]",
-    price_CGC_10: "[]",
-    price_SGC_10: "[]",
-    increase_Grade_7: 0,
-    increase_Grade_8: 0,
-    increase_Grade_9: 0,
-    increase_Grade_9_5: 0,
-    increase_PSA_10: 20,
-    increase_BGS_10: 0,
-    increase_CGC_10: 0,
-    increase_SGC_10: 0,
-  };
+    increase_rate: 20,
+    ...overrides,
+  });
 }
 
 function objectTypeFromProductType(productType: string | null): string {

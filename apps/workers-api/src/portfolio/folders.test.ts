@@ -82,7 +82,7 @@ class FakeD1Statement {
       ) ?? null) as T | null;
     }
 
-    if (this.sql.includes("FROM user")) {
+    if (this.sql.includes('FROM "user"')) {
       const [ownerId] = this.args;
       return (this.db.users.find(
         (row) => row.id === ownerId && row.deleted_at === null,

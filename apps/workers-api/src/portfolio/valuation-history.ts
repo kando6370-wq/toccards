@@ -1,11 +1,11 @@
 import type { AuthenticatedOwner } from "../owner-auth";
 import { cardImageUrl } from "../card-image-url";
 import {
-  gradedIncreaseField,
-  gradedPriceHistoryField,
-  type GradedIncreaseField,
-  type GradedPriceHistoryField,
-} from "../grading";
+  loadPriceHistoryBySeries,
+  loadPublishedPriceRows,
+  pointsWithPublishedSnapshot,
+  shiftDate,
+} from "../data-source/postgres-price-store";
 
 type ItemEventRow = {
   id: string;
@@ -23,6 +23,10 @@ type ItemEventRow = {
 };
 
 export type SkuRow = {
+  series_id: number;
+  source_code: string;
+  source_record_id: string;
+  metric_code: string;
   product_id: string;
   condition_code: string | null;
   condition_name: string | null;
@@ -30,10 +34,12 @@ export type SkuRow = {
   language_name: string | null;
   variant_code: string | null;
   variant_name: string | null;
+  grader_code: string;
+  grade_min_x10: number | null;
+  grade_max_x10: number | null;
   price_history: string;
   increase_rate: number | null;
-} & Record<GradedPriceHistoryField, string>
-  & Record<GradedIncreaseField, number | null>;
+};
 
 export type MatchedPrice = {
   row: SkuRow;
@@ -78,6 +84,7 @@ SELECT id, item_id, folder_id, card_ref, grader, condition, grade, language,
 FROM collection_item_event
 WHERE owner_type = ? AND owner_id = ?
 ORDER BY effective_at ASC, id ASC
+LIMIT 10001
 `;
 
 export async function loadValuationHistory(
@@ -92,7 +99,16 @@ export async function loadValuationHistory(
     .bind(owner.owner_type, owner.owner_id)
     .all<ItemEventRow>();
   const events = result.results ?? [];
-  const skus = await loadSkus(db, [...new Set(events.map((event) => event.card_ref))]);
+  if (events.length > 10000) {
+    throw new Error("Portfolio valuation query exceeded 10000 events");
+  }
+  const endDate = dateKeys(now, 0)[0]!;
+  const skus = await loadSkus(
+    db,
+    [...new Set(events.map((event) => event.card_ref))],
+    shiftDate(endDate, -Math.max(days, 1) - 30),
+    endDate,
+  );
   const cards = await loadCards(db, [...new Set(events.map((event) => event.card_ref))]);
   const skusByProduct = groupSkus(skus);
   const cardsByProduct = new Map(cards.map((card) => [card.product_id, card]));
@@ -194,25 +210,27 @@ export function matchingPrice(
       : null;
   }
   if (event.grade === null) return null;
-  const field = gradedPriceHistoryField(event.grader.toUpperCase(), event.grade);
-  const increaseField = gradedIncreaseField(event.grader.toUpperCase(), event.grade);
-  if (!field || !increaseField) return null;
   const language = normalizedOptionalQualifier(event.language);
   const finish = normalizedOptionalQualifier(event.finish);
   const candidates = rows
+    .filter((row) => normalizedQualifier(row.grader_code) === normalizedQualifier(event.grader))
+    .filter((row) => gradeMatches(event.grade!, row.grade_min_x10, row.grade_max_x10))
     .filter((row) => optionalQualifierMatches(language, row.language_code, row.language_name))
     .filter((row) => optionalQualifierMatches(finish, row.variant_code, row.variant_name))
-    .filter((row) => parsePriceHistory(row[field]).length > 0)
+    .filter((row) => parsePriceHistory(row.price_history).length > 0)
     .sort((left, right) =>
-      qualifierRank(language, left.language_code, left.language_name)
+      ((left.grade_max_x10 ?? 100) - (left.grade_min_x10 ?? 0))
+      - ((right.grade_max_x10 ?? 100) - (right.grade_min_x10 ?? 0))
+      || qualifierRank(language, left.language_code, left.language_name)
       - qualifierRank(language, right.language_code, right.language_name)
       || qualifierRank(finish, left.variant_code, left.variant_name)
       - qualifierRank(finish, right.variant_code, right.variant_name)
       || compareNaturalQualifiers(left, right)
+      || left.series_id - right.series_id
   );
   const row = candidates[0];
   return row
-    ? { row, history: row[field], increaseRate: row[increaseField] }
+    ? { row, history: row.price_history, increaseRate: row.increase_rate }
     : null;
 }
 
@@ -226,6 +244,7 @@ export function matchingSku(
   const finish = normalizedOptionalQualifier(event.finish);
   return (
     rows
+      .filter((row) => normalizedQualifier(row.grader_code) === "raw")
       .filter((row) => qualifierMatches(condition, row.condition_code, row.condition_name))
       .filter((row) => !language || qualifierMatches(language, row.language_code, row.language_name))
       .filter((row) => !finish || qualifierMatches(finish, row.variant_code, row.variant_name))
@@ -233,6 +252,7 @@ export function matchingSku(
       .sort((left, right) =>
         skuRank(left) - skuRank(right)
         || compareNaturalQualifiers(left, right)
+        || left.series_id - right.series_id
       )[0] ??
     null
   );
@@ -327,31 +347,53 @@ export function parsePriceHistory(value: string): PricePoint[] {
   }
 }
 
-export async function loadSkus(db: D1Database, cardRefs: string[]): Promise<SkuRow[]> {
-  const productIds = cardRefs.filter((ref) => /^\d+$/.test(ref));
-  const rows: SkuRow[] = [];
-  for (let offset = 0; offset < productIds.length; offset += 80) {
-    const chunk = productIds.slice(offset, offset + 80);
-    const placeholders = chunk.map(() => "?").join(", ");
-    const result = await db
-      .prepare(
-        `SELECT product_id, condition_code, condition_name, language_code,
-          language_name, variant_code, variant_name,
-          price_Ungraded AS price_history,
-          increase_Ungraded AS increase_rate,
-          price_Grade_7, price_Grade_8, price_Grade_9, price_Grade_9_5,
-          price_PSA_10, price_BGS_10, price_CGC_10, price_SGC_10,
-          increase_Grade_7, increase_Grade_8, increase_Grade_9,
-          increase_Grade_9_5, increase_PSA_10, increase_BGS_10,
-          increase_CGC_10, increase_SGC_10
-         FROM tcg_price
-         WHERE product_id IN (${placeholders})`,
-      )
-      .bind(...chunk)
-      .all<SkuRow>();
-    rows.push(...(result.results ?? []));
-  }
-  return rows;
+export async function loadSkus(
+  db: D1Database,
+  cardRefs: string[],
+  startDate?: string,
+  endDate?: string,
+): Promise<SkuRow[]> {
+  const effectiveEnd = endDate ?? new Date().toISOString().slice(0, 10);
+  const effectiveStart = startDate ?? shiftDate(effectiveEnd, -31);
+  const published = await loadPublishedPriceRows(db, cardRefs);
+  const histories = published.length === 0
+    ? new Map<number, PricePoint[]>()
+    : await loadPriceHistoryBySeries(
+      db,
+      published.map((row) => row.series_id),
+      effectiveStart,
+      effectiveEnd,
+    );
+  return published.map((row) => ({
+    series_id: row.series_id,
+    source_code: row.source_code,
+    source_record_id: row.source_record_id,
+    metric_code: row.metric_code,
+    product_id: row.product_id,
+    condition_code: row.condition_code,
+    condition_name: row.condition_name,
+    language_code: row.language_code,
+    language_name: row.language_name,
+    variant_code: row.variant_code,
+    variant_name: row.variant_name,
+    grader_code: row.grader_code,
+    grade_min_x10: row.grade_min_x10,
+    grade_max_x10: row.grade_max_x10,
+    price_history: JSON.stringify(
+      pointsWithPublishedSnapshot(row, histories.get(row.series_id)),
+    ),
+    increase_rate: row.increase_rate,
+  }));
+}
+
+function gradeMatches(
+  grade: number,
+  minX10: number | null,
+  maxX10: number | null,
+): boolean {
+  if (minX10 === null || maxX10 === null) return false;
+  const gradeX10 = Math.round(grade * 10);
+  return gradeX10 >= minX10 && gradeX10 <= maxX10;
 }
 
 export async function loadCards(db: D1Database, cardRefs: string[]): Promise<CardRow[]> {
@@ -395,10 +437,4 @@ function dateKeys(now: Date, days: number): string[] {
     date.setUTCDate(date.getUTCDate() - days + index);
     return date.toISOString().slice(0, 10);
   });
-}
-
-function shiftDate(date: string, days: number): string {
-  const shifted = new Date(`${date}T00:00:00.000Z`);
-  shifted.setUTCDate(shifted.getUTCDate() + days);
-  return shifted.toISOString().slice(0, 10);
 }

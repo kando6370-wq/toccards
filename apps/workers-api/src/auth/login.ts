@@ -61,7 +61,7 @@ const INTERNAL_ERROR_RESPONSE = {
 
 const SELECT_LOGIN_USER_BY_EMAIL_SQL = `
   SELECT id, email, password_hash
-  FROM user
+  FROM "user"
   WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
   LIMIT 1
 `;

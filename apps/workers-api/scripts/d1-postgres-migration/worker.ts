@@ -1,7 +1,15 @@
 import postgres from "postgres";
 
+import {
+  loadPriceHistoryBySeries,
+  loadPublishedPriceRows,
+} from "../../src/data-source/postgres-price-store";
+import { createPostgresDatabase } from "../../src/db/postgres-database";
 import businessSchemaSql from "../../src/db/postgres/migrations/0000_business_schema.sql";
 import priceDomainSql from "../../src/db/postgres/migrations/0001_price_domain.sql";
+import appleInboxEnvironmentSql from "../../src/db/postgres/migrations/0002_apple_inbox_environment.sql";
+import priceHistoryVisibilityGuardSql from "../../src/db/postgres/migrations/0003_price_history_visibility_guard.sql";
+import priceHistoryPayloadLimitSql from "../../src/db/postgres/migrations/0004_price_history_month_payload_limit.sql";
 import {
   MAX_BATCH_BYTES,
   MAX_BATCH_ROWS,
@@ -29,6 +37,9 @@ type Row = MigrationRow;
 const MIGRATIONS = [
   { name: "0000_business_schema", sql: businessSchemaSql },
   { name: "0001_price_domain", sql: priceDomainSql },
+  { name: "0002_apple_inbox_environment", sql: appleInboxEnvironmentSql },
+  { name: "0003_price_history_visibility_guard", sql: priceHistoryVisibilityGuardSql },
+  { name: "0004_price_history_month_payload_limit", sql: priceHistoryPayloadLimitSql },
 ] as const;
 
 export default {
@@ -78,6 +89,9 @@ export default {
       }
       if (request.method === "GET" && url.pathname === "/schema") {
         return json(await inspectSchema(sql));
+      }
+      if (request.method === "POST" && url.pathname === "/schema-guards") {
+        return json(await verifySchemaGuards(sql, env.HYPERDRIVE.connectionString));
       }
       if (request.method === "POST" && url.pathname === "/migrate-batch") {
         return json(await migrateBatch(request, env, sql));
@@ -206,6 +220,198 @@ async function inspectSchema(sql: ReturnType<typeof postgres>) {
   };
 }
 
+async function verifySchemaGuards(
+  sql: ReturnType<typeof postgres>,
+  connectionString: string,
+) {
+  await runRollbackProbe(sql, async (transaction) => {
+    const probe = await createHistoryGuardProbe(transaction);
+    await insertProbeHistory(transaction, probe.seriesId, probe.batchId, "2".repeat(64));
+    await publishProbeBatch(transaction, probe.batchId, probe.scopeCode);
+    await transaction.unsafe("SET CONSTRAINTS ALL IMMEDIATE");
+  });
+
+  await expectRollbackError(sql, "must be written by a validated current batch", async (transaction) => {
+    const probe = await createHistoryGuardProbe(transaction);
+    await insertProbeHistory(transaction, probe.seriesId, probe.batchId, "2".repeat(64));
+    await publishProbeBatch(transaction, probe.batchId, probe.scopeCode);
+    await transaction.unsafe("SET CONSTRAINTS ALL IMMEDIATE");
+    await transaction`
+      INSERT INTO price_history_month (
+        series_id, month_start, points, point_count,
+        first_observed_on, last_observed_on, content_checksum_sha256, last_batch_id
+      ) VALUES (
+        ${probe.seriesId}, DATE '2099-02-01',
+        '[{"d":"2099-02-01","a":1000000}]'::jsonb, 1,
+        DATE '2099-02-01', DATE '2099-02-01', ${"3".repeat(64)}, ${probe.batchId}
+      )
+    `;
+  });
+
+  await expectRollbackError(sql, "content changes require a new batch lineage", async (transaction) => {
+    const probe = await createHistoryGuardProbe(transaction);
+    await insertProbeHistory(transaction, probe.seriesId, probe.batchId, "2".repeat(64));
+    await transaction`
+      UPDATE price_history_month
+      SET points = '[{"d":"2099-01-01","a":2000000}]'::jsonb,
+          content_checksum_sha256 = ${"3".repeat(64)}
+      WHERE series_id = ${probe.seriesId}
+        AND month_start = DATE '2099-01-01'
+    `;
+    await publishProbeBatch(transaction, probe.batchId, probe.scopeCode);
+    await transaction.unsafe("SET CONSTRAINTS ALL IMMEDIATE");
+  });
+
+  await expectRollbackError(sql, "ck_price_history_month_payload_bytes", async (transaction) => {
+    const probe = await createHistoryGuardProbe(transaction);
+    const oversizedPoints = JSON.stringify([{
+      d: "2099-01-01",
+      a: 1_000_000,
+      padding: "x".repeat(24_576),
+    }]);
+    await transaction`
+      INSERT INTO price_history_month (
+        series_id, month_start, points, point_count,
+        first_observed_on, last_observed_on, content_checksum_sha256, last_batch_id
+      ) VALUES (
+        ${probe.seriesId}, DATE '2099-01-01', ${oversizedPoints}::jsonb, 1,
+        DATE '2099-01-01', DATE '2099-01-01', ${"4".repeat(64)}, ${probe.batchId}
+      )
+    `;
+  });
+
+  const database = createPostgresDatabase(connectionString);
+  try {
+    await loadPublishedPriceRows(database, ["schema-guard-missing-card"]);
+    await loadPriceHistoryBySeries(database, [0], "2099-01-01", "2099-01-01");
+  } finally {
+    await database.close();
+  }
+
+  return {
+    ok: true,
+    checks: [
+      "atomic-publish-accepted",
+      "published-write-rejected",
+      "same-lineage-rewrite-rejected",
+      "oversized-history-rejected",
+      "published-price-query-executed",
+      "price-history-query-executed",
+    ],
+  };
+}
+
+async function createHistoryGuardProbe(transaction: postgres.TransactionSql) {
+  await transaction.unsafe(`
+    CREATE TABLE price_history_month_guard_probe
+    PARTITION OF price_history_month
+    FOR VALUES FROM (DATE '2099-01-01') TO (DATE '2100-01-01')
+  `);
+  await transaction`
+    INSERT INTO cards_all (product_id, game_id, name)
+    VALUES ('guard-probe-card', 0, 'Guard Probe')
+  `;
+  const [source] = await transaction<{ source_id: string }[]>`
+    INSERT INTO price_source (source_code, display_name, source_kind)
+    VALUES ('guard_probe', 'Guard Probe', 'derived')
+    RETURNING source_id
+  `;
+  const [series] = await transaction<{ series_id: string }[]>`
+    INSERT INTO price_series (
+      source_id, source_record_id, metric_code, card_ref, currency_code, grader_code
+    ) VALUES (${source.source_id}, 'guard-probe-record', 'market', 'guard-probe-card', 'USD', 'RAW')
+    RETURNING series_id
+  `;
+  const scopeCode = "current:guard_probe";
+  const [batch] = await transaction<{ batch_id: string }[]>`
+    INSERT INTO price_ingest_batch (
+      scope_code, source_id, business_date, idempotency_key,
+      input_object_key, input_checksum_sha256, content_checksum_sha256,
+      expected_series_count, loaded_series_count, distinct_series_count,
+      rejected_record_count, min_observed_on, max_observed_on,
+      status, validated_at
+    ) VALUES (
+      ${scopeCode}, ${source.source_id}, DATE '2099-01-01', 'guard-probe',
+      'guard-probe.json', ${"0".repeat(64)}, ${"1".repeat(64)},
+      1, 1, 1, 0, DATE '2099-01-01', DATE '2099-01-01',
+      'validated', now()
+    )
+    RETURNING batch_id
+  `;
+  return {
+    seriesId: series.series_id,
+    batchId: batch.batch_id,
+    scopeCode,
+  };
+}
+
+async function insertProbeHistory(
+  transaction: postgres.TransactionSql,
+  seriesId: string,
+  batchId: string,
+  checksum: string,
+) {
+  await transaction`
+    INSERT INTO price_history_month (
+      series_id, month_start, points, point_count,
+      first_observed_on, last_observed_on, content_checksum_sha256, last_batch_id
+    ) VALUES (
+      ${seriesId}, DATE '2099-01-01',
+      '[{"d":"2099-01-01","a":1000000}]'::jsonb, 1,
+      DATE '2099-01-01', DATE '2099-01-01', ${checksum}, ${batchId}
+    )
+  `;
+}
+
+async function publishProbeBatch(
+  transaction: postgres.TransactionSql,
+  batchId: string,
+  scopeCode: string,
+) {
+  await transaction`
+    UPDATE price_ingest_batch
+    SET status = 'published', published_at = now(), updated_at = now()
+    WHERE batch_id = ${batchId} AND status = 'validated'
+  `;
+  await transaction`
+    INSERT INTO current_price_pointer (scope_code, batch_id, updated_by)
+    VALUES (${scopeCode}, ${batchId}, 'schema-guard-probe')
+  `;
+}
+
+async function runRollbackProbe(
+  sql: ReturnType<typeof postgres>,
+  probe: (transaction: postgres.TransactionSql) => Promise<void>,
+) {
+  let completed = false;
+  try {
+    await sql.begin(async (transaction) => {
+      await probe(transaction);
+      completed = true;
+      throw new Error("SCHEMA_GUARD_PROBE_ROLLBACK");
+    });
+  } catch (error) {
+    if (completed && error instanceof Error && error.message === "SCHEMA_GUARD_PROBE_ROLLBACK") {
+      return;
+    }
+    throw error;
+  }
+}
+
+async function expectRollbackError(
+  sql: ReturnType<typeof postgres>,
+  expectedMessage: string,
+  probe: (transaction: postgres.TransactionSql) => Promise<void>,
+) {
+  try {
+    await sql.begin(probe);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes(expectedMessage)) return;
+    throw error;
+  }
+  throw new Error(`Schema guard probe did not reject: ${expectedMessage}`);
+}
+
 async function sourceSchema(request: Request, env: MigrationEnv) {
   const input = await readTableInput(request);
   const table = findMigrationTable(input.table);
@@ -256,7 +462,13 @@ async function migrateBatch(
     };
   }
 
-  const updates = table.columns
+  const targetValueEntries = Object.entries(table.targetValues ?? {});
+  const targetColumns = [...table.columns, ...targetValueEntries.map(([column]) => column)];
+  const targetRows = bounded.rows.map((row) => Object.fromEntries([
+    ...Object.entries(row),
+    ...targetValueEntries,
+  ]));
+  const updates = targetColumns
     .filter((column) => column !== table.cursor)
     .map((column) => {
       const identifier = quotePostgresIdentifier(column);
@@ -267,7 +479,7 @@ async function migrateBatch(
     `ON CONFLICT (${quotePostgresIdentifier(table.cursor)}) DO UPDATE SET ${updates}`,
   );
   const result = await sql`
-    INSERT INTO ${sql(table.name)} ${sql(bounded.rows, [...table.columns])}
+    INSERT INTO ${sql(table.name)} ${sql(targetRows, targetColumns)}
     ${conflictClause}
   `;
   const nextCursor = bounded.rows.at(-1)?.[table.cursor];

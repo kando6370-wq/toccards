@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadSkus, loadValuationHistory } from "./valuation-history";
+import { loadSkus, loadValuationHistory, matchingPrice } from "./valuation-history";
 
 class FakeDb {
   constructor(
@@ -12,6 +12,11 @@ class FakeDb {
   prepare(sql: string) {
     const rows = sql.includes("collection_item_event")
       ? this.events
+      : sql.includes("FROM price_history_month AS history")
+        ? this.skus.map((row) => ({
+          series_id: row.series_id,
+          points_json: row.price_history,
+        }))
       : sql.includes("FROM cards_all")
         ? this.cards
         : this.skus;
@@ -27,13 +32,13 @@ class FakeDb {
 }
 
 describe("portfolio valuation history", () => {
-  it("binds SKU product IDs as strings because tcg_price.product_id is TEXT", async () => {
+  it("binds every text card reference because PostgreSQL price_series.card_ref is not numeric-only", async () => {
     const db = new FakeDb([], [], []);
 
     await loadSkus(db as unknown as D1Database, ["100", "200", "custom-card"]);
 
     expect(db.bindings).toEqual([
-      expect.objectContaining({ values: ["100", "200"] }),
+      expect.objectContaining({ values: ["100", "200", "custom-card"] }),
     ]);
   });
 
@@ -117,20 +122,24 @@ describe("portfolio valuation history", () => {
       [graded],
       [
         {
-          ...sku("100", 1, []),
+          ...sku("100", 1, [{ date: "2026-07-08", price: 30 }]),
           language_code: "JP",
           language_name: "Japanese",
           variant_code: "F",
           variant_name: "Foil",
-          price_Grade_7: JSON.stringify([{ date: "2026-07-08", price: 30 }]),
+          grader_code: "PSA",
+          grade_min_x10: 70,
+          grade_max_x10: 75,
         },
         {
-          ...sku("100", 2, []),
+          ...sku("100", 2, [{ date: "2026-07-10", price: 999 }]),
           language_code: "EN",
           language_name: "English",
           variant_code: "N",
           variant_name: "Normal",
-          price_Grade_7: JSON.stringify([{ date: "2026-07-10", price: 999 }]),
+          grader_code: "PSA",
+          grade_min_x10: 70,
+          grade_max_x10: 75,
         },
       ],
       [{ ...card("100", "Graded Card"), number: "007" }],
@@ -150,6 +159,29 @@ describe("portfolio valuation history", () => {
       card_number: "007",
       price_usd: 60,
     });
+  });
+
+  it("prefers the narrowest matching grade range because Portfolio must use the same exact series as Card Detail", () => {
+    const gradedEvent = {
+      ...event("graded", "graded-item", "main", "100", "upsert", "2026-07-01T00:00:00.000Z", 1),
+      grader: "PSA",
+      condition: null,
+      grade: 10,
+    };
+    const wide = {
+      ...sku("100", 1, [{ date: "2026-07-10", price: 100 }]),
+      grader_code: "PSA",
+      grade_min_x10: 95,
+      grade_max_x10: 100,
+    };
+    const exact = {
+      ...sku("100", 2, [{ date: "2026-07-10", price: 200 }]),
+      grader_code: "PSA",
+      grade_min_x10: 100,
+      grade_max_x10: 100,
+    };
+
+    expect(matchingPrice(gradedEvent, [wide, exact])?.row.series_id).toBe(2);
   });
 });
 
@@ -179,8 +211,14 @@ function event(
 }
 
 function sku(productId: string, skuId: number, history: unknown[]) {
+  const points = history as Array<{ date: string; price: number }>;
+  const latest = points.at(-1);
   return {
     sku_id: skuId,
+    series_id: skuId,
+    source_code: "tcgplayer",
+    source_record_id: `sku-${skuId}`,
+    metric_code: "ungraded",
     product_id: productId,
     condition_code: "NM",
     condition_name: "Near Mint",
@@ -188,7 +226,17 @@ function sku(productId: string, skuId: number, history: unknown[]) {
     language_name: "English",
     variant_code: "N",
     variant_name: "Normal",
+    grader_code: "RAW",
+    grade_min_x10: null,
+    grade_max_x10: null,
+    observed_on: latest?.date ?? "2026-07-10",
+    amount_micros: (latest?.price ?? 0) * 1_000_000,
+    baseline_1d_on: null,
+    baseline_1d_amount_micros: null,
+    baseline_30d_on: null,
+    baseline_30d_amount_micros: null,
     price_history: JSON.stringify(history),
+    increase_rate: null,
   };
 }
 

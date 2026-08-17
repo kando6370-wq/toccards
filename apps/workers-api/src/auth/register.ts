@@ -103,7 +103,7 @@ const INTERNAL_ERROR_RESPONSE = {
 
 const SELECT_USER_BY_EMAIL_SQL = `
   SELECT id
-  FROM user
+  FROM "user"
   WHERE email = ? AND status <> 'deleted'
   LIMIT 1
 `;
@@ -132,7 +132,7 @@ const SELECT_LATEST_REGISTER_CODE_SQL = `
 `;
 
 const INSERT_USER_SQL = `
-  INSERT INTO user
+  INSERT INTO "user"
     (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
   SELECT ?, ?, ?, NULL, ?, ?, NULL
   WHERE EXISTS (
@@ -143,7 +143,7 @@ const INSERT_USER_SQL = `
 `;
 
 const INSERT_MIGRATED_USER_SQL = `
-  INSERT INTO user
+  INSERT INTO "user"
     (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
   SELECT ?, ?, ?, NULL, ?, ?, NULL
   WHERE EXISTS (
@@ -609,9 +609,12 @@ function isValidEmail(email: string): boolean {
 }
 
 function isUserEmailUniqueConstraintError(error: unknown): boolean {
+  const postgresError = error as { code?: unknown; constraint_name?: unknown };
   return (
     error instanceof Error &&
-    error.message.includes("UNIQUE constraint failed: user.email")
+    (error.message.includes("UNIQUE constraint failed: user.email") ||
+      (postgresError.code === "23505" &&
+        postgresError.constraint_name === "uq_user_non_deleted_email"))
   );
 }
 

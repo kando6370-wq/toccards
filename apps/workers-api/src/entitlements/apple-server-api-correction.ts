@@ -71,16 +71,20 @@ export async function retryAppleServerApiCorrections(
   dependencies: Dependencies = {},
 ): Promise<void> {
   const now = dependencies.now?.() ?? new Date();
+  const environment = runtimeAppleEnvironment(env);
   const { results = [] } = await env.DB.prepare(`
     SELECT n.inbox_id, n.notification_uuid, n.notification_type, n.environment,
            n.original_transaction_id, n.transaction_id
     FROM apple_server_notification n
     JOIN apple_notification_inbox i ON i.id = n.inbox_id
     WHERE i.processing_status = 'correction_required'
+      AND i.environment = ?
+      AND n.environment = ?
       AND n.original_transaction_id IS NOT NULL
       AND (i.processing_expires_at IS NULL OR i.processing_expires_at <= ?)
     ORDER BY i.received_at ASC LIMIT ?
-  `).bind(now.toISOString(), CORRECTION_BATCH_SIZE).all<CorrectionRow>();
+  `).bind(environment, environment, now.toISOString(), CORRECTION_BATCH_SIZE)
+    .all<CorrectionRow>();
 
   for (const row of results) {
     await correctApplePurchaseChain(env, row, dependencies);
@@ -98,34 +102,34 @@ async function correctApplePurchaseChain(
     UPDATE apple_notification_inbox
     SET processing_status = 'processing', attempts = attempts + 1,
         processing_expires_at = ?, last_error = NULL
-    WHERE id = ? AND processing_status = 'correction_required'
+    WHERE id = ? AND environment = ? AND processing_status = 'correction_required'
       AND (processing_expires_at IS NULL OR processing_expires_at <= ?)
-  `).bind(leaseExpiresAt, row.inbox_id, now.toISOString()).run();
+  `).bind(leaseExpiresAt, row.inbox_id, row.environment, now.toISOString()).run();
   if (reserved.meta.changes !== 1) return;
 
   const client = await (dependencies.createClient ?? createAppleServerApiClient)(env);
   const configuredVerifier = await (dependencies.createVerifier ?? createAppleNotificationVerifier)(env);
   if (!client || !configuredVerifier) {
-    await deferCorrection(env.DB, row.inbox_id, "SERVER_API_NOT_CONFIGURED", now);
+    await deferCorrection(env.DB, row, "SERVER_API_NOT_CONFIGURED", now);
     return;
   }
   const expectedEnvironment = configuredVerifier.environment === Environment.PRODUCTION
     ? "Production"
     : "Sandbox";
   if (row.environment !== expectedEnvironment) {
-    await deferCorrection(env.DB, row.inbox_id, "SERVER_API_ENVIRONMENT_MISMATCH", now);
+    await deferCorrection(env.DB, row, "SERVER_API_ENVIRONMENT_MISMATCH", now);
     return;
   }
 
   try {
     const evidence = await loadCurrentEvidence(client, configuredVerifier.verifier, row);
     if (!evidence || evidence.environment !== expectedEnvironment) {
-      await deferCorrection(env.DB, row.inbox_id, "SERVER_API_EVIDENCE_MISMATCH", now);
+      await deferCorrection(env.DB, row, "SERVER_API_EVIDENCE_MISMATCH", now);
       return;
     }
     await applyCorrection(env.DB, row, evidence, now);
   } catch {
-    await deferCorrection(env.DB, row.inbox_id, "SERVER_API_REQUEST_FAILED", now);
+    await deferCorrection(env.DB, row, "SERVER_API_REQUEST_FAILED", now);
   }
 }
 
@@ -266,13 +270,14 @@ async function applyCorrection(
     db.prepare(`
       UPDATE apple_server_notification
       SET processing_status = 'processed', attempts = attempts + 1,
-          last_error = NULL, processed_at = ? WHERE inbox_id = ?
-    `).bind(correctionVersion, row.inbox_id),
+          last_error = NULL, processed_at = ?
+      WHERE inbox_id = ? AND environment = ?
+    `).bind(correctionVersion, row.inbox_id, row.environment),
     db.prepare(`
       UPDATE apple_notification_inbox
       SET processing_status = 'processed', processing_expires_at = NULL,
-          last_error = NULL, processed_at = ? WHERE id = ?
-    `).bind(correctionVersion, row.inbox_id),
+          last_error = NULL, processed_at = ? WHERE id = ? AND environment = ?
+    `).bind(correctionVersion, row.inbox_id, row.environment),
   );
   const results = await db.batch(statements);
   if (results[0]?.meta.changes !== 1) throw new Error("purchase chain not found");
@@ -280,15 +285,24 @@ async function applyCorrection(
 
 async function deferCorrection(
   db: D1Database,
-  inboxId: string,
+  row: CorrectionRow,
   error: string,
   now: Date,
 ): Promise<void> {
   await db.prepare(`
     UPDATE apple_notification_inbox
     SET processing_status = 'correction_required', processing_expires_at = ?, last_error = ?
-    WHERE id = ?
-  `).bind(new Date(now.getTime() + RETRY_DELAY_MS).toISOString(), error, inboxId).run();
+    WHERE id = ? AND environment = ?
+  `).bind(
+    new Date(now.getTime() + RETRY_DELAY_MS).toISOString(),
+    error,
+    row.inbox_id,
+    row.environment,
+  ).run();
+}
+
+function runtimeAppleEnvironment(env: Env): "Production" | "Sandbox" {
+  return env.APP_ENVIRONMENT === "production" ? "Production" : "Sandbox";
 }
 
 function iso(value: number | undefined): string | null {

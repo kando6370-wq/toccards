@@ -1117,7 +1117,7 @@ function adminUserResults(db: FakeD1, values: unknown[]) {
 }
 
 function normalizeSql(sql: string): string {
-  return sql.replace(/\s+/g, " ").trim();
+  return sql.replaceAll('"user"', "user").replace(/\s+/g, " ").trim();
 }
 
 function okResult<T>(results: T[] = [], changes = 1): D1Result<T> {

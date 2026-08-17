@@ -247,7 +247,7 @@ const SELECT_COLLECTION_ITEM_BY_SKU_SQL = `
 SELECT id
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND folder_id = ? AND card_ref = ?
-  AND language IS ? AND finish IS ?
+  AND language IS NOT DISTINCT FROM ? AND finish IS NOT DISTINCT FROM ?
 LIMIT 1
 `;
 

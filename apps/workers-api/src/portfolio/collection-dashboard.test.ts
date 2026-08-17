@@ -9,9 +9,15 @@ class FakeDb {
   ) {}
 
   prepare(sql: string) {
-    const rows = sql.includes("FROM cards_all")
+    const prices = [...this.skus, ...this.gradedPrices];
+    const rows = sql.includes("FROM price_history_month AS history")
+      ? prices.map((row) => ({
+        series_id: row.series_id,
+        points_json: row.price_history,
+      }))
+      : sql.includes("FROM cards_all")
       ? this.cards
-      : [...this.skus, ...this.gradedPrices];
+      : prices;
     return {
       bind: (..._args: unknown[]) => ({
         all: async <T>() => ({ results: rows as T[] }),
@@ -125,16 +131,16 @@ describe("collection dashboard enrichment", () => {
       new FakeDb(
         [card("100")],
         [],
-        [{
-          product_id: "100",
-          pricecharting_id: "graded-1",
-          variant_name: "Normal",
-          language_name: "English",
-          price_Grade_7: JSON.stringify([
+        [gradedPrice("100", "Normal", 75, {
+          grade_min_x10: 70,
+          grade_max_x10: 75,
+          price_history: JSON.stringify([
             { date: "2026-07-09", price: 70 },
             { date: "2026-07-10", price: 75 },
           ]),
-        }],
+          observed_on: "2026-07-10",
+          amount_micros: 75_000_000,
+        })],
       ) as unknown as D1Database,
       [item],
       [],
@@ -160,12 +166,36 @@ function card(productId: string) {
   };
 }
 
-function gradedPrice(productId: string, finish: string, price: number) {
+function gradedPrice(
+  productId: string,
+  finish: string,
+  price: number,
+  overrides: Record<string, unknown> = {},
+) {
   return {
+    series_id: 2,
+    source_code: "pricecharting",
+    source_record_id: "graded-1",
+    metric_code: "psa_100",
     product_id: productId,
-    pricecharting_id: "graded-1",
-    product_sub_type: finish,
-    price_PSA_10: JSON.stringify([{ date: "2026-07-06", price }]),
+    condition_code: null,
+    condition_name: null,
+    language_code: "EN",
+    language_name: "English",
+    variant_code: "N",
+    variant_name: finish,
+    grader_code: "PSA",
+    grade_min_x10: 100,
+    grade_max_x10: 100,
+    observed_on: "2026-07-06",
+    amount_micros: price * 1_000_000,
+    baseline_1d_on: null,
+    baseline_1d_amount_micros: null,
+    baseline_30d_on: null,
+    baseline_30d_amount_micros: null,
+    price_history: JSON.stringify([{ date: "2026-07-06", price }]),
+    increase_rate: null,
+    ...overrides,
   };
 }
 
@@ -177,6 +207,10 @@ function sku(
 ) {
   return {
     sku_id: 1,
+    series_id: 1,
+    source_code: "tcgplayer",
+    source_record_id: "sku-1",
+    metric_code: "ungraded",
     product_id: productId,
     condition_code: conditionCode,
     condition_name: conditionName,
@@ -184,6 +218,15 @@ function sku(
     language_name: "English",
     variant_code: "N",
     variant_name: "Normal",
+    grader_code: "RAW",
+    grade_min_x10: null,
+    grade_max_x10: null,
+    observed_on: "2026-07-06",
+    amount_micros: currentPrice * 1_000_000,
+    baseline_1d_on: null,
+    baseline_1d_amount_micros: null,
+    baseline_30d_on: "2026-06-01",
+    baseline_30d_amount_micros: 10_000_000,
     price_history: JSON.stringify([
       { date: "2026-06-01", price: 10 },
       { date: "2026-07-06", price: currentPrice },

@@ -93,6 +93,9 @@ try {
     triggers: inventory.triggers.length,
     migrations: inventory.migrations.map((migration) => migration.name),
   }));
+  const guardResult = await requestJson("/schema-guards", { method: "POST", body: {} });
+  assert(guardResult.ok, "PostgreSQL schema guard 行为验证失败");
+  console.log(JSON.stringify({ phase: "schema-guards-verified", checks: guardResult.checks }));
 
   if (mode === "schema-only") {
     console.log(JSON.stringify({ ok: true, mode, migratedTables: 0, verifiedTables: 0 }));
@@ -182,7 +185,7 @@ function verifyTargetInventory(inventory, manifest) {
   assert(missing.length === 0, `PostgreSQL 缺少表：${missing.join(",")}`);
   assert(unexpected.length === 0, `PostgreSQL 存在未纳入迁移的表：${unexpected.join(",")}`);
   assert(excluded.length === 0, `PostgreSQL 错误创建了排除表：${excluded.join(",")}`);
-  assert(inventory.migrations.length === 2, "PostgreSQL migration 记录数量不是 2");
+  assert(inventory.migrations.length === 5, "PostgreSQL migration 记录数量不是 5");
   assert(
     inventory.constraints.every((constraint) => constraint.validated),
     "PostgreSQL 存在未验证约束",
@@ -190,8 +193,24 @@ function verifyTargetInventory(inventory, manifest) {
   const triggerNames = new Set(inventory.triggers.map((trigger) => trigger.trigger_name));
   assert(
     triggerNames.has("trg_current_price_pointer_published")
-      && triggerNames.has("trg_price_ingest_batch_protect_pointer"),
+      && triggerNames.has("trg_price_ingest_batch_protect_pointer")
+      && triggerNames.has("trg_price_history_month_staged")
+      && triggerNames.has("trg_price_history_month_published"),
     "价格发布保护 trigger 不完整",
+  );
+  const constraintNames = new Set(
+    inventory.constraints.map((constraint) => constraint.constraint_name),
+  );
+  assert(
+    constraintNames.has("uq_apple_notification_inbox_environment_payload")
+      && constraintNames.has("ck_apple_notification_inbox_environment")
+      && constraintNames.has("ck_price_history_month_payload_bytes"),
+    "Apple inbox 环境隔离约束不完整",
+  );
+  const indexNames = new Set(inventory.indexes.map((index) => index.index_name));
+  assert(
+    indexNames.has("idx_apple_notification_inbox_processing"),
+    "Apple inbox 环境 processing 索引缺失",
   );
 }
 
@@ -208,6 +227,7 @@ function verifyTargetBusinessColumns(inventory, tables) {
     if (table.name === "collection_item" || table.name === "collection_item_event") {
       expected.push("price_series_id");
     }
+    expected.push(...Object.keys(table.targetValues ?? {}));
     assert(
       JSON.stringify(byTable.get(table.name)) === JSON.stringify(expected),
       `PostgreSQL 表 ${table.name} 列与迁移合同不一致`,

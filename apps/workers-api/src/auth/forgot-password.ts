@@ -112,7 +112,7 @@ const INTERNAL_ERROR_RESPONSE = {
 
 const SELECT_LIVE_EMAIL_PASSWORD_USER_SQL = `
   SELECT id
-  FROM user
+  FROM "user"
   WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
   LIMIT 1
 `;
@@ -156,7 +156,7 @@ const UPDATE_RESET_CODE_USED_SQL = `
 `;
 
 const UPDATE_LIVE_EMAIL_PASSWORD_USER_SQL = `
-  UPDATE user
+  UPDATE "user"
   SET password_hash = ?, updated_at = ?
   WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
     AND EXISTS (

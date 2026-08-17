@@ -40,13 +40,16 @@ export async function enrichCollectionDashboard(
     ...portfolio.map((item) => item.card_ref),
     ...wishlist.map((item) => item.card_ref),
   ])];
-  const [cards, skus] = await Promise.all([loadCards(db, refs), loadSkus(db, refs)]);
-  const cardsByRef = new Map(cards.map((card) => [card.product_id, card]));
-  const skusByRef = groupSkus(skus);
   const currentDate = now.toISOString().slice(0, 10);
   const baseline = new Date(`${currentDate}T00:00:00.000Z`);
   baseline.setUTCDate(baseline.getUTCDate() - 30);
   const baselineDate = baseline.toISOString().slice(0, 10);
+  const [cards, skus] = await Promise.all([
+    loadCards(db, refs),
+    loadSkus(db, refs, baselineDate, currentDate),
+  ]);
+  const cardsByRef = new Map(cards.map((card) => [card.product_id, card]));
+  const skusByRef = groupSkus(skus);
 
   return {
     portfolio_items: portfolio.map((item) => {
@@ -111,7 +114,10 @@ function presentation(
 }
 
 function wishlistSku(rows: SkuRow[]): SkuRow | null {
-  const priced = rows.filter((row) => priceOnDate(row.price_history, "9999-12-31") !== null);
+  const priced = rows.filter((row) =>
+    row.grader_code.trim().toUpperCase() === "RAW"
+    && priceOnDate(row.price_history, "9999-12-31") !== null
+  );
   return priced.find((row) => [row.condition_code, row.condition_name]
     .some((value) => normalized(value) === "near mint" || normalized(value) === "nm"))
     ?? priced[0]

@@ -4,6 +4,7 @@ import type {
   CardObjectType,
   CardSearchResult,
   DataSourceAdapter,
+  PriceSeriesRequest,
   SetSearchResult,
 } from "./adapter";
 import {
@@ -12,6 +13,7 @@ import {
 } from "./cache-api";
 import { createKvCachedDataSourceAdapter } from "./kv-cache";
 import { createLocalDbDataSourceAdapter } from "./local-db-adapter";
+import { PriceQueryLimitError } from "./postgres-price-store";
 import {
   ExchangeRateUnavailableError,
   loadUsdExchangeRates,
@@ -38,13 +40,7 @@ export type CardResponse = CardSearchResult & {
   override_applied: boolean;
 };
 
-type PriceSeriesBatchRequest = {
-  grader: string;
-  grade: number | null;
-  condition: string | null;
-  days: number;
-  finish: string | null;
-};
+type PriceSeriesBatchRequest = PriceSeriesRequest;
 
 const SELECT_CARD_OVERRIDE_SQL = `
 SELECT card_ref, override_fields, image_url, is_missing_card
@@ -337,21 +333,13 @@ export function createDataSourceRoutes(
       }
     }
     const adapter = createAdapter(c.env);
-    const results = await Promise.all(
-      requests.map(async (request) => ({
-        ...request,
-        series: await listOrEmpty(() =>
-          adapter.getPriceSeries(
-            cardRef,
-            request.grader,
-            request.grade,
-            request.condition,
-            request.days,
-            request.finish,
-          ),
-        ),
-      })),
-    );
+    const series = adapter.getPriceSeriesBatch
+      ? await adapter.getPriceSeriesBatch(cardRef, requests)
+      : await loadPriceSeriesSequentially(adapter, cardRef, requests);
+    const results = requests.map((request, index) => ({
+      ...request,
+      series: series[index] ?? [],
+    }));
 
     return c.json({ success: true, data: { card_ref: cardRef, results } });
   });
@@ -423,6 +411,25 @@ export function createDataSourceRoutes(
   return routes;
 }
 
+async function loadPriceSeriesSequentially(
+  adapter: DataSourceAdapter,
+  cardRef: string,
+  requests: PriceSeriesBatchRequest[],
+): Promise<Array<Array<{ date: string; price: number }>>> {
+  const results: Array<Array<{ date: string; price: number }>> = [];
+  for (const request of requests) {
+    results.push(await listOrEmpty(() => adapter.getPriceSeries(
+      cardRef,
+      request.grader,
+      request.grade,
+      request.condition,
+      request.days,
+      request.finish,
+    )));
+  }
+  return results;
+}
+
 async function extendedPriceHistoryDenial(
   env: Env,
   authorization: string | undefined,
@@ -481,6 +488,7 @@ async function listOrEmpty<T>(load: () => Promise<T[]>): Promise<T[]> {
   try {
     return await load();
   } catch (error) {
+    if (error instanceof PriceQueryLimitError) throw error;
     console.error("Data source list request failed.", error);
     return [];
   }

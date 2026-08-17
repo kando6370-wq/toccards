@@ -117,7 +117,7 @@ describe("Cache API data source adapter", () => {
     expect(first).toEqual(second);
     expect(source.marketPriceCalls).toBe(1);
     expect(cache.puts[0]?.requestUrl).toBe(
-      "https://data-source-cache.invalid/getMarketPrices:v3:mock%3Atcg%3Acharizard",
+      "https://data-source-cache.invalid/getMarketPrices:v6:mock%3Atcg%3Acharizard",
     );
     expect(cache.puts[0]?.response.headers.get("Cache-Control")).toBe(
       "public, max-age=1800",
@@ -153,8 +153,8 @@ describe("Cache API data source adapter", () => {
 
     expect(source.priceSeriesCalls).toBe(2);
     expect(cache.puts.map((put) => put.requestUrl)).toEqual([
-      "https://data-source-cache.invalid/getPriceSeries:v2:mock%3Atcg%3Acharizard:raw:none:near%20mint:30",
-      "https://data-source-cache.invalid/getPriceSeries:v2:mock%3Atcg%3Acharizard:raw:none:lightly%20played:30",
+      "https://data-source-cache.invalid/getPriceSeries:v3:mock%3Atcg%3Acharizard:raw:none:near%20mint:30",
+      "https://data-source-cache.invalid/getPriceSeries:v3:mock%3Atcg%3Acharizard:raw:none:lightly%20played:30",
     ]);
   });
 
@@ -184,7 +184,7 @@ describe("Cache API data source adapter", () => {
     await adapter.getSoldListings("mock:tcg:charizard");
 
     expect(cache.puts[0]?.requestUrl).toBe(
-      "https://data-source-cache.invalid/getSoldListings:v4:mock%3Atcg%3Acharizard",
+      "https://data-source-cache.invalid/getSoldListings:v5:mock%3Atcg%3Acharizard",
     );
   });
 });

@@ -4,6 +4,7 @@ export type MigrationTable = {
   cursorType: "number" | "text";
   columns: readonly string[];
   bigintColumns?: readonly string[];
+  targetValues?: Readonly<Record<string, string | number | null>>;
 };
 
 export const MIGRATION_TABLES: readonly MigrationTable[] = [
@@ -248,6 +249,7 @@ export const MIGRATION_TABLES: readonly MigrationTable[] = [
       "id", "payload_sha256", "request_json", "signed_payload", "processing_status", "attempts",
       "processing_expires_at", "notification_uuid", "last_error", "received_at", "processed_at",
     ],
+    targetValues: { environment: "Sandbox" },
   },
   {
     name: "apple_server_notification",

@@ -166,7 +166,7 @@ const BILLING_LINKED_UIDS_SQL = `SELECT c.original_owner_id AS owner_id
     FROM billing_session_entitlement_grant linked_grant
     JOIN session linked_session ON linked_session.id = linked_grant.session_id
     WHERE linked_grant.purchase_chain_id = c.id`;
-const BILLING_UID_SQL = `(SELECT GROUP_CONCAT(owner_id) FROM (${BILLING_LINKED_UIDS_SQL}))`;
+const BILLING_UID_SQL = `(SELECT string_agg(owner_id, ',') FROM (${BILLING_LINKED_UIDS_SQL}) AS linked_owners)`;
 const BILLING_INSTALL_TIME_SQL = `(SELECT MIN(installation.first_seen_at)
   FROM app_installation installation
   WHERE installation.uid IN (${BILLING_LINKED_UIDS_SQL}))`;
@@ -265,7 +265,7 @@ const ADMIN_USERS_FILTERED_SQL = `
           AND NULLIF(TRIM(install.country_code), '') IS NOT NULL
         ORDER BY install.last_seen_at DESC, install.first_seen_at DESC LIMIT 1
       ), 'Unknown') AS country
-    FROM user u
+    FROM "user" u
     UNION ALL
     SELECT 'anonymous', a.id, NULL, a.device_id, a.created_at,
       CASE WHEN a.upgraded_user_id IS NULL THEN 'guest' ELSE 'upgraded' END,
@@ -308,7 +308,7 @@ const SELECT_INSTALLATION_SOURCES_SQL = `
 
 const SELECT_USER_DETAIL_SQL = `
   SELECT id, email, display_name, created_at, updated_at, status, deleted_at
-  FROM user
+  FROM "user"
   WHERE id = ?
   LIMIT 1
 `;
@@ -321,7 +321,7 @@ const SELECT_ANONYMOUS_DETAIL_SQL = `
 `;
 
 const DISABLE_USER_SQL = `
-  UPDATE user SET status = 'disabled', updated_at = ?
+  UPDATE "user" SET status = 'disabled', updated_at = ?
   WHERE id = ? AND status = 'active'
 `;
 
@@ -753,7 +753,7 @@ adminRoutes.get("/apple-notifications", async (c) => {
   const rows = await bindAdminQuery(c.env.DB, `SELECT inbox.id, COALESCE(n.notification_uuid, inbox.id) AS detail_id,
       n.notification_type, n.subtype, n.environment, n.original_transaction_id,
       n.transaction_id, n.product_id AS sku, inbox.processing_status, inbox.received_at,
-      (SELECT GROUP_CONCAT(owner_id) FROM (
+      (SELECT string_agg(owner_id, ',') FROM (
         SELECT linked_chain.original_owner_id AS owner_id
         FROM billing_purchase_chain linked_chain
         WHERE linked_chain.original_transaction_id = n.original_transaction_id
@@ -765,7 +765,7 @@ adminRoutes.get("/apple-notifications", async (c) => {
         JOIN session linked_session ON linked_session.id = linked_grant.session_id
         WHERE linked_chain.original_transaction_id = n.original_transaction_id
           AND linked_chain.environment = n.environment
-      )) AS uids
+      ) AS linked_owners) AS uids
     FROM apple_notification_inbox inbox
     LEFT JOIN apple_server_notification n ON n.inbox_id = inbox.id ${where}
     ORDER BY inbox.received_at DESC LIMIT ? OFFSET ?`,
@@ -788,7 +788,7 @@ adminRoutes.get("/apple-notifications/:detailId", async (c) => {
   const row = await c.env.DB.prepare(`SELECT inbox.id, inbox.processing_status, inbox.last_error,
       inbox.received_at, n.notification_type, n.subtype, n.environment,
       n.original_transaction_id, n.transaction_id, n.product_id AS sku, n.decoded_payload,
-      (SELECT GROUP_CONCAT(owner_id) FROM (
+      (SELECT string_agg(owner_id, ',') FROM (
         SELECT linked_chain.original_owner_id AS owner_id
         FROM billing_purchase_chain linked_chain
         WHERE linked_chain.original_transaction_id = n.original_transaction_id
@@ -800,7 +800,7 @@ adminRoutes.get("/apple-notifications/:detailId", async (c) => {
         JOIN session linked_session ON linked_session.id = linked_grant.session_id
         WHERE linked_chain.original_transaction_id = n.original_transaction_id
           AND linked_chain.environment = n.environment
-      )) AS uids
+      ) AS linked_owners) AS uids
     FROM apple_notification_inbox inbox
     LEFT JOIN apple_server_notification n ON n.inbox_id = inbox.id
     WHERE inbox.id = ? OR n.notification_uuid = ? LIMIT 1`)

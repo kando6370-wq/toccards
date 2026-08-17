@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { calculatePerformance, performanceRangeStart } from "./performance";
+import {
+  calculatePerformance,
+  loadPortfolioPerformance,
+  performanceRangeStart,
+} from "./performance";
 
 describe("portfolio performance", () => {
   it("uses calendar boundaries because 1M and 1Y are not fixed day counts", () => {
@@ -175,7 +179,59 @@ describe("portfolio performance", () => {
     });
     expect(target.current).toMatchObject({ market_value_usd: 60, quantity: 2 });
   });
+
+  it("filters Card Detail by item in SQL because one item must not load the owner's complete event history", async () => {
+    const calls: Array<{ sql: string; bindings: unknown[] }> = [];
+    const db = recordingDatabase([], calls);
+
+    await loadPortfolioPerformance(
+      db,
+      { owner_type: "user", owner_id: "owner-1", session_id: "session-1" },
+      "1M",
+      { itemId: "item-1", now: new Date("2026-08-12T12:00:00Z") },
+    );
+
+    expect(calls[0]?.sql).toContain("AND item_id = ?");
+    expect(calls[0]?.sql).toContain("LIMIT 10001");
+    expect(calls[0]?.bindings).toEqual(["user", "owner-1", "item-1"]);
+  });
+
+  it("fails above 10000 events because Hyperdrive responses must stay bounded", async () => {
+    const db = recordingDatabase(
+      Array.from({ length: 10_001 }, (_, index) => ({ id: `event-${index}` })),
+      [],
+    );
+
+    await expect(loadPortfolioPerformance(
+      db,
+      { owner_type: "user", owner_id: "owner-1", session_id: "session-1" },
+      "1M",
+      { now: new Date("2026-08-12T12:00:00Z") },
+    )).rejects.toThrow("Portfolio performance query exceeded 10000 events");
+  });
 });
+
+function recordingDatabase(
+  events: unknown[],
+  calls: Array<{ sql: string; bindings: unknown[] }>,
+): D1Database {
+  return {
+    prepare(sql: string) {
+      let bindings: unknown[] = [];
+      const statement = {
+        bind(...values: unknown[]) {
+          bindings = values;
+          return statement;
+        },
+        async all<T>() {
+          calls.push({ sql, bindings });
+          return { results: events as T[] };
+        },
+      };
+      return statement;
+    },
+  } as unknown as D1Database;
+}
 
 function event(id: string, effectiveAt: string, quantity: number, purchasePrice: number) {
   return {
@@ -199,6 +255,10 @@ function event(id: string, effectiveAt: string, quantity: number, purchasePrice:
 
 function sku(history: Array<{ date: string; price: number }>) {
   return {
+    series_id: 1,
+    source_code: "tcgplayer",
+    source_record_id: "sku-1",
+    metric_code: "ungraded",
     product_id: "100",
     condition_code: "NM",
     condition_name: "Near Mint",
@@ -206,23 +266,10 @@ function sku(history: Array<{ date: string; price: number }>) {
     language_name: "English",
     variant_code: "N",
     variant_name: "Normal",
+    grader_code: "RAW",
+    grade_min_x10: null,
+    grade_max_x10: null,
     price_history: JSON.stringify(history),
     increase_rate: null,
-    price_Grade_7: "[]",
-    price_Grade_8: "[]",
-    price_Grade_9: "[]",
-    price_Grade_9_5: "[]",
-    price_PSA_10: "[]",
-    price_BGS_10: "[]",
-    price_CGC_10: "[]",
-    price_SGC_10: "[]",
-    increase_Grade_7: null,
-    increase_Grade_8: null,
-    increase_Grade_9: null,
-    increase_Grade_9_5: null,
-    increase_PSA_10: null,
-    increase_BGS_10: null,
-    increase_CGC_10: null,
-    increase_SGC_10: null,
   };
 }

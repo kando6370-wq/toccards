@@ -39,8 +39,32 @@ describe("Apple Notifications V2 durable consumption", () => {
     expect((await post(app, env, "invalid.jws")).status).toBe(200);
     expect(await scalar("SELECT COUNT(*) AS value FROM apple_notification_inbox")).toBe(1);
     expect(await scalar("SELECT COUNT(*) AS value FROM apple_server_notification")).toBe(0);
-    expect((await db.prepare("SELECT processing_status FROM apple_notification_inbox").first())?.processing_status).toBe("verification_failed");
+    expect((await db.prepare("SELECT environment, processing_status FROM apple_notification_inbox").first())).toMatchObject({
+      environment: "Sandbox",
+      processing_status: "verification_failed",
+    });
     expect((await db.prepare("SELECT status FROM billing_session_entitlement_grant").first())?.status).toBe("active");
+  });
+
+  it("keeps identical payload hashes separate by Worker environment because dev and prod share PostgreSQL", async () => {
+    const app = createAppleNotificationRoutes({
+      now: () => NOW,
+      createVerifier: (runtimeEnv) => ({
+        environment: runtimeEnv.APP_ENVIRONMENT === "production"
+          ? Environment.PRODUCTION
+          : Environment.SANDBOX,
+        verifier: verifier({ verifyNotification: async () => { throw new Error("bad signature"); } }),
+      }),
+    });
+
+    expect((await post(app, env, "shared-payload.jws")).status).toBe(200);
+    expect((await post(app, { ...env, APP_ENVIRONMENT: "production" }, "shared-payload.jws")).status)
+      .toBe(200);
+
+    const { results = [] } = await db.prepare(
+      "SELECT environment FROM apple_notification_inbox ORDER BY environment",
+    ).all<{ environment: string }>();
+    expect(results.map((row) => row.environment)).toEqual(["Production", "Sandbox"]);
   });
 
   it("preserves unknown Apple fields and notification types without inventing business side effects", async () => {
@@ -184,6 +208,25 @@ describe("Apple Notifications V2 durable consumption", () => {
     }) });
     expect((await db.prepare("SELECT processing_status, attempts FROM apple_notification_inbox").first())).toMatchObject({ processing_status: "processed", attempts: 2 });
     expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(1);
+  });
+
+  it("does not reserve Production retries from the dev cron because the shared inbox is environment-scoped", async () => {
+    await db.prepare(`INSERT INTO apple_notification_inbox
+      (id, environment, payload_sha256, request_json, signed_payload, processing_status, attempts, received_at)
+      VALUES ('production-inbox', 'Production', 'production-hash', '{}', 'production.jws', 'pending', 0, ?)`)
+      .bind(NOW.toISOString()).run();
+
+    await retryAppleNotificationInbox(env, {
+      now: () => new Date(NOW.getTime() + 1_000),
+      createVerifier: () => ({
+        environment: Environment.SANDBOX,
+        verifier: verifier({ verifyNotification: async () => { throw new Error("unused"); } }),
+      }),
+    });
+
+    expect(await db.prepare(
+      "SELECT processing_status, attempts FROM apple_notification_inbox WHERE id = 'production-inbox'",
+    ).first()).toMatchObject({ processing_status: "pending", attempts: 0 });
   });
 
   it("quarantines a cross-environment payload without touching the Sandbox chain", async () => {
@@ -394,6 +437,6 @@ const SCHEMA = [
   "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, store TEXT NOT NULL, environment TEXT NOT NULL, original_transaction_id TEXT NOT NULL, product_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, original_owner_type TEXT NOT NULL, original_owner_id TEXT NOT NULL, status TEXT NOT NULL, auto_renew INTEGER NOT NULL, expires_at TEXT, grace_period_expires_at TEXT, revoked_at TEXT, state_effective_at TEXT, next_product_id TEXT, lifecycle_signed_at TEXT, lifecycle_notification_uuid TEXT, correction_status TEXT, auto_renew_signed_at TEXT, plan_signed_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(store, environment, original_transaction_id))",
   "CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, purchase_chain_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL, granted_at TEXT NOT NULL, expires_at TEXT, last_verified_at TEXT NOT NULL, revoked_at TEXT, updated_at TEXT NOT NULL)",
   TRANSACTION_SCHEMA,
-  "CREATE TABLE apple_notification_inbox (id TEXT PRIMARY KEY, payload_sha256 TEXT NOT NULL UNIQUE, request_json TEXT NOT NULL, signed_payload TEXT NOT NULL, processing_status TEXT NOT NULL, attempts INTEGER NOT NULL, processing_expires_at TEXT, notification_uuid TEXT, last_error TEXT, received_at TEXT NOT NULL, processed_at TEXT)",
+  "CREATE TABLE apple_notification_inbox (id TEXT PRIMARY KEY, environment TEXT NOT NULL, payload_sha256 TEXT NOT NULL, request_json TEXT NOT NULL, signed_payload TEXT NOT NULL, processing_status TEXT NOT NULL, attempts INTEGER NOT NULL, processing_expires_at TEXT, notification_uuid TEXT, last_error TEXT, received_at TEXT NOT NULL, processed_at TEXT, UNIQUE(environment, payload_sha256))",
   "CREATE TABLE apple_server_notification (id TEXT PRIMARY KEY, inbox_id TEXT UNIQUE, notification_uuid TEXT NOT NULL UNIQUE, notification_type TEXT NOT NULL, subtype TEXT, environment TEXT NOT NULL, original_transaction_id TEXT, transaction_id TEXT, product_id TEXT, signed_payload TEXT NOT NULL, decoded_payload TEXT, processing_status TEXT NOT NULL, attempts INTEGER NOT NULL, last_error TEXT, signed_at TEXT, received_at TEXT NOT NULL, processed_at TEXT)",
 ];

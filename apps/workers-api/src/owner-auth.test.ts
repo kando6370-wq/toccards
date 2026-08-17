@@ -37,7 +37,7 @@ class FakeStatement {
       const [sessionId] = this.values as [string];
       return (this.db.sessions.find((row) => row.id === sessionId) ?? null) as T | null;
     }
-    if (this.sql.includes("FROM user")) {
+    if (this.sql.includes('FROM "user"')) {
       const [ownerId] = this.values as [string];
       return (this.db.users.includes(ownerId) ? { id: ownerId } : null) as T | null;
     }

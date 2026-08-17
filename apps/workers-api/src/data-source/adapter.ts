@@ -46,6 +46,14 @@ export type PricePoint = {
   price: number;
 };
 
+export type PriceSeriesRequest = {
+  grader: string;
+  grade: number | null;
+  condition: string | null;
+  days: number;
+  finish: string | null;
+};
+
 export type MarketPrice = {
   grader: string;
   grade: number | null;
@@ -84,6 +92,10 @@ export interface DataSourceAdapter {
     days: number,
     finish?: string | null,
   ): Promise<PricePoint[]>;
+  getPriceSeriesBatch?(
+    card_ref: string,
+    requests: PriceSeriesRequest[],
+  ): Promise<PricePoint[][]>;
   getMarketPrices(
     card_ref: string,
     finish?: string | null,

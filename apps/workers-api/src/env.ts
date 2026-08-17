@@ -1,5 +1,8 @@
+import type { Database } from "./db/database";
+
 export interface Env {
-  DB: D1Database;
+  DB: Database;
+  HYPERDRIVE?: Hyperdrive;
   CACHE_KV: KVNamespace;
   SCAN_IMAGES?: R2Bucket;
   JWT_SECRET: string;
@@ -23,3 +26,8 @@ export interface Env {
   OCR_SERVICE_BASE_URL?: string;
   APP_ENVIRONMENT?: "production" | "development";
 }
+
+export type RuntimeEnv = Omit<Env, "DB"> & {
+  DB?: Database;
+  HYPERDRIVE?: Hyperdrive;
+};
