@@ -22,7 +22,7 @@
 
 - `apps/admin-web`：React、Vite、TypeScript、Ant Design 管理后台。
 - `apps/marketing-web`：Cloudflare Workers 营销与法律页面。
-- `apps/workers-api`：Hono、Drizzle、Cloudflare Workers、D1/KV/R2 API。
+- `apps/workers-api`：Hono、Cloudflare Workers、PlanetScale PostgreSQL/Hyperdrive、KV/R2 API；保留 D1 结构与迁移工具用于历史数据和测试。
 - `apps/flutter-app`：Flutter 客户端，使用 Riverpod 与 GoRouter。
 - `packages/auth-core`：共享认证与密码学能力。
 - `packages/api-client`、`packages/ui-kit`、`packages/workers-common`：TypeScript 共享包。
@@ -34,7 +34,7 @@ Node workspace 由 `pnpm-workspace.yaml` 管理；Dart workspace 由根 `pubspec
 ```text
 Flutter App ───────────────┐
                           ├─> Cloudflare Workers API (`/api/v1`)
-React Admin ── Worker ─────┘          ├─> D1：卡牌、账号、资产与运营数据
+React Admin ── Worker ─────┘          ├─> PlanetScale PostgreSQL（经 Hyperdrive）：业务与目录真源
                                      ├─> KV：目录与汇率缓存
                                      ├─> R2：扫描图片
                                      └─> OAuth、邮件、OCR、汇率等外部服务
@@ -42,10 +42,10 @@ React Admin ── Worker ─────┘          ├─> D1：卡牌、账�
 Marketing Web ──> 独立的营销与法律页面
 ```
 
-- Flutter App 只通过 Workers API 访问服务端数据，不直接连接 D1、KV 或 R2。
+- Flutter App 只通过 Workers API 访问服务端数据，不直接连接 PostgreSQL、D1、KV 或 R2。
 - Admin 是独立 React SPA，但构建产物由 Workers assets 托管，与对应环境的 API 一起部署。
 - Workers 是鉴权、账号归属、资产隔离、卡牌查询、扫描识别和 Admin 操作的服务端边界。
-- D1 保存业务真源；KV 只保存可重建缓存；R2 保存扫描图片等对象。
+- PlanetScale PostgreSQL 保存业务真源，dev/prod 通过同一 Hyperdrive 指向共享数据集；`APP_ENVIRONMENT`、Apple 配置、KV、R2、域名和 secrets 仍按环境隔离。D1 只保留为迁移前数据源、历史迁移定义和本地测试能力。
 - `packages/*` 只承载跨应用共享能力，应用之间通过包依赖或 HTTP 契约协作。
 
 ## 工具链与常用命令
@@ -68,7 +68,7 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - `apps/` 可以依赖 `packages/`，`packages/` 不得反向依赖 `apps/`；`pnpm lint` 强制检查此规则。
 - Workers API 入口是 `apps/workers-api/src/index.ts`，业务路由统一挂载在 `/api/v1`。
 - Admin 构建产物由 Workers 的 assets 配置托管，不是独立部署目标。
-- D1 schema、迁移和 Wrangler binding 是产品与基础设施契约。修改前必须读取相关实现和文档，并先向用户说明影响。
+- PostgreSQL schema/migration、Hyperdrive binding，以及保留的 D1 schema/历史迁移，都是产品与基础设施契约。修改前必须读取相关实现和文档，并先向用户说明影响。
 - 服务端授权、账号归属、资产隔离和购买权益必须由可信服务端数据验证，不能信任客户端自报状态。
 
 ## 文档真源
@@ -90,7 +90,7 @@ Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-syst
 
 - 未经明确授权，不执行 Git push、部署、远程数据库迁移、生产写操作或发布。
 - 生产环境受保护；必须区分本地验证、dev 部署和 prod 部署。
-- 数据库 schema、迁移、D1/KV/R2 binding 变更需先说明兼容性、回滚和环境影响。
+- 数据库 schema、迁移、Hyperdrive/D1/KV/R2 binding 变更需先说明兼容性、回滚和环境影响。
 - 保留用户已有改动和未跟踪文件；不要清理、覆盖或回退不属于当前任务的内容。
 - 禁止使用破坏性 Git 命令，除非用户明确指定并已核对精确目标。
 

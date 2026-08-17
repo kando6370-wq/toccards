@@ -151,7 +151,7 @@
       "id": "T5",
       "title": "同步文档并仅部署验收 dev API/Admin",
       "module": "delivery",
-      "status": "READY",
+      "status": "COMPLETED",
       "blockedBy": [
         "T4"
       ],
@@ -175,9 +175,18 @@
       "reviewBatch": "R3",
       "risk": "high",
       "owner": "codex",
-      "verificationStatus": "pending",
-      "reviewStatus": "pending",
-      "evidence": [],
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "0a650934-39a2-4a2f-9532-eb481e3e8a69",
+        "f3504a64-b4d5-4bc5-bf82-1c4076996ed0",
+        "ca8384f6-2e30-49d5-9688-5a8ce7aaa5dd",
+        "f31955b8-1b53-4299-97b2-a1a34403f39f",
+        "4fc405fe-d95b-426e-b7ba-5c97ce1075b6",
+        "44287e51-f42a-40bf-8b7f-c14e5f02346d",
+        "a9e4e9eb-4384-4e90-b193-1c945fd2c988",
+        "6aee19a1-ea7a-481d-80dc-3c00221a32e3"
+      ],
       "deferralApproval": null
     }
   ],
@@ -213,5 +222,5 @@
     }
   ],
   "createdAt": "2026-08-17T10:05:33.978Z",
-  "updatedAt": "2026-08-17T13:30:01.123Z"
+  "updatedAt": "2026-08-17T14:33:37.994Z"
 }

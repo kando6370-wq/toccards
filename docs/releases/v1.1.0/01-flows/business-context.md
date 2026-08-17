@@ -235,7 +235,8 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | StoreKit/App Store | 上游 | 商品、交易、current entitlement | 商品不可售、购买/Restore 无法完成 |
 | Apple Notifications/Server API | 上游校正 | JWS、通知、当前交易历史 | 生命周期延迟；inbox/校正任务应保留并重试 |
 | OCR | 上游 | 扫描图片识别 | Scan 失败并释放 Free 预占 |
-| D1 | 核心真源 | SQL/Drizzle | 账号、资产、额度、订阅和 Admin 不可用 |
+| PlanetScale PostgreSQL / Hyperdrive | 核心真源与连接边界 | 参数化 PostgreSQL SQL | 账号、资产、额度、订阅和 Admin 不可用 |
+| D1 | 迁移前数据源与本地测试 | 历史 SQL/Drizzle、Miniflare | 不再是 dev 运行时回退真源；prod 旧部署切换前仍依赖 prod D1 |
 | KV | 缓存 | 目录/汇率快照 | 可回源或显式失败，不能改变授权真值 |
 | R2 | 对象存储 | 扫描原图 | 识别可按配置继续；Admin 图片可能不可查看 |
 | 邮件/OAuth | 身份上游 | 验证码和第三方登录 | 注册、找回或 OAuth 登录受阻 |
@@ -279,7 +280,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 |---|---|---|
 | Lifetime 已验证本地缓存最长离线时间是多少？ | 冷启动/离线 Premium 体验 | 产品待决，不擅自设时限 |
 | Android 是否在 v1.1 销售 Premium？ | 商品、授权和跨端验收 | 当前只激活 Apple/iOS；保留抽象但不误售 |
-| PostgreSQL 服务商和价格历史物理模型是否批准？ | D1 全量迁移与容量 | 仅保留技术建议，不写成现状 |
-| 当前 dev/prod 的迁移、Secret 和部署是否仍与历史记录一致？ | 发布判断 | 未在本次重连远程环境，只保留带日期证据 |
+| 价格历史正式数据导入、目标规模压测和冷数据方案何时验收？ | 价格 API 实数可用性与容量 | PlanetScale PostgreSQL/Hyperdrive 和 7 表结构已实施；旧 `tcg_price` 未迁移，7 表仍为空，R2 冷层与目标规模压测待完成 |
+| 后续 dev/prod 的迁移、Secret 和部署是否仍与 2026-08-17 记录一致？ | 发布判断 | 本次已重连核验 dev/prod deployment；Secret 仅核实配置项存在。远程状态会变化，后续发布前必须重新查询 |
 | Apple 生产 SKU、Root CA、Server API 与 Sandbox/TestFlight 是否完成？ | 购买/通知发布验收 | 本次未验证，不宣称完成 |
 | 重度 Portfolio、真实订单与多设备并发是否达标？ | Performance/Admin/Quota SLA | 自动化只证明仓库内逻辑，仍需目标规模验收 |

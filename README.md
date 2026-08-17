@@ -7,7 +7,7 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 ```text
 Flutter App ------------+
                          +--> Cloudflare Workers (`/api/v1`)
-React Admin -- assets ---+        |-- D1: 账号、目录、资产、订阅和运营真源
+React Admin -- assets ---+        |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                   |-- KV: 可重建缓存
                                   |-- R2: 扫描图片
                                   +-- OAuth、邮件、OCR、汇率和 Apple 服务
@@ -15,14 +15,14 @@ React Admin -- assets ---+        |-- D1: 账号、目录、资产、订阅和�
 Marketing Web -----------------> 独立 Cloudflare 静态站点
 ```
 
-Workers 是 App 与 Admin 的服务端安全边界。客户端不得直连 D1、KV 或 R2；Admin 构建产物由 Workers assets 托管，营销站点独立部署。
+Workers 是 App 与 Admin 的服务端安全边界。客户端不得直连 PostgreSQL、D1、KV 或 R2；Admin 构建产物由 Workers assets 托管，营销站点独立部署。dev/prod 的仓库配置共享同一 PostgreSQL 数据集，但运行环境、Apple 配置、KV、R2、域名和 secrets 继续隔离。
 
 ## 仓库结构
 
 | 路径 | 职责 |
 |---|---|
 | `apps/flutter-app` | iOS、Android 和 Web Flutter 客户端 |
-| `apps/workers-api` | Hono API、Drizzle Schema、D1 迁移与 Worker 部署入口 |
+| `apps/workers-api` | Hono API、PostgreSQL/Hyperdrive 访问层、PostgreSQL 与历史 D1 迁移、Worker 部署入口 |
 | `apps/admin-web` | React 管理后台 |
 | `apps/marketing-web` | 营销、法律和公开站点 |
 | `dart-packages/subscription-core` | 可配置的 Apple/Google 订阅业务模块 |

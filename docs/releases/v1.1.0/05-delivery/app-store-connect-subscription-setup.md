@@ -5,7 +5,7 @@
 > **最近核验**：2026-08-17
 > **适用应用**：dev/test Bundle ID `com.kando.kandoApp.beta`；production Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
-> **状态快照（2026-08-17）**：当前 App Store Connect dev/test App 为 `Kando KP App`（Apple ID `6790245922`），订阅组 ID 为 `22251901`，Sandbox Server URL 已保存为 `https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。dev Worker 当前部署对应提交 `df8e6d7c8ae6695d3f0366b17725abd65615e8d8`，`APP_ENVIRONMENT=development`、`APPLE_IAP_BUNDLE_ID=com.kando.kandoApp.beta`，Apple Root CA 与 App Store Server API 的 Secret 配置项均存在；dev D1 通知 inbox/结构化表和 5 分钟重试任务已就绪。Secret 内容受平台加密保护，配置项存在不证明内容有效；通知 inbox 当前为空，尚未用真实 Apple Sandbox 通知验证验签、入库和业务处理。prod 商品尚未创建或通过审核，prod Product ID 保持未配置；本次未核验 production。付费 App 协议、银行和税务资料尚未全部生效，完整购买闭环仍被 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。远程环境状态会变化，后续执行前必须重新查询。
+> **状态快照（2026-08-17）**：当前 App Store Connect dev/test App 为 `Kando KP App`（Apple ID `6790245922`），订阅组 ID 为 `22251901`，Sandbox Server URL 已保存为 `https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。dev Worker/Admin deployment `6c0697d0-f9bb-423e-8b68-1ab0509e7729`、version `73766f12-d888-4e94-ba2c-f990ef00ec43` 已通过 Hyperdrive 使用共享 PostgreSQL，`APP_ENVIRONMENT=development`、`APPLE_IAP_BUNDLE_ID=com.kando.kandoApp.beta`，Apple Root CA 与 App Store Server API 的 Secret 配置项均存在；34 条迁移 inbox 全部归属 `Sandbox`，5 分钟重试任务已就绪。Secret 内容受平台加密保护，配置项存在不证明内容有效；尚未用真实 Apple Sandbox 通知验证验签、入库和业务处理。prod 商品与 Product ID 尚未配置，prod Worker 未部署 PostgreSQL 版本；本次只读复核确认 prod 仍为 deployment `03235e84-694e-4800-854a-650173408412`、version `57213c10-d392-43a9-8d34-c6472fc3febc`。付费 App 协议、银行和税务资料尚未全部生效，完整购买闭环仍被 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。远程环境状态会变化，后续执行前必须重新查询。
 
 ---
 
@@ -136,7 +136,7 @@ flutter build ipa --release `
   --dart-define=SUBSCRIPTION_APP_STORE_LIFETIME_ID=cardx.lifetime
 ```
 
-dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。截至 2026-08-13，远程 dev D1 已将三个 Product ID 映射为 active `performance_pro` 商品，dev Worker 已部署为 `7228b912-c57f-43a3-8f2c-2404f8dac7bc`。production/prod 在该快照中保持不配置，不能使用本示例构建正式环境。当前客户端只请求非空 Product ID：未配置或 StoreKit 未返回的 SKU 显示 `Unavailable` 且不可购买。
+dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。2026-08-13 远程 dev D1 写入的三个 active `performance_pro` 商品映射已在 2026-08-17 迁入共享 PostgreSQL，正式 dev Worker/Admin version `73766f12-d888-4e94-ba2c-f990ef00ec43` 已部署。production/prod 仍未配置 Product ID 或白名单，不能使用本示例构建正式环境。当前客户端只请求非空 Product ID：未配置或 StoreKit 未返回的 SKU 显示 `Unavailable` 且不可购买。
 
 Singular 使用同一份 `--dart-define-from-file` 环境配置注入，不在仓库写入正式密钥：
 
@@ -177,7 +177,7 @@ RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env prod
 
 上述 URL 来自当前 Worker 自定义域名和已挂载路由；填入 App Store Connect 前仍需先完成对应环境迁移、Apple 验签配置和部署，并用 Apple 测试通知验证可达性。接口已实现 Apple 签名验证和重复通知幂等处理。
 
-截至 2026-08-17，dev 已完成上述迁移、部署和配置项准备，Sandbox URL 也已保存。`POST` 空 JSON 到 dev 回调返回 `400 INVALID_REQUEST`，只证明请求到达业务路由并被请求校验拒绝；它没有写入 inbox，也不能替代 Apple 测试通知或真实 Sandbox 生命周期通知验收。production 状态不在本次核验范围。
+截至 2026-08-17，dev 已完成 D1 非价格业务数据到共享 PostgreSQL 的迁移，并部署正式 Worker/Admin；34 条历史 inbox 均标记为 `Sandbox`，Sandbox URL 也已保存。`POST` 空 JSON 到 dev 回调返回 `400 INVALID_REQUEST`，只证明请求到达业务路由并被请求校验拒绝；它没有新增 inbox，也不能替代 Apple 测试通知或真实 Sandbox 生命周期通知验收。prod 未部署，本次只读复核确认其 deployment/version 未变化。
 
 ### 6.3 后端职责
 
@@ -195,15 +195,15 @@ RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env prod
 
 当前已实现 Fresh Purchase challenge、StoreKit 2 JWS 上传和 Workers session grant 写链，但**仍无法宣称正式购买授权端到端完成**。上线阻塞包括：
 
-- 截至 2026-08-13，dev/test Product ID 已确认；远程 dev D1 已写入三个 active `performance_pro` 映射，Workers dev 白名单已随版本 `7228b912-c57f-43a3-8f2c-2404f8dac7bc` 部署，健康接口返回 HTTP 200。
+- dev/test Product ID 已确认；三个 active `performance_pro` 映射已从 dev D1 迁入共享 PostgreSQL，Workers dev 白名单已随 PostgreSQL version `73766f12-d888-4e94-ba2c-f990ef00ec43` 部署，健康接口返回 HTTP 200。
 - 2026-08-17 只读核验显示：付费 App 协议为“等待用户信息”，银行账户为“正在处理”，美国税务表为“缺少税务信息”。Sandbox Tester 可以先创建，但这些商务前置条件未完成时，不能据此认定付费商品可查询或可购买。
 - `cardx.week` 已配置价格、本地化和 174 个销售地区，并已添加以供审核；它仍受上述付费协议、银行和税务状态共同阻塞。
 - `cardx.year` 已配置价格和本地化，但尚未设置销售范围，也尚未添加以供审核；它同时受商品配置缺口和上述商务状态阻塞。
-- prod Product ID 尚未创建或通过审核；production 客户端配置、Workers prod 白名单和 prod D1 映射必须保持空，待正式值确认后独立配置。
+- prod Product ID 尚未创建或通过审核；production 客户端配置和 Workers prod 白名单必须保持空。共享 PostgreSQL 当前只包含 dev/test 商品映射，待正式值确认后再独立增加 production 映射与授权。
 - dev 的 Apple Root CA 与 App Store Server API Secret 配置项已存在，但平台不暴露加密内容，仍需通过真实 Sandbox 通知和 Server API 调用证明内容有效。后端 production 使用的 App Apple ID、Root CA 与 App Store Server API Secret 需独立配置；上文记录的 `6790245922` 是当前 dev/test App 记录，不能代替 production 配置。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
 - Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现；dev Apple Secret 配置项与 Sandbox 通知 URL 已就绪，但 Secret 内容有效性和真机/Sandbox 端到端验收尚未完成。
-- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；截至 2026-08-13，对应迁移已应用到远程 dev，尚未应用到常用 local 或 prod，仍待 Sandbox/TestFlight 多设备验收。
+- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应结构与 dev 数据已迁入共享 PostgreSQL 并由 dev 正式版本运行，prod Worker 尚未部署，仍待 Sandbox/TestFlight 多设备验收。
 
 challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。
 

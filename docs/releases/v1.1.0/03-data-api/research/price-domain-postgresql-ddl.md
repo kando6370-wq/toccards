@@ -14,7 +14,7 @@
 
 同时给出既有 `collection_item`、`collection_item_event` 增加 `price_series_id` 的兼容迁移设计。
 
-**当前状态：设计稿，尚未创建 PostgreSQL migration，尚未在 dev 或 prod 执行，也尚未完成真实规模压测。** 本文 SQL 不能被当作已部署证据。正式 migration 必须在数据合同冻结后追加创建，并分别验证空库初始化、从已部署版本升级、全量回填、锁影响和回滚。
+**当前状态：本文仍是设计依据，不是部署脚本；对应 schema 已由 `0001_price_domain.sql`、`0003_price_history_visibility_guard.sql` 和 `0004_price_history_month_payload_limit.sql` 在共享 PlanetScale PostgreSQL 执行。** 7 张价格表当前均为空，旧 `tcg_price` 未迁移；正式价格数据导入、目标规模压测、R2 冷数据和 prod 流量验收尚未完成。实际部署证据以 [数据迁移](../migration.md) 和仓库 migration 为准。
 
 目标执行环境是 PlanetScale Postgres 18.6，版本号以 2026-08-17 PlanetScale 控制台显示的已选实例为准；本文按 PostgreSQL 18 主版本语法设计，不再把 PostgreSQL 15 作为部署兼容基线。金额统一保存为 `bigint` micros，评级统一保存为 `smallint` 的十分制值，例如 7.5 保存为 `75`。扩展频繁的来源、状态和指标使用 `text + CHECK`，不创建 PostgreSQL enum。
 
@@ -835,7 +835,7 @@ ALTER TABLE collection_item_event
 | Portfolio 历史估值 | event owner/time -> event series IDs -> month blocks | 既有 owner/time 索引、event series/time 索引、history PK | 事件按发生时维度估值，避免当前 Item 反推历史。 |
 | 导入状态/恢复 | `source_id + business_date`、未完成 status | 两个 batch 索引 | 监控卡住批次、定位重放范围。 |
 
-索引是基于当前查询合同的设计输入，不是性能已经达标的证据。正式迁移前必须用目标数量级数据运行 `EXPLAIN (ANALYZE, BUFFERS, WAL)` 并记录 P95/P99、WAL、vacuum、分区 planning time 和 Hyperdrive 端到端指标。
+索引是基于当前查询合同的设计输入，不是性能已经达标的证据。正式价格数据导入和 prod 流量切换前必须用目标数量级数据运行 `EXPLAIN (ANALYZE, BUFFERS, WAL)` 并记录 P95/P99、WAL、vacuum、分区 planning time 和 Hyperdrive 端到端指标。
 
 ## 8. 幂等、失败与回滚
 
@@ -866,8 +866,8 @@ ALTER TABLE collection_item_event
 
 ## 10. 实施验收清单
 
-- [ ] PlanetScale Postgres 18.6 实机版本、schema 名和 `cards_all` 目录 FK 已冻结并通过连接会话复核。
-- [ ] 7 张表在空库按顺序创建成功，全部约束与索引存在。
+- [x] PlanetScale Postgres 18.6 实机版本、schema 名和 `cards_all` 目录 FK 已冻结并通过连接会话复核。
+- [x] 7 张表已在目标库按顺序创建，约束、索引和发布保护 trigger 已核验。
 - [ ] current LIST 分区和 history RANGE 分区模板由 migration/运维工具确定性生成。
 - [ ] 一份真实批次通过 staging/COPY、计数、日期、重复和 checksum 校验。
 - [ ] 1D/7D/30D 基准和 generated change 与黄金样本一致。
@@ -876,6 +876,6 @@ ALTER TABLE collection_item_event
 - [ ] Search、详情、30/90/365 天、100 序列、Trending、Portfolio 使用集合查询并完成读比对。
 - [ ] 真实规模压测记录 DB/API P95/P99、WAL、vacuum、磁盘和导入期间 OLTP 退化。
 - [ ] R2 重放、分区 detach/drop 和 PITR 恢复演练完成。
-- [ ] dev 验收通过后，另行取得 prod migration、部署和数据写入授权。
+- [ ] dev 验收通过后，另行取得 prod Worker 部署、生产流量与数据写入授权。
 
-截至本文编写时，上述清单均不能因“DDL 文档已完成”自动视为通过。
+只有带 `[x]` 的 schema 基础项已有实机证据；其余清单不能因“DDL 文档已完成”自动视为通过。

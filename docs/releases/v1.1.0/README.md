@@ -6,7 +6,7 @@
 
 - 仓库内已形成 Apple 订阅与 session grant、Scan Quota、Folder 限制、Performance、Extended Price History、Admin 订单与 Apple Notifications V2 的实现和自动化证据。
 - “代码已完成”不等于发布完成。Apple 生产配置、Sandbox/TestFlight、真机、多设备、重度数据和真实订单规模仍是独立验收门槛。
-- 当前持久化运行架构仍是 Cloudflare D1/KV/R2。PostgreSQL 和价格历史月度 JSON 是研究建议，尚未批准或实施。
+- dev 持久化运行架构已切换为 PlanetScale PostgreSQL（经 Hyperdrive）+ KV/R2；仓库中的 prod 配置已指向同一 PostgreSQL 数据集，但当前 prod 已部署版本仍使用 D1，本轮未部署 prod。7 张新价格表已创建但仍为空，旧 `tcg_price` 未迁移，详见[数据迁移](03-data-api/migration.md)。
 - 三份原始 PRD 保持字节不变；实现状态只在 `01-flows` 至 `05-delivery` 更新。
 
 ## 原始产品输入

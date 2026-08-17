@@ -5,7 +5,7 @@
 ```text
 Flutter App --------------------+
                                  +--> Cloudflare Workers (`/api/v1`)
-React Admin -- Worker assets ----+       |-- D1: 业务与目录真源
+React Admin -- Worker assets ----+       |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                          |-- KV: 可重建缓存
                                          |-- R2: 扫描图片
                                          +-- Apple / OAuth / OCR / 邮件 / 汇率
@@ -71,8 +71,8 @@ Apple Notifications V2 + Server API --> purchase chain lifecycle correction
 
 | 资源 | 当前职责 | 一致性边界 |
 |---|---|---|
-| D1 | 已部署 Worker 的当前业务真源；dev 也是正式迁移的只读源 | 完成冻结、迁移、校验和 dev 切换前不得停止或清理 |
-| PlanetScale PostgreSQL | 已创建 33 张业务表与 7 张新价格域表，业务数据尚未迁入 | dev/prod 切换后共享业务数据；环境配置、KV、R2 和 Apple 契约仍分离 |
+| D1 | 迁移前数据源、历史 schema/migration 与本地测试能力；dev 源已冻结，prod 当前已部署旧版本仍读 prod D1 | dev 已切换后不得回写或作为回退真源；prod 切换需另行授权和重新对账 |
+| PlanetScale PostgreSQL | dev 当前业务与目录真源；已迁入 33 张业务表、270,577 行，并创建 7 张新价格域空表 | 仓库中的 dev/prod 配置共享数据集；运行环境、KV、R2 和 Apple 契约仍分离 |
 | Hyperdrive | 已为 dev/prod 目标配置同一连接，代码通过 Postgres.js 兼容层访问 | 查询缓存须在切换前关闭；每请求或 cron 独立 client，后台任务结束后关闭 |
 | KV | 目录查询和汇率等可重新获取数据 | 缓存失败不得改变授权或业务真值 |
 | R2 | 扫描原图等对象 | 读取受 Admin 授权保护 |
@@ -84,14 +84,14 @@ Drizzle `src/db/schema.ts` 与 SQL `0000-0034` 是冻结前 D1 演进事实；Po
 
 | 环境 | Worker | 域名 | 数据资源 |
 |---|---|---|---|
-| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | D1 非价格数据已迁入共享 PG；当前为写入冻结维护版本，正式 PG Worker/Admin 待部署 |
+| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 正式 PostgreSQL Worker/Admin 已部署；共享 PG 为业务真源，dev KV/R2 与 `APP_ENVIRONMENT=development` 保持独立 |
 | prod | `toccards-api-prod` | `api.tcgcard.fun` | 线上仍为 prod D1/KV/R2；目标为共享 PG + 独立 prod KV/R2，本任务不部署 prod |
 
 Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev 与 prod 共用业务 PostgreSQL 是本次明确的成本决策，但 `APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。
 
 ## 7. 当前与目标架构的区分
 
-当前处于迁移切换窗口：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 兼容访问层、PostgreSQL 业务方言和新价格域读取已经实现；dev D1 的 33 张非价格业务表、270,577 行已在写入冻结后迁入共享 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存也已关闭。dev 当前运行明确返回 503 的维护版本，只有正式 PostgreSQL Worker/Admin 部署并完成业务烟测后才能标记切换完成。prod 仍运行旧 D1 部署，本任务只准备配置而不部署。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
+dev 切换已完成：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 兼容访问层、PostgreSQL 业务方言和新价格域读取均已投入 dev；dev D1 的 33 张非价格业务表、270,577 行在写入冻结后迁入共享 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存已关闭。正式 Worker/Admin deployment `6c0697d0-f9bb-423e-8b68-1ab0509e7729`、version `73766f12-d888-4e94-ba2c-f990ef00ec43` 已承载 100% 流量，health、目录/搜索/卡片/价格空域、Admin assets 和未授权拒绝边界均已烟测；5 条授权 Admin PostgreSQL 查询只在同提交的真实 Hyperdrive remote preview 中完成 8/8 验证，因缺少正式 dev Admin 登录态而未直接调用正式域名。prod 仓库配置已经指向同一 Hyperdrive，但当前 deployment `03235e84-694e-4800-854a-650173408412` 仍是旧 D1 version `57213c10-d392-43a9-8d34-c6472fc3febc`，本任务未部署 prod。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
 
 ## 8. 证据索引
 

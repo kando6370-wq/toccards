@@ -2,7 +2,7 @@
 
 ## 订阅与内购数据骨架
 
-当前实现新增以下 D1 表，迁移见 `apps/workers-api/src/db/migrations/0025_billing_admin.sql`：
+这些表最初由 D1 migration `apps/workers-api/src/db/migrations/0025_billing_admin.sql` 引入；当前 PostgreSQL 等价结构位于 `apps/workers-api/src/db/postgres/migrations/0000_business_schema.sql`，dev 数据已完成迁移：
 
 | 表 | 当前用途 |
 |---|---|
@@ -137,7 +137,7 @@ Workers 业务 API 的路径、请求/响应字段、鉴权、owner 隔离、幂
 
 旧 `tcg_price` 不参与运行时查询。Search、卡片详情、市场价、Price Series、Trending、Shop 和 Portfolio 估值统一读取 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month` 与 `card_trending_snapshot`。当前价只读取 `status=published` 且被 `current:%` pointer 指向的批次；月历史只读取同来源、同 scope 的 `published/superseded` lineage，并要求该来源和 scope 仍有已发布 current pointer。不同 scope 不能互相授权历史可见性；任何月块内容或 checksum 变化都必须记录新的 batch lineage，不能保留旧 `last_batch_id` 原地改写。七张新价格表为空时，市场价和 Trending 返回空集合，不回退旧 D1 价格或旧 KV Trending 缓存。
 
-Hyperdrive 查询边界固定如下：当前价格按最多 40 个 card ref 分块，单块最多接收 1,000 行；历史按最多 100 个 series 分块，单块最多接收 1,600 个自然月块；数据库把每个月块的 JSONB 文本限制为 24 KiB，因此一批历史 JSON 理论上限为 39,321,600 bytes（37.5 MiB），并为 50 MB 响应边界中的其他列与协议开销保留余量；单次历史范围最多 400 天；Portfolio 估值事件一次最多接收 10,000 行。超出任一行数或月块字节上限均显式失败，不截断后继续返回不完整业务结果。`POST /api/v1/cards/:card_ref/price-series/batch` 继续最多接收 100 项，但默认 PostgreSQL 实现改为当前快照集合查询加历史集合查询，不再对 100 项执行 `Promise.all` 查询扇出。
+Hyperdrive 查询边界固定如下：当前价格按最多 40 个 card ref 分块，单块最多接收 1,000 行；历史按最多 100 个 series 分块，单块最多接收 1,600 个自然月块；数据库把每个月块的 JSONB 文本限制为 24 KiB，因此一批历史 JSON 理论上限为 39,321,600 bytes（37.5 MiB），并为 50 MB 响应边界中的其他列与协议开销保留余量；单次历史范围最多 400 天；Portfolio 估值事件一次最多接收 10,000 行。超出任一行数或月块字节上限均显式失败，不截断后继续返回不完整业务结果。`POST /api/v1/cards/:card_ref/price-series/batch` 继续最多接收 100 项，但默认 PostgreSQL 实现改为当前快照集合查询加历史集合查询，不再对 100 项执行 `Promise.all` 查询扇出。Admin 安装分析不再读取完整 `app_installation` 后由 Worker 过滤：日期、平台与国家筛选在 SQL 执行，summary 固定返回一行、trend 只返回按日聚合行，分组明细在数据库 `LIMIT/OFFSET` 且 `page_size` 最大 100；环境筛选不匹配当前 Worker 时直接返回空统计，不查询共享数据库。
 
 价格金额在 PostgreSQL 使用整数 `amount_micros`，API 边界转换为美元数值；月度 JSONB 同时支持紧凑 `{d,a}` 与既有 `{date,price}` 点位格式。Search、Trending、Price Series、Market Prices 与 Sold Listings 的缓存版本已分别提升，防止迁移前 D1 价格结果跨切换复用。
 
@@ -155,11 +155,11 @@ dev/prod 共用 PostgreSQL 后，`apple_notification_inbox.environment` 是通�
 
 ## 当前边界
 
-上述能力定位为 **App 订阅体验原型 + StoreKit 抽象层 + Admin/D1 数据骨架**，不是生产可用的订阅闭环。当前至少存在以下上线阻塞：
+上述能力定位为 **App 订阅体验原型 + StoreKit 抽象层 + Admin/PostgreSQL 数据骨架**，不是生产可用的订阅闭环。当前至少存在以下上线阻塞：
 
 - 客户端已在 Fresh Purchase 前尽力申请 challenge，并仅将 StoreKit 2 signed transaction 作为即时 Premium 证据异步上传；业务接口失败不反向覆盖本机购买成功。
 - App 已将静默权益读取与主动 Restore 分离：启动只读取 Apple verified `Transaction.currentEntitlements`，用户主动 Restore 才调用 `AppStore.sync()`；Restore 实现 Success/Not Found/Failed/15 秒 Timeout 分流，Success 不进入 Purchase Success，并在后台尽力完成 App Attest proof，不以同步失败覆盖本机成功。
-- Workers 已有 Fresh Purchase、Restore、Notifications V2 与 Apple Server API 校正链；App Attest 原生代码尚未在 Xcode/真机验证，Apple Server API Secret 尚未配置。
+- Workers 已有 Fresh Purchase、Restore、Notifications V2 与 Apple Server API 校正链；App Attest 原生代码尚未在 Xcode/真机验证，dev Apple Server API Secret 配置项已存在但内容有效性尚未通过真实调用证明，production 需独立配置。
 - `billing_entitlement_grant` 旧 owner 关联只兼容保留，不参与授权。
 - Scan Quota 与 Folder 限制已由服务端基于可信 grant 原子执行；Waiting/自动递补、Processing 删除后的后台结算和 `blocked_action=create_folder` 已按页面内最小上下文实现，非成功或目标失效不执行旧动作。
 - Admin 已可查询原始收件箱失败记录；完整 Decoded Payload 只在授权用户主动打开详情时加载，`signedPayload` 默认不返回，复制 JSON 只由用户主动触发。最新 Admin PRD 未定义额外查看/复制审计表或审计查询功能，本版本不猜测新增该范围。

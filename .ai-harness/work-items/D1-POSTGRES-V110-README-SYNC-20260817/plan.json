@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "D1-POSTGRES-V110-README-SYNC-20260817",
+  "mode": "single",
+  "rationale": "单文件单句状态同步，保持最小写入范围",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "修正 v1.1 PostgreSQL 当前状态",
+      "module": "docs",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "docs/releases/v1.1.0/README.md"
+      ],
+      "verification": [
+        "残留冲突扫描、Markdown 相对链接检查、git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/README.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "low",
+      "owner": "codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "62fca4c1-a77f-452b-9597-3998e28a568e",
+        "7a537953-7b73-4716-a044-defb3bf7dd16"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "v1.1 版本入口状态同步",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T13:59:45.959Z",
+  "updatedAt": "2026-08-17T14:28:13.858Z"
+}

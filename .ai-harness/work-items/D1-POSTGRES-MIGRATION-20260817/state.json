@@ -3,7 +3,7 @@
   "id": "D1-POSTGRES-MIGRATION-20260817",
   "type": "ITERATION",
   "title": "D1 正式迁移 PlanetScale PostgreSQL 并切换 Hyperdrive",
-  "status": "IMPLEMENTING",
+  "status": "DONE",
   "flags": [
     "database",
     "api"
@@ -99,17 +99,23 @@
     "approvalRef": "用户 2026-08-17 /goal 七项正式迁移要求与 AGENTS 目标驱动连续执行授权"
   },
   "verification": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "b8b2d44d-7e1f-4918-81da-c0520c788bbd"
+    ]
   },
   "review": {
-    "status": "pending",
-    "evidence": [],
-    "independent": false
+    "status": "pass",
+    "evidence": [
+      "4a7482b5-d6cd-4ec2-ad99-eacfb845b0ce"
+    ],
+    "independent": true
   },
   "acceptance": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "be4c402c-61b0-43ec-b9fd-0dbbebf8b22e"
+    ]
   },
   "analysis": {
     "status": "pending",
@@ -118,8 +124,10 @@
     "unknowns": []
   },
   "documentation": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "d8f4fa9f-2a96-4de4-a453-988c9873383c"
+    ]
   },
   "blocked": null,
   "history": [
@@ -158,8 +166,32 @@
       "to": "IMPLEMENTING",
       "at": "2026-08-17T10:05:37.909Z",
       "reason": "开始按批准计划执行 R1 PostgreSQL 基础批次"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-17T14:37:18.549Z",
+      "reason": "全部五项任务及分批复核已完成，进入工作项级最终验证"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-17T14:40:49.986Z",
+      "reason": "工作项级数据、测试、构建、部署边界与文档验证均通过"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-17T14:41:07.245Z",
+      "reason": "最终独立 Review 通过且无 P0/P1/P2，明确保留正式 dev Admin 登录态外部验收边界"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-17T14:41:07.963Z",
+      "reason": "七项迁移目标、分段交付、dev 部署、prod 禁止部署及全部强制门禁均已满足"
     }
   ],
   "createdAt": "2026-08-17T09:54:36.269Z",
-  "updatedAt": "2026-08-17T13:30:01.125Z"
+  "updatedAt": "2026-08-17T14:41:07.963Z"
 }
