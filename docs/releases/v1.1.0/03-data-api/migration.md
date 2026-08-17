@@ -1,6 +1,18 @@
 # v1.1.0 数据迁移
 
-2026-08-17 已通过 Cloudflare 与 PlanetScale 官方集成创建 Hyperdrive 配置，Cloudflare 配置名创建时为 `tcg-cards`，随后按当前 PlanetScale 名称重命名为 `tcg-cards-db`（ID 始终为 `7d71bcd0bcf64e518a23a852ced76d66`）；目标为 PlanetScale `product-kando/tcg-cards-db`（创建时名称为 `product-kando/tcg_cards`）的 `main` 分支、数据库 `postgres`，PlanetScale 控制台显示 Postgres version `18.6`。Cloudflare 创建向导返回连接成功，详情页显示 PostgreSQL / PlanetScale，查询缓存保持默认启用。两侧重命名后复核：Hyperdrive 配置 ID、PostgreSQL 连接目标、数据库名、缓存参数和连接上限均未变化，PlanetScale 显示存在 PgBouncer 连接；Cloudflare 详情页的 PlanetScale 跳转链接仍指向已返回 404 的旧名称，这是陈旧的控制台元数据，不应据此重复创建连接或轮换凭据。本次只完成连接资源预配：未向 `apps/workers-api/wrangler.toml` 添加 Hyperdrive binding，dev/prod Worker 仍使用现有 D1，未执行 PostgreSQL Schema、迁移、导入、业务数据写入或部署。查询缓存一致性和业务 SQL 兼容性必须在后续 D1 -> PostgreSQL 迁移任务中单独设计和验证。
+## PostgreSQL 正式迁移检查点（2026-08-17）
+
+R1 数据库基础批次已通过只在本机运行的 Wrangler remote preview，把 `0000_business_schema.sql` 与 `0001_price_domain.sql` 应用到 Hyperdrive `tcg-cards-db` 指向的 PlanetScale PostgreSQL。实机返回数据库 `postgres`、schema `public`、PostgreSQL `18.6 (Debian 18.6-1.pgdg12+2)`；目标现有 41 张表（33 张 D1 业务表、7 张新价格域表和 `postgres_migration`）、119 个索引、428 个约束及 2 个价格发布保护 trigger。两份 migration 的 SHA-256 已记录，重复执行只返回 `alreadyApplied`，未重复建表。
+
+本批次只创建 schema，尚未复制 dev D1 业务行，也未切换或部署 dev/prod Worker。固定源清单已与远程 dev D1 的 33 张非价格业务表完成 schema 对账；初始检查快照为 270,567 行，后续检查依次增至 270,571 行、270,572 行和 270,574 行，证明源库仍在写入，这些数值都不是最终迁移基线。`tcg_price`、`price_sync_state`、`cards_new`、`d1_migrations` 与 `_cf_KV` 明确排除，目标不存在旧 `tcg_price`。`tcg_price` 的 1,053,034 行不进入 PostgreSQL；价格域改为 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month`、`card_trending_snapshot` 七张空表，Collection 只扩展可空 `price_series_id`。
+
+迁移工具固定表顺序、列名和唯一 keyset 游标，并在每次正式执行前枚举 live D1 全表；忽略 `sqlite_%` 内部表后，实际表必须严格等于 33 张业务表与 5 张显式排除表，任何新增未分类表都会停止迁移。每批最多 500 行且编码负载硬上限为 512 KiB，D1 查询按累计 JSON 字节先行裁剪，单行超限直接失败；请求顺序复用单个 Hyperdrive client。写入按固定游标执行 `ON CONFLICT (cursor) DO UPDATE`，使仍在运行的 dev D1 更新可通过重跑收敛；逐表校验按相同排序比较源/目标完整行 SHA-256。物理删除不会被静默复制，若迁移窗口内出现源删除，最终行数或摘要校验必须失败并停止切换。迁移工具只接受运行时生成的 Bearer token，专用 Worker 不部署。
+
+keyset 扫描不是跨批次数据库快照，不能在 dev D1 持续写入时作为最终一致性证明。正式全量迁移前必须先把 dev API 切入拒绝业务写入并暂停 cron 的维护状态；runner 未收到 `--confirm-source-write-frozen` 会拒绝执行完整迁移。该参数只是操作确认，验收还必须记录维护版本已在 dev 生效，再运行迁移与完整摘要校验，随后立即部署 PostgreSQL 版本。诊断性的 schema-only/verify-only 不具备切换证明效力。
+
+仓库中的 dev/prod Wrangler 配置已准备引用同一个 Hyperdrive ID，但环境仍由各自域名、`APP_ENVIRONMENT`、Apple、KV 与 R2 配置区分。该配置尚未部署，因此当前线上 dev/prod 仍按既有部署运行；prod 明确不在本任务部署。Hyperdrive 查询缓存当前仍为启用状态，必须在 dev 切换前关闭并复核；在此之前不得把 schema 初始化解释为业务切换完成。
+
+较早资源预配检查点（同为 2026-08-17，早于上述 R1）：已通过 Cloudflare 与 PlanetScale 官方集成创建 Hyperdrive 配置，Cloudflare 配置名创建时为 `tcg-cards`，随后按当前 PlanetScale 名称重命名为 `tcg-cards-db`（ID 始终为 `7d71bcd0bcf64e518a23a852ced76d66`）；目标为 PlanetScale `product-kando/tcg-cards-db`（创建时名称为 `product-kando/tcg_cards`）的 `main` 分支、数据库 `postgres`，PlanetScale控制台显示 Postgres version `18.6`。Cloudflare 创建向导返回连接成功，详情页显示 PostgreSQL / PlanetScale，查询缓存保持默认启用。两侧重命名后复核：Hyperdrive 配置 ID、PostgreSQL 连接目标、数据库名、缓存参数和连接上限均未变化，PlanetScale 显示存在 PgBouncer 连接；Cloudflare 详情页的 PlanetScale 跳转链接仍指向已返回 404 的旧名称，这是陈旧的控制台元数据，不应据此重复创建连接或轮换凭据。该较早检查点只完成连接资源预配，当时未添加 binding、执行 schema、迁移、业务写入或部署；其后续状态以上述 R1 检查点为准。
 
 2026-08-17 当前 dev 补充核验：`toccards-api-dev` 部署对应提交 `df8e6d7c8ae6695d3f0366b17725abd65615e8d8`，`APP_ENVIRONMENT=development`、`APPLE_IAP_BUNDLE_ID=com.kando.kandoApp.beta`，Apple Root CA 与 App Store Server API Issuer ID/Key ID/Private Key 的 Secret 配置项均存在。远程 dev D1 的 `apple_notification_inbox` 与 `apple_server_notification` 表存在，5 分钟通知重试任务正在运行；inbox 当前为空。App Store Connect Sandbox Server URL 已保存为 `https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。空 JSON 请求返回 `400 INVALID_REQUEST`，在写 D1 前即被拒绝，只证明请求到达业务校验。平台不暴露 Secret 加密内容，因此其有效性、真实 Apple Sandbox 通知验签、入库与业务处理仍待端到端验证。本次未核验 production，也未执行迁移、写入 Secret、修改数据或部署。
 

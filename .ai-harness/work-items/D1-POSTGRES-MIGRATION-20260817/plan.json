@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "D1-POSTGRES-MIGRATION-20260817",
+  "mode": "single",
+  "rationale": "单仓串行迁移避免共享代码和远端 dev 数据竞争；按数据库基础、运行时查询、数据迁移部署三个提交批次推进",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "实现 PostgreSQL schema、依赖、Hyperdrive 配置和 dev 迁移工具",
+      "module": "workers-api/database",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [
+        "T2"
+      ],
+      "writeScopes": [
+        "apps/workers-api/package.json",
+        "pnpm-lock.yaml",
+        "apps/workers-api/wrangler.toml",
+        "apps/workers-api/wrangler.migration.toml",
+        "apps/workers-api/src/db/postgres",
+        "apps/workers-api/scripts/d1-postgres-migration"
+      ],
+      "verification": [
+        "PostgreSQL DDL 静态检查、空库远端创建、表/约束/索引清单验证、dry-run build"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/migration.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "high",
+      "owner": "codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "052bfc4c-810a-407e-b81d-91f1bfc7c3f9",
+        "a2984bcc-1117-4274-b9a8-fc8af44f6ed0"
+      ],
+      "deferralApproval": null
+    },
+    {
+      "id": "T2",
+      "title": "实现 PostgreSQL 兼容数据库接口与 Worker 生命周期",
+      "module": "workers-api/runtime",
+      "status": "READY",
+      "blockedBy": [
+        "T1"
+      ],
+      "blocks": [
+        "T3"
+      ],
+      "writeScopes": [
+        "apps/workers-api/src/db/database.ts",
+        "apps/workers-api/src/db/postgres-database.ts",
+        "apps/workers-api/src/env.ts",
+        "apps/workers-api/src/index.ts",
+        "apps/workers-api/src/**/*.ts"
+      ],
+      "verification": [
+        "适配器单测、Workers type-check、受影响测试、dry-run dev/prod build"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/02-architecture/architecture.md"
+      ],
+      "reviewBatch": "R2",
+      "risk": "high",
+      "owner": "codex",
+      "verificationStatus": "pending",
+      "reviewStatus": "pending",
+      "evidence": [],
+      "deferralApproval": null
+    },
+    {
+      "id": "T3",
+      "title": "将价格域和 SQLite 专用业务查询切换 PostgreSQL",
+      "module": "workers-api/queries",
+      "status": "PENDING",
+      "blockedBy": [
+        "T2"
+      ],
+      "blocks": [
+        "T4"
+      ],
+      "writeScopes": [
+        "apps/workers-api/src/data-source/local-db-adapter.ts",
+        "apps/workers-api/src/portfolio/valuation-history.ts",
+        "apps/workers-api/src/admin/routes.ts",
+        "apps/workers-api/src/entitlements/apple-notification-routes.ts",
+        "apps/workers-api/src/**/*.test.ts"
+      ],
+      "verification": [
+        "价格业务意图测试、认证资产扫描订阅回归、PostgreSQL dev 集成查询、查询体/分页边界检查"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "reviewBatch": "R2",
+      "risk": "high",
+      "owner": "codex",
+      "verificationStatus": "pending",
+      "reviewStatus": "pending",
+      "evidence": [],
+      "deferralApproval": null
+    },
+    {
+      "id": "T4",
+      "title": "迁移并校验 dev D1 非价格业务数据",
+      "module": "database/migration",
+      "status": "PENDING",
+      "blockedBy": [
+        "T3"
+      ],
+      "blocks": [
+        "T5"
+      ],
+      "writeScopes": [
+        "docs/releases/v1.1.0/03-data-api/migration.md",
+        ".ai-harness/work-items/D1-POSTGRES-MIGRATION-20260817"
+      ],
+      "verification": [
+        "逐表源/目标 count、外键/唯一约束、关键抽样 checksum、7 张价格表为空、旧 tcg_price 不存在"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/migration.md"
+      ],
+      "reviewBatch": "R3",
+      "risk": "high",
+      "owner": "codex",
+      "verificationStatus": "pending",
+      "reviewStatus": "pending",
+      "evidence": [],
+      "deferralApproval": null
+    },
+    {
+      "id": "T5",
+      "title": "同步文档并仅部署验收 dev API/Admin",
+      "module": "delivery",
+      "status": "PENDING",
+      "blockedBy": [
+        "T4"
+      ],
+      "blocks": [],
+      "writeScopes": [
+        "docs/releases/v1.1.0/02-architecture/architecture.md",
+        "docs/releases/v1.1.0/02-architecture/tech-stack.md",
+        "docs/releases/v1.1.0/03-data-api/migration.md",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md",
+        ".ai-harness/work-items/D1-POSTGRES-MIGRATION-20260817"
+      ],
+      "verification": [
+        "prod 未部署证据、dev deploy 成功、health/Admin/API 烟测、Cloudflare 部署版本与本地提交对应、harness check --ci"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/02-architecture/architecture.md",
+        "docs/releases/v1.1.0/02-architecture/tech-stack.md",
+        "docs/releases/v1.1.0/03-data-api/migration.md",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md"
+      ],
+      "reviewBatch": "R3",
+      "risk": "high",
+      "owner": "codex",
+      "verificationStatus": "pending",
+      "reviewStatus": "pending",
+      "evidence": [],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "PostgreSQL 基础与迁移工具",
+      "risk": "high",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": true
+    },
+    {
+      "id": "R2",
+      "title": "运行时适配与业务查询",
+      "risk": "high",
+      "taskIds": [
+        "T2",
+        "T3"
+      ],
+      "independentRequired": true
+    },
+    {
+      "id": "R3",
+      "title": "dev 数据迁移与部署验收",
+      "risk": "high",
+      "taskIds": [
+        "T4",
+        "T5"
+      ],
+      "independentRequired": true
+    }
+  ],
+  "createdAt": "2026-08-17T10:05:33.978Z",
+  "updatedAt": "2026-08-17T10:50:45.610Z"
+}

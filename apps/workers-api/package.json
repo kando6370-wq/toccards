@@ -15,9 +15,7 @@
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply DB --env dev --local",
-    "db:migrate:prod": "wrangler d1 migrations apply DB --env prod --remote",
-    "db:migrate:dev": "wrangler d1 migrations apply DB --env dev --remote",
+    "db:migrate:dev": "node scripts/d1-postgres-migration/run.mjs --confirm-dev",
     "admin:init": "node scripts/create-admin.mjs"
   },
   "dependencies": {
@@ -27,6 +25,7 @@
     "drizzle-orm": "^0.38.0",
     "fflate": "^0.8.2",
     "hono": "^4.6.0",
+    "postgres": "3.4.9",
     "ulid": "^2.3.0"
   },
   "devDependencies": {
