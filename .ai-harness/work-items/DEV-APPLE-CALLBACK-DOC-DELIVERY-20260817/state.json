@@ -3,7 +3,7 @@
   "id": "DEV-APPLE-CALLBACK-DOC-DELIVERY-20260817",
   "type": "ITERATION",
   "title": "提交并推送 dev Apple 回调分析与文档",
-  "status": "IMPLEMENTING",
+  "status": "DONE",
   "flags": [
     "api"
   ],
@@ -176,17 +176,23 @@
     "approvalRef": "用户明确要求提交并推送"
   },
   "verification": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "b2dbfeba-93e9-4151-a4a1-05297b85bdff"
+    ]
   },
   "review": {
-    "status": "pending",
-    "evidence": [],
+    "status": "pass",
+    "evidence": [
+      "dcc818f9-9a45-4956-b60d-2faaef40f59c"
+    ],
     "independent": false
   },
   "acceptance": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "d76bdd3c-390e-479c-92d7-92fe87efcc5a"
+    ]
   },
   "analysis": {
     "status": "pending",
@@ -195,8 +201,10 @@
     "unknowns": []
   },
   "documentation": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "b76dcfcb-b07b-46ef-8426-2fb6cd4dd8d4"
+    ]
   },
   "blocked": null,
   "history": [
@@ -229,8 +237,32 @@
       "to": "IMPLEMENTING",
       "at": "2026-08-17T07:30:48.389Z",
       "reason": "开始远端同步检查、精确暂存、提交和推送"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-17T07:34:40.379Z",
+      "reason": "提交、推送和远端 SHA 核验已完成，进入工作项验证"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-17T07:35:01.153Z",
+      "reason": "交付验证与文档检查通过，进入最终范围审查"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-17T07:35:14.314Z",
+      "reason": "最终范围审查通过，进入验收"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-17T07:35:27.631Z",
+      "reason": "授权范围已提交并推送，远端 SHA 验收通过"
     }
   ],
   "createdAt": "2026-08-17T07:29:41.557Z",
-  "updatedAt": "2026-08-17T07:30:48.747Z"
+  "updatedAt": "2026-08-17T07:35:27.631Z"
 }

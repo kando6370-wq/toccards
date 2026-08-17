@@ -8,7 +8,7 @@
       "id": "T1",
       "title": "原子提交并推送 dev Apple 回调文档",
       "module": "git-delivery",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "blockedBy": [],
       "blocks": [],
       "writeScopes": [
@@ -31,9 +31,12 @@
       "reviewBatch": "R1",
       "risk": "medium",
       "owner": "Codex",
-      "verificationStatus": "pending",
-      "reviewStatus": "pending",
-      "evidence": [],
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "52a94a31-44a4-4c11-9e04-41bdec1c0994",
+        "8d8ddc63-7a99-4989-b7c0-52fdc59b8962"
+      ],
       "deferralApproval": null
     }
   ],
@@ -49,5 +52,5 @@
     }
   ],
   "createdAt": "2026-08-17T07:30:22.632Z",
-  "updatedAt": "2026-08-17T07:30:48.746Z"
+  "updatedAt": "2026-08-17T07:34:34.867Z"
 }
