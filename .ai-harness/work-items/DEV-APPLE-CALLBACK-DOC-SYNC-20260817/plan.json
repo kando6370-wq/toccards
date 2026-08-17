@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "DEV-APPLE-CALLBACK-DOC-SYNC-20260817",
+  "mode": "single",
+  "rationale": "四份文档描述同一 dev Apple 回调状态，需在单一任务中统一同步并审阅",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "统一同步 dev Apple 回调状态文档",
+      "module": "docs/releases/v1.1.0",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "docs/releases/v1.1.0/05-delivery/app-store-connect-subscription-setup.md",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md",
+        "docs/releases/v1.1.0/03-data-api/migration.md"
+      ],
+      "verification": [
+        "rg 检查四份文档中的 dev 当前状态和历史快照边界",
+        "git diff --check",
+        "审阅四份文档的限定 diff"
+      ],
+      "docsImpact": [
+        "同步 v1.1.0 dev Apple 回调环境状态，不修改 v1.0.0 冻结文档"
+      ],
+      "reviewBatch": "R1",
+      "risk": "low",
+      "owner": "Codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "36c1cedc-369a-493e-bbe2-000c37f099d4",
+        "356f01bf-36b1-49f5-b442-ca32d2d0a971"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "dev Apple 回调文档一致性审阅",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T07:16:01.625Z",
+  "updatedAt": "2026-08-17T07:24:52.146Z"
+}

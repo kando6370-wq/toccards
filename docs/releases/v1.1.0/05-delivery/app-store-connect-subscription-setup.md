@@ -5,7 +5,7 @@
 > **最近核验**：2026-08-17
 > **适用应用**：dev/test Bundle ID `com.kando.kandoApp.beta`；production Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
-> **状态快照（2026-08-17）**：当前 App Store Connect dev/test App 为 `Kando KP App`（Apple ID `6790245922`），订阅组 ID 为 `22251901`。2026-08-13 的历史证据显示 dev D1 商品映射和 Worker 白名单已部署；本次未重新验证远程 dev。prod 商品尚未创建或通过审核，prod Product ID 保持未配置。付费 App 协议、银行和税务资料尚未全部生效，购买闭环仍被 Apple Secret 和 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。远程环境状态会变化，后续执行前必须重新查询。
+> **状态快照（2026-08-17）**：当前 App Store Connect dev/test App 为 `Kando KP App`（Apple ID `6790245922`），订阅组 ID 为 `22251901`，Sandbox Server URL 已保存为 `https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。dev Worker 当前部署对应提交 `df8e6d7c8ae6695d3f0366b17725abd65615e8d8`，`APP_ENVIRONMENT=development`、`APPLE_IAP_BUNDLE_ID=com.kando.kandoApp.beta`，Apple Root CA 与 App Store Server API 的 Secret 配置项均存在；dev D1 通知 inbox/结构化表和 5 分钟重试任务已就绪。Secret 内容受平台加密保护，配置项存在不证明内容有效；通知 inbox 当前为空，尚未用真实 Apple Sandbox 通知验证验签、入库和业务处理。prod 商品尚未创建或通过审核，prod Product ID 保持未配置；本次未核验 production。付费 App 协议、银行和税务资料尚未全部生效，完整购买闭环仍被 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。远程环境状态会变化，后续执行前必须重新查询。
 
 ---
 
@@ -177,15 +177,17 @@ RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env prod
 
 上述 URL 来自当前 Worker 自定义域名和已挂载路由；填入 App Store Connect 前仍需先完成对应环境迁移、Apple 验签配置和部署，并用 Apple 测试通知验证可达性。接口已实现 Apple 签名验证和重复通知幂等处理。
 
+截至 2026-08-17，dev 已完成上述迁移、部署和配置项准备，Sandbox URL 也已保存。`POST` 空 JSON 到 dev 回调返回 `400 INVALID_REQUEST`，只证明请求到达业务路由并被请求校验拒绝；它没有写入 inbox，也不能替代 Apple 测试通知或真实 Sandbox 生命周期通知验收。production 状态不在本次核验范围。
+
 ### 6.3 后端职责
 
-- [x] 代码已使用 App Store Server API 查询交易与订阅状态；待配置各环境 Secret 并完成 Sandbox 验收。
-- [x] 代码已使用 Apple 官方库验证 StoreKit 2 JWS，校验 Bundle、环境、Product ID、有效期与撤销状态；仍待正式证书配置和 Sandbox 验收。
+- [x] 代码已使用 App Store Server API 查询交易与订阅状态；dev Secret 配置项已存在，仍待确认内容有效并完成 Sandbox 验收，production 需独立配置。
+- [x] 代码已使用 Apple 官方库验证 StoreKit 2 JWS，校验 Bundle、环境、Product ID、有效期与撤销状态；dev Root CA Secret 配置项已存在，仍待真实 Sandbox 验签，production 需独立配置。
 - [x] 代码已处理续订、退款、撤销、过期、Billing Retry、Grace Period、乱序保护与 Apple Server API 校正；仍待真实通知矩阵。
 - [x] 交易映射到 Apple purchase chain 与当前 session grant，不把 UID 当作 Premium owner。
 - [x] Lifetime 通过已验证交易建立无到期时间权益；仍待 Sandbox 实单验收。
 - [x] Restore 已使用 StoreKit current entitlements 与 App Attest proof 为当前 session 重建 grant；仍待 iOS 真机验收。
-- [x] 通知原文、处理状态、幂等、重试和 Admin 排障视图已实现；迁移和真实环境验收尚未完成。
+- [x] 通知原文、处理状态、幂等、重试和 Admin 排障视图已实现；dev 迁移和部署已完成，真实 Apple Sandbox 通知验收尚未完成。
 
 ---
 
@@ -198,9 +200,9 @@ RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env prod
 - `cardx.week` 已配置价格、本地化和 174 个销售地区，并已添加以供审核；它仍受上述付费协议、银行和税务状态共同阻塞。
 - `cardx.year` 已配置价格和本地化，但尚未设置销售范围，也尚未添加以供审核；它同时受商品配置缺口和上述商务状态阻塞。
 - prod Product ID 尚未创建或通过审核；production 客户端配置、Workers prod 白名单和 prod D1 映射必须保持空，待正式值确认后独立配置。
-- Apple Root CA、后端 production 环境使用的 App Apple ID 和 App Store Server API Secret 尚未配置；上文记录的 `6790245922` 是当前 dev/test App 记录，不能代替 production 配置。
+- dev 的 Apple Root CA 与 App Store Server API Secret 配置项已存在，但平台不暴露加密内容，仍需通过真实 Sandbox 通知和 Server API 调用证明内容有效。后端 production 使用的 App Apple ID、Root CA 与 App Store Server API Secret 需独立配置；上文记录的 `6790245922` 是当前 dev/test App 记录，不能代替 production 配置。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
-- Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现，但 Apple Secret、通知 URL 和真机/Sandbox 端到端验收尚未完成。
+- Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现；dev Apple Secret 配置项与 Sandbox 通知 URL 已就绪，但 Secret 内容有效性和真机/Sandbox 端到端验收尚未完成。
 - Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；截至 2026-08-13，对应迁移已应用到远程 dev，尚未应用到常用 local 或 prod，仍待 Sandbox/TestFlight 多设备验收。
 
 challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。

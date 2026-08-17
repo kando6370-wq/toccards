@@ -1,16 +1,18 @@
 # v1.1.0 数据迁移
 
+2026-08-17 当前 dev 补充核验：`toccards-api-dev` 部署对应提交 `df8e6d7c8ae6695d3f0366b17725abd65615e8d8`，`APP_ENVIRONMENT=development`、`APPLE_IAP_BUNDLE_ID=com.kando.kandoApp.beta`，Apple Root CA 与 App Store Server API Issuer ID/Key ID/Private Key 的 Secret 配置项均存在。远程 dev D1 的 `apple_notification_inbox` 与 `apple_server_notification` 表存在，5 分钟通知重试任务正在运行；inbox 当前为空。App Store Connect Sandbox Server URL 已保存为 `https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。空 JSON 请求返回 `400 INVALID_REQUEST`，在写 D1 前即被拒绝，只证明请求到达业务校验。平台不暴露 Secret 加密内容，因此其有效性、真实 Apple Sandbox 通知验签、入库与业务处理仍待端到端验证。本次未核验 production，也未执行迁移、写入 Secret、修改数据或部署。
+
 2026-08-13 已在远程 dev D1 `cards_basic_information_all_dev` 连续应用 `0025` 至 `0034`，Wrangler 随后返回 `No migrations to apply`；订阅购买链、session grant、通知 inbox、Scan Quota 表及订单事实/汇率/自动续订快照字段均经远程只读 SQL 核对存在。prod 与开发者常用 local 当时仍未执行这些 v1.1 迁移。dev Worker 与 Admin 的手动部署及后续 `dev` push 自动发布均通过，健康接口、Admin HTML 和实际 JS 资源均返回 HTTP 200。上述环境事实是 2026-08-13 历史快照；当前部署与配置状态必须重新查询 Cloudflare 后确认。该快照中 Apple Product ID、Root CA 与 Server API 密钥仍未配置，因此部署成功不代表 Apple 购买闭环可用。
 
-2026-08-12 已使用 Wrangler 4.106.0 在独立 `--local --persist-to` 空库中按顺序执行 `0000` 至 `0033`，34 条迁移全部成功；重复 apply 返回无待执行迁移，关键 v1.1 表及订单事实/汇率快照列均存在。2026-08-13 新增 `0034` 后，Workers 自动化完整迁移链已验证 `0000` 至 `0034` 共 35 条迁移；`0034` 也已在独立 D1 测试中验证历史订单保持空快照及 `0/1/NULL` 约束。Wrangler 实际空库证据仍只到 `0033`，不得改写为已手工执行 `0034`。这批本地与自动化证据在各自验证时不代表开发者常用 local、远程 dev 或 prod 已执行，也不能替代带真实历史数据的预迁移审计；远程 dev 的较晚执行结果以首段为准。
+2026-08-12 已使用 Wrangler 4.106.0 在独立 `--local --persist-to` 空库中按顺序执行 `0000` 至 `0033`，34 条迁移全部成功；重复 apply 返回无待执行迁移，关键 v1.1 表及订单事实/汇率快照列均存在。2026-08-13 新增 `0034` 后，Workers 自动化完整迁移链已验证 `0000` 至 `0034` 共 35 条迁移；`0034` 也已在独立 D1 测试中验证历史订单保持空快照及 `0/1/NULL` 约束。Wrangler 实际空库证据仍只到 `0033`，不得改写为已手工执行 `0034`。这批本地与自动化证据在各自验证时不代表开发者常用 local、远程 dev 或 prod 已执行，也不能替代带真实历史数据的预迁移审计；远程 dev 的较晚执行结果以上文 2026-08-13 远程迁移记录为准。
 
-历史检查点（2026-08-13，早于首段所述远程 dev 迁移）：Wrangler 只读列举确认远程 dev 与 prod 当时均待执行 `0025` 至 `0033`；本分支随后新增且当时未远程执行 `0034`，所以该检查点的待执行范围为 `0025` 至 `0034`。两环境 Secret 列表当时均未包含 Apple Root CA 或 App Store Server API 的 Issuer ID、Key ID、Private Key。该检查没有执行迁移、写入 Secret 或部署 Worker；不得把这一历史待迁移状态解释为当前远程 dev 状态。
+历史检查点（2026-08-13，早于上文同日远程 dev 迁移）：Wrangler 只读列举确认远程 dev 与 prod 当时均待执行 `0025` 至 `0033`；本分支随后新增且当时未远程执行 `0034`，所以该检查点的待执行范围为 `0025` 至 `0034`。两环境 Secret 列表当时均未包含 Apple Root CA 或 App Store Server API 的 Issuer ID、Key ID、Private Key。该检查没有执行迁移、写入 Secret 或部署 Worker；不得把这一历史待迁移状态解释为当前远程 dev 状态。
 
 2026-08-13 又通过 Wrangler 只读导出远程 dev D1，并只在仓库外的本地 SQLite 副本执行 `0025` 至 `0033`。导出基线包含 `0000` 至 `0024` 共 25 条迁移、67 个 `collection_item`、145 条 `collection_item_event`、36 个 Folder、1,053,034 条 `tcg_price`、267,682 条 `cards_all`、167 条 `scan_record`、86 条 session 和 30 条 installation。九条 v1.1 迁移连续成功，单条耗时 9-45 ms，`0031` 为 17 ms；迁移后 `quick_check=ok`、外键检查无错误，核心表行数不变。
 
 `0031` 的真实历史不变量为：67/67 个 Existing Item 的 `performance_start_at` 与 `purchase_price_effective_at` 等于原 `created_at`，67 个 Item 使用同一迁移时刻作为 `performance_history_available_from`；145 条 Event 没有删除或重排，其中与现存 Item 关联的 77 条继承可靠历史起点，其余 68 条已删除 Item 的历史事件保持原样。该结果证明迁移不会把当前 Folder 或属性伪造成早于可靠起点的历史，但 dev 最大 owner 只有 24 条 Event、12 个现存 Item，不代表重度收藏用户规模。
 
-同一副本上，代码实际使用的 Performance Event/价格 SQL 各运行 20 次，中位数分别为 6.71 ms 和 7.72 ms；Admin 订单表为空，空列表与计数 SQL 中位数分别为 6.52 ms 和 6.41 ms。计时包含本地 sqlite3 进程启动，但不包含 Cloudflare 网络、D1 远程调度或 Worker JavaScript 计算。由于缺少有订单样本和大资产 owner，这些结果只能排除当前 dev 小样本下的明显数据库退化，不能宣称满足 App 15 秒或 Admin 普通查询 3 秒的发布门槛。该副本预演完成时远程 dev/prod 均未执行 v1.1 迁移；远程 dev 的后续执行结果见本文首段。
+同一副本上，代码实际使用的 Performance Event/价格 SQL 各运行 20 次，中位数分别为 6.71 ms 和 7.72 ms；Admin 订单表为空，空列表与计数 SQL 中位数分别为 6.52 ms 和 6.41 ms。计时包含本地 sqlite3 进程启动，但不包含 Cloudflare 网络、D1 远程调度或 Worker JavaScript 计算。由于缺少有订单样本和大资产 owner，这些结果只能排除当前 dev 小样本下的明显数据库退化，不能宣称满足 App 15 秒或 Admin 普通查询 3 秒的发布门槛。该副本预演完成时远程 dev/prod 均未执行 v1.1 迁移；远程 dev 的后续执行结果见上文 2026-08-13 远程迁移记录。
 
 ## 0025 Billing Admin 基础表
 

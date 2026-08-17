@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "DEV-APPLE-CALLBACK-DOC-DELIVERY-20260817",
+  "mode": "single",
+  "rationale": "一个原子提交覆盖同一 dev Apple 回调分析和文档同步结果",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "原子提交并推送 dev Apple 回调文档",
+      "module": "git-delivery",
+      "status": "IN_PROGRESS",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        ".ai-harness/work-items/DEV-APPLE-CALLBACK-ANALYSIS-20260817/**",
+        ".ai-harness/work-items/DEV-APPLE-CALLBACK-DOC-SYNC-20260817/**",
+        ".ai-harness/work-items/DEV-APPLE-CALLBACK-DOC-DELIVERY-20260817/**",
+        "docs/releases/v1.1.0/03-data-api/migration.md",
+        "docs/releases/v1.1.0/05-delivery/app-store-connect-subscription-setup.md",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md"
+      ],
+      "verification": [
+        "fetch 后确认 github/dev 与本地基线无分叉",
+        "精确 staged 文件清单、敏感信息扫描和 git diff --cached --check",
+        "推送后核对 local HEAD、github/dev 跟踪引用与远端 SHA 一致"
+      ],
+      "docsImpact": [
+        "N/A: 仅交付已完成的文档同步，不新增产品文档变更"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "Codex",
+      "verificationStatus": "pending",
+      "reviewStatus": "pending",
+      "evidence": [],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "Git 交付范围审阅",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T07:30:22.632Z",
+  "updatedAt": "2026-08-17T07:30:48.746Z"
+}
