@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"51cd940f-85a4-44a5-9526-6b2e4e2798e3","workItemId":"TCG-PRICE-SPLIT-REVIEW-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已完成当前 Schema/迁移、远程 dev 只读规模、Workers 查询、Flutter 消费、Portfolio 估值、产品规则、目标七表、查询矩阵、缓存、迁移与压测门槛复核；未修改产品代码或数据库。","timestamp":"2026-08-17T08:20:05.956Z","command":null,"independent":false}

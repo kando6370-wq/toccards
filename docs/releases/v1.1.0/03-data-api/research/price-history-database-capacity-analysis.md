@@ -31,7 +31,7 @@ PostgreSQL 事务真源
 + R2 原始批次和冷历史
 ```
 
-该方案一年末中心规模为约 **924.81 万个价格序列**，完整 365 天历史 JSON 的未压缩紧凑内容约 **135.03 GB（125.76 GiB）**。单序列 1Y 查询只需读取最多 12 个小 JSON，总内容约 14.26 KiB；总库大小不会线性进入单序列查询成本。搜索、当前价、Trending 和 Portfolio 必须按本文建议改造，才能给出“有条件满足”的结论。
+该方案一年末中心规模为约 **924.81 万个价格序列**，完整 365 天历史 JSON 的未压缩紧凑内容约 **135.03 GB（125.76 GiB）**。单序列滚动 1Y 通常读取 13 个自然月块，并可能补读 cutoff 前最近一个基准点，总价格点内容仍约 14.26 KiB；总库大小不会线性进入单序列查询成本。搜索、当前价、Trending 和 Portfolio 必须按本文建议改造，才能给出“有条件满足”的结论。
 
 更新附件中的 **31.63 亿**表示中心增长情景下的一年逻辑价格观察点，不是当前 JSON 模型的数据库行数。逐日拆行可以作为 PostgreSQL/TimescaleDB 的备选模型，但不应默认据此采购 1 TiB。现有证据支持确定数据库方向，不支持直接承诺某个实例的 P95/P99 或冻结磁盘规格。
 
@@ -47,7 +47,7 @@ PostgreSQL 事务真源
 
 | 问题 | 结论 | 边界 |
 |---|---|---|
-| 一年后 PostgreSQL 查询性能能否满足？ | **有条件能满足当前 App 的点查和范围查询。** 单序列 1Y 约 14.26 KiB；月度 JSON 最多读取 12 行。当前价和 Trending 读取独立结构化表。 | 没有目标规模压测，不能承诺具体实例 P95/P99；全库任意聚合不能沿用这个结论。 |
+| 一年后 PostgreSQL 查询性能能否满足？ | **有条件能满足当前 App 的点查和范围查询。** 单序列 1Y 约 14.26 KiB；滚动 365 天通常读取 13 个自然月块，并可能补读一个 cutoff 前基准点。当前价和 Trending 读取独立结构化表。 | 没有目标规模压测，不能承诺具体实例 P95/P99；全库任意聚合不能沿用这个结论。 |
 | 一年后存储容量如何？ | 年末中心完整回填口径为 **135.03 GB / 125.76 GiB 原始 JSON 内容**。 | 实际物理占用还受 JSONB/TEXT、TOAST、行与索引、staging、dead tuples、WAL、备份和副本影响，不能直接把 135.03 GB 当采购盘大小。 |
 | 每日写入和存储性能如何？ | 年末约 924.81 万个逻辑序列更新；1 小时窗口约 2,569 序列/秒，批量写入有可行性。 | 若每天替换完整 365 天 JSON，原始载荷约 135.03 GB/日，MVCC/WAL/vacuum 风险高；必须改为月块或逐日 append，并压测。 |
 | 是否应改用纯时序数据库？ | 当前不应替代 PostgreSQL。TimescaleDB 可在逐日拆行方案中增强分块、压缩和聚合。 | PlanetScale 等托管商的扩展能力有边界；实际压缩比例和成本必须用真实数据验证。 |
@@ -133,11 +133,11 @@ PostgreSQL 事务真源
 
 | 查询 | 推荐访问路径 | 数据规模 | 判断 |
 |---|---|---:|---|
-| 单序列 30/90/365 天 | `series_id + month_start` 读取最多 12 个 JSON | 总内容约 14.26 KiB | **有条件满足**；索引点查，不扫描全库 |
+| 单序列 30/90/365 天 | `series_id + month_start`；滚动 365 天通常 13 个 JSON 月块，必要时补 cutoff 前基准点 | 总价格点内容约 14.26 KiB | **有条件满足**；索引点查，不扫描全库 |
 | 100 序列 1Y | 一条 SQL 按 `series_id[]` 和月份范围读取 | 原始 JSON 约 1.39 MiB | **有条件满足**；必须取消 100 次往返 |
-| 当前价 | 读取最后一个 `complete` batch 的结构化快照 | 每个 series 一条小记录 | **有条件满足**；不解析历史 |
+| 当前价 | 读取 pointer 指向的 `published` batch 结构化快照 | 每个 series 一条小记录 | **有条件满足**；不解析历史 |
 | 搜索 + 当前价 | `pg_trgm` 搜目录，批量 JOIN current snapshot | 默认 40 张卡 | **需改造后满足** |
-| Trending | 读 `card_trending_daily` | 一页小结果集 | **需预计算后满足** |
+| Trending | 读 `card_trending_snapshot` | 一页小结果集 | **需预计算后满足** |
 | Portfolio 1Y | 先批量解析 series，再一次取全部月块 | 取决于 owner Item 数 | **待重度 owner 压测** |
 
 单序列查询只读取一个 series 的约 14.26 KiB 历史，因此全库是 135 GB 还是更大，不会使点查自动退化为全表扫描。实际延迟取决于 B-tree 层级、缓存冷热、TOAST 读取/解压、并发、网络和 Worker JSON 解析。没有目标实例实测时，不能把“索引路径正确”写成“P95 已达标”。
@@ -186,15 +186,17 @@ PostgreSQL 事务真源
 
 | 指标 | 年末中心估算 |
 |---|---:|
-| 完整回填时月度 JSON 行 | 最多 110,977,380 |
-| 新序列均匀进入时首年月度行 | 约 103,980,180 |
+| 日历年完整回填月度 JSON 行（12 个自然月） | 110,977,380 |
+| 滚动 365 天完整回填常见月度 JSON 行（13 个自然月） | 120,225,495 |
+| 日历年新序列均匀进入时月度行 | 约 103,980,180 |
+| 滚动 365 天新序列均匀进入时常见月度行 | 约 112,645,195 |
 | JSON 净内容 | 中心约 126.52-135.03 GB |
-| 单序列 1Y 读取 | 最多 12 个文档，总内容仍约 14.26 KiB |
+| 单序列滚动 1Y 读取 | 通常 13 个自然月文档，并可能补读 cutoff 前基准点；价格点总内容仍约 14.26 KiB |
 | 年末人口稳态的月块重复写入 | 约 2.13 TB/年，日均约 5.83 GB 原始 JSON |
 
 按 2026 年各月天数计算，同一序列全年反复更新当前月 JSON 约写 229,885 B，而反复更新整年 JSON 约写 2,672,165 B，约降低 11.6 倍。它不会减少净历史内容，但能显著缩小活跃 TOAST 值、dead tuples 和 WAL。
 
-代价是约 1.04-1.11 亿行以及一次 1Y 查询读取最多 12 个分区/文档。对本项目“按 series 读取整段图表”的业务，这比 31.63 亿逐日行更贴合。
+代价是日历年模型约 1.04-1.11 亿行；滚动 365 天通常跨 13 个自然月，中心口径约 1.13-1.20 亿行，并可能再访问 cutoff 前基准点所在分区。对本项目“按 series 读取整段图表”的业务，这比 31.63 亿逐日行更贴合。
 
 **结论：作为首期目标模型最平衡。查询量小、写放大明显降低，仍保留 PostgreSQL 事务和统一运维。**
 
@@ -224,7 +226,7 @@ PostgreSQL 事务真源
 仅为这部分内容保留 25% 空闲空间 = 125.76 / 0.75 = 167.68 GiB
 ```
 
-167.68 GiB 仍不是可采购容量，因为还缺少：约 1.04-1.11 亿月度行的 heap/索引、`price_series`、当前快照、目录和 OLTP 表、活跃月份旧版本、staging、WAL 与维护空间。TOAST 压缩可能降低 live JSON，行数和索引又会增加空间，必须用真实数据测量。
+167.68 GiB 仍不是可采购容量，因为还缺少：日历年约 1.04-1.11 亿、滚动 365 天常见约 1.13-1.20 亿月度行的 heap/索引，以及 `price_series`、当前快照、目录和 OLTP 表、活跃月份旧版本、staging、WAL 与维护空间。TOAST 压缩可能降低 live JSON，行数和索引又会增加空间，必须用真实数据测量。
 
 采购前建议比较 250 GiB 与 400 GiB 两个原生 PostgreSQL 测试档；如果坚持整年 JSON 原地替换，再增加 600 GiB 档验证 dead tuples 与 staging 峰值。这些是**压测档位**，不是已批准规格。现有数据不能证明“必须 1 TiB”，也不能证明 250 GiB 一定足够。
 
@@ -305,7 +307,7 @@ ClickHouse 适合跨数十亿点做扫描、排行、聚合和报表，但当前
 | P0 | 价格结构缺少明确 `source`、`currency`、业务日期、batch 和 checksum | 无法证明跨源唯一性、币种和完整快照 | 增加 `price_ingest_batch` 和 source contract |
 | P0 | sports 在当前查询链被禁用 | 迁入 213 万 sports 卡后仍不可用 | 先冻结 sports catalog、ID、object type 和搜索契约 |
 | P0 | 目录搜索使用前置通配符 | 普通 B-tree 不生效 | 使用 `pg_trgm` GIN，或由产品批准改变搜索语义 |
-| P1 | `sku_id`、`pricecharting_id`、名称型 natural key 并存，缺 source | 跨源冲突和名称变化风险 | 内部 `series_id bigint`，外部键约束 `(source, source_series_id)` |
+| P1 | `sku_id`、`pricecharting_id`、名称型 natural key 并存，缺 source | 跨源冲突和名称变化风险 | 内部 `series_id bigint`，外部键约束 `(source_id, source_record_id, metric_code)` |
 | P1 | `games.game_id` 为 REAL 且无主键/唯一约束，`cards_all.game_id` 为 INTEGER | 类型不一致、重复和关联漂移 | PostgreSQL 统一类型并建立唯一键/FK |
 | P1 | `cards_all` 重复 game/set 名称且 `set_id` 无 FK | 作为 read model 可接受，作为真源会漂移 | 明确 canonical catalog 与搜索 read model 边界 |
 | P1 | Collection 唯一键未包含 grader、grade、condition | 同卡不同评级/品相可能被错误合并 | 产品确认是否允许并存；允许则扩展唯一键或引入 holding lot |
@@ -333,28 +335,28 @@ flowchart LR
 
 ### 6.1 目标表职责
 
-以下是设计骨架，不是可直接执行的 migration。source、币种、金额精度、JSON 形态和 sports ID 尚未冻结。
+以下 7 张持久表是价格域设计骨架；目录继续依赖当前 `cards_all.product_id`，staging/COPY 临时对象不计入 7 表。可审阅的字段、约束、索引、分区、Collection 关联和发布事务见 [PostgreSQL 价格域详细 DDL 设计](price-domain-postgresql-ddl.md)。该文档仍是设计稿，不是已执行 migration；source、币种、JSON 点合同和 sports ID 等事项尚未全部冻结。
 
 | 表 | 粒度 | 关键键/字段 | 作用 |
 |---|---|---|---|
-| `catalog_card` | 一张 canonical 卡 | 内部 `card_id`；`(source, external_product_id)` 唯一 | TCG/sports 统一目录真源 |
-| `price_series` | 一条独立价格维度 | `series_id`；card/source/condition/language/finish/grader/grade/currency | 消除 9 个硬编码等级列 |
-| `price_ingest_batch` | source + 业务日期 | expected/loaded count、checksum、status、时间 | 只有校验通过的完整批次可见 |
-| `price_current_snapshot` | batch + series | observed_on、price、change_1d | 当前价不解析历史；保留最近完整快照用于回退 |
-| `current_price_pointer` | 每个 source 一行 | 指向最后 complete batch | 原子切换，避免 API 读取半批数据 |
-| `price_history_month` | series + 月份 | points JSON、point_count、checksum、last_batch | 1Y 最多读取 12 个小文档；完成月份不可变 |
-| `card_trending_daily` | 日期 + card | 获胜 series、change、rank | 首页直接读取派生小表 |
+| `price_source` | 一个外部或内部派生来源 | `source_id`、稳定 `source_code`、kind、active | 来源生命周期和跨源 ID 边界 |
+| `price_series` | 一条独立价格维度 | `series_id`；card/source/metric/condition/language/finish/grader/grade/currency | 消除 9 个硬编码等级列；外部唯一键为 `(source_id, source_record_id, metric_code)` |
+| `price_ingest_batch` | scope + source + 业务日期 | expected/loaded/distinct count、checksum、status、R2 object | 只有校验通过并发布的完整批次可见 |
+| `price_current_snapshot` | batch + series | observed_on、amount micros、1D/7D/30D 基准与 generated change | 当前价不解析历史；每个完整 batch 独立分区并保留回退快照 |
+| `current_price_pointer` | 每个发布 scope 一行 | `scope_code` 指向最后 `published` batch | 同时支持各来源当前价和 derived Trending 原子切换 |
+| `price_history_month` | series + 自然月 | points JSONB、point_count、checksum、last_batch | 滚动 1Y 通常读 13 个月块，并保留 cutoff 前基准语义 |
+| `card_trending_snapshot` | batch + rank | card、获胜 series、1D current/baseline/change | 首页直接读取派生小表 |
 
 ### 6.2 索引、分区和一致性原则
 
-1. `catalog_card.search_text` 使用 `pg_trgm` GIN 支持当前 `%term%` 语义。
-2. `price_series` 使用 `(card_id, language, finish, condition, grader, grade)` 查维度，外部 ID 使用 `(source, source_series_id)` 唯一约束。
-3. `price_current_snapshot` 按业务日期分区或按完整批次组织，只保留最近 2-3 个完整快照；查询先读取 pointer。
-4. `price_history_month` 按 `month_start` RANGE 分区，每个分区按 `series_id` 建本地唯一/查询索引。
+1. 当前目录 `cards_all` 的 PostgreSQL 搜索 read model 使用 `pg_trgm` GIN 支持现有 `%term%` 语义；目录全量 DDL 不在本价格域 7 表范围内。
+2. `price_series` 使用规范化 qualifier code 查维度，外部 ID 使用 `(source_id, source_record_id, metric_code)` 唯一约束。
+3. `price_current_snapshot` 按 `batch_id` LIST 分区，只保留最近 2-3 个完整快照；查询先读取 pointer。
+4. `price_history_month` 按 `month_start` RANGE 月分区，父表主键 `(series_id, month_start)` 同时支持分区内索引查询。
 5. 不为每个 card 或 900 万 series 建分区；分区过多会增加 planning time 和内存。
 6. 历史 JSON 不建 GIN。当前 API 是整段读取，不在 JSON 内任意检索；无用 GIN 只增加写入和空间。
-7. 同一 source/date 的批次必须幂等。expected count、loaded count、distinct series、日期范围和 checksum 通过后才标记 `complete`。
-8. current pointer 只能在短事务内指向 `complete` batch，避免读取半批数据。
+7. 同一 scope 的批次必须以稳定 idempotency key 幂等。expected、loaded、distinct series、日期范围和 checksum 通过后才标记 `validated`。
+8. pointer 只能在短事务内指向同 scope 的 `published` batch，避免读取半批数据。
 9. 历史 API 必须保留当前 cutoff 前最近一个基准点，避免图表和 Portfolio 语义回归。
 10. 原始批次先保存 R2，PostgreSQL 转换必须能由原始批次确定性重放。
 
@@ -381,7 +383,7 @@ D1 不提供可直接复用的 PostgreSQL WAL CDC。外部价格导入器又不�
 
 - 一份真实年末完整日批次：中心约 924.81 万个价格序列。
 - 一个真实月的所有历史，包含 TCG、sports、不同非空评级数、长短价格、缺价、重复、修订和迟到批次。
-- 完整 365 天等价数据：月度 JSON 约 1.04-1.11 亿行；逐日模型 31.63 亿或等价物理大小。
+- 完整 365 天等价数据：日历年月度 JSON 约 1.04-1.11 亿行，滚动 365 天常见约 1.13-1.20 亿行；逐日模型 31.63 亿或等价物理大小。
 - 当前目录目标约 275 万卡；生产比例的 current、Trending、Portfolio 事件和 OLTP 数据。
 - cold cache、warm cache、价格导入并发和核心 OLTP 并发四种运行状态。
 
@@ -430,17 +432,18 @@ D1 不提供可直接复用的 PostgreSQL WAL CDC。外部价格导入器又不�
 - `apps/workers-api/src/portfolio/valuation-history.ts`：owner 事件、整段价格 JSON 和 Worker 内逐日估值。
 - `apps/workers-api/src/index.ts`：当前 cron 只处理 Apple 通知和校正，没有价格导入任务。
 - `apps/workers-api/wrangler.toml`、`src/env.ts`：dev/prod D1 binding 和 `D1Database` 边界。
+- [PostgreSQL 价格域详细 DDL 设计](price-domain-postgresql-ddl.md)：7 张持久表、Collection 关联、分区、发布、保留与回滚设计；尚未执行 migration 或压测。
 - 2026-08-14 线上只读命令：`wrangler d1 info ... --json`、`SELECT COUNT(*)` 及最近 ID 10,000 行 JSON 长度样本；均未写入数据。
 
 ### 10.2 官方资料
 
 - [Cloudflare D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)：Workers Paid 单库 10 GB。
 - [Cloudflare Hyperdrive Query Caching](https://developers.cloudflare.com/hyperdrive/configuration/query-caching/)：数据库写入不会自动使缓存读失效。
-- [PostgreSQL 17 Table Partitioning](https://www.postgresql.org/docs/17/ddl-partitioning.html)：分区裁剪、适用场景和分区过多风险。
-- [PostgreSQL 17 COPY](https://www.postgresql.org/docs/17/sql-copy.html)：批量导入接口。
-- [PostgreSQL 17 TOAST](https://www.postgresql.org/docs/17/storage-toast.html)：大字段离行存储和压缩机制。
-- [PostgreSQL 17 Database Page Layout](https://www.postgresql.org/docs/17/storage-page-layout.html)：heap row 和 page 物理开销。
-- [PostgreSQL 17 pg_trgm](https://www.postgresql.org/docs/17/pgtrgm.html)：GIN/GiST 支持 `LIKE`/`ILIKE` trigram 索引。
+- [PostgreSQL 18 Table Partitioning](https://www.postgresql.org/docs/18/ddl-partitioning.html)：分区裁剪、适用场景和分区过多风险。
+- [PostgreSQL 18 COPY](https://www.postgresql.org/docs/18/sql-copy.html)：批量导入接口。
+- [PostgreSQL 18 TOAST](https://www.postgresql.org/docs/18/storage-toast.html)：大字段离行存储和压缩机制。
+- [PostgreSQL 18 Database Page Layout](https://www.postgresql.org/docs/18/storage-page-layout.html)：heap row 和 page 物理开销。
+- [PostgreSQL 18 pg_trgm](https://www.postgresql.org/docs/18/pgtrgm.html)：GIN/GiST 支持 `LIKE`/`ILIKE` trigram 索引。
 - [Timescale Hypertables](https://docs.timescale.com/use-timescale/latest/hypertables/)：按时间分块和 chunk pruning。
 - [Timescale Hypercore](https://docs.timescale.com/use-timescale/latest/hypercore/)：rowstore/columnstore 和压缩能力。
 - [Timescale Continuous Aggregates](https://docs.timescale.com/use-timescale/latest/continuous-aggregates/)：增量维护时间聚合。
@@ -453,7 +456,7 @@ D1 不提供可直接复用的 PostgreSQL WAL CDC。外部价格导入器又不�
 ## 11. 技术决策建议
 
 1. 现在可以批准 **PostgreSQL + Hyperdrive** 作为 D1 全量迁移方向。
-2. 价格历史首期批准 **`price_series + price_current_snapshot + price_history_month + price_ingest_batch`**，不要批准 9 个整年 JSON 列原样迁移。
+2. 价格域首期按详细 DDL 的 **7 表模型**推进：`price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month`、`card_trending_snapshot`；不要批准 9 个整年 JSON 列原样迁移。
 3. 不以 31.63 亿行和 1 TiB 作为默认采购口径；先用真实数据在 250/400 GiB 档压测，整年 JSON 对照增加 600 GiB 档。
 4. 同源比较月度 JSON、整年 JSON 和 TimescaleDB 逐日行；只有通过第 8 节门槛，才能确认具体实例“性能满足”。
 5. 在 sports 数据合同、外部导入器、回填规则、峰值 QPS 和 RPO/RTO 明确前，不进入生产规格冻结和切换实施。

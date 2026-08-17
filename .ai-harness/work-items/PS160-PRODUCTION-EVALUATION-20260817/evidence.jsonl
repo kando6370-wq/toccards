@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"775e005e-ccfd-46ff-9812-d482a49b13cc","workItemId":"PS160-PRODUCTION-EVALUATION-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已基于当前项目业务边界、数据规模、目标查询模型和 2026-08-17 PlanetScale 官方拓扑与价格文档完成评测；Single PS-160 性能可能够但未经压测证明，作为唯一全量生产库因单点故障不可批准；标准 HA 最低为 3 节点。","timestamp":"2026-08-17T03:18:32.912Z","command":null,"independent":false}

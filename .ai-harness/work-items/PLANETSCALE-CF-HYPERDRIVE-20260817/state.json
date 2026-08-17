@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "id": "PLANETSCALE-CF-HYPERDRIVE-20260817",
+  "type": "ITERATION",
+  "title": "关联 PlanetScale 与 Cloudflare Hyperdrive",
+  "status": "DONE",
+  "flags": [
+    "database"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户当前请求"
+  },
+  "input": {
+    "references": [
+      "用户明确要求关联已创建的 tcg_cards 数据库"
+    ],
+    "acceptance": [
+      "Cloudflare 中存在并验证目标 Hyperdrive 配置"
+    ],
+    "nonGoals": [],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "dev@b3aad594；工作树已有其他工作项改动；Workers prod/dev 当前仅绑定 D1；Cloudflare 当前无 Hyperdrive 配置；PlanetScale product-kando/tcg_cards/main 已创建且控制台显示 Cloudflare 设置接近完成"
+    ],
+    "completedAt": "2026-08-17T08:53:16.882Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "b3aad594fcfaaff7f7a97cc8702c1e64bdd001a3",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/IOS-DEV-APPLE-SERVER-CONFIG-GUIDE-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-DEV-APPLE-SERVER-CONFIG-GUIDE-20260817/evidence.jsonl",
+        ".ai-harness/work-items/IOS-DEV-APPLE-SERVER-CONFIG-GUIDE-20260817/state.json",
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/evidence.jsonl",
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/state.json",
+        ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/evidence.jsonl",
+        ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/state.json",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/evidence.jsonl",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/state.json",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/evidence.jsonl",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/state.json",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/evidence.jsonl",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/plan.json",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/solution.md",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/state.json",
+        ".ai-harness/work-items/PLANETSCALE-CF-HYPERDRIVE-20260817/events.jsonl",
+        ".ai-harness/work-items/PLANETSCALE-CF-HYPERDRIVE-20260817/state.json",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/events.jsonl",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/evidence.jsonl",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-DDL-DOC-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-DDL-DOC-20260817/plan.json",
+        ".ai-harness/work-items/TCG-PRICE-DDL-DOC-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/evidence.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/evidence.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/evidence.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/evidence.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-COMPLETION-AUDIT-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-COMPLETION-AUDIT-20260817/evidence.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-COMPLETION-AUDIT-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-REVIEW-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-REVIEW-20260817/evidence.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-REVIEW-20260817/state.json",
+        ".ai-harness/work-items/V110-MIGRATION-STATUS-ANALYSIS-20260817/events.jsonl",
+        ".ai-harness/work-items/V110-MIGRATION-STATUS-ANALYSIS-20260817/evidence.jsonl",
+        ".ai-harness/work-items/V110-MIGRATION-STATUS-ANALYSIS-20260817/state.json",
+        "docs/releases/v1.1.0/03-data-api/research/price-domain-postgresql-ddl.md"
+      ],
+      "fingerprints": {
+        ".ai-harness/work-items/IOS-DEV-APPLE-SERVER-CONFIG-GUIDE-20260817/events.jsonl": "aaa4d7e7b866aa05d6ae52f54217f4ffbe0492dead902ade25675d2e5e7ea94e",
+        ".ai-harness/work-items/IOS-DEV-APPLE-SERVER-CONFIG-GUIDE-20260817/evidence.jsonl": "6d34ed52c0dad31433cf166ae9808c1848716b40fd32687ba06ecb13fb99d1e6",
+        ".ai-harness/work-items/IOS-DEV-APPLE-SERVER-CONFIG-GUIDE-20260817/state.json": "79b4f574c2988bda85bbdbc40f7db9c3b5dc833ebda1e185e8c2dac57e0dc485",
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/events.jsonl": "d819ffa099c126e9ca7f2ac1bbc6a7e93bff4144ffe1de292ee88b058a39bfff",
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/evidence.jsonl": "d0013e9e8bcf57367e43d85433acccf30c046eafa8fb5f4f78e965fc9c0d6e6e",
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/state.json": "0d72d8489a805ce36672cc9aad68be3d12c5ee94be9d086af3c709d984647189",
+        ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/events.jsonl": "7173ab8e3436d467354e9b3145582a3709d5a6b4b3dfbe7decd8173e0302f25c",
+        ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/evidence.jsonl": "97c663fb3d658be59e9c7ae14f7a4071fc61bef44410f865cc93b711b9f234f7",
+        ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/state.json": "5c0aca596d75e6f19a27b88ff1bbfab07b380c22fe703f7fae215be5e817d9a4",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/events.jsonl": "cb9564c44b854d3efd6ef513ec9cb4ea5deaa80d0de61a05229b5c75e4b9b1bc",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/evidence.jsonl": "459094bb0b763ea66d0263e9ecfe1d9574e32d1a2cc260b4f966c23bab27c485",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/state.json": "0a47e4c5016a72105038ac7bf4c8627860e55b4e0e093f925a44bac4291307f3",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/events.jsonl": "f10facb83e3fd89f82520756853cd75944d65261d08bba48445669edf2bfad41",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/evidence.jsonl": "b5af56bea02d29f9c603b1568cf95e19befe45220622a2165ec131607f3a150e",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/state.json": "bfa0253221ba2086bd4b975c3a1d6a278646dd9e6dc54181e712a47123e38ff7",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/events.jsonl": "e4ba0903a09e6e7cb044db87f9ebbde41b9170d3a47b5fa27aa4516b59181e31",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/evidence.jsonl": "58dedcfccd052a7b6f1b150007c1ba0ec474d79a790b2b83ce72612ee7e57d05",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/plan.json": "276849f50ecede2303141938f62fee5b3676a3fa02e7d2f51ff96dfaa02a808d",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/solution.md": "12fede78d678c303962417c363e9523ce606f515fae3a4fc74ec68d0a049472b",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/state.json": "d964eb0f125b643e1b4b2c222f5210bba7835988e37e8c65ba27713391092979",
+        ".ai-harness/work-items/PLANETSCALE-CF-HYPERDRIVE-20260817/events.jsonl": "be283c88e58ae25f2b4aa1a6ab79cb5f60072438cce7556cfefc703cf7f9e44b",
+        ".ai-harness/work-items/PLANETSCALE-CF-HYPERDRIVE-20260817/state.json": "37fcb25603570af381e52095de0e70911098c5de2eb6bf7c2b3b5c014e4bc5cf",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/events.jsonl": "d46857e7fc591fc0d700aa0b01f3cbea7bc3d9568fd063ac927d38183266d59c",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/evidence.jsonl": "fc26fcb3a09626a1e18da6b71489130e457a5501e3904e347f5eab2e77c51e8d",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/state.json": "9cf10213f582c6e9d4b33c77b0bf2cfef942340324e8eca4dbdd42f0424b52f6",
+        ".ai-harness/work-items/TCG-PRICE-DDL-DOC-20260817/events.jsonl": "52aba1bb35967aed949f1d9b11af251bb04fd58b19238c389fa3bccf2a474764",
+        ".ai-harness/work-items/TCG-PRICE-DDL-DOC-20260817/plan.json": "484c99b7f05f208d51792d9cbe3d4e6a1550bee2be71699d19a3c2ffac8ac730",
+        ".ai-harness/work-items/TCG-PRICE-DDL-DOC-20260817/state.json": "317c6479b698ba4df9990c612142071ca1c8bcbeed86cd6ae79230fbefb38414",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/events.jsonl": "27a53aa558aa27e3b0c54948a18bccd002c56efd2d92c2c1fbb89eb8a500f396",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/evidence.jsonl": "7f0b29b3258e7cdfe314e74b72dc37f2567b53a3d5386f1bbd1c473de0e9141c",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/state.json": "4e436e1623a0e53f7f280cd9e81c72d492e885128aa28caeabf70305846c3ba8",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/events.jsonl": "e46322e13c3ea1d4adc88478f81db1e783f53b5a65e5ca7de2abe350b0db835b",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/evidence.jsonl": "19b662b9432a758e9aa61faea4be14a6e91d9c7403bfa3dab722c820d3ad889c",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/state.json": "7c5e682e212699c4b58fd202148f40324e2e3e4696713fc57f1a3d2edcf3709b",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/events.jsonl": "fc68bba71395803b73863d7b3ba9875f5b5ae4458cb2fc4699f105103c075753",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/evidence.jsonl": "d5b7ae9193d8f5dfc08108f2f7b4c596f8c2f33bf145e52873f31b483ed99ff2",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/state.json": "f14c16a98d809afc525ac24c8aacdc4a2972b8db644633b94acba6a8d453da28",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/events.jsonl": "b97578011dcb84aac51740397677317b706e0bb98e4f0b256c6a302993714a5e",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/evidence.jsonl": "473467e7601a68a5b997b81f96cabfef5d182ff59905a97403068d79334b3ab6",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/state.json": "f0a6383288ee7b2c0c04da7370d619aeaa8d9797aaf199cf6f5f698094acc858",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-COMPLETION-AUDIT-20260817/events.jsonl": "e9682e30e9ceb6265166176a72d241e071c27269c92ba81a9a9c0c0c35a58f35",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-COMPLETION-AUDIT-20260817/evidence.jsonl": "1279e65b4c82756dcf38a1ece6c5b07cd638ff1d92ecd15a708f518e30388d34",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-COMPLETION-AUDIT-20260817/state.json": "1c2684e6a4a131c12a309c715f6eff6434a894805464ab5790cf8de3940b306a",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-REVIEW-20260817/events.jsonl": "8638b94b4ea6e349fb7335b4a238658101f5a267f99bac1c454c32e8bf699a79",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-REVIEW-20260817/evidence.jsonl": "c00359bba3efd688c8866e2746b1b78e99de5c3b4733d686b88ccd61e7af08d7",
+        ".ai-harness/work-items/TCG-PRICE-SPLIT-REVIEW-20260817/state.json": "10f8db9824f4c82c5cb1d30b5f97779b85bbe7be9ae9d0dacb2f7ff4fd5a1a6d",
+        ".ai-harness/work-items/V110-MIGRATION-STATUS-ANALYSIS-20260817/events.jsonl": "07dd4615fc1916551970294f9ebbc8fafae021bcdc7848e9cb1f5b7200e96bcd",
+        ".ai-harness/work-items/V110-MIGRATION-STATUS-ANALYSIS-20260817/evidence.jsonl": "ab8eeeb4e8d508c91da5ec38417e960bbc96fa7fdaec615db047eaebb63e0919",
+        ".ai-harness/work-items/V110-MIGRATION-STATUS-ANALYSIS-20260817/state.json": "081678691a8c9cee7b47fbfb2276449c198e0925e70cfd3788b5791ec78885b6",
+        "docs/releases/v1.1.0/03-data-api/research/price-domain-postgresql-ddl.md": "d2c627238fa8e9e30987d4e82b9abedcedd8c8d7ab7a258728701944a8d5229e"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/PLANETSCALE-CF-HYPERDRIVE-20260817/solution.md",
+    "evidence": [
+      "设计限定为创建并验证单一 Hyperdrive 配置，不迁移数据、不改 Wrangler、不部署 Worker"
+    ],
+    "completedAt": "2026-08-17T08:54:18.768Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅创建外部 Hyperdrive 连接配置；不变更 PostgreSQL 或 D1 Schema，不迁移、不导入、不写业务数据"
+    ],
+    "completedAt": "2026-08-17T08:54:26.475Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/PLANETSCALE-CF-HYPERDRIVE-20260817/plan.json",
+    "approved": true,
+    "approvalRef": "用户当前请求；浏览器端持久凭据创建在最终动作前另行确认"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "f2286f67-2683-4b62-9339-cfce70ce625b"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "87d83eae-1582-48e2-8487-cbccd9c07a45"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "0dcda6b3-8c3a-44e5-aa80-a9e7b805469b"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "4cd23ff4-1dff-4f71-9575-fa307fc2c55b"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-17T08:53:03.345Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-17T08:53:10.509Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-17T08:53:28.537Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-17T08:55:04.594Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-17T08:55:11.407Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-17T09:00:14.925Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-17T09:00:36.792Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-17T09:00:49.919Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-17T09:01:09.807Z",
+      "reason": "gate-passed"
+    }
+  ],
+  "createdAt": "2026-08-17T08:53:03.345Z",
+  "updatedAt": "2026-08-17T09:01:09.807Z"
+}

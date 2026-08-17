@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"2636b76d-6b57-4a75-8ea4-99f7f117c597","workItemId":"IOS-DEV-THREE-IAP-VERIFY-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已完成配置、查询链路、App Store Connect 三商品及商务前置条件只读核验；配置层面具备查询三个商品的条件，但未取得 iPhone StoreKit 真实返回，因此不宣称运行时已成功获取三个。","timestamp":"2026-08-17T05:50:14.739Z","command":null,"independent":false}

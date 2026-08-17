@@ -10,7 +10,7 @@
 
 ### 1.1 推荐
 
-**数据库选型：PostgreSQL 17。云服务首选：PlanetScale Postgres，通过 Cloudflare 控制台创建并由 Hyperdrive 连接。**
+**数据库选型：PlanetScale Postgres 18.6，通过 Cloudflare 控制台创建并由 Hyperdrive 连接。** 版本号以 2026-08-17 PlanetScale 控制台显示的已选实例为准。
 
 建议采购路径：
 

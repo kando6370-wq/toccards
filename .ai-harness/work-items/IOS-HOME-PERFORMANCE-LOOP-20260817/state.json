@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "id": "IOS-HOME-PERFORMANCE-LOOP-20260817",
+  "type": "ANALYSIS",
+  "title": "诊断 iOS 测试机首页 performance 接口循环调用",
+  "status": "ANSWERED",
+  "flags": [
+    "mobile",
+    "api"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/analysis.md",
+    ".ai-harness/policies/mobile.md",
+    ".ai-harness/policies/api.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户要求诊断接口持续调用问题"
+  },
+  "input": {
+    "references": [
+      "用户反馈测试机进入首页后 /api/v1/portfolio/performance 持续调用"
+    ],
+    "acceptance": [
+      "确认实际接口路径和客户端调用入口",
+      "定位导致重复调用的状态或生命周期链路",
+      "区分代码可证事实与仍需运行日志确认的条件"
+    ],
+    "nonGoals": [
+      "不修改产品代码、远程配置或数据"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "dev@818a50d33946990ca4a2a8b9d3788513c0892cf2；产品代码未修改，工作树仅含既有及本分析 Harness 工作项",
+      "实际接口路径为 /api/v1/portfolio/performance，调用端为 Flutter 首页 performance 控制器"
+    ],
+    "completedAt": "2026-08-17T05:56:18.185Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "818a50d33946990ca4a2a8b9d3788513c0892cf2",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/evidence.jsonl",
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/state.json",
+        ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/state.json",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/evidence.jsonl",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/state.json",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/evidence.jsonl",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/state.json",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/events.jsonl",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/evidence.jsonl",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/plan.json",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/solution.md",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/state.json",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/events.jsonl",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/evidence.jsonl",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/evidence.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/evidence.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/evidence.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/state.json",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/events.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/evidence.jsonl",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/state.json"
+      ],
+      "fingerprints": {
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/events.jsonl": "d819ffa099c126e9ca7f2ac1bbc6a7e93bff4144ffe1de292ee88b058a39bfff",
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/evidence.jsonl": "d0013e9e8bcf57367e43d85433acccf30c046eafa8fb5f4f78e965fc9c0d6e6e",
+        ".ai-harness/work-items/IOS-DEV-THREE-IAP-VERIFY-20260817/state.json": "0d72d8489a805ce36672cc9aad68be3d12c5ee94be9d086af3c709d984647189",
+        ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/events.jsonl": "b027b1d3e3644e20af2075142125f564bf132fbb83b72c79193baa6500b7a476",
+        ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/state.json": "e15f4ef6db05bc5a0a439adc03cbfd84209eac14db7f8564a2ca3ec4dfec0af5",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/events.jsonl": "cb9564c44b854d3efd6ef513ec9cb4ea5deaa80d0de61a05229b5c75e4b9b1bc",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/evidence.jsonl": "459094bb0b763ea66d0263e9ecfe1d9574e32d1a2cc260b4f966c23bab27c485",
+        ".ai-harness/work-items/IOS-SANDBOX-SUBSCRIPTION-20260817/state.json": "0a47e4c5016a72105038ac7bf4c8627860e55b4e0e093f925a44bac4291307f3",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/events.jsonl": "f10facb83e3fd89f82520756853cd75944d65261d08bba48445669edf2bfad41",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/evidence.jsonl": "b5af56bea02d29f9c603b1568cf95e19befe45220622a2165ec131607f3a150e",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-PRODUCTS-20260817/state.json": "bfa0253221ba2086bd4b975c3a1d6a278646dd9e6dc54181e712a47123e38ff7",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/events.jsonl": "e4ba0903a09e6e7cb044db87f9ebbde41b9170d3a47b5fa27aa4516b59181e31",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/evidence.jsonl": "58dedcfccd052a7b6f1b150007c1ba0ec474d79a790b2b83ce72612ee7e57d05",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/plan.json": "276849f50ecede2303141938f62fee5b3676a3fa02e7d2f51ff96dfaa02a808d",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/solution.md": "12fede78d678c303962417c363e9523ce606f515fae3a4fc74ec68d0a049472b",
+        ".ai-harness/work-items/IOS-SUBSCRIPTION-SANDBOX-GUIDE-20260817/state.json": "d964eb0f125b643e1b4b2c222f5210bba7835988e37e8c65ba27713391092979",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/events.jsonl": "d46857e7fc591fc0d700aa0b01f3cbea7bc3d9568fd063ac927d38183266d59c",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/evidence.jsonl": "fc26fcb3a09626a1e18da6b71489130e457a5501e3904e347f5eab2e77c51e8d",
+        ".ai-harness/work-items/PS160-PRODUCTION-EVALUATION-20260817/state.json": "9cf10213f582c6e9d4b33c77b0bf2cfef942340324e8eca4dbdd42f0424b52f6",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/events.jsonl": "27a53aa558aa27e3b0c54948a18bccd002c56efd2d92c2c1fbb89eb8a500f396",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/evidence.jsonl": "7f0b29b3258e7cdfe314e74b72dc37f2567b53a3d5386f1bbd1c473de0e9141c",
+        ".ai-harness/work-items/TCG-PRICE-DOC-COMPARISON-20260817/state.json": "4e436e1623a0e53f7f280cd9e81c72d492e885128aa28caeabf70305846c3ba8",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/events.jsonl": "e46322e13c3ea1d4adc88478f81db1e783f53b5a65e5ca7de2abe350b0db835b",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/evidence.jsonl": "19b662b9432a758e9aa61faea4be14a6e91d9c7403bfa3dab722c820d3ad889c",
+        ".ai-harness/work-items/TCG-PRICE-FIELD-DESIGN-20260817/state.json": "7c5e682e212699c4b58fd202148f40324e2e3e4696713fc57f1a3d2edcf3709b",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/events.jsonl": "fc68bba71395803b73863d7b3ba9875f5b5ae4458cb2fc4699f105103c075753",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/evidence.jsonl": "d5b7ae9193d8f5dfc08108f2f7b4c596f8c2f33bf145e52873f31b483ed99ff2",
+        ".ai-harness/work-items/TCG-PRICE-GROWTH-ANALYSIS-20260817/state.json": "f14c16a98d809afc525ac24c8aacdc4a2972b8db644633b94acba6a8d453da28",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/events.jsonl": "b97578011dcb84aac51740397677317b706e0bb98e4f0b256c6a302993714a5e",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/evidence.jsonl": "473467e7601a68a5b997b81f96cabfef5d182ff59905a97403068d79334b3ab6",
+        ".ai-harness/work-items/TCG-PRICE-SCHEMA-ANALYSIS-20260817/state.json": "f0a6383288ee7b2c0c04da7370d619aeaa8d9797aaf199cf6f5f698094acc858"
+      }
+    }
+  },
+  "solution": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null
+  },
+  "database": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null,
+    "impact": "unknown"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/IOS-HOME-PERFORMANCE-LOOP-20260817/plan.json",
+    "approved": false,
+    "approvalRef": null
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pass",
+    "evidence": [
+      "9023f1de-e29e-4149-aef0-431253ee9cd8"
+    ],
+    "conclusions": [
+      {
+        "id": "f0484593-192f-4a4c-a24d-a8513da97833",
+        "status": "PROVEN",
+        "text": "实际请求路径是 /api/v1/portfolio/performance，不是 portfplio；Flutter test 环境基址为 https://api-dev.tcgcard.fun/api/v1，客户端追加 /portfolio/performance。",
+        "evidence": [
+          "api_environment.dart；portfolio_api_client.dart:788-805；workers-api/src/portfolio/routes.ts:408-434"
+        ]
+      },
+      {
+        "id": "52e0a377-edb1-452d-b53f-e573e4cde209",
+        "status": "PROVEN",
+        "text": "持续调用由客户端状态循环造成：Performance 视图处于选中且本机 Premium 时，HomePage build 在 hasLoaded=false 且 isLoading=false 时排队 load；任意请求异常都把状态改为 failure 且保留 hasLoaded=false，状态更新触发重建后条件再次成立，因此无延迟、无上限地重新请求。",
+        "evidence": [
+          "apps/flutter-app/lib/features/home/home_page.dart:68-93；home_performance_controller.dart:74-117"
+        ]
+      },
+      {
+        "id": "29eea282-f98d-4de3-b486-497b1dcf2db6",
+        "status": "PROVEN",
+        "text": "HomePerformanceController 捕获并丢弃所有异常，未保留 HTTP 状态码或错误 code；因此 409、403、401、404、5xx、超时和 DTO 解析失败在 UI 状态上都会触发同一个循环。",
+        "evidence": [
+          "home_performance_controller.dart:91-117；portfolio_api_client.dart:983-1055"
+        ]
+      },
+      {
+        "id": "07c2f19e-b244-423f-8393-4d4d3e4202e6",
+        "status": "PROVEN",
+        "text": "服务端 Performance 只接受当前 session 的有效 performance_pro grant。本机发送 X-Local-Premium-State=verified 但服务端无 grant 时明确返回 409 ENTITLEMENT_SYNC_REQUIRED；无本机 verified 且无 grant 时返回 403 PREMIUM_REQUIRED。",
+        "evidence": [
+          "portfolio_api_client.dart:789-804；premium-access.ts:31-52；portfolio/routes.ts:408-423；performance-premium.integration.test.ts"
+        ]
+      },
+      {
+        "id": "2b1053cf-adee-4078-b260-6be8168b58e2",
+        "status": "INFERRED",
+        "text": "当前场景最可能的首个失败是 409 ENTITLEMENT_SYNC_REQUIRED：测试机已从 StoreKit 得到本机 Premium，但购买 JWS 尚未在 dev Worker 建立当前 session grant。2026-08-13 文档仍记录 dev 缺 Apple Root CA/Server API Secret，但该远程配置可能已变化，不能仅凭旧文档确认。",
+        "evidence": [
+          "用户反馈发生在订阅测试后；entitlement-contract.md:67,75,85-90；development-plan.md:81；premium-access.ts:45-52"
+        ]
+      },
+      {
+        "id": "9caeb6bd-c662-409f-8911-2416262ad43b",
+        "status": "PROPOSAL",
+        "text": "修复应先阻止 failure 状态在 build 中自动重试，保留现有 Refresh 按钮供用户显式重试；同时对 ENTITLEMENT_SYNC_REQUIRED 建立独立状态和有上限退避，而不是把所有异常吞成同一 failure。补充 Widget 回归测试，证明一次失败只产生一次请求。",
+        "evidence": [
+          "home_page.dart:84-92,161-167,758-769；当前 home_performance_controller_test.dart 仅覆盖失败保留旧数据与迟到响应，没有失败请求次数回归测试"
+        ]
+      }
+    ],
+    "unknowns": [
+      "需要一条实际失败响应的 HTTP 状态码和 error.code 确认首个失败原因。"
+    ]
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-17T05:56:00.251Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-17T05:56:17.649Z",
+      "reason": "开始核对当前分支、首页状态管理、API 客户端与路由实现"
+    },
+    {
+      "from": "BASELINING",
+      "to": "ANALYZING",
+      "at": "2026-08-17T05:56:18.539Z",
+      "reason": "基线完成，开始追踪重复请求触发链路"
+    },
+    {
+      "from": "ANALYZING",
+      "to": "ANSWERED",
+      "at": "2026-08-17T05:59:32.971Z",
+      "reason": "重复调用根因已定位，首次失败原因边界与修复方向已明确"
+    }
+  ],
+  "createdAt": "2026-08-17T05:56:00.251Z",
+  "updatedAt": "2026-08-17T05:59:32.971Z"
+}

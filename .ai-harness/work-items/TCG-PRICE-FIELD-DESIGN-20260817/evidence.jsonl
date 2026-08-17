@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"94248686-3032-4dd5-8dcd-c6b05eb18282","workItemId":"TCG-PRICE-FIELD-DESIGN-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已形成七张表的完整字段、主外键、唯一/CHECK、索引、分区、旧字段映射和待确认边界；没有创建 migration 或修改产品文件。","timestamp":"2026-08-17T02:28:48.349Z","command":null,"independent":false}

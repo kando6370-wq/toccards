@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"62325778-fed3-4b36-9aae-1d0cb229b567","workItemId":"V110-MIGRATION-STATUS-ANALYSIS-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已区分并核验：dev D1 增量迁移 0025-0034 已执行且无 pending；PostgreSQL/Hyperdrive 全量迁移未实施；prod 与常用 local 当前状态未实时查询","timestamp":"2026-08-17T07:56:10.271Z","command":null,"independent":false}

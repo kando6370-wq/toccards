@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"9023f1de-e29e-4149-aef0-431253ee9cd8","workItemId":"IOS-HOME-PERFORMANCE-LOOP-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已定位客户端重复请求的确定性状态循环，并给出服务端 409/403 分流；实际首个失败状态仍需测试机响应确认，未修改产品代码。","timestamp":"2026-08-17T05:59:32.557Z","command":null,"independent":false}

@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"99f7fb30-e6f9-466f-8653-e6a4673389fc","workItemId":"TCG-PRICE-GROWTH-ANALYSIS-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已按用户输入更新1/5/10年旧表行数，并用参数k隔离逻辑序列与旧表行数；未把未经核对的附件口径强行合并。","timestamp":"2026-08-17T02:43:03.494Z","command":null,"independent":false}

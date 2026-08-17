@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "PLANETSCALE-DB-RENAME-DOC-20260817",
+  "mode": "single",
+  "rationale": "单文件事实同步，不改 Worker 或远程资源",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "更新 Hyperdrive 预配记录中的数据库名称",
+      "module": "docs",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "docs/releases/v1.1.0/03-data-api/migration.md"
+      ],
+      "verification": [
+        "核对目标段落和 scoped git diff；运行 git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/migration.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "low",
+      "owner": "codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "f59b38cc-6b1b-412e-9e6f-65085bcf051d",
+        "82e20efe-69b7-4b4c-8235-7826745a5340"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "PlanetScale 重命名文档同步",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-17T09:08:38.089Z",
+  "updatedAt": "2026-08-17T09:11:11.357Z"
+}
