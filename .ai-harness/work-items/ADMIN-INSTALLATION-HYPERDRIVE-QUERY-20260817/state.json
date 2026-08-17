@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 1,
+  "id": "ADMIN-INSTALLATION-HYPERDRIVE-QUERY-20260817",
+  "type": "BUGFIX",
+  "title": "修复 Admin 安装分析无界 PostgreSQL 查询",
+  "status": "DONE",
+  "flags": [
+    "database",
+    "api"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/bugfix.md",
+    ".ai-harness/policies/database.md",
+    ".ai-harness/policies/api.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户 /goal 第 3、4、7 项授权查询整改、Hyperdrive 规范和仅 dev 重新部署"
+  },
+  "input": {
+    "references": [
+      "D1 到 PlanetScale PostgreSQL 正式迁移的独立 Review finding"
+    ],
+    "acceptance": [
+      "安装分析保留原有筛选、汇总、趋势、分组和页码响应语义，数据库不再返回整张 app_installation 明细",
+      "明细 SQL 必须 LIMIT/OFFSET 且最多返回 page_size 100 行；汇总和趋势由数据库聚合"
+    ],
+    "nonGoals": [
+      "不改变 Admin 页面、API 字段、权限、环境隔离或数据库 schema"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": {
+    "actual": "/analytics/installations 无 WHERE/LIMIT 读取完整 app_installation，再在 Worker 内筛选聚合分页",
+    "expected": "筛选与聚合下推 PostgreSQL，数据库返回 1 行汇总、按日趋势和最多 100 行分页分组结果",
+    "reproduction": "检查 apps/workers-api/src/admin/routes.ts 的 SELECT_INSTALLATION_SOURCES_SQL 与 636-658 行可确认原始全表读取；独立 Review 评级 P2"
+  },
+  "baseline": {
+    "status": "complete",
+    "document": "apps/workers-api/src/admin/routes.ts",
+    "evidence": [
+      "SELECT_INSTALLATION_SOURCES_SQL 只含 FROM app_installation ORDER BY，无 WHERE/GROUP/LIMIT；路由 all() 后在 Worker 内过滤、汇总、分组和 slice 分页",
+      "现有测试只验证小样本业务结果，未阻止数据库返回整表"
+    ],
+    "completedAt": "2026-08-17T14:05:27.395Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "fa7576bd35fd86e60857c85676a6c56e00fbac2b",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ADMIN-INSTALLATION-HYPERDRIVE-QUERY-20260817/events.jsonl",
+        ".ai-harness/work-items/ADMIN-INSTALLATION-HYPERDRIVE-QUERY-20260817/state.json",
+        ".ai-harness/work-items/D1-POSTGRES-MIGRATION-20260817/events.jsonl",
+        ".ai-harness/work-items/D1-POSTGRES-MIGRATION-20260817/evidence.jsonl",
+        ".ai-harness/work-items/D1-POSTGRES-MIGRATION-20260817/plan.json",
+        ".ai-harness/work-items/D1-POSTGRES-MIGRATION-20260817/state.json",
+        ".ai-harness/work-items/D1-POSTGRES-SCOPE-RECONCILIATION-20260817/events.jsonl",
+        ".ai-harness/work-items/D1-POSTGRES-SCOPE-RECONCILIATION-20260817/evidence.jsonl",
+        ".ai-harness/work-items/D1-POSTGRES-SCOPE-RECONCILIATION-20260817/plan.json",
+        ".ai-harness/work-items/D1-POSTGRES-SCOPE-RECONCILIATION-20260817/state.json",
+        ".ai-harness/work-items/D1-POSTGRES-V110-README-SYNC-20260817/events.jsonl",
+        ".ai-harness/work-items/D1-POSTGRES-V110-README-SYNC-20260817/plan.json",
+        ".ai-harness/work-items/D1-POSTGRES-V110-README-SYNC-20260817/state.json",
+        "AGENTS.md",
+        "README.md",
+        "docs/releases/v1.1.0/01-flows/business-context.md",
+        "docs/releases/v1.1.0/02-architecture/architecture.md",
+        "docs/releases/v1.1.0/02-architecture/decisions/README.md",
+        "docs/releases/v1.1.0/02-architecture/monorepo.md",
+        "docs/releases/v1.1.0/02-architecture/tech-stack.md",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md",
+        "docs/releases/v1.1.0/03-data-api/migration.md",
+        "docs/releases/v1.1.0/03-data-api/research/database-migration-research.md",
+        "docs/releases/v1.1.0/03-data-api/research/price-domain-postgresql-ddl.md",
+        "docs/releases/v1.1.0/03-data-api/research/price-history-database-capacity-analysis.md",
+        "docs/releases/v1.1.0/05-delivery/app-store-connect-subscription-setup.md",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md",
+        "docs/releases/v1.1.0/README.md"
+      ],
+      "fingerprints": {
+        ".ai-harness/work-items/D1-POSTGRES-MIGRATION-20260817/events.jsonl": "0d92f49f7bd495a1d3a67c360d6ea89d21221ca0ad5ed774a3b5fafa1b32fbed",
+        ".ai-harness/work-items/D1-POSTGRES-MIGRATION-20260817/evidence.jsonl": "ff35e564afac64701003cfcaec052617c96a73859f56559ac61a40f94bb89625",
+        ".ai-harness/work-items/D1-POSTGRES-MIGRATION-20260817/plan.json": "c8b1e2de2e54d515372ae65fc530fe4b188cefe4bbbb75ab3ce72a0223d56956",
+        ".ai-harness/work-items/D1-POSTGRES-MIGRATION-20260817/state.json": "abaa2becdc53a864b867931345eeb61d54148f94ce228bdf004ad71bbb199925",
+        "AGENTS.md": "13031049be8f3982e3c23c31f08c8eea9b3c5253c821116b6f3f934730719aab",
+        "README.md": "67b5913b1bb42ac0cd8d16e3b65f01246cd14e3aa54edf83ed78d6b4d79bd5b5",
+        "docs/releases/v1.1.0/01-flows/business-context.md": "3735885b3d0b7ba25a10081e0effd649f75b3fc51de7c63123cbf05fbd11ae92",
+        "docs/releases/v1.1.0/02-architecture/architecture.md": "ec3526c9731a484e2903529d59426d66b1140831f71b59769733df69b35f11cf",
+        "docs/releases/v1.1.0/02-architecture/decisions/README.md": "b56e365a95fd33402c92d2d7f59d31babb719f262ca0347573a89f1d829bff20",
+        "docs/releases/v1.1.0/02-architecture/monorepo.md": "1998319321a79d693f67fe2548ec7539584d1adbe3ccf6a028db581ce4112cad",
+        "docs/releases/v1.1.0/02-architecture/tech-stack.md": "226c4e8bccb0d9f3b6a1ccbe56b13d55fad8c8c342cf7d65866de703025f77c2",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md": "fd88c24a1cbfa323b7ab48bb6f7e1499e2ffd1943165a48d7ddf3eeb268a6a2f",
+        "docs/releases/v1.1.0/03-data-api/migration.md": "f72bef1c0abea4b5f0ab10873ff768581929959ec22a5364e8a11599dfd90daf",
+        "docs/releases/v1.1.0/03-data-api/research/database-migration-research.md": "e5a9e6541e7da6162fcd3fdd52f8c5c83ae8579f7f3a74c22896cce0da1964de",
+        "docs/releases/v1.1.0/03-data-api/research/price-domain-postgresql-ddl.md": "c00dda50beebaeec4b0cffd26bee64928f48c65fcb950c8b5eb552755f53a220",
+        "docs/releases/v1.1.0/03-data-api/research/price-history-database-capacity-analysis.md": "2fad6ec565ce34042febfb74aa3e0abfb0eaffc3850867f42155d0dc6abe8a75",
+        "docs/releases/v1.1.0/05-delivery/app-store-connect-subscription-setup.md": "1583bdf87d53d4cd33378b6a971e254644d5103051144de99da5f62bd992b05f",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "fb6a43ec0cc60e53216e77fbeff21901e56f6f0569941a73cb7460bde97b2c40",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md": "61953cec4180e2a6c8c4610fa3caa7f9e506421f4f632952527ce1fbe8a93bf7",
+        "docs/releases/v1.1.0/README.md": "77740757f0d9e80bc0be5c4d15f611f2e432724fed259874aef13e114cd98cf8",
+        ".ai-harness/work-items/ADMIN-INSTALLATION-HYPERDRIVE-QUERY-20260817/events.jsonl": "6f901d529ed6f2c6d81efbfac721a6f968b707f259112c182a8f17d006d933c5",
+        ".ai-harness/work-items/ADMIN-INSTALLATION-HYPERDRIVE-QUERY-20260817/state.json": "ec946164240c6de6f82256d0811adfc1bc2fc3b4306e23cdea07748631816dc1",
+        ".ai-harness/work-items/D1-POSTGRES-SCOPE-RECONCILIATION-20260817/events.jsonl": "1500a1a0709dad4f93ef791a84e44e6e082a191f4bf0432c0d19e1094342a770",
+        ".ai-harness/work-items/D1-POSTGRES-SCOPE-RECONCILIATION-20260817/evidence.jsonl": "5b8a3d2957da9946116909dda3eeded3e3ec891bf25b4e9aab11e98a728aa133",
+        ".ai-harness/work-items/D1-POSTGRES-SCOPE-RECONCILIATION-20260817/plan.json": "84d7d036a8a03670e8a4caf3cbb22fe348c821c30ea093f3ec59b2d97947c05c",
+        ".ai-harness/work-items/D1-POSTGRES-SCOPE-RECONCILIATION-20260817/state.json": "153679ecd9445247ab3150234d4a8af1f53a72e2b121b108163abbdf40e50e5c",
+        ".ai-harness/work-items/D1-POSTGRES-V110-README-SYNC-20260817/events.jsonl": "81da4732328908b3c714abd2ebf5e987279632331c22f02717dc4f2fc3b6ad2d",
+        ".ai-harness/work-items/D1-POSTGRES-V110-README-SYNC-20260817/plan.json": "26ea6630bdecb013ca20c43d197a4db60fb66fd615e546af19b769c3797a865c",
+        ".ai-harness/work-items/D1-POSTGRES-V110-README-SYNC-20260817/state.json": "856542312e4f7210a0f5958b3c8a47522701917163b4a1106e5b18877f3dfa4e"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": "docs/releases/v1.1.0/03-data-api/contract-changes.md",
+    "evidence": [
+      "用三条固定查询分别返回单行 summary、按日聚合 trend、LIMIT/OFFSET 分组 rows；共享同一日期/platform/country过滤，environment 不匹配时零查询返回空统计",
+      "保留现有响应字段、日期补零、页码上限 100 和鉴权边界"
+    ],
+    "completedAt": "2026-08-17T14:05:28.076Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "只改 SELECT 形状和绑定，不改表、约束、索引、数据或迁移；app_installation 当前字段足够"
+    ],
+    "completedAt": "2026-08-17T14:05:28.435Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ADMIN-INSTALLATION-HYPERDRIVE-QUERY-20260817/plan.json",
+    "approved": true,
+    "approvalRef": "用户 /goal 第 3、4 项查询与 Hyperdrive 边界授权"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "9e60066b-9391-462e-bd53-a3c1e7dbc482"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "9a2f729b-8dc9-4201-af9a-a56774fd23a8"
+    ],
+    "independent": true
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "b50e6a28-582c-4ff2-bbcc-3b0c13ffbd32"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "5c427b48-a27e-473c-908a-50cefa94445e"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-17T14:05:26.445Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-17T14:05:26.838Z",
+      "reason": "记录无界查询复现与现有 API 契约"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-17T14:05:27.736Z",
+      "reason": "根因已确认，设计兼容 SQL 聚合与有界分页"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-17T14:06:27.291Z",
+      "reason": "根因修复计划已批准"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-17T14:06:27.664Z",
+      "reason": "先增加会在原实现失败的意图测试"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-17T14:24:02.481Z",
+      "reason": "任务验证与独立批次 Review 已通过，汇总工作项级证据"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-17T14:24:03.535Z",
+      "reason": "完整验证和文档同步通过"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-17T14:24:04.277Z",
+      "reason": "独立最终 Review 通过"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-17T14:24:04.979Z",
+      "reason": "BUGFIX 验证、独立 Review 与验收全部通过"
+    }
+  ],
+  "createdAt": "2026-08-17T14:05:26.445Z",
+  "updatedAt": "2026-08-17T14:24:04.979Z"
+}

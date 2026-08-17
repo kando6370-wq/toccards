@@ -142,6 +142,7 @@ type AdminLoginResponse = {
 };
 
 class FakeD1 {
+  preparedSql: string[] = [];
   adminUsers: AdminUserRow[] = [];
   sessions: SessionRow[] = [];
   users: UserRow[] = [];
@@ -155,7 +156,18 @@ class FakeD1 {
   scanRecords: ScanRecordRow[] = [];
 
   prepare(sql: string): FakeD1Statement {
+    const normalizedSql = normalizeSql(sql);
+    this.preparedSql.push(normalizedSql);
+    if (normalizedSql.includes("(? IS NULL")) {
+      throw new Error("PostgreSQL cannot infer an untyped null sentinel");
+    }
     return new FakeD1Statement(this, sql);
+  }
+
+  async batch<T = unknown>(statements: FakeD1Statement[]): Promise<D1Result<T>[]> {
+    const results: D1Result<T>[] = [];
+    for (const statement of statements) results.push(await statement.all<T>());
+    return results;
   }
 }
 
@@ -244,15 +256,47 @@ class FakeD1Statement {
   async all<T = unknown>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
 
-    if (sql.includes("AS install_type")) {
-      const installations = this.db.installations.map((row) => ({
-        install_type: "anonymous",
-        uid: row.uid,
-        platform: row.platform,
-        country: row.country_code ?? "Unknown",
-        created_at: row.first_seen_at,
-      }));
-      return okResult<T>(installations as T[]);
+    if (sql.startsWith("SELECT COUNT(*) AS total_installations")) {
+      const installations = installationResults(this.db, this.values);
+      return okResult<T>([{
+        total_installations: installations.length,
+        countries: new Set(installations.map((row) => row.country)).size,
+        platforms: new Set(installations.map((row) => row.platform)).size,
+      }] as T[]);
+    }
+
+    if (sql.includes("COUNT(*) AS total") && sql.includes("GROUP BY substr(first_seen_at, 1, 10)")) {
+      const totals = new Map<string, number>();
+      for (const row of installationResults(this.db, this.values)) {
+        totals.set(row.date, (totals.get(row.date) ?? 0) + 1);
+      }
+      return okResult<T>([...totals.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([date, total]) => ({ date, total })) as T[]);
+    }
+
+    if (sql.includes("COUNT(*) AS installs") && sql.includes("LIMIT ? OFFSET ?")) {
+      const groups = new Map<string, {
+        uid: string;
+        date: string;
+        country: string;
+        platform: string;
+        installs: number;
+      }>();
+      for (const row of installationResults(this.db, this.values)) {
+        const key = [row.uid, row.date, row.country, row.platform].join("|");
+        const existing = groups.get(key);
+        if (existing) existing.installs += 1;
+        else groups.set(key, { ...row, installs: 1 });
+      }
+      const pageSize = Number(this.values[8]);
+      const offset = Number(this.values[9]);
+      const rows = [...groups.values()].sort((left, right) =>
+        left.date.localeCompare(right.date) ||
+        left.uid.localeCompare(right.uid) ||
+        left.country.localeCompare(right.country) ||
+        left.platform.localeCompare(right.platform));
+      return okResult<T>(rows.slice(offset, offset + pageSize) as T[]);
     }
 
     if (sql.includes("FROM admin_user")) {
@@ -711,7 +755,7 @@ describe("admin routes", () => {
     );
   });
 
-  it("counts unique installations instead of accounts because account upgrades must not inflate installs", async () => {
+  it("counts unique installations in bounded database queries because upgrades must not inflate installs and Hyperdrive must not return raw installation rows", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "admin-install", "install@example.com", "correct-password", "operator");
     env.DB.users.push(userRow("user-install-1", "one@example.com", "2026-07-07T08:00:00.000Z"));
@@ -728,6 +772,14 @@ describe("admin routes", () => {
       country_code: "US",
       first_seen_at: "2026-07-08T08:00:00.000Z",
       last_seen_at: "2026-07-08T08:00:00.000Z",
+    });
+    env.DB.installations.push({
+      installation_id: "android-device-outside-range",
+      uid: "100124",
+      platform: "Android",
+      country_code: "CA",
+      first_seen_at: "2026-07-09T08:00:00.000Z",
+      last_seen_at: "2026-07-09T08:00:00.000Z",
     });
     const login = await loginAdmin(env, "install@example.com", "correct-password");
 
@@ -761,6 +813,70 @@ describe("admin routes", () => {
         ]),
       }),
     });
+
+    const installationQueries = env.DB.preparedSql.filter((sql) =>
+      sql.includes("FROM app_installation"),
+    );
+    expect(installationQueries).toHaveLength(3);
+    expect(installationQueries).toEqual([
+      expect.stringContaining("COUNT(*) AS total_installations"),
+      expect.stringContaining("GROUP BY substr(first_seen_at, 1, 10)"),
+      expect.stringContaining("LIMIT ? OFFSET ?"),
+    ]);
+    expect(installationQueries.every((sql) => sql.includes(" WHERE "))).toBe(true);
+  });
+
+  it("limits grouped installation rows to 100 while keeping full aggregates because response pagination must bound Hyperdrive results", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-install-limit", "install-limit@example.com", "correct-password", "operator");
+    env.DB.installations.push(...Array.from({ length: 105 }, (_, index) => ({
+      installation_id: `install-${index}`,
+      uid: String(200000 + index),
+      platform: index % 2 === 0 ? "iOS" : "Android",
+      country_code: index % 3 === 0 ? "US" : "CA",
+      first_seen_at: `2026-07-${String((index % 5) + 1).padStart(2, "0")}T08:00:00.000Z`,
+      last_seen_at: "2026-07-06T08:00:00.000Z",
+    })));
+    const login = await loginAdmin(env, "install-limit@example.com", "correct-password");
+
+    const response = await requestAdmin(
+      env,
+      "/analytics/installations?page_size=500",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    const body = await response.json() as {
+      data: {
+        summary: { total_installations: number };
+        trend: Array<{ total: number }>;
+        rows: unknown[];
+        page_size: number;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.summary.total_installations).toBe(105);
+    expect(body.data.trend.reduce((total, item) => total + item.total, 0)).toBe(105);
+    expect(body.data.rows).toHaveLength(100);
+    expect(body.data.page_size).toBe(100);
+  });
+
+  it("types every optional Admin filter because PostgreSQL cannot parse standalone null sentinels", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-null-filters", "null-filters@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "null-filters@example.com", "correct-password");
+
+    const responses = await Promise.all([
+      "/users",
+      "/feedbacks",
+      "/scans",
+      "/permissions",
+      "/card-overrides",
+      "/analytics/installations",
+    ].map((path) => requestAdmin(env, path, "GET", undefined, login.data.access_token)));
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 200]);
   });
 
   it("lists scan records with detail fields because support must audit recognition and user confirmation", async () => {
@@ -1118,6 +1234,21 @@ function adminUserResults(db: FakeD1, values: unknown[]) {
 
 function normalizeSql(sql: string): string {
   return sql.replaceAll('"user"', "user").replace(/\s+/g, " ").trim();
+}
+
+function installationResults(db: FakeD1, values: unknown[]) {
+  const [dateFrom, , dateTo, , platform, , country] = values as Array<string | null>;
+  return db.installations
+    .map((row) => ({
+      uid: row.uid,
+      date: row.first_seen_at.slice(0, 10),
+      country: row.country_code || "Unknown",
+      platform: row.platform || "Unknown",
+    }))
+    .filter((row) => !dateFrom || row.date >= dateFrom)
+    .filter((row) => !dateTo || row.date <= dateTo)
+    .filter((row) => !platform || row.platform.toLowerCase() === platform)
+    .filter((row) => !country || row.country.toLowerCase() === country);
 }
 
 function okResult<T>(results: T[] = [], changes = 1): D1Result<T> {

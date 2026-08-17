@@ -37,12 +37,23 @@ type AdminUserRow = {
   created_at: string;
 };
 
-type InstallationSourceRow = {
-  install_type: "anonymous";
+type InstallationSummaryRow = {
+  total_installations: number;
+  countries: number;
+  platforms: number;
+};
+
+type InstallationTrendRow = {
+  date: string;
+  total: number;
+};
+
+type InstallationAnalyticsRow = {
   uid: string;
-  platform: string;
+  date: string;
   country: string;
-  created_at: string;
+  platform: string;
+  installs: number;
 };
 
 type FeedbackTicketRow = {
@@ -205,8 +216,8 @@ const SELECT_ADMIN_BY_ID_SQL = `
 const SELECT_ADMIN_PERMISSIONS_SQL = `
   SELECT id, email, password_hash, role, status, created_at
   FROM admin_user
-  WHERE (? IS NULL OR lower(email) LIKE '%' || ? || '%')
-    AND (? IS NULL OR status = ?)
+  WHERE (CAST(? AS text) IS NULL OR lower(email) LIKE '%' || ? || '%')
+    AND (CAST(? AS text) IS NULL OR status = ?)
   ORDER BY created_at DESC
   LIMIT ? OFFSET ?
 `;
@@ -284,12 +295,12 @@ const ADMIN_USERS_FILTERED_SQL = `
     FROM anonymous_account a
   )
   SELECT * FROM accounts
-  WHERE (? IS NULL OR account_type = ?)
-    AND (? IS NULL OR lower(id) LIKE '%' || ? || '%' OR lower(COALESCE(email, device_id, '')) LIKE '%' || ? || '%')
-    AND (? IS NULL OR identity = ?)
-    AND (? IS NULL OR lower(platform) = ?)
-    AND (? IS NULL OR created_at >= ?)
-    AND (? IS NULL OR created_at <= ?)
+  WHERE (CAST(? AS text) IS NULL OR account_type = ?)
+    AND (CAST(? AS text) IS NULL OR lower(id) LIKE '%' || ? || '%' OR lower(COALESCE(email, device_id, '')) LIKE '%' || ? || '%')
+    AND (CAST(? AS text) IS NULL OR identity = ?)
+    AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
+    AND (CAST(? AS text) IS NULL OR created_at >= ?)
+    AND (CAST(? AS text) IS NULL OR created_at <= ?)
 `;
 
 const SELECT_ADMIN_USERS_SQL = `${ADMIN_USERS_FILTERED_SQL}
@@ -299,11 +310,39 @@ const SELECT_ADMIN_USERS_SQL = `${ADMIN_USERS_FILTERED_SQL}
 
 const COUNT_ADMIN_USERS_SQL = `SELECT COUNT(*) AS total FROM (${ADMIN_USERS_FILTERED_SQL})`;
 
-const SELECT_INSTALLATION_SOURCES_SQL = `
-  SELECT 'anonymous' AS install_type, uid, platform,
-    COALESCE(country_code, 'Unknown') AS country, first_seen_at AS created_at
+const INSTALLATION_FILTER_SQL = `
   FROM app_installation
-  ORDER BY first_seen_at ASC
+  WHERE (CAST(? AS text) IS NULL OR substr(first_seen_at, 1, 10) >= ?)
+    AND (CAST(? AS text) IS NULL OR substr(first_seen_at, 1, 10) <= ?)
+    AND (CAST(? AS text) IS NULL OR lower(COALESCE(NULLIF(platform, ''), 'Unknown')) = ?)
+    AND (CAST(? AS text) IS NULL OR lower(COALESCE(NULLIF(country_code, ''), 'Unknown')) = ?)
+`;
+
+const SELECT_INSTALLATION_SUMMARY_SQL = `
+  SELECT COUNT(*) AS total_installations,
+    COUNT(DISTINCT COALESCE(NULLIF(country_code, ''), 'Unknown')) AS countries,
+    COUNT(DISTINCT COALESCE(NULLIF(platform, ''), 'Unknown')) AS platforms
+  ${INSTALLATION_FILTER_SQL}
+`;
+
+const SELECT_INSTALLATION_TREND_SQL = `
+  SELECT substr(first_seen_at, 1, 10) AS date, COUNT(*) AS total
+  ${INSTALLATION_FILTER_SQL}
+  GROUP BY substr(first_seen_at, 1, 10)
+  ORDER BY date ASC
+`;
+
+const SELECT_INSTALLATION_ROWS_SQL = `
+  SELECT uid, substr(first_seen_at, 1, 10) AS date,
+    COALESCE(NULLIF(country_code, ''), 'Unknown') AS country,
+    COALESCE(NULLIF(platform, ''), 'Unknown') AS platform,
+    COUNT(*) AS installs
+  ${INSTALLATION_FILTER_SQL}
+  GROUP BY uid, substr(first_seen_at, 1, 10),
+    COALESCE(NULLIF(country_code, ''), 'Unknown'),
+    COALESCE(NULLIF(platform, ''), 'Unknown')
+  ORDER BY MIN(first_seen_at) ASC, uid ASC, country ASC, platform ASC
+  LIMIT ? OFFSET ?
 `;
 
 const SELECT_USER_DETAIL_SQL = `
@@ -328,7 +367,7 @@ const DISABLE_USER_SQL = `
 const SELECT_FEEDBACKS_SQL = `
   SELECT id, uid, email, types, functions, message, status, created_at, updated_at
   FROM feedback_ticket
-  WHERE (? IS NULL OR status = ?)
+  WHERE (CAST(? AS text) IS NULL OR status = ?)
   ORDER BY created_at DESC
   LIMIT ? OFFSET ?
 `;
@@ -356,14 +395,14 @@ const SELECT_SCAN_RECORDS_SQL = `
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
   FROM scan_record
-  WHERE (? IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
-    AND (? IS NULL OR lower(platform) = ?)
-    AND (? IS NULL OR lower(app_version) = ?)
-    AND (? IS NULL OR recognition_status = ?)
-    AND (? IS NULL OR user_confirmation_status = ?)
-    AND (? IS NULL OR modified_result = ?)
-    AND (? IS NULL OR created_at >= ?)
-    AND (? IS NULL OR created_at <= ?)
+  WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
+    AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
+    AND (CAST(? AS text) IS NULL OR lower(app_version) = ?)
+    AND (CAST(? AS text) IS NULL OR recognition_status = ?)
+    AND (CAST(? AS text) IS NULL OR user_confirmation_status = ?)
+    AND (CAST(? AS integer) IS NULL OR modified_result = ?)
+    AND (CAST(? AS text) IS NULL OR created_at >= ?)
+    AND (CAST(? AS text) IS NULL OR created_at <= ?)
   ORDER BY created_at DESC
   LIMIT ? OFFSET ?
 `;
@@ -371,14 +410,14 @@ const SELECT_SCAN_RECORDS_SQL = `
 const COUNT_SCAN_RECORDS_SQL = `
   SELECT COUNT(*) AS total
   FROM scan_record
-  WHERE (? IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
-    AND (? IS NULL OR lower(platform) = ?)
-    AND (? IS NULL OR lower(app_version) = ?)
-    AND (? IS NULL OR recognition_status = ?)
-    AND (? IS NULL OR user_confirmation_status = ?)
-    AND (? IS NULL OR modified_result = ?)
-    AND (? IS NULL OR created_at >= ?)
-    AND (? IS NULL OR created_at <= ?)
+  WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
+    AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
+    AND (CAST(? AS text) IS NULL OR lower(app_version) = ?)
+    AND (CAST(? AS text) IS NULL OR recognition_status = ?)
+    AND (CAST(? AS text) IS NULL OR user_confirmation_status = ?)
+    AND (CAST(? AS integer) IS NULL OR modified_result = ?)
+    AND (CAST(? AS text) IS NULL OR created_at >= ?)
+    AND (CAST(? AS text) IS NULL OR created_at <= ?)
 `;
 
 const SELECT_SCAN_RECORD_BY_ID_SQL = `
@@ -430,8 +469,8 @@ const DELETE_TRENDING_PIN_SQL = `
 const SELECT_CARD_OVERRIDES_SQL = `
   SELECT id, card_ref, override_fields, image_url, is_missing_card, updated_by, updated_at
   FROM card_override
-  WHERE (? IS NULL OR is_missing_card = ?)
-    AND (? IS NULL OR lower(card_ref) LIKE '%' || ? || '%')
+  WHERE (CAST(? AS integer) IS NULL OR is_missing_card = ?)
+    AND (CAST(? AS text) IS NULL OR lower(card_ref) LIKE '%' || ? || '%')
   ORDER BY updated_at DESC
   LIMIT ? OFFSET ?
 `;
@@ -632,30 +671,50 @@ adminRoutes.get("/analytics/installations", async (c) => {
   const country = normalizeQuery(c.req.query("country"));
   const environment = normalizeQuery(c.req.query("environment"));
   const offset = (page - 1) * pageSize;
+  const currentEnvironment = c.env.APP_ENVIRONMENT ?? "production";
 
-  const { results = [] } = await c.env.DB.prepare(SELECT_INSTALLATION_SOURCES_SQL)
-    .all<InstallationSourceRow>();
-  const installs = results
-    .map((row) =>
-      toInstallationRecord(row, c.env.APP_ENVIRONMENT ?? "production"),
-    )
-    .filter((item) => isWithinDateRange(item.date, dateFrom, dateTo))
-    .filter((item) => !platform || item.platform.toLowerCase() === platform)
-    .filter((item) => !country || item.country.toLowerCase() === country)
-    .filter((item) => !environment || item.environment.toLowerCase() === environment);
-  const trend = buildInstallationTrend(installs, dateFrom, dateTo);
-  const rows = buildInstallationRows(installs);
+  if (environment && environment !== currentEnvironment) {
+    return c.json({
+      success: true,
+      data: {
+        summary: { total_installations: 0, countries: 0, platforms: 0 },
+        trend: buildInstallationTrend([], dateFrom, dateTo),
+        rows: [],
+        page,
+        page_size: pageSize,
+      },
+    });
+  }
+
+  const filterBindings = [
+    dateFrom, dateFrom,
+    dateTo, dateTo,
+    platform, platform,
+    country, country,
+  ];
+  const [summaryResult, trendResult, rowsResult] = await c.env.DB.batch([
+    c.env.DB.prepare(SELECT_INSTALLATION_SUMMARY_SQL).bind(...filterBindings),
+    c.env.DB.prepare(SELECT_INSTALLATION_TREND_SQL).bind(...filterBindings),
+    c.env.DB.prepare(SELECT_INSTALLATION_ROWS_SQL).bind(
+      ...filterBindings,
+      pageSize,
+      offset,
+    ),
+  ]);
+  const summary = summaryResult?.results?.[0] as InstallationSummaryRow | undefined;
+  const trendRows = (trendResult?.results ?? []) as InstallationTrendRow[];
+  const rows = (rowsResult?.results ?? []) as InstallationAnalyticsRow[];
 
   return c.json({
     success: true,
     data: {
       summary: {
-        total_installations: installs.length,
-        countries: new Set(installs.map((item) => item.country)).size,
-        platforms: new Set(installs.map((item) => item.platform)).size,
+        total_installations: Number(summary?.total_installations ?? 0),
+        countries: Number(summary?.countries ?? 0),
+        platforms: Number(summary?.platforms ?? 0),
       },
-      trend,
-      rows: rows.slice(offset, offset + pageSize),
+      trend: buildInstallationTrend(trendRows, dateFrom, dateTo),
+      rows: rows.map((row) => ({ ...row, environment: currentEnvironment })),
       page,
       page_size: pageSize,
     },
@@ -1487,68 +1546,16 @@ function readRequiredString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function toInstallationRecord(
-  row: InstallationSourceRow,
-  environment: NonNullable<Env["APP_ENVIRONMENT"]>,
-) {
-  return {
-    uid: row.uid,
-    install_type: row.install_type,
-    platform: row.platform || "Unknown",
-    country: row.country || "Unknown",
-    environment,
-    date: row.created_at.slice(0, 10),
-    created_at: row.created_at,
-  };
-}
-
-function isWithinDateRange(date: string, dateFrom: string | null, dateTo: string | null): boolean {
-  if (dateFrom && date < dateFrom) return false;
-  if (dateTo && date > dateTo) return false;
-  return true;
-}
-
 function buildInstallationTrend(
-  installs: Array<ReturnType<typeof toInstallationRecord>>,
+  trendRows: InstallationTrendRow[],
   dateFrom: string | null,
   dateTo: string | null,
 ) {
-  const dates = dateFrom && dateTo ? enumerateDates(dateFrom, dateTo) : [...new Set(installs.map((item) => item.date))].sort();
-  const totals = new Map<string, number>();
-  for (const item of installs) {
-    totals.set(item.date, (totals.get(item.date) ?? 0) + 1);
-  }
+  const dates = dateFrom && dateTo
+    ? enumerateDates(dateFrom, dateTo)
+    : trendRows.map((row) => row.date);
+  const totals = new Map(trendRows.map((row) => [row.date, Number(row.total)]));
   return dates.map((date) => ({ date, total: totals.get(date) ?? 0 }));
-}
-
-function buildInstallationRows(installs: Array<ReturnType<typeof toInstallationRecord>>) {
-  const groups = new Map<string, {
-    uid: string;
-    date: string;
-    country: string;
-    platform: string;
-    environment: string;
-    installs: number;
-  }>();
-
-  for (const item of installs) {
-    const key = [item.uid, item.date, item.country, item.platform, item.environment].join("|");
-    const existing = groups.get(key);
-    if (existing) {
-      existing.installs += 1;
-    } else {
-      groups.set(key, {
-        uid: item.uid,
-        date: item.date,
-        country: item.country,
-        platform: item.platform,
-        environment: item.environment,
-        installs: 1,
-      });
-    }
-  }
-
-  return [...groups.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
 
 function enumerateDates(dateFrom: string, dateTo: string): string[] {
