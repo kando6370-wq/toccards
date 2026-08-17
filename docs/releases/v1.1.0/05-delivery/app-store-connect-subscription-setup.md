@@ -2,9 +2,10 @@
 
 > **定位**：指导运营与研发在 App Store Connect 中配置 Performance Pro 的 iOS 商品、测试账号、服务端通知与审核资料。
 > **日期**：2026-08-10
-> **适用应用**：Bundle ID `com.cardai.tcg`
+> **最近核验**：2026-08-17
+> **适用应用**：dev/test Bundle ID `com.kando.kandoApp.beta`；production Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
-> **状态快照（2026-08-13）**：dev/test 商品 Product ID 已确认，dev D1 商品映射和 Worker 白名单已部署；prod 商品尚未创建或通过审核，prod Product ID 保持未配置。服务端 Apple JWS 验证链已实现，购买闭环仍被 Apple Secret 和 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。远程环境的实时状态必须重新查询后确认。
+> **状态快照（2026-08-17）**：当前 App Store Connect dev/test App 为 `Kando KP App`（Apple ID `6790245922`），订阅组 ID 为 `22251901`。2026-08-13 的历史证据显示 dev D1 商品映射和 Worker 白名单已部署；本次未重新验证远程 dev。prod 商品尚未创建或通过审核，prod Product ID 保持未配置。付费 App 协议、银行和税务资料尚未全部生效，购买闭环仍被 Apple Secret 和 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。远程环境状态会变化，后续执行前必须重新查询。
 
 ---
 
@@ -40,7 +41,7 @@ dev/test Product ID 不得默认复用到 prod。prod 值确认后，必须独�
 在创建和送审商品前，确认以下项目已经完成：
 
 - [ ] Apple Developer Program 账号有效，且当前账号拥有 App Manager 或 Admin 等所需权限。
-- [ ] App Store Connect 中已存在 Bundle ID 为 `com.cardai.tcg` 的 App。
+- [ ] App Store Connect 中已存在与目标构建匹配的 App：dev/test 使用 `com.kando.kandoApp.beta`，production 使用 `com.cardai.tcg`。
 - [ ] `Agreements, Tax, and Banking` 中 Paid Apps Agreement 已生效。
 - [ ] 银行账户与税务资料已完成并通过 Apple 校验。
 - [ ] Xcode 工程已启用 In-App Purchase capability。
@@ -193,8 +194,11 @@ RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env prod
 当前已实现 Fresh Purchase challenge、StoreKit 2 JWS 上传和 Workers session grant 写链，但**仍无法宣称正式购买授权端到端完成**。上线阻塞包括：
 
 - 截至 2026-08-13，dev/test Product ID 已确认；远程 dev D1 已写入三个 active `performance_pro` 映射，Workers dev 白名单已随版本 `7228b912-c57f-43a3-8f2c-2404f8dac7bc` 部署，健康接口返回 HTTP 200。
+- 2026-08-17 只读核验显示：付费 App 协议为“等待用户信息”，银行账户为“正在处理”，美国税务表为“缺少税务信息”。Sandbox Tester 可以先创建，但这些商务前置条件未完成时，不能据此认定付费商品可查询或可购买。
+- `cardx.week` 已配置价格、本地化和 174 个销售地区，并已添加以供审核；它仍受上述付费协议、银行和税务状态共同阻塞。
+- `cardx.year` 已配置价格和本地化，但尚未设置销售范围，也尚未添加以供审核；它同时受商品配置缺口和上述商务状态阻塞。
 - prod Product ID 尚未创建或通过审核；production 客户端配置、Workers prod 白名单和 prod D1 映射必须保持空，待正式值确认后独立配置。
-- Apple Root CA、Production App Apple ID 和 App Store Server API Secret 尚未配置。
+- Apple Root CA、后端 production 环境使用的 App Apple ID 和 App Store Server API Secret 尚未配置；上文记录的 `6790245922` 是当前 dev/test App 记录，不能代替 production 配置。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
 - Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现，但 Apple Secret、通知 URL 和真机/Sandbox 端到端验收尚未完成。
 - Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；截至 2026-08-13，对应迁移已应用到远程 dev，尚未应用到常用 local 或 prod，仍待 Sandbox/TestFlight 多设备验收。
@@ -205,17 +209,88 @@ challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 veri
 
 ## 八、Sandbox 与 TestFlight 验收
 
-### 8.1 创建 Sandbox 测试账号
+### 8.1 账号入口与权限
 
-进入 `Users and Access -> Sandbox -> Testers` 创建专用测试账号。不要使用真实 Apple ID 进行 Sandbox 扣款测试。
+Sandbox Apple Account 不在 `developer.apple.com/account` 申请，也不需要单独审核。使用 App Store Connect 中具有以下任一角色的账号直接创建：
 
-### 8.2 测试环境
+- Account Holder
+- Admin
+- App Manager
+- Developer
 
-- 真机开发包：使用 Sandbox Tester 测试。
-- TestFlight：内购交易自动运行在 Sandbox 环境，不会产生真实扣款。
-- 不以模拟器结果代替真机验收。
+创建入口为 `App Store Connect -> Users and Access -> Sandbox`。部分界面会在 Sandbox 下继续显示 `Testers`。
 
-### 8.3 必测清单
+### 8.2 创建 Sandbox Tester
+
+1. 登录 [App Store Connect](https://appstoreconnect.apple.com/)，进入 `Users and Access`。
+2. 打开顶部 `Sandbox`，点击添加按钮 `+`；首次创建时可能显示 `Create Test Accounts`。
+3. 按下表填写测试账号：
+
+| 字段 | 要求 |
+|---|---|
+| First Name / Last Name | 使用可识别的测试用途名称，不填写真实用户资料 |
+| Email | 不得注册过 Apple Account，也不得用于其他 Sandbox Tester 或购买 App Store 内容 |
+| Password | 使用符合 Apple 强度要求的独立密码，不得写入仓库、工单或测试日志 |
+| Country or Region | 选择已包含在被测商品 Availability 中的 App Store 地区 |
+
+4. 点击 `Create` 完成创建。
+
+创建后，测试员的姓名、邮箱和密码不能编辑；国家或地区可以在 Sandbox Tester 详情中调整。邮箱服务支持 `+` 子地址时，可以使用专门的沙箱邮箱派生多个测试地址，但每个地址仍必须未绑定过 Apple Account。
+
+### 8.3 真机开发包测试
+
+1. 在 iPhone 上启用 `Settings -> Privacy & Security -> Developer Mode`。
+2. 从 `apps/flutter-app` 安装明确使用 test flavor 和 test 配置的构建：
+
+```powershell
+flutter run --flavor test --dart-define-from-file=config/test.json -d <device-id>
+```
+
+也可以使用项目发布脚本生成并安装内部测试包：
+
+```bash
+./tool/release_ios.sh --env test --install <device-id>
+```
+
+3. 在较新 iOS 中进入 `Settings -> Developer -> Sandbox Apple Account` 登录测试账号；部分旧版本入口显示为 `Settings -> App Store -> Sandbox Account`。
+4. 不要退出设备主 iCloud Apple Account，也不要把 Sandbox Tester 登录到设备主 Apple Account 入口。
+5. 打开 App 发起购买，确认系统购买弹窗显示 Sandbox 测试环境且没有真实扣款。
+
+若测试员所在国家或地区不在商品 Availability 内，即使 Product ID 正确，StoreKit 也可能不返回该商品。修改测试员地区后，需要在设备上重新登录 Sandbox Apple Account。
+
+### 8.4 TestFlight 测试
+
+- TestFlight 内购交易自动运行在 Sandbox 环境，不产生真实扣款。
+- TestFlight 测试员不需要退出设备主 Apple Account，也不能把 TestFlight 结果当作正式商店扣款证据。
+- TestFlight 能证明分发构建与 Apple Sandbox 的集成，但不能替代 production 商品、协议、税务、银行和正式审核状态。
+
+### 8.5 订阅续订设置
+
+在 `Users and Access -> Sandbox` 中打开测试员详情，可以调整 `Subscription Renewal Rate`、启用 interrupted purchases 或清理购买历史。清理购买历史是不可逆的测试数据操作，执行前应确认目标测试账号。
+
+Apple 默认将一个月压缩为 5 分钟；在该默认速率下，1 周订阅约 3 分钟续订一次，1 年订阅约 1 小时续订一次。Sandbox 自动续订最多发生 12 次，第 13 次续订尝试时自动续订关闭。该加速规则只用于测试，不能外推为生产行为。
+
+### 8.6 Weekly 与 Yearly 查询前置检查
+
+当前客户端 test 配置必须与 App Store Connect dev/test App 完全一致：
+
+| 检查项 | 期望值 |
+|---|---|
+| Bundle ID | `com.kando.kandoApp.beta` |
+| Weekly Product ID | `cardx.week` |
+| Yearly Product ID | `cardx.year` |
+| 订阅组 | `Performance Pro`，Group ID `22251901` |
+
+若 Weekly 或 Yearly 显示 `Unavailable`，按以下顺序排查：
+
+1. 补齐税务信息，并等待银行账户和付费 App 协议变为有效。
+2. 为 Yearly 设置与 Weekly 一致的销售范围，并添加以供审核。
+3. 确认 Sandbox Tester 的国家或地区属于商品已启用地区。
+4. 确认安装包使用 test flavor，且通过 `config/test.json` 注入 Product ID。
+5. App Store Connect 配置更新后等待 Apple 服务传播，再重新安装或重启 App 查询。
+6. 若仍失败，记录 StoreKit 查询的 `error` 和 `notFoundIDs`。当前 UI 会把 StoreKit 未返回的商品统一显示为 `Unavailable`，仅凭页面不能区分具体失败原因。
+
+### 8.7 必测清单
 
 - [ ] Weekly、Yearly、Lifetime 均能查询到 App Store 本地化价格。
 - [ ] 三种商品均能发起购买并正确处理成功、取消和失败。
@@ -225,6 +300,7 @@ challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 veri
 - [ ] Billing Retry 与 Grace Period 符合产品策略。
 - [ ] Lifetime 始终授予永久权益，不设置订阅到期时间。
 - [ ] 重复通知、重复验证和重复恢复不会重复授予权益。
+- [ ] 分别记录真机开发包和 TestFlight 的结果，不以模拟器结果代替真机验收。
 
 ---
 
@@ -262,5 +338,8 @@ challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 veri
 
 - [Offer auto-renewable subscriptions](https://developer.apple.com/help/app-store-connect/manage-subscriptions/offer-auto-renewable-subscriptions/)
 - [Create in-app purchases](https://developer.apple.com/help/app-store-connect/manage-in-app-purchases/create-in-app-purchases/)
+- [Create a Sandbox Apple Account](https://developer.apple.com/help/app-store-connect/test-in-app-purchases/create-a-sandbox-apple-account/)
+- [Overview of testing in sandbox](https://developer.apple.com/help/app-store-connect/test-in-app-purchases/overview-of-testing-in-sandbox/)
+- [Manage Sandbox Apple Account settings](https://developer.apple.com/help/app-store-connect/test-in-app-purchases/manage-sandbox-apple-account-settings/)
 
 App Store Connect 菜单名称可能随 Apple 后台更新发生轻微变化；配置原则、商品类型和 Product ID 映射以本文件为准，具体页面位置以 Apple 当前界面为准。
