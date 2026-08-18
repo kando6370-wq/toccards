@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "D1-POSTGRES-GIT-PUSH-20260818",
+  "mode": "single",
+  "rationale": "单任务完成远端分支整合、非强制推送和 SHA 校验；不触碰产品行为、数据库或部署",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "整合 github/dev 并推送 PostgreSQL 迁移提交",
+      "module": "git-delivery",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        ".ai-harness/work-items/D1-POSTGRES-GIT-PUSH-20260818/**",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "rebase 后提交图线性且保留远端 Flutter 与本地 PostgreSQL 变更",
+        "git diff --check、Harness check --ci、远端 SHA 与 ahead/behind 校验"
+      ],
+      "docsImpact": [
+        "N/A: 仅整合并推送已批准提交；若同文件冲突则保留双方已有文档增量"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "59de9cd4-7fff-4cb1-b065-9d0c68ebd737",
+        "3affeaaa-95f0-4f9f-bc15-e379209db7f3"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "dev 分支远程交付",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T00:49:44.983Z",
+  "updatedAt": "2026-08-18T00:51:02.417Z"
+}

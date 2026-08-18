@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "id": "D1-POSTGRES-GIT-PUSH-20260818",
+  "type": "ITERATION",
+  "title": "推送 PostgreSQL 迁移提交到 github/dev",
+  "status": "DONE",
+  "flags": [],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户当前消息明确授权推送"
+  },
+  "input": {
+    "references": [
+      "用户 2026-08-18 明确要求帮我推送",
+      "本地 dev HEAD 38e832f5e09bd22f1ac033b44ea1ee5df804cc92，相对 github/dev 领先 5 个提交"
+    ],
+    "acceptance": [
+      "fetch 后确认 github/dev 可快进到本地 dev",
+      "使用非强制 git push github dev:dev 完成推送",
+      "推送后本地 HEAD 与 github/dev SHA 一致且 ahead/behind 为 0/0"
+    ],
+    "nonGoals": [
+      "不部署 dev 或 prod，不修改数据库，不强制推送，不改产品代码"
+    ],
+    "version": "v1.1.0"
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": "AGENTS.md",
+    "evidence": [
+      "本地 dev HEAD=38e832f5e09bd22f1ac033b44ea1ee5df804cc92，产品工作树干净，仅当前交付工作项未跟踪",
+      "fetch 后 github/dev=32a46b4aadd23acf6be4b87466ee5d687074e6e1，本地 ahead=5/behind=1；远端提交为 Flutter 订阅 UI/测试，唯一路径重叠是 development-plan.md"
+    ],
+    "completedAt": "2026-08-18T00:49:19.463Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "38e832f5e09bd22f1ac033b44ea1ee5df804cc92",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/D1-POSTGRES-GIT-PUSH-20260818/events.jsonl",
+        ".ai-harness/work-items/D1-POSTGRES-GIT-PUSH-20260818/state.json"
+      ],
+      "fingerprints": {
+        ".ai-harness/work-items/D1-POSTGRES-GIT-PUSH-20260818/events.jsonl": "69954a17a203b4c162c773d90c5fd0cf942057c3724d1d66cdb64105fa45c8b1",
+        ".ai-harness/work-items/D1-POSTGRES-GIT-PUSH-20260818/state.json": "050e23bde4c2ccac20007dd87013e1c03e454d88c858ba046ad2e888b38ec56c"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": "AGENTS.md",
+    "evidence": [
+      "先将本地 5 个迁移提交非交互 rebase 到 github/dev；若 development-plan.md 冲突则仅保留远端 Flutter 增量与本地 PostgreSQL 当前态，不改其他内容",
+      "rebase 后运行 diff/check 与 Harness 门禁，再使用非强制 git push github dev:dev，最后比较本地/远端 SHA 和 ahead/behind"
+    ],
+    "completedAt": "2026-08-18T00:49:20.207Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅执行 Git rebase/push 与只读 SHA 校验，不修改 schema、迁移内容、数据库数据或部署"
+    ],
+    "completedAt": "2026-08-18T00:49:20.541Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/D1-POSTGRES-GIT-PUSH-20260818/plan.json",
+    "approved": true,
+    "approvalRef": "用户 2026-08-18 明确要求帮我推送"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "e797d1e4-2f5e-4162-bda1-c9e913d216b1"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "68aa2838-404a-419c-9545-7c0a33c476cd"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "969b4fc9-a637-4f8f-95a5-f7559ea84539"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "not-applicable",
+    "evidence": [
+      "4bf2c6b1-08be-40d3-8222-4b6cd2818191"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T00:48:09.162Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T00:48:09.513Z",
+      "reason": "开始核对本地提交、工作树与远端分支基线"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-18T00:49:19.812Z",
+      "reason": "远端基线已核对，设计安全快进交付方案"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-18T00:49:46.380Z",
+      "reason": "Git 交付计划与非强制推送边界已批准"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-18T00:49:46.752Z",
+      "reason": "开始 rebase、验证与远程推送"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T00:51:26.368Z",
+      "reason": "唯一 Git 交付任务已完成"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T00:51:27.421Z",
+      "reason": "远端 SHA、提交等价性与文档边界验证通过"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T00:51:28.135Z",
+      "reason": "最终 Git 交付 Review 通过"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T00:51:28.863Z",
+      "reason": "迁移提交的远程交付与 SHA 验收完成"
+    }
+  ],
+  "createdAt": "2026-08-18T00:48:09.162Z",
+  "updatedAt": "2026-08-18T00:51:28.863Z"
+}
