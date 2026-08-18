@@ -3,7 +3,7 @@
   "id": "ITER-PG-APP-DEV-DELIVERY-20260818",
   "type": "ITERATION",
   "title": "提交并推送 PostgreSQL-only App 整改到 github/dev",
-  "status": "IMPLEMENTING",
+  "status": "READY_FOR_ACCEPTANCE",
   "flags": [],
   "policyFiles": [
     ".ai-harness/policies/core.md",
@@ -469,12 +469,16 @@
     "approvalRef": "用户明确当前本地整个 dev 分支代码全部提交并推送"
   },
   "verification": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "2a52ce6b-7980-4df0-b310-00fcb2cbd534"
+    ]
   },
   "review": {
-    "status": "pending",
-    "evidence": [],
+    "status": "pass",
+    "evidence": [
+      "46012841-ddba-45bc-95a6-d23a05463a69"
+    ],
     "independent": false
   },
   "acceptance": {
@@ -488,8 +492,10 @@
     "unknowns": []
   },
   "documentation": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "c3c88805-24bb-4d05-a5bb-bd16a492c431"
+    ]
   },
   "blocked": null,
   "history": [
@@ -522,8 +528,26 @@
       "to": "IMPLEMENTING",
       "at": "2026-08-18T08:38:45.802Z",
       "reason": "开始全量暂存、提交、rebase、验证和推送"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T08:51:36.151Z",
+      "reason": "任务级验证与 Review 完成，记录工作项最终验证和文档影响"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T08:51:52.078Z",
+      "reason": "工作项验证与文档影响已记录，进入最终交付 Review"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T08:52:07.089Z",
+      "reason": "最终 Review 完成，等待非强制推送与远端 full SHA 验收"
     }
   ],
   "createdAt": "2026-08-18T08:36:10.092Z",
-  "updatedAt": "2026-08-18T08:38:46.279Z"
+  "updatedAt": "2026-08-18T08:52:07.089Z"
 }

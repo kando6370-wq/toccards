@@ -3,7 +3,7 @@
   "id": "ITER-TRENDING-COLLECTOR-GUIDE-20260818",
   "type": "ITERATION",
   "title": "编写 card_trending_snapshot 采集程序接入与写入指南",
-  "status": "IMPLEMENTING",
+  "status": "DONE",
   "flags": [
     "database",
     "api"
@@ -467,17 +467,23 @@
     "approvalRef": "用户明确要求编写并交付给采集同事；计划仅文档变更且不执行数据库操作"
   },
   "verification": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "f0bee8b2-f225-4dc5-a6fb-a80663e0368c"
+    ]
   },
   "review": {
-    "status": "pending",
-    "evidence": [],
+    "status": "pass",
+    "evidence": [
+      "464b4f7f-7dd6-4642-8eaa-4792ce0461a7"
+    ],
     "independent": false
   },
   "acceptance": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "bb2d8956-b3c0-459e-9d18-001eb303c3ce"
+    ]
   },
   "analysis": {
     "status": "pending",
@@ -486,8 +492,10 @@
     "unknowns": []
   },
   "documentation": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "9a529a9a-07a2-4ba8-ae44-0e0391a0a441"
+    ]
   },
   "blocked": null,
   "history": [
@@ -520,8 +528,32 @@
       "to": "IMPLEMENTING",
       "at": "2026-08-18T08:31:55.965Z",
       "reason": "开始按批准范围编写指南和导航入口"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T08:47:27.932Z",
+      "reason": "T1 已完成且任务级验证/Review 通过"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T08:47:50.761Z",
+      "reason": "最终验证和文档同步证据均通过"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T08:48:22.768Z",
+      "reason": "最终 Review 通过"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T08:48:40.786Z",
+      "reason": "文档交付验收通过"
     }
   ],
   "createdAt": "2026-08-18T08:28:32.585Z",
-  "updatedAt": "2026-08-18T08:32:03.238Z"
+  "updatedAt": "2026-08-18T08:48:40.786Z"
 }

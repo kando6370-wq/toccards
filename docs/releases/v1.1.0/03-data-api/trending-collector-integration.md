@@ -496,7 +496,7 @@ WHERE batch_id = $1;
 - `GET /api/v1/cards/trending?page=1&page_size=40` 返回相同顺序、USD 当前价、1D 基准价和涨幅。
 - 首页只展示榜单前三张，View All 分页后顺序连续且没有重复卡牌。
 
-当前 Worker 不缓存 Trending KV 结果，历史检查点中 Hyperdrive 查询缓存也已关闭；如果未来重新启用任何 Trending 缓存，pointer 发布流程必须同时定义缓存失效，不能假设数据库写入会自动清除外部缓存。
+当前 Worker 代码不会通过 KV 或 Cache API 缓存 Trending 结果；Hyperdrive 查询缓存属于目标连接的运行配置，发布器接入时必须确认其实际状态。只要任一层启用了 Trending 缓存，pointer 发布流程就必须同时定义缓存失效，不能假设数据库写入会自动清除外部缓存。
 
 发布事务提交后，外部来源可以继续发布新的 current batch，并把 Trending manifest 中的输入 batch 变为 `superseded`；这是正常快照演进，不会使已经发布的 Trending 自动失效。后续审计应按 manifest 的 `input_current_batch_ids` 对账 `published/superseded` 输入快照，不能要求它们永久保持当前 pointer。
 

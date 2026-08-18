@@ -8,7 +8,7 @@
       "id": "T1",
       "title": "编写并索引 card_trending_snapshot 采集写入指南",
       "module": "docs/releases/v1.1.0/03-data-api",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "blockedBy": [],
       "blocks": [],
       "writeScopes": [
@@ -25,9 +25,12 @@
       "reviewBatch": "B1",
       "risk": "low",
       "owner": "Codex",
-      "verificationStatus": "pending",
-      "reviewStatus": "pending",
-      "evidence": [],
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "682a9383-3259-4716-b9b8-889d33f678fa",
+        "bde0d903-839a-4ec4-9ba9-2cfd4f589a5e"
+      ],
       "deferralApproval": null
     }
   ],
@@ -43,5 +46,5 @@
     }
   ],
   "createdAt": "2026-08-18T08:31:12.128Z",
-  "updatedAt": "2026-08-18T08:32:03.237Z"
+  "updatedAt": "2026-08-18T08:46:56.246Z"
 }

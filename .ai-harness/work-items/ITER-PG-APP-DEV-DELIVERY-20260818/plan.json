@@ -8,7 +8,7 @@
       "id": "T1",
       "title": "提交整合并推送当前本地 dev 全部内容",
       "module": "git-delivery",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "blockedBy": [],
       "blocks": [],
       "writeScopes": [
@@ -28,9 +28,12 @@
       "reviewBatch": "R1",
       "risk": "medium",
       "owner": "Codex",
-      "verificationStatus": "pending",
-      "reviewStatus": "pending",
-      "evidence": [],
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "edb2b460-f3c2-445d-9e0c-281446f10366",
+        "1b6ebc0d-31fe-46f6-9cd1-213d4ab636b1"
+      ],
       "deferralApproval": null
     }
   ],
@@ -46,5 +49,5 @@
     }
   ],
   "createdAt": "2026-08-18T08:38:13.628Z",
-  "updatedAt": "2026-08-18T08:38:46.277Z"
+  "updatedAt": "2026-08-18T08:51:24.848Z"
 }
