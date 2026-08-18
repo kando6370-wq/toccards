@@ -10,6 +10,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/premium_locked_panel.dart';
 import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
 import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -1152,66 +1153,13 @@ class _CardPerformanceLocked extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return KandoPremiumLockedPanel(
       key: const Key('card-detail-performance-locked'),
-      width: double.infinity,
-      height: 405,
-      padding: const EdgeInsets.symmetric(horizontal: 28),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KandoColors.border),
-        gradient: const RadialGradient(
-          center: Alignment.bottomLeft,
-          radius: 1.15,
-          colors: [Color(0x66464D1F), Color(0xFF15160E)],
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: KandoColors.accentGlow10,
-            ),
-            child: const Icon(
-              Icons.lock_outline,
-              color: KandoColors.accent,
-              size: 27,
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            "Track This Card's\nPerformance",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: KandoColors.accent,
-              fontFamily: 'Fraunces',
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'See your profit, return, and performance history.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: KandoColors.mutedText, fontSize: 14),
-          ),
-          const SizedBox(height: 22),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: FilledButton(
-              key: const Key('card-detail-unlock-performance'),
-              onPressed: onUnlock,
-              child: const Text('Unlock Performance'),
-            ),
-          ),
-        ],
-      ),
+      title: "Track This Card's Performance",
+      message: 'See your profit, return, and performance history.',
+      buttonLabel: 'Unlock Performance',
+      buttonKey: const Key('card-detail-unlock-performance'),
+      onPressed: onUnlock,
     );
   }
 }

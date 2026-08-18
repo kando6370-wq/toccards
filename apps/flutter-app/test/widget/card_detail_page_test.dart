@@ -935,6 +935,26 @@ void main() {
         find.byKey(const Key('card-detail-performance-locked')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('kando-premium-locked-panel-preview')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('kando-premium-locked-panel-blur')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-unlock-performance')),
+        findsOneWidget,
+      );
+      final lockedSize = tester.getSize(
+        find.byKey(const Key('card-detail-performance-locked')),
+      );
+      final tabsSize = tester.getSize(
+        find.byKey(const Key('card-detail-owned-tabs')),
+      );
+      expect(lockedSize, Size(tabsSize.width, 427));
+      expect(find.text("Track This Card's Performance"), findsOneWidget);
       expect(find.text('Unlock Performance'), findsOneWidget);
       expect(find.text(r'$650.00'), findsNothing);
       expect(find.text(r'$780.00'), findsNothing);
