@@ -101,10 +101,10 @@ Collection Item 编辑与 Folder Move 继续使用单次 `PATCH /api/v1/portfoli
 
 | API | 当前行为 |
 |---|---|
-| `GET /api/v1/scan/quota` | 返回当前 owner 的终身 10 次 Free quota；有效当前 session grant 返回 `unlimited=true`，本机 Premium 同步中返回 `ENTITLEMENT_SYNC_REQUIRED`。 |
-| `POST /api/v1/scan/recognize` | 要求 body `request_id` 与 `Idempotency-Key` 为同一 UUID；在 R2/OCR 前原子预占。Matched/No Match 消耗，技术失败释放，Premium 不消耗 Free quota；完成响应可用原 request ID 重放。 |
+| `GET /api/v1/scan/quota` | 返回当前 owner 的终身 10 次 Free quota；有效当前 session grant 返回 `access=premium`、`unlimited=true`，本机 Premium 同步中返回 `ENTITLEMENT_SYNC_REQUIRED`。 |
+| `POST /api/v1/scan/recognize` | 要求 body `request_id` 与 `Idempotency-Key` 为同一 UUID；在 R2/OCR 前原子预占。Matched/No Match 消耗，技术失败释放，Premium 不消耗 Free quota；成功及额度耗尽响应中的 quota 均包含 `access`、`unlimited`、`limit`、`reserved`、`consumed`、`remaining`，完成响应可用原 request ID 重放。 |
 
-`scan_quota_request` 同时是额度账本和请求幂等真源。Free 的 `reserved + consumed` 最多 10；同 owner 多 session 并发不能预占同一最后额度。处理中租约为 60 秒，防止 Worker 中断永久占用；released 请求不计入已用额度。Flutter 已使用响应中的 quota 更新展示，并已接入 Waiting 与服务端确认 Unlimited 后的 Queue 顺序自动递补。Processing 删除立即移除 UI，但保留原请求的后台观察；最终响应继续更新 Quota，缺少 Quota 时刷新服务端真值，且迟到结果不得重插卡片。
+`scan_quota_request` 同时是额度账本和请求幂等真源。Free 的 `reserved + consumed` 最多 10；同 owner 多 session 并发不能预占同一最后额度。处理中租约为 60 秒，防止 Worker 中断永久占用；released 请求不计入已用额度。Flutter 严格解析完整 quota，不再把缺失权益字段静默降级为 Free；Scan 以本机 Premium 或服务端 `unlimited=true` 的合并结果更新展示、额度拦截与请求同步保护，并在本机为 Free 时于页面生命周期内至少复核一次 StoreKit 权益。Waiting 与服务端确认 Unlimited 后的 Queue 顺序自动递补保持不变。Processing 删除立即移除 UI，但保留原请求的后台观察；最终响应继续更新 Quota，缺少 Quota 时刷新服务端真值，且迟到结果不得重插卡片。
 
 Functional Paywall 只在 typed Purchase/Restore success 后恢复仍有效的 Waiting；quota=0 且图片未入 Queue时只返回 Scan，不自动打开相机或图库。Scan Pro Card 使用完整 Subscription Page：Purchase Success 经 Success Page 返回原 Scan 页面实例，Restore/外部解锁直接返回，因此当前 Queue 不会因重新创建路由而丢失。首次 quota 刷新延后到首帧，避免路由切换构建期修改 Riverpod provider。
 

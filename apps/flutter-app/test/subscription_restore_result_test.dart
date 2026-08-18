@@ -114,6 +114,18 @@ void main() {
       tester.getSize(find.byKey(const Key('subscription-restore-failed-icon'))),
       const Size(26, 26),
     );
+    for (final type in const [
+      SubscriptionRestoreResultType.notFound,
+      SubscriptionRestoreResultType.failed,
+    ]) {
+      final container = tester.widget<Container>(
+        find.byKey(Key('subscription-restore-${type.name}-icon-container')),
+      );
+      final decoration = container.decoration as BoxDecoration;
+      expect(decoration.color, const Color(0x1FF87171));
+      expect(decoration.shape, BoxShape.circle);
+      expect(decoration.border, isNull);
+    }
     expect(find.byType(SvgPicture), findsNWidgets(2));
   });
 

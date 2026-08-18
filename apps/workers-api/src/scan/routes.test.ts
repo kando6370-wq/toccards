@@ -120,6 +120,7 @@ class FakeD1 {
   collectionItemEvents: CollectionItemEventRow[] = [];
   wishlistItems: WishlistRow[] = [];
   cards: CardCatalogRow[] = [];
+  activePremiumSessionIds = new Set<string>();
   failScanInsert = false;
 
   prepare(sql: string): FakeD1Statement {
@@ -148,6 +149,12 @@ class FakeD1Statement {
 
   async first<T = unknown>(): Promise<T | null> {
     const sql = normalizeSql(this.sql);
+    if (sql.includes("FROM billing_session_entitlement_grant AS grant_record")) {
+      const [sessionId] = this.values as [string];
+      return (this.db.activePremiumSessionIds.has(sessionId)
+        ? { id: "grant-1", purchase_chain_id: "chain-1", expires_at: null }
+        : null) as T | null;
+    }
     if (sql.includes("FROM session") && sql.includes("WHERE id = ?")) {
       const [id] = this.values as [string];
       return (this.db.sessions.find((row) => row.id === id) ?? null) as T | null;
@@ -497,6 +504,14 @@ describe("scan routes", () => {
       success: true,
       data: expect.objectContaining({
         recognition_status: "success",
+        quota: {
+          access: "free",
+          unlimited: false,
+          limit: 10,
+          reserved: 0,
+          consumed: 1,
+          remaining: 9,
+        },
         results: [
           expect.objectContaining({
             matched: true,
@@ -528,6 +543,33 @@ describe("scan routes", () => {
           ],
         }),
       }),
+    ]);
+  });
+
+  it("returns an unlimited Premium quota without spending Free allowance", async () => {
+    const env = createRecognitionEnv();
+    env.DB.activePremiumSessionIds.add("session-1");
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      data: {
+        quota: {
+          access: "premium",
+          unlimited: true,
+          limit: 10,
+          reserved: 0,
+          consumed: 0,
+          remaining: 10,
+        },
+      },
+    });
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ access_mode: "premium", status: "consumed" }),
     ]);
   });
 
@@ -709,7 +751,14 @@ describe("scan routes", () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({
       error: { code: "SCAN_QUOTA_EXHAUSTED" },
-      quota: { remaining: 0, consumed: 10 },
+      quota: {
+        access: "free",
+        unlimited: false,
+        limit: 10,
+        reserved: 0,
+        consumed: 10,
+        remaining: 0,
+      },
     });
     expect(fetchMock).not.toHaveBeenCalled();
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);

@@ -10,6 +10,21 @@ import 'package:kando_app/shared/scan/scan_image_hasher.dart';
 
 void main() {
   test(
+    'quota rejects missing entitlement fields instead of downgrading to Free',
+    () {
+      expect(
+        () => ScanQuotaDto.fromJson({
+          'limit': 10,
+          'reserved': 0,
+          'consumed': 0,
+          'remaining': 10,
+        }),
+        throwsA(isA<ScanApiException>()),
+      );
+    },
+  );
+
+  test(
     'recognizeImage sends hashes plus only the corrected crop to our API because the external recognizer must never receive an image',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -38,6 +53,7 @@ void main() {
             'scan_id': 'scan-1',
             'recognition_status': 'success',
             'quota': {
+              'access': 'free',
               'limit': 10,
               'reserved': 0,
               'consumed': 1,
@@ -87,6 +103,7 @@ void main() {
 
       expect(result.scanId, 'scan-1');
       expect(result.recognitionStatus, 'success');
+      expect(result.quota.access, ScanQuotaAccess.free);
       expect(result.results.single.candidates.first.cardRef, '10738');
       expect(result.results.single.candidates.first.confidence, 80.99);
       expect(result.results.single.candidates.last.cardRef, '240872');
@@ -104,6 +121,7 @@ void main() {
             'scan_id': 'scan-1',
             'recognition_status': 'success',
             'quota': {
+              'access': 'free',
               'limit': 10,
               'reserved': 0,
               'consumed': 1,
@@ -207,6 +225,7 @@ void main() {
         return _json(200, {
           'success': true,
           'data': {
+            'access': 'free',
             'limit': 10,
             'reserved': 0,
             'consumed': 0,

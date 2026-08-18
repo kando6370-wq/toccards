@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-PREMIUM-LOCKED-DATA-BACKDROP-20260818",
+  "mode": "single",
+  "rationale": "改动集中在共享锁定组件内部及其现有 Home Widget/Golden 测试，不需要修改页面调用方或业务控制器",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "内置模拟 Performance 数据层并验证毛玻璃叠加",
+      "module": "apps/flutter-app/shared-ui",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/shared/ui/premium_locked_panel.dart",
+        "apps/flutter-app/test/widget/home_page_test.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_home_performance_locked_1892_7057_350x427.png"
+      ],
+      "verification": [
+        "dart format --output=none --set-exit-if-changed lib/shared/ui/premium_locked_panel.dart test/widget/home_page_test.dart",
+        "flutter test test/widget/home_page_test.dart",
+        "flutter analyze",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "N/A: 用户明确要求的视觉状态调整，不改变业务、API、配置、架构、部署或运维契约"
+      ],
+      "reviewBatch": "B1",
+      "risk": "medium",
+      "owner": "root",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "a5495b9e-6d1d-4e14-8f78-fd4bc3514831",
+        "d659c260-4ef1-4d6b-b811-1243896084ee"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "Premium 模拟数据底层与业务边界复核",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T07:28:33.362Z",
+  "updatedAt": "2026-08-18T07:36:13.041Z"
+}

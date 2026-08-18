@@ -245,6 +245,7 @@ const _matchedRecognition = ScanRecognitionDto(
 );
 
 const _freeQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.free,
   limit: 10,
   reserved: 0,
   consumed: 1,

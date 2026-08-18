@@ -55,8 +55,11 @@ class ScanRecognitionDto {
   }
 }
 
+enum ScanQuotaAccess { free, premium }
+
 class ScanQuotaDto {
   const ScanQuotaDto({
+    required this.access,
     required this.limit,
     required this.reserved,
     required this.consumed,
@@ -64,6 +67,7 @@ class ScanQuotaDto {
     required this.unlimited,
   });
 
+  final ScanQuotaAccess access;
   final int limit;
   final int reserved;
   final int consumed;
@@ -72,11 +76,12 @@ class ScanQuotaDto {
 
   factory ScanQuotaDto.fromJson(Map<String, Object?> json) {
     return ScanQuotaDto(
+      access: _requiredScanQuotaAccess(json['access']),
       limit: _requiredInt(json['limit']),
       reserved: _requiredInt(json['reserved']),
       consumed: _requiredInt(json['consumed']),
       remaining: _requiredInt(json['remaining']),
-      unlimited: json['unlimited'] == true,
+      unlimited: _requiredBool(json['unlimited']),
     );
   }
 }
@@ -421,6 +426,21 @@ String? _nullableString(Object? value) {
 int _requiredInt(Object? value) {
   if (value is int) return value;
   throw const ScanApiException('Something went wrong. Please try again.');
+}
+
+bool _requiredBool(Object? value) {
+  if (value is bool) return value;
+  throw const ScanApiException('Something went wrong. Please try again.');
+}
+
+ScanQuotaAccess _requiredScanQuotaAccess(Object? value) {
+  return switch (_requiredString(value)) {
+    'free' => ScanQuotaAccess.free,
+    'premium' => ScanQuotaAccess.premium,
+    _ => throw const ScanApiException(
+      'Something went wrong. Please try again.',
+    ),
+  };
 }
 
 double? _nullableConfidence(Object? value) {

@@ -49,7 +49,7 @@ class _ScanReviewLoadException implements Exception {
   const _ScanReviewLoadException();
 }
 
-const _viewfinderTop = 193.0;
+const _viewfinderTop = 213.0;
 const _viewfinderWidth = 280.0;
 const _viewfinderHeight = 400.0;
 
@@ -340,6 +340,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _reviewing = false;
   var _photoRecognitionInFlight = false;
   var _premiumResolutionInFlight = false;
+  var _freeEntitlementConfirmedForLifecycle = false;
   var _capturingPhoto = false;
   var _librarySelectionInFlight = false;
   var _quotaPaywallOpen = false;
@@ -433,6 +434,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _appActive = true;
+      _freeEntitlementConfirmedForLifecycle = false;
       unawaited(_refreshQuotaAndResumeWaiting());
       unawaited(_resumeCameraForLifecycle());
       return;
@@ -717,21 +719,30 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool _scanQuotaExhausted() {
-    if (ref.read(subscriptionControllerProvider).isPro) return false;
     final quota = ref.read(scanQuotaControllerProvider);
+    if (ref.read(subscriptionControllerProvider).isPro || quota.unlimited) {
+      return false;
+    }
     return quota.isServerAuthoritative && quota.remainingScans == 0;
   }
 
   Future<bool> _resolvePremiumBeforeScan() async {
     final current = ref.read(subscriptionControllerProvider).premiumState;
-    if (current != AppPremiumState.unknown) return true;
+    final quota = ref.read(scanQuotaControllerProvider);
+    if (current == AppPremiumState.premium || quota.unlimited) return true;
+    if (current == AppPremiumState.free &&
+        _freeEntitlementConfirmedForLifecycle) {
+      return true;
+    }
     if (_premiumResolutionInFlight) return false;
     _premiumResolutionInFlight = true;
     try {
       final resolved = await ref
           .read(subscriptionControllerProvider.notifier)
           .refreshEntitlement();
-      return mounted && resolved != AppPremiumState.unknown;
+      if (!mounted || resolved == AppPremiumState.unknown) return false;
+      _freeEntitlementConfirmedForLifecycle = resolved == AppPremiumState.free;
+      return true;
     } finally {
       _premiumResolutionInFlight = false;
     }
@@ -1863,6 +1874,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       subscriptionControllerProvider.select((value) => value.isPro),
     );
     final quota = ref.watch(scanQuotaControllerProvider);
+    final hasPremiumAccess = isPro || quota.unlimited;
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return PopScope(
       canPop: false,
@@ -1935,7 +1947,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     revealAnimation: _revealAnimation,
                     cards: _reviewCards,
                     currency: currency,
-                    remainingScans: isPro ? null : quota.remainingScans,
+                    remainingScans: hasPremiumAccess
+                        ? null
+                        : quota.remainingScans,
                     onClosePressed: _handleClosePressed,
                     onFlashPressed: _cameraSession == null
                         ? null

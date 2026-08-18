@@ -102,6 +102,7 @@ const _transparentPngBytes = <int>[
 ];
 
 const _exhaustedQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.free,
   limit: 10,
   reserved: 0,
   consumed: 10,
@@ -110,11 +111,21 @@ const _exhaustedQuota = ScanQuotaDto(
 );
 
 const _availableQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.free,
   limit: 10,
   reserved: 0,
   consumed: 0,
   remaining: 10,
   unlimited: false,
+);
+
+const _unlimitedQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.premium,
+  limit: 10,
+  reserved: 0,
+  consumed: 2,
+  remaining: 8,
+  unlimited: true,
 );
 
 void main() {
@@ -244,6 +255,36 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'server Unlimited hides Free quota while local entitlement catches up',
+    (tester) async {
+      await _pumpScanTestApp(tester, scanQuota: _unlimitedQuota);
+
+      expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'stale local Free refreshes once before recognition can spend quota',
+    (tester) async {
+      final subscription = _StaleFreeScanSubscriptionController();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        subscriptionController: () => subscription,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(subscription.refreshCount, 1);
+      expect(source.photoCallCount, 1);
     },
   );
 
@@ -515,7 +556,7 @@ void main() {
       );
       final crop = source.recognizedImages.single.recognitionCrop!;
       expect(crop.left, closeTo(55 / 390, 0.0001));
-      expect(crop.top, closeTo(193 / 844, 0.0001));
+      expect(crop.top, closeTo(213 / 844, 0.0001));
       expect(crop.width, closeTo(280 / 390, 0.0001));
       expect(crop.height, closeTo(400 / 844, 0.0001));
 
@@ -1550,7 +1591,7 @@ void main() {
       );
       expect(
         tester.getTopLeft(find.byKey(const Key('scan-figma-scanning-line'))).dy,
-        193,
+        213,
       );
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Scanning'), findsNothing);
@@ -2279,6 +2320,7 @@ void main() {
           matchName: 'Deleted card',
           candidates: ['Deleted card'],
           quota: ScanQuotaDto(
+            access: ScanQuotaAccess.free,
             limit: 10,
             reserved: 0,
             consumed: 1,
@@ -2306,6 +2348,7 @@ void main() {
         refreshQuotas: const [
           _availableQuota,
           ScanQuotaDto(
+            access: ScanQuotaAccess.free,
             limit: 10,
             reserved: 0,
             consumed: 9,
@@ -2575,6 +2618,7 @@ void main() {
         refreshQuotas: const [
           _availableQuota,
           ScanQuotaDto(
+            access: ScanQuotaAccess.premium,
             limit: 10,
             reserved: 0,
             consumed: 10,
@@ -2724,6 +2768,7 @@ void main() {
           _exhaustedQuota,
           _exhaustedQuota,
           ScanQuotaDto(
+            access: ScanQuotaAccess.premium,
             limit: 10,
             reserved: 0,
             consumed: 10,
@@ -3245,6 +3290,26 @@ class _FreeScanSubscriptionController extends SubscriptionController {
   @override
   SubscriptionState build() =>
       const SubscriptionState(premiumState: AppPremiumState.free);
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    return AppPremiumState.free;
+  }
+}
+
+class _StaleFreeScanSubscriptionController extends SubscriptionController {
+  var refreshCount = 0;
+
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.free);
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    refreshCount += 1;
+    state = state.copyWith(premiumState: AppPremiumState.premium);
+    return AppPremiumState.premium;
+  }
 }
 
 class _ResolvingScanSubscriptionController extends SubscriptionController {
@@ -3446,6 +3511,7 @@ ScanResultSource _defaultTestScanResultSource() {
         candidates: ['Mega Lucario ex', 'Lucario ex', 'Riolu Promo'],
         candidateCardRefs: ['card-mega', 'card-lucario', 'card-riolu'],
         quota: ScanQuotaDto(
+          access: ScanQuotaAccess.free,
           limit: 10,
           reserved: 0,
           consumed: 1,

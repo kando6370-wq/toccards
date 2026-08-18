@@ -338,7 +338,6 @@ class _SubscriptionRestoreIcon extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0x1FF87171),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 1.4),
       ),
       child: SvgPicture.asset(
         asset,

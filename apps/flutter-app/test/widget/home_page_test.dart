@@ -33,6 +33,7 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/premium_locked_panel.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
@@ -272,7 +273,167 @@ void main() {
       expect(find.text('Portfolio Performance'), findsOneWidget);
       expect(find.text('Unlock Performance'), findsOneWidget);
       expect(find.text('Most Valuable'), findsNothing);
-      expect(find.text(r'$12,450.80'), findsNothing);
+      expect(find.text(r'$12,450.80'), findsOneWidget);
+
+      final panel = find.byKey(const Key('home-performance-locked'));
+      final preview = find.byKey(
+        const Key('kando-premium-locked-panel-preview'),
+      );
+      final content = find.byKey(
+        const Key('kando-premium-locked-panel-content'),
+      );
+      final button = find.byKey(const Key('home-unlock-performance'));
+      final panelSize = tester.getSize(panel);
+      expect(panelSize, const Size(760, 427));
+      expect(tester.getSize(preview), panelSize);
+      expect(tester.getSize(content), Size(panelSize.width - 66, 222));
+      expect(tester.getSize(button), Size(panelSize.width - 66, 36));
+      expect(
+        tester.getTopLeft(content) - tester.getTopLeft(panel),
+        const Offset(33, 63),
+      );
+      expect(
+        find.descendant(of: preview, matching: find.text('Total Paid')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: preview, matching: find.text('Market Value')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: preview, matching: find.text('Profit / Loss')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: preview, matching: find.text('Return')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: preview,
+          matching: find.byKey(
+            const Key('kando-premium-locked-panel-preview-chart'),
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.ancestor(
+          of: preview,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is IgnorePointer && widget.ignoring,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.ancestor(of: preview, matching: find.byType(ExcludeSemantics)),
+        findsOneWidget,
+      );
+
+      final panelStack = tester.widget<Stack>(
+        find.descendant(of: panel, matching: find.byType(Stack)).first,
+      );
+      expect(panelStack.children.first, isA<ExcludeSemantics>());
+      expect(panelStack.children.last, isA<BackdropFilter>());
+
+      final topMetrics = find.byKey(
+        const Key('kando-premium-locked-panel-preview-metrics-top'),
+      );
+      final bottomMetrics = find.byKey(
+        const Key('kando-premium-locked-panel-preview-metrics-bottom'),
+      );
+      final chartPanel = find.byKey(
+        const Key('kando-premium-locked-panel-preview-chart-panel'),
+      );
+      expect(tester.getSize(topMetrics).height, 94);
+      expect(tester.getSize(bottomMetrics).height, 94);
+      expect(tester.getSize(chartPanel).height, 190);
+      final previewTop = tester.getTopLeft(preview).dy;
+      expect(tester.getTopLeft(bottomMetrics).dy - previewTop, 106);
+      expect(tester.getTopLeft(chartPanel).dy - previewTop, 212);
+
+      final iconAssets = find
+          .descendant(of: panel, matching: find.byType(SvgPicture))
+          .evaluate()
+          .map((element) => element.widget as SvgPicture)
+          .map((picture) => (picture.bytesLoader as SvgAssetLoader).assetName)
+          .toList();
+      expect(iconAssets, [
+        'assets/home/performance_locked_lock.svg',
+        'assets/home/performance_locked_leading.svg',
+        'assets/home/performance_locked_arrow.svg',
+      ]);
+    },
+  );
+
+  testWidgets(
+    'Figma locked Performance panel renders at the 350x427 baseline',
+    (tester) async {
+      await (FontLoader('Fraunces')..addFont(
+            rootBundle.load('assets/fonts/Baskerville-BaskervilleSemiBold.ttf'),
+          ))
+          .load();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(350, 427);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildKandoTheme(),
+          home: RepaintBoundary(
+            key: const Key('home-performance-locked-golden'),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(-1.05, -1.15),
+                  radius: 1.15,
+                  colors: [
+                    Color(0xFF3A4019),
+                    Color(0xFF1F2110),
+                    KandoColors.ink,
+                  ],
+                  stops: [0, .36, 1],
+                ),
+              ),
+              child: KandoPremiumLockedPanel(
+                key: const Key('responsive-premium-locked-panel'),
+                title: 'Portfolio Performance',
+                message:
+                    'Unlock total paid, profit and loss,\n'
+                    'return, longer\n'
+                    'history, and change explanations.',
+                buttonLabel: 'Unlock Performance',
+                onPressed: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await expectLater(
+        find.byKey(const Key('home-performance-locked-golden')),
+        matchesGoldenFile(
+          'goldens/rendered/'
+          'figma_home_performance_locked_1892_7057_350x427.png',
+        ),
+      );
+
+      tester.view.physicalSize = const Size(430, 427);
+      await tester.pump();
+      expect(
+        tester.getSize(
+          find.byKey(const Key('responsive-premium-locked-panel')),
+        ),
+        const Size(430, 427),
+      );
+      expect(
+        tester.getSize(
+          find.byKey(const Key('kando-premium-locked-panel-content')),
+        ),
+        const Size(364, 222),
+      );
     },
   );
 

@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "id": "ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818",
+  "type": "ANALYSIS",
+  "title": "获取 Home Performance 有数据正常界面截图",
+  "status": "ANSWERED",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/analysis.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户于 2026-08-18 明确要求操作模拟器并截图"
+  },
+  "input": {
+    "references": [
+      "用户要求查看当前模拟器中 Home 页面 Performance 板块有数据时的正常显示"
+    ],
+    "acceptance": [
+      "截图完整呈现 Home 页 Performance 板块的非空数据状态",
+      "不修改正式业务代码或污染生产数据"
+    ],
+    "nonGoals": [
+      "不修改 Performance 功能实现"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "doctor: branch=dev commit=5f787438bec520d90e90f2519d58daa508019ec7 dirty=true",
+      "scope: read-only simulator inspection and screenshot; no product-file writes"
+    ],
+    "completedAt": "2026-08-18T05:56:19.366Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "5f787438bec520d90e90f2519d58daa508019ec7",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/state.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/plan.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/state.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/plan.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/state.json",
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/lib/features/scan/scan_result_source.dart",
+        "apps/flutter-app/lib/shared/scan/scan_api_client.dart",
+        "apps/flutter-app/lib/shared/ui/subscription_restore_result.dart",
+        "apps/flutter-app/pubspec.yaml",
+        "apps/flutter-app/test/scan_api_client_test.dart",
+        "apps/flutter-app/test/scan_result_source_test.dart",
+        "apps/flutter-app/test/subscription_restore_result_test.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png",
+        "apps/flutter-app/test/widget/scan_page_test.dart",
+        "apps/workers-api/src/scan/routes.test.ts",
+        "apps/workers-api/src/scan/routes.ts",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md",
+        "docs/releases/v1.1.0/03-data-api/entitlement-contract.md",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/lib/features/scan/scan_page.dart": "9d973a2d05113a9ec783e415344f9a6c1f01338249ee98b5971f9ced4d5c7dcb",
+        "apps/flutter-app/lib/features/scan/scan_result_source.dart": "d3c9fe9689784a6593ea8b93b7bccaa17075331fe89780b3eb2016566723d5c8",
+        "apps/flutter-app/lib/shared/scan/scan_api_client.dart": "8ab2761eb2482926e14affb007c6fa256a8a7cb3dcd38a6ffa751d956815e0bc",
+        "apps/flutter-app/lib/shared/ui/subscription_restore_result.dart": "f6eab043bf3113b749450ea19791805db66356db3c62c6dd9d17de7c3e3a4f85",
+        "apps/flutter-app/pubspec.yaml": "052a44bd0ae769cd41c507f0c4cbdb9baabdfe9ff3492e459e55471e07aa5650",
+        "apps/flutter-app/test/scan_api_client_test.dart": "435cd22e0447a8804875dca773e7a1b3e5c2ac928405dba0bf577f252c9484c5",
+        "apps/flutter-app/test/scan_result_source_test.dart": "404e37de4f5dcf766c732eba60eb556b783b55cb26dea69e515ab153d2e907cd",
+        "apps/flutter-app/test/subscription_restore_result_test.dart": "461fb55e084b1b8a78ceda0b2ec3a31f81de8ab358f17bb25bef5da6888f4122",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png": "609b6808900c664215e3e075f854bfca1fca318659b3ecb89e20a5b8e5e768cd",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png": "4c25804e2a2a20a20c387fcca210aa8f2ec7459d57de25a53025a28e52a71630",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png": "f24a15758282793399053ddfc1cfac9195854a47544324f0c9a8ebfe3f5148c5",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png": "8fbd7f049fb6a0621777b4abc6340cc5407de9ecc5e4e240bda99f871332bf57",
+        "apps/flutter-app/test/widget/scan_page_test.dart": "ec5da52e8fc76ebb58d6200d97fd6ed47a96fafff393296dd4d990b5191cc9e1",
+        "apps/workers-api/src/scan/routes.test.ts": "5d90cb39d61d3353d887fd45f519d20c0c708c75e05291d8637bf4fa32d018c0",
+        "apps/workers-api/src/scan/routes.ts": "c8d3b11715b0a0f06f42076b8e7d9fb858e676303b08af17bf105ad484f4cbe3",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md": "66b9ddbcd545d6cbeff799782c9257ba9bb095b010ae3a9047cb92514fb4d835",
+        "docs/releases/v1.1.0/03-data-api/entitlement-contract.md": "74c642ae9093272495dd69537f1295d9bc2ced841c64b8e6988330272496dcb4",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "6acf7b6364a22fc4073ec91c9b1b36e65a6daef194c91bb1a8b07253c6949953",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/events.jsonl": "3192610a4283e82e7d3586a70fd32cb7108463c5ff4a8e55d559c86fdaffcfce",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/state.json": "0b84795d7a0f9b709b2bbbe30270e679a969161e96caef2cd122a87d8c4060ab",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/events.jsonl": "32a4c534023e9ef85f9a5efd06e4c19d0d772a261fd4a78d4a77b3f770ee5134",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/evidence.jsonl": "92c7c3ef8e8c14749bdecb43f064faf7609f0f6c3b06601b91719bb0c72a6f62",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/plan.json": "1028a51525f0c0b8a74d761af9282f2d60469534c575956ebc0345dcea5443dd",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/solution.md": "de6373b88b356158af7318f29f845c840bce812648fd8bfd6c19190b4ad8291d",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/state.json": "58ee3c7b0257b4c5349bcd8267c7ff438b28b0e53650d47a5e8aa520881eec0e",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/events.jsonl": "fbf2e182d895063d451ebbbd4576cc4793960e7999033f7ec82719326e025c19",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/evidence.jsonl": "ad6b8b843b6991a619fab8233b7d54d0379e5c0962feaa0ad340f2d74bb0acd7",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/plan.json": "4ec0d680fb6badf67f5b14da45dafe1764f8f8240f4155a0a6da16b32db9f77f",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/state.json": "4046244ff1d4739f4d2989440472ad0e9c0f2e0dbed14dbd1657bdce3e9434d3",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/events.jsonl": "fe493cc1d7cdbe11d1b948550811e06dde5661ffb1a43c3365e7aa69b8e7bc3d",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/evidence.jsonl": "b7a4f309b84535264e10f131bf0c744767395116130b84f2fcb5e8da62d5c4c1",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/plan.json": "9aab9791ba15a53c47c495d7b89a7cb22ed839ea04fa2e62d6a03a86f7b1e035",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/state.json": "9579b0ecc8ae340456ba018ecc0730014dd88bd552160356e6cd200c714c9ef1",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/events.jsonl": "361ab5a3ea72b96deac229f2bcb392c47d303974da79ec22a7433af9384a529b",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/evidence.jsonl": "ee424bdd677ce6065e9e7814cd8c7fd7c45172ad7a7fd3126d1651356432a4c5",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/plan.json": "b3101318e55c127960af1eb2d7af277d2883d50b931fdda5e6086e2a8b543240",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/state.json": "c7c409e500dad1317453b6b37a8f3d2e4b99231d8002cd68e179b48ae3b73614"
+      }
+    }
+  },
+  "solution": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null
+  },
+  "database": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null,
+    "impact": "unknown"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/plan.json",
+    "approved": false,
+    "approvalRef": null
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pass",
+    "evidence": [
+      "9495ff0d-9854-4194-bb47-47dcb86d9001"
+    ],
+    "conclusions": [
+      {
+        "id": "7a35f791-55f1-4017-b94e-8bea54bb33ef",
+        "status": "PROVEN",
+        "text": "当前 iOS 模拟器中的 Home Performance 是 Free 权益锁定态，不是数据空态；未获得 Premium 前不会展示指标与图表。",
+        "evidence": [
+          "simctl screenshot: home-current.png shows home-performance-locked with Unlock Performance",
+          "apps/flutter-app/lib/features/home/home_page.dart:832-846 branches on isPro before performance data"
+        ]
+      },
+      {
+        "id": "1b0b1c75-589d-41d0-a071-ac3ff27273f8",
+        "status": "PROVEN",
+        "text": "正常有数据态会显示 Total Paid、Market Value、Profit / Loss、Return、1D/7D/15D/1M/3M/1Y 范围和 Performance 折线图；已用正式 HomePage 与现有 Pro 测试夹具渲染 390x844 截图。",
+        "evidence": [
+          "flutter test --update-goldens ... preview Pro Home Performance data at 390x844: All tests passed",
+          "artifact: /Users/kando/.codex/visualizations/2026/08/18/01a0136e-9b6c-78f0-b51e-e9fbae2dda23/home-performance-normal-390x844.png sha256=187d1b8ed11ffec03a533ca8acf7e26eceda469e3bea33a065a1302f11f662c8"
+        ]
+      }
+    ],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T05:56:00.558Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T05:56:19.181Z",
+      "reason": "开始只读检查当前模拟器与 Performance 数据展示路径"
+    },
+    {
+      "from": "BASELINING",
+      "to": "ANALYZING",
+      "at": "2026-08-18T05:56:33.523Z",
+      "reason": "基线已记录，开始检查模拟器运行状态与页面数据来源"
+    },
+    {
+      "from": "ANALYZING",
+      "to": "ANSWERED",
+      "at": "2026-08-18T06:12:53.432Z",
+      "reason": "有数据正常态截图已生成并验证，分析结论与限制已记录"
+    }
+  ],
+  "createdAt": "2026-08-18T05:56:00.558Z",
+  "updatedAt": "2026-08-18T06:12:53.432Z"
+}

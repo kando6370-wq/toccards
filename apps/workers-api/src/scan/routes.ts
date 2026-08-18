@@ -9,7 +9,12 @@ import {
   LOCAL_PREMIUM_STATE_HEADER,
   resolvePremiumAccess,
 } from "../entitlements/premium-access";
-import { loadScanQuota, reserveScanQuota, settleScanQuota } from "./quota";
+import {
+  loadScanQuota,
+  reserveScanQuota,
+  settleScanQuota,
+  type ScanQuotaSnapshot,
+} from "./quota";
 import { validateScanImage, type ValidatedScanImage } from "./scan-image";
 
 type ScanBindings = { Bindings: Env };
@@ -176,6 +181,17 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
 const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
+function scanQuotaPayload(
+  quota: ScanQuotaSnapshot,
+  access: "free" | "premium",
+) {
+  return {
+    access,
+    unlimited: access === "premium",
+    ...quota,
+  };
+}
+
 export function createScanRoutes() {
   const routes = new Hono<ScanBindings>();
 
@@ -197,11 +213,7 @@ export function createScanRoutes() {
     const quota = await loadScanQuota(c.env.DB, auth.owner);
     return c.json({
       success: true,
-      data: {
-        access,
-        unlimited: access === "premium",
-        ...quota,
-      },
+      data: scanQuotaPayload(quota, access),
     });
   });
 
@@ -246,7 +258,10 @@ export function createScanRoutes() {
       access,
     );
     if (reservation.status === "exhausted") {
-      return c.json({ ...SCAN_QUOTA_EXHAUSTED_RESPONSE, quota: reservation.quota }, 403);
+      return c.json({
+        ...SCAN_QUOTA_EXHAUSTED_RESPONSE,
+        quota: scanQuotaPayload(reservation.quota, "free"),
+      }, 403);
     }
     if (reservation.status === "existing" && reservation.response !== null) {
       return new Response(JSON.stringify(reservation.response.body), {
@@ -419,7 +434,7 @@ export function createScanRoutes() {
         recognition_status: recognitionStatus,
         cards_detected: candidates.length > 0 ? 1 : 0,
         elapsed: (Date.now() - startedAt) / 1000,
-        quota,
+        quota: scanQuotaPayload(quota, reservation.accessMode),
         warnings: recognized?.length === candidates.length
           ? []
           : ["Some recognized cards are missing from the catalog."],

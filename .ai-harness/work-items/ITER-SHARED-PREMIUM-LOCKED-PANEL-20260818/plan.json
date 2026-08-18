@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818",
+  "mode": "single",
+  "rationale": "无状态展示组件及其 Home 接入可在一个低耦合任务中实现并验证",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "抽取并接入共享 Premium 锁定面板",
+      "module": "apps/flutter-app/shared-ui",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/shared/ui/premium_locked_panel.dart"
+      ],
+      "verification": [
+        "dart format --output=none --set-exit-if-changed lib/shared/ui/premium_locked_panel.dart",
+        "flutter test test/widget/home_page_test.dart",
+        "flutter analyze",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "N/A: 实现既有 Figma/UI 契约，无业务、API、配置、架构、部署或运维变化"
+      ],
+      "reviewBatch": "B1",
+      "risk": "medium",
+      "owner": "root",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "a3a3b577-de5e-48d0-92fd-6f85939caae8",
+        "fc76e367-f725-429d-abd5-1ba846098695"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "共享锁定面板组件边界复核",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T06:53:21.723Z",
+  "updatedAt": "2026-08-18T07:13:11.807Z"
+}

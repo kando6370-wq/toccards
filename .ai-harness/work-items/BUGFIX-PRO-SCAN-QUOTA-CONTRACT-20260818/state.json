@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "id": "BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818",
+  "type": "BUGFIX",
+  "title": "修复 Pro 扫描额度判定并下移定位框",
+  "status": "DONE",
+  "flags": [
+    "mobile",
+    "api"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/bugfix.md",
+    ".ai-harness/policies/mobile.md",
+    ".ai-harness/policies/api.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户明确要求按照方案修复并下移定位框"
+  },
+  "input": {
+    "references": [
+      "用户确认按服务端权益合并方案修复，并要求定位框在当前基础上再下移20"
+    ],
+    "acceptance": [
+      "有效 performance_pro 扫描始终按 premium 记账且免费剩余次数不变",
+      "扫描额度接口在成功响应中统一返回 access 与 unlimited，Flutter 不把缺失字段降级为 Free",
+      "扫描页使用本机与服务端权益的合并结果展示和拦截",
+      "定位框当前 top 值增加20且扫描识别逻辑不变"
+    ],
+    "nonGoals": [
+      "不修改 OCR、图片处理、收藏确认、订阅商品或数据库 Schema"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": {
+    "actual": "已订阅 Pro 时扫描页可能显示或使用免费额度，recognize 响应缺少 unlimited；定位框仍需再下移20",
+    "expected": "Pro 扫描不扣免费次数且前后端权益状态一致；定位框当前基础上再下移20",
+    "reproduction": "在本机 Pro/服务端 grant 不同同步状态下进入扫描并完成识别，观察 quota 响应和页面；检查 _viewfinderTop 当前值"
+  },
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "doctor: branch dev, commit 5f787438bec520d90e90f2519d58daa508019ec7, dirty worktree；现有 apps/flutter-app/pubspec.yaml 改动属于用户，任务不触碰",
+      "当前 _viewfinderTop=193；recognize quota 缺少 access/unlimited；Flutter 将缺失 unlimited 解析为 false；页面展示与拦截只看本机 isPro",
+      "正常后端 premium 账本只记录 access_mode=premium，readQuota 仅统计 free，额度计算公式无需修改"
+    ],
+    "completedAt": "2026-08-18T05:39:16.905Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "5f787438bec520d90e90f2519d58daa508019ec7",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/state.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/plan.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/state.json",
+        "apps/flutter-app/pubspec.yaml"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/pubspec.yaml": "052a44bd0ae769cd41c507f0c4cbdb9baabdfe9ff3492e459e55471e07aa5650",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/events.jsonl": "f1f2c1456f871e5d8eee0869c0d2bac90e1a5a898fbc5a88a9aafdd81c8f4f36",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/state.json": "313dd9e0de349da744a6162fdb2807917014684ce79e3391038d8bc2f4a83a15",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/events.jsonl": "361ab5a3ea72b96deac229f2bcb392c47d303974da79ec22a7433af9384a529b",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/evidence.jsonl": "ee424bdd677ce6065e9e7814cd8c7fd7c45172ad7a7fd3126d1651356432a4c5",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/plan.json": "b3101318e55c127960af1eb2d7af277d2883d50b931fdda5e6086e2a8b543240",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/state.json": "c7c409e500dad1317453b6b37a8f3d2e4b99231d8002cd68e179b48ae3b73614"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/solution.md",
+    "evidence": [
+      "设计保持 quota 公式、Schema、OCR、幂等与状态码不变，仅统一响应字段和客户端权益合并",
+      "兼容 iOS/Android 共享 Flutter 代码；Workers 新字段为向后兼容添加，客户端缺字段显式失败"
+    ],
+    "completedAt": "2026-08-18T05:39:54.201Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "不修改 scan_quota_request 或 entitlement 表、字段、索引、查询口径、迁移；仅使用既有 access_mode 和 quota 快照补齐响应字段"
+    ],
+    "completedAt": "2026-08-18T05:40:02.193Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/plan.json",
+    "approved": true,
+    "approvalRef": "用户消息：按照你的方案修复吧，然后扫描页面的定位框的位置，整体再往下移动20"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "24daa6dc-50b9-4093-bd38-43c6410fa88d"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "f98e302d-0c29-4de4-bdf7-0ebc6405ddf2"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "6611c0dd-536f-41f7-a716-1f90ab7591b6"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "df347f9a-bee7-47d4-b464-f22a26050188"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T05:37:25.500Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T05:37:37.642Z",
+      "reason": "开始读取当前扫描、权益、接口、测试与文档基线"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-18T05:39:25.832Z",
+      "reason": "基线完成，设计最小前后端契约与扫描页修复"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-18T05:41:13.677Z",
+      "reason": "技术设计、数据库无影响判断和用户批准计划均完成"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-18T05:41:22.181Z",
+      "reason": "开始按批准计划实施"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T05:58:57.199Z",
+      "reason": "实施任务已完成，汇总最终验证与文档证据"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T05:59:26.791Z",
+      "reason": "最终验证与文档检查已通过"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T05:59:42.459Z",
+      "reason": "代码审查无发现，进入验收"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T05:59:56.570Z",
+      "reason": "全部批准验收条件满足"
+    }
+  ],
+  "createdAt": "2026-08-18T05:37:25.500Z",
+  "updatedAt": "2026-08-18T05:59:56.570Z"
+}

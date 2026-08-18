@@ -13,6 +13,7 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/premium_locked_panel.dart';
 import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
 import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -829,7 +830,17 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
         ),
         const SizedBox(height: 20),
         if (!widget.isPro)
-          _PerformanceLockedPanel(onUnlock: widget.onUnlock)
+          KandoPremiumLockedPanel(
+            key: const Key('home-performance-locked'),
+            title: 'Portfolio Performance',
+            message:
+                'Unlock total paid, profit and loss,\n'
+                'return, longer\n'
+                'history, and change explanations.',
+            buttonLabel: 'Unlock Performance',
+            buttonKey: const Key('home-unlock-performance'),
+            onPressed: widget.onUnlock,
+          )
         else if (performance.isFailure && performance.data == null)
           _FigmaFailurePanel(
             key: const Key('home-performance-failure'),
@@ -1175,80 +1186,6 @@ class _PerformanceRangePicker extends StatelessWidget {
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PerformanceLockedPanel extends StatelessWidget {
-  const _PerformanceLockedPanel({required this.onUnlock});
-
-  final VoidCallback onUnlock;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const Key('home-performance-locked'),
-      height: 428,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KandoColors.border),
-        gradient: const RadialGradient(
-          center: Alignment.bottomLeft,
-          radius: 1.2,
-          colors: [Color(0x66464D1F), Color(0xFF15160E)],
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: KandoColors.accentGlow10,
-            ),
-            child: const Icon(
-              Icons.lock_outline,
-              color: KandoColors.accent,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Portfolio Performance',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: KandoColors.accent,
-              fontFamily: 'Fraunces',
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Unlock total paid, profit and loss, return, longer history, and change explanations.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: KandoColors.mutedText,
-              fontSize: 15,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 22),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: FilledButton(
-              key: const Key('home-unlock-performance'),
-              onPressed: onUnlock,
-              child: const Text('Unlock Performance'),
-            ),
-          ),
         ],
       ),
     );

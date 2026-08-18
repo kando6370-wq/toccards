@@ -10,6 +10,7 @@ import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
+import '../subscription/scan_quota_controller.dart';
 import '../subscription/subscription_controller.dart';
 
 enum ScanResolutionKind {
@@ -128,7 +129,9 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     imageHasher: createScanImageHasher(),
     cardNumberReader: createScanCardNumberReader(),
     appInfo: _readScanAppInfo,
-    localPremiumVerified: () => ref.read(subscriptionControllerProvider).isPro,
+    localPremiumVerified: () =>
+        ref.read(subscriptionControllerProvider).isPro ||
+        ref.read(scanQuotaControllerProvider).unlimited,
   ),
 );
 

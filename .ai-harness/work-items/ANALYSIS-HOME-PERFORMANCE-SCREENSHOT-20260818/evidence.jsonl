@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"9495ff0d-9854-4194-bb47-47dcb86d9001","workItemId":"ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818","taskId":null,"kind":"analysis","status":"pass","summary":"已确认当前锁定原因，并用真实 HomePage 组件、现有 Pro fixture 和 390x844 画布生成有数据正常态截图；主产品代码及模拟器应用均未修改。","timestamp":"2026-08-18T06:12:41.584Z","command":null,"independent":false}

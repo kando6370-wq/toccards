@@ -1,0 +1,306 @@
+{
+  "schemaVersion": 1,
+  "id": "ITER-PREMIUM-LOCKED-DATA-BACKDROP-20260818",
+  "type": "ITERATION",
+  "title": "为 Premium 锁定组件增加模拟数据底层",
+  "status": "DONE",
+  "flags": [
+    "frontend",
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md",
+    ".ai-harness/policies/frontend.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "autonomous",
+    "source": "用户明确要求把模拟数据层加入共享组件，其他使用位置也应具备数据底层"
+  },
+  "input": {
+    "references": [
+      "用户要求 Free 锁定面板下显示与正常 Performance 一致的静态假数据",
+      "Figma DjacfTioobtRy59SnqH7SY node 1892:7057"
+    ],
+    "acceptance": [
+      "共享 KandoPremiumLockedPanel 在组件内部统一叠加底层内容和 12px 毛玻璃锁定层",
+      "Home Free 底层使用与 Pro 正常态一致的四项指标、范围选择器和折线图布局，但不请求 API",
+      "底层不可交互，锁定按钮与现有订阅/Paywall 回调保持不变，Pro 展示逻辑不变",
+      "宽度继续跟随父容器，Flutter Widget 测试与静态分析通过"
+    ],
+    "nonGoals": [
+      "不修改订阅判断、API、Riverpod 状态、路由、购买恢复、Schema、平台原生代码或其他页面接入"
+    ],
+    "version": "v1.1.0"
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "当前 dev@5f787438bec520d90e90f2519d58daa508019ec7，工作树已有多项用户改动；本任务仅叠加当前未提交的 premium_locked_panel.dart、home_page.dart 与 home_page_test.dart，保留其他改动",
+      "现状 Free 分支只渲染 KandoPremiumLockedPanel，Pro 分支单独渲染 _PerformanceMetric、_PerformanceRangePicker 和 _InteractiveChart；Free 不触发 Performance API",
+      "Figma 1892:7057 覆盖层为 350x427、12px backdrop blur、半透明渐变；节点本身无底层数据图层",
+      "iOS 与 Android 共用 Flutter Widget，无平台分支"
+    ],
+    "completedAt": "2026-08-18T07:27:02.397Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "5f787438bec520d90e90f2519d58daa508019ec7",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-FREE-BLUR-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-FREE-BLUR-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-FREE-BLUR-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/state.json",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-LOCKED-UI-1892-7057-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-LOCKED-UI-1892-7057-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-LOCKED-UI-1892-7057-20260818/plan.json",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-LOCKED-UI-1892-7057-20260818/solution.md",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-LOCKED-UI-1892-7057-20260818/state.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/plan.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/state.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-HOME-PERFORMANCE-UPDATE-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-SIM-HOME-PERFORMANCE-UPDATE-20260818/plan.json",
+        ".ai-harness/work-items/ITER-IOS-SIM-HOME-PERFORMANCE-UPDATE-20260818/state.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/plan.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/state.json",
+        ".ai-harness/work-items/ITER-PREMIUM-LOCKED-DATA-BACKDROP-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-PREMIUM-LOCKED-DATA-BACKDROP-20260818/state.json",
+        ".ai-harness/work-items/ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818/plan.json",
+        ".ai-harness/work-items/ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818/solution.md",
+        ".ai-harness/work-items/ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818/state.json",
+        "apps/flutter-app/assets/home/performance_locked_arrow.svg",
+        "apps/flutter-app/assets/home/performance_locked_leading.svg",
+        "apps/flutter-app/assets/home/performance_locked_lock.svg",
+        "apps/flutter-app/lib/features/home/home_page.dart",
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/lib/features/scan/scan_result_source.dart",
+        "apps/flutter-app/lib/shared/scan/scan_api_client.dart",
+        "apps/flutter-app/lib/shared/ui/premium_locked_panel.dart",
+        "apps/flutter-app/lib/shared/ui/subscription_restore_result.dart",
+        "apps/flutter-app/pubspec.yaml",
+        "apps/flutter-app/test/scan_api_client_test.dart",
+        "apps/flutter-app/test/scan_result_source_test.dart",
+        "apps/flutter-app/test/subscription_restore_result_test.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_home_performance_locked_1892_7057_350x427.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png",
+        "apps/flutter-app/test/widget/home_page_test.dart",
+        "apps/flutter-app/test/widget/scan_page_test.dart",
+        "apps/workers-api/src/scan/routes.test.ts",
+        "apps/workers-api/src/scan/routes.ts",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md",
+        "docs/releases/v1.1.0/03-data-api/entitlement-contract.md",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/lib/features/home/home_page.dart": "e9453811a76dc4bd5972ee66abcae1d6fcbd84ec5be0b74d01ef45d94f740fff",
+        "apps/flutter-app/test/widget/home_page_test.dart": "1bdb35a40c131a314a77ea3df9e78d439f359d83373ffe63968c35749c52f133",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/events.jsonl": "19981635a58ab03edd9931fac7b4ebf35b0186a57ea88e57f9d0fcc271dd3006",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/evidence.jsonl": "b75b12179a61612c06ba826b31aa33f0cfafc69e2d65504471c7c09bcf47ce93",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-SCREENSHOT-20260818/state.json": "7f4907a9cb98dd4256b694d25782dba61aa3a6011492a7b83769eb21cf313a3a",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/events.jsonl": "bd62fb8ef7bbb4fe24a151db5c0061da8e3dd4ae9ddcdc7a3c2eceabb5373a90",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/evidence.jsonl": "9bdd7a95097cef0acff66baa20960d7d063b6cd7ee9364c2a4adcdf319b5873c",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/plan.json": "1138d9b7ae9e786eb1866ce6dfd5a80844eedebea24f9ae54829536a04caeaef",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/solution.md": "de6373b88b356158af7318f29f845c840bce812648fd8bfd6c19190b4ad8291d",
+        ".ai-harness/work-items/BUGFIX-PRO-SCAN-QUOTA-CONTRACT-20260818/state.json": "69b6a32fcebedd19f3066fdf24ce40860f1f1f258834931861a73f04c377c5b4",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/events.jsonl": "fbf2e182d895063d451ebbbd4576cc4793960e7999033f7ec82719326e025c19",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/evidence.jsonl": "ad6b8b843b6991a619fab8233b7d54d0379e5c0962feaa0ad340f2d74bb0acd7",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/plan.json": "4ec0d680fb6badf67f5b14da45dafe1764f8f8240f4155a0a6da16b32db9f77f",
+        ".ai-harness/work-items/BUGFIX-SUBSCRIPTION-RESTORE-ICON-RING-20260818/state.json": "4046244ff1d4739f4d2989440472ad0e9c0f2e0dbed14dbd1657bdce3e9434d3",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/events.jsonl": "fe493cc1d7cdbe11d1b948550811e06dde5661ffb1a43c3365e7aa69b8e7bc3d",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/evidence.jsonl": "b7a4f309b84535264e10f131bf0c744767395116130b84f2fcb5e8da62d5c4c1",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/plan.json": "9aab9791ba15a53c47c495d7b89a7cb22ed839ea04fa2e62d6a03a86f7b1e035",
+        ".ai-harness/work-items/ITER-IOS-SIM-CLEAN-INSTALL-5-20260818/state.json": "9579b0ecc8ae340456ba018ecc0730014dd88bd552160356e6cd200c714c9ef1",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/events.jsonl": "361ab5a3ea72b96deac229f2bcb392c47d303974da79ec22a7433af9384a529b",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/evidence.jsonl": "ee424bdd677ce6065e9e7814cd8c7fd7c45172ad7a7fd3126d1651356432a4c5",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/plan.json": "b3101318e55c127960af1eb2d7af277d2883d50b931fdda5e6086e2a8b543240",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-69-20260818/state.json": "c7c409e500dad1317453b6b37a8f3d2e4b99231d8002cd68e179b48ae3b73614",
+        "apps/flutter-app/lib/features/scan/scan_page.dart": "9d973a2d05113a9ec783e415344f9a6c1f01338249ee98b5971f9ced4d5c7dcb",
+        "apps/flutter-app/lib/features/scan/scan_result_source.dart": "d3c9fe9689784a6593ea8b93b7bccaa17075331fe89780b3eb2016566723d5c8",
+        "apps/flutter-app/lib/shared/scan/scan_api_client.dart": "8ab2761eb2482926e14affb007c6fa256a8a7cb3dcd38a6ffa751d956815e0bc",
+        "apps/flutter-app/lib/shared/ui/subscription_restore_result.dart": "f6eab043bf3113b749450ea19791805db66356db3c62c6dd9d17de7c3e3a4f85",
+        "apps/flutter-app/pubspec.yaml": "052a44bd0ae769cd41c507f0c4cbdb9baabdfe9ff3492e459e55471e07aa5650",
+        "apps/flutter-app/test/scan_api_client_test.dart": "435cd22e0447a8804875dca773e7a1b3e5c2ac928405dba0bf577f252c9484c5",
+        "apps/flutter-app/test/scan_result_source_test.dart": "404e37de4f5dcf766c732eba60eb556b783b55cb26dea69e515ab153d2e907cd",
+        "apps/flutter-app/test/subscription_restore_result_test.dart": "461fb55e084b1b8a78ceda0b2ec3a31f81de8ab358f17bb25bef5da6888f4122",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png": "609b6808900c664215e3e075f854bfca1fca318659b3ecb89e20a5b8e5e768cd",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png": "4c25804e2a2a20a20c387fcca210aa8f2ec7459d57de25a53025a28e52a71630",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png": "f24a15758282793399053ddfc1cfac9195854a47544324f0c9a8ebfe3f5148c5",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png": "8fbd7f049fb6a0621777b4abc6340cc5407de9ecc5e4e240bda99f871332bf57",
+        "apps/flutter-app/test/widget/scan_page_test.dart": "ec5da52e8fc76ebb58d6200d97fd6ed47a96fafff393296dd4d990b5191cc9e1",
+        "apps/workers-api/src/scan/routes.test.ts": "4c8eb4977a228fbcb077834351121ac7dcf16f66c1b347ed0440ff19adef42d6",
+        "apps/workers-api/src/scan/routes.ts": "c8d3b11715b0a0f06f42076b8e7d9fb858e676303b08af17bf105ad484f4cbe3",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md": "66b9ddbcd545d6cbeff799782c9257ba9bb095b010ae3a9047cb92514fb4d835",
+        "docs/releases/v1.1.0/03-data-api/entitlement-contract.md": "74c642ae9093272495dd69537f1295d9bc2ced841c64b8e6988330272496dcb4",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "6acf7b6364a22fc4073ec91c9b1b36e65a6daef194c91bb1a8b07253c6949953",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-FREE-BLUR-20260818/events.jsonl": "666ff8e192c29ffada2fa87b5fd48b1961c01606bdbbe0a6c14db904dfbedd57",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-FREE-BLUR-20260818/evidence.jsonl": "07b37e7712cbda58a6cbaf1b309e2329d94246a1195e67264cede003d8f0625e",
+        ".ai-harness/work-items/ANALYSIS-HOME-PERFORMANCE-FREE-BLUR-20260818/state.json": "640cc966c9a14721903bc10d35338e2cdae2c7f6d85585c512a4814a93f0b0a2",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-LOCKED-UI-1892-7057-20260818/events.jsonl": "b75880fa6acab6444c14539b2de9d0fa72bef62d64210ee9c4004be260a64334",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-LOCKED-UI-1892-7057-20260818/evidence.jsonl": "ef86c3e135b2184c93e2815c3b6584925591de6f3ef6e0bc20f1634d52ca2d82",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-LOCKED-UI-1892-7057-20260818/plan.json": "6e9cf6584c4e75e6a0748929f18bdab823bc6e9fd9c018b8dab1cbd27134536b",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-LOCKED-UI-1892-7057-20260818/solution.md": "8cf17c45a69833a476650d31b79950bd8038b83c76e40c448f08b2d78cf98d39",
+        ".ai-harness/work-items/ITER-HOME-PERFORMANCE-LOCKED-UI-1892-7057-20260818/state.json": "e4fc455025d7bbc064f9bd4f1d2fdaf823e6402917b86301c492947168c7fc48",
+        ".ai-harness/work-items/ITER-IOS-SIM-HOME-PERFORMANCE-UPDATE-20260818/events.jsonl": "228ee335735f95d3d042b892c1820b2b360657f72249c5526a3d39bddbff9ed9",
+        ".ai-harness/work-items/ITER-IOS-SIM-HOME-PERFORMANCE-UPDATE-20260818/plan.json": "e758d35393ea90f02add5681ce825a9474f237f143afa50caf1b4f80ec8bdf12",
+        ".ai-harness/work-items/ITER-IOS-SIM-HOME-PERFORMANCE-UPDATE-20260818/state.json": "401291b75d032ed19cb5b1fed857700ccb37f8306821102806064af9901b784e",
+        ".ai-harness/work-items/ITER-PREMIUM-LOCKED-DATA-BACKDROP-20260818/events.jsonl": "911ff683c2dc1823235e9ec772659ca5c5d1ed8cf129ed0c61394773d1f06d46",
+        ".ai-harness/work-items/ITER-PREMIUM-LOCKED-DATA-BACKDROP-20260818/state.json": "d5fe8cc4a9d30ab8036fa0d694ef7598f065f39fef8c8313b56b111bfca9f361",
+        ".ai-harness/work-items/ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818/events.jsonl": "a79f9d7f32fa1d36c838042a1cec1f342bb9fe4999279caa0a9fbd9fcd3765c7",
+        ".ai-harness/work-items/ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818/evidence.jsonl": "48e625cbc5ca4a8905aa142c08b7769920d2f8b709f0fb61e99639df7b8dc514",
+        ".ai-harness/work-items/ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818/plan.json": "9dcbb8a3703e30c821cf793941a63f8bc289944f2bfa832c18f3151aa2bfee96",
+        ".ai-harness/work-items/ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818/solution.md": "0a72a35628b0fe53b5c6553388b1bcd629254f11da42c37cac6f8af4440ae2ac",
+        ".ai-harness/work-items/ITER-SHARED-PREMIUM-LOCKED-PANEL-20260818/state.json": "7909ae6a5cce8efb8b270d01baa3ff6803aa8cd6e35c978b54ac20d6b12eee14",
+        "apps/flutter-app/assets/home/performance_locked_arrow.svg": "1c7c9a75ee354fa804f5adbd1cf57d544a3bc65ac08bc112aff0ddccd6297134",
+        "apps/flutter-app/assets/home/performance_locked_leading.svg": "f591558245754b840ab6395146969446e5e1ae01bd412782942c30882e2af38b",
+        "apps/flutter-app/assets/home/performance_locked_lock.svg": "d8c48f8aeb3927c55773112345fb02f975b89cff27b98512bcd20ad6986095f0",
+        "apps/flutter-app/lib/shared/ui/premium_locked_panel.dart": "010839bb3c0bd38297b320c51f660310c7abc2117d5d01a6106fbc5a2afa392d",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_home_performance_locked_1892_7057_350x427.png": "2be24aaf41e320dae403240062e6eb0f2bd07e5c731cc780ef2543f385e45ea8"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/ITER-PREMIUM-LOCKED-DATA-BACKDROP-20260818/solution.md",
+    "evidence": [
+      "用户最终明确要求假数据直接写入共享组件，使用页面不传入背景",
+      "Figma 1892:7057 提供覆盖层几何与 12px backdrop blur；正常 Performance 布局来自 home_page.dart 的四项 _PerformanceMetric、范围选择器和 190px 图表",
+      "共享组件现有 API 仅含标题、说明、按钮文案和回调，将保持不变"
+    ],
+    "completedAt": "2026-08-18T07:28:33.196Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅修改 Flutter 共享展示组件、Widget 测试和视觉基准；不涉及数据库、查询、API、Schema 或迁移"
+    ],
+    "completedAt": "2026-08-18T07:28:33.278Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ITER-PREMIUM-LOCKED-DATA-BACKDROP-20260818/plan.json",
+    "approved": true,
+    "approvalRef": "用户最新明确要求：假数据直接写入组件，使用页面不需要传入"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "3dfe2bd4-d04c-46cc-8a27-2149a8af2d01"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "82562656-c98d-4f97-8d18-ee4739cc6709"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "dbc2f827-e347-47d6-be6f-1c0e3ab37135"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "not-applicable",
+    "evidence": [
+      "9d6e0d51-f719-4127-8193-6e39d5b40961"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T07:27:02.104Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T07:27:02.173Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-18T07:27:02.459Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-18T07:28:33.689Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-18T07:28:33.775Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T07:36:13.123Z",
+      "reason": "任务级验证完成，进入工作项验证"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T07:36:13.365Z",
+      "reason": "工作项验证通过"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T07:36:13.534Z",
+      "reason": "代码审查通过"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T07:36:13.697Z",
+      "reason": "验收条件全部满足"
+    }
+  ],
+  "createdAt": "2026-08-18T07:27:02.104Z",
+  "updatedAt": "2026-08-18T07:36:13.697Z"
+}

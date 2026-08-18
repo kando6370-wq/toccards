@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-IOS-SIM-LATEST-CODE-UPDATE-20260818",
+  "mode": "single",
+  "rationale": "单一模拟器交付任务：使用最新代码构建、覆盖安装、启动并验证",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "构建并覆盖安装最新 test App",
+      "module": "apps/flutter-app",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "仅 iPhone 17 模拟器中的 com.kando.kandoApp.beta、依赖缓存、Pods 和 build 产物；保护仓库现有产品文件差异"
+      ],
+      "verification": [
+        "依赖解析成功、Xcode build 完成、安装产物晚于全部 Flutter 源码与资源、App 进程存活、截图非白屏、模拟器数据保留"
+      ],
+      "docsImpact": [
+        "N/A: 仅执行已有本地开发运行流程，不改变产品或工程契约"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "d0dab2c4-3da3-447f-bb00-06e5340832bb",
+        "b0aa6479-788b-4299-93fc-a8e98f75700a"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "iOS 模拟器覆盖更新验证",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T07:38:40.005Z",
+  "updatedAt": "2026-08-18T07:42:52.691Z"
+}
