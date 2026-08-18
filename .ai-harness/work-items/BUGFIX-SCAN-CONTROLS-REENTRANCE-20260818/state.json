@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "id": "BUGFIX-SCAN-CONTROLS-REENTRANCE-20260818",
+  "type": "BUGFIX",
+  "title": "修复扫描识别阶段顶部和底部控件二次入场",
+  "status": "DONE",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/bugfix.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户明确反馈并要求修复当前扫描页问题"
+  },
+  "input": {
+    "references": [
+      "apps/flutter-app/lib/features/scan/scan_page.dart",
+      "apps/flutter-app/test/widget/scan_page_test.dart",
+      "docs/releases/v1.1.0/05-delivery/development-plan.md"
+    ],
+    "acceptance": [
+      "点击拍照后，顶部退出/闪光/搜索与底部相册/拍照/完成控件在识别和揭示状态切换时不透明度归零、不重新入场",
+      "保留扫描线、识别、揭示、结果、订阅和额度业务逻辑"
+    ],
+    "nonGoals": [
+      "不修改相机、OCR、时间线、订阅、额度、队列或导航逻辑"
+    ],
+    "version": "v1.1.0"
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": {
+    "actual": "点击拍照后进入识别/揭示阶段，顶部和底部操作控件被透明度与位移动画隐藏后重新出现一次",
+    "expected": "顶部和底部操作控件跨扫描状态保持稳定，不发生二次入场",
+    "reproduction": "进入扫描页点击Take Photo，等待约2秒进入revealing状态，观察顶部及底部控件先消失再重新出现"
+  },
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "_ScanCameraView在revealing=true时同时将顶部和底部控件包进_FigmaRevealEntrance",
+      "_FigmaRevealEntrance在动画区间开始前返回Opacity(0)并施加位移，主动造成两组控件消失后重新入场",
+      "相机拍照、扫描线、recognizing/revealing Timer和识别Future无需修改；iOS与Android共用该Flutter Widget"
+    ],
+    "completedAt": "2026-08-18T09:46:32.465Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev-scan-page-update-ui",
+      "commit": "011f12bc8e191419fef5bbf41de2aca84a0ad1c5",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-SCAN-CONTROLS-REENTRANCE-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-SCAN-CONTROLS-REENTRANCE-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-SCAN-RECOGNITION-FLICKER-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-SCAN-RECOGNITION-FLICKER-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-SCAN-RECOGNITION-FLICKER-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-SCAN-RECOGNITION-FLICKER-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-SCAN-RECOGNITION-FLICKER-20260818/state.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/plan.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/state.json",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/plan.json",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/solution.md",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/state.json",
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/pubspec.yaml",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png",
+        "apps/flutter-app/test/widget/scan_page_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/lib/features/scan/scan_page.dart": "9d1f2b184dab734196cb6599df9698580ca9d2f7f8e8937f7c4a35820a359063",
+        "apps/flutter-app/pubspec.yaml": "444c45105e3ee8d8abd403f336d5ded95008be99c5f16157bf949e948e1af512",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png": "9dd3db5b6c7182ed5e42be41fd7cb5c5dfd639208ffa21b2cc904cfc6a81b845",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png": "b6ed86d1a981cd5e88173b05014b8f9aa9ed427dbb5641817eb165dbe2150d19",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png": "ce4512bf08fbdf1bc2915c6609e1a7d8122ab13f0835467d2d0bd1810a2c0a2e",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png": "b6ed86d1a981cd5e88173b05014b8f9aa9ed427dbb5641817eb165dbe2150d19",
+        "apps/flutter-app/test/widget/scan_page_test.dart": "ab6535f14e40840281b13b9bdc1fb838dda24467aa5b921bfce33e1b3d6b9ab1",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "e0c4db053b9a5da54e2730b8e84140fc8d6c5e99012778000a36cd2693561b11",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/events.jsonl": "b520c9dfa0225310f38d41d74146f017e4f3c89620ac7d750c03c08138628b0f",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/evidence.jsonl": "b50cf89e1a81b164d60001bcdbe9fcc19ee467fe8c45bad3aed3055464d0bb2d",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/state.json": "a85abff8aaea0980d604f309a22faf90cabcea86a75ae8a9030056a38ff00ae1",
+        ".ai-harness/work-items/BUGFIX-SCAN-CONTROLS-REENTRANCE-20260818/events.jsonl": "b3854108675403f652e79d5678a7065ba5c4a19c5cf02d4716bf70b203e507b4",
+        ".ai-harness/work-items/BUGFIX-SCAN-CONTROLS-REENTRANCE-20260818/state.json": "78f27654c566fbb23a1dbca1c127c4fd060899afece6bb88268d21ecc02416ae",
+        ".ai-harness/work-items/BUGFIX-SCAN-RECOGNITION-FLICKER-20260818/events.jsonl": "4275c98ea15ca41d33085e5feb91555c3dfc17170d6642f03ad29f32fa1bbfd0",
+        ".ai-harness/work-items/BUGFIX-SCAN-RECOGNITION-FLICKER-20260818/evidence.jsonl": "9d95f656bcc5161bbf68a03db91025a9a4fade7d8385dc7571c2fab097a13d33",
+        ".ai-harness/work-items/BUGFIX-SCAN-RECOGNITION-FLICKER-20260818/plan.json": "9da3fbf269eb1fb2c146353c351563a18db2329c78ab72eda183f7257e8528de",
+        ".ai-harness/work-items/BUGFIX-SCAN-RECOGNITION-FLICKER-20260818/solution.md": "7b3153758a4dc9962a1e43bc4588e70b60ff4ad57fc6902ac8d523cf12f4cb3c",
+        ".ai-harness/work-items/BUGFIX-SCAN-RECOGNITION-FLICKER-20260818/state.json": "f9965b72b7b7b19f980f517f0b7f4ad802e08d8103f11d560d83cd8ffa9d5e1e",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/events.jsonl": "b8598c576808a1f6712f973bbff0bec1f331a7673a89846fc7cd026d36403abb",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/evidence.jsonl": "a6c1256884829e982195e1bb2f177ce18c70a7e2bcc917968bc7f79325540b04",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/plan.json": "404068657541d211e33c337861f1e92347d9e8fec568c04d193bf21658e8e10a",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/state.json": "ff9860ab135ebcda962f7caa83a2c115ae063ebcbc1eaa0b4a9a0793e4de8b8e",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/events.jsonl": "1d38fe5e7bde7eb821484027036d695c5c2e18d7d6819cb54f035cd0cf2435c7",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/evidence.jsonl": "399dc889fb4fc7c01d66f15138bd4f775afc725a0fb937b7e55e978fae955cde",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/plan.json": "3b284dee4a1883a94d0b7d4320fa1adfc36a455625b2f97894658e4a97cbdac3",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/solution.md": "ac014ccfe8bbb7532a73753ecc30966832d8af9464aef70f9d956b11f6a5e6ec",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/state.json": "e1cc8e9e2967869b3b35d29bf6bf915d078ce15786b9484aed93294ae5dd7086"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/BUGFIX-SCAN-CONTROLS-REENTRANCE-20260818/solution.md",
+    "evidence": [
+      "让顶部和底部操作区始终直接渲染，消除revealing首帧Opacity(0)和位移动画",
+      "保留结果卡片揭示动画、扫描线和所有业务状态；共享Flutter实现同时覆盖iOS和Android"
+    ],
+    "completedAt": "2026-08-18T09:47:10.949Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅修改Flutter UI子树和Widget测试，无Schema、查询、API、迁移或持久化影响"
+    ],
+    "completedAt": "2026-08-18T09:47:17.003Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/BUGFIX-SCAN-CONTROLS-REENTRANCE-20260818/plan.json",
+    "approved": true,
+    "approvalRef": "用户明确反馈拍照识别时顶部和底部控件会重新出现，并要求修复且此前强调仅改UI"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "d7b49100-787b-45b4-a5b8-77170964cdcc"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "17e9954c-2da3-4ec4-af12-6e98ae1cdb0c"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "0380b876-3ea4-4b94-b160-79dd73315985"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "d5dfb630-1aa0-48a0-b9c6-d3e28eb1c152"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T09:46:20.995Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T09:46:25.871Z",
+      "reason": "读取扫描控件构建、revealing动画和现有Widget测试"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-18T09:46:40.737Z",
+      "reason": "根因确认是revealing状态对顶部和底部控件重复应用入场动画"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-18T09:47:49.212Z",
+      "reason": "完成技术方案、数据库无影响判断和单任务计划"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-18T09:47:57.953Z",
+      "reason": "开始建立失败测试并实施UI层修复"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T09:55:56.695Z",
+      "reason": "任务实现、相关验证和Review完成"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T09:56:14.812Z",
+      "reason": "范围内验证与文档证据完成"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T09:56:27.827Z",
+      "reason": "低风险UI Bugfix范围验证与Review通过"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T09:56:43.498Z",
+      "reason": "操作控件二次入场已消除，范围内验证、文档、Review和验收完成"
+    }
+  ],
+  "createdAt": "2026-08-18T09:46:20.995Z",
+  "updatedAt": "2026-08-18T09:56:43.498Z"
+}

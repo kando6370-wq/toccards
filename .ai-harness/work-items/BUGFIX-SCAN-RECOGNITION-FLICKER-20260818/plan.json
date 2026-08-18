@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-SCAN-RECOGNITION-FLICKER-20260818",
+  "mode": "single",
+  "rationale": "一个扫描页UI绘制层和其直接Widget测试，单批次低风险修复",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "稳定识别阶段径向遮罩绘制层",
+      "module": "apps/flutter-app",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/test/widget/scan_page_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "失败测试先证明状态切换替换RenderObject",
+        "修复后RenderObject稳定性、扫描线、识别揭示、Pro额度及Golden测试",
+        "flutter analyze、dart format、git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "low",
+      "owner": "primary-agent",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "b7556896-9c70-4000-9fac-a266e38ad04c",
+        "69efd959-6ba9-490e-baaa-d1ea96912be6"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "扫描识别闪烁UI审查",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T09:31:41.876Z",
+  "updatedAt": "2026-08-18T09:35:36.703Z"
+}

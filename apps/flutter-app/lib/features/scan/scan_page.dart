@@ -396,20 +396,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
     return _matchedItems.isNotEmpty && !processing;
   }
 
-  Animation<double> get _revealAnimation {
-    final revealingItem = _items
-        .where(
-          (item) =>
-              item.usesCameraFeedback &&
-              item.status == _ScanItemStatus.revealing,
-        )
-        .firstOrNull;
-    return revealingItem == null
-        ? const AlwaysStoppedAnimation(0)
-        : _pendingScans[revealingItem.id]?.revealController ??
-              const AlwaysStoppedAnimation(0);
-  }
-
   bool get _hasUnsavedScanResults {
     return _items.isNotEmpty;
   }
@@ -1944,7 +1930,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     revealing: _isRevealing,
                     showRevealingFeedback: _showRevealingFeedback,
                     captureAnimation: _captureController,
-                    revealAnimation: _revealAnimation,
                     cards: _reviewCards,
                     currency: currency,
                     remainingScans: hasPremiumAccess
@@ -2016,7 +2001,6 @@ class _ScanCameraView extends StatelessWidget {
     required this.revealing,
     required this.showRevealingFeedback,
     required this.captureAnimation,
-    required this.revealAnimation,
     required this.cards,
     required this.currency,
     required this.remainingScans,
@@ -2044,7 +2028,6 @@ class _ScanCameraView extends StatelessWidget {
   final bool revealing;
   final bool showRevealingFeedback;
   final Animation<double> captureAnimation;
-  final Animation<double> revealAnimation;
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
   final int? remainingScans;
@@ -2074,31 +2057,15 @@ class _ScanCameraView extends StatelessWidget {
               child: cameraPreview!,
             ),
           ),
-        if (recognizing)
-          const Positioned.fill(child: _FigmaRecognizingOverlay())
-        else if (revealing)
-          const Positioned.fill(child: _FigmaRevealingOverlay())
-        else ...[
-          Positioned.fill(
-            child: ColoredBox(
-              key: const Key('scan-figma-camera-overlay'),
-              color: const Color(0x1A0D0F08),
-            ),
+        Positioned.fill(
+          child: _FigmaViewfinderOverlay(
+            stateKey: recognizing
+                ? const Key('scan-figma-recognizing-overlay')
+                : revealing
+                ? const Key('scan-figma-revealing-overlay')
+                : const Key('scan-figma-camera-overlay'),
           ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  radius: 0.86,
-                  colors: [
-                    Colors.transparent,
-                    const Color(0xFF0D0F08).withValues(alpha: 0.85),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
         Positioned(
           top: 0,
           left: 0,
@@ -2113,11 +2080,7 @@ class _ScanCameraView extends StatelessWidget {
           top: _viewfinderTop,
           left: 0,
           right: 0,
-          child: Center(
-            child: _ViewfinderCorners(
-              focusFrameShadow: recognizing || revealing,
-            ),
-          ),
+          child: Center(child: _ViewfinderCorners()),
         ),
         if (capturingPhoto) ...[
           Positioned(
@@ -2152,24 +2115,14 @@ class _ScanCameraView extends StatelessWidget {
           left: 16,
           right: 16,
           bottom: revealing ? 19 : 22,
-          child: _FigmaRevealEntrance(
-            animation: revealAnimation,
-            active: revealing,
-            opacityStart: 0.52293,
-            opacityEnd: 0.84834,
-            translateStart: 0.52293,
-            translateEnd: 0.91512,
-            initialOffsetY: -25,
-            opacityCurve: const _FigmaSpringCurve(),
-            child: SafeArea(
-              top: false,
-              child: _ScanBottomControls(
-                canReview: canReview,
-                centered: revealing,
-                onPhotoPressed: onPhotoPressed,
-                onLibraryPressed: onLibraryPressed,
-                onReviewPressed: onReviewPressed,
-              ),
+          child: SafeArea(
+            top: false,
+            child: _ScanBottomControls(
+              canReview: canReview,
+              centered: revealing,
+              onPhotoPressed: onPhotoPressed,
+              onLibraryPressed: onLibraryPressed,
+              onReviewPressed: onReviewPressed,
             ),
           ),
         ),
@@ -2178,34 +2131,25 @@ class _ScanCameraView extends StatelessWidget {
           top: topInset,
           left: 8,
           right: 8,
-          child: _FigmaRevealEntrance(
-            animation: revealAnimation,
-            active: revealing,
-            opacityStart: 0,
-            opacityEnd: 0.26146,
-            translateStart: 0,
-            translateEnd: 0.39219,
-            initialOffsetY: -40,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ScanTopBar(
-                  onClosePressed: onClosePressed,
-                  onFlashPressed: onFlashPressed,
-                  flashEnabled: flashEnabled,
-                  onSearchPressed: onSearchPressed,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ScanTopBar(
+                onClosePressed: onClosePressed,
+                onFlashPressed: onFlashPressed,
+                flashEnabled: flashEnabled,
+                onSearchPressed: onSearchPressed,
+              ),
+              const SizedBox(height: 2),
+              const _AlignCardPill(),
+              if (remainingScans != null) ...[
+                const SizedBox(height: 6),
+                _ScanQuotaPill(
+                  remainingScans: remainingScans!,
+                  onPressed: onUpgradePressed,
                 ),
-                const SizedBox(height: 2),
-                const _AlignCardPill(),
-                if (remainingScans != null) ...[
-                  const SizedBox(height: 6),
-                  _ScanQuotaPill(
-                    remainingScans: remainingScans!,
-                    onPressed: onUpgradePressed,
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
       ],
@@ -2721,8 +2665,10 @@ class _ScanSideAction extends StatelessWidget {
   }
 }
 
-class _FigmaRecognizingOverlay extends StatelessWidget {
-  const _FigmaRecognizingOverlay();
+class _FigmaViewfinderOverlay extends StatelessWidget {
+  const _FigmaViewfinderOverlay({required this.stateKey});
+
+  final Key stateKey;
 
   @override
   Widget build(BuildContext context) {
@@ -2735,11 +2681,16 @@ class _FigmaRecognizingOverlay extends StatelessWidget {
             height: constraints.maxHeight < 884 ? 884 : constraints.maxHeight,
             child: Stack(
               children: [
-                const Positioned.fill(
+                Positioned.fill(
                   child: CustomPaint(
-                    key: Key('scan-figma-recognizing-overlay'),
-                    painter: _FigmaRecognizingOverlayPainter(),
+                    key: const Key('scan-figma-viewfinder-overlay'),
+                    painter: const _FigmaViewfinderOverlayPainter(),
                   ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: SizedBox.shrink(key: stateKey),
                 ),
                 const Positioned(
                   top: _viewfinderTop,
@@ -2762,255 +2713,35 @@ class _FigmaRecognizingOverlay extends StatelessWidget {
   }
 }
 
-class _FigmaRecognizingOverlayPainter extends CustomPainter {
-  const _FigmaRecognizingOverlayPainter();
+class _FigmaViewfinderOverlayPainter extends CustomPainter {
+  const _FigmaViewfinderOverlayPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final vignette = Paint()
-      ..shader = ui.Gradient.radial(
-        size.center(Offset.zero),
-        size.longestSide * 0.55,
-        const [Color(0x000D0F08), Color(0xD90D0F08)],
-        const [0.6, 1],
-      );
-    canvas.drawRect(Offset.zero & size, vignette);
-
-    final dimOutsideViewfinder = Path()
+    final viewfinder = RRect.fromRectAndRadius(
+      _viewfinderRect(size),
+      const Radius.circular(16),
+    );
+    final outsideViewfinder = Path()
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          _viewfinderRect(size),
-          const Radius.circular(16),
-        ),
-      );
-    canvas.drawPath(
-      dimOutsideViewfinder,
-      Paint()..color = const Color(0x66000000),
-    );
-    canvas.drawRect(Offset.zero & size, vignette);
-  }
-
-  @override
-  bool shouldRepaint(covariant _FigmaRecognizingOverlayPainter oldDelegate) =>
-      false;
-}
-
-class _FigmaRevealingOverlay extends StatelessWidget {
-  const _FigmaRevealingOverlay();
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: constraints.maxWidth,
-            height: constraints.maxHeight < 884 ? 884 : constraints.maxHeight,
-            child: Stack(
-              children: [
-                const Positioned.fill(
-                  child: CustomPaint(
-                    key: Key('scan-figma-revealing-overlay'),
-                    painter: _FigmaRevealingOverlayPainter(),
-                  ),
-                ),
-                const Positioned(
-                  top: _viewfinderTop,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: SizedBox(
-                      key: Key('scan-figma-overlay-viewfinder'),
-                      width: _viewfinderWidth,
-                      height: _viewfinderHeight,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _FigmaRevealingOverlayPainter extends CustomPainter {
-  const _FigmaRevealingOverlayPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
+      ..addRRect(viewfinder);
     final vignette = Paint()
       ..shader = ui.Gradient.radial(
-        size.center(Offset.zero),
+        viewfinder.center,
         size.longestSide * 0.55,
         const [Color(0x000D0F08), Color(0xD90D0F08)],
-        const [0.6, 1],
       );
-    canvas.drawRect(Offset.zero & size, vignette);
-
-    final dimOutsideViewfinder = Path()
-      ..fillType = PathFillType.evenOdd
-      ..addRect(Offset.zero & size)
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          _viewfinderRect(size),
-          const Radius.circular(16),
-        ),
-      );
-    canvas.drawPath(
-      dimOutsideViewfinder,
-      Paint()..color = const Color(0x66000000),
-    );
+    canvas
+      ..save()
+      ..clipPath(outsideViewfinder)
+      ..drawRect(Offset.zero & size, vignette)
+      ..restore();
   }
 
   @override
-  bool shouldRepaint(covariant _FigmaRevealingOverlayPainter oldDelegate) =>
+  bool shouldRepaint(covariant _FigmaViewfinderOverlayPainter oldDelegate) =>
       false;
-}
-
-class _FigmaRevealEntrance extends StatelessWidget {
-  const _FigmaRevealEntrance({
-    required this.animation,
-    required this.active,
-    required this.opacityStart,
-    required this.opacityEnd,
-    required this.translateStart,
-    required this.translateEnd,
-    required this.initialOffsetY,
-    required this.child,
-    this.opacityCurve = const Cubic(0.5, 0, 0.5, 1),
-  });
-
-  final Animation<double> animation;
-  final bool active;
-  final double opacityStart;
-  final double opacityEnd;
-  final double translateStart;
-  final double translateEnd;
-  final double initialOffsetY;
-  final Curve opacityCurve;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!active) {
-      return child;
-    }
-    return AnimatedBuilder(
-      animation: animation,
-      child: child,
-      builder: (context, child) {
-        final opacity = _figmaInterval(
-          animation.value,
-          opacityStart,
-          opacityEnd,
-          opacityCurve,
-        );
-        final translate = _figmaInterval(
-          animation.value,
-          translateStart,
-          translateEnd,
-          const _FigmaSpringCurve(),
-        );
-        return IgnorePointer(
-          ignoring: opacity == 0,
-          child: Opacity(
-            opacity: opacity.clamp(0, 1).toDouble(),
-            child: Transform.translate(
-              offset: Offset(0, initialOffsetY * (1 - translate)),
-              child: child,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-double _figmaInterval(double progress, double start, double end, Curve curve) {
-  if (progress <= start) {
-    return 0;
-  }
-  if (progress >= end) {
-    return 1;
-  }
-  return curve.transform((progress - start) / (end - start));
-}
-
-class _FigmaSpringCurve extends Curve {
-  const _FigmaSpringCurve();
-
-  static const _samples = [
-    0.0,
-    0.0188,
-    0.0679,
-    0.1374,
-    0.2195,
-    0.308,
-    0.3978,
-    0.4856,
-    0.5686,
-    0.6452,
-    0.7142,
-    0.7753,
-    0.8283,
-    0.8735,
-    0.9113,
-    0.9423,
-    0.9671,
-    0.9866,
-    1.0014,
-    1.0123,
-    1.0198,
-    1.0247,
-    1.0274,
-    1.0283,
-    1.0281,
-    1.0268,
-    1.025,
-    1.0227,
-    1.0202,
-    1.0177,
-    1.0152,
-    1.0128,
-    1.0106,
-    1.0085,
-    1.0068,
-    1.0052,
-    1.0039,
-    1.0028,
-    1.0018,
-    1.0011,
-    1.0005,
-    1.0,
-    0.9997,
-    0.9995,
-    0.9993,
-    0.9992,
-    0.9992,
-    0.9992,
-    0.9992,
-    0.9993,
-    0.9993,
-  ];
-
-  @override
-  double transformInternal(double t) {
-    if (t >= 1) {
-      return 1;
-    }
-    final position = t * (_samples.length - 1);
-    final lower = position.floor();
-    if (lower >= _samples.length - 1) {
-      return _samples.last;
-    }
-    final fraction = position - lower;
-    return _samples[lower] + (_samples[lower + 1] - _samples[lower]) * fraction;
-  }
 }
 
 class _ScanRevealingToast extends StatelessWidget {
@@ -3120,9 +2851,7 @@ class _ScanRevealingToast extends StatelessWidget {
 }
 
 class _ViewfinderCorners extends StatelessWidget {
-  const _ViewfinderCorners({this.focusFrameShadow = false});
-
-  final bool focusFrameShadow;
+  const _ViewfinderCorners();
 
   @override
   Widget build(BuildContext context) {
@@ -3130,9 +2859,7 @@ class _ViewfinderCorners extends StatelessWidget {
       key: const Key('scan-figma-viewfinder'),
       width: _viewfinderWidth,
       height: _viewfinderHeight,
-      child: CustomPaint(
-        painter: _ViewfinderPainter(focusFrameShadow: focusFrameShadow),
-      ),
+      child: CustomPaint(painter: const _ViewfinderPainter()),
     );
   }
 }
@@ -3147,27 +2874,10 @@ Rect _viewfinderRect(Size size) {
 }
 
 class _ViewfinderPainter extends CustomPainter {
-  const _ViewfinderPainter({required this.focusFrameShadow});
-
-  final bool focusFrameShadow;
+  const _ViewfinderPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (focusFrameShadow) {
-      final focusFramePaint = Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 5.1);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          const Rect.fromLTWH(0.5, 1.5, 279, 397),
-          const Radius.circular(16),
-        ),
-        focusFramePaint,
-      );
-    }
-
     final paint = Paint()
       ..color = const Color(0xFFF0FE6F)
       ..strokeWidth = 4
@@ -3197,8 +2907,7 @@ class _ViewfinderPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ViewfinderPainter oldDelegate) =>
-      focusFrameShadow != oldDelegate.focusFrameShadow;
+  bool shouldRepaint(covariant _ViewfinderPainter oldDelegate) => false;
 }
 
 class _ScanResults extends StatelessWidget {

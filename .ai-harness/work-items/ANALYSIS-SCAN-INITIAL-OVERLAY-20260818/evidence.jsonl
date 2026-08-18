@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"c4eaafa1-dcf9-4e8b-9470-41c50ee5ea7a","workItemId":"ANALYSIS-SCAN-INITIAL-OVERLAY-20260818","taskId":null,"kind":"analysis","status":"pass","summary":"已依据当前 Flutter 渲染分支整理目标三阶段，并标出需要用户确认的径向暗化强度、状态持续范围和黄色四角保留规则；本轮未修改产品文件。","timestamp":"2026-08-18T08:39:56.314Z","command":null,"independent":false}

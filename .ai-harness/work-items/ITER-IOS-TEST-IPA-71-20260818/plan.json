@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-IOS-TEST-IPA-71-20260818",
+  "mode": "single",
+  "rationale": "单一测试内部 IPA 构建；只写 pubspec，保护全部用户基线差异",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "构建并验证测试内部包 71",
+      "module": "apps/flutter-app",
+      "status": "IN_PROGRESS",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/pubspec.yaml"
+      ],
+      "verification": [
+        "flutter analyze、当前扫描页代码、test Release、真实 ML Kit、签名、App Attest、Firebase、API、IAP、UDID、dSYM、SHA-256 和 Git 漂移"
+      ],
+      "docsImpact": [
+        "N/A: 仅执行现有构建流程和同步 build number；用户已自行更新 delivery 文档，本任务不改写"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "codex",
+      "verificationStatus": "fail",
+      "reviewStatus": "pending",
+      "evidence": [
+        "c5901713-0437-4191-82d6-50354d769d3e"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "iOS 测试内部包 71 交付复核",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T09:00:50.423Z",
+  "updatedAt": "2026-08-18T09:16:00.166Z"
+}

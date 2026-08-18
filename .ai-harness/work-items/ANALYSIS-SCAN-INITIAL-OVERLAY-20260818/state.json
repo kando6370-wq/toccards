@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "id": "ANALYSIS-SCAN-INITIAL-OVERLAY-20260818",
+  "type": "ANALYSIS",
+  "title": "梳理扫描页初始遮罩与扫描动画需求",
+  "status": "ANSWERED",
+  "flags": [
+    "mobile",
+    "frontend"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/analysis.md",
+    ".ai-harness/policies/mobile.md",
+    ".ai-harness/policies/frontend.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户要求仅列出需求与疑问等待确认"
+  },
+  "input": {
+    "references": [
+      "用户要求先重新梳理页面初始态、拍照扫描线和识别揭示态，不修改代码，待确认"
+    ],
+    "acceptance": [
+      "明确三个阶段的视觉状态和待确认疑问"
+    ],
+    "nonGoals": [
+      "本轮不修改 Flutter 代码、测试、Golden 或文档"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "当前提交 011f12bc8e191419fef5bbf41de2aca84a0ad1c5，工作树在分析开始前干净",
+      "scan_page.dart：初始态使用全屏半透明色加径向渐变；拍照时显示扫描线；recognizing/revealing 使用框外暗化并通过 focusFrameShadow 添加白色柔光；所有状态共用定位框位置和尺寸"
+    ],
+    "completedAt": "2026-08-18T08:39:12.792Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "011f12bc8e191419fef5bbf41de2aca84a0ad1c5",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/state.json"
+      ],
+      "fingerprints": {
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/events.jsonl": "8dffc564eea494cf80a2463b3b1f5b6b653dc0707480be2265fca1bb0c2b3464",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/state.json": "95211bce6dec7803ff72674937b1ce291cc57ed0303df0ceeac98ebf49c75bd2"
+      }
+    }
+  },
+  "solution": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null
+  },
+  "database": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null,
+    "impact": "unknown"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/plan.json",
+    "approved": false,
+    "approvalRef": null
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pass",
+    "evidence": [
+      "c4eaafa1-dcf9-4e8b-9470-41c50ee5ea7a"
+    ],
+    "conclusions": [
+      {
+        "id": "b656f2db-fc36-4a58-b8ca-54e55b37972e",
+        "status": "PROVEN",
+        "text": "当前代码把白色柔光仅用于 recognizing/revealing；拍照捕获阶段显示从上向下的扫描线；初始态框内仍受全屏遮罩和渐变影响，并非纯透明。",
+        "evidence": [
+          "apps/flutter-app/lib/features/scan/scan_page.dart 中 _ScanCameraView、_FigmaRecognizingOverlay、_FigmaRevealingOverlay 与 _ViewfinderPainter"
+        ]
+      },
+      {
+        "id": "11f18483-c12f-49ee-bf33-2292c7a94c4e",
+        "status": "PROPOSAL",
+        "text": "目标可整理为统一基础视觉：进入扫描页立即启用以定位框中心为圆心、向屏幕边缘逐渐加深的径向暗化，定位框内部通过裁剪保持完全透明；黄色四角保持；白色柔光在所有状态移除；扫描线仍只在点击拍照后的捕获阶段从框顶移动到框底，识别和揭示阶段沿用同一基础视觉。",
+        "evidence": [
+          "用户本轮描述及当前 Flutter 状态渲染结构"
+        ]
+      }
+    ],
+    "unknowns": [
+      "需确认径向暗化在拍照、识别、揭示全过程是否保持不变，以及黄色四角是否始终保留。"
+    ]
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T08:38:58.488Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T08:39:05.208Z",
+      "reason": "核对当前扫描页面状态渲染"
+    },
+    {
+      "from": "BASELINING",
+      "to": "ANALYZING",
+      "at": "2026-08-18T08:39:19.467Z",
+      "reason": "基线明确，整理目标状态与待确认参数"
+    },
+    {
+      "from": "ANALYZING",
+      "to": "ANSWERED",
+      "at": "2026-08-18T08:40:02.496Z",
+      "reason": "需求梳理和待确认问题已形成，等待用户确认后再进入开发"
+    }
+  ],
+  "createdAt": "2026-08-18T08:38:58.488Z",
+  "updatedAt": "2026-08-18T08:40:02.496Z"
+}

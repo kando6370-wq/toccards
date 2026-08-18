@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-SCAN-RADIAL-VIEWFINDER-20260818",
+  "mode": "single",
+  "rationale": "一个 Flutter 绘制层组件及其直接 Widget/Golden/增量文档，业务逻辑零改动，单批实施和审查",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "统一径向遮罩并移除白色柔光",
+      "module": "apps/flutter-app",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/test/widget/scan_page_test.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "扫描遮罩 Widget 定向测试",
+        "4 个扫描状态 Golden",
+        "flutter analyze",
+        "dart format 与 git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "low",
+      "owner": "primary-agent",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "70ece4c6-10b3-4ff5-b2b0-580333e20481",
+        "29913457-c753-4543-b58c-f44ba2486a7f"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "扫描径向遮罩 UI 审查",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T08:47:53.357Z",
+  "updatedAt": "2026-08-18T08:57:31.681Z"
+}

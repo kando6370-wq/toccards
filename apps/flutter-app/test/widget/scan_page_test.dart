@@ -139,28 +139,27 @@ void main() {
     },
   );
 
-  testWidgets(
-    'the quota prompt stays tappable where it overlaps the viewfinder',
-    (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.padding = const FakeViewPadding(top: 62);
-      addTearDown(tester.view.reset);
-      await _pumpScanTestApp(tester);
+  testWidgets('the quota prompt stays tappable above the lowered viewfinder', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 62);
+    addTearDown(tester.view.reset);
+    await _pumpScanTestApp(tester);
 
-      final quotaPrompt = tester.getRect(
-        find.byKey(const Key('scan-free-quota-pill')),
-      );
-      final viewfinder = tester.getRect(
-        find.byKey(const Key('scan-figma-viewfinder')),
-      );
-      expect(quotaPrompt.bottom, greaterThan(viewfinder.top));
+    final quotaPrompt = tester.getRect(
+      find.byKey(const Key('scan-free-quota-pill')),
+    );
+    final viewfinder = tester.getRect(
+      find.byKey(const Key('scan-figma-viewfinder')),
+    );
+    expect(quotaPrompt.bottom, lessThanOrEqualTo(viewfinder.top));
 
-      await tester.tapAt(Offset(quotaPrompt.center.dx, quotaPrompt.bottom - 2));
-      await tester.pumpAndSettle();
+    await tester.tapAt(Offset(quotaPrompt.center.dx, quotaPrompt.bottom - 2));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Subscription'), findsOneWidget);
-    },
-  );
+    expect(find.text('Subscription'), findsOneWidget);
+  });
 
   testWidgets(
     'a completed free scan consumes one allowance so the displayed limit stays truthful',
@@ -837,6 +836,65 @@ void main() {
   });
 
   testWidgets(
+    'Figma scan keeps one visible overlay layer across recognition states to avoid a camera flash',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      final visibleOverlay = find.byKey(
+        const Key('scan-figma-viewfinder-overlay'),
+      );
+      expect(visibleOverlay, findsOneWidget);
+      final initialRenderObject = tester.renderObject(visibleOverlay);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(
+        find.byKey(const Key('scan-figma-recognizing-overlay')),
+        findsOneWidget,
+      );
+      expect(tester.renderObject(visibleOverlay), same(initialRenderObject));
+
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(
+        find.byKey(const Key('scan-figma-revealing-overlay')),
+        findsOneWidget,
+      );
+      expect(tester.renderObject(visibleOverlay), same(initialRenderObject));
+    },
+  );
+
+  testWidgets(
+    'Figma reveal keeps camera controls visible because existing actions must not enter twice',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(
+        find.byKey(const Key('scan-figma-revealing-overlay')),
+        findsOneWidget,
+      );
+      for (final control in [
+        find.byTooltip('Close Scan'),
+        find.byTooltip('Take Photo'),
+      ]) {
+        expect(
+          find.ancestor(
+            of: control,
+            matching: find.byWidgetPredicate(
+              (widget) => widget is Opacity && widget.opacity < 1,
+            ),
+          ),
+          findsNothing,
+        );
+      }
+    },
+  );
+
+  testWidgets(
     'Figma recognition replaces the scan line before returning a match',
     (tester) async {
       tester.view.devicePixelRatio = 1;
@@ -899,7 +957,7 @@ void main() {
   });
 
   testWidgets(
-    'Figma scan reveal restores camera controls before returning a match',
+    'Figma scan reveal keeps camera controls before returning a match',
     (tester) async {
       await _pumpScanTestApp(tester);
 
@@ -1543,13 +1601,19 @@ void main() {
   );
 
   testWidgets(
-    'Figma scan pre-scan keeps its camera overlay and platform label font',
+    'Figma scan pre-scan keeps its painted overlay and platform label font',
     (tester) async {
       await _pumpScanTestApp(tester);
 
-      final overlay = find.byKey(const Key('scan-figma-camera-overlay'));
-      expect(overlay, findsOneWidget);
-      expect(tester.widget<ColoredBox>(overlay).color, const Color(0x1A0D0F08));
+      expect(
+        find.byKey(const Key('scan-figma-camera-overlay')),
+        findsOneWidget,
+      );
+      final visibleOverlay = find.byKey(
+        const Key('scan-figma-viewfinder-overlay'),
+      );
+      expect(visibleOverlay, findsOneWidget);
+      expect(tester.widget<CustomPaint>(visibleOverlay).painter, isNotNull);
       expect(
         tester.widget<Text>(find.text('GALLERY')).style?.fontFamily,
         isNull,

@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "id": "ITER-SCAN-RADIAL-VIEWFINDER-20260818",
+  "type": "ITERATION",
+  "title": "统一扫描页径向框外暗化效果",
+  "status": "DONE",
+  "flags": [
+    "mobile",
+    "frontend"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md",
+    ".ai-harness/policies/mobile.md",
+    ".ai-harness/policies/frontend.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户逐项确认视觉需求并再次强调只改UI层"
+  },
+  "input": {
+    "references": [
+      "用户确认：黄色四角全过程保留；去掉均匀黑色蒙层；以定位框中心向屏幕边缘径向加深；边缘暗度沿用；扫描线保持现有0.5秒；进入页面即显示径向暗化但不自动运行扫描线"
+    ],
+    "acceptance": [
+      "进入扫描页、拍照、识别、结果揭示阶段均保持框内纯透明、框外径向加深和黄色四角",
+      "白色柔光在所有状态移除",
+      "扫描线仍仅在点击拍照后按现有时长从上到下执行一次",
+      "不修改任何扫描业务逻辑"
+    ],
+    "nonGoals": [
+      "不修改拍照、相机、裁剪、OCR、识别、额度、订阅、队列、Review或动画时序"
+    ],
+    "version": "v1.1.0"
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": "docs/releases/v1.0.0/00-product/ui-design-system.md",
+    "evidence": [
+      "branch dev commit 011f12bc8e191419fef5bbf41de2aca84a0ad1c5；产品工作树干净，仅有已完成需求分析工作项控制文件",
+      "当前初始态为全屏 Color(0x1A0D0F08)+径向渐变；识别/揭示态为径向渐变+框外均匀 Color(0x66000000)，识别态额外重复绘制 vignette；白色柔光由 _ViewfinderPainter.focusFrameShadow 绘制",
+      "当前扫描线仅 capturingPhoto 时显示，动画时长 500ms；定位框和 recognition crop 共用 top=213、280x400，本次不修改",
+      "用户已明确批准以当前界面和设计系统为基线的定向视觉变更，无额外 Figma 节点"
+    ],
+    "completedAt": "2026-08-18T08:46:40.477Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "011f12bc8e191419fef5bbf41de2aca84a0ad1c5",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/state.json",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/state.json"
+      ],
+      "fingerprints": {
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/events.jsonl": "b520c9dfa0225310f38d41d74146f017e4f3c89620ac7d750c03c08138628b0f",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/evidence.jsonl": "b50cf89e1a81b164d60001bcdbe9fcc19ee467fe8c45bad3aed3055464d0bb2d",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/state.json": "a85abff8aaea0980d604f309a22faf90cabcea86a75ae8a9030056a38ff00ae1",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/events.jsonl": "d79745dc874c7e42d110cdc6ae1daab4d43e45a27f5e8316ef95310abc89129c",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/state.json": "e8980942e153182894b913e179f11d3feeffcbd57afe248b0f7394cb1c539130"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/solution.md",
+    "evidence": [
+      "统一 painter 仅替换 UI 蒙层绘制；状态机和扫描流程不改",
+      "用户明确视觉方向作为批准设计来源；复用现有颜色、定位框几何和 Widget 测试结构"
+    ],
+    "completedAt": "2026-08-18T08:47:14.885Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "纯 Flutter CustomPainter、Widget 测试和 Golden 变更；无数据库读写、Schema、迁移、API 或持久化影响"
+    ],
+    "completedAt": "2026-08-18T08:47:14.948Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/plan.json",
+    "approved": true,
+    "approvalRef": "用户逐项确认5项视觉规则，并再次强调只改UI层"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "a01c46d9-1bd5-4580-8a02-6b66fe20fc28"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "6c6962cb-98bc-46a1-b043-958097ebff41"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "2d71f4fc-fd3c-4291-9757-c4f4cfc7e83b"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "60d59e7d-5741-4768-abe4-2c1123d0addf"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T08:46:21.948Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T08:46:29.400Z",
+      "reason": "读取当前扫描绘制层、相关 Widget 测试、Golden 与 v1.1 文档"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-18T08:46:47.779Z",
+      "reason": "基线完成，设计仅限绘制层的统一径向遮罩"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-18T08:47:53.523Z",
+      "reason": "技术设计、数据库无影响和用户批准计划均完成"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-18T08:47:53.565Z",
+      "reason": "开始实施仅限绘制层的扫描视觉调整"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T08:57:48.379Z",
+      "reason": "任务实现与定向审查完成"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T08:57:48.621Z",
+      "reason": "验证证据完备"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T08:57:48.783Z",
+      "reason": "低风险UI批次Review通过"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T08:57:48.943Z",
+      "reason": "用户已明确验收规则且代码、视觉与回归验证均满足"
+    }
+  ],
+  "createdAt": "2026-08-18T08:46:21.948Z",
+  "updatedAt": "2026-08-18T08:57:48.943Z"
+}

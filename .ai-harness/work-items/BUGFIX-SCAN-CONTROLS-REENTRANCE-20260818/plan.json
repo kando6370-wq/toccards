@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-SCAN-CONTROLS-REENTRANCE-20260818",
+  "mode": "single",
+  "rationale": "单一扫描页UI显隐根因及其直接Widget回归测试，固定一个低风险Review Batch",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "移除扫描操作控件二次入场动画并增加回归测试",
+      "module": "apps/flutter-app",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/test/widget/scan_page_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "定向Widget失败测试和修复后复测",
+        "扫描页非Golden测试与相关Golden",
+        "flutter analyze、dart format、git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "low",
+      "owner": "codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "7b43bf4e-dd5c-4f6d-a286-5fd02c5bdf7b",
+        "f4c00028-bfa0-40df-8bfd-42cc894e45cc"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "扫描控件稳定显示审查",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T09:47:22.610Z",
+  "updatedAt": "2026-08-18T09:55:46.546Z"
+}

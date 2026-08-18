@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "id": "ITER-IOS-TEST-IPA-71-20260818",
+  "type": "ITERATION",
+  "title": "使用当前磁盘代码重新构建 iOS 测试内部包 71",
+  "status": "IMPLEMENTING",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "autonomous",
+    "source": "用户明确要求重新构建"
+  },
+  "input": {
+    "references": [
+      "用户更新扫描页代码并要求按上一轮口径重新构建"
+    ],
+    "acceptance": [
+      "使用提交 011f12b 加当前未提交扫描页径向暗化改动生成 test flavor、真实 ML Kit、dev API、测试 Firebase、Apple Development 签名、App Attest development 的 1.1.0 (71) 设备白名单 IPA；验证最新代码、签名、环境、dSYM、UDID 与 SHA-256"
+    ],
+    "nonGoals": [
+      "不上传、不安装、不修改或回退用户现有业务代码/测试/Golden/文档，不打断其他会话"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "doctor 通过；dev@011f12b；pubspec 1.1.0+70；未发现 flutter run、xcodebuild、pod install 或 release_ios 进程；真实 ML Kit Pods 已解析",
+      "保护启动时全部用户差异：扫描页径向暗化实现、scan_page_test、4 张 Golden、v1.1 delivery 文档以及两个既有 Runtime 工作项目录；本任务只额外写 pubspec build number"
+    ],
+    "completedAt": "2026-08-18T09:00:50.249Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "011f12bc8e191419fef5bbf41de2aca84a0ad1c5",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/state.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/state.json",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/plan.json",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/solution.md",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/state.json",
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png",
+        "apps/flutter-app/test/widget/scan_page_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/lib/features/scan/scan_page.dart": "ce2ddd5c03d511022f73d6b5f0e2e3315ad201f570f32287d42324c18acd2800",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png": "9dd3db5b6c7182ed5e42be41fd7cb5c5dfd639208ffa21b2cc904cfc6a81b845",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png": "b6ed86d1a981cd5e88173b05014b8f9aa9ed427dbb5641817eb165dbe2150d19",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png": "ce4512bf08fbdf1bc2915c6609e1a7d8122ab13f0835467d2d0bd1810a2c0a2e",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png": "b6ed86d1a981cd5e88173b05014b8f9aa9ed427dbb5641817eb165dbe2150d19",
+        "apps/flutter-app/test/widget/scan_page_test.dart": "8cfbdc42196beff4a24be1b83caceb44a393dc5ee45ce1ed59abb1e8e4144451",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "7dbc77e4e892ee7d6013c22b7cdb4350bbea43a287ba0133a253457880a33e39",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/events.jsonl": "b520c9dfa0225310f38d41d74146f017e4f3c89620ac7d750c03c08138628b0f",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/evidence.jsonl": "b50cf89e1a81b164d60001bcdbe9fcc19ee467fe8c45bad3aed3055464d0bb2d",
+        ".ai-harness/work-items/ANALYSIS-SCAN-INITIAL-OVERLAY-20260818/state.json": "a85abff8aaea0980d604f309a22faf90cabcea86a75ae8a9030056a38ff00ae1",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/events.jsonl": "a1d7db9dbcf4c63141a8cb4da94472d2a6aab5138537738d023c7f7c5e7f29df",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/state.json": "ea57a65ef6cb233db4c53dbb8e26cfd18b38f19d4511424cdc8201cbcd5ddc3e",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/events.jsonl": "1d38fe5e7bde7eb821484027036d695c5c2e18d7d6819cb54f035cd0cf2435c7",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/evidence.jsonl": "399dc889fb4fc7c01d66f15138bd4f775afc725a0fb937b7e55e978fae955cde",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/plan.json": "3b284dee4a1883a94d0b7d4320fa1adfc36a455625b2f97894658e4a97cbdac3",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/solution.md": "ac014ccfe8bbb7532a73753ecc30966832d8af9464aef70f9d956b11f6a5e6ec",
+        ".ai-harness/work-items/ITER-SCAN-RADIAL-VIEWFINDER-20260818/state.json": "e1cc8e9e2967869b3b35d29bf6bf915d078ce15786b9484aed93294ae5dd7086"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": "apps/flutter-app/tool/release_ios.sh",
+    "evidence": [
+      "完整清理、静态分析并从当前磁盘代码构建 test Release 1.1.0 (71)；从新归档封装 Apple Development 内部 IPA；以源码时间、扫描 Overlay 唯一字符串/产物时间、环境、真实 ML Kit、签名、App Attest、UDID、dSYM 和哈希验证；成功后同步 pubspec 1.1.0+71"
+    ],
+    "completedAt": "2026-08-18T09:00:50.339Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅本地 Flutter/iOS 构建和版本号同步，不涉及数据库、Hyperdrive 或远程写入"
+    ],
+    "completedAt": "2026-08-18T09:00:50.382Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ITER-IOS-TEST-IPA-71-20260818/plan.json",
+    "approved": true,
+    "approvalRef": "用户明确要求重新构建"
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T09:00:50.052Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T09:00:50.106Z",
+      "reason": "记录最新提交和未提交用户改动基线"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-18T09:00:50.295Z",
+      "reason": "进入构建方案确认"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-18T09:00:50.598Z",
+      "reason": "方案、数据库判断和计划已完成"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-18T09:00:50.641Z",
+      "reason": "开始构建"
+    }
+  ],
+  "createdAt": "2026-08-18T09:00:50.052Z",
+  "updatedAt": "2026-08-18T09:16:00.168Z"
+}
