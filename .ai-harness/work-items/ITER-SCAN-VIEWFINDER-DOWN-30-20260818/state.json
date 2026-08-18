@@ -1,0 +1,233 @@
+{
+  "schemaVersion": 1,
+  "id": "ITER-SCAN-VIEWFINDER-DOWN-30-20260818",
+  "type": "ITERATION",
+  "title": "扫描定位框整体下移 30px",
+  "status": "DONE",
+  "flags": [
+    "mobile",
+    "frontend"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md",
+    ".ai-harness/policies/mobile.md",
+    ".ai-harness/policies/frontend.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "当前用户消息"
+  },
+  "input": {
+    "references": [
+      "用户明确要求：扫描页面定位框整体往下移动30"
+    ],
+    "acceptance": [
+      "定位框视觉顶部从 163px 调整为 193px",
+      "相机识别裁剪区域与可见定位框保持一致",
+      "iOS 与 Android 共享 Flutter 实现一致生效，相关测试与 golden 更新并通过"
+    ],
+    "nonGoals": [
+      "不修改扫描业务状态、API、额度、Review 或其他页面布局"
+    ],
+    "version": "v1.1.0"
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": "docs/releases/v1.0.0/00-product/ui-design-system.md",
+    "evidence": [
+      "doctor: branch dev, commit 3f4f25fe9a0904a42b8a4867d8224ab2604b0f75, dirty worktree; scan_page.dart、scan_page_test.dart 与扫描 golden 当前无用户未提交差异",
+      "docs/releases/v1.1.0/05-delivery/development-plan.md 已有用户/其他工作项 Restore 相关未提交改动，若写入将仅追加扫描定位框记录并保留现有差异"
+    ],
+    "completedAt": "2026-08-18T02:26:54.335Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "3f4f25fe9a0904a42b8a4867d8224ab2604b0f75",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/state.json",
+        ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/plan.json",
+        ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/state.json",
+        ".ai-harness/work-items/ITER-SCAN-VIEWFINDER-DOWN-30-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-SCAN-VIEWFINDER-DOWN-30-20260818/state.json",
+        "apps/flutter-app/ios/Runner/AppDelegate.swift",
+        "apps/flutter-app/lib/features/subscription/apple_current_entitlements.dart",
+        "apps/flutter-app/lib/features/subscription/subscription_controller.dart",
+        "apps/flutter-app/test/apple_current_entitlements_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/ios/Runner/AppDelegate.swift": "384938ef6beaf508f52d54d9bc2421809f13acce2d1fd07da3da0fbd1cfd2686",
+        "apps/flutter-app/lib/features/subscription/apple_current_entitlements.dart": "5cd0816e1eee21dc32fdcc1423df1f98b1918cd69d5daabba52cca45bc2012d1",
+        "apps/flutter-app/lib/features/subscription/subscription_controller.dart": "0246a10ea43c236631eaf58364a9198ba4701f4e650b38d540a67df5b5da4f4a",
+        "apps/flutter-app/test/apple_current_entitlements_test.dart": "770426f95707a676adb47a38e943bf707858452342a5de9b957fcb096c2cf790",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "ba2e36d05ff9203b418dcdb8e2ca7f9e826a8aa6d25dbc80928fb6f7a66f1860",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/events.jsonl": "4f85f2635a4c2696bdaa41d9a69ca1f09879a432a4313836ba97c09ab8f548e6",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/evidence.jsonl": "be766a40278dc7b1abbec3259f9d93f607ad29341f6d23921e94b38c8bb34fc0",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/state.json": "2fd36cd684a0f6d7dfaba4c71afd699cbadddf1faec745885c11bbc4b7ef5a8d",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/events.jsonl": "5a6dd0b27483c2b45f6f60fa81171e63d997a575a923adae025cc94d30da7e87",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/evidence.jsonl": "c5479567b5906166915dc478b87239a9d5506d420a4813ee4d223b266df188d0",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/state.json": "edb101bff6e78bfd7814cb348f13fa6bbaee3d6a27a8c630ab635853301d3c5b",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/events.jsonl": "68970061a9a1080fb6818bb0837d8eae33fbfe800626a6fa7eee1030f1055f90",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/evidence.jsonl": "9c88f1075742e58d6dbdcd85a9d36bf8420926d3a10bca1bd468f82ddbafbc0a",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/state.json": "996de4435b2596a5a09fe3948ddfbb9e98ec08680ab79342e1101e532862b81e",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/events.jsonl": "2ccd7baeb67c29eaa50880a287d248fc7976395aa0d98e1b2b71a18a23178bb0",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/evidence.jsonl": "1d2a0a3584c4ea9bc8a882c6bc5e1719db130bd2d4a53798f1210ee418bfecd9",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/plan.json": "f356f30f1de92c8845831671b2ec048f8a70a0afe833456c2de982aaabad271f",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/solution.md": "f1dc7a1c0593401f0ac14a09d8adb7051d393726d62657c723543976b05769ff",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/state.json": "7e83522a549a1a356461ef5864ee8011d41bdf3cad90780d748370c07db45dd4",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/events.jsonl": "6f34d4b4138e81806c6ce1841b3b8e3b3662f21842809c8bc26660ddeec5e11c",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/evidence.jsonl": "9cf72798f80553774c15142365148c4111543c8f3ddbe7e7c35440584707084a",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/plan.json": "05f42bb088f86998adaa7a44b3f2e3b7b1f4e020dfeeec1cfbdc0212816dd2da",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/solution.md": "07fb9062b32120d0a59da53449c5922a015870c75754198c47d9732a24792973",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/state.json": "33d06c4da2d562def13fc0760dc80e201a88e98548d56db8227072f4092bc857",
+        ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/events.jsonl": "bd5e52eba69f08c8f7bd609835bec7a88650959c4c04c86a8e303bc017da5bdb",
+        ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/plan.json": "c9fbdcf4bdcdaac8ed8e847628001acc9d2465942593ae0a70f2149ce8846acf",
+        ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/state.json": "efe49d2dd37d19eaa5fbc35e8aecabe8d8b68e17d3d2deb5a35b999e9e2ebb81",
+        ".ai-harness/work-items/ITER-SCAN-VIEWFINDER-DOWN-30-20260818/events.jsonl": "f7b26d9b65f17c19452e94e124e9e5a2d747901e4fe0fd6d077293c88587b90d",
+        ".ai-harness/work-items/ITER-SCAN-VIEWFINDER-DOWN-30-20260818/state.json": "dfdfe91352b3b4fd61213393c14dab5592a7189f75228a49e1933fbf6fa92940"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/ITER-SCAN-VIEWFINDER-DOWN-30-20260818/solution.md",
+    "evidence": [
+      "目标代码仅有一个 _viewfinderTop 常量，所有定位框、覆盖层和 recognition crop 共用该值；用户再次明确要求不改逻辑",
+      "设计依据：用户明确位置指令 + docs/releases/v1.0.0/00-product/ui-design-system.md 保留业务逻辑与 widget key 规则"
+    ],
+    "completedAt": "2026-08-18T02:27:20.939Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "纯 Flutter 布局常量、Widget 断言与 golden 调整；无读写、API、Schema、迁移或基础设施变化"
+    ],
+    "completedAt": "2026-08-18T02:27:38.271Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ITER-SCAN-VIEWFINDER-DOWN-30-20260818/plan.json",
+    "approved": true,
+    "approvalRef": "用户消息：定位框整体下移30；逻辑那些不要改动"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "28f3d951-040a-472b-a671-9f3c06bdfdb7"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "2b1c229e-1326-4076-9c48-fc9fa2b1782c"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "1137dc06-f752-4049-9ef5-51adcc5e841b"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "91e8f9d0-c50b-4e6f-9eba-a25e91452852"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T02:26:21.778Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T02:26:53.771Z",
+      "reason": "开始记录扫描 UI 调整基线"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-18T02:26:54.394Z",
+      "reason": "基线完成，进入最小 UI 技术设计"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-18T02:28:14.978Z",
+      "reason": "技术设计、数据库判断和执行计划已批准"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-18T02:28:15.041Z",
+      "reason": "开始执行已批准的最小 UI 修改"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T02:49:46.041Z",
+      "reason": "任务实施和批次审查完成"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T02:49:46.279Z",
+      "reason": "定向验证完成，进入最终代码审查"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T02:49:46.444Z",
+      "reason": "低风险代码审查通过"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T02:49:46.609Z",
+      "reason": "验收条件满足，保留已披露的无关 Review Golden 环境差异"
+    }
+  ],
+  "createdAt": "2026-08-18T02:26:21.778Z",
+  "updatedAt": "2026-08-18T02:49:46.609Z"
+}

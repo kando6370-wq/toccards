@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"629710c3-e1b2-4da5-9dc4-cda8f9816867","workItemId":"ANALYSIS-PRO-SCAN-BACKEND-FRONTEND-20260818","taskId":null,"kind":"analysis","status":"pass","summary":"已核对当前 Flutter 到 Workers 的 Pro entitlement、session grant、请求头、额度预占/结算及响应回写链路；结论均已由 analysis-add 记录。","timestamp":"2026-08-18T03:06:01.742Z","command":null,"independent":false}

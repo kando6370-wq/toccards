@@ -1,0 +1,233 @@
+{
+  "schemaVersion": 1,
+  "id": "ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818",
+  "type": "ITERATION",
+  "title": "新增 iOS Premium unlocked 顶部提示组件",
+  "status": "DONE",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户当前消息明确要求依据 Figma 节点新建组件并替换 Premium unlocked 顶部提示"
+  },
+  "input": {
+    "references": [
+      "Figma DjacfTioobtRy59SnqH7SY node 2248:18893",
+      "apps/flutter-app/lib/shared/ui/toast.dart 与 Premium unlocked 直接调用方",
+      "docs/releases/v1.0.0/00-product/ui-design-system.md"
+    ],
+    "acceptance": [
+      "iOS Premium unlocked 使用独立新组件，201x48、12px 圆角、设计指定半透明橄榄背景、32px 原始 SVG 图标与 14/20 文案",
+      "订阅页面 externalPremium 与订阅弹窗 premiumUnlocked 返回后的所有顶部提示入口均替换",
+      "Android、Premium restored、No subscription found、Restore failed 及订阅业务逻辑保持不变",
+      "定向 Widget 测试、Flutter analyze、格式与 diff 检查通过"
+    ],
+    "nonGoals": [
+      "不修改购买、恢复、权益、路由或 blocked_action 逻辑",
+      "不替换项目内其他成功、失败、信息 Toast"
+    ],
+    "version": "v1.1.0"
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": "docs/releases/v1.0.0/00-product/ui-design-system.md",
+    "evidence": [
+      "当前 dev@3f4f25f，工作树已有用户的 iOS Restore 诊断改动；本任务目标页面和 shared UI 文件当前未修改，将增量编辑且不回退既有改动",
+      "现状所有 Premium unlocked 顶部反馈通过 showKandoTopToast 成功类型展示 350x74 通用样式；订阅弹窗通过 premiumUnlocked 结果在 Home、Collection、Card Detail、Scan 来源页触发，完整订阅页 externalPremium 直接触发",
+      "用户补充授权 Android 同步替换；iOS 与 Android 将共用新的 Flutter 组件，其他平台业务语义不变",
+      "Figma 2248:18893 已读取：201x48、12px 圆角、rgba(77,79,54,0.8)、32px 指定 SVG、12px 图文间距、16x8 内边距、14/20 muted 文案"
+    ],
+    "completedAt": "2026-08-18T02:24:41.627Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "3f4f25fe9a0904a42b8a4867d8224ab2604b0f75",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/state.json",
+        ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/state.json",
+        "apps/flutter-app/ios/Runner/AppDelegate.swift",
+        "apps/flutter-app/lib/features/subscription/apple_current_entitlements.dart",
+        "apps/flutter-app/lib/features/subscription/subscription_controller.dart",
+        "apps/flutter-app/test/apple_current_entitlements_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/ios/Runner/AppDelegate.swift": "384938ef6beaf508f52d54d9bc2421809f13acce2d1fd07da3da0fbd1cfd2686",
+        "apps/flutter-app/lib/features/subscription/apple_current_entitlements.dart": "5cd0816e1eee21dc32fdcc1423df1f98b1918cd69d5daabba52cca45bc2012d1",
+        "apps/flutter-app/lib/features/subscription/subscription_controller.dart": "0246a10ea43c236631eaf58364a9198ba4701f4e650b38d540a67df5b5da4f4a",
+        "apps/flutter-app/test/apple_current_entitlements_test.dart": "770426f95707a676adb47a38e943bf707858452342a5de9b957fcb096c2cf790",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "ba2e36d05ff9203b418dcdb8e2ca7f9e826a8aa6d25dbc80928fb6f7a66f1860",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/events.jsonl": "4f85f2635a4c2696bdaa41d9a69ca1f09879a432a4313836ba97c09ab8f548e6",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/evidence.jsonl": "be766a40278dc7b1abbec3259f9d93f607ad29341f6d23921e94b38c8bb34fc0",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/state.json": "2fd36cd684a0f6d7dfaba4c71afd699cbadddf1faec745885c11bbc4b7ef5a8d",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/events.jsonl": "5a6dd0b27483c2b45f6f60fa81171e63d997a575a923adae025cc94d30da7e87",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/evidence.jsonl": "c5479567b5906166915dc478b87239a9d5506d420a4813ee4d223b266df188d0",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/state.json": "edb101bff6e78bfd7814cb348f13fa6bbaee3d6a27a8c630ab635853301d3c5b",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/events.jsonl": "68970061a9a1080fb6818bb0837d8eae33fbfe800626a6fa7eee1030f1055f90",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/evidence.jsonl": "9c88f1075742e58d6dbdcd85a9d36bf8420926d3a10bca1bd468f82ddbafbc0a",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/state.json": "996de4435b2596a5a09fe3948ddfbb9e98ec08680ab79342e1101e532862b81e",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/events.jsonl": "2ccd7baeb67c29eaa50880a287d248fc7976395aa0d98e1b2b71a18a23178bb0",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/evidence.jsonl": "1d2a0a3584c4ea9bc8a882c6bc5e1719db130bd2d4a53798f1210ee418bfecd9",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/plan.json": "f356f30f1de92c8845831671b2ec048f8a70a0afe833456c2de982aaabad271f",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/solution.md": "f1dc7a1c0593401f0ac14a09d8adb7051d393726d62657c723543976b05769ff",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/state.json": "7e83522a549a1a356461ef5864ee8011d41bdf3cad90780d748370c07db45dd4",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/events.jsonl": "6f34d4b4138e81806c6ce1841b3b8e3b3662f21842809c8bc26660ddeec5e11c",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/evidence.jsonl": "9cf72798f80553774c15142365148c4111543c8f3ddbe7e7c35440584707084a",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/plan.json": "05f42bb088f86998adaa7a44b3f2e3b7b1f4e020dfeeec1cfbdc0212816dd2da",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/solution.md": "07fb9062b32120d0a59da53449c5922a015870c75754198c47d9732a24792973",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/state.json": "33d06c4da2d562def13fc0760dc80e201a88e98548d56db8227072f4092bc857",
+        ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/events.jsonl": "94ab6b3fcfdb8afba8e6e416caac30021d6742fe1ae1558ec353c3478f4a0951",
+        ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/state.json": "fe004569d7d28fb16dbd8c99ad4b626f86843d92c8b4e0ed2e65b1c1c30342d8"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": "docs/releases/v1.0.0/00-product/ui-design-system.md",
+    "evidence": [
+      "新增 shared/ui/premium_unlocked_toast.dart，独立管理 OverlayEntry、自动消失计时和 PremiumUnlockedToast Widget，不复用 KandoTopToast 视觉组件",
+      "组件使用 Figma 指定固定 201x48、顶部居中、12px 圆角、BackdropFilter、rgba(77,79,54,0.8)、CSS 等价阴影、32px 本地 SVG 和 14/20 muted 文案；资源放入既有 assets/subscription 目录，无新增依赖或 pubspec 资产声明",
+      "调用映射：premiumUnlocked 结果分支调用 showPremiumUnlockedToast；premiumRestored 分支继续 showKandoTopToast；SubscriptionPage externalPremium 直接改用新方法。购买、恢复、路由与后续 blocked action 代码不变",
+      "平台矩阵：iOS 和 Android 使用同一 Flutter 新组件；两端输入、输出、持续时间和业务语义相同，无平台 API 或权限差异"
+    ],
+    "completedAt": "2026-08-18T02:24:59.677Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "纯 Flutter Overlay 视觉组件、SVG 资源和调用替换，不涉及数据库、Schema、迁移、查询、API 或持久化数据"
+    ],
+    "completedAt": "2026-08-18T02:25:06.534Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818/plan.json",
+    "approved": true,
+    "approvalRef": "用户明确要求新建组件严格按 Figma 替换，并补充允许 Android 同步修改"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "de7f12cf-b26f-476a-bb46-8fcf980edc90"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "80574a20-fb37-4def-a106-8f0ff410a812"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "5f1c5df7-7146-424f-8299-bd9528e9ba4f"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "253f10ae-dc7d-4177-846d-9569ae0f5411"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T02:23:17.663Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T02:24:30.180Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-18T02:24:47.764Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-18T02:25:45.746Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-18T02:25:52.925Z",
+      "reason": "gate-passed"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T02:46:24.443Z",
+      "reason": "T1 实施、定向验证和批次审查完成"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T02:46:48.659Z",
+      "reason": "最终验证与文档影响检查完成"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T02:47:06.232Z",
+      "reason": "最终 Code Review 通过"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T02:47:23.137Z",
+      "reason": "双端 Premium unlocked 独立 Figma 顶部提示已实现并完成定向验收"
+    }
+  ],
+  "createdAt": "2026-08-18T02:23:17.663Z",
+  "updatedAt": "2026-08-18T02:47:23.137Z"
+}

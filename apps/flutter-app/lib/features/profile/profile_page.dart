@@ -16,8 +16,8 @@ import '../subscription/subscription_entitlement_cache.dart';
 import '../subscription/premium_top_entry.dart';
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../../shared/ui/subscription_restore_result.dart';
 import '../../shared/ui/toast.dart';
-import '../../shared/ui/kando_modal.dart';
 import 'account_page.dart';
 import 'profile_actions.dart';
 
@@ -133,23 +133,19 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
           context.mounted) {
         switch (next.resultEvent) {
           case SubscriptionResultEvent.restoreSuccess:
-            showKandoCenteredSuccessToast(
+            showSubscriptionRestoreResult(
               context,
-              title: 'Premium restored',
-              message: 'Your premium access is ready to use.',
-              duration: const Duration(milliseconds: 2750),
+              type: SubscriptionRestoreResultType.premiumRestored,
             );
           case SubscriptionResultEvent.restoreNotFound:
-            showKandoTopToast(
+            showSubscriptionRestoreResult(
               context,
-              message: 'No subscription found',
-              type: KandoTopToastType.info,
+              type: SubscriptionRestoreResultType.notFound,
             );
           case SubscriptionResultEvent.restoreFailed:
-            showKandoFailureAlert(
+            showSubscriptionRestoreResult(
               context,
-              title: 'Restore failed',
-              message: 'Unable to restore purchases. Please try again.',
+              type: SubscriptionRestoreResultType.failed,
             );
           case SubscriptionResultEvent.purchaseSuccess ||
               SubscriptionResultEvent.externalPremium ||

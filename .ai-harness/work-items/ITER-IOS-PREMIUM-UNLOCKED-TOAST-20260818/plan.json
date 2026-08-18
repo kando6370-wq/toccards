@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-IOS-PREMIUM-UNLOCKED-TOAST-20260818",
+  "mode": "single",
+  "rationale": "一个共享 Flutter Overlay 组件覆盖 iOS/Android，并在五个既有页面边界内仅替换 premiumUnlocked 视觉调用；单任务便于统一验证所有入口且不改订阅业务语义",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "实现并接入双端 Premium unlocked Figma 顶部提示",
+      "module": "apps/flutter-app",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/shared/ui/premium_unlocked_toast.dart",
+        "apps/flutter-app/assets/subscription/premium_unlocked_2248_18893.svg",
+        "apps/flutter-app/lib/features/subscription/subscription_page.dart",
+        "apps/flutter-app/lib/features/home/home_page.dart",
+        "apps/flutter-app/lib/features/collection/collection_page.dart",
+        "apps/flutter-app/lib/features/card_detail/card_detail_page.dart",
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/test/premium_unlocked_toast_test.dart"
+      ],
+      "verification": [
+        "dart format --output=none --set-exit-if-changed on touched Dart files",
+        "flutter test test/premium_unlocked_toast_test.dart test/subscription_restore_ui_test.dart and affected widget tests",
+        "flutter analyze on touched Dart files and tests",
+        "rg confirms no Premium unlocked is passed to showKandoTopToast",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "N/A: 纯 UI 还原；v1.0 规范与 v1.1 原始 PRD 为只读，既有 Premium unlocked 行为契约不变"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "primary-agent",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "2969e25d-ebdf-4ebc-81e3-1f8a32e5f7e8",
+        "502c3906-626d-464a-9196-9f225bcbfe7e"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "Premium unlocked 独立组件与调用链审查",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T02:25:16.521Z",
+  "updatedAt": "2026-08-18T02:46:16.054Z"
+}

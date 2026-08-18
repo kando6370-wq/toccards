@@ -9,6 +9,8 @@ import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
+import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
@@ -1189,15 +1191,16 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                                 subscriptionSheetLocation,
                               );
                           if (!context.mounted || result == null) return;
-                          showKandoTopToast(
-                            context,
-                            message:
-                                result ==
-                                    SubscriptionPaywallResult.premiumRestored
-                                ? 'Premium restored'
-                                : 'Premium unlocked',
-                            type: KandoTopToastType.success,
-                          );
+                          if (result ==
+                              SubscriptionPaywallResult.premiumRestored) {
+                            showSubscriptionRestoreResult(
+                              context,
+                              type:
+                                  SubscriptionRestoreResultType.premiumRestored,
+                            );
+                          } else {
+                            showPremiumUnlockedToast(context);
+                          }
                         }
                         await _runCreateFolderFlow(context, controller);
                       },
@@ -1237,13 +1240,14 @@ Future<void> _runCreateFolderFlow(
       subscriptionSheetLocation,
     );
     if (!context.mounted || paywallResult == null) return;
-    showKandoTopToast(
-      context,
-      message: paywallResult == SubscriptionPaywallResult.premiumRestored
-          ? 'Premium restored'
-          : 'Premium unlocked',
-      type: KandoTopToastType.success,
-    );
+    if (paywallResult == SubscriptionPaywallResult.premiumRestored) {
+      showSubscriptionRestoreResult(
+        context,
+        type: SubscriptionRestoreResultType.premiumRestored,
+      );
+    } else {
+      showPremiumUnlockedToast(context);
+    }
   }
 }
 

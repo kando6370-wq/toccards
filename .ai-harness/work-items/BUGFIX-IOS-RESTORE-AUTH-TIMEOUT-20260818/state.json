@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "id": "BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818",
+  "type": "BUGFIX",
+  "title": "排除 iOS Restore 密码输入时间的 15 秒超时",
+  "status": "DONE",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/bugfix.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户明确要求修改 Restore 超时，不计算 Apple 密码输入时间"
+  },
+  "input": {
+    "references": [
+      "Profile Restore 在 Apple 密码尚未输入完成时提前显示 Restore failed"
+    ],
+    "acceptance": [
+      "AppStore.sync 系统交互不受 15 秒超时限制；同步后的权益读取仍有 15 秒超时；相关测试、静态分析和 iOS 构建通过"
+    ],
+    "nonGoals": [
+      "不修改订阅商品、Bundle ID、权益判断、Android 购买逻辑或提示样式"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": {
+    "actual": "Apple 密码输入超过 15 秒时，整个 syncCurrentEntitlements MethodChannel 调用被 Dart timeout 提前判定失败",
+    "expected": "Apple 账号和密码交互耗时不计入 15 秒；只有同步完成后的当前权益读取阶段受超时保护",
+    "reproduction": "iPhone 8 从 Profile 点击 Restore，在 Apple 登录框中输入密码超过 15 秒，密码完成前出现 Restore failed"
+  },
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "dev 分支提交 3f4f25fe；iPhone 8 iOS 15.5 test flavor；现有 Dart AppleSubscriptionRestorer 对包含 AppStore.sync 的整次 reader.read 调用施加 15 秒 timeout，用户已真机复现密码未完成即失败",
+      "已读取 apple_current_entitlements.dart、subscription_controller.dart、AppDelegate.swift、Profile 调用方及 apple_current_entitlements_test.dart/subscription_restore_ui_test.dart"
+    ],
+    "completedAt": "2026-08-18T02:10:10.961Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "3f4f25fe9a0904a42b8a4867d8224ab2604b0f75",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/state.json",
+        "apps/flutter-app/ios/Runner/AppDelegate.swift",
+        "apps/flutter-app/lib/features/subscription/subscription_controller.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/ios/Runner/AppDelegate.swift": "d1fc0a062c16db5f74c5a8771ae1da26e29bed94c22ae6fd0f42d7c95403f7e5",
+        "apps/flutter-app/lib/features/subscription/subscription_controller.dart": "0246a10ea43c236631eaf58364a9198ba4701f4e650b38d540a67df5b5da4f4a",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "ee9d46dd357a25fc290aa5caec8e8457c8c649363c4007e645403702fe3601fc",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/events.jsonl": "5a6dd0b27483c2b45f6f60fa81171e63d997a575a923adae025cc94d30da7e87",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/evidence.jsonl": "c5479567b5906166915dc478b87239a9d5506d420a4813ee4d223b266df188d0",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/state.json": "edb101bff6e78bfd7814cb348f13fa6bbaee3d6a27a8c630ab635853301d3c5b",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/events.jsonl": "68970061a9a1080fb6818bb0837d8eae33fbfe800626a6fa7eee1030f1055f90",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/evidence.jsonl": "9c88f1075742e58d6dbdcd85a9d36bf8420926d3a10bca1bd468f82ddbafbc0a",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/state.json": "996de4435b2596a5a09fe3948ddfbb9e98ec08680ab79342e1101e532862b81e",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/events.jsonl": "97226fae64a9b99f38742289846de8b7719080b75c6010424c05bfea0d4a1f0e",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/state.json": "c6e9284c6463e14f5a5282c579fd2377cf87aaa01ca880cb3fc4233c53fce6bb",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/events.jsonl": "6f34d4b4138e81806c6ce1841b3b8e3b3662f21842809c8bc26660ddeec5e11c",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/evidence.jsonl": "9cf72798f80553774c15142365148c4111543c8f3ddbe7e7c35440584707084a",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/plan.json": "05f42bb088f86998adaa7a44b3f2e3b7b1f4e020dfeeec1cfbdc0212816dd2da",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/solution.md": "07fb9062b32120d0a59da53449c5922a015870c75754198c47d9732a24792973",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/state.json": "33d06c4da2d562def13fc0760dc80e201a88e98548d56db8227072f4092bc857"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/solution.md",
+    "evidence": [
+      "设计将系统 AppStore.sync 与权益读取拆为两个异步边界，只有后者保留 15 秒 Deadline；兼容旧原生方法并保持 Android/服务端/商品配置不变"
+    ],
+    "completedAt": "2026-08-18T02:11:03.650Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅调整 Flutter iOS StoreKit MethodChannel 调用边界和客户端测试，不涉及 Schema、迁移、查询、事务或服务端数据"
+    ],
+    "completedAt": "2026-08-18T02:11:11.469Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/plan.json",
+    "approved": true,
+    "approvalRef": "用户明确要求修改 15 秒超时，不计算 Apple 密码输入时间"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "de685a8c-a1bb-4151-81bc-debe1b429143"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "0bc0f0fa-b4c4-40b0-98d0-4b2bd26c8933"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "c1559fc0-8866-462d-9081-44ffb82bb478"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "7d9beeef-0bbd-41a8-8d95-3c494b3060c4"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T02:09:54.831Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T02:10:02.110Z",
+      "reason": "开始核对 Restore 原生桥接、Dart 超时边界、调用方和测试基线"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-18T02:10:41.073Z",
+      "reason": "基线和根因确认，开始记录最小桥接拆分设计"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-18T02:11:47.137Z",
+      "reason": "技术设计、数据库 none 判断和单批次计划已批准"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-18T02:11:47.198Z",
+      "reason": "开始实施 StoreKit 同步与权益读取拆分"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T02:21:26.000Z",
+      "reason": "任务验证和 Review 完成，进入工作项级真机验证"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T02:30:44.061Z",
+      "reason": "自动与 iPhone 8 真机验证通过，进入工作项级 Review"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T02:30:44.269Z",
+      "reason": "Code Review 通过，进入验收"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T02:30:44.498Z",
+      "reason": "实现、自动验证、真机验收、Review 和文档同步全部完成"
+    }
+  ],
+  "createdAt": "2026-08-18T02:09:54.831Z",
+  "updatedAt": "2026-08-18T02:30:44.498Z"
+}

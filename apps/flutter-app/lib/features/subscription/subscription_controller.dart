@@ -518,6 +518,10 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     if (state.isLoading || state.isPurchasePending) return;
     final configuration = ref.read(appSubscriptionConfigurationProvider);
     if (_client == null || _store != SubscriptionStore.appStore) {
+      debugPrint(
+        'Unable to restore Apple subscription: StoreKit client is not ready '
+        '(client=${_client == null ? 'missing' : 'ready'}, store=$_store).',
+      );
       state = state.copyWith(
         resultEvent: SubscriptionResultEvent.restoreFailed,
         restoreSource: source,
@@ -570,7 +574,10 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         resultEventCount: state.resultEventCount + 1,
       );
       await _cacheRestoreResult(result);
-    } on Object {
+    } on Object catch (error, stackTrace) {
+      debugPrint(
+        'Unable to restore Apple subscription: $error\n$stackTrace',
+      );
       if (attempt != _restoreAttempt) return;
       state = state.copyWith(
         isLoading: false,

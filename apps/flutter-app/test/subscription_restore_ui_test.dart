@@ -264,6 +264,10 @@ void main() {
 
       expect(find.text('Choose Your Plan'), findsOneWidget);
       expect(find.text('Restore failed'), findsOneWidget);
+      expect(
+        find.text('Something went wrong. Please try again later.'),
+        findsOneWidget,
+      );
       expect(find.text('OK'), findsOneWidget);
 
       await tester.tap(find.text('OK'));

@@ -515,7 +515,7 @@ void main() {
       );
       final crop = source.recognizedImages.single.recognitionCrop!;
       expect(crop.left, closeTo(55 / 390, 0.0001));
-      expect(crop.top, closeTo(163 / 844, 0.0001));
+      expect(crop.top, closeTo(193 / 844, 0.0001));
       expect(crop.width, closeTo(280 / 390, 0.0001));
       expect(crop.height, closeTo(400 / 844, 0.0001));
 
@@ -1550,7 +1550,7 @@ void main() {
       );
       expect(
         tester.getTopLeft(find.byKey(const Key('scan-figma-scanning-line'))).dy,
-        163,
+        193,
       );
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Scanning'), findsNothing);

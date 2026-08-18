@@ -10,6 +10,8 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
+import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
@@ -898,13 +900,14 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
       subscriptionSheetLocation,
     );
     if (!mounted || result == null) return;
-    showKandoTopToast(
-      context,
-      message: result == SubscriptionPaywallResult.premiumRestored
-          ? 'Premium restored'
-          : 'Premium unlocked',
-      type: KandoTopToastType.success,
-    );
+    if (result == SubscriptionPaywallResult.premiumRestored) {
+      showSubscriptionRestoreResult(
+        context,
+        type: SubscriptionRestoreResultType.premiumRestored,
+      );
+    } else {
+      showPremiumUnlockedToast(context);
+    }
     if (_tabController.index != 1 || widget.currentCollectionItemId != itemId) {
       return;
     }
@@ -3742,13 +3745,14 @@ class _PriceOverview extends ConsumerWidget {
         subscriptionSheetLocation,
       );
       if (!context.mounted || result == null) return;
-      showKandoTopToast(
-        context,
-        message: result == SubscriptionPaywallResult.premiumRestored
-            ? 'Premium restored'
-            : 'Premium unlocked',
-        type: KandoTopToastType.success,
-      );
+      if (result == SubscriptionPaywallResult.premiumRestored) {
+        showSubscriptionRestoreResult(
+          context,
+          type: SubscriptionRestoreResultType.premiumRestored,
+        );
+      } else {
+        showPremiumUnlockedToast(context);
+      }
     }
     final selected = await controller.selectPriceRange(range);
     if (!selected && context.mounted) showKandoFailureToast(context);

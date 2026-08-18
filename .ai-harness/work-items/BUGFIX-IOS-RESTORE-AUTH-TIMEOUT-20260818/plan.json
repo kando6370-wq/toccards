@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818",
+  "mode": "single",
+  "rationale": "一次原生桥接与 Dart 超时边界修复；单个 Review Batch 内完成实现、回归测试、iOS 构建和真机复验。",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "拆分 App Store 同步与权益读取 Deadline",
+      "module": "flutter-subscription",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/subscription/apple_current_entitlements.dart",
+        "apps/flutter-app/ios/Runner/AppDelegate.swift",
+        "apps/flutter-app/test/apple_current_entitlements_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "flutter test --reporter compact test/apple_current_entitlements_test.dart test/subscription_restore_ui_test.dart",
+        "flutter analyze lib/features/subscription/apple_current_entitlements.dart test/apple_current_entitlements_test.dart",
+        "xcodebuild test flavor Debug-test iphoneos no-sign build",
+        "iPhone 8 输入密码超过 15 秒不提前失败"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "RB1",
+      "risk": "medium",
+      "owner": "root",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "ed72a778-4483-4dc1-b189-c2df7483d520",
+        "bfbb824b-72b7-41c1-84f9-199ed3e100c0"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "RB1",
+      "title": "Restore 认证超时边界",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T02:11:35.597Z",
+  "updatedAt": "2026-08-18T02:21:25.918Z"
+}

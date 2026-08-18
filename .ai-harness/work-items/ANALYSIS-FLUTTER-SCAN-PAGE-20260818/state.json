@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "id": "ANALYSIS-FLUTTER-SCAN-PAGE-20260818",
+  "type": "ANALYSIS",
+  "title": "检查 Flutter 扫描页面当前实现",
+  "status": "ANSWERED",
+  "flags": [
+    "mobile",
+    "frontend"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/analysis.md",
+    ".ai-harness/policies/mobile.md",
+    ".ai-harness/policies/frontend.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "当前用户消息"
+  },
+  "input": {
+    "references": [
+      "用户请求：看看 apps/flutter-app 项目中的扫描页面"
+    ],
+    "acceptance": [
+      "定位页面入口、状态、API、平台能力与测试，并基于当前代码给出证据化说明"
+    ],
+    "nonGoals": [
+      "不修改产品代码或文档"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "doctor: branch dev, commit 3f4f25fe9a0904a42b8a4867d8224ab2604b0f75, dirty worktree; existing unrelated Flutter subscription/iOS changes preserved",
+      "scope: apps/flutter-app scan feature, related docs/routes/API/tests"
+    ],
+    "completedAt": "2026-08-18T02:18:53.435Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "3f4f25fe9a0904a42b8a4867d8224ab2604b0f75",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/state.json",
+        "apps/flutter-app/ios/Runner/AppDelegate.swift",
+        "apps/flutter-app/lib/features/subscription/apple_current_entitlements.dart",
+        "apps/flutter-app/lib/features/subscription/subscription_controller.dart",
+        "apps/flutter-app/test/apple_current_entitlements_test.dart",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/ios/Runner/AppDelegate.swift": "384938ef6beaf508f52d54d9bc2421809f13acce2d1fd07da3da0fbd1cfd2686",
+        "apps/flutter-app/lib/features/subscription/apple_current_entitlements.dart": "5cd0816e1eee21dc32fdcc1423df1f98b1918cd69d5daabba52cca45bc2012d1",
+        "apps/flutter-app/lib/features/subscription/subscription_controller.dart": "0246a10ea43c236631eaf58364a9198ba4701f4e650b38d540a67df5b5da4f4a",
+        "apps/flutter-app/test/apple_current_entitlements_test.dart": "770426f95707a676adb47a38e943bf707858452342a5de9b957fcb096c2cf790",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "ba2e36d05ff9203b418dcdb8e2ca7f9e826a8aa6d25dbc80928fb6f7a66f1860",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/events.jsonl": "ee4449dac2c339ec964c5f6bb3f494ce22dcbbf2cafb2043357ec4c763463a45",
+        ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/state.json": "8831d87dc5cf451d22becd96389e366f08227931e053f71b8a395e4a91c6acab",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/events.jsonl": "5a6dd0b27483c2b45f6f60fa81171e63d997a575a923adae025cc94d30da7e87",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/evidence.jsonl": "c5479567b5906166915dc478b87239a9d5506d420a4813ee4d223b266df188d0",
+        ".ai-harness/work-items/ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818/state.json": "edb101bff6e78bfd7814cb348f13fa6bbaee3d6a27a8c630ab635853301d3c5b",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/events.jsonl": "68970061a9a1080fb6818bb0837d8eae33fbfe800626a6fa7eee1030f1055f90",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/evidence.jsonl": "9c88f1075742e58d6dbdcd85a9d36bf8420926d3a10bca1bd468f82ddbafbc0a",
+        ".ai-harness/work-items/ANALYSIS-IOS8-LIVE-DEBUG-20260818/state.json": "996de4435b2596a5a09fe3948ddfbb9e98ec08680ab79342e1101e532862b81e",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/events.jsonl": "aa2e6e0455349ebe82667434a8eb925ccf3bad545e96115a27f68ba0053c855d",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/evidence.jsonl": "70b3371d65f731f4e76097e23376f7bf82c086a7b6eb0e2063396a4304ac4e2f",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/plan.json": "4fd29a480e7d5626166bd1a681d50e16286d3bddee94084d1b8607b9204965ba",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/solution.md": "f1dc7a1c0593401f0ac14a09d8adb7051d393726d62657c723543976b05769ff",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-AUTH-TIMEOUT-20260818/state.json": "b1e5e0f24dba1dd112e807cd415a64cb64159e626256846ac38834ce71cae2ad",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/events.jsonl": "6f34d4b4138e81806c6ce1841b3b8e3b3662f21842809c8bc26660ddeec5e11c",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/evidence.jsonl": "9cf72798f80553774c15142365148c4111543c8f3ddbe7e7c35440584707084a",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/plan.json": "05f42bb088f86998adaa7a44b3f2e3b7b1f4e020dfeeec1cfbdc0212816dd2da",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/solution.md": "07fb9062b32120d0a59da53449c5922a015870c75754198c47d9732a24792973",
+        ".ai-harness/work-items/BUGFIX-IOS-RESTORE-DIAGNOSTICS-20260818/state.json": "33d06c4da2d562def13fc0760dc80e201a88e98548d56db8227072f4092bc857"
+      }
+    }
+  },
+  "solution": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null
+  },
+  "database": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null,
+    "impact": "unknown"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ANALYSIS-FLUTTER-SCAN-PAGE-20260818/plan.json",
+    "approved": false,
+    "approvalRef": null
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pass",
+    "evidence": [
+      "a083f79b-501b-4d56-80b9-35478d6cdd4d"
+    ],
+    "conclusions": [
+      {
+        "id": "a1ff808a-e8e6-48c9-ab09-85b24e19942f",
+        "status": "PROVEN",
+        "text": "当前 /scan 是完整 Flutter 扫描流程：底部中心入口进入独立 ScanPage，支持实时相机、相册批量导入、识别状态队列、服务端额度、候选 Review 和确认入 Portfolio。",
+        "evidence": [
+          "apps/flutter-app/lib/app/router.dart:62-67; apps/flutter-app/lib/features/scan/scan_page.dart:307-1988; apps/flutter-app/lib/features/scan/scan_result_source.dart:109-368; apps/flutter-app/lib/features/scan/scan_review_repository.dart:93-227"
+        ]
+      },
+      {
+        "id": "b527237f-5e57-47b4-add9-0a39f8442dbe",
+        "status": "PROVEN",
+        "text": "iOS/Android 共用 Flutter 实现并分别具备相机/相册权限声明与平台化设置弹窗；代码处理闪光灯、后台暂停和恢复，但本次未做真机运行验证。",
+        "evidence": [
+          "apps/flutter-app/lib/features/scan/scan_camera.dart:26-116; apps/flutter-app/lib/features/scan/scan_permissions.dart:17-52; apps/flutter-app/ios/Runner/Info.plist:45-48; apps/flutter-app/android/app/src/main/AndroidManifest.xml:3-10; apps/flutter-app/lib/features/scan/scan_page.dart:430-569,820-891"
+        ]
+      },
+      {
+        "id": "f188802c-fd89-4fee-82c8-78393bf163f5",
+        "status": "PROVEN",
+        "text": "真实相机路径在识别 Future 完成前由 _photoRecognitionInFlight 拦截后续快门，现有并发测试使用禁用相机的 fallback 路径；这与冻结 Scan PRD 的 Scanning 不阻塞继续拍摄规则冲突。",
+        "evidence": [
+          "apps/flutter-app/lib/features/scan/scan_page.dart:571-634; apps/flutter-app/test/widget/scan_page_test.dart:2357-2379,3557-3562; docs/releases/v1.0.0/00-product/modules/scan.md:143-145,160-165"
+        ]
+      },
+      {
+        "id": "2ea246e9-c5de-4365-b452-66e04d0c6796",
+        "status": "PROVEN",
+        "text": "10 张待处理上限仅在相册入口检查；拍照入口在加入队列前没有 _items.length 门禁，因此拍照可超过文档上限。",
+        "evidence": [
+          "apps/flutter-app/lib/features/scan/scan_page.dart:571-602,643-659; docs/releases/v1.0.0/00-product/modules/scan.md:177-207"
+        ]
+      },
+      {
+        "id": "97eff4c9-c938-4dff-82e5-94800d2e34de",
+        "status": "PROVEN",
+        "text": "顶部 Search 按钮直接 context.go('/search')，有未保存结果时不会经过 _requestExitScan 确认；现有 Search chrome 测试只覆盖空队列，和冻结 PRD 的离开扫描流程需确认规则冲突。",
+        "evidence": [
+          "apps/flutter-app/lib/features/scan/scan_page.dart:1755-1798,1940; apps/flutter-app/test/widget/scan_page_test.dart:3069-3081; docs/releases/v1.0.0/00-product/modules/scan.md:507-529"
+        ]
+      },
+      {
+        "id": "d679e593-d405-4fdc-95f2-f00e68e95ee0",
+        "status": "PROVEN",
+        "text": "结果轨道当前将 items 反转为最新扫描优先，现有 Widget 测试也锁定该顺序；冻结 PRD 则写明先拍摄排前，属于文档与现行实现的显式冲突。",
+        "evidence": [
+          "apps/flutter-app/lib/features/scan/scan_page.dart:3212-3219; apps/flutter-app/test/widget/scan_page_test.dart:2998-3011; docs/releases/v1.0.0/00-product/modules/scan.md:165"
+        ]
+      },
+      {
+        "id": "bc885615-ed18-4207-a870-27052601c9fa",
+        "status": "UNKNOWN",
+        "text": "当前扫描测试在本次工作项中未执行，iOS/Android 真机相机、权限拒绝/恢复、并发拍照和 TestFlight/Sandbox 行为仍未由本次分析确认。",
+        "evidence": []
+      }
+    ],
+    "unknowns": [
+      "Runtime 拒绝在 ANALYZING 阶段执行 flutter test；开发计划也记录 Sandbox/TestFlight 与真实并发、超时规模验收尚未完成。"
+    ]
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T02:18:26.087Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T02:18:52.523Z",
+      "reason": "开始只读基线检查"
+    },
+    {
+      "from": "BASELINING",
+      "to": "ANALYZING",
+      "at": "2026-08-18T02:18:59.637Z",
+      "reason": "基线完成，开始代码与文档分析"
+    },
+    {
+      "from": "ANALYZING",
+      "to": "ANSWERED",
+      "at": "2026-08-18T02:22:58.910Z",
+      "reason": "证据化只读分析完成"
+    }
+  ],
+  "createdAt": "2026-08-18T02:18:26.087Z",
+  "updatedAt": "2026-08-18T02:22:58.910Z"
+}

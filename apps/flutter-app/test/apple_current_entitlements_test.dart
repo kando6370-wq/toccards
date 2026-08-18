@@ -20,6 +20,28 @@ void main() {
   });
 
   test(
+    'StoreKit synchronization is separate from entitlement reading',
+    () async {
+      final methods = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            methods.add(call.method);
+            if (call.method == 'syncAppStore') return null;
+            expect(call.method, 'readCurrentEntitlements');
+            return const <Object?>[];
+          });
+
+      final reader = const MethodChannelAppleCurrentEntitlementReader(
+        channel: channel,
+      );
+      await reader.synchronize();
+      await reader.read({'ios.yearly'});
+
+      expect(methods, ['syncAppStore', 'readCurrentEntitlements']);
+    },
+  );
+
+  test(
     'current entitlement bridge keeps only complete Apple evidence because Restore must not infer Premium from malformed rows',
     () async {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -74,7 +96,41 @@ void main() {
   );
 
   test(
-    'Restore enforces its deadline because late Apple results must not keep the container blocked',
+    'Restore excludes StoreKit authentication time from its deadline',
+    () async {
+      final reader = _PendingSynchronizationReader([
+        const AppleCurrentEntitlement(
+          productId: 'ios.yearly',
+          signedTransactionInfo: 'jws-yearly',
+        ),
+      ]);
+      final restore = AppleSubscriptionRestorer(
+        reader: reader,
+        deadline: const Duration(milliseconds: 10),
+      ).restore({'ios.yearly'});
+      final observed = restore.then<Object>(
+        (value) => value,
+        onError: (Object error, StackTrace _) => error,
+      );
+
+      final beforeAuthenticationCompletes = await Future.any<Object>([
+        observed,
+        Future<Object>.delayed(
+          const Duration(milliseconds: 30),
+          () => 'still-authenticating',
+        ),
+      ]);
+      expect(beforeAuthenticationCompletes, 'still-authenticating');
+
+      reader.completeSynchronization();
+      final result = await observed;
+      expect(result, isA<AppleRestoreResult>());
+      expect((result as AppleRestoreResult).isSuccess, isTrue);
+    },
+  );
+
+  test(
+    'Restore enforces its deadline after StoreKit synchronization completes',
     () async {
       final reader = _PendingReader();
       final restore = AppleSubscriptionRestorer(
@@ -205,10 +261,11 @@ class _Reader implements AppleCurrentEntitlementReader {
   final List<AppleCurrentEntitlement> values;
 
   @override
-  Future<List<AppleCurrentEntitlement>> read(
-    Set<String> productIds, {
-    bool synchronize = false,
-  }) async => values;
+  Future<List<AppleCurrentEntitlement>> read(Set<String> productIds) async =>
+      values;
+
+  @override
+  Future<void> synchronize() async {}
 }
 
 class _PendingReader implements AppleCurrentEntitlementReader {
@@ -219,8 +276,25 @@ class _PendingReader implements AppleCurrentEntitlementReader {
   }
 
   @override
-  Future<List<AppleCurrentEntitlement>> read(
-    Set<String> productIds, {
-    bool synchronize = false,
-  }) => _completer.future;
+  Future<List<AppleCurrentEntitlement>> read(Set<String> productIds) =>
+      _completer.future;
+
+  @override
+  Future<void> synchronize() async {}
+}
+
+class _PendingSynchronizationReader implements AppleCurrentEntitlementReader {
+  _PendingSynchronizationReader(this.values);
+
+  final List<AppleCurrentEntitlement> values;
+  final _synchronization = Completer<void>();
+
+  void completeSynchronization() => _synchronization.complete();
+
+  @override
+  Future<List<AppleCurrentEntitlement>> read(Set<String> productIds) async =>
+      values;
+
+  @override
+  Future<void> synchronize() => _synchronization.future;
 }

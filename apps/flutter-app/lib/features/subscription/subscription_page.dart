@@ -7,7 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
-import 'package:kando_app/shared/ui/kando_modal.dart';
+import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
+import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../profile/profile_actions.dart';
@@ -100,27 +101,23 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
             } else if (widget.source == 'scan' && context.canPop()) {
               context.pop(SubscriptionPaywallResult.premiumRestored);
             } else {
-              showKandoCenteredSuccessToast(
+              showSubscriptionRestoreResult(
                 context,
-                title: 'Premium restored',
-                message: 'Your premium access is ready to use.',
-                duration: const Duration(milliseconds: 2750),
+                type: SubscriptionRestoreResultType.premiumRestored,
               );
               context.canPop()
                   ? context.pop()
                   : context.go(_subscriptionSourceLocation(widget.source));
             }
           case SubscriptionResultEvent.restoreNotFound:
-            showKandoTopToast(
+            showSubscriptionRestoreResult(
               context,
-              message: 'No subscription found',
-              type: KandoTopToastType.info,
+              type: SubscriptionRestoreResultType.notFound,
             );
           case SubscriptionResultEvent.restoreFailed:
-            showKandoFailureAlert(
+            showSubscriptionRestoreResult(
               context,
-              title: 'Restore failed',
-              message: 'Unable to restore purchases. Please try again.',
+              type: SubscriptionRestoreResultType.failed,
             );
           case SubscriptionResultEvent.externalPremium:
             if (widget.sheet && context.canPop()) {
@@ -128,11 +125,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
             } else if (widget.source == 'scan' && context.canPop()) {
               context.pop(SubscriptionPaywallResult.premiumUnlocked);
             } else {
-              showKandoTopToast(
-                context,
-                message: 'Premium unlocked',
-                type: KandoTopToastType.success,
-              );
+              showPremiumUnlockedToast(context);
               context.canPop()
                   ? context.pop()
                   : context.go(_subscriptionSourceLocation(widget.source));

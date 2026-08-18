@@ -18,6 +18,8 @@ import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/ui/kando_style.dart';
+import '../../shared/ui/premium_unlocked_toast.dart';
+import '../../shared/ui/subscription_restore_result.dart';
 import '../../shared/ui/toast.dart';
 import '../collection/collection_controller.dart';
 import '../card_detail/card_detail_controller.dart';
@@ -47,7 +49,7 @@ class _ScanReviewLoadException implements Exception {
   const _ScanReviewLoadException();
 }
 
-const _viewfinderTop = 163.0;
+const _viewfinderTop = 193.0;
 const _viewfinderWidth = 280.0;
 const _viewfinderHeight = 400.0;
 
@@ -743,13 +745,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
         subscriptionSheetLocation,
       );
       if (!mounted || result == null) return;
-      showKandoTopToast(
-        context,
-        message: result == SubscriptionPaywallResult.premiumRestored
-            ? 'Premium restored'
-            : 'Premium unlocked',
-        type: KandoTopToastType.success,
-      );
+      if (result == SubscriptionPaywallResult.premiumRestored) {
+        showSubscriptionRestoreResult(
+          context,
+          type: SubscriptionRestoreResultType.premiumRestored,
+        );
+      } else {
+        showPremiumUnlockedToast(context);
+      }
       if (resumeWaiting && _items.any(_isWaitingForCapacity)) {
         unawaited(_confirmPremiumAndResumeWaiting());
       }
@@ -1946,14 +1949,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
                       if (!mounted || !context.mounted || result == null) {
                         return;
                       }
-                      showKandoTopToast(
-                        context,
-                        message:
-                            result == SubscriptionPaywallResult.premiumRestored
-                            ? 'Premium restored'
-                            : 'Premium unlocked',
-                        type: KandoTopToastType.success,
-                      );
+                      if (result == SubscriptionPaywallResult.premiumRestored) {
+                        showSubscriptionRestoreResult(
+                          context,
+                          type: SubscriptionRestoreResultType.premiumRestored,
+                        );
+                      } else {
+                        showPremiumUnlockedToast(context);
+                      }
                       if (_items.any(_isWaitingForCapacity)) {
                         unawaited(_confirmPremiumAndResumeWaiting());
                       }

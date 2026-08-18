@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"23bf9e7f-32a4-481a-9c7e-42970035216d","workItemId":"ANALYSIS-IOS-RESTORE-NOT-FOUND-20260818","taskId":null,"kind":"analysis","status":"pass","summary":"已基于 Profile 提示映射、Restore 控制器、StoreKit currentEntitlements 桥接、test Bundle ID 和 Product ID 配置完成证据化分析；未修改产品代码","timestamp":"2026-08-18T02:05:55.581Z","command":null,"independent":false}

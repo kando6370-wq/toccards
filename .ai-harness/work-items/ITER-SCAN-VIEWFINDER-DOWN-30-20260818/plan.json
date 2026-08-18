@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-SCAN-VIEWFINDER-DOWN-30-20260818",
+  "mode": "single",
+  "rationale": "一个共享布局常量及其直接测试/golden/增量文档，单批低风险实施",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "下移定位框并同步视觉证据",
+      "module": "apps/flutter-app",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/test/widget/scan_page_test.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_before_328_10858_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_scanning_131_19516_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_recognizing_continuous_390x844.png",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_revealing_continuous_390x844.png",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "flutter test scan_page_test.dart",
+        "flutter analyze",
+        "golden visual inspection",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "low",
+      "owner": "Codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "bf6d94e8-fadd-4751-bfcb-dbc387104254",
+        "0a5ca7bf-9b0b-4199-8a66-37f5ed7f4957"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "扫描定位框位置调整",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T02:27:55.943Z",
+  "updatedAt": "2026-08-18T02:49:23.555Z"
+}

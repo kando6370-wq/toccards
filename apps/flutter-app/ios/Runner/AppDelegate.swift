@@ -21,10 +21,32 @@ import UIKit
     )
     channel.setMethodCallHandler { call, result in
       guard
+        call.method == "syncAppStore" ||
         call.method == "syncCurrentEntitlements" ||
         call.method == "readCurrentEntitlements"
       else {
         result(FlutterMethodNotImplemented)
+        return
+      }
+      if call.method == "syncAppStore" {
+        Task {
+          do {
+            try await AppStore.sync()
+            await MainActor.run { result(nil) }
+          } catch {
+            let nsError = error as NSError
+            await MainActor.run {
+              result(FlutterError(
+                code: "apple_restore_failed",
+                message: "Unable to synchronize App Store entitlements.",
+                details: [
+                  "domain": nsError.domain,
+                  "code": nsError.code,
+                ]
+              ))
+            }
+          }
+        }
         return
       }
       guard
@@ -72,11 +94,17 @@ import UIKit
           }
           await MainActor.run { result(entitlements) }
         } catch {
+          let nsError = error as NSError
+          let errorDomain = nsError.domain
+          let errorCode = nsError.code
           await MainActor.run {
             result(FlutterError(
               code: "apple_restore_failed",
               message: "Unable to synchronize App Store entitlements.",
-              details: nil
+              details: [
+                "domain": errorDomain,
+                "code": errorCode,
+              ]
             ))
           }
         }

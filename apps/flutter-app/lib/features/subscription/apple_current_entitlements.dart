@@ -11,10 +11,9 @@ class AppleCurrentEntitlement {
 }
 
 abstract interface class AppleCurrentEntitlementReader {
-  Future<List<AppleCurrentEntitlement>> read(
-    Set<String> productIds, {
-    bool synchronize = false,
-  });
+  Future<void> synchronize();
+
+  Future<List<AppleCurrentEntitlement>> read(Set<String> productIds);
 }
 
 class MethodChannelAppleCurrentEntitlementReader
@@ -28,12 +27,12 @@ class MethodChannelAppleCurrentEntitlementReader
   final MethodChannel _channel;
 
   @override
-  Future<List<AppleCurrentEntitlement>> read(
-    Set<String> productIds, {
-    bool synchronize = false,
-  }) async {
+  Future<void> synchronize() => _channel.invokeMethod<void>('syncAppStore');
+
+  @override
+  Future<List<AppleCurrentEntitlement>> read(Set<String> productIds) async {
     final values = await _channel.invokeListMethod<Object?>(
-      synchronize ? 'syncCurrentEntitlements' : 'readCurrentEntitlements',
+      'readCurrentEntitlements',
       {'product_ids': productIds.toList(growable: false)},
     );
     if (values == null) return const [];
@@ -81,8 +80,9 @@ class AppleSubscriptionRestorer {
   final Duration deadline;
 
   Future<AppleRestoreResult> restore(Set<String> premiumProductIds) async {
+    await _reader.synchronize();
     final entitlements = await _reader
-        .read(premiumProductIds, synchronize: true)
+        .read(premiumProductIds)
         .timeout(deadline);
     for (final entitlement in entitlements) {
       if (premiumProductIds.contains(entitlement.productId)) {
