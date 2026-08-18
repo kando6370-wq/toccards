@@ -6638,7 +6638,7 @@ describe("POST /api/v1/auth/anonymous", () => {
     });
     Object.defineProperty(request, "cf", { value: { country: "us" } });
 
-    const response = await app.fetch(request, env);
+    const response = await app.request(request, undefined, env);
     const body = (await response.clone().json()) as AnonymousSuccessResponse;
 
     expect(response.status).toBe(200);

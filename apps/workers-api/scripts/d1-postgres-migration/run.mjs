@@ -226,7 +226,7 @@ function verifyTargetInventory(inventory, manifest) {
   assert(missing.length === 0, `PostgreSQL 缺少表：${missing.join(",")}`);
   assert(unexpected.length === 0, `PostgreSQL 存在未纳入迁移的表：${unexpected.join(",")}`);
   assert(excluded.length === 0, `PostgreSQL 错误创建了排除表：${excluded.join(",")}`);
-  assert(inventory.migrations.length === 5, "PostgreSQL migration 记录数量不是 5");
+  assert(inventory.migrations.length === 6, "PostgreSQL migration 记录数量不是 6");
   assert(
     inventory.constraints.every((constraint) => constraint.validated),
     "PostgreSQL 存在未验证约束",

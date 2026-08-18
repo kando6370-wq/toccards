@@ -1257,8 +1257,7 @@ class _PortfolioCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chartValues = state.chartValues;
-    final showEmptyState =
-        !state.isUnavailable && state.mostValuableCards.isEmpty;
+    final showEmptyState = !state.isUnavailable && !state.hasCollectionItems;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1323,6 +1322,11 @@ class _PortfolioCard extends StatelessWidget {
           _PortfolioEmptyPanel(
             onScan: () => context.go('/scan'),
             onSearch: () => context.go('/search'),
+          )
+        else if (state.isMarketPriceMissing)
+          const _EmptyCardBlock(
+            key: Key('home-portfolio-market-price-missing'),
+            message: 'Market price unavailable',
           )
         else
           SizedBox(
@@ -1873,7 +1877,7 @@ class _MostValuableSection extends StatelessWidget {
         _SectionHeader(
           title: 'Most Valuable',
           isUnavailable: state.isUnavailable,
-          useShortViewLabel: cards.isEmpty,
+          useShortViewLabel: !state.hasCollectionItems,
           viewAllKey: const Key('home-most-valuable-view-all'),
           onViewAll: onViewAll,
         ),
@@ -1884,6 +1888,11 @@ class _MostValuableSection extends StatelessWidget {
             height: 256,
             refreshKey: const Key('home-failure-most-valuable-refresh'),
             onRefresh: onRefresh,
+          )
+        else if (state.isMarketPriceMissing)
+          const _EmptyCardBlock(
+            key: Key('home-most-valuable-market-price-missing'),
+            message: 'Market price unavailable',
           )
         else if (cards.isEmpty)
           const _EmptyCardBlock(message: 'No cards in this portfolio yet')
@@ -2413,7 +2422,7 @@ class _HomeCardImage extends StatelessWidget {
 }
 
 class _EmptyCardBlock extends StatelessWidget {
-  const _EmptyCardBlock({required this.message});
+  const _EmptyCardBlock({super.key, required this.message});
 
   final String message;
 

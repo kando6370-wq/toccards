@@ -5,7 +5,7 @@
 - 本机 StoreKit verified 可即时解锁客户端 UI。
 - Scan、Folder、Performance 等服务端能力只接受 Workers 独立验证 Apple 证据后签发的当前 session grant。
 - UID、owner grant、订单、Admin 查询结果、客户端 `isPremium` 和裸交易 ID 均不得授权。
-- `session_id` 来自已验签 JWT 并再次匹配 D1 有效 session；客户端不得自行指定授权 session。
+- `session_id` 来自已验签 JWT 并再次匹配共享 PostgreSQL 中的有效 session；客户端不得自行指定授权 session，也不得从 D1 查询或恢复 session。
 
 ## 2. 会话生命周期
 

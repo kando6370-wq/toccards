@@ -62,9 +62,7 @@ export function createCacheApiDataSourceAdapter(
     },
 
     getSoldListings(card_ref) {
-      return readThroughCacheApi(cache, soldListingsCacheKey(card_ref), () =>
-        source.getSoldListings(card_ref),
-      );
+      return source.getSoldListings(card_ref);
     },
   };
 }
@@ -128,12 +126,12 @@ function marketPricesCacheKey(
   language?: string | null,
 ): string {
   if (!language) {
-    if (!finish) return ["getMarketPrices", "v6", cacheKeyPart(card_ref)].join(":");
-    return ["getMarketPrices", "v6", cacheKeyPart(card_ref), cacheKeyPart(finish)].join(":");
+    if (!finish) return ["getMarketPrices", "v7", cacheKeyPart(card_ref)].join(":");
+    return ["getMarketPrices", "v7", cacheKeyPart(card_ref), cacheKeyPart(finish)].join(":");
   }
   return [
     "getMarketPrices",
-    "v6",
+    "v7",
     cacheKeyPart(card_ref),
     finish ? cacheKeyPart(finish) : "none",
     cacheKeyPart(language),
@@ -159,10 +157,6 @@ function priceSeriesCacheKey(
   ];
   if (finish) parts.push(cacheKeyPart(finish));
   return parts.join(":");
-}
-
-function soldListingsCacheKey(card_ref: string): string {
-  return ["getSoldListings", "v5", cacheKeyPart(card_ref)].join(":");
 }
 
 function nullableCacheKeyPart(value: string | number | null): string {

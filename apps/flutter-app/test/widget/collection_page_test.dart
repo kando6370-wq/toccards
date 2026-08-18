@@ -14,6 +14,7 @@ import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
+import 'package:kando_app/features/search/search_card_tile.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
@@ -173,6 +174,23 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'Collection passes its 30D change through the generic card field',
+    (tester) async {
+      await _pumpCollection(tester);
+
+      final tile = tester.widget<SearchCardTile>(
+        find.ancestor(
+          of: find.byKey(const Key('search-card-charizard-ex')),
+          matching: find.byType(SearchCardTile),
+        ),
+      );
+
+      expect(tile.card.changePercent, 8.10);
+      expect(tile.card.changeText, '+8.10%');
+    },
+  );
 
   testWidgets('pull refresh keeps Collection content and shows one spinner', (
     tester,

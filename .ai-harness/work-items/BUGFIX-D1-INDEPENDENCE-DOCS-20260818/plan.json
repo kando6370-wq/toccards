@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-D1-INDEPENDENCE-DOCS-20260818",
+  "mode": "single",
+  "rationale": "两处同一 D1 独立性口径冲突，单批次同步修正并扫描残留",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "标记 D1 回退方案失效并退役迁移工具",
+      "module": "docs/v1.1.0/data-api",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "docs/releases/v1.1.0/03-data-api/migration.md",
+        "docs/releases/v1.1.0/03-data-api/research/price-history-database-capacity-analysis.md"
+      ],
+      "verification": [
+        "rg 检查 D1 回退和迁移工具当前口径",
+        "git"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/migration.md",
+        "docs/releases/v1.1.0/03-data-api/research/price-history-database-capacity-analysis.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "low",
+      "owner": "Codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "a4a8cb4f-609d-4347-8bd7-802459e69242",
+        "f9062221-a78c-4eb7-b13f-734919f5956d"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "D1 独立边界文档一致性",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T05:29:59.514Z",
+  "updatedAt": "2026-08-18T05:31:26.260Z"
+}

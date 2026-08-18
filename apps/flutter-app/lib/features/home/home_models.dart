@@ -1,3 +1,5 @@
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+
 enum HomeChartRange {
   oneDay('1d'),
   sevenDays('7d'),
@@ -26,6 +28,8 @@ class HomeFolder {
 class PortfolioSummary {
   const PortfolioSummary({
     required this.folderId,
+    required this.itemCount,
+    required this.marketPriceStatus,
     required this.totalValueUsd,
     required this.previous30dValueUsd,
     required this.chartValuesByRange,
@@ -33,6 +37,8 @@ class PortfolioSummary {
   });
 
   final String folderId;
+  final int itemCount;
+  final MarketPriceStatus marketPriceStatus;
   final double totalValueUsd;
   final double previous30dValueUsd;
   final Map<HomeChartRange, List<double>> chartValuesByRange;
@@ -44,6 +50,8 @@ class PortfolioSummary {
   }) {
     return PortfolioSummary(
       folderId: folderId,
+      itemCount: itemCount,
+      marketPriceStatus: marketPriceStatus,
       totalValueUsd: totalValueUsd,
       previous30dValueUsd: previous30dValueUsd,
       chartValuesByRange: chartValuesByRange ?? this.chartValuesByRange,

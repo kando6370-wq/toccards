@@ -35,7 +35,10 @@ export type CardSearchResult = {
   rarity: string | null;
   price_usd?: number;
   previous_30d_price_usd?: number;
+  previous_7d_price_usd?: number;
   previous_1d_price_usd?: number;
+  price_change_30d_percent?: number;
+  price_change_7d_percent?: number;
   price_change_1d_percent?: number;
   price_as_of?: string;
   previous_price_as_of?: string;
@@ -60,6 +63,7 @@ export type MarketPrice = {
   grade_label?: string;
   condition: string | null;
   price: number | null;
+  previous_7d_price_usd?: number;
   pricecharting_id?: string;
   product_sub_type?: string | null;
   increase_percent?: number;

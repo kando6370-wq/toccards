@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "ITER-DEPRECATE-TRENDING-PIN-20260818",
+  "mode": "single",
+  "rationale": "同一废弃边界涉及 Admin API、当前 Schema、向前迁移、迁移工具和 v1.1 文档，必须在一个一致性任务内同步完成；不执行远程删表",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "删除 trending_pin 运行时入口并追加废弃迁移",
+      "module": "workers-api/admin-db-migration",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/workers-api/src/admin/routes.ts",
+        "apps/workers-api/src/admin/routes.test.ts",
+        "apps/workers-api/src/db/schema.ts",
+        "apps/workers-api/src/db/migrations/0035_drop_trending_pin.sql",
+        "apps/workers-api/src/db/migrations/full-migration-chain.test.ts",
+        "apps/workers-api/src/db/postgres/migrations/0005_drop_trending_pin.sql",
+        "apps/workers-api/scripts/d1-postgres-migration/worker.ts",
+        "apps/workers-api/scripts/d1-postgres-migration/tables.ts",
+        "apps/workers-api/scripts/d1-postgres-migration/batch.test.ts",
+        "apps/workers-api/src/data-source/routes.test.ts",
+        "docs/releases/v1.1.0/01-flows/business-context.md",
+        "docs/releases/v1.1.0/03-data-api/migration.md",
+        "docs/releases/v1.1.0/04-admin/admin.md"
+      ],
+      "verification": [
+        "pnpm --filter @kando/workers-api test -- src/admin/routes.test.ts",
+        "pnpm --filter @kando/workers-api test -- src/db/migrations/full-migration-chain.test.ts",
+        "pnpm --filter @kando/workers-api test -- scripts/d1-postgres-migration/batch.test.ts",
+        "pnpm --filter @kando/workers-api type-check",
+        "残留引用检查与 git diff --check"
+      ],
+      "docsImpact": [
+        "同步 v1.1 当前业务、迁移和 Admin 文档；保持 v1.0 冻结文档及历史 migration 不变"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "Codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "fba3a180-e65e-4783-a2de-bf0ea845c0ac",
+        "3ca6ad2a-a603-4c1c-8ee7-8f03ae90d4a4"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "trending_pin 废弃一致性",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T07:09:57.823Z",
+  "updatedAt": "2026-08-18T07:21:54.641Z"
+}

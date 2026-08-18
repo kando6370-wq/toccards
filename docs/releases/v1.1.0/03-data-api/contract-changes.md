@@ -133,13 +133,21 @@ Card Detail 普通价格历史 1Y 的服务端防绕过已关闭：Free 仍可�
 
 ## PostgreSQL 查询切换
 
-Workers 业务 API 的路径、请求/响应字段、鉴权、owner 隔离、幂等、Premium 和错误语义保持不变；底层查询已从 SQLite/D1 方言改为 PostgreSQL 兼容方言。运行时同时看到 `HYPERDRIVE` 与旧 `DB` binding 时必须选择 Hyperdrive，只有测试或兼容环境缺少 Hyperdrive 时才使用注入的 `DB`。因此遗留 D1 binding 不能让已切换 Worker 静默回读旧库。
+Workers 业务 API 的路径、请求/响应字段、鉴权、owner 隔离、幂等、Premium 和错误语义保持不变；底层查询已从 SQLite/D1 方言改为 PostgreSQL 兼容方言。部署运行时的 `fetch` 与 `scheduled` 入口必须存在 `HYPERDRIVE`，缺失时立即失败；即使同时存在遗留 `DB` binding 也不得读取或执行任务。测试可继续通过直接调用 `app.request` 注入进程内 `DB` 适配器，但这不是部署运行时的回退路径。D1 与 PostgreSQL 完全独立，运行时不会查询或回退 D1。
 
-旧 `tcg_price` 不参与运行时查询。Search、卡片详情、市场价、Price Series、Trending、Shop 和 Portfolio 估值统一读取 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month` 与 `card_trending_snapshot`。当前价只读取 `status=published` 且被 `current:%` pointer 指向的批次；月历史只读取同来源、同 scope 的 `published/superseded` lineage，并要求该来源和 scope 仍有已发布 current pointer。不同 scope 不能互相授权历史可见性；任何月块内容或 checksum 变化都必须记录新的 batch lineage，不能保留旧 `last_batch_id` 原地改写。七张新价格表为空时，市场价和 Trending 返回空集合，不回退旧 D1 价格或旧 KV Trending 缓存。
+旧 `tcg_price` 不参与运行时查询。Search、卡片详情、市场价、Price Series、Trending 和 Portfolio 估值统一读取 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month` 与 `card_trending_snapshot`。当前价只读取 `status=published` 且被 `current:%` pointer 指向的批次；月历史只读取同来源、同 scope 的 `published/superseded` lineage，并要求该来源和 scope 仍有已发布 current pointer。不同 scope 不能互相授权历史可见性；任何月块内容或 checksum 变化都必须记录新的 batch lineage，不能保留旧 `last_batch_id` 原地改写。七张新价格表为空时，市场价和 Trending 返回空集合，不回退旧 D1 价格或旧 KV Trending 缓存。Shop/Sold Listings 属于独立成交或 Marketplace 明细域，不属于这七张价格表；独立上游接入前返回正常空集合，不能把当前价格快照或历史点伪装成成交记录，也不能从 D1 补全。
+
+公共数据接口必须区分 PostgreSQL 成功返回零行与查询失败：前者按既有契约返回正常空集合或 `404 NOT_FOUND`，后者返回非 2xx，使 Flutter 进入整页或局部失败态。Search、Sets、卡片详情、Market Prices 与 Price Series 不得捕获数据库异常后伪装为成功空数据或不存在；未来 Sold Listings 接入独立数据源后也必须遵守同一错误语义。Flutter Trending Today 对成功空集合显示正常空态，仅在查询失败时显示失败重试；后续分页失败保留已加载卡片并提供局部重试。Flutter Search 的追加页失败同样保留已加载卡片和当前页码，停止滚动触发的自动重试，并通过列表底部操作重试同一下一页；成功后才推进页码和继续分页。缓存只可复用本次 PostgreSQL 切换后产生的有效响应，不得成为 D1 或旧价格结果的回退通道。
+
+价格变化窗口按页面语义固定：Trending Today 只消费 `change_1d_percent`，Search、Collection 和 Most Valuable 只消费 `change_30d_percent`，Card Detail Market Prices 只消费 `change_7d_percent`。Market Prices 响应通过 `previous_7d_price_usd` 直接返回 PostgreSQL `baseline_7d_amount_micros` 的美元值；Flutter 使用该字段计算 7D Change，不得从稀疏 Price Series 推导基准价。Workers 必须显式返回对应窗口字段，Flutter 不得把一个通用变化率跨页面复用；对应 baseline 不存在时保持 `null`，界面显示 `-/-`，不得伪装为 `0%`。D1 与 PostgreSQL 完全独立，不参与该字段的查询、补全或回退。
+
+Home Most Valuable 与 Portfolio 总资产使用不同金额口径：`current_value_usd` 和历史 `series[].value_usd` 继续按单张市场价乘 `quantity` 汇总；`most_valuable[].price_usd` 与 `previous_30d_price_usd` 均为单张价格，`quantity` 不参与展示或排名。排名使用未提前舍入的当前单张价格降序；相同单价依次按已知 30D 涨幅降序、Collection Item 创建时间倒序、名称 A-Z 和稳定 `item_id` 排序。创建时间由该 Item 的首个事件 `effective_at` 表达，不把后续数量或属性编辑时间误当成加入时间。
+
+`GET /api/v1/portfolio/valuation-history` 的每个 Folder 增加 `item_count` 与 `market_price_status`。`item_count` 是响应结束日该 Folder 中未删除的 Collection Item 数；至少一个当前 Item 存在可匹配的已发布 PostgreSQL 价格时状态为 `available`，否则为 `missing`，合法零价格仍属于 `available`。Flutter Home 以 `item_count=0` 显示添加卡牌引导；有 Item 且状态为 `missing` 时总额显示 `--` 和市场价格不可用状态，不把未知估值伪装为 `$0`，也不从 D1 补全。Flutter Collection 同样仅把 `null` 视为缺价：空 Folder 显示零总额，有 Item 且全部缺价时显示 `--`，至少一个价格已知时汇总已知值，合法零价格按 `$0.00` 展示。
 
 Hyperdrive 查询边界固定如下：当前价格按最多 40 个 card ref 分块，单块最多接收 1,000 行；历史按最多 100 个 series 分块，单块最多接收 1,600 个自然月块；数据库把每个月块的 JSONB 文本限制为 24 KiB，因此一批历史 JSON 理论上限为 39,321,600 bytes（37.5 MiB），并为 50 MB 响应边界中的其他列与协议开销保留余量；单次历史范围最多 400 天；Portfolio 估值事件一次最多接收 10,000 行。超出任一行数或月块字节上限均显式失败，不截断后继续返回不完整业务结果。`POST /api/v1/cards/:card_ref/price-series/batch` 继续最多接收 100 项，但默认 PostgreSQL 实现改为当前快照集合查询加历史集合查询，不再对 100 项执行 `Promise.all` 查询扇出。Admin 安装分析不再读取完整 `app_installation` 后由 Worker 过滤：日期、平台与国家筛选在 SQL 执行，summary 固定返回一行、trend 只返回按日聚合行，分组明细在数据库 `LIMIT/OFFSET` 且 `page_size` 最大 100；环境筛选不匹配当前 Worker 时直接返回空统计，不查询共享数据库。
 
-价格金额在 PostgreSQL 使用整数 `amount_micros`，API 边界转换为美元数值；月度 JSONB 同时支持紧凑 `{d,a}` 与既有 `{date,price}` 点位格式。Search、Trending、Price Series、Market Prices 与 Sold Listings 的缓存版本已分别提升，防止迁移前 D1 价格结果跨切换复用。
+价格金额在 PostgreSQL 使用整数 `amount_micros`，API 边界转换为美元数值；月度 JSONB 同时支持紧凑 `{d,a}` 与既有 `{date,price}` 点位格式。空点数组是正常无历史数据；顶层非数组、非法日期、非法金额或不完整点位必须显式失败，不得过滤后返回空历史或部分历史。Search、Trending、Price Series 与 Market Prices 的缓存版本已分别提升，防止迁移前 D1 价格结果跨切换复用；Sold Listings 使用 `no-store` 且在独立数据源接入前保持空集合。
 
 ## Apple Notifications V2
 
@@ -149,7 +157,7 @@ Hyperdrive 查询边界固定如下：当前价格按最多 40 个 card ref 分�
 | 每 5 分钟 Cron | 重试 `pending`、`processing_failed` 或处理租约已过期的收件箱记录。 |
 | Apple Server API 校正 | Cron 查询 `correction_required` 对应的现有 purchase chain，调用 Apple 当前订阅状态/交易接口并再次验签嵌套 JWS；只修正同链状态与已有 grant。 |
 
-dev/prod 共用 PostgreSQL 后，`apple_notification_inbox.environment` 是通知队列的持久化归属。入站去重键为 `(environment, payload_sha256)`；通知重试、processing lease、完成/失败更新和 Server API 校正均同时过滤运行时环境。dev 只能领取 `Sandbox`，prod 只能领取 `Production`，不能由一个环境处理另一环境的队列。dev D1 inbox 在正式迁移时明确标记为 `Sandbox`；无法证明环境的既有 PostgreSQL 行会阻止 schema migration，不静默猜测。
+dev/prod 共用 PostgreSQL 后，`apple_notification_inbox.environment` 是通知队列的持久化归属。入站去重键为 `(environment, payload_sha256)`；通知重试、processing lease、完成/失败更新和 Server API 校正均同时过滤运行时环境。dev 只能领取 `Sandbox`，prod 只能领取 `Production`，不能由一个环境处理另一环境的队列。D1 inbox 与 PostgreSQL 完全独立，不迁移、不查询或补全；无法证明环境的既有 PostgreSQL 行会阻止 schema migration，不静默猜测。
 
 未知但已验签的主通知类型和 Payload 字段会完整进入结构化通知及 Admin 动态选项/详情；在没有已定义业务语义时标记为 `processed`，不猜测建单或修改 purchase chain/grant。验签后的通知以 `notificationUUID` 幂等，新订单以 `environment + transactionId` 幂等。purchase chain 生命周期按 `(signedDate, notificationUUID)` 保护：更早事件不能覆盖更新状态，同一时点冲突进入 `correction_required`。Grace 保持 grant 有效至 `gracePeriodExpiresDate`，Billing Retry/Expired 使 grant 失效，Refund 修改原交易并撤销同链 grant；`REFUND_REVERSED` 等不能从通知本身确定终态的事件先进入校正，再由 Apple Server API 当前状态恢复受影响订单/链路。校正不会创建 owner/session grant，也不按 UID 传播 Premium。
 

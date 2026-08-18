@@ -26,8 +26,12 @@ describe("D1 migration chain", () => {
       for (const statement of statements(sql)) await db.prepare(statement).run();
     }
 
-    expect(migrations).toHaveLength(35);
-    expect(migrations.at(-1)).toBe("0034_billing_auto_renew_snapshot.sql");
+    expect(migrations).toHaveLength(36);
+    expect(migrations.at(-1)).toBe("0035_drop_trending_pin.sql");
+    const trendingPin = await db.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'trending_pin'",
+    ).first();
+    expect(trendingPin).toBeNull();
     const tables = await db.prepare(`SELECT name FROM sqlite_master
       WHERE type = 'table' AND name IN (
         'billing_session_entitlement_grant', 'billing_apple_verification_attempt',

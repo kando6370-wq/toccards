@@ -71,27 +71,27 @@ Apple Notifications V2 + Server API --> purchase chain lifecycle correction
 
 | 资源 | 当前职责 | 一致性边界 |
 |---|---|---|
-| D1 | 迁移前数据源、历史 schema/migration 与本地测试能力；dev 源已冻结，prod 当前已部署旧版本仍读 prod D1 | dev 已切换后不得回写或作为回退真源；prod 切换需另行授权和重新对账 |
-| PlanetScale PostgreSQL | dev 当前业务与目录真源；已迁入 33 张业务表、270,577 行，并创建 7 张新价格域空表 | 仓库中的 dev/prod 配置共享数据集；运行环境、KV、R2 和 Apple 契约仍分离 |
-| Hyperdrive | 已为 dev/prod 目标配置同一连接，代码通过 Postgres.js 兼容层访问 | 查询缓存须在切换前关闭；每请求或 cron 独立 client，后台任务结束后关闭 |
+| D1 | 与当前 PostgreSQL 完全独立的历史库；仓库只保留历史 schema/migration、退役迁移工具和本地测试能力 | App、Admin、Worker、Cron、数据修复和灾备均不得查询、补全、回退或恢复 D1 |
+| PlanetScale PostgreSQL | 当前业务、目录与价格域唯一真源；迁移检查点已迁入 33 张业务表、270,577 行，并创建 7 张新价格域表 | dev/prod 仓库配置共享数据集；运行环境、KV、R2 和 Apple 契约仍分离 |
+| Hyperdrive | dev/prod 当前代码与 Wrangler 配置的唯一数据库连接入口，代码通过 Postgres.js 兼容层访问 | 查询缓存关闭；每请求或 cron 独立 client，后台任务结束后关闭；缺少 binding 立即失败 |
 | KV | 目录查询和汇率等可重新获取数据 | 缓存失败不得改变授权或业务真值 |
 | R2 | 扫描原图等对象 | 读取受 Admin 授权保护 |
 | Flutter 安全存储 | 会话、已验证 Premium 缓存和待同步证据 | 只辅助本机体验，不替代服务端授权 |
 
-Drizzle `src/db/schema.ts` 与 SQL `0000-0034` 是冻结前 D1 演进事实；PostgreSQL 目标结构以 `src/db/postgres/migrations/0000_business_schema.sql` 至 `0004_price_history_month_payload_limit.sql` 为准。运行时代码保留现有 `prepare/bind/first/all/run/batch` 调用形状，PostgreSQL 适配器把问号占位符转换为参数化查询，并把 `batch` 放在单一事务中顺序执行。共享 PostgreSQL 中 Apple inbox 以 `environment` 持久化队列归属，通知与校正 cron 只能领取当前 `APP_ENVIRONMENT` 对应的 Sandbox 或 Production 行；价格月历史只对同来源、同 `current:%` scope 的已发布 pointer 可见，单个月块 JSONB 文本不得超过 24 KiB。
+Drizzle `src/db/schema.ts` 和 SQL `src/db/migrations/0000-0035` 只保留历史 D1 演进事实与本地测试契约；`scripts/d1-postgres-migration/` 和 `wrangler.migration.toml` 已退役，禁止运行。PostgreSQL 结构以 `src/db/postgres/migrations/0000_business_schema.sql` 至 `0005_drop_trending_pin.sql` 为准。运行时代码仅创建 PostgreSQL 适配器，同时保留既有 `prepare/bind/first/all/run/batch` 调用形状；适配器把问号占位符转换为参数化查询，并把 `batch` 放在单一事务中顺序执行。共享 PostgreSQL 中 Apple inbox 以 `environment` 持久化队列归属，通知与校正 cron 只能领取当前 `APP_ENVIRONMENT` 对应的 Sandbox 或 Production 行；价格月历史只对同来源、同 `current:%` scope 的已发布 pointer 可见，单个月块 JSONB 文本不得超过 24 KiB。
 
 ## 6. 环境与部署
 
 | 环境 | Worker | 域名 | 数据资源 |
 |---|---|---|---|
 | dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 正式 PostgreSQL Worker/Admin 已部署；共享 PG 为业务真源，dev KV/R2 与 `APP_ENVIRONMENT=development` 保持独立 |
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 线上仍为 prod D1/KV/R2；目标为共享 PG + 独立 prod KV/R2，本任务不部署 prod |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | 当前仓库代码与 Wrangler 配置为共享 PostgreSQL + 独立 prod KV/R2；本任务未重新核验或部署 production，发布前必须重新确认实时 deployment |
 
 Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev 与 prod 共用业务 PostgreSQL 是本次明确的成本决策，但 `APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。
 
 ## 7. 当前与目标架构的区分
 
-dev 切换已完成：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 兼容访问层、PostgreSQL 业务方言和新价格域读取均已投入 dev；dev D1 的 33 张非价格业务表、270,577 行在写入冻结后迁入共享 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存已关闭。正式 Worker/Admin deployment `6c0697d0-f9bb-423e-8b68-1ab0509e7729`、version `73766f12-d888-4e94-ba2c-f990ef00ec43` 已承载 100% 流量，health、目录/搜索/卡片/价格空域、Admin assets 和未授权拒绝边界均已烟测；5 条授权 Admin PostgreSQL 查询只在同提交的真实 Hyperdrive remote preview 中完成 8/8 验证，因缺少正式 dev Admin 登录态而未直接调用正式域名。prod 仓库配置已经指向同一 Hyperdrive，但当前 deployment `03235e84-694e-4800-854a-650173408412` 仍是旧 D1 version `57213c10-d392-43a9-8d34-c6472fc3febc`，本任务未部署 prod。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
+dev 切换已完成：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 兼容访问层、PostgreSQL 业务方言和新价格域读取均已投入 dev；迁移检查点把 33 张非价格业务表、270,577 行写入共享 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存已关闭。当前核验的 dev version `f6ca031c-6b96-498d-ac42-acd84e1b7a7e` 承载 100% 流量，存在 `HYPERDRIVE` 且没有 D1 binding；`fetch` 和 `scheduled` 缺少 Hyperdrive 时直接失败。D1 与 PostgreSQL 此后完全独立，历史 D1 不参与运行、数据修复、重试、回滚或灾备。production 的实时 deployment 未在本任务中重新核验，不从仓库配置外推线上状态。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
 
 ## 8. 证据索引
 

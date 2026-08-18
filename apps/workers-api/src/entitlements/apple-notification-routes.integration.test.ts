@@ -1,10 +1,20 @@
-import { Environment, type JWSRenewalInfoDecodedPayload, type JWSTransactionDecodedPayload, type ResponseBodyV2DecodedPayload } from "@apple/app-store-server-library";
+import { Environment, VerificationException, VerificationStatus, type JWSRenewalInfoDecodedPayload, type JWSTransactionDecodedPayload, type ResponseBodyV2DecodedPayload } from "@apple/app-store-server-library";
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Env } from "../env";
 import { createAppleNotificationRoutes, retryAppleNotificationInbox } from "./apple-notification-routes";
 
 const NOW = new Date("2026-08-12T10:10:00.000Z");
+const VERIFICATION_STATUS_CASES = [
+  ["OK", VerificationStatus.OK],
+  ["VERIFICATION_FAILURE", VerificationStatus.VERIFICATION_FAILURE],
+  ["RETRYABLE_VERIFICATION_FAILURE", VerificationStatus.RETRYABLE_VERIFICATION_FAILURE],
+  ["INVALID_APP_IDENTIFIER", VerificationStatus.INVALID_APP_IDENTIFIER],
+  ["INVALID_ENVIRONMENT", VerificationStatus.INVALID_ENVIRONMENT],
+  ["INVALID_CHAIN_LENGTH", VerificationStatus.INVALID_CHAIN_LENGTH],
+  ["INVALID_CERTIFICATE", VerificationStatus.INVALID_CERTIFICATE],
+  ["FAILURE", VerificationStatus.FAILURE],
+] as const;
 
 describe("Apple Notifications V2 durable consumption", () => {
   let mf: Miniflare;
@@ -32,18 +42,137 @@ describe("Apple Notifications V2 durable consumption", () => {
   afterEach(async () => { await mf.dispose(); });
 
   it("preserves invalid evidence without any structured or entitlement side effect", async () => {
+    const cause = new Error("sensitive verification cause");
     const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
       environment: Environment.SANDBOX,
-      verifier: verifier({ verifyNotification: async () => { throw new Error("bad signature"); } }),
+      verifier: verifier({ verifyNotification: async () => { throw new Error("sensitive verification message", { cause }); } }),
     }) });
     expect((await post(app, env, "invalid.jws")).status).toBe(200);
     expect(await scalar("SELECT COUNT(*) AS value FROM apple_notification_inbox")).toBe(1);
     expect(await scalar("SELECT COUNT(*) AS value FROM apple_server_notification")).toBe(0);
-    expect((await db.prepare("SELECT environment, processing_status FROM apple_notification_inbox").first())).toMatchObject({
+    expect((await db.prepare("SELECT environment, processing_status, last_error FROM apple_notification_inbox").first())).toMatchObject({
       environment: "Sandbox",
       processing_status: "verification_failed",
+      last_error: "NOTIFICATION_JWS_INVALID",
     });
     expect((await db.prepare("SELECT status FROM billing_session_entitlement_grant").first())?.status).toBe("active");
+  });
+
+  it.each(VERIFICATION_STATUS_CASES)(
+    "records outer Apple VerificationStatus %s without persisting its cause",
+    async (statusName, status) => {
+      const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+        environment: Environment.SANDBOX,
+        verifier: verifier({
+          verifyNotification: async () => {
+            throw new VerificationException(status, new Error("sensitive Apple cause"));
+          },
+        }),
+      }) });
+
+      await post(app, env, `outer-${statusName}`);
+
+      expect(await db.prepare(
+        "SELECT processing_status, last_error, processed_at FROM apple_notification_inbox",
+      ).first()).toMatchObject({
+        processing_status: status === VerificationStatus.RETRYABLE_VERIFICATION_FAILURE
+          ? "processing_failed"
+          : "verification_failed",
+        last_error: `NOTIFICATION_JWS_${statusName}`,
+        processed_at: status === VerificationStatus.RETRYABLE_VERIFICATION_FAILURE
+          ? null
+          : NOW.toISOString(),
+      });
+    },
+  );
+
+  it.each(VERIFICATION_STATUS_CASES)(
+    "records nested Apple VerificationStatus %s without persisting its cause",
+    async (statusName, status) => {
+      const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+        environment: Environment.SANDBOX,
+        verifier: verifier({
+          verifyNotification: async () => notification(`nested-${statusName}`, "DID_RENEW", 10 * 60 + 5),
+          verifyTransaction: async () => {
+            throw new VerificationException(status, new Error("sensitive nested cause"));
+          },
+        }),
+      }) });
+
+      await post(app, env, `nested-${statusName}`);
+
+      expect(await db.prepare(
+        "SELECT processing_status, last_error, processed_at FROM apple_notification_inbox",
+      ).first()).toMatchObject({
+        processing_status: status === VerificationStatus.RETRYABLE_VERIFICATION_FAILURE
+          ? "processing_failed"
+          : "parse_failed",
+        last_error: `NESTED_JWS_${statusName}`,
+        processed_at: status === VerificationStatus.RETRYABLE_VERIFICATION_FAILURE
+          ? null
+          : NOW.toISOString(),
+      });
+    },
+  );
+
+  it("keeps a nested non-Apple failure generic", async () => {
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("nested-generic", "DID_RENEW", 10 * 60 + 5),
+        verifyTransaction: async () => { throw new Error("sensitive nested message"); },
+      }),
+    }) });
+
+    await post(app, env, "nested-generic");
+
+    expect(await db.prepare(
+      "SELECT processing_status, last_error FROM apple_notification_inbox",
+    ).first()).toMatchObject({
+      processing_status: "parse_failed",
+      last_error: "NESTED_JWS_INVALID",
+    });
+  });
+
+  it("retries Apple transient verification failures from the durable inbox", async () => {
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => {
+          throw new VerificationException(
+            VerificationStatus.RETRYABLE_VERIFICATION_FAILURE,
+            new Error("temporary OCSP failure"),
+          );
+        },
+      }),
+    }) });
+    await post(app, env, "retryable-verification");
+    expect(await db.prepare(
+      "SELECT processing_status, attempts, last_error, processed_at FROM apple_notification_inbox",
+    ).first()).toMatchObject({
+      processing_status: "processing_failed",
+      attempts: 1,
+      last_error: "NOTIFICATION_JWS_RETRYABLE_VERIFICATION_FAILURE",
+      processed_at: null,
+    });
+
+    await retryAppleNotificationInbox(env, {
+      now: () => new Date(NOW.getTime() + 1_000),
+      createVerifier: () => ({
+        environment: Environment.SANDBOX,
+        verifier: verifier({
+          verifyNotification: async () => notification("retryable-verification-uuid", "DID_RENEW", 10 * 60 + 5),
+        }),
+      }),
+    });
+
+    expect(await db.prepare(
+      "SELECT processing_status, attempts, last_error FROM apple_notification_inbox",
+    ).first()).toMatchObject({
+      processing_status: "processed",
+      attempts: 2,
+      last_error: null,
+    });
   });
 
   it("keeps identical payload hashes separate by Worker environment because dev and prod share PostgreSQL", async () => {

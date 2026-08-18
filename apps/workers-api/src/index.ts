@@ -66,15 +66,12 @@ async function fetch(
   env: RuntimeEnv,
   ctx?: ExecutionContext,
 ): Promise<Response> {
-  if (env?.HYPERDRIVE) {
-    if (!ctx) throw new Error("ExecutionContext is required for PostgreSQL requests");
-    const database = createPostgresDatabase(env.HYPERDRIVE.connectionString);
-    const requestEnv = { ...env, DB: database } as Env;
-    return runWithDatabaseLifecycle(database, ctx, (trackedContext) =>
-      Promise.resolve(honoFetch(request, requestEnv, trackedContext)));
-  }
-  if (env?.DB) return Promise.resolve(honoFetch(request, env as Env, ctx));
-  throw new Error("HYPERDRIVE binding is required");
+  if (!env?.HYPERDRIVE) throw new Error("HYPERDRIVE binding is required");
+  if (!ctx) throw new Error("ExecutionContext is required for PostgreSQL requests");
+  const database = createPostgresDatabase(env.HYPERDRIVE.connectionString);
+  const requestEnv = { ...env, DB: database } as Env;
+  return runWithDatabaseLifecycle(database, ctx, (trackedContext) =>
+    Promise.resolve(honoFetch(request, requestEnv, trackedContext)));
 }
 
 function scheduled(
@@ -82,23 +79,16 @@ function scheduled(
   env: RuntimeEnv,
   ctx: ExecutionContext,
 ): void {
-  if (env.HYPERDRIVE) {
-    const database = createPostgresDatabase(env.HYPERDRIVE.connectionString);
-    const scheduledEnv = { ...env, DB: database } as Env;
-    ctx.waitUntil((async () => {
-      try {
-        await runScheduledTasks(scheduledEnv);
-      } finally {
-        await database.close();
-      }
-    })());
-    return;
-  }
-  if (env.DB) {
-    ctx.waitUntil(runScheduledTasks(env as Env));
-    return;
-  }
-  throw new Error("HYPERDRIVE binding is required");
+  if (!env.HYPERDRIVE) throw new Error("HYPERDRIVE binding is required");
+  const database = createPostgresDatabase(env.HYPERDRIVE.connectionString);
+  const scheduledEnv = { ...env, DB: database } as Env;
+  ctx.waitUntil((async () => {
+    try {
+      await runScheduledTasks(scheduledEnv);
+    } finally {
+      await database.close();
+    }
+  })());
 }
 
 async function runScheduledTasks(env: Env): Promise<void> {

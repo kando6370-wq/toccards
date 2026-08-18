@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-MARKET-PRICE-CACHE-VERSION-20260818",
+  "mode": "single",
+  "rationale": "单一缓存键常量及其现有契约测试",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "提升 Market Prices Cache API 版本",
+      "module": "workers-api/data-source/cache-api",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/workers-api/src/data-source/cache-api.ts",
+        "apps/workers-api/src/data-source/cache-api.test.ts"
+      ],
+      "verification": [
+        "pnpm --filter @kando/workers-api test -- src/data-source/cache-api.test.ts",
+        "pnpm --filter @kando/workers-api type-check"
+      ],
+      "docsImpact": [
+        "N/A: v1.1.0 合同已规定价格响应变更时提升缓存版本"
+      ],
+      "reviewBatch": "R1",
+      "risk": "low",
+      "owner": "Codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "93befd19-ff82-47ab-8c84-210f08010e96",
+        "2d960bd4-e009-4427-8d4e-7e0da403c820"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "Market Prices 缓存合同隔离",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T05:27:13.966Z",
+  "updatedAt": "2026-08-18T05:28:07.732Z"
+}

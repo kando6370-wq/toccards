@@ -27,6 +27,37 @@ export type AppleVerifierConfiguration = {
   verifier: AppleTransactionVerifier;
 };
 
+const APPLE_VERIFICATION_STATUS_NAMES = [
+  "OK",
+  "VERIFICATION_FAILURE",
+  "RETRYABLE_VERIFICATION_FAILURE",
+  "INVALID_APP_IDENTIFIER",
+  "INVALID_ENVIRONMENT",
+  "INVALID_CHAIN_LENGTH",
+  "INVALID_CERTIFICATE",
+  "FAILURE",
+] as const;
+
+export type AppleVerificationFailure = {
+  status: typeof APPLE_VERIFICATION_STATUS_NAMES[number];
+  retryable: boolean;
+};
+
+export async function classifyAppleVerificationFailure(error: unknown): Promise<AppleVerificationFailure | null> {
+  try {
+    const { VerificationException, VerificationStatus } = await import("@apple/app-store-server-library");
+    if (!(error instanceof VerificationException)) return null;
+    const status = VerificationStatus[error.status];
+    if (!isAppleVerificationStatusName(status)) return null;
+    return {
+      status,
+      retryable: status === "RETRYABLE_VERIFICATION_FAILURE",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function createAppleVerifier(
   env: Pick<
     Env,
@@ -83,4 +114,9 @@ function parseAppleId(value: string | undefined): number | null {
   if (!value || !/^\d+$/.test(value)) return null;
   const id = Number(value);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function isAppleVerificationStatusName(value: unknown): value is AppleVerificationFailure["status"] {
+  return typeof value === "string" &&
+    (APPLE_VERIFICATION_STATUS_NAMES as readonly string[]).includes(value);
 }

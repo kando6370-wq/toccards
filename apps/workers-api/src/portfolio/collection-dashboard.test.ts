@@ -38,6 +38,7 @@ describe("collection dashboard enrichment", () => {
       grade: index === 100 ? 10 : null,
       language: "English",
       finish: "Normal",
+      price_series_id: null,
       quantity: 1,
       folder_joined_at: "2026-07-01T00:00:00.000Z",
       created_at: "2026-07-01T00:00:00.000Z",
@@ -85,6 +86,7 @@ describe("collection dashboard enrichment", () => {
       grade: null,
       language: "Unknown",
       finish: "Unknown",
+      price_series_id: null,
       quantity: 1,
       folder_joined_at: "2026-07-01T00:00:00.000Z",
       created_at: "2026-07-01T00:00:00.000Z",
@@ -123,6 +125,7 @@ describe("collection dashboard enrichment", () => {
       grade: 7.5,
       language: "English",
       finish: "Normal",
+      price_series_id: null,
       quantity: 2,
       folder_joined_at: "2026-07-01T00:00:00.000Z",
       created_at: "2026-07-01T00:00:00.000Z",
@@ -152,6 +155,36 @@ describe("collection dashboard enrichment", () => {
       market_language: "English",
       market_finish: "Normal",
     });
+  });
+
+  it("uses the saved series without exposing its internal id because Dashboard must keep the public API stable", async () => {
+    const result = await enrichCollectionDashboard(
+      new FakeDb(
+        [card("100")],
+        [sku("100")],
+        [gradedPrice("100", "Normal", 99)],
+      ) as unknown as D1Database,
+      [{
+        id: "stable-item",
+        folder_id: "main",
+        card_ref: "100",
+        object_type: "tcg",
+        grader: "Raw",
+        condition: "Near Mint (NM)",
+        grade: null,
+        language: "English",
+        finish: "Normal",
+        price_series_id: 2,
+        quantity: 1,
+        folder_joined_at: "2026-07-01T00:00:00.000Z",
+        created_at: "2026-07-01T00:00:00.000Z",
+      }],
+      [],
+      new Date("2026-07-10T12:00:00.000Z"),
+    );
+
+    expect(result.portfolio_items[0]).toMatchObject({ market_price_usd: 99 });
+    expect(result.portfolio_items[0]).not.toHaveProperty("price_series_id");
   });
 });
 
@@ -191,10 +224,14 @@ function gradedPrice(
     amount_micros: price * 1_000_000,
     baseline_1d_on: null,
     baseline_1d_amount_micros: null,
+    baseline_7d_on: null,
+    baseline_7d_amount_micros: null,
     baseline_30d_on: null,
     baseline_30d_amount_micros: null,
     price_history: JSON.stringify([{ date: "2026-07-06", price }]),
-    increase_rate: null,
+    change_1d_percent: null,
+    change_7d_percent: null,
+    change_30d_percent: null,
     ...overrides,
   };
 }
@@ -225,12 +262,16 @@ function sku(
     amount_micros: currentPrice * 1_000_000,
     baseline_1d_on: null,
     baseline_1d_amount_micros: null,
+    baseline_7d_on: null,
+    baseline_7d_amount_micros: null,
     baseline_30d_on: "2026-06-01",
     baseline_30d_amount_micros: 10_000_000,
     price_history: JSON.stringify([
       { date: "2026-06-01", price: 10 },
       { date: "2026-07-06", price: currentPrice },
     ]),
-    increase_rate: 12.34,
+    change_1d_percent: null,
+    change_7d_percent: null,
+    change_30d_percent: 12.34,
   };
 }

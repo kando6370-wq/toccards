@@ -22,7 +22,7 @@ Admin 是 `apps/admin-web` 构建的 React SPA，静态产物由 Workers assets 
 | 卡牌管理 | 扫描记录管理 | 条件筛选、识别/确认详情、受保护图片 | `/scans*` |
 | App 版本管理 | 版本管理 | iOS/Google 版本和升级行为 | `/app-versions*` |
 
-Workers 还实现通用 App Config、Trending Pin 和 Card Override API，但当前 `App.tsx` 的 `MenuKey` 与 `menuGroups` 没有对应页面。这些是后端能力，不是当前可从 Admin UI 操作的页面。
+Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` 的 `MenuKey` 与 `menuGroups` 没有对应页面。这些是后端能力，不是当前可从 Admin UI 操作的页面。旧 Trending Pin API 已废弃，不再属于 Admin 能力。
 
 ## 3. 角色权限
 
@@ -30,10 +30,10 @@ Workers 还实现通用 App Config、Trending Pin 和 Card Override API，但当
 |---|---:|---:|---|
 | 查看当前菜单数据 | 是 | 是 | Admin 鉴权中间件 |
 | 更新反馈、版本和一般 App Config | 是 | 是 | 对应 PATCH 路由 |
-| 创建/更新 Trending Pin、Card Override | 是 | 是 | 对应 POST/PATCH 路由 |
+| 创建/更新 Card Override | 是 | 是 | 对应 POST/PATCH 路由 |
 | 禁用正式 App 用户 | 否 | 是 | `PATCH /users/user/:id/disable` |
 | 创建或修改 Admin 权限 | 否 | 是 | `/permissions` POST/PATCH |
-| 删除 Trending Pin、Card Override | 否 | 是 | 对应 DELETE 路由 |
+| 删除 Card Override | 否 | 是 | 对应 DELETE 路由 |
 
 正式用户禁用只接受 user 路径，不把匿名账号伪装成可禁用正式用户。角色限制必须保留在服务端；只隐藏按钮不足以授权。
 
@@ -135,6 +135,6 @@ Admin 没有独立生产部署目标。Workers deploy 会先按 dev/prod 模式�
 ## 9. 待确认与禁止扩展
 
 - 当前 PRD 未要求 Admin 人工调整 Premium，因此不得新增 grant/lifecycle 修改按钮。
-- Trending Pin、Card Override 和通用 App Config 是否补 UI 需独立产品需求；现有 API 不等于页面已交付。
+- Card Override 和通用 App Config 是否补 UI 需独立产品需求；现有 API 不等于页面已交付。Trending Pin 已明确废弃，不应再补 UI 或调用旧接口。
 - 生产订单保留期、审计访问范围和运营角色细分若需变化，应先补产品/安全决策和迁移设计。
 - 未重新连接远程环境时，不得把旧的 dev D1 空订单样本、部署 ID 或 HTTP 200 写成当前实时结论。

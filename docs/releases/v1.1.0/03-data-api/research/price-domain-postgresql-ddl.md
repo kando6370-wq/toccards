@@ -820,6 +820,8 @@ ALTER TABLE collection_item_event
 
 只有在新旧 Worker 共存窗口完成、所有受支持对象均已稳定写入 `price_series_id`、读比对通过后，才能停止名称 qualifier 回退逻辑。本文不建议立即设置 `NOT NULL`，也不建议在本阶段删除 `card_ref` 和事件 qualifier；它们仍是目录展示、审计和重新映射证据。
 
+当前 Workers 读取规则已经接入上述可空字段：`price_series_id` 非空时，Collection Dashboard、Portfolio 估值历史和 Performance 只使用该 ID 对应的当前已发布且有价格历史的 PostgreSQL 序列；该序列不可见或无历史时返回“无价格”，不得回退到 qualifier 猜测。只有 ID 为 `NULL` 时保留迁移窗口内的 qualifier 兼容匹配。Item 的 grader、condition、grade、language 或 finish 任一变化都会清空当前绑定；仅数量、购买信息、备注或 Folder 变化时保留绑定，Move/Delete 事件继续保存事件发生时的 ID。新 Item/Event 在独立价格上游和确定性 resolver 冻结前写入 `NULL`；内部 ID 不进入现有 API 响应。
+
 ## 7. 查询与索引矩阵
 
 | 业务查询 | 主过滤/排序 | 使用的键或索引 | 约束的业务意图 |
@@ -844,8 +846,8 @@ ALTER TABLE collection_item_event
 - `price_series` 通过外部唯一键 upsert；不再出现的序列设为 inactive，不删除。
 - current 分区只有在整批校验通过后才切 pointer；失败分区不进入读路径，可在保留诊断证据后按明确目标清理。
 - 月块 upsert 必须携带 `last_batch_id` 和 checksum；同一输入重放不应改变规范化内容。
-- 价格 canary 可通过 pointer 或读开关回退；全库 OLTP 已切写后，必须先停写并对账，不能直接切回落后的 D1。
-- 未获得生产写入、部署、分区删除和 D1 退役授权前，不执行这些操作。
+- 价格 canary 只能在 PostgreSQL 内通过 pointer 或读开关回退到上一已发布批次；不得查询、连接或复制 D1 作为价格回退源。
+- 未获得生产写入、部署和分区删除授权前，不执行这些操作；D1 已与 PostgreSQL 完全独立，不属于本价格链路的输入、回滚或恢复范围。
 
 ## 9. 尚未冻结的合同
 
@@ -853,8 +855,9 @@ ALTER TABLE collection_item_event
 
 | 待确认项 | 影响 |
 |---|---|
-| 来源字段所有权与 `source_record_id` 生成规则 | 外部唯一键和可重放性。 |
-| 来源币种、小数位和是否允许合法 0 价 | micros 转换、CHECK 和跨币种展示。 |
+| 独立价格上游位置、访问协议与鉴权方式 | 决定导入器运行位置、输入获取和失败恢复。 |
+| 上游字段所有权与 `source_record_id` 生成规则 | 外部唯一键和可重放性。 |
+| 上游币种、小数位和是否允许合法 0 价 | micros 转换、CHECK 和跨币种展示。 |
 | 同一序列同一天是否允许多个点 | 月块去重、排序和 `point_count`。 |
 | 已完成月份的历史纠错与迟到数据策略 | 月块是否可更新、revision/审计要求。 |
 | Search 默认 condition/language/finish/source | 搜索页选哪个 series。 |
@@ -863,6 +866,28 @@ ALTER TABLE collection_item_event
 | 365 天前置基准点与冷热历史恢复 SLA | 月分区热保留数量。 |
 | 重度 owner 的 Portfolio 上限 | 是否需要额外可重建日估值表；本文未猜测增加。 |
 | 目标实例、连接、RPO/RTO 和维护窗口 | 分区运维、批次时限和容量。 |
+
+### 9.1 PostgreSQL 独立价格上游边界
+
+已冻结边界：D1 与 PostgreSQL 完全独立。价格导入器、运行时查询、失败重试、回滚和
+灾难恢复均不得读取、依赖或回退 D1，也不得把旧 `tcg_price` 复制到 PostgreSQL。
+旧 D1 的行数和字段统计只能解释切换时新价格域为空的历史根因，不能定义新导入合同。
+
+2026-08-18 对当前仓库的配置、Worker 入口、定时任务、R2 binding 和 scripts 进行检索，
+未发现独立价格上游的可执行入口。现有 R2 binding `SCAN_IMAGES` 仅用于扫描图片，不能
+推定为价格 Feed。因此在权威上游位置和样例明确前，不创建导入器、不生成供应商字段映射，
+也不向 7 张价格表写入猜测数据。
+
+后续实现必须以独立上游的真实合同为输入，并在数据库设计阶段冻结：
+
+1. 上游位置、访问协议、鉴权、游标/批次标识和重放方式。
+2. 稳定来源记录 ID、卡牌关联键、价格维度、币种、小数位、合法 0 价和缺失值语义。
+3. 当前价与历史点格式、业务日期/时区、同日冲突、迟到数据和历史纠错规则。
+4. 完整批次计数、checksum、拒绝记录、幂等键、发布事务与 PostgreSQL 内回滚规则。
+5. Trending winner 及 Collection `price_series_id` 的确定性映射规则。
+
+7 表职责、pointer 原子发布和已发布批次可见性继续有效；具体字段转换和导入执行计划在
+上述输入得到验证前保持阻塞。
 
 ## 10. 实施验收清单
 

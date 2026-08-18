@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "id": "ANALYSIS-DEV-POSTGRES-STATUS-20260818",
+  "type": "ANALYSIS",
+  "title": "核实 dev 环境数据库是否已切换到 PostgreSQL",
+  "status": "ANSWERED",
+  "flags": [
+    "database"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/analysis.md",
+    ".ai-harness/policies/database.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户授权对 dev 数据库切换状态进行只读分析"
+  },
+  "input": {
+    "references": [
+      "用户问题：现在 dev 环境数据库已经切换到 PgSQL 了吗？"
+    ],
+    "acceptance": [
+      "基于当前 dev 分支代码、配置、迁移记录与远端只读证据回答是否已切换",
+      "明确区分已证明、文档记录和未验证边界"
+    ],
+    "nonGoals": [
+      "不修改产品代码、部署、数据库或远端配置"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": "docs/releases/v1.1.0/03-data-api/migration.md",
+    "evidence": [
+      "dev@3f4f25fe9a0904a42b8a4867d8224ab2604b0f75；当前工作区仅含既有 Apple JWS 工作项与本分析控制面变更；分析不修改产品文件"
+    ],
+    "completedAt": "2026-08-18T02:57:49.699Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "3f4f25fe9a0904a42b8a4867d8224ab2604b0f75",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/state.json"
+      ],
+      "fingerprints": {
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/events.jsonl": "d4f120f3faf886e6f32cea7ab1800bfa4f0b11c7bc30c1f1f441802cd15f238e",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/state.json": "ce9e8b478f18d48bcc5b57656d589b17d940aa18bb73a7aac49f9886428e7745",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/events.jsonl": "5685e7903cd2ca0783f2ac016d6a5b0384fb6b53d0af65f896694361afda9a63",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/state.json": "57bc4141a0f5f0932bb0ff6518220de64bb9aa49d768ec45fe2d4dbdbb8a1873"
+      }
+    }
+  },
+  "solution": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null
+  },
+  "database": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null,
+    "impact": "unknown"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/plan.json",
+    "approved": false,
+    "approvalRef": null
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pass",
+    "evidence": [
+      "bb7cda50-55f5-4bc2-812f-686ac1d441cf"
+    ],
+    "conclusions": [
+      {
+        "id": "e0866702-7c05-44b7-a910-541d90b328b3",
+        "status": "PROVEN",
+        "text": "当前 dev Worker 已切换到 PostgreSQL：Cloudflare deployment 585a60a4-604a-4147-9c31-34e3876b9361 以 100% 流量运行 version 2312e0bb-d749-431e-aaf4-d6de3ff3bfa7；该版本存在 HYPERDRIVE binding 且不存在 D1 binding；数据库读取接口 /api/v1/games 与 /api/v1/app-config 均返回 HTTP 200 和实际数据",
+        "evidence": [
+          "2026-08-18 wrangler deployments status --env dev --json",
+          "2026-08-18 wrangler versions view 2312e0bb-d749-431e-aaf4-d6de3ff3bfa7 --env dev --json",
+          "2026-08-18 curl api-dev.tcgcard.fun database-backed endpoints"
+        ]
+      },
+      {
+        "id": "486ef41b-1c26-41eb-98bb-80de82402745",
+        "status": "PROVEN",
+        "text": "dev 的 Hyperdrive 当前目标为 PlanetScale PostgreSQL：scheme=postgres、port=5432、database=postgres、integration=planetScale，查询缓存 disabled=true",
+        "evidence": [
+          "2026-08-18 wrangler hyperdrive get 7d71bcd0bcf64e518a23a852ced76d66"
+        ]
+      },
+      {
+        "id": "b0c54215-b217-4d7d-92c0-2a9e38a5f935",
+        "status": "PROVEN",
+        "text": "当前 dev 分支代码与远端绑定一致：wrangler.toml 的 env.dev 只声明 HYPERDRIVE/KV/R2，入口用 HYPERDRIVE.connectionString 创建 PostgresDatabase；无 HYPERDRIVE/DB 时显式失败",
+        "evidence": [
+          "apps/workers-api/wrangler.toml:48-78",
+          "apps/workers-api/src/index.ts:64-77",
+          "apps/workers-api/src/db/postgres-database.ts:22-35"
+        ]
+      },
+      {
+        "id": "74336a64-1e9e-4209-ae1d-1d6bfbda9811",
+        "status": "UNKNOWN",
+        "text": "本次未重新核对 PostgreSQL 全部表的实时行数与价格域数据装载进度",
+        "evidence": []
+      }
+    ],
+    "unknowns": [
+      "仓库 migration.md 记录 33 张非价格业务表已迁移校验、旧 tcg_price 未迁移、7 张新价格表当时为空；这些是 2026-08-17 检查点，不等于 2026-08-18 的实时行数审计"
+    ]
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T02:57:27.392Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T02:57:49.035Z",
+      "reason": "锁定当前 dev 分支、入口代码、Wrangler 配置、迁移文档与远端只读检查范围"
+    },
+    {
+      "from": "BASELINING",
+      "to": "ANALYZING",
+      "at": "2026-08-18T02:57:50.081Z",
+      "reason": "基线完成，开始交叉核对代码配置、远端 deployment 与 dev 运行状态"
+    },
+    {
+      "from": "ANALYZING",
+      "to": "ANSWERED",
+      "at": "2026-08-18T02:59:59.208Z",
+      "reason": "已证明 dev 当前通过 Hyperdrive 使用 PlanetScale PostgreSQL，并标明价格数据与实时行数未复核边界"
+    }
+  ],
+  "createdAt": "2026-08-18T02:57:27.392Z",
+  "updatedAt": "2026-08-18T02:59:59.208Z"
+}

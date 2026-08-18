@@ -819,22 +819,6 @@ export const cardOverride = sqliteTable("card_override", {
   updatedAt: text("updated_at").notNull(),
 }, (t) => [check("ck_card_override_is_missing", sql`${t.isMissingCard} IN (0, 1)`)]);
 
-export const trendingPin = sqliteTable(
-  "trending_pin",
-  {
-    id: text("id").primaryKey(),
-    cardRef: text("card_ref").notNull().unique(),
-    rank: integer("rank").notNull(),
-    active: integer("active").notNull().default(1),
-    updatedBy: text("updated_by"), // 软引用 admin_user.id，无 DB 级 FK
-    updatedAt: text("updated_at").notNull(),
-  },
-  (t) => [
-    index("idx_trending_pin_rank").on(t.active, t.rank),
-    check("ck_trending_pin_active", sql`${t.active} IN (0, 1)`),
-  ],
-);
-
 export const appConfig = sqliteTable("app_config", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

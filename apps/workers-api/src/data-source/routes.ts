@@ -13,7 +13,6 @@ import {
 } from "./cache-api";
 import { createKvCachedDataSourceAdapter } from "./kv-cache";
 import { createLocalDbDataSourceAdapter } from "./local-db-adapter";
-import { PriceQueryLimitError } from "./postgres-price-store";
 import {
   ExchangeRateUnavailableError,
   loadUsdExchangeRates,
@@ -143,16 +142,14 @@ export function createDataSourceRoutes(
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
     const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 40, 100);
     const adapter = createAdapter(c.env);
-    const items = await listOrEmpty(() =>
-      adapter.searchCards(query, {
-        object_type: "tcg",
-        game,
-        set_id: setId,
-        set_code: setCode,
-        page,
-        page_size: pageSize,
-      }),
-    );
+    const items = await adapter.searchCards(query, {
+      object_type: "tcg",
+      game,
+      set_id: setId,
+      set_code: setCode,
+      page,
+      page_size: pageSize,
+    });
 
     const responseItems = items.map((item) =>
       withCardImageUrl(item, "list"),
@@ -191,9 +188,7 @@ export function createDataSourceRoutes(
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
     const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 1000);
     const adapter = createAdapter(c.env);
-    const sets = await listOrEmpty(() =>
-      adapter.searchSets(query, { game, page, page_size: pageSize }),
-    );
+    const sets = await adapter.searchSets(query, { game, page, page_size: pageSize });
     const items = sets.map(withCardSetImageUrl);
 
     return c.json({
@@ -247,9 +242,7 @@ export function createDataSourceRoutes(
     const adapter = createAdapter(c.env);
     const finish = nullableString(c.req.query("finish"));
     const language = nullableString(c.req.query("language"));
-    const prices = await listOrEmpty(() =>
-      adapter.getMarketPrices(cardRef, finish, language),
-    );
+    const prices = await adapter.getMarketPrices(cardRef, finish, language);
 
     return c.json({
       success: true,
@@ -291,8 +284,13 @@ export function createDataSourceRoutes(
     }
     const finish = nullableString(c.req.query("finish"));
     const adapter = createAdapter(c.env);
-    const series = await listOrEmpty(() =>
-      adapter.getPriceSeries(cardRef, grader, grade, condition, days, finish),
+    const series = await adapter.getPriceSeries(
+      cardRef,
+      grader,
+      grade,
+      condition,
+      days,
+      finish,
     );
 
     return c.json({
@@ -348,7 +346,7 @@ export function createDataSourceRoutes(
     c.header("Cache-Control", "no-store");
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
-    const items = await listOrEmpty(() => adapter.getSoldListings(cardRef));
+    const items = await adapter.getSoldListings(cardRef);
 
     return c.json({
       success: true,
@@ -418,14 +416,14 @@ async function loadPriceSeriesSequentially(
 ): Promise<Array<Array<{ date: string; price: number }>>> {
   const results: Array<Array<{ date: string; price: number }>> = [];
   for (const request of requests) {
-    results.push(await listOrEmpty(() => adapter.getPriceSeries(
+    results.push(await adapter.getPriceSeries(
       cardRef,
       request.grader,
       request.grade,
       request.condition,
       request.days,
       request.finish,
-    )));
+    ));
   }
   return results;
 }
@@ -484,28 +482,14 @@ function runtimeDefaultCache(): DataSourceCache | null {
   return runtime.caches?.default ?? null;
 }
 
-async function listOrEmpty<T>(load: () => Promise<T[]>): Promise<T[]> {
-  try {
-    return await load();
-  } catch (error) {
-    if (error instanceof PriceQueryLimitError) throw error;
-    console.error("Data source list request failed.", error);
-    return [];
-  }
-}
-
 async function findCardOverride(
   db: D1Database,
   cardRef: string,
 ): Promise<CardOverrideRow | null> {
-  try {
-    return await db
-      .prepare(SELECT_CARD_OVERRIDE_SQL)
-      .bind(cardRef)
-      .first<CardOverrideRow>();
-  } catch {
-    return null;
-  }
+  return db
+    .prepare(SELECT_CARD_OVERRIDE_SQL)
+    .bind(cardRef)
+    .first<CardOverrideRow>();
 }
 
 async function findCardOverrides(
@@ -515,36 +499,21 @@ async function findCardOverrides(
   const overrides = new Map<string, CardOverrideRow>();
   if (cardRefs.length === 0) return overrides;
 
-  try {
-    const placeholders = cardRefs.map(() => "?").join(", ");
-    const results = await db
-      .prepare(
-        `SELECT card_ref, override_fields, image_url, is_missing_card
+  const placeholders = cardRefs.map(() => "?").join(", ");
+  const results = await db
+    .prepare(
+      `SELECT card_ref, override_fields, image_url, is_missing_card
 FROM card_override
 WHERE card_ref IN (${placeholders})`,
-      )
-      .bind(...cardRefs)
-      .all<CardOverrideRow>();
+    )
+    .bind(...cardRefs)
+    .all<CardOverrideRow>();
 
-    for (const override of results.results ?? []) {
-      overrides.set(override.card_ref, override);
-    }
-  } catch {
-    // Overrides are optional corrections; catalog data remains usable without them.
+  for (const override of results.results ?? []) {
+    overrides.set(override.card_ref, override);
   }
 
   return overrides;
-}
-
-async function getCardOrNull(
-  adapter: DataSourceAdapter,
-  cardRef: string,
-): Promise<CardSearchResult | null> {
-  try {
-    return await adapter.getCard(cardRef);
-  } catch {
-    return null;
-  }
 }
 
 export async function resolveCard(
@@ -562,7 +531,7 @@ export async function resolveCard(
     }
   }
 
-  const card = await getCardOrNull(adapter, cardRef);
+  const card = await adapter.getCard(cardRef);
   return applyCardOverride(card, override, cardRef);
 }
 

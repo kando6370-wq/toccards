@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-PG-HISTORY-PAYLOAD-SEMANTICS-20260818",
+  "mode": "single",
+  "rationale": "单一解析根因、一个生产文件、一个测试文件和一处既有契约补充",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "拒绝非法 PostgreSQL 月度价格点",
+      "module": "apps/workers-api/src/data-source",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/workers-api/src/data-source/postgres-price-store.ts",
+        "apps/workers-api/src/data-source/postgres-price-store.test.ts",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "verification": [
+        "pnpm --filter @kando/workers-api test -- src/data-source/postgres-price-store.test.ts",
+        "pnpm --filter @kando/workers-api type-check",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "low",
+      "owner": "root",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "faa2b522-05a3-4d26-b3b8-706f44eba300",
+        "01eb3ae8-a393-4ccc-8545-502eeae955e2"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "PostgreSQL 历史载荷失败语义",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T07:21:59.405Z",
+  "updatedAt": "2026-08-18T07:25:07.017Z"
+}

@@ -8,15 +8,26 @@ R1 数据库基础批次已通过只在本机运行的 Wrangler remote preview�
 
 正式迁移已在 dev API 进入维护状态后完成。冻结源清单为 33 张非价格业务表、270,577 行；runner 返回 `migratedTables=33`、`verifiedTables=33`，逐表源/目标行数和完整 SHA-256 摘要全部一致，其中 `cards_all=267682`、`sets=2060`、`apple_notification_inbox=34`。最大表 `cards_all` 使用 536 批，最大编码负载 326,059 bytes；`scan_record` 与 Apple inbox 的最大负载分别为 436,822 bytes 和 494,124 bytes，均低于 512 KiB 硬上限。`tcg_price`、`price_sync_state`、`cards_new`、`d1_migrations` 与 `_cf_KV` 明确排除，目标不存在旧 `tcg_price`；旧 `tcg_price` 的 1,053,034 行没有进入 PostgreSQL。切换状态只读复核确认 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month`、`card_trending_snapshot` 七张新价格表均为 0 行，34 条 Apple inbox 行全部标记为 `Sandbox`，不存在 `Production` 行。
 
-迁移工具固定表顺序、列名和唯一 keyset 游标，并在每次正式执行前枚举 live D1 全表；忽略 `sqlite_%` 内部表后，实际表必须严格等于 33 张业务表与 5 张显式排除表，任何新增未分类表都会停止迁移。每批最多 500 行且编码负载硬上限为 512 KiB，D1 查询按累计 JSON 字节先行裁剪，单行超限直接失败；请求顺序复用单个 Hyperdrive client。写入按固定游标执行 `ON CONFLICT (cursor) DO UPDATE`，使仍在运行的 dev D1 更新可通过重跑收敛；逐表校验按相同排序比较源/目标完整行 SHA-256。物理删除不会被静默复制，若迁移窗口内出现源删除，最终行数或摘要校验必须失败并停止切换。`--verify-cutover-state` 禁止与 schema-only 组合，且必须同时使用完整 `--verify-only` 或正式迁移及 `--confirm-source-write-frozen`；runner 只有在 33 表完整摘要全部通过后才检查七张价格空表与 Apple inbox 环境。迁移工具只接受运行时生成的 Bearer token，专用 Worker 不部署。
+本次正式切换时使用的迁移工具固定表顺序、列名和唯一 keyset 游标，并在每次正式执行前枚举 live D1 全表；忽略 `sqlite_%` 内部表后，实际表必须严格等于 33 张业务表与 5 张显式排除表，任何新增未分类表都会停止迁移。每批最多 500 行且编码负载硬上限为 512 KiB，D1 查询按累计 JSON 字节先行裁剪，单行超限直接失败；请求顺序复用单个 Hyperdrive client。写入按固定游标执行 `ON CONFLICT (cursor) DO UPDATE`，使迁移窗口内仍在运行的 dev D1 更新可通过重跑收敛；逐表校验按相同排序比较源/目标完整行 SHA-256。物理删除不会被静默复制，若迁移窗口内出现源删除，最终行数或摘要校验必须失败并停止切换。`--verify-cutover-state` 禁止与 schema-only 组合，且必须同时使用完整 `--verify-only` 或正式迁移及 `--confirm-source-write-frozen`；runner 只有在 33 表完整摘要全部通过后才检查七张价格空表与 Apple inbox 环境。迁移工具只接受运行时生成的 Bearer token，专用 Worker 未部署。
+
+> **当前边界（2026-08-18）**：上述 runner、`scripts/d1-postgres-migration/` 与 `wrangler.migration.toml` 仅作为已完成迁移的历史证据保留，现已退役并禁止部署或运行，包括重跑、`--verify-only`、`--verify-cutover-state`、失败重试、回滚和灾难恢复。D1 与 PostgreSQL 已完全独立；当前运行时和后续数据修复均不得查询、依赖或回退 D1。
+
+## Trending Pin 废弃（2026-08-18）
+
+`trending_pin` 及 `/api/v1/admin/trending-pins*` 已无当前业务消费者，予以废弃。Flutter 首页与 View All 的 Trending Today 不读取该表，仍通过 `/api/v1/cards/trending` 消费 PostgreSQL `card_trending_snapshot`。
+
+- PostgreSQL 新增向前迁移 `0005_drop_trending_pin.sql`，D1 本地/测试迁移链新增 `0035_drop_trending_pin.sql`；历史建表迁移保持不变。
+- 两份迁移均只执行 `DROP TABLE trending_pin`，不使用 `CASCADE`。D1 到 PostgreSQL 清单不再迁移该表，并把旧 D1 源表列为显式排除项，避免重新创建已废弃表。
+- 上线必须先部署不再暴露旧 Admin API 的 Worker，确认没有旧端点调用后，再经单独授权执行 PostgreSQL `0005`。本次代码变更不执行远程迁移或数据删除。
+- PostgreSQL drop 前可通过回滚 Worker 恢复旧接口；drop 后若必须恢复，需先按历史 DDL 重建空表，历史置顶配置只能从数据库备份恢复。
 
 keyset 扫描不是跨批次数据库快照，不能在 dev D1 持续写入时作为最终一致性证明。本次先把 dev deployment `36969b9d-2065-4a42-a1ca-3e742f51ea3d` 的 version `4382c55f-bf0c-4018-b108-675f04f817aa` 切为 100% 维护流量：health 返回 `maintenance/databaseWrites=frozen`，业务请求和 Apple 回调均返回 503，scheduled handler 不执行；冻结后 inbox、cards 与 session 计数连续两次稳定。runner 随后收到 `--confirm-source-write-frozen` 才执行正式迁移。该维护版本是切换门禁，不是最终业务版本；必须由 PostgreSQL 正式版本部署和烟测替换后才能结束维护状态。
 
-仓库中的 dev/prod Wrangler 配置引用同一个 Hyperdrive ID，但环境仍由各自域名、`APP_ENVIRONMENT`、Apple、KV 与 R2 配置区分。Hyperdrive 查询缓存已在迁移窗口关闭并回读为 `disabled=true`。正式 dev Worker/Admin 已部署为 deployment `6c0697d0-f9bb-423e-8b68-1ab0509e7729`、version `73766f12-d888-4e94-ba2c-f990ef00ec43`，100% 替换维护版本；构建来源提交为 `0f7e6a739d6e138d318592e08b1cac3551b32173`。`/api/v1/health`、games、sets 搜索、卡牌搜索/详情、市场价/价格历史空域、Admin HTML/JS、Admin 未授权拒绝和 Apple 空请求校验均完成正式 dev 烟测；5 条授权 Admin 查询在同提交的真实 Hyperdrive remote preview 中完成 8/8 只读验证，但因缺少正式 dev Admin 登录态而未直接调用正式域名。迁移预览产生的两个 dev KV 搜索空缓存已精确删除并复测。prod 未部署，最终只读复核仍为 deployment `03235e84-694e-4800-854a-650173408412`、旧 D1 version `57213c10-d392-43a9-8d34-c6472fc3febc`。
+2026-08-17 切换检查点中，仓库的 dev/prod Wrangler 配置已引用同一个 Hyperdrive ID，环境仍由各自域名、`APP_ENVIRONMENT`、Apple、KV 与 R2 配置区分；Hyperdrive 查询缓存已关闭并回读为 `disabled=true`。当时正式 dev Worker/Admin deployment `6c0697d0-f9bb-423e-8b68-1ab0509e7729`、version `73766f12-d888-4e94-ba2c-f990ef00ec43` 以 100% 流量替换维护版本，完成 health、目录/价格空域、Admin 和未授权边界烟测。该检查点记录的 production 旧 deployment/D1 状态仅是历史快照；当前运行约束以文档顶部 2026-08-18 PostgreSQL-only 边界为准，production 实时 deployment 必须在独立发布任务中重新核验。
 
 较早资源预配检查点（同为 2026-08-17，早于上述 R1）：已通过 Cloudflare 与 PlanetScale 官方集成创建 Hyperdrive 配置，Cloudflare 配置名创建时为 `tcg-cards`，随后按当前 PlanetScale 名称重命名为 `tcg-cards-db`（ID 始终为 `7d71bcd0bcf64e518a23a852ced76d66`）；目标为 PlanetScale `product-kando/tcg-cards-db`（创建时名称为 `product-kando/tcg_cards`）的 `main` 分支、数据库 `postgres`，PlanetScale控制台显示 Postgres version `18.6`。Cloudflare 创建向导返回连接成功，详情页显示 PostgreSQL / PlanetScale，查询缓存保持默认启用。两侧重命名后复核：Hyperdrive 配置 ID、PostgreSQL 连接目标、数据库名、缓存参数和连接上限均未变化，PlanetScale 显示存在 PgBouncer 连接；Cloudflare 详情页的 PlanetScale 跳转链接仍指向已返回 404 的旧名称，这是陈旧的控制台元数据，不应据此重复创建连接或轮换凭据。该较早检查点只完成连接资源预配，当时未添加 binding、执行 schema、迁移、业务写入或部署；其后续状态以上述 R1 检查点为准。
 
-2026-08-17 较早 dev 补充核验（早于本次正式迁移）：`toccards-api-dev` 部署对应提交 `df8e6d7c8ae6695d3f0366b17725abd65615e8d8`，`APP_ENVIRONMENT=development`、`APPLE_IAP_BUNDLE_ID=com.kando.kandoApp.beta`，Apple Root CA 与 App Store Server API Issuer ID/Key ID/Private Key 的 Secret 配置项均存在。远程 dev D1 的 `apple_notification_inbox` 与 `apple_server_notification` 表存在，5 分钟通知重试任务正在运行；inbox 当时为空。App Store Connect Sandbox Server URL 已保存为 `https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。空 JSON 请求返回 `400 INVALID_REQUEST`，在写 D1 前即被拒绝，只证明请求到达业务校验。平台不暴露 Secret 加密内容，因此其有效性、真实 Apple Sandbox 通知验签、入库与业务处理仍待端到端验证。该历史检查点未核验 production，也未执行迁移、写入 Secret、修改数据或部署；当前状态以上述正式迁移检查点为准。
+2026-08-17 较早 dev 补充核验（早于本次正式迁移）：`toccards-api-dev` 部署对应提交 `df8e6d7c8ae6695d3f0366b17725abd65615e8d8`，`APP_ENVIRONMENT=development`、`APPLE_IAP_BUNDLE_ID=com.kando.kandoApp.beta`，Apple Root CA 与 App Store Server API Issuer ID/Key ID/Private Key 的 Secret 配置项均存在。远程 dev D1 的 `apple_notification_inbox` 与 `apple_server_notification` 表当时存在，5 分钟通知重试任务正在运行；inbox 当时为空。App Store Connect Sandbox Server URL 已保存为 `https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。空 JSON 请求返回 `400 INVALID_REQUEST`，在写 D1 前即被拒绝，只证明请求到达业务校验。该段是切换前历史证据；当前通知运行和数据边界以文档顶部 PostgreSQL-only 约束为准，不得据此重新查询 D1。
 
 2026-08-13 已在远程 dev D1 `cards_basic_information_all_dev` 连续应用 `0025` 至 `0034`，Wrangler 随后返回 `No migrations to apply`；订阅购买链、session grant、通知 inbox、Scan Quota 表及订单事实/汇率/自动续订快照字段均经远程只读 SQL 核对存在。prod 与开发者常用 local 当时仍未执行这些 v1.1 迁移。dev Worker 与 Admin 的手动部署及后续 `dev` push 自动发布均通过，健康接口、Admin HTML 和实际 JS 资源均返回 HTTP 200。上述环境事实是 2026-08-13 历史快照；当前部署与配置状态必须重新查询 Cloudflare 后确认。该快照中 Apple Product ID、Root CA 与 Server API 密钥仍未配置，因此部署成功不代表 Apple 购买闭环可用。
 
@@ -61,13 +72,13 @@ keyset 扫描不是跨批次数据库快照，不能在 dev D1 持续写入时�
 
 ## Workers 运行兼容性
 
-Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-api/wrangler.toml` 启用 `nodejs_compat`。Cloudflare 禁止该库的 `jsrsasign` 依赖在 Worker 全局作用域生成随机值，因此验签器与 Server API Client 必须在请求或定时任务处理期间动态加载。dev 已通过真实 Worker 启动校验并部署；prod 仍只有 dry-run 打包证据，尚未部署。
+Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-api/wrangler.toml` 启用 `nodejs_compat`。Cloudflare 禁止该库的 `jsrsasign` 依赖在 Worker 全局作用域生成随机值，因此验签器与 Server API Client 必须在请求或定时任务处理期间动态加载。dev 已通过真实 Worker 启动校验并部署；production 的实时 deployment 状态需在独立发布任务中重新核验。
 
 ## 0028 Apple App Attest Restore
 
 迁移新增 `billing_apple_app_attest_challenge` 与 `billing_apple_app_attest_key`。前者保存 session、purpose、request ID、key ID、JWS 摘要、canonical client data、唯一消费标记和幂等终态；后者保存 Apple 验证后的 P-256 公钥、receipt、环境与 assertion counter。迁移只新增表和索引，不修改现有数据，可先于应用代码部署，不从 UID、installation ID、owner grant 或历史交易回填。
 
-回滚前必须先停用 App Attest challenge/register/restore 三个接口，再导出需要保留的重放审计数据，最后删除两张表。回滚会使新 session 无法通过 Restore 建立服务端 grant，但不影响 StoreKit 本机 Restore 结果。当前已通过真实 Miniflare D1 的 session 隔离、单次消费、counter 和 grant 写入测试；迁移已应用到远程 dev，尚未应用到常用 local 或 prod。
+回滚前必须先停用 App Attest challenge/register/restore 三个接口，再导出需要保留的重放审计数据，最后删除两张表。回滚会使新 session 无法通过 Restore 建立服务端 grant，但不影响 StoreKit 本机 Restore 结果。历史 Miniflare D1 测试验证过 session 隔离、单次消费、counter 和 grant 写入；当前运行结构以 PostgreSQL 等价表和测试为准，不再以远程 D1 migration 状态判断完成度。
 
 ## 0029 Apple Notification Lifecycle
 
@@ -82,7 +93,7 @@ Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-a
 - 回滚先移除 App Store Connect 通知 URL或回退 Worker，再导出原始收件箱；SQLite 增量列保留，停用路由后才可删除新索引和收件箱表。
 - `correction_required` 是待 Apple Server API 校正，不代表已消费完成；不得据此恢复 entitlement。
 
-当前已通过真实 Miniflare D1 的原文留存、幂等建单、乱序保护、失败恢复与环境隔离测试；`0029` 已应用到远程 dev，尚未应用到常用 local 或 prod。
+历史 Miniflare D1 测试验证过原文留存、幂等建单、乱序保护、失败恢复与环境隔离；当前运行结构以 PostgreSQL 等价表和环境隔离测试为准，不再以远程 D1 migration 状态判断完成度。
 
 ## 0032 Billing Order Facts
 
@@ -97,7 +108,7 @@ Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-a
 - 回滚应用时停止读取新列并回退 Admin/Worker，保留新增列和已固化事实；不要删除列或重建旧表，以免丢失扣款序号审计数据。
 - 本迁移不会修改、删除或重排 Apple 交易本身，也不会把 UID 变成 Premium owner。
 
-当前真实 Miniflare D1 已验证试用为 0、付费顺序、晚到交易重排、重复交易幂等、退款保序、Restore 写入、精确订单查询、动态选项、XLSX 和 inbox 失败详情；`0032` 已应用到远程 dev，尚未应用到常用 local 或 prod。
+历史 Miniflare D1 测试验证过试用为 0、付费顺序、晚到交易重排、重复交易幂等、退款保序、Restore 写入、精确订单查询、动态选项、XLSX 和 inbox 失败详情；当前运行结构以 PostgreSQL 等价表和对应集成测试为准。
 
 无 UID Apple 订单复用现有非空 owner 列，不新增迁移：`original_owner_type='unlinked'` 且 `original_owner_id=''` 是明确的“尚未建立 App 业务关联”状态，不是匿名账号、UID 或 Premium owner。后续可信 Fresh Purchase/Restore 可以只在该状态下补真实 owner；Admin 查询忽略空 owner ID。该规则不回填或猜测历史链，也不创建 session grant。
 
@@ -112,7 +123,7 @@ Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-a
 - Free `reserved + consumed` 计入终身 10 次；released 与 Premium 请求不消耗 Free quota。
 - 回滚先回退新 Worker，保留账本表以免未来重新上线时重置额度。确认永久放弃且已导出审计数据后才可删除表。
 
-当前真实 Miniflare D1 已验证最后 1 次额度的多 session 并发、预占/结算幂等、技术失败释放、Premium 不扣 Free 和租约接管；`0030` 已应用到远程 dev，尚未应用到常用 local 或 prod。
+历史 Miniflare D1 测试验证过最后 1 次额度的多 session 并发、预占/结算幂等、技术失败释放、Premium 不扣 Free 和租约接管；当前运行结构以 PostgreSQL 等价表和对应集成测试为准。
 
 ## 0033 Billing Exchange Rate Snapshot
 
@@ -123,9 +134,9 @@ Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-a
 - 全部为 nullable 增量列，旧 Worker 会忽略，迁移可先于新 Worker 上线。
 - 汇率或原始金额不可证明时订单仍入库，USD 金额与快照保持空；不得写 0 或猜测汇率。
 - 历史订单不猜测回填。后续补算只允许填充当前为空的 USD 与快照列，不覆盖已经固化的订单事实。
-- 回滚应用时停止读写新字段并回退 Worker；D1 不安全删除增量列，保留数据供审计。
+- 历史 D1 回滚方案是停止读写新字段并保留增量列供审计；当前 PostgreSQL 运行时不得回退 D1，回滚必须基于 PostgreSQL 备份与向前修复另行设计。
 
-当前汇率换算、USD 恒等和无汇率非阻断已有确定性测试；`0033` 已应用到远程 dev，尚未应用到常用 local 或 prod。
+当前汇率换算、USD 恒等和无汇率非阻断已有确定性测试；运行结构以 PostgreSQL 等价列为准，不再以远程 D1 migration 状态判断完成度。
 
 ## 0034 Billing Auto-Renew Snapshot
 
@@ -136,4 +147,4 @@ Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-a
 - 历史订单不回填。当前 purchase chain 的自动续订值不是历史订单事件快照，不能反向复制。
 - 该列为 nullable 增量，旧 Worker 会忽略；新 Admin/Worker 依赖该列，必须先迁移再上线。回滚应用时停止读写新列并回退 Worker，保留已固化快照。
 
-`0034` 已通过独立 D1 迁移测试和 `0000-0034` 自动化完整迁移链，并已通过 Wrangler 应用到远程 dev；尚未应用到常用 local 或 prod。
+`0034` 已通过独立 D1 迁移测试和 `0000-0034` 自动化完整迁移链；这是历史 schema 证据，当前运行结构以 PostgreSQL 等价列为准，不再执行或追踪远程 D1 migration。

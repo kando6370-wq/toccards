@@ -209,6 +209,34 @@ describe("portfolio performance", () => {
       { now: new Date("2026-08-12T12:00:00Z") },
     )).rejects.toThrow("Portfolio performance query exceeded 10000 events");
   });
+
+  it("uses event-level saved series and fails closed when it is unavailable because Performance replays historical bindings", () => {
+    const qualifierSeries = sku([{ date: "2026-08-01", price: 10 }]);
+    const savedSeries = {
+      ...sku([{ date: "2026-08-01", price: 30 }]),
+      series_id: 2,
+      condition_code: "LP",
+      condition_name: "Lightly Played",
+    };
+    const options = { folderId: "main", now: new Date("2026-08-01T12:00:00Z") };
+
+    const saved = calculatePerformance(
+      [{ ...event("saved", "2026-08-01T00:00:00.000Z", 2, 10), price_series_id: 2 }],
+      [qualifierSeries, savedSeries],
+      "1D",
+      options,
+    );
+    const unavailable = calculatePerformance(
+      [{ ...event("missing", "2026-08-01T00:00:00.000Z", 2, 10), price_series_id: 99 }],
+      [qualifierSeries, savedSeries],
+      "1D",
+      options,
+    );
+
+    expect(saved.current.market_value_usd).toBe(60);
+    expect(unavailable).toMatchObject({ market_price_status: "missing" });
+    expect(unavailable.current.market_value_usd).toBe(0);
+  });
 });
 
 function recordingDatabase(
@@ -244,6 +272,7 @@ function event(id: string, effectiveAt: string, quantity: number, purchasePrice:
     grade: null,
     language: "English",
     finish: "Normal",
+    price_series_id: null,
     quantity,
     purchase_price: purchasePrice,
     purchase_currency: "USD",
@@ -270,6 +299,6 @@ function sku(history: Array<{ date: string; price: number }>) {
     grade_min_x10: null,
     grade_max_x10: null,
     price_history: JSON.stringify(history),
-    increase_rate: null,
+    change_30d_percent: null,
   };
 }

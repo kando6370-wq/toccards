@@ -43,10 +43,14 @@ type SkuRow = {
   amount_micros: number;
   baseline_1d_on: string | null;
   baseline_1d_amount_micros: number | null;
+  baseline_7d_on: string | null;
+  baseline_7d_amount_micros: number | null;
   baseline_30d_on: string | null;
   baseline_30d_amount_micros: number | null;
   price_history: string;
-  increase_rate: number | null;
+  change_1d_percent: number | null;
+  change_7d_percent: number | null;
+  change_30d_percent: number | null;
 };
 
 class FakeCardDatabase {
@@ -133,14 +137,15 @@ class FakeBoundStatement {
     ) {
       const highestSkuByProduct = new Map<string, SkuRow>();
       for (const sku of this.skus.filter(
-        (row) => row.increase_rate !== null && row.increase_rate > 0,
+        (row) => row.change_1d_percent !== null && row.change_1d_percent > 0,
       )) {
         const productId = String(sku.product_id);
         const current = highestSkuByProduct.get(productId);
         if (
           !current ||
-          sku.increase_rate! > current.increase_rate! ||
-          (sku.increase_rate === current.increase_rate && naturalKey(sku) < naturalKey(current))
+          sku.change_1d_percent! > current.change_1d_percent! ||
+          (sku.change_1d_percent === current.change_1d_percent
+            && naturalKey(sku) < naturalKey(current))
         ) {
           highestSkuByProduct.set(productId, sku);
         }
@@ -150,7 +155,8 @@ class FakeBoundStatement {
       const results = [...highestSkuByProduct.values()]
         .sort(
           (left, right) =>
-            right.increase_rate! - left.increase_rate! || naturalKey(left).localeCompare(naturalKey(right)),
+            right.change_1d_percent! - left.change_1d_percent!
+            || naturalKey(left).localeCompare(naturalKey(right)),
         )
         .slice(offset, offset + limit)
         .flatMap((sku) => {
@@ -286,8 +292,8 @@ class FakeBoundStatement {
   }
 }
 
-describe("local D1 card data source adapter", () => {
-  it("maps cards_all rows into the provider-independent card contract because current D1 is the card catalog source", async () => {
+describe("PostgreSQL card data source adapter", () => {
+  it("maps cards_all rows into the provider-independent card contract because PostgreSQL is the catalog source", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [
@@ -360,7 +366,7 @@ describe("local D1 card data source adapter", () => {
     });
   });
 
-  it("converts published micros and monthly points because API prices remain numeric after PostgreSQL migration", async () => {
+  it("uses each PostgreSQL change window because Search is 30D while Market Prices is 7D", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [card({ product_id: "100", name: "Charizard" })],
@@ -368,7 +374,11 @@ describe("local D1 card data source adapter", () => {
           sku({
             product_id: "100",
             condition_name: "Near Mint",
-            increase_rate: 8.97,
+            baseline_7d_on: "2026-07-01",
+            baseline_7d_amount_micros: 12_500_000,
+            change_1d_percent: 1.25,
+            change_7d_percent: 7.5,
+            change_30d_percent: 30.75,
             price_history: JSON.stringify([
               { price: "12.50", date: "2026-07-01" },
               { price: "15.75", date: "2026-07-08" },
@@ -384,14 +394,16 @@ describe("local D1 card data source adapter", () => {
         grade: null,
         condition: "Near Mint",
         price: 15.75,
-        increase_percent: 8.97,
+        previous_7d_price_usd: 12.5,
+        increase_percent: 7.5,
       },
     ]);
     await expect(adapter.searchCards("Charizard")).resolves.toEqual([
       expect.objectContaining({
         card_ref: "100",
         price_usd: 15.75,
-        price_change_1d_percent: 8.97,
+        price_change_1d_percent: 1.25,
+        price_change_30d_percent: 30.75,
       }),
     ]);
     await expect(
@@ -408,6 +420,24 @@ describe("local D1 card data source adapter", () => {
     ]);
   });
 
+  it("omits a missing graded 7D change because an unknown baseline must not look like 0%", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [gradedPrice({
+          baseline_7d_on: null,
+          baseline_7d_amount_micros: null,
+          change_7d_percent: null,
+        })],
+      ) as unknown as D1Database,
+    );
+
+    const [price] = await adapter.getMarketPrices("100");
+
+    expect(price).not.toHaveProperty("previous_7d_price_usd");
+    expect(price).not.toHaveProperty("increase_percent");
+  });
+
   it("returns normalized graded series without exposing unrelated raw series as a grade", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
@@ -420,7 +450,11 @@ describe("local D1 card data source adapter", () => {
               { price: "15.75", date: "2026-07-30" },
             ]),
           }),
-          gradedPrice(),
+          gradedPrice({
+            baseline_7d_on: "2026-07-23",
+            baseline_7d_amount_micros: 300_000_000,
+            change_7d_percent: 20,
+          }),
         ],
       ) as unknown as D1Database,
     );
@@ -434,6 +468,7 @@ describe("local D1 card data source adapter", () => {
         grade: 10,
         grade_label: "10",
         price: 360,
+        previous_7d_price_usd: 300,
         product_sub_type: "Foil",
         increase_percent: 20,
       }),
@@ -559,7 +594,7 @@ describe("local D1 card data source adapter", () => {
     expect(cards.map((card) => card.card_ref)).toEqual(["100"]);
   });
 
-  it("keeps name search working without the optional number column because older local catalogs must remain usable", async () => {
+  it("fails when the required number column is missing because PostgreSQL schema errors must not become partial search results", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [card({ product_id: "100", name: "Vaporeon" })],
@@ -569,9 +604,7 @@ describe("local D1 card data source adapter", () => {
       ) as unknown as D1Database,
     );
 
-    await expect(adapter.searchCards("vaporeon")).resolves.toMatchObject([
-      { card_ref: "100", name: "Vaporeon" },
-    ]);
+    await expect(adapter.searchCards("vaporeon")).rejects.toThrow("no such column: number");
   });
 
   it("prefers the freshest same-specification row because a provider refresh must replace stale imported prices", async () => {
@@ -669,7 +702,7 @@ describe("local D1 card data source adapter", () => {
             sku_id: null,
             variant_code: "F",
             variant_name: "Foil",
-            increase_rate: 3186.713286713287,
+            change_30d_percent: 3186.713286713287,
             price_history: JSON.stringify([
               { price: "12.50", date: "2026-06-01" },
               { price: "15.75", date: "2026-07-08" },
@@ -695,7 +728,7 @@ describe("local D1 card data source adapter", () => {
         language: "English",
         price_usd: 15.75,
         previous_30d_price_usd: 12.5,
-        price_change_1d_percent: 3186.713286713287,
+        price_change_30d_percent: 3186.713286713287,
       },
     ]);
   });
@@ -799,7 +832,7 @@ describe("local D1 card data source adapter", () => {
             condition_name: "Ungraded",
             variant_name: "Normal",
             price_history: JSON.stringify([{ price: 30, date: "2026-07-30" }]),
-            increase_rate: 5,
+            change_7d_percent: 5,
           }),
           sku({
             sku_id: 2,
@@ -825,51 +858,36 @@ describe("local D1 card data source adapter", () => {
     ).resolves.toEqual([{ date: "2026-07-30", price: 30 }]);
   });
 
-  it("builds Shop rows from real SKU history because Card Detail must not rely on mock marketplace data", async () => {
-    const adapter = createLocalDbDataSourceAdapter(
-      new FakeCardDatabase(
-        [card({ product_id: "100", name: "Charizard" })],
-        [
-          sku({
-            condition_name: "Near Mint",
-            language_name: "English",
-            variant_name: "Normal",
-            price_history: JSON.stringify([
-              { price: 12.5, date: "2026-07-01" },
-              { price: 15.75, date: "2026-07-08" },
-            ]),
-          }),
-          sku({
-            sku_id: 3,
-            condition_code: "LP",
-            condition_name: "Lightly Played",
-            language_name: "English",
-            variant_name: "Normal",
-            price_history: JSON.stringify([
-              { price: 11, date: "2026-07-01" },
-              { price: 12, date: "2026-07-10" },
-            ]),
-          }),
-        ],
-      ) as unknown as D1Database,
+  it("keeps Shop empty without an independent sold-listing source because price snapshots are not transactions", async () => {
+    const db = new FakeCardDatabase(
+      [card({ product_id: "100", name: "Charizard" })],
+      [
+        sku({
+          condition_name: "Near Mint",
+          language_name: "English",
+          variant_name: "Normal",
+          price_history: JSON.stringify([
+            { price: 12.5, date: "2026-07-01" },
+            { price: 15.75, date: "2026-07-08" },
+          ]),
+        }),
+        sku({
+          sku_id: 3,
+          condition_code: "LP",
+          condition_name: "Lightly Played",
+          language_name: "English",
+          variant_name: "Normal",
+          price_history: JSON.stringify([
+            { price: 11, date: "2026-07-01" },
+            { price: 12, date: "2026-07-10" },
+          ]),
+        }),
+      ],
     );
+    const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
 
-    await expect(adapter.getSoldListings("100")).resolves.toEqual([
-      {
-        date: "2026-07-10",
-        title: "Charizard / Lightly Played / English / Normal",
-        price: 12,
-        platform: "TCGplayer",
-        url: "https://www.tcgplayer.com/product/100",
-      },
-      {
-        date: "2026-07-08",
-        title: "Charizard / Near Mint / English / Normal",
-        price: 15.75,
-        platform: "TCGplayer",
-        url: "https://www.tcgplayer.com/product/100",
-      },
-    ]);
+    await expect(adapter.getSoldListings("100")).resolves.toEqual([]);
+    expect(db.preparedSql).toEqual([]);
   });
 
   it("reads the published Trending snapshot because Home must not scan all current prices", async () => {
@@ -883,7 +901,7 @@ describe("local D1 card data source adapter", () => {
         [
           sku({
             product_id: "100",
-            increase_rate: 5,
+            change_1d_percent: 5,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-14" },
               { price: 11, date: "2026-07-15" },
@@ -892,7 +910,7 @@ describe("local D1 card data source adapter", () => {
           sku({
             sku_id: 2,
             product_id: "200",
-            increase_rate: 40,
+            change_1d_percent: 40,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-12" },
               { price: 15, date: "2026-07-15" },
@@ -903,7 +921,7 @@ describe("local D1 card data source adapter", () => {
             product_id: "200",
             variant_code: "F",
             variant_name: "Foil",
-            increase_rate: 60,
+            change_1d_percent: 60,
             price_history: JSON.stringify([
               { price: 20, date: "2026-07-14" },
               { price: 25, date: "2026-07-15" },
@@ -914,7 +932,7 @@ describe("local D1 card data source adapter", () => {
             product_id: "200",
             variant_code: "CF",
             variant_name: "Cold Foil",
-            increase_rate: 80,
+            change_1d_percent: 80,
             price_history: JSON.stringify([
               { price: 30, date: "2026-07-14" },
               { price: 54, date: "2026-07-15" },
@@ -923,7 +941,7 @@ describe("local D1 card data source adapter", () => {
           sku({
             sku_id: 4,
             product_id: "300",
-            increase_rate: null,
+            change_1d_percent: null,
             price_history: JSON.stringify([
               { price: 7, date: "2026-07-15" },
             ]),
@@ -931,7 +949,7 @@ describe("local D1 card data source adapter", () => {
           sku({
             sku_id: 5,
             product_id: "400",
-            increase_rate: -20,
+            change_1d_percent: -20,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-14" },
               { price: 8, date: "2026-07-15" },
@@ -1017,10 +1035,14 @@ function sku(overrides: Partial<SkuRow>): SkuRow {
     amount_micros: 0,
     baseline_1d_on: null,
     baseline_1d_amount_micros: null,
+    baseline_7d_on: null,
+    baseline_7d_amount_micros: null,
     baseline_30d_on: null,
     baseline_30d_amount_micros: null,
     price_history: "[]",
-    increase_rate: null,
+    change_1d_percent: null,
+    change_7d_percent: null,
+    change_30d_percent: null,
     ...overrides,
   };
   const points = JSON.parse(row.price_history) as Array<{ date: string; price: number | string }>;
@@ -1064,7 +1086,6 @@ function gradedPrice(overrides: Partial<SkuRow> = {}): SkuRow {
       { price: "300", date: "2026-07-29" },
       { price: "360", date: "2026-07-30" },
     ]),
-    increase_rate: 20,
     ...overrides,
   });
 }

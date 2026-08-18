@@ -29,6 +29,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
+import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
@@ -1425,6 +1426,34 @@ void main() {
     },
   );
 
+  testWidgets(
+    'holdings without PostgreSQL prices show an unavailable market state instead of the empty collection CTA',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const _MissingMarketPriceHomeRepository(),
+        ),
+      );
+      await _waitForHomeAuth(tester);
+
+      expect(find.text('--'), findsOneWidget);
+      expect(find.text('Market price unavailable'), findsNWidgets(2));
+      expect(
+        find.byKey(const Key('home-portfolio-market-price-missing')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('home-most-valuable-market-price-missing')),
+        findsOneWidget,
+      );
+      expect(find.text('Add your first card'), findsNothing);
+      expect(find.text('No cards in this portfolio yet'), findsNothing);
+      expect(find.byKey(const Key('home-portfolio-empty-scan')), findsNothing);
+    },
+  );
+
   testWidgets('empty portfolio actions open Scan and Search', (tester) async {
     Future<void> openAction(Key buttonKey, String routeText) async {
       await tester.pumpWidget(const SizedBox.shrink());
@@ -1613,7 +1642,7 @@ void main() {
   );
 
   testWidgets(
-    'Trending View all shows Refresh for an empty ranking because an empty live response is unavailable content',
+    'Trending View all shows an empty state because PostgreSQL zero rows is a successful response',
     (tester) async {
       final trendingApi = _EmptyTrendingCardDataApi();
       await tester.pumpWidget(
@@ -1634,16 +1663,89 @@ void main() {
       await tester.tap(viewAll);
       await tester.pumpAndSettle();
 
-      expect(find.text(refreshText), findsOneWidget);
-      expect(
-        find.text('Pull down to refresh the latest ranking.'),
-        findsNothing,
+      expect(find.byType(KandoEmptyBlock), findsOneWidget);
+      expect(find.text('No trending cards available'), findsOneWidget);
+      expect(find.byType(KandoFailureBlock), findsNothing);
+      expect(find.text(refreshText), findsNothing);
+      expect(trendingApi.requestedPages, [1]);
+    },
+  );
+
+  testWidgets(
+    'Trending View all shows Refresh only when the PostgreSQL request fails',
+    (tester) async {
+      final trendingApi = _FailingTrendingCardDataApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            homeRepositoryProvider.overrideWithValue(
+              const MockHomeRepository(),
+            ),
+            cardDataApiClientProvider.overrideWithValue(trendingApi),
+          ],
+          child: const _HomeTestAppWithRoutes(),
+        ),
       );
+
+      final viewAll = find.byKey(const Key('home-trending-view-all'));
+      await tester.ensureVisible(viewAll);
+      await tester.tap(viewAll);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(KandoFailureBlock), findsOneWidget);
+      expect(find.text(refreshText), findsOneWidget);
 
       await tester.tap(find.text(refreshText));
       await tester.pumpAndSettle();
 
       expect(trendingApi.requestedPages, [1, 1]);
+    },
+  );
+
+  testWidgets(
+    'Trending pagination failure preserves loaded PostgreSQL rows and offers a retry',
+    (tester) async {
+      final trendingApi = _FailingSecondPageTrendingCardDataApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            homeRepositoryProvider.overrideWithValue(
+              const MockHomeRepository(),
+            ),
+            cardDataApiClientProvider.overrideWithValue(trendingApi),
+          ],
+          child: const _HomeTestAppWithRoutes(),
+        ),
+      );
+
+      final viewAll = find.byKey(const Key('home-trending-view-all'));
+      await tester.ensureVisible(viewAll);
+      await tester.tap(viewAll);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Live Trending 0'), findsOneWidget);
+      await tester.fling(
+        find.byType(CustomScrollView),
+        const Offset(0, -6000),
+        10000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(trendingApi.requestedPages, [1, 2]);
+      expect(find.text('Live Trending 0'), findsOneWidget);
+      await tester.fling(
+        find.byType(CustomScrollView),
+        const Offset(0, -2000),
+        10000,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('trending-today-retry-page')),
+        findsOneWidget,
+      );
+      expect(find.byType(KandoFailureBlock), findsNothing);
     },
   );
 
@@ -1929,6 +2031,32 @@ class _CountingHomeRepository implements HomeRepository {
   }
 }
 
+class _MissingMarketPriceHomeRepository implements HomeRepository {
+  const _MissingMarketPriceHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() {
+    return const HomeDashboard(
+      folders: [HomeFolder(id: 'main', name: 'Main', isDefault: true)],
+      portfoliosByFolderId: {
+        'main': PortfolioSummary(
+          folderId: 'main',
+          itemCount: 1,
+          marketPriceStatus: MarketPriceStatus.missing,
+          totalValueUsd: 0,
+          previous30dValueUsd: 0,
+          chartValuesByRange: {
+            HomeChartRange.oneMonth: [0],
+          },
+        ),
+      },
+      mostValuableByFolderId: {'main': null},
+      mostValuableCardsByFolderId: {'main': []},
+      trending: [],
+    );
+  }
+}
+
 class _PendingStartupAuthRepository extends LocalPlaceholderAuthRepository {
   _PendingStartupAuthRepository(super.storage);
 
@@ -2045,6 +2173,41 @@ class _TrendingCardDataApi
 class _EmptyTrendingCardDataApi extends _TrendingCardDataApi {
   @override
   Future<List<CardDataCardDto>> trendingCards() async => const [];
+}
+
+class _FailingTrendingCardDataApi extends _TrendingCardDataApi {
+  @override
+  Future<List<CardDataCardDto>> trendingCards() {
+    throw StateError('PostgreSQL trending unavailable');
+  }
+}
+
+class _FailingSecondPageTrendingCardDataApi extends _TrendingCardDataApi {
+  @override
+  Future<List<CardDataCardDto>> trendingCardPage({required int page}) async {
+    requestedPages.add(page);
+    if (page == 2) {
+      throw StateError('PostgreSQL trending page unavailable');
+    }
+    return List.generate(
+      kandoPageSize,
+      (index) => CardDataCardDto(
+        cardRef: 'live-trending-$index',
+        name: 'Live Trending $index',
+        setName: 'Live Set',
+        setCode: 'LIVE',
+        cardNumber: '$index',
+        finish: 'Normal',
+        language: 'English',
+        objectType: 'tcg',
+        imageUrl: null,
+        rarity: 'Rare',
+        priceUsd: 12,
+        previous30dPriceUsd: 1,
+        priceChange1dPercent: 5,
+      ),
+    );
+  }
 }
 
 class _SuccessfulThenFailingHomeRepository implements HomeRepository {

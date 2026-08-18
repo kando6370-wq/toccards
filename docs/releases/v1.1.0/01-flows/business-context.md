@@ -177,7 +177,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 
 - 用户提交反馈后初始保存为 `open`；Admin 展示归并为 `pending`，可更新为 `processed` 或 `ignored`。
 - Admin 管理 iOS/Google 最低版本、最新版本、强制升级和商店 URL；App 通过公共 `/app-config` 获取。
-- Workers 另有 Trending Pin、Card Override 和通用 App Config API，但当前 Admin 菜单没有对应页面，不能描述为 UI 已提供。
+- Workers 另有 Card Override 和通用 App Config API，但当前 Admin 菜单没有对应页面，不能描述为 UI 已提供。旧 Trending Pin API 与 `trending_pin` 表已废弃；Trending Today 继续由 `card_trending_snapshot` 提供。
 
 ## 4. 状态与核心数据实体
 
@@ -201,7 +201,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 
 | 实体组 | 核心表 | 关系与生命周期 |
 |---|---|---|
-| 目录与价格 | `cards_all`、`games`、`sets`、`tcg_price` | Card 以 `product_id` 关联价格序列与业务 `card_ref` |
+| 目录与价格 | `cards_all`、`games`、`sets`、`price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month`、`card_trending_snapshot` | Card 以 `product_id/card_ref` 关联已发布的当前价、历史和 Trending 快照；旧 `tcg_price` 不参与运行时查询 |
 | 身份 | `user`、`anonymous_account`、`account_uid`、`auth_identity`、`session` | owner 通过 session 访问资产；OAuth identity 归属 user |
 | 资产 | `portfolio_folder`、`collection_item`、`collection_item_event`、`wishlist_item` | Folder 一对多 Item；Event 保留 Item 历史 |
 | 扫描 | `scan_record`、`scan_quota_request` | request 幂等预占/结算；scan 记录识别与确认 |
@@ -209,9 +209,9 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | 授权 | `billing_session_entitlement_grant` | session + chain + entitlement 唯一，授权不按 UID 继承 |
 | Apple 证据 | challenge、verification attempt、App Attest challenge/key | 一次性挑战、重放审计和设备证明 |
 | 通知 | `apple_notification_inbox`、`apple_server_notification` | 原始请求与结构化通知一对零/一，失败仍保留 inbox |
-| Admin/运营 | `admin_user`、`app_config`、`feedback_ticket`、`trending_pin`、`card_override` | 独立管理员身份与运营记录 |
+| Admin/运营 | `admin_user`、`app_config`、`feedback_ticket`、`card_override` | 独立管理员身份与运营记录 |
 
-完整字段、约束和索引以 `apps/workers-api/src/db/schema.ts` 与迁移 `0000-0034` 为准。
+当前运行字段、约束和索引以 `apps/workers-api/src/db/postgres/migrations/0000_business_schema.sql` 至 `0005_drop_trending_pin.sql` 为准；`src/db/schema.ts` 与 `src/db/migrations/0000-0035` 仅保留历史 D1/本地测试契约。
 
 ## 5. 业务规则与计算公式
 
@@ -236,7 +236,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | Apple Notifications/Server API | 上游校正 | JWS、通知、当前交易历史 | 生命周期延迟；inbox/校正任务应保留并重试 |
 | OCR | 上游 | 扫描图片识别 | Scan 失败并释放 Free 预占 |
 | PlanetScale PostgreSQL / Hyperdrive | 核心真源与连接边界 | 参数化 PostgreSQL SQL | 账号、资产、额度、订阅和 Admin 不可用 |
-| D1 | 迁移前数据源与本地测试 | 历史 SQL/Drizzle、Miniflare | 不再是 dev 运行时回退真源；prod 旧部署切换前仍依赖 prod D1 |
+| D1 | 与 PostgreSQL 完全独立的历史库与本地测试能力 | 历史 SQL/Drizzle、Miniflare | 当前 App、Admin、Worker、Cron、数据修复和灾备均不得查询、补全、回退或恢复 D1 |
 | KV | 缓存 | 目录/汇率快照 | 可回源或显式失败，不能改变授权真值 |
 | R2 | 对象存储 | 扫描原图 | 识别可按配置继续；Admin 图片可能不可查看 |
 | 邮件/OAuth | 身份上游 | 验证码和第三方登录 | 注册、找回或 OAuth 登录受阻 |
@@ -280,7 +280,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 |---|---|---|
 | Lifetime 已验证本地缓存最长离线时间是多少？ | 冷启动/离线 Premium 体验 | 产品待决，不擅自设时限 |
 | Android 是否在 v1.1 销售 Premium？ | 商品、授权和跨端验收 | 当前只激活 Apple/iOS；保留抽象但不误售 |
-| 价格历史正式数据导入、目标规模压测和冷数据方案何时验收？ | 价格 API 实数可用性与容量 | PlanetScale PostgreSQL/Hyperdrive 和 7 表结构已实施；旧 `tcg_price` 未迁移，7 表仍为空，R2 冷层与目标规模压测待完成 |
+| 独立价格上游导入、目标规模压测和冷数据方案何时验收？ | 价格 API 实数可用性与容量 | PlanetScale PostgreSQL/Hyperdrive 和 7 表结构已实施；迁移检查点七表为空，旧 `tcg_price` 与 D1 均被明确排除，需独立上游契约、R2 冷层和目标规模压测 |
 | 后续 dev/prod 的迁移、Secret 和部署是否仍与 2026-08-17 记录一致？ | 发布判断 | 本次已重连核验 dev/prod deployment；Secret 仅核实配置项存在。远程状态会变化，后续发布前必须重新查询 |
 | Apple 生产 SKU、Root CA、Server API 与 Sandbox/TestFlight 是否完成？ | 购买/通知发布验收 | 本次未验证，不宣称完成 |
 | 重度 Portfolio、真实订单与多设备并发是否达标？ | Performance/Admin/Quota SLA | 自动化只证明仓库内逻辑，仍需目标规模验收 |

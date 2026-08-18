@@ -126,6 +126,12 @@ class HomeState {
     return card == null ? const [] : [card];
   }
 
+  bool get hasCollectionItems => selectedPortfolio.itemCount > 0;
+
+  bool get isMarketPriceMissing =>
+      hasCollectionItems &&
+      selectedPortfolio.marketPriceStatus == MarketPriceStatus.missing;
+
   List<double> get chartValues {
     final valuesByRange = selectedPortfolio.chartValuesByRange;
     final selectedValues = valuesByRange[chartRange];
@@ -170,10 +176,12 @@ class HomeState {
     return const [];
   }
 
-  String get totalAmountText =>
-      _formatPortfolioTotal(selectedPortfolio.totalValueUsd);
+  String get totalAmountText => isMarketPriceMissing
+      ? '--'
+      : _formatPortfolioTotal(selectedPortfolio.totalValueUsd);
 
   String get changeAmountText {
+    if (isMarketPriceMissing) return '-- in the last 30 days';
     final change = MarketChange.fromPrices(
       current: selectedPortfolio.totalValueUsd,
       previous: selectedPortfolio.previous30dValueUsd,
@@ -185,6 +193,7 @@ class HomeState {
   }
 
   String get changePercentText {
+    if (isMarketPriceMissing) return '-/-';
     return MarketChange.fromPrices(
       current: selectedPortfolio.totalValueUsd,
       previous: selectedPortfolio.previous30dValueUsd,
@@ -962,6 +971,8 @@ const _emptyHomeDashboard = HomeDashboard(
   portfoliosByFolderId: {
     'main': PortfolioSummary(
       folderId: 'main',
+      itemCount: 0,
+      marketPriceStatus: MarketPriceStatus.missing,
       totalValueUsd: 0,
       previous30dValueUsd: 0,
       chartValuesByRange: {

@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-PG-FLUTTER-EMPTY-ERROR-STATES-20260818",
+  "mode": "single",
+  "rationale": "两个缺口共享同一业务规则：PostgreSQL 缺失、成功零行与查询异常必须保持不同语义；改动均限 Flutter 展示状态，可在一个 Review Batch 闭环",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "修复 Collection 缺价总额与 Trending 空错态",
+      "module": "Flutter Collection + Trending Today",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/collection/collection_controller.dart",
+        "apps/flutter-app/lib/features/home/trending_today_page.dart",
+        "apps/flutter-app/test/collection_controller_test.dart",
+        "apps/flutter-app/test/widget/home_page_test.dart",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "verification": [
+        "flutter test test/collection_controller_test.dart test/widget/home_page_test.dart",
+        "flutter analyze",
+        "dart format --output=none --set-exit-if-changed lib/features/collection/collection_controller.dart lib/features/home/trending_today_page.dart test/collection_controller_test.dart test/widget/home_page_test.dart",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "primary-agent",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "cccb2ea3-a8c2-48ee-a38d-eb8d649c2360",
+        "0fe18ab7-445a-43bf-8650-5ce6dc6d61d6",
+        "e7a33fdd-8429-4be1-8106-5760b39c8bd2"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "Flutter PostgreSQL 空态与失败态",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T06:42:59.357Z",
+  "updatedAt": "2026-08-18T06:53:58.170Z"
+}

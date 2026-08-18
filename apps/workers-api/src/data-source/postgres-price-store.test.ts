@@ -94,6 +94,7 @@ describe("PostgreSQL price store query boundaries", () => {
       points_json: JSON.stringify([
         { d: "2026-08-01", a: 1_234_567 },
         { date: "2026-08-02", price: 2.5 },
+        { date: "2026-08-03", price: "3.75" },
       ]),
     }]);
 
@@ -101,13 +102,38 @@ describe("PostgreSQL price store query boundaries", () => {
       db.asD1(),
       [7],
       "2026-08-01",
-      "2026-08-02",
+      "2026-08-03",
     );
 
     expect(points.get(7)).toEqual([
       { date: "2026-08-01", price: 1.234567 },
       { date: "2026-08-02", price: 2.5 },
+      { date: "2026-08-03", price: 3.75 },
     ]);
+  });
+
+  it("fails invalid monthly payloads because corrupted PostgreSQL history is not empty business data", async () => {
+    const nonArray = new RecordingDatabase(() => [{
+      series_id: 7,
+      points_json: JSON.stringify({ d: "2026-08-01", a: 1_000_000 }),
+    }]);
+    const invalidPoint = new RecordingDatabase(() => [{
+      series_id: 7,
+      points_json: JSON.stringify([{ d: "2026-08-01", a: "not-micros" }]),
+    }]);
+
+    await expect(loadPriceHistoryBySeries(
+      nonArray.asD1(),
+      [7],
+      "2026-08-01",
+      "2026-08-02",
+    )).rejects.toThrow("Invalid PostgreSQL price history payload");
+    await expect(loadPriceHistoryBySeries(
+      invalidPoint.asD1(),
+      [7],
+      "2026-08-01",
+      "2026-08-02",
+    )).rejects.toThrow("Invalid PostgreSQL price history point at index 0");
   });
 
   it("reads only the published current scope because another scope from the same source must not expose history", async () => {

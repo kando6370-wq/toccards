@@ -438,34 +438,6 @@ const UPSERT_APP_CONFIG_SQL = `
     updated_at = excluded.updated_at
 `;
 
-const SELECT_TRENDING_PINS_SQL = `
-  SELECT id, card_ref, rank, active, updated_by, updated_at
-  FROM trending_pin
-  ORDER BY rank ASC
-`;
-
-const SELECT_TRENDING_PIN_BY_ID_SQL = `
-  SELECT id, card_ref, rank, active, updated_by, updated_at
-  FROM trending_pin
-  WHERE id = ?
-  LIMIT 1
-`;
-
-const INSERT_TRENDING_PIN_SQL = `
-  INSERT INTO trending_pin (id, card_ref, rank, active, updated_by, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?)
-`;
-
-const UPDATE_TRENDING_PIN_SQL = `
-  UPDATE trending_pin SET rank = ?, active = ?, updated_by = ?, updated_at = ?
-  WHERE id = ?
-`;
-
-const DELETE_TRENDING_PIN_SQL = `
-  DELETE FROM trending_pin
-  WHERE id = ?
-`;
-
 const SELECT_CARD_OVERRIDES_SQL = `
   SELECT id, card_ref, override_fields, image_url, is_missing_card, updated_by, updated_at
   FROM card_override
@@ -1177,48 +1149,6 @@ adminRoutes.patch("/app-config/:key", async (c) => {
   const row = results.find((config) => isRecord(config) && config.key === key);
 
   return c.json({ success: true, data: row ?? { key, value: input.value } });
-});
-
-adminRoutes.get("/trending-pins", async (c) => {
-  const { results = [] } = await c.env.DB.prepare(SELECT_TRENDING_PINS_SQL).all();
-  return c.json({ success: true, data: { items: results } });
-});
-
-adminRoutes.post("/trending-pins", async (c) => {
-  const input = await readJsonObject(c.req);
-  const cardRef = readRequiredString(input.card_ref);
-  const rank = readPositiveInt(input.rank, 0);
-  const active = input.active === false ? 0 : 1;
-  if (!cardRef || rank <= 0) return c.json(VALIDATION_ERROR_RESPONSE, 422);
-
-  const id = createId();
-  await c.env.DB.prepare(INSERT_TRENDING_PIN_SQL)
-    .bind(id, cardRef, rank, active, c.get("admin").admin_id, new Date().toISOString())
-    .run();
-  const row = await c.env.DB.prepare(SELECT_TRENDING_PIN_BY_ID_SQL).bind(id).first();
-  return c.json({ success: true, data: row });
-});
-
-adminRoutes.patch("/trending-pins/:pinId", async (c) => {
-  const input = await readJsonObject(c.req);
-  const rank = readPositiveInt(input.rank, 0);
-  const active = input.active === false ? 0 : 1;
-  if (rank <= 0) return c.json(VALIDATION_ERROR_RESPONSE, 422);
-
-  const id = c.req.param("pinId");
-  await c.env.DB.prepare(UPDATE_TRENDING_PIN_SQL)
-    .bind(rank, active, c.get("admin").admin_id, new Date().toISOString(), id)
-    .run();
-  const row = await c.env.DB.prepare(SELECT_TRENDING_PIN_BY_ID_SQL).bind(id).first();
-  return row ? c.json({ success: true, data: row }) : c.json(NOT_FOUND_RESPONSE, 404);
-});
-
-adminRoutes.delete("/trending-pins/:pinId", async (c) => {
-  if (c.get("admin").role !== "super_admin") {
-    return c.json(FORBIDDEN_RESPONSE, 403);
-  }
-  await c.env.DB.prepare(DELETE_TRENDING_PIN_SQL).bind(c.req.param("pinId")).run();
-  return c.json({ success: true, data: {} });
 });
 
 adminRoutes.get("/card-overrides", async (c) => {

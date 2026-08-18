@@ -291,6 +291,37 @@ void main() {
   );
 
   test(
+    'holdings without PostgreSQL prices show an unknown total because missing values are not zero',
+    () async {
+      final container = _collectionContainer(
+        repository: const _SingleMarketPriceCollectionRepository(null),
+      );
+      addTearDown(container.dispose);
+
+      final state = await _loadedState(container);
+
+      expect(state.portfolioSummary.totalValueText, '--');
+      expect(state.visibleItems.single.valueText, '--');
+      expect(state.portfolioSummary.cardCount, 2);
+    },
+  );
+
+  test(
+    'a published zero PostgreSQL price stays available because zero is a valid market value',
+    () async {
+      final container = _collectionContainer(
+        repository: const _SingleMarketPriceCollectionRepository(0),
+      );
+      addTearDown(container.dispose);
+
+      final state = await _loadedState(container);
+
+      expect(state.portfolioSummary.totalValueText, r'$0.00');
+      expect(state.visibleItems.single.valueText, r'$0.00');
+    },
+  );
+
+  test(
     'graded summary counts graded copies rather than collection rows',
     () async {
       final container = _collectionContainer(
@@ -300,6 +331,7 @@ void main() {
 
       final state = await _loadedState(container);
 
+      expect(state.portfolioSummary.totalValueText, r'$1,245.00');
       expect(state.portfolioSummary.cardCount, 7);
       expect(state.portfolioSummary.gradedCount, 5);
     },
@@ -707,6 +739,13 @@ void main() {
       await controller.selectFolder('empty');
       expect(container.read(collectionControllerProvider).isEmpty, isTrue);
       expect(container.read(collectionControllerProvider).isNoMatch, isFalse);
+      expect(
+        container
+            .read(collectionControllerProvider)
+            .portfolioSummary
+            .totalValueText,
+        r'$0.00',
+      );
 
       await controller.selectFolder('main');
       controller.updateSearch('missing');
@@ -970,6 +1009,43 @@ class _GradedQuantityCollectionRepository extends MockCollectionRepository {
           addedAtSort: 5,
         ),
       ],
+    );
+  }
+}
+
+class _SingleMarketPriceCollectionRepository extends MockCollectionRepository {
+  const _SingleMarketPriceCollectionRepository(this.marketValueUsd);
+
+  final double? marketValueUsd;
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    return CollectionDashboard(
+      folders: const [
+        CollectionFolder(id: 'main', name: 'Main', isDefault: true),
+      ],
+      portfolioItems: [
+        CollectionItem(
+          id: 'item-price-state',
+          cardRef: 'price-state',
+          folderId: 'main',
+          name: 'Price State',
+          setName: 'PostgreSQL Set',
+          number: '#001',
+          rarity: 'Rare',
+          game: 'Pokemon',
+          language: 'English',
+          finish: 'Normal',
+          grader: 'Raw',
+          condition: 'Near Mint (NM)',
+          grade: null,
+          quantity: 2,
+          marketValueUsd: marketValueUsd,
+          previous30dPriceUsd: null,
+          addedAtSort: 1,
+        ),
+      ],
+      wishlistItems: const [],
     );
   }
 }

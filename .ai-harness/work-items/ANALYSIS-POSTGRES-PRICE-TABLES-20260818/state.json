@@ -1,0 +1,402 @@
+{
+  "schemaVersion": 1,
+  "id": "ANALYSIS-POSTGRES-PRICE-TABLES-20260818",
+  "type": "ANALYSIS",
+  "title": "分析 PostgreSQL price 表关系与数据内容",
+  "status": "ANSWERED",
+  "flags": [
+    "database"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/analysis.md",
+    ".ai-harness/policies/database.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户于 2026-08-18 提出的只读分析请求"
+  },
+  "input": {
+    "references": [
+      "当前工作区 PostgreSQL migrations、价格查询实现、v1.1 数据文档"
+    ],
+    "acceptance": [
+      "逐表说明七张价格域表的业务数据、主外键关系、发布与查询链路",
+      "区分当前代码事实、当前远程数据状态和未验证项"
+    ],
+    "nonGoals": [
+      "不修改产品代码、Schema、文档或远程数据库"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": "apps/workers-api/src/db/postgres/migrations/0001_price_domain.sql",
+    "evidence": [
+      "dev@3f4f25fe9a0904a42b8a4867d8224ab2604b0f75，工作区含用户既有价格实现与文档改动；本分析不修改产品文件",
+      "PostgreSQL 价格域以 0001_price_domain.sql 及 0003/0004 约束迁移为 schema 证据，查询实现与 v1.1 文档用于交叉核对"
+    ],
+    "completedAt": "2026-08-18T06:12:57.939Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "3f4f25fe9a0904a42b8a4867d8224ab2604b0f75",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-AFTER-G3-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-AFTER-G3-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-AFTER-G3-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-POSTGRES-PRICE-TABLES-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-POSTGRES-PRICE-TABLES-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-APPLE-JWS-STATUS-DIAGNOSTICS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-APPLE-JWS-STATUS-DIAGNOSTICS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-APPLE-JWS-STATUS-DIAGNOSTICS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-APPLE-JWS-STATUS-DIAGNOSTICS-20260818/solution.md",
+        ".ai-harness/work-items/BUGFIX-APPLE-JWS-STATUS-DIAGNOSTICS-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-CARD-DETAIL-MARKET-7D-BASELINE-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-CARD-DETAIL-MARKET-7D-BASELINE-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-CARD-DETAIL-MARKET-7D-BASELINE-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-CARD-DETAIL-MARKET-7D-BASELINE-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-D1-INDEPENDENCE-DOCS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-D1-INDEPENDENCE-DOCS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-D1-INDEPENDENCE-DOCS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-D1-INDEPENDENCE-DOCS-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-FLUTTER-TRENDING-WINDOW-CONTEXT-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-FLUTTER-TRENDING-WINDOW-CONTEXT-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-FLUTTER-TRENDING-WINDOW-CONTEXT-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-FLUTTER-TRENDING-WINDOW-CONTEXT-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-HOME-MISSING-PRICE-STATUS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-HOME-MISSING-PRICE-STATUS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-HOME-MISSING-PRICE-STATUS-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-HOME-MOST-VALUABLE-UNIT-PRICE-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-HOME-MOST-VALUABLE-UNIT-PRICE-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-HOME-MOST-VALUABLE-UNIT-PRICE-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-HOME-MOST-VALUABLE-UNIT-PRICE-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-MARKET-PRICE-CACHE-VERSION-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-MARKET-PRICE-CACHE-VERSION-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-MARKET-PRICE-CACHE-VERSION-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-MARKET-PRICE-CACHE-VERSION-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-PG-DATA-ERROR-SEMANTICS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-DATA-ERROR-SEMANTICS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-DATA-ERROR-SEMANTICS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-PG-DATA-ERROR-SEMANTICS-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-TEST-CALLER-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-TEST-CALLER-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-TEST-CALLER-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-TEST-CALLER-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-SERIES-CONSUMPTION-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-SERIES-CONSUMPTION-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-SERIES-CONSUMPTION-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-SERIES-CONSUMPTION-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-WINDOW-SEMANTICS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-WINDOW-SEMANTICS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-WINDOW-SEMANTICS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-WINDOW-SEMANTICS-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-APP-DATA-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-APP-DATA-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-APP-DATA-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-PAGE-CONTRACT-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-PAGE-CONTRACT-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-PAGE-CONTRACT-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-PAGE-CONTRACT-20260818/state.json",
+        "apps/flutter-app/lib/features/card_detail/card_detail_repository.dart",
+        "apps/flutter-app/lib/features/collection/collection_page.dart",
+        "apps/flutter-app/lib/features/home/trending_today_page.dart",
+        "apps/flutter-app/lib/features/search/search_models.dart",
+        "apps/flutter-app/lib/features/search/search_repository.dart",
+        "apps/flutter-app/lib/shared/card_data/card_data_api_client.dart",
+        "apps/flutter-app/test/card_data_api_client_test.dart",
+        "apps/flutter-app/test/card_detail_controller_test.dart",
+        "apps/flutter-app/test/home_repository_test.dart",
+        "apps/flutter-app/test/search_controller_test.dart",
+        "apps/flutter-app/test/widget/collection_page_test.dart",
+        "apps/workers-api/src/auth/anonymous.test.ts",
+        "apps/workers-api/src/data-source/adapter.ts",
+        "apps/workers-api/src/data-source/cache-api.test.ts",
+        "apps/workers-api/src/data-source/cache-api.ts",
+        "apps/workers-api/src/data-source/local-db-adapter.test.ts",
+        "apps/workers-api/src/data-source/local-db-adapter.ts",
+        "apps/workers-api/src/data-source/postgres-price-store.ts",
+        "apps/workers-api/src/data-source/routes.test.ts",
+        "apps/workers-api/src/data-source/routes.ts",
+        "apps/workers-api/src/entitlements/apple-notification-routes.integration.test.ts",
+        "apps/workers-api/src/entitlements/apple-notification-routes.ts",
+        "apps/workers-api/src/entitlements/apple-signed-data.ts",
+        "apps/workers-api/src/index-postgres-runtime.test.ts",
+        "apps/workers-api/src/index.ts",
+        "apps/workers-api/src/portfolio/collect.test.ts",
+        "apps/workers-api/src/portfolio/collection-dashboard.test.ts",
+        "apps/workers-api/src/portfolio/collection-dashboard.ts",
+        "apps/workers-api/src/portfolio/items.test.ts",
+        "apps/workers-api/src/portfolio/performance-premium.integration.test.ts",
+        "apps/workers-api/src/portfolio/performance.test.ts",
+        "apps/workers-api/src/portfolio/performance.ts",
+        "apps/workers-api/src/portfolio/routes.ts",
+        "apps/workers-api/src/portfolio/valuation-history.test.ts",
+        "apps/workers-api/src/portfolio/valuation-history.ts",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md",
+        "docs/releases/v1.1.0/03-data-api/migration.md",
+        "docs/releases/v1.1.0/03-data-api/research/price-domain-postgresql-ddl.md",
+        "docs/releases/v1.1.0/03-data-api/research/price-history-database-capacity-analysis.md",
+        "docs/releases/v1.1.0/05-delivery/app-store-connect-subscription-setup.md",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/lib/features/card_detail/card_detail_repository.dart": "662761513231744f73c349c4672161f42d19a80b8f01aa84cd6f49bc2e828cd8",
+        "apps/flutter-app/lib/features/collection/collection_page.dart": "568e47a3c19cd4a3689653cd27b1d1ca48fb895a65094560400aef7aa846e7bd",
+        "apps/flutter-app/lib/features/home/trending_today_page.dart": "f358845c823818bbb036f7853b07a93d010c9602f522fb869c1d18e442de702c",
+        "apps/flutter-app/lib/features/search/search_models.dart": "4f6879b5fe41ef334128801ed5f5a906f8105365cd901744823516183194d6be",
+        "apps/flutter-app/lib/features/search/search_repository.dart": "90eee6c78d494b548b25e1edac635afc55df6f9c18af8c4b81877f0f7ce897a3",
+        "apps/flutter-app/lib/shared/card_data/card_data_api_client.dart": "e990e007309b2abb9d9b03bc60e9963db89a89e1f977e2ef43abc3c1d896f7b9",
+        "apps/flutter-app/test/card_data_api_client_test.dart": "67926c22cdc88dcdabbb8d5f5b10b75f343cd93e2eb4456baa0bf97e450b142d",
+        "apps/flutter-app/test/card_detail_controller_test.dart": "0c2ca2a5bd24c62061accf382dcadb192bda25819f917d3de1863c926658dd8a",
+        "apps/flutter-app/test/home_repository_test.dart": "09f65ad528a4283ac763a18d49dd89f5c57e923468a818642ece8784b433dad8",
+        "apps/flutter-app/test/search_controller_test.dart": "cf4ad3682e46ee387455735f79a18380c8313c5a254d82413725b313594a6e42",
+        "apps/flutter-app/test/widget/collection_page_test.dart": "53489048cfc968b00795501c763e73289ab15a0901a3715ca615e1c4a8c9c88d",
+        "apps/workers-api/src/auth/anonymous.test.ts": "c8c6fb67f6c2414c0d8388d4e3bce2268379fd433c3e97cde3b53a6e30bd9c55",
+        "apps/workers-api/src/data-source/adapter.ts": "cccbd41a4fcc0c6c16c458d6710b4418afde12e6589bf4dce3ea5a569420e42f",
+        "apps/workers-api/src/data-source/cache-api.test.ts": "626a1d0f0373559f319bf8f2d7522ce957dbdb749c2da054b8921b7a5a885e6a",
+        "apps/workers-api/src/data-source/cache-api.ts": "4f38506826bcb0942d250e48fb5b78c844f5e1b694bc82ea9b2871f8ec9af4ec",
+        "apps/workers-api/src/data-source/local-db-adapter.test.ts": "3035c70e97e3d5a6bb9668b95ab05687f7e011ba0ae8491aec1e2cd59ad3808a",
+        "apps/workers-api/src/data-source/local-db-adapter.ts": "315d53966840f8485cf82c2eff55460a369f0890d24cd503793fd8d461069b80",
+        "apps/workers-api/src/data-source/postgres-price-store.ts": "08098c7f495aada25aa06278e09c948245e2ad3bd4b77ec2dc5d74c97db6455e",
+        "apps/workers-api/src/data-source/routes.test.ts": "76fb324ec1068e081af633fc09b1676326ab8b61f813dd4f7a852c81b19b5e09",
+        "apps/workers-api/src/data-source/routes.ts": "302004e6a6b8abf9e043ef7611c3c8ea43b5509c8ef33b457e00b155e18e780a",
+        "apps/workers-api/src/entitlements/apple-notification-routes.integration.test.ts": "016a2b8c328a6189204cb2a9433e138d59aa70d0869bb10d1bbbf6a89bda2884",
+        "apps/workers-api/src/entitlements/apple-notification-routes.ts": "fe5e00795fa6e0854d15b07c124d4eebfebfdc9c2ea1667ba3ed4d8245561bca",
+        "apps/workers-api/src/entitlements/apple-signed-data.ts": "6a76d09c88caa73ab9a2ed40afd17a2c11359c5521f19ae8a9879c50f88adabb",
+        "apps/workers-api/src/index-postgres-runtime.test.ts": "87bec6be263c6c92f6e5c018dc0083d486dc840c19997e478476f3a512c8259f",
+        "apps/workers-api/src/index.ts": "bd840886f3cdc3d923626d8f8ca1ea21373dc9bbd21f4f6496603f16e10f696a",
+        "apps/workers-api/src/portfolio/collect.test.ts": "dfaa405d046ddadcf118abc8fe59f4b46666fb198c1cd58acba9845a6786e8b2",
+        "apps/workers-api/src/portfolio/collection-dashboard.test.ts": "d37d5f4d9d6f53b4826259a6b142f2c7c37d41397fb58575b277d15c7aedd65d",
+        "apps/workers-api/src/portfolio/collection-dashboard.ts": "87bb26e7be828033509ff56d6f4530bdf2d6d84947e942dcf2d8b32984edbc73",
+        "apps/workers-api/src/portfolio/items.test.ts": "88164b0a84bec9503caab7e485823be26a500a9986943b70b8b3c057f0dc123d",
+        "apps/workers-api/src/portfolio/performance-premium.integration.test.ts": "8aee7df59c997a62eb750fe6f272bdce078388200b1aec6081fc98adf37563e2",
+        "apps/workers-api/src/portfolio/performance.test.ts": "b76d5f982013ef4340e3b46ab150cacca4cb05e30b0a2fee2e569f893987851a",
+        "apps/workers-api/src/portfolio/performance.ts": "3b7d630913e432c0a3254979926e1576f9e1909e83147046183053afa602f5f7",
+        "apps/workers-api/src/portfolio/routes.ts": "d7a83b1d12eb375962a0fdbeb04c8769d037619528d2f0577cdc5b6d830bdede",
+        "apps/workers-api/src/portfolio/valuation-history.test.ts": "a9c37d855baa00fe267319d5a6433b4d08331976407eeeec13707bb188f75390",
+        "apps/workers-api/src/portfolio/valuation-history.ts": "1c0ef75a016475525e98f802763c8571ad90cf7f81d3e33e76a327d7f08587be",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md": "f5935e545f00244d51c38a1d6dd142de26965e489577bec00e29684260332437",
+        "docs/releases/v1.1.0/03-data-api/migration.md": "2e525dd054a706c8312ec5f0a8c4361e9151b21f8baf0f7bce34abfc2d670e2f",
+        "docs/releases/v1.1.0/03-data-api/research/price-domain-postgresql-ddl.md": "0f63a5acf40d126c00fb7d89fca5a69d598911646e588187942b8eb74b3e628d",
+        "docs/releases/v1.1.0/03-data-api/research/price-history-database-capacity-analysis.md": "76453064b4acc541196b1c25d459fde164a6b27a55953ed14d61b49d6e10a6bb",
+        "docs/releases/v1.1.0/05-delivery/app-store-connect-subscription-setup.md": "51775c6fc1b8f0a3292ba2e3106be6f3e1724d71da991d2307a9bbe49f4a4eb3",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "884f7574d78c29f76de50e52575fcd325be4227afa46b46ab92c34bf67e098f1",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md": "08821c4db5a98667a30bd3ca7792da425cf96714398eb3431b8aa34975357ac7",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-AFTER-G3-20260818/events.jsonl": "248b9ba5f0472d2f2b655cc54fbc033ec19b998e43496957ac66b5346b9b36af",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-AFTER-G3-20260818/evidence.jsonl": "3b1e3457523e00a4adfdbae9a28480b82eeb131cb38a0cd1375abd0f8bcc660c",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-AFTER-G3-20260818/state.json": "b92631ee3064b64d78487e7f8ae9f7a9c398488b9ff4aefa8e8413d8aa5290d3",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/events.jsonl": "90b91f23a5be7fe83714533188bb59b28d36721a44f7eedaca6b5ca49212e457",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/evidence.jsonl": "53944a9384a72c11abbfaf2c6f9d4ca9f8c7726b5c3b0516e34c83d9cc42baff",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/state.json": "79d41bebe7225667c364db0703c92bf92921bc8b99dea4691e415b6112c41fda",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/events.jsonl": "cd352354d3f29ec18a888f5e18f56d7664b87342c175392392cd0be904888e56",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/evidence.jsonl": "b48964fde4cc15b3a9b0a12a8c1aad4a7819bf2c08e8389255cf67e940760e9d",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/state.json": "e356fe03703832f975a53773997f9f4139fe475cbe0c0cacd3def6789f5c1870",
+        ".ai-harness/work-items/ANALYSIS-POSTGRES-PRICE-TABLES-20260818/events.jsonl": "724f9b2522eb1138766fcdbd2a9fb229c6f5085e065ed03360f324da07da6502",
+        ".ai-harness/work-items/ANALYSIS-POSTGRES-PRICE-TABLES-20260818/state.json": "cadfd67a1fcfd7b4703a64e7936f50309a79ddd5c5c4be73fff30c85a31d06c9",
+        ".ai-harness/work-items/BUGFIX-APPLE-JWS-STATUS-DIAGNOSTICS-20260818/events.jsonl": "918e03297477b489bb7bf6ecea3c3d899d90f463e30fdb9d45b34d6b510f6957",
+        ".ai-harness/work-items/BUGFIX-APPLE-JWS-STATUS-DIAGNOSTICS-20260818/evidence.jsonl": "2c2669512ae02c32c2c4a47117cc710ffc67a287007f253610ed5f4ee1face63",
+        ".ai-harness/work-items/BUGFIX-APPLE-JWS-STATUS-DIAGNOSTICS-20260818/plan.json": "cd13816329b48d0c4a4a6f2fbe7f266aa30fbd7d32f11356fddce922d08bf238",
+        ".ai-harness/work-items/BUGFIX-APPLE-JWS-STATUS-DIAGNOSTICS-20260818/solution.md": "b9af51a889f8546b83c1f0cabc09898f99132ead675370342b827976313474d7",
+        ".ai-harness/work-items/BUGFIX-APPLE-JWS-STATUS-DIAGNOSTICS-20260818/state.json": "7288c31d38de9ffb08a7a1998ff0b39f6d48f94310dbd1036bf896e3c84deb64",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/events.jsonl": "ab76aa05c094b2bd77da48c4176690ccbb6bfcf69fde0888e0daefb8737c63c3",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/evidence.jsonl": "e262df440877502d64b680bb7e49fc547d49c1f477521ddc978edc53682976e0",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/plan.json": "57fa16fc4c2715bbc7bac2d42706290a148eacc20b6f9e1eccf48f4821109d10",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/state.json": "be2e71775fd1cbc2db40c8b76f677e48e02fec3d10cc745414bd5ef355f06a68",
+        ".ai-harness/work-items/BUGFIX-CARD-DETAIL-MARKET-7D-BASELINE-20260818/events.jsonl": "f8aac49fc725413dbebf11ce568aa1943cc6a5682876c7dbea0ab2a631b368ea",
+        ".ai-harness/work-items/BUGFIX-CARD-DETAIL-MARKET-7D-BASELINE-20260818/evidence.jsonl": "932ae2ff1340e1a2dcc530b274d2664bd115a05575c9ae312de3e34e5fc770ce",
+        ".ai-harness/work-items/BUGFIX-CARD-DETAIL-MARKET-7D-BASELINE-20260818/plan.json": "a69355ea5d2c737735899299edcedab684589e81373386bbfe966f83b889ab04",
+        ".ai-harness/work-items/BUGFIX-CARD-DETAIL-MARKET-7D-BASELINE-20260818/state.json": "0c6e3b8a2d5d6bf55f70da407b843caadbbe4180f2b137784c2afdea679a6d78",
+        ".ai-harness/work-items/BUGFIX-D1-INDEPENDENCE-DOCS-20260818/events.jsonl": "c4603617644c19624c1a9887a09bb4d755f1c00f7b5f53792a617eca4caa8d5c",
+        ".ai-harness/work-items/BUGFIX-D1-INDEPENDENCE-DOCS-20260818/evidence.jsonl": "047c9671cdf6f9140f09fbe9b3f1cbd448a15d48bb3a054f25ccf531a0084409",
+        ".ai-harness/work-items/BUGFIX-D1-INDEPENDENCE-DOCS-20260818/plan.json": "bbc20912e05996c91213e5bcaaae0a8b14ba8702ee67460b3de7a4e7e5f055ec",
+        ".ai-harness/work-items/BUGFIX-D1-INDEPENDENCE-DOCS-20260818/state.json": "7e4b6875e60587a9e6b96b7bb0c7c168e6615f219c8fd7c1a7d44c7bafe20ba4",
+        ".ai-harness/work-items/BUGFIX-FLUTTER-TRENDING-WINDOW-CONTEXT-20260818/events.jsonl": "f07f9ec5858c34cc1bb692b2dc9720df3b94a7752a3abc2c15fc422d539f56f7",
+        ".ai-harness/work-items/BUGFIX-FLUTTER-TRENDING-WINDOW-CONTEXT-20260818/evidence.jsonl": "e0fa65f7af9e07d89b291ea56660154a6aeb82c28f7aec2f545c04dc792ec65d",
+        ".ai-harness/work-items/BUGFIX-FLUTTER-TRENDING-WINDOW-CONTEXT-20260818/plan.json": "666817cb743ed2eb1233d36e361f24e109b268bc4d247888793401672ce14a6a",
+        ".ai-harness/work-items/BUGFIX-FLUTTER-TRENDING-WINDOW-CONTEXT-20260818/state.json": "15a2f5cf63fa38b8dcdafed86707f81d1774b43978932aebf50d3f9a85132a83",
+        ".ai-harness/work-items/BUGFIX-HOME-MISSING-PRICE-STATUS-20260818/events.jsonl": "d7be6ee61f63e1cdf2f1c9c4056f32f78d2ed9c9ab747317eea59e62a6b7d510",
+        ".ai-harness/work-items/BUGFIX-HOME-MISSING-PRICE-STATUS-20260818/plan.json": "ed95ba40c73a7c0b3d84ccc2d856905ad0eca5b2150a43ac1ca8acc7569ed203",
+        ".ai-harness/work-items/BUGFIX-HOME-MISSING-PRICE-STATUS-20260818/state.json": "ed71be37465d7ad9955b441a75fa7fddc634d9c5e76504952797d331364dc58a",
+        ".ai-harness/work-items/BUGFIX-HOME-MOST-VALUABLE-UNIT-PRICE-20260818/events.jsonl": "126d3d71a75803c83721ec98c2bbac0889478447b56132379ae0cba3914d7e06",
+        ".ai-harness/work-items/BUGFIX-HOME-MOST-VALUABLE-UNIT-PRICE-20260818/evidence.jsonl": "fd3009d80a9dcb6c40a1c9658146045ffa0de6cc61361f6c83900a3d9d140bbc",
+        ".ai-harness/work-items/BUGFIX-HOME-MOST-VALUABLE-UNIT-PRICE-20260818/plan.json": "0c78385b7f76ac6a0d5c57c5c3b2868cb454fb8aeb933334d4ae4fa671aa1312",
+        ".ai-harness/work-items/BUGFIX-HOME-MOST-VALUABLE-UNIT-PRICE-20260818/state.json": "9fdc0c60e4547fb4fe858b3e9ad74e4045810a388d44e78356195e71d4593809",
+        ".ai-harness/work-items/BUGFIX-MARKET-PRICE-CACHE-VERSION-20260818/events.jsonl": "d4279e07b4421b914f6365c83a58f9e1afd9472ab934a996184873f8457d3de3",
+        ".ai-harness/work-items/BUGFIX-MARKET-PRICE-CACHE-VERSION-20260818/evidence.jsonl": "d7176345ff42804cf223fc411360a76ef1168ec1ba6f414959a1de60af87f950",
+        ".ai-harness/work-items/BUGFIX-MARKET-PRICE-CACHE-VERSION-20260818/plan.json": "49eeac3c03ca7bda49280c09a0e2866da5340cd9cabf2a16759a52ad5828a8c1",
+        ".ai-harness/work-items/BUGFIX-MARKET-PRICE-CACHE-VERSION-20260818/state.json": "e3fb4047415bce7cf00731e4f19eee04e47a4c31864d34effcacbb253ff66733",
+        ".ai-harness/work-items/BUGFIX-PG-DATA-ERROR-SEMANTICS-20260818/events.jsonl": "72bb2ac0524cd2fde94d32a4279655e7e3283c7aafeb37ee51950d2317265e69",
+        ".ai-harness/work-items/BUGFIX-PG-DATA-ERROR-SEMANTICS-20260818/evidence.jsonl": "fc46c8c464e6f280eadf1dba022554e018bcfa8688d7197a881331881ca1602b",
+        ".ai-harness/work-items/BUGFIX-PG-DATA-ERROR-SEMANTICS-20260818/plan.json": "ad8340c7727e23baaf90055c3f5d34cf589ab6c6f3e58e0587e3a7d153acc8ea",
+        ".ai-harness/work-items/BUGFIX-PG-DATA-ERROR-SEMANTICS-20260818/state.json": "f3aeee9c94c71a588e6e6c793f75e1ac777e3ae99c8ae01d384850839b4f3f47",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/events.jsonl": "7f97c27e1de75fa410628467aaeb03d2ab70e69b3549ce92759420d2cd2b44fc",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/evidence.jsonl": "591d0e5b81b9f86d25ecee55e30dfff6bd3555300a93ea9cf0402ed6a13af64d",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/plan.json": "d9a121125406e3b45abcdb3d82f62dfdd7a64c9f37126a962753bd7e6d1d1dec",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/state.json": "0e5a39ab69faaf1e8369ce66148f8c4ca129e85dc563b5f4d729b6305599a268",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-TEST-CALLER-20260818/events.jsonl": "ae3e658008c36962e0f6460ae514dd20e20f8f88727673ac388aa843c087b693",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-TEST-CALLER-20260818/evidence.jsonl": "4828287f5fafde9ec127b38493b472c2bea9fe76e8e0b81b1c5c6ab9e4eea01f",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-TEST-CALLER-20260818/plan.json": "843352fd48b7ff73938bdbd2f3c2baafe498f68cf4f13956862c58400afed694",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-TEST-CALLER-20260818/state.json": "69b1372da4dd10a8f97cc35a15580504eb2f96d289d264ec3a300430bf018ac9",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-SERIES-CONSUMPTION-20260818/events.jsonl": "c23f7910d17377adcb3403c25de068f44a866495e9ad07dec1dbe234899a49ba",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-SERIES-CONSUMPTION-20260818/evidence.jsonl": "f183a0a6bc3901174fc70441fb02f92bd9fd632b43bccc9385a0d4f92669cd0c",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-SERIES-CONSUMPTION-20260818/plan.json": "d3eae24bdce10236b2a5015ac4d6ac25f19315ecdf7bcd2f572da1462cfa6e49",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-SERIES-CONSUMPTION-20260818/state.json": "0b1ac42a114f6be18cea0cf1413e3ce3def6c4d23b8a9b9187c27ae92702aec3",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-WINDOW-SEMANTICS-20260818/events.jsonl": "6fa90d1ff671d444ad731fc455a66aec2ee96eeff73bc3b2ba9e08b6489f4b86",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-WINDOW-SEMANTICS-20260818/evidence.jsonl": "7aa2e12eaafa45818ee73271436e74efe36f3fd147f4681ffa2fd2dbd8d65329",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-WINDOW-SEMANTICS-20260818/plan.json": "98e0db4bdf06a2d6269c0e84311c611fab5a29804721b334e04a98b1c09644b8",
+        ".ai-harness/work-items/BUGFIX-PG-PRICE-WINDOW-SEMANTICS-20260818/state.json": "cd69d3ebd7078d56f587ef202cdbcb21543353b28acc2e81358f8f96630fbbfb",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-APP-DATA-20260818/events.jsonl": "eaf34e7a9555d47c5f24ce7e71572efc9c360c39ea90c5a24dcfa6bdae6c4ce8",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-APP-DATA-20260818/evidence.jsonl": "d5f94fcf32d47317c4d46fb5445f1015112294513a15698b9801f1651a170777",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-APP-DATA-20260818/state.json": "14c6ca5ae631023a012a4aff7c86cffe304eea40f8a5a2e9285364c9019b66c8",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-PAGE-CONTRACT-20260818/events.jsonl": "675a6a841a8adf980cbabe0a3b40cf60b3b33abc2109f1aa3639b0a30292fb76",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-PAGE-CONTRACT-20260818/evidence.jsonl": "7a0a29643abbceeb199d150a79129c9c73b8f275b69df82a2cd31c4b8f424ac0",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-PAGE-CONTRACT-20260818/plan.json": "59f9bd736136bfc129c49a2935358b89d1405c26b4cde07dc22bd2e38d4175ff",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-PAGE-CONTRACT-20260818/state.json": "fd360dd4254628ca8d8a5a1a96c0b1d25ecc022f5060cfad66154ed484e27dbd"
+      }
+    }
+  },
+  "solution": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null
+  },
+  "database": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null,
+    "impact": "unknown"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ANALYSIS-POSTGRES-PRICE-TABLES-20260818/plan.json",
+    "approved": false,
+    "approvalRef": null
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pass",
+    "evidence": [
+      "11a6694c-4c93-4edd-8570-41c58718ba3e"
+    ],
+    "conclusions": [
+      {
+        "id": "07215a5b-6d9b-4e78-9be0-c04e2eadfc5f",
+        "status": "PROVEN",
+        "text": "PostgreSQL 价格域由 7 张表组成：price_source、price_series、price_ingest_batch、price_current_snapshot、current_price_pointer、price_history_month、card_trending_snapshot；外部 cards_all 和可空的 collection_item/collection_item_event.price_series_id 构成目录与持仓关联。",
+        "evidence": [
+          "apps/workers-api/src/db/postgres/migrations/0001_price_domain.sql:1-388"
+        ]
+      },
+      {
+        "id": "ed8e1463-b1d7-4c87-8060-c13d6add5b51",
+        "status": "PROVEN",
+        "text": "当前价通过 current:% pointer 只读取 published batch 的 price_current_snapshot；历史按 series/月块读取 published 或 superseded lineage，并由同 source/scope 的当前 pointer 授权；Trending 通过 trending:global pointer 读取 card_trending_snapshot。",
+        "evidence": [
+          "apps/workers-api/src/data-source/postgres-price-store.ts:45-188",
+          "apps/workers-api/src/data-source/local-db-adapter.ts:208-236",
+          "apps/workers-api/src/db/postgres/migrations/0003_price_history_visibility_guard.sql:1-84"
+        ]
+      },
+      {
+        "id": "358ba678-2460-47cf-ba5c-3985bd4dfd3c",
+        "status": "PROVEN",
+        "text": "2026-08-17 的远端逐表检查记录七张价格表均为 0 行；2026-08-18 14:15 北京时间 dev 公共 API 的 Trending、样例 Market Prices 和 Price Series 仍均为空，证明当前发布读路径没有可见价格数据。",
+        "evidence": [
+          "docs/releases/v1.1.0/03-data-api/migration.md:9",
+          "GET api-dev.tcgcard.fun/api/v1/cards/trending returned HTTP 200 items=[] at 2026-08-18T06:15:17Z",
+          "GET sample market-prices and price-series returned HTTP 200 empty arrays at 2026-08-18T06:15:39Z"
+        ]
+      },
+      {
+        "id": "6f4392d5-e502-4660-a029-0c137c207583",
+        "status": "UNKNOWN",
+        "text": "2026-08-18 当前七张物理表的精确逐表行数未通过 live SQL 重新枚举；公开 API 空结果不能排除 loading、validated 或 failed 等未发布批次行。",
+        "evidence": [
+          "docs/releases/v1.1.0/03-data-api/migration.md:13"
+        ]
+      },
+      {
+        "id": "193df3c8-fed8-409d-85e0-ccb70ceeeac4",
+        "status": "PROVEN",
+        "text": "当前工作区未发现独立价格上游的生产写入入口；非测试代码中的价格表 INSERT 仅存在于已退役迁移工具的回滚 guard probe，因此表结构和读链已就位但正式价格导入仍未接入。",
+        "evidence": [
+          "repository rg for non-test INSERT/UPDATE on seven price tables",
+          "docs/releases/v1.1.0/03-data-api/research/price-domain-postgresql-ddl.md:870-890"
+        ]
+      }
+    ],
+    "unknowns": [
+      "迁移 runner 已退役并被项目文档明确禁止运行，本次只读范围内没有现成的安全逐表 COUNT 入口。"
+    ]
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T06:12:16.648Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T06:12:57.317Z",
+      "reason": "锁定 dev 分支当前工作区、PostgreSQL migrations、价格查询实现和远端只读状态范围"
+    },
+    {
+      "from": "BASELINING",
+      "to": "ANALYZING",
+      "at": "2026-08-18T06:13:07.792Z",
+      "reason": "基线完成，开始交叉核对七表 DDL、约束、读写查询与远端当前数据状态"
+    },
+    {
+      "from": "ANALYZING",
+      "to": "ANSWERED",
+      "at": "2026-08-18T06:17:33.031Z",
+      "reason": "七表职责、实体关系、发布读取链路、当前可见数据状态与 live COUNT 未验证边界均已形成证据化回答"
+    }
+  ],
+  "createdAt": "2026-08-18T06:12:16.648Z",
+  "updatedAt": "2026-08-18T06:18:35.826Z"
+}

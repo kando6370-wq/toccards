@@ -277,12 +277,6 @@ export const MIGRATION_TABLES: readonly MigrationTable[] = [
     ],
   },
   {
-    name: "trending_pin",
-    cursor: "id",
-    cursorType: "text",
-    columns: ["id", "card_ref", "rank", "active", "updated_by", "updated_at"],
-  },
-  {
     name: "app_config",
     cursor: "key",
     cursorType: "text",
@@ -314,6 +308,7 @@ export const EXCLUDED_SOURCE_TABLES = [
   "cards_new",
   "price_sync_state",
   "tcg_price",
+  "trending_pin",
 ] as const;
 
 export const EXPECTED_TARGET_TABLES = [

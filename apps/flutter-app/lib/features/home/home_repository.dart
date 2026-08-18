@@ -105,6 +105,9 @@ class ApiHomeRepository implements ProgressiveHomeRepository {
       final monthValues = chartValues[HomeChartRange.oneMonth]!;
       portfolios[folder.id] = PortfolioSummary(
         folderId: folder.id,
+        itemCount: valuation?.itemCount ?? 0,
+        marketPriceStatus:
+            valuation?.marketPriceStatus ?? MarketPriceStatus.missing,
         totalValueUsd: total,
         previous30dValueUsd: monthValues.length > 1 ? monthValues.first : 0,
         chartValuesByRange: chartValues,

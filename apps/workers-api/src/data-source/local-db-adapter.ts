@@ -48,7 +48,7 @@ type TrendingRow = CardCatalogRow & {
   amount_micros: number;
   baseline_1d_on: string;
   baseline_1d_amount_micros: number;
-  increase_rate: number;
+  change_1d_percent: number;
 };
 
 const CARD_SELECT = `
@@ -77,13 +77,12 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
         pageSize,
         offset,
       ];
-      const searchCatalog = (includeCardNumber: boolean) =>
-        db.prepare(
-          `${CARD_SELECT}
+      const results = await db.prepare(
+        `${CARD_SELECT}
 WHERE ${effectiveSearchTerms.map(
   () => `lower(
   coalesce(name, '') || ' ' ||
-  ${includeCardNumber ? "coalesce(number, '') || ' ' ||" : ""}
+  coalesce(number, '') || ' ' ||
   coalesce(set_name, '') || ' ' ||
   coalesce(set_code, '') || ' ' ||
   coalesce(rarity, '') || ' ' ||
@@ -96,15 +95,7 @@ ${setIdClause}
 ${setClause}
 ORDER BY updated_at DESC, product_id ASC
 LIMIT ? OFFSET ?`,
-        ).bind(...bindings).all<CardCatalogRow>();
-
-      let results: D1Result<CardCatalogRow>;
-      try {
-        results = await searchCatalog(true);
-      } catch (error) {
-        if (!isMissingCardNumberColumn(error)) throw error;
-        results = await searchCatalog(false);
-      }
+      ).bind(...bindings).all<CardCatalogRow>();
 
       return cardsWithSearchPricing(db, results.results ?? []);
     },
@@ -218,7 +209,7 @@ LIMIT ? OFFSET ?`,
            series.finish_code AS variant_code, series.finish_name AS variant_name,
            trend.observed_on, trend.amount_micros,
            trend.baseline_1d_on, trend.baseline_1d_amount_micros,
-           trend.change_1d_percent AS increase_rate
+           trend.change_1d_percent
          FROM current_price_pointer AS pointer
          JOIN card_trending_snapshot AS trend
            ON trend.batch_id = pointer.batch_id
@@ -236,15 +227,9 @@ LIMIT ? OFFSET ?`,
       return (results.results ?? []).map(trendingCard);
     },
 
-    async getSoldListings(cardRef): Promise<SoldListing[]> {
-      const card = await db.prepare(`${CARD_SELECT}WHERE product_id = ? LIMIT 1`)
-        .bind(cardRef).first<CardCatalogRow>();
-      if (!card) return [];
-
-      return preferredRawMarketPrices(await loadPublishedPriceRows(db, [cardRef]))
-        .map((row) => soldListingFromPrice(card, row))
-        .sort((left, right) => right.date.localeCompare(left.date))
-        .slice(0, 4);
+    async getSoldListings(_cardRef): Promise<SoldListing[]> {
+      // Sold listings require an independent transaction source; price snapshots are not listings.
+      return [];
     },
   };
 }
@@ -365,11 +350,14 @@ function rawMarketPrice(row: PublishedPriceRow): MarketPrice {
     grade: null,
     condition: row.condition_name ?? row.condition_code,
     price: amountMicrosToUsd(row.amount_micros),
+    ...(row.baseline_7d_amount_micros === null
+      ? {}
+      : { previous_7d_price_usd: amountMicrosToUsd(row.baseline_7d_amount_micros) }),
     ...(row.source_code === "pricecharting"
       ? { product_sub_type: row.variant_name ?? row.variant_code }
       : {}),
-    ...(Number.isFinite(row.increase_rate)
-      ? { increase_percent: row.increase_rate! }
+    ...(Number.isFinite(row.change_7d_percent)
+      ? { increase_percent: row.change_7d_percent! }
       : {}),
   };
 }
@@ -391,30 +379,14 @@ function gradedMarketPrice(
     ...(gradeLabel ? { grade_label: gradeLabel } : {}),
     condition: null,
     price: amountMicrosToUsd(row.amount_micros),
+    ...(row.baseline_7d_amount_micros === null
+      ? {}
+      : { previous_7d_price_usd: amountMicrosToUsd(row.baseline_7d_amount_micros) }),
     product_sub_type: row.variant_name ?? row.variant_code,
-    increase_percent: Number.isFinite(row.increase_rate) ? row.increase_rate! : 0,
+    ...(Number.isFinite(row.change_7d_percent)
+      ? { increase_percent: row.change_7d_percent! }
+      : {}),
     history,
-  };
-}
-
-function soldListingFromPrice(
-  card: CardCatalogRow,
-  row: PublishedPriceRow,
-): SoldListing {
-  const title = [
-    card.name ?? card.product_id,
-    row.condition_name ?? row.condition_code,
-    row.language_name ?? row.language_code,
-    row.variant_name ?? row.variant_code,
-  ].filter((value): value is string => Boolean(value?.trim())).join(" / ");
-  return {
-    date: row.observed_on,
-    title,
-    price: amountMicrosToUsd(row.amount_micros),
-    platform: row.source_code === "tcgplayer" ? "TCGplayer" : row.source_code,
-    url: row.source_code === "tcgplayer"
-      ? `https://www.tcgplayer.com/product/${encodeURIComponent(card.product_id)}`
-      : null,
   };
 }
 
@@ -425,7 +397,7 @@ function trendingCard(row: TrendingRow): CardSearchResult {
     language: row.language_name ?? row.language_code,
     price_usd: amountMicrosToUsd(row.amount_micros),
     previous_1d_price_usd: amountMicrosToUsd(row.baseline_1d_amount_micros),
-    price_change_1d_percent: row.increase_rate,
+    price_change_1d_percent: row.change_1d_percent,
     price_as_of: row.observed_on,
     previous_price_as_of: row.baseline_1d_on,
   };
@@ -464,11 +436,20 @@ function cardWithSearchPricing(
     ...(price.baseline_30d_amount_micros === null
       ? {}
       : { previous_30d_price_usd: amountMicrosToUsd(price.baseline_30d_amount_micros) }),
+    ...(price.baseline_7d_amount_micros === null
+      ? {}
+      : { previous_7d_price_usd: amountMicrosToUsd(price.baseline_7d_amount_micros) }),
     ...(price.baseline_1d_amount_micros === null
       ? {}
       : { previous_1d_price_usd: amountMicrosToUsd(price.baseline_1d_amount_micros) }),
-    ...(Number.isFinite(price.increase_rate)
-      ? { price_change_1d_percent: price.increase_rate! }
+    ...(Number.isFinite(price.change_30d_percent)
+      ? { price_change_30d_percent: price.change_30d_percent! }
+      : {}),
+    ...(Number.isFinite(price.change_7d_percent)
+      ? { price_change_7d_percent: price.change_7d_percent! }
+      : {}),
+    ...(Number.isFinite(price.change_1d_percent)
+      ? { price_change_1d_percent: price.change_1d_percent! }
       : {}),
     price_as_of: price.observed_on,
     ...(price.baseline_1d_on ? { previous_price_as_of: price.baseline_1d_on } : {}),
@@ -482,18 +463,14 @@ async function findCardNumbersByProductId(
   const numbersByProductId = new Map<string, string>();
   if (cardRefs.length === 0) return numbersByProductId;
   const placeholders = cardRefs.map(() => "?").join(", ");
-  try {
-    const results = await db.prepare(
-      `SELECT product_id, number
-       FROM cards_all
-       WHERE product_id IN (${placeholders})`,
-    ).bind(...cardRefs).all<CardNumberRow>();
-    for (const row of results.results ?? []) {
-      const number = row.number?.trim();
-      if (number) numbersByProductId.set(row.product_id, number);
-    }
-  } catch (error) {
-    if (!isMissingCardNumberColumn(error)) throw error;
+  const results = await db.prepare(
+    `SELECT product_id, number
+     FROM cards_all
+     WHERE product_id IN (${placeholders})`,
+  ).bind(...cardRefs).all<CardNumberRow>();
+  for (const row of results.results ?? []) {
+    const number = row.number?.trim();
+    if (number) numbersByProductId.set(row.product_id, number);
   }
   return numbersByProductId;
 }
@@ -649,8 +626,12 @@ function compareIncreaseDescending(
   left: PublishedPriceRow,
   right: PublishedPriceRow,
 ): number {
-  const leftIncrease = Number.isFinite(left.increase_rate) ? left.increase_rate! : null;
-  const rightIncrease = Number.isFinite(right.increase_rate) ? right.increase_rate! : null;
+  const leftIncrease = Number.isFinite(left.change_30d_percent)
+    ? left.change_30d_percent!
+    : null;
+  const rightIncrease = Number.isFinite(right.change_30d_percent)
+    ? right.change_30d_percent!
+    : null;
   if (leftIncrease === null) return rightIncrease === null ? 0 : 1;
   if (rightIncrease === null) return -1;
   return rightIncrease - leftIncrease;
@@ -724,12 +705,6 @@ function graderDisplayName(graderCode: string): string {
 
 function formatGrade(grade: number): string {
   return Number.isInteger(grade) ? String(grade) : grade.toFixed(1);
-}
-
-function isMissingCardNumberColumn(error: unknown): boolean {
-  const message = error instanceof Error ? error.message.toLowerCase() : "";
-  return message.includes("column") && message.includes("number")
-    && (message.includes("does not exist") || message.includes("no such column"));
 }
 
 function positiveIntegerOrDefault(value: number | undefined, fallback: number): number {

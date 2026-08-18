@@ -73,15 +73,6 @@ type AppConfigRow = {
   updated_at: string;
 };
 
-type TrendingPinRow = {
-  id: string;
-  card_ref: string;
-  rank: number;
-  active: number;
-  updated_by: string | null;
-  updated_at: string;
-};
-
 type CardOverrideRow = {
   id: string;
   card_ref: string;
@@ -151,7 +142,6 @@ class FakeD1 {
   authIdentities: AuthIdentityRow[] = [];
   feedbackTickets: FeedbackTicketRow[] = [];
   appConfigs: AppConfigRow[] = [];
-  trendingPins: TrendingPinRow[] = [];
   cardOverrides: CardOverrideRow[] = [];
   scanRecords: ScanRecordRow[] = [];
 
@@ -228,11 +218,6 @@ class FakeD1Statement {
     if (sql.includes("FROM feedback_ticket") && sql.includes("WHERE id = ?")) {
       const [id] = this.values as [string];
       return (this.db.feedbackTickets.find((row) => row.id === id) ?? null) as T | null;
-    }
-
-    if (sql.includes("FROM trending_pin") && sql.includes("WHERE id = ?")) {
-      const [id] = this.values as [string];
-      return (this.db.trendingPins.find((row) => row.id === id) ?? null) as T | null;
     }
 
     if (sql.includes("FROM card_override") && sql.includes("WHERE id = ?")) {
@@ -325,10 +310,6 @@ class FakeD1Statement {
 
     if (sql.includes("FROM app_config")) {
       return okResult<T>(this.db.appConfigs as T[]);
-    }
-
-    if (sql.includes("FROM trending_pin")) {
-      return okResult<T>([...this.db.trendingPins].sort((left, right) => left.rank - right.rank) as T[]);
     }
 
     if (sql.includes("FROM card_override")) {
@@ -436,45 +417,6 @@ class FakeD1Statement {
         this.db.appConfigs.push({ key, value, updated_by: updatedBy, updated_at: updatedAt });
       }
       return okResult<T>();
-    }
-
-    if (sql.startsWith("INSERT INTO trending_pin")) {
-      const [id, cardRef, rank, active, updatedBy, updatedAt] = this.values as [
-        string,
-        string,
-        number,
-        number,
-        string,
-        string,
-      ];
-      this.db.trendingPins.push({
-        id,
-        card_ref: cardRef,
-        rank,
-        active,
-        updated_by: updatedBy,
-        updated_at: updatedAt,
-      });
-      return okResult<T>();
-    }
-
-    if (sql.startsWith("UPDATE trending_pin SET")) {
-      const [rank, active, updatedBy, updatedAt, id] = this.values as [number, number, string, string, string];
-      const row = this.db.trendingPins.find((pin) => pin.id === id);
-      if (row) {
-        row.rank = rank;
-        row.active = active;
-        row.updated_by = updatedBy;
-        row.updated_at = updatedAt;
-      }
-      return okResult<T>(undefined, row ? 1 : 0);
-    }
-
-    if (sql.startsWith("DELETE FROM trending_pin")) {
-      const [id] = this.values as [string];
-      const before = this.db.trendingPins.length;
-      this.db.trendingPins = this.db.trendingPins.filter((row) => row.id !== id);
-      return okResult<T>(undefined, before - this.db.trendingPins.length);
     }
 
     if (sql.startsWith("INSERT INTO card_override")) {
@@ -1066,32 +1008,58 @@ describe("admin routes", () => {
     });
   });
 
-  it("guards destructive ops while still allowing card and trending maintenance", async () => {
+  it("returns 404 for every removed Trending Pin endpoint because the obsolete API must stay retired", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "operator-3", "card-ops@example.com", "correct-password", "operator");
-    await seedAdmin(env, "super-2", "card-super@example.com", "correct-password", "super_admin");
     const operatorLogin = await loginAdmin(env, "card-ops@example.com", "correct-password");
+
+    const responses = await Promise.all([
+      requestAdmin(env, "/trending-pins", "GET", undefined, operatorLogin.data.access_token),
+      requestAdmin(
+        env,
+        "/trending-pins",
+        "POST",
+        { card_ref: "card-1", rank: 1, active: true },
+        operatorLogin.data.access_token,
+      ),
+      requestAdmin(
+        env,
+        "/trending-pins/deprecated",
+        "PATCH",
+        { rank: 2, active: false },
+        operatorLogin.data.access_token,
+      ),
+      requestAdmin(
+        env,
+        "/trending-pins/deprecated",
+        "DELETE",
+        undefined,
+        operatorLogin.data.access_token,
+      ),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([404, 404, 404, 404]);
+  });
+
+  it("guards destructive Card Override operations while still allowing card maintenance", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "operator-4", "override-ops@example.com", "correct-password", "operator");
+    await seedAdmin(env, "super-2", "card-super@example.com", "correct-password", "super_admin");
+    const operatorLogin = await loginAdmin(env, "override-ops@example.com", "correct-password");
     const superLogin = await loginAdmin(env, "card-super@example.com", "correct-password");
 
-    const createPinResponse = await requestAdmin(
-      env,
-      "/trending-pins",
-      "POST",
-      { card_ref: "card-1", rank: 1, active: true },
-      operatorLogin.data.access_token,
-    );
-    const operatorDeletePinResponse = await requestAdmin(
-      env,
-      `/trending-pins/${env.DB.trendingPins[0]?.id}`,
-      "DELETE",
-      undefined,
-      operatorLogin.data.access_token,
-    );
     const imageResponse = await requestAdmin(
       env,
       "/card-overrides/image-upload",
       "POST",
       { card_ref: "card-2", image_url: "https://example.com/card.jpg" },
+      operatorLogin.data.access_token,
+    );
+    const operatorDeleteOverrideResponse = await requestAdmin(
+      env,
+      `/card-overrides/${env.DB.cardOverrides[0]?.id}`,
+      "DELETE",
+      undefined,
       operatorLogin.data.access_token,
     );
     const superDeleteOverrideResponse = await requestAdmin(
@@ -1102,11 +1070,9 @@ describe("admin routes", () => {
       superLogin.data.access_token,
     );
 
-    expect(createPinResponse.status).toBe(200);
-    expect(operatorDeletePinResponse.status).toBe(403);
     expect(imageResponse.status).toBe(200);
+    expect(operatorDeleteOverrideResponse.status).toBe(403);
     expect(superDeleteOverrideResponse.status).toBe(200);
-    expect(env.DB.trendingPins).toHaveLength(1);
     expect(env.DB.cardOverrides).toHaveLength(0);
   });
 });

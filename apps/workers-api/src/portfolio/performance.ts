@@ -20,6 +20,7 @@ type PerformanceEventRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
   purchase_price: number | null;
   purchase_currency: string | null;
@@ -60,7 +61,7 @@ const PERFORMANCE_EVENT_LIMIT = 10_000;
 
 const SELECT_PERFORMANCE_EVENTS_SQL = `
 SELECT id, item_id, folder_id, card_ref, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency,
+  finish, price_series_id, quantity, purchase_price, purchase_currency,
   performance_history_available_from, event_type, effective_at
 FROM collection_item_event
 WHERE owner_type = ? AND owner_id = ?`;

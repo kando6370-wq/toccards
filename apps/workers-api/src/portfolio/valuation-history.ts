@@ -17,6 +17,7 @@ type ItemEventRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
   event_type: "upsert" | "delete";
   effective_at: string;
@@ -38,13 +39,13 @@ export type SkuRow = {
   grade_min_x10: number | null;
   grade_max_x10: number | null;
   price_history: string;
-  increase_rate: number | null;
+  change_30d_percent: number | null;
 };
 
 export type MatchedPrice = {
   row: SkuRow;
   history: string;
-  increaseRate: number | null;
+  change30dPercent: number | null;
 };
 
 type PricePoint = { date: string; price: number };
@@ -73,6 +74,8 @@ export type MostValuableItem = {
 
 export type FolderValuationHistory = {
   folder_id: string;
+  item_count: number;
+  market_price_status: "available" | "missing";
   current_value_usd: number;
   series: Array<{ date: string; value_usd: number }>;
   most_valuable: MostValuableItem[];
@@ -80,7 +83,7 @@ export type FolderValuationHistory = {
 
 const SELECT_EVENTS_SQL = `
 SELECT id, item_id, folder_id, card_ref, grader, condition, grade, language,
-  finish, quantity, event_type, effective_at
+  finish, price_series_id, quantity, event_type, effective_at
 FROM collection_item_event
 WHERE owner_type = ? AND owner_id = ?
 ORDER BY effective_at ASC, id ASC
@@ -120,8 +123,21 @@ export async function loadValuationHistory(
       date,
       value_usd: valueOnDate(eventsByItem, skusByProduct, folderId, date),
     }));
+    const currentItems = [...eventsByItem.values()]
+      .map((itemEvents) => stateOnDate(itemEvents, endDate))
+      .filter((state): state is ItemEventRow =>
+        state !== null
+        && state.event_type !== "delete"
+        && state.folder_id === folderId
+      );
+    const hasMarketPrice = currentItems.some((state) => {
+      const matched = matchingPrice(state, skusByProduct.get(state.card_ref) ?? []);
+      return matched !== null && priceOnDate(matched.history, endDate) !== null;
+    });
     return {
       folder_id: folderId,
+      item_count: currentItems.length,
+      market_price_status: hasMarketPrice ? "available" : "missing",
       current_value_usd: series.at(-1)?.value_usd ?? 0,
       series,
       most_valuable: mostValuableItems(
@@ -143,7 +159,11 @@ function mostValuableItems(
   date: string,
 ): MostValuableItem[] {
   const baselineDate = shiftDate(date, -30);
-  const items: MostValuableItem[] = [];
+  const items: Array<{
+    item: MostValuableItem;
+    unitPrice: number;
+    addedAt: string;
+  }> = [];
   for (const events of eventsByItem.values()) {
     const state = stateOnDate(events, date);
     if (!state || state.event_type === "delete" || state.folder_id !== folderId) continue;
@@ -151,28 +171,43 @@ function mostValuableItems(
     const card = cardsByProduct.get(state.card_ref);
     const current = matched ? priceOnDate(matched.history, date) : null;
     if (!matched || !card || current === null) continue;
-    const positionValue = roundMoney(current * state.quantity);
     const previous = priceOnDate(matched.history, baselineDate);
     items.push({
-      item_id: state.item_id,
-      card_ref: state.card_ref,
-      name: card.name ?? state.card_ref,
-      set_name: card.set_name ?? "",
-      card_number: card.number ?? "",
-      finish: state.finish,
-      image_url: cardImageUrl(state.card_ref, "thumbnail"),
-      price_usd: positionValue,
-      previous_30d_price_usd:
-        previous === null ? null : roundMoney(previous * state.quantity),
-      increase_percent:
-        matched.increaseRate !== null && Number.isFinite(matched.increaseRate)
-          ? matched.increaseRate
-          : null,
+      item: {
+        item_id: state.item_id,
+        card_ref: state.card_ref,
+        name: card.name ?? state.card_ref,
+        set_name: card.set_name ?? "",
+        card_number: card.number ?? "",
+        finish: state.finish,
+        image_url: cardImageUrl(state.card_ref, "thumbnail"),
+        price_usd: roundMoney(current),
+        previous_30d_price_usd: previous === null ? null : roundMoney(previous),
+        increase_percent:
+          matched.change30dPercent !== null && Number.isFinite(matched.change30dPercent)
+            ? matched.change30dPercent
+            : null,
+      },
+      unitPrice: current,
+      addedAt: events[0]!.effective_at,
     });
   }
   return items
-    .sort((left, right) => right.price_usd - left.price_usd || left.item_id.localeCompare(right.item_id))
-    .slice(0, 3);
+    .sort((left, right) =>
+      right.unitPrice - left.unitPrice
+      || compareNullableNumberDesc(left.item.increase_percent, right.item.increase_percent)
+      || right.addedAt.localeCompare(left.addedAt)
+      || left.item.name.localeCompare(right.item.name)
+      || left.item.item_id.localeCompare(right.item.item_id)
+    )
+    .slice(0, 3)
+    .map(({ item }) => item);
+}
+
+function compareNullableNumberDesc(left: number | null, right: number | null): number {
+  if (left === null) return right === null ? 0 : 1;
+  if (right === null) return -1;
+  return right - left;
 }
 
 function stateOnDate(events: ItemEventRow[], date: string): ItemEventRow | null {
@@ -200,13 +235,25 @@ function valueOnDate(
 }
 
 export function matchingPrice(
-  event: Pick<ItemEventRow, "grader" | "condition" | "grade" | "language" | "finish">,
+  event: Pick<
+    ItemEventRow,
+    "grader" | "condition" | "grade" | "language" | "finish" | "price_series_id"
+  >,
   rows: SkuRow[],
 ): MatchedPrice | null {
+  if (event.price_series_id !== null) {
+    const row = rows.find((candidate) =>
+      candidate.series_id === event.price_series_id
+      && parsePriceHistory(candidate.price_history).length > 0
+    );
+    return row
+      ? { row, history: row.price_history, change30dPercent: row.change_30d_percent }
+      : null;
+  }
   if (event.grader.toLowerCase() === "raw") {
     const row = matchingSku(event, rows);
     return row
-      ? { row, history: row.price_history, increaseRate: row.increase_rate }
+      ? { row, history: row.price_history, change30dPercent: row.change_30d_percent }
       : null;
   }
   if (event.grade === null) return null;
@@ -230,7 +277,7 @@ export function matchingPrice(
   );
   const row = candidates[0];
   return row
-    ? { row, history: row.price_history, increaseRate: row.increase_rate }
+    ? { row, history: row.price_history, change30dPercent: row.change_30d_percent }
     : null;
 }
 
@@ -382,7 +429,7 @@ export async function loadSkus(
     price_history: JSON.stringify(
       pointsWithPublishedSnapshot(row, histories.get(row.series_id)),
     ),
-    increase_rate: row.increase_rate,
+    change_30d_percent: row.change_30d_percent,
   }));
 }
 

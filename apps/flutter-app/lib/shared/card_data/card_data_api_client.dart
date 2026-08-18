@@ -49,7 +49,10 @@ class CardDataCardDto {
     required this.rarity,
     this.priceUsd,
     this.previous30dPriceUsd,
+    this.previous7dPriceUsd,
     this.previous1dPriceUsd,
+    this.priceChange30dPercent,
+    this.priceChange7dPercent,
     this.priceChange1dPercent,
     this.priceAsOf,
     this.previousPriceAsOf,
@@ -70,7 +73,10 @@ class CardDataCardDto {
   final String? rarity;
   final double? priceUsd;
   final double? previous30dPriceUsd;
+  final double? previous7dPriceUsd;
   final double? previous1dPriceUsd;
+  final double? priceChange30dPercent;
+  final double? priceChange7dPercent;
   final double? priceChange1dPercent;
   final String? priceAsOf;
   final String? previousPriceAsOf;
@@ -92,7 +98,10 @@ class CardDataCardDto {
       rarity: _nullableString(json['rarity']),
       priceUsd: _nullableDouble(json['price_usd']),
       previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
+      previous7dPriceUsd: _nullableDouble(json['previous_7d_price_usd']),
       previous1dPriceUsd: _nullableDouble(json['previous_1d_price_usd']),
+      priceChange30dPercent: _nullableDouble(json['price_change_30d_percent']),
+      priceChange7dPercent: _nullableDouble(json['price_change_7d_percent']),
       priceChange1dPercent: _nullableDouble(json['price_change_1d_percent']),
       priceAsOf: _nullableString(json['price_as_of']),
       previousPriceAsOf: _nullableString(json['previous_price_as_of']),
@@ -162,6 +171,7 @@ class CardDataMarketPriceDto {
     required this.price,
     this.pricechartingId,
     this.productSubType,
+    this.previous7dPriceUsd,
     this.increasePercent,
     this.history = const [],
   });
@@ -173,6 +183,7 @@ class CardDataMarketPriceDto {
   final double? price;
   final String? pricechartingId;
   final String? productSubType;
+  final double? previous7dPriceUsd;
   final double? increasePercent;
   final List<CardDataPricePointDto> history;
 
@@ -185,6 +196,7 @@ class CardDataMarketPriceDto {
       price: _nullableDouble(json['price']),
       pricechartingId: _nullableString(json['pricecharting_id']),
       productSubType: _nullableString(json['product_sub_type']),
+      previous7dPriceUsd: _nullableDouble(json['previous_7d_price_usd']),
       increasePercent: _nullableDouble(json['increase_percent']),
       history: _optionalPriceHistory(json['history']),
     );

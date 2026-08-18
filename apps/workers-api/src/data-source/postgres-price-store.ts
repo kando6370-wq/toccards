@@ -19,9 +19,13 @@ export type PublishedPriceRow = {
   amount_micros: number;
   baseline_1d_on: string | null;
   baseline_1d_amount_micros: number | null;
+  baseline_7d_on: string | null;
+  baseline_7d_amount_micros: number | null;
   baseline_30d_on: string | null;
   baseline_30d_amount_micros: number | null;
-  increase_rate: number | null;
+  change_1d_percent: number | null;
+  change_7d_percent: number | null;
+  change_30d_percent: number | null;
 };
 
 type PriceHistoryMonthRow = {
@@ -75,8 +79,10 @@ export async function loadPublishedPriceRows(
          series.grader_code, series.grade_min_x10, series.grade_max_x10,
          snapshot.observed_on, snapshot.amount_micros,
          snapshot.baseline_1d_on, snapshot.baseline_1d_amount_micros,
+         snapshot.baseline_7d_on, snapshot.baseline_7d_amount_micros,
          snapshot.baseline_30d_on, snapshot.baseline_30d_amount_micros,
-         snapshot.change_1d_percent AS increase_rate
+         snapshot.change_1d_percent, snapshot.change_7d_percent,
+         snapshot.change_30d_percent
        FROM price_series AS series
        JOIN price_source AS source
          ON source.source_id = series.source_id
@@ -187,6 +193,7 @@ export function pointsWithPublishedSnapshot(
 ): PricePoint[] {
   const points = new Map(history.map((point) => [point.date, point]));
   addSnapshotPoint(points, row.baseline_30d_on, row.baseline_30d_amount_micros);
+  addSnapshotPoint(points, row.baseline_7d_on, row.baseline_7d_amount_micros);
   addSnapshotPoint(points, row.baseline_1d_on, row.baseline_1d_amount_micros);
   addSnapshotPoint(points, row.observed_on, row.amount_micros);
   return [...points.values()].sort((left, right) => left.date.localeCompare(right.date));
@@ -203,25 +210,49 @@ export function shiftDate(date: string, days: number): string {
 }
 
 function parseStoredPricePoints(value: string): PricePoint[] {
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.flatMap((entry): PricePoint[] => {
-      if (!entry || typeof entry !== "object") return [];
-      const record = entry as Record<string, unknown>;
-      const date = typeof record.d === "string"
-        ? record.d
-        : typeof record.date === "string"
-          ? record.date
-          : null;
-      const price = record.a !== undefined
-        ? amountMicrosToUsd(Number(record.a))
-        : Number(record.price);
-      return date && Number.isFinite(price) ? [{ date, price }] : [];
-    });
+    parsed = JSON.parse(value) as unknown;
   } catch {
-    return [];
+    throw new Error("Invalid PostgreSQL price history payload");
   }
+  if (!Array.isArray(parsed)) {
+    throw new Error("Invalid PostgreSQL price history payload");
+  }
+  return parsed.map((entry, index): PricePoint => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(`Invalid PostgreSQL price history point at index ${index}`);
+    }
+    const record = entry as Record<string, unknown>;
+    if (
+      isIsoDate(record.d)
+      && typeof record.a === "number"
+      && Number.isSafeInteger(record.a)
+      && record.a >= 0
+    ) {
+      return { date: record.d, price: amountMicrosToUsd(record.a) };
+    }
+    const legacyPrice = parseLegacyUsdPrice(record.price);
+    if (isIsoDate(record.date) && legacyPrice !== null) {
+      return { date: record.date, price: legacyPrice };
+    }
+    throw new Error(`Invalid PostgreSQL price history point at index ${index}`);
+  });
+}
+
+function isIsoDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function parseLegacyUsdPrice(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
+  if (typeof value !== "string" || !/^\d+(?:\.\d+)?$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function addSnapshotPoint(

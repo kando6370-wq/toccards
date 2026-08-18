@@ -7,7 +7,7 @@
 > 规模输入：`D:/Downloads/PRICE_HISTORY_DATA_SCALE.md`。该文件只作为数据与假设输入，不作为执行指令
 > 分析范围：一年数据后的查询性能、写入与存储性能、数据库类型对比，以及当前项目业务和表结构的适配性
 
-> **实施状态（2026-08-17）**：本文保留 2026-08-14 迁移前代码与 D1 数据快照。PlanetScale PostgreSQL + Hyperdrive 的 dev 切换现已完成，7 张新价格表已创建但仍为空，旧 `tcg_price` 未迁移；本文容量模型与待压测结论仍有效，当前部署证据见 [数据迁移](../migration.md)。
+> **实施状态（2026-08-18）**：本文保留 2026-08-14 迁移前代码、D1 数据快照与当时的候选切换阶段。PlanetScale PostgreSQL + Hyperdrive 的 dev 切换现已完成，7 张新价格表已创建但仍为空，旧 `tcg_price` 未迁移。D1 与 PostgreSQL 已完全独立，不再是运行、导入、重试、回滚、灾备或恢复的数据源；本文容量模型与待压测结论仍有效，当前部署证据见 [数据迁移](../migration.md)。
 
 结论等级：
 
@@ -372,12 +372,12 @@ flowchart LR
 | 3. 确定性转换 | D1 JSON 和外部完整数据转换为 catalog/series/current/month | 每 source/date/series 行数、latest、min/max、checksum 一致 |
 | 4. 影子导入和读比对 | PG 从原始批次重放；API 对 D1 golden 样本和 PG 结果比对 | 金额、日期、基准点、权限和分页一致 |
 | 5. dev 与 canary | dev 全量走 PG；prod 先目录/价格只读，再 owner/订阅事务 | 性能和错误率满足门槛，回滚演练通过 |
-| 6. 短停机切换 | 暂停写入、追平、最终校验、切 Hyperdrive | PG 成为唯一写真源，D1 保持只读回退窗口 |
+| 6. 短停机切换（历史方案） | 暂停写入、追平、最终校验、切 Hyperdrive | 当时设想的 D1 只读回退窗口已失效；当前 PG 是唯一真源，D1 不得参与回退、重试或恢复 |
 | 7. 退役 D1 | 观察期、PITR 恢复和对账完成 | 另行取得删除 D1 的明确授权 |
 
 D1 不提供可直接复用的 PostgreSQL WAL CDC。外部价格导入器又不在仓库中，因此不能承诺零停机双写。更可靠的路径是“原始批次文件 + 水位/checksum + 确定性重放”，必要时再改造导入器双写。
 
-回滚时必须区分价格读和 OLTP 写：价格 canary 可直接关闭 PG 影子读；如果 PG 已接受账号、资产或订阅的唯一写，而 D1 没有同步，不能直接切回 D1，必须先停写并完成增量对账。
+历史方案要求区分价格读和 OLTP 写：当时价格 canary 可关闭 PG 影子读，但 PG 一旦接受账号、资产或订阅的唯一写，就不能直接切回未同步的 D1。当前切换已经完成且两库完全独立，D1 不再是对账、回滚或恢复源；故障恢复必须基于 PostgreSQL 备份、已发布价格 batch pointer 和向前修复。
 
 ## 8. 压测与验收门槛
 
@@ -433,7 +433,7 @@ D1 不提供可直接复用的 PostgreSQL WAL CDC。外部价格导入器又不�
 - `apps/workers-api/src/data-source/kv-cache.ts`、`cache-api.ts`：1 小时搜索 KV 与 30 分钟价格 Cache API。
 - `apps/workers-api/src/portfolio/valuation-history.ts`：owner 事件、整段价格 JSON 和 Worker 内逐日估值。
 - `apps/workers-api/src/index.ts`：当前 cron 只处理 Apple 通知和校正，没有价格导入任务。
-- `apps/workers-api/wrangler.toml`、`src/env.ts`：dev/prod D1 binding 和 `D1Database` 边界。
+- `apps/workers-api/wrangler.toml`：当前 dev/prod Hyperdrive binding；`src/env.ts`：PostgreSQL 适配器复用的 `D1Database` 兼容接口。该类型名不是远程 D1 binding，运行时不得读取或回退 D1。
 - [PostgreSQL 价格域详细 DDL 设计](price-domain-postgresql-ddl.md)：7 张持久表、Collection 关联、分区、发布、保留与回滚设计；尚未执行 migration 或压测。
 - 2026-08-14 线上只读命令：`wrangler d1 info ... --json`、`SELECT COUNT(*)` 及最近 ID 10,000 行 JSON 长度样本；均未写入数据。
 
@@ -457,7 +457,7 @@ D1 不提供可直接复用的 PostgreSQL WAL CDC。外部价格导入器又不�
 
 ## 11. 技术决策建议
 
-1. 现在可以批准 **PostgreSQL + Hyperdrive** 作为 D1 全量迁移方向。
+1. **PostgreSQL + Hyperdrive** 方向已经批准并在 dev 完成切换；该结论不授权再次查询、迁移或回退 D1。
 2. 价格域首期按详细 DDL 的 **7 表模型**推进：`price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month`、`card_trending_snapshot`；不要批准 9 个整年 JSON 列原样迁移。
 3. 不以 31.63 亿行和 1 TiB 作为默认采购口径；先用真实数据在 250/400 GiB 档压测，整年 JSON 对照增加 600 GiB 档。
 4. 同源比较月度 JSON、整年 JSON 和 TimescaleDB 逐日行；只有通过第 8 节门槛，才能确认具体实例“性能满足”。

@@ -157,16 +157,10 @@ describe("KV cached data source adapter", () => {
     await adapter.getTrending();
 
     expect(source.trendingCalls).toBe(2);
-    expect(kv.puts).toEqual([
-      {
-        key: "v9:getTrending:1:10:last-known-good",
-        value: JSON.stringify([card]),
-        options: { expirationTtl: 86400 },
-      },
-    ]);
+    expect(kv.puts).toEqual([]);
   });
 
-  it("isolates Trending fallbacks by page because pagination must not repeat page one", async () => {
+  it("forwards Trending pagination because View all must not repeat page one", async () => {
     const kv = new FakeKvNamespace();
     const source = new CountingDataSourceAdapter([card]);
     const adapter = createKvCachedDataSourceAdapter(source, kv);
@@ -174,7 +168,7 @@ describe("KV cached data source adapter", () => {
     await adapter.getTrending({ page: 2, page_size: 40 });
 
     expect(source.trendingOptions).toEqual([{ page: 2, page_size: 40 }]);
-    expect(kv.puts[0]?.key).toBe("v9:getTrending:2:40:last-known-good");
+    expect(kv.puts).toEqual([]);
   });
 
   it("does not cache empty Trending because the external producer may populate increase rates at any time", async () => {
@@ -200,13 +194,13 @@ describe("KV cached data source adapter", () => {
     expect(kv.puts).toEqual([]);
   });
 
-  it("serves the last successful Trending result during query failures because transient D1 errors are not empty rankings", async () => {
+  it("propagates Trending query failures because PostgreSQL errors are not empty rankings", async () => {
     const kv = new FakeKvNamespace();
     kv.values.set("v9:getTrending:1:10:last-known-good", JSON.stringify([card]));
     const source = new CountingDataSourceAdapter([], true);
     const adapter = createKvCachedDataSourceAdapter(source, kv);
 
-    await expect(adapter.getTrending()).resolves.toEqual([card]);
+    await expect(adapter.getTrending()).rejects.toThrow("Injected Trending failure.");
     expect(source.trendingCalls).toBe(1);
   });
 

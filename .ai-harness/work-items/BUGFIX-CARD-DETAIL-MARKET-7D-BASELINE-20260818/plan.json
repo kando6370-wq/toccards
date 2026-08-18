@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-CARD-DETAIL-MARKET-7D-BASELINE-20260818",
+  "mode": "single",
+  "rationale": "单一数据口径根因，跨 Workers DTO 与 Flutter 消费链，单 Review Batch 可闭环",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "传递并消费 PostgreSQL 7D 基准价",
+      "module": "workers-api/data-source + flutter-app/card-detail",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/workers-api/src/data-source/adapter.ts",
+        "apps/workers-api/src/data-source/local-db-adapter.ts",
+        "apps/workers-api/src/data-source/local-db-adapter.test.ts",
+        "apps/flutter-app/lib/shared/card_data/card_data_api_client.dart",
+        "apps/flutter-app/lib/features/card_detail/card_detail_repository.dart",
+        "apps/flutter-app/test/card_data_api_client_test.dart",
+        "apps/flutter-app/test/card_detail_controller_test.dart",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "verification": [
+        "pnpm --filter @kando/workers-api test -- src/data-source/local-db-adapter.test.ts",
+        "flutter test test/card_data_api_client_test.dart test/card_detail_controller_test.dart",
+        "pnpm --filter @kando/workers-api type-check",
+        "flutter analyze",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "Codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "49e34070-8f6d-4d2d-bafb-0365c6df6c18",
+        "22114604-5452-48b6-b424-40a7e8de5dc1"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "Card Detail 7D 基准价端到端修复",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T05:18:29.999Z",
+  "updatedAt": "2026-08-18T05:28:43.495Z"
+}

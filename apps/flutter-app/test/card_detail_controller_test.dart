@@ -191,6 +191,7 @@ void main() {
     'http detail repository isolates optional endpoint failures because the PRD keeps base card information available',
     () async {
       final failingOptionalApi = _FakeCardDataApi(
+        card: _pricedPikachuCard,
         failMarketPrices: true,
         failSoldListings: true,
       );
@@ -209,6 +210,8 @@ void main() {
       );
 
       expect(base.name, 'Pikachu');
+      expect(base.marketPrices.single.previous7dPriceUsd, 14);
+      expect(base.marketPrices.single.increasePercent, 7.14);
       await expectLater(
         repository.loadMarketPrices('catalog:pikachu-025'),
         throwsStateError,
@@ -1185,9 +1188,9 @@ void main() {
       ]);
       expect(
         normal.priceTabMarketRows.first.changeText,
-        '+4.17%',
+        '+25.00%',
         reason:
-            '7D change must be calculated from the row series (25 vs 24), not increasePercent.',
+            '7D change must use the PostgreSQL snapshot baseline (25 vs 20), not a sparse chart point (25 vs 24).',
       );
       expect(cardDataApi.marketFinishes.last, 'Normal');
       expect(
@@ -1915,6 +1918,7 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
         grade: null,
         condition: 'Near Mint',
         price: 15,
+        previous7dPriceUsd: 14,
       ),
       CardDataMarketPriceDto(
         grader: 'PSA',
@@ -1924,6 +1928,7 @@ class _FakeCardDataApi implements CardDataApi, BatchCardDataApi {
         price: 70,
         pricechartingId: 'pc-pikachu-psa-10',
         productSubType: 'Holofoil',
+        previous7dPriceUsd: 65,
         increasePercent: 7.69,
         history: [
           CardDataPricePointDto(date: '2026-04-10', price: 40),
@@ -2028,7 +2033,8 @@ class _FinishSwitchingCardDataApi extends _FakeCardDataApi {
         grade: null,
         condition: 'Near Mint',
         price: 25,
-        increasePercent: 5,
+        previous7dPriceUsd: 20,
+        increasePercent: 25,
       ),
       CardDataMarketPriceDto(
         grader: 'Raw',
@@ -2133,6 +2139,26 @@ const _pikachuCard = CardDataCardDto(
   game: 'Pokemon',
   imageUrl: 'https://img.example/pikachu.jpg',
   rarity: 'Common',
+);
+
+const _pricedPikachuCard = CardDataCardDto(
+  cardRef: 'catalog:pikachu-025',
+  name: 'Pikachu',
+  setName: 'Base Set',
+  setCode: 'BS',
+  cardNumber: '025',
+  finish: 'Holofoil',
+  language: 'English',
+  objectType: 'tcg',
+  game: 'Pokemon',
+  imageUrl: 'https://img.example/pikachu.jpg',
+  rarity: 'Common',
+  priceUsd: 15,
+  previous30dPriceUsd: 10,
+  previous7dPriceUsd: 14,
+  priceChange1dPercent: 1.5,
+  priceChange7dPercent: 7.14,
+  priceChange30dPercent: 50,
 );
 
 const _squirtleCard = CardDataCardDto(

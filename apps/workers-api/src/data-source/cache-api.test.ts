@@ -117,7 +117,7 @@ describe("Cache API data source adapter", () => {
     expect(first).toEqual(second);
     expect(source.marketPriceCalls).toBe(1);
     expect(cache.puts[0]?.requestUrl).toBe(
-      "https://data-source-cache.invalid/getMarketPrices:v6:mock%3Atcg%3Acharizard",
+      "https://data-source-cache.invalid/getMarketPrices:v7:mock%3Atcg%3Acharizard",
     );
     expect(cache.puts[0]?.response.headers.get("Cache-Control")).toBe(
       "public, max-age=1800",
@@ -158,33 +158,23 @@ describe("Cache API data source adapter", () => {
     ]);
   });
 
-  it("returns fresh sold listings when Cache API write fails because cache backfill must not break responses", async () => {
+  it("never caches sold listings because the route is no-store until an independent source exists", async () => {
     const cache = new FakeCache();
-    cache.failNextPut = true;
     const source = new CountingDataSourceAdapter();
     const adapter = createCacheApiDataSourceAdapter(source, cache);
 
-    const result = await adapter.getSoldListings("mock:tcg:charizard");
+    const first = await adapter.getSoldListings("mock:tcg:charizard");
+    const second = await adapter.getSoldListings("mock:tcg:charizard");
 
-    expect(result).toEqual([
+    expect(first).toEqual([
       expect.objectContaining({
         title: "mock:tcg:charizard",
         platform: "mock-market",
       }),
     ]);
-    expect(source.soldListingCalls).toBe(1);
+    expect(second).toEqual(first);
+    expect(source.soldListingCalls).toBe(2);
     expect(cache.puts).toEqual([]);
-  });
-
-  it("versions sold listing keys because marketplace source changes must not reuse stale empty payloads", async () => {
-    const cache = new FakeCache();
-    const source = new CountingDataSourceAdapter();
-    const adapter = createCacheApiDataSourceAdapter(source, cache);
-
-    await adapter.getSoldListings("mock:tcg:charizard");
-
-    expect(cache.puts[0]?.requestUrl).toBe(
-      "https://data-source-cache.invalid/getSoldListings:v5:mock%3Atcg%3Acharizard",
-    );
+    expect(cache.values).toEqual(new Map());
   });
 });

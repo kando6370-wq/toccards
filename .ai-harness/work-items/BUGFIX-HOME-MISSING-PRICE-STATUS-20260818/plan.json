@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-HOME-MISSING-PRICE-STATUS-20260818",
+  "mode": "single",
+  "rationale": "单一缺价状态根因，兼容新增两个 API 字段并在共享 Flutter Home 分流，单 Review Batch 可闭环",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "增加缺价状态并修复 Home 展示",
+      "module": "Workers portfolio + Flutter Home",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/workers-api/src/portfolio/valuation-history.ts",
+        "apps/workers-api/src/portfolio/valuation-history.test.ts",
+        "apps/flutter-app/lib/shared/portfolio/portfolio_api_client.dart",
+        "apps/flutter-app/lib/features/home/home_models.dart",
+        "apps/flutter-app/lib/features/home/home_repository.dart",
+        "apps/flutter-app/lib/features/home/home_controller.dart",
+        "apps/flutter-app/lib/features/home/home_page.dart",
+        "apps/flutter-app/test/portfolio_api_client_test.dart",
+        "apps/flutter-app/test/home_repository_test.dart",
+        "apps/flutter-app/test/home_controller_test.dart",
+        "apps/flutter-app/test/widget/home_page_test.dart",
+        "apps/flutter-app/test/support/mock_home_repository.dart",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "verification": [
+        "pnpm --filter @kando/workers-api test -- src/portfolio/valuation-history.test.ts",
+        "flutter test test/portfolio_api_client_test.dart test/home_repository_test.dart test/home_controller_test.dart test/widget/home_page_test.dart",
+        "pnpm --filter @kando/workers-api type-check",
+        "flutter analyze"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "primary-agent",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "510e934b-a676-445e-aa0d-7b4d89fc6e6f",
+        "41f74685-afc8-456e-bf6c-7abe710fa5fa"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "首页缺价状态契约与展示",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T06:12:31.576Z",
+  "updatedAt": "2026-08-18T06:31:59.578Z"
+}

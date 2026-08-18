@@ -256,16 +256,18 @@ class CollectionState {
     final items = dashboard.portfolioItems
         .where((item) => item.folderId == selectedFolder.id)
         .toList();
-    final total = items.fold<double>(0, (sum, item) {
-      final value = item.marketValueUsd;
-      if (value == null || value <= 0) {
-        return sum;
-      }
-      return sum + value * item.quantity;
-    });
+    final pricedItems = items
+        .where((item) => item.marketValueUsd != null)
+        .toList();
+    final total = pricedItems.fold<double>(
+      0,
+      (sum, item) => sum + item.marketValueUsd! * item.quantity,
+    );
 
     return CollectionSummary(
-      totalValueText: _formatPortfolioTotal(total),
+      totalValueText: items.isNotEmpty && pricedItems.isEmpty
+          ? '--'
+          : _formatPortfolioTotal(total),
       cardCount: items.fold(0, (sum, item) => sum + item.quantity),
       gradedCount: items
           .where((item) => item.isGraded)
@@ -321,7 +323,7 @@ class CollectionState {
   }
 
   String _formatMoney(double? valueUsd, int quantity) {
-    if (valueUsd == null || valueUsd <= 0) {
+    if (valueUsd == null) {
       return '--';
     }
     return CurrencyFormatter(

@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "id": "ANALYSIS-APPLE-JWS-INVALID-20260818",
+  "type": "ANALYSIS",
+  "title": "排查管理后台 Apple 通知 NOTIFICATION_JWS_INVALID",
+  "status": "ANSWERED",
+  "flags": [
+    "api",
+    "database"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/analysis.md",
+    ".ai-harness/policies/api.md",
+    ".ai-harness/policies/database.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户要求只读排查 JWS 验签失败原因"
+  },
+  "input": {
+    "references": [
+      "用户提供的 2026-08-18 管理后台截图",
+      "当前 dev 分支代码、配置、迁移、测试与只读运行时证据"
+    ],
+    "acceptance": [
+      "确认错误码的代码触发条件与业务影响",
+      "基于实际通知记录或等价只读证据定位直接原因，若无法取得则明确未知",
+      "区分路由接收、JWS 验签、持久化和业务处理层级"
+    ],
+    "nonGoals": [
+      "不修改产品代码、配置、数据库或 App Store Connect"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "doctor: dev@3f4f25fe9a0904a42b8a4867d8224ab2604b0f75，启动时工作树 clean，github/dev 同步",
+      "范围：apps/workers-api Apple 通知入站/验签/Admin 查询、PostgreSQL inbox；环境假设 dev，待运行时证据核验"
+    ],
+    "completedAt": "2026-08-18T02:44:22.486Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "3f4f25fe9a0904a42b8a4867d8224ab2604b0f75",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/state.json"
+      ],
+      "fingerprints": {
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/events.jsonl": "b8803d6dd3f997b7a051bf0890c4a980954642f21f509e25c4747b0aef6517d1",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/state.json": "537fc275ae91735861597eb3feab1f1732cc1afb6028c8450a5762ebbf413839"
+      }
+    }
+  },
+  "solution": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null
+  },
+  "database": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null,
+    "impact": "unknown"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/plan.json",
+    "approved": false,
+    "approvalRef": null
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pass",
+    "evidence": [
+      "fe2d821c-2963-4b0f-b69a-9e392caecd79"
+    ],
+    "conclusions": [
+      {
+        "id": "02d25d96-5a98-464e-b6c3-041b38b9a6d1",
+        "status": "PROVEN",
+        "text": "历史收件箱中的 Apple 通知与嵌套交易 JWS 本身有效；使用 Apple 官方 Root CA G3 和项目同版 @apple/app-store-server-library 3.1.0，本机关闭/开启在线检查均验签通过。",
+        "evidence": [
+          "D1 Studio 原始记录：外层 ES256 三段 JWS、x5c 三证书链、Sandbox、bundleId=com.kando.kandoApp.beta、appAppleId=6790245922",
+          "2026-08-18 10:57 GMT+8 访问 Apple 官方 AppleRootCA-G3.cer 返回 200；SHA-256 指纹与通知链根证书一致",
+          "本机官方库 3.1.0 对外层通知和嵌套 cardx.week 交易在 onlineChecks=false/true 下均通过"
+        ]
+      },
+      {
+        "id": "48d5d2fa-6b0e-4e16-b799-bc55116a605c",
+        "status": "PROVEN",
+        "text": "dev 运行时在共用 SignedDataVerifier 层拒绝了同批有效证据：通知进入 verification_failed/NOTIFICATION_JWS_INVALID，客户端交易进入 EVIDENCE_INVALID，未生成结构化通知和订单。",
+        "evidence": [
+          "当前 Admin 共 42 条通知，字段均为空且详情为 NOTIFICATION_JWS_INVALID；订单总数为 0",
+          "迁移前 dev D1 有 34 条 inbox，历史 billing_apple_verification_attempt 样本均为 storekit2_signed_transaction/EVIDENCE_INVALID/transaction_id NULL",
+          "apple-notification-routes.ts:155-176 与 entitlements/routes.ts:208-221 共用 apple-signed-data.ts 的 SignedDataVerifier"
+        ]
+      },
+      {
+        "id": "cc4e72fa-65b3-4305-b1e2-5b470ff7fdfc",
+        "status": "INFERRED",
+        "text": "直接故障位于 dev Worker 共用验签器的信任根或 Worker 证书/OCSP 运行时；优先怀疑 APPLE_ROOT_CERTIFICATES_BASE64 实际内容不是 Apple Root CA G3，因为该 Secret 内容从未被平台可读核验。",
+        "evidence": [
+          "有效 JWS 使用 Apple Root CA G3，官方证书 SHA-256=63:34:3A:BF:B8:9A:6A:03:EB:B5:7E:9B:3F:5F:A7:BE:7C:4F:5C:75:6F:30:17:B3:A8:C4:88:C3:65:3E:91:79",
+          "项目仅确认 Secret 名存在；apple-signed-data.ts 将其解析为受信任根并开启 onlineChecks=true",
+          "同一 JWS/同一库在本机含 OCSP 的 onlineChecks=true 下成功，降低了 Apple Payload、Bundle、环境和普遍 OCSP 故障的可能性"
+        ]
+      },
+      {
+        "id": "b470d701-013a-413b-8905-8950ad094654",
+        "status": "UNKNOWN",
+        "text": "仅靠现有数据库和后台无法在 Root CA Secret 不匹配、Cloudflare Worker X509/OCSP 兼容性故障之间最终二选一。",
+        "evidence": []
+      },
+      {
+        "id": "d54882d6-dd11-4971-9eb8-6a10cae7cf3a",
+        "status": "PROPOSAL",
+        "text": "最小确认路径：先在本地对准备写入 Secret 的解码证书计算 SHA-256 并与 G3 指纹核对，若不匹配则替换 dev Secret 后触发一条新 Sandbox 通知；若已匹配，则在不记录 JWS 的前提下临时记录 VerificationException.status/cause，以区分证书链失败与 RETRYABLE_VERIFICATION_FAILURE/OCSP。",
+        "evidence": [
+          "官方库 VerificationStatus 可区分 VERIFICATION_FAILURE、RETRYABLE_VERIFICATION_FAILURE、INVALID_APP_IDENTIFIER、INVALID_ENVIRONMENT、INVALID_CHAIN_LENGTH、INVALID_CERTIFICATE 和 FAILURE",
+          "当前两处 catch 均未保留异常类别，无法由现有 last_error 进一步定位"
+        ]
+      }
+    ],
+    "unknowns": [
+      "Cloudflare 不回显 Secret 内容，且代码 catch 丢弃 VerificationException.status/cause，只保存统一 NOTIFICATION_JWS_INVALID/EVIDENCE_INVALID。"
+    ]
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T02:43:59.400Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T02:44:14.313Z",
+      "reason": "已确认分析范围、环境假设与只读边界"
+    },
+    {
+      "from": "BASELINING",
+      "to": "ANALYZING",
+      "at": "2026-08-18T02:44:29.281Z",
+      "reason": "基线已记录，开始读取验签入口、官方库适配、数据库记录和运行时配置"
+    },
+    {
+      "from": "ANALYZING",
+      "to": "ANSWERED",
+      "at": "2026-08-18T03:00:51.333Z",
+      "reason": "已定位到 dev 共用验签器信任根/Worker 运行时层，并明确最后一个只读不可区分分支与最小确认路径"
+    }
+  ],
+  "createdAt": "2026-08-18T02:43:59.400Z",
+  "updatedAt": "2026-08-18T03:00:51.333Z"
+}

@@ -36,6 +36,7 @@ type CollectionItemRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
   purchase_price: number | null;
   purchase_currency: string | null;
@@ -67,6 +68,7 @@ type CollectionItemEventRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
   purchase_price: number | null;
   purchase_currency: string | null;
@@ -191,6 +193,7 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        priceSeriesId,
         quantity,
         purchasePrice,
         purchaseCurrency,
@@ -210,6 +213,7 @@ class FakeD1Statement {
         number | null,
         string | null,
         string | null,
+        number | null,
         number,
         number | null,
         string | null,
@@ -230,6 +234,7 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        price_series_id: priceSeriesId,
         quantity,
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
@@ -253,6 +258,7 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        priceSeriesId,
         quantity,
         purchasePrice,
         purchaseCurrency,
@@ -274,6 +280,7 @@ class FakeD1Statement {
         number | null,
         string | null,
         string | null,
+        number | null,
         number,
         number | null,
         string | null,
@@ -297,6 +304,7 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        price_series_id: priceSeriesId,
         quantity,
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
@@ -321,6 +329,7 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        priceSeriesId,
         quantity,
         purchasePrice,
         purchaseCurrency,
@@ -337,6 +346,7 @@ class FakeD1Statement {
         number | null,
         string | null,
         string | null,
+        number | null,
         number,
         number | null,
         string | null,
@@ -358,6 +368,7 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        price_series_id: priceSeriesId,
         quantity,
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
@@ -500,6 +511,7 @@ describe("collection item routes", () => {
         folder_id: "main",
         card_ref: "card-a",
         quantity: 2,
+        price_series_id: null,
         event_type: "upsert",
       }),
     ]);
@@ -800,7 +812,7 @@ describe("collection item routes", () => {
   it("preserves folder join time during field-only edits because ordinary edits are not folder additions", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }));
-    db.items.push(item({ id: "owned", folder_id: "main" }));
+    db.items.push(item({ id: "owned", folder_id: "main", price_series_id: 7 }));
 
     const response = await app.request(
       "/api/v1/portfolio/items/owned",
@@ -814,14 +826,16 @@ describe("collection item routes", () => {
 
     expect(response.status).toBe(200);
     expect(db.items[0].quantity).toBe(2);
+    expect(db.items[0].price_series_id).toBe(7);
     expect(db.items[0].folder_joined_at).toBe(NOW);
     expect(db.items[0].updated_at).not.toBe(NOW);
+    expect(db.itemEvents[0]?.price_series_id).toBe(7);
   });
 
   it("edits fields and moves folders in one PATCH because edited moves must complete atomically", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
-    db.items.push(item({ id: "owned", folder_id: "main" }));
+    db.items.push(item({ id: "owned", folder_id: "main", price_series_id: 7 }));
 
     const response = await app.request(
       "/api/v1/portfolio/items/owned",
@@ -861,6 +875,7 @@ describe("collection item routes", () => {
         folder_id: "trade",
         grader: "PSA",
         grade: 10,
+        price_series_id: null,
         quantity: 2,
         notes: "trade binder",
       }),
@@ -873,6 +888,7 @@ describe("collection item routes", () => {
         folder_id: "trade",
         grader: "PSA",
         grade: 10,
+        price_series_id: null,
         quantity: 2,
         event_type: "upsert",
       }),
@@ -911,6 +927,28 @@ describe("collection item routes", () => {
       }),
     ]);
     expect(db.itemEvents).toEqual([]);
+  });
+
+  it("preserves a saved series in move and delete events because folder changes must not rewrite historical pricing", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
+    db.items.push(item({ id: "owned", folder_id: "main", price_series_id: 7 }));
+    const headers = await authHeaders("anonymous", "anon-1");
+
+    const move = await app.request(
+      "/api/v1/portfolio/items/owned/move",
+      { method: "PATCH", headers, body: JSON.stringify({ folder_id: "trade" }) },
+      createTestEnv(db),
+    );
+    const remove = await app.request(
+      "/api/v1/portfolio/items/owned",
+      { method: "DELETE", headers },
+      createTestEnv(db),
+    );
+
+    expect(move.status).toBe(200);
+    expect(remove.status).toBe(200);
+    expect(db.itemEvents.map((eventRow) => eventRow.price_series_id)).toEqual([7, 7]);
   });
 
   it("gets, updates, moves, and deletes only owned collection items because item operations must stay inside the owner boundary", async () => {
@@ -1114,6 +1152,7 @@ function item(overrides: Partial<CollectionItemRow>): CollectionItemRow {
     grade: null,
     language: "English",
     finish: "Holofoil",
+    price_series_id: null,
     quantity: 1,
     purchase_price: null,
     purchase_currency: null,

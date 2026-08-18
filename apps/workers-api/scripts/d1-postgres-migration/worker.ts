@@ -10,6 +10,7 @@ import priceDomainSql from "../../src/db/postgres/migrations/0001_price_domain.s
 import appleInboxEnvironmentSql from "../../src/db/postgres/migrations/0002_apple_inbox_environment.sql";
 import priceHistoryVisibilityGuardSql from "../../src/db/postgres/migrations/0003_price_history_visibility_guard.sql";
 import priceHistoryPayloadLimitSql from "../../src/db/postgres/migrations/0004_price_history_month_payload_limit.sql";
+import dropTrendingPinSql from "../../src/db/postgres/migrations/0005_drop_trending_pin.sql";
 import {
   MAX_BATCH_BYTES,
   MAX_BATCH_ROWS,
@@ -40,6 +41,7 @@ const MIGRATIONS = [
   { name: "0002_apple_inbox_environment", sql: appleInboxEnvironmentSql },
   { name: "0003_price_history_visibility_guard", sql: priceHistoryVisibilityGuardSql },
   { name: "0004_price_history_month_payload_limit", sql: priceHistoryPayloadLimitSql },
+  { name: "0005_drop_trending_pin", sql: dropTrendingPinSql },
 ] as const;
 
 export default {

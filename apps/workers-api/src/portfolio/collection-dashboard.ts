@@ -19,6 +19,7 @@ export type DashboardPortfolioRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
   folder_joined_at: string;
   created_at: string;
@@ -61,7 +62,7 @@ export async function enrichCollectionDashboard(
         currentDate,
         baselineDate,
         matched?.history ?? null,
-        matched?.increaseRate ?? null,
+        matched?.change30dPercent ?? null,
       );
     }),
     wishlist_items: wishlist.map((item) => {
@@ -74,7 +75,7 @@ export async function enrichCollectionDashboard(
         currentDate,
         baselineDate,
         null,
-        sku?.increase_rate ?? null,
+        sku?.change_30d_percent ?? null,
       );
     }),
   };
@@ -89,8 +90,11 @@ function presentation(
   priceHistory: string | null = null,
   increasePercent: number | null = null,
 ) {
+  const publicItem = "price_series_id" in item
+    ? withoutPriceSeriesId(item)
+    : item;
   return {
-    ...item,
+    ...publicItem,
     name: card?.name ?? item.card_ref,
     set_name: card?.set_name ?? "Card data unavailable",
     card_number: card?.number ?? "",
@@ -111,6 +115,13 @@ function presentation(
     market_finish: sku?.variant_name ?? null,
     market_condition: sku?.condition_name ?? null,
   };
+}
+
+function withoutPriceSeriesId(
+  item: DashboardPortfolioRow,
+): Omit<DashboardPortfolioRow, "price_series_id"> {
+  const { price_series_id: _, ...publicItem } = item;
+  return publicItem;
 }
 
 function wishlistSku(rows: SkuRow[]): SkuRow | null {

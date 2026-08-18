@@ -33,7 +33,7 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 | Workers | API、分享页、定时补偿与 Admin assets 入口 |
 | Hyperdrive | Workers 到共享 PlanetScale PostgreSQL 的连接边界，查询缓存已关闭 |
 | PlanetScale PostgreSQL 18.6 | dev 目录、账号、资产、扫描、订阅、通知和运营真源；prod 仓库配置使用同一数据集 |
-| D1 | 迁移前数据源、历史 migration 与 Miniflare 集成测试；当前 prod 已部署旧版本仍使用 prod D1 |
+| D1 | 与 PostgreSQL 完全独立的迁移前历史库、历史 migration 与本地 Miniflare 集成测试；当前运行、修复、回滚和灾备均不得读取或回退 D1 |
 | KV | 可重建目录/汇率缓存 |
 | R2 | 扫描图片 |
 | Wrangler 4.106.0 | 本地开发、迁移、dry-run 与环境部署 |

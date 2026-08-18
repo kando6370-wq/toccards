@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "id": "BUGFIX-PG-ONLY-RUNTIME-20260818",
+  "type": "BUGFIX",
+  "title": "移除 Worker 运行时 D1 兼容回退",
+  "status": "DONE",
+  "flags": [
+    "api"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/bugfix.md",
+    ".ai-harness/policies/api.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户明确要求 D1 与 PostgreSQL 完全切断"
+  },
+  "input": {
+    "references": [
+      "用户明确：D1 与 PostgreSQL 完全独立，不得再从 D1 获取数据"
+    ],
+    "acceptance": [
+      "fetch 与 scheduled 在缺少 HYPERDRIVE 时显式失败，即使存在 DB binding 也不得执行",
+      "直接 app.request 测试注入能力保留，产品部署运行时只允许 PostgreSQL",
+      "定向测试、Workers type-check 与契约文档验证通过"
+    ],
+    "nonGoals": [
+      "不修改 Schema、不导入价格数据、不部署、不写远程数据库"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": {
+    "actual": "index.ts 在缺少 HYPERDRIVE 时仍接受 env.DB，可能让兼容部署读取 D1",
+    "expected": "部署 fetch/scheduled 必须要求 HYPERDRIVE，D1 binding 永不进入产品运行时",
+    "reproduction": "阅读 index.ts 的 env.DB fallback，并以只有 DB binding 的 Worker fetch/scheduled 调用复现"
+  },
+  "baseline": {
+    "status": "complete",
+    "document": "docs/releases/v1.1.0/03-data-api/contract-changes.md",
+    "evidence": [
+      "dev/prod Wrangler 均配置 HYPERDRIVE 且无 D1 binding；index.ts 仍保留 env.DB fallback",
+      "保留现有其他工作项与用户未提交改动，仅修改精确范围"
+    ],
+    "completedAt": "2026-08-18T03:36:32.882Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev",
+      "commit": "3f4f25fe9a0904a42b8a4867d8224ab2604b0f75",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/state.json",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/evidence.jsonl",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/plan.json",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/state.json",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-APP-DATA-20260818/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-APP-DATA-20260818/state.json",
+        "docs/releases/v1.1.0/03-data-api/research/price-domain-postgresql-ddl.md",
+        "docs/releases/v1.1.0/05-delivery/app-store-connect-subscription-setup.md",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md"
+      ],
+      "fingerprints": {
+        "docs/releases/v1.1.0/03-data-api/research/price-domain-postgresql-ddl.md": "256c02bc8174bb61d811a5285273da103048ae39b7ee83020f839752ccffd1b6",
+        "docs/releases/v1.1.0/05-delivery/app-store-connect-subscription-setup.md": "ba041f84547a24247252b2bd57ca77f3a012c12626519f5591f2bc0af61c5e3f",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md": "884f7574d78c29f76de50e52575fcd325be4227afa46b46ab92c34bf67e098f1",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md": "08821c4db5a98667a30bd3ca7792da425cf96714398eb3431b8aa34975357ac7",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/events.jsonl": "90b91f23a5be7fe83714533188bb59b28d36721a44f7eedaca6b5ca49212e457",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/evidence.jsonl": "53944a9384a72c11abbfaf2c6f9d4ca9f8c7726b5c3b0516e34c83d9cc42baff",
+        ".ai-harness/work-items/ANALYSIS-APPLE-JWS-INVALID-20260818/state.json": "79d41bebe7225667c364db0703c92bf92921bc8b99dea4691e415b6112c41fda",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/events.jsonl": "cd352354d3f29ec18a888f5e18f56d7664b87342c175392392cd0be904888e56",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/evidence.jsonl": "b48964fde4cc15b3a9b0a12a8c1aad4a7819bf2c08e8389255cf67e940760e9d",
+        ".ai-harness/work-items/ANALYSIS-DEV-POSTGRES-STATUS-20260818/state.json": "e356fe03703832f975a53773997f9f4139fe475cbe0c0cacd3def6789f5c1870",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/events.jsonl": "ab76aa05c094b2bd77da48c4176690ccbb6bfcf69fde0888e0daefb8737c63c3",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/evidence.jsonl": "e262df440877502d64b680bb7e49fc547d49c1f477521ddc978edc53682976e0",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/plan.json": "57fa16fc4c2715bbc7bac2d42706290a148eacc20b6f9e1eccf48f4821109d10",
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/state.json": "be2e71775fd1cbc2db40c8b76f677e48e02fec3d10cc745414bd5ef355f06a68",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/events.jsonl": "e022c87677a4de286921b1da8026816268ab745108de879f0a91c654d19f1f80",
+        ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/state.json": "8ec7263b5e1cbe483a7f2e0f00884f2c5ff31a40eb9970f03ee81bd12d2552ea",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-APP-DATA-20260818/events.jsonl": "ff89b2fac957ecc98a7d2a548786f3afa6d0aef2bab42514a163a09aac3d05d9",
+        ".ai-harness/work-items/BUGFIX-POSTGRES-APP-DATA-20260818/state.json": "1cf29dd2317b39b12b508153082e8de35940e33078c0e0f2b7729e753386d9f3"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": "docs/releases/v1.1.0/03-data-api/contract-changes.md",
+    "evidence": [
+      "fetch 删除 env.DB fallback，缺少 HYPERDRIVE 或 ExecutionContext 时显式失败",
+      "scheduled 删除 env.DB fallback，只通过 Hyperdrive 创建 PostgreSQL 适配器",
+      "保留 default export 的 request 供单元/集成测试注入 Database，不改变 HTTP API 契约"
+    ],
+    "completedAt": "2026-08-18T03:36:33.647Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": "docs/releases/v1.1.0/03-data-api/contract-changes.md",
+    "evidence": [
+      "只修改 Worker binding 选择和测试，不改变 PostgreSQL Schema、数据或查询合同"
+    ],
+    "completedAt": "2026-08-18T03:36:34.010Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/BUGFIX-PG-ONLY-RUNTIME-20260818/plan.json",
+    "approved": true,
+    "approvalRef": "用户明确：D1 与 PostgreSQL 完全独立，不要再取 D1 数据"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "b78e9ce0-7177-415e-b481-e7f74a608e1a"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "9226daf0-34cb-4e32-9a97-3b2016d3614d"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "bf0d76f3-e058-40c4-b159-630d07e48ec8"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "59badb7e-1daa-413f-8579-437ecd38cd30"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-18T03:36:31.936Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-18T03:36:32.312Z",
+      "reason": "锁定 index.ts、运行时选择测试与 v1.1 API 契约"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-18T03:36:33.283Z",
+      "reason": "基线已确认，设计 PostgreSQL-only 运行时选择"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-18T03:36:35.869Z",
+      "reason": "设计、数据库无影响判断与单任务计划已完成"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-18T03:36:36.232Z",
+      "reason": "开始按批准计划实施 PostgreSQL-only runtime"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-18T03:47:00.663Z",
+      "reason": "任务实现与任务级 Review 完成，进入工作项验证"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-18T03:47:25.026Z",
+      "reason": "工作项验证与文档核对完成"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-18T03:47:43.501Z",
+      "reason": "最终代码审查通过"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T03:48:00.371Z",
+      "reason": "PostgreSQL-only runtime 修复已满足验收条件"
+    }
+  ],
+  "createdAt": "2026-08-18T03:36:31.936Z",
+  "updatedAt": "2026-08-18T03:48:00.371Z"
+}

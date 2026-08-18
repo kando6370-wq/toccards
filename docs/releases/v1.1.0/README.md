@@ -34,6 +34,7 @@
 - [契约变化](03-data-api/contract-changes.md)
 - [Premium 权益契约](03-data-api/entitlement-contract.md)
 - [数据迁移](03-data-api/migration.md)
+- [Trending Today 数据采集与 PostgreSQL 写入指南](03-data-api/trending-collector-integration.md)
 - [D1 到 PostgreSQL 选型研究](03-data-api/research/database-migration-research.md)
 - [价格历史容量与性能分析](03-data-api/research/price-history-database-capacity-analysis.md)
 - [PostgreSQL 价格域详细 DDL 设计](03-data-api/research/price-domain-postgresql-ddl.md)

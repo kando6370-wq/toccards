@@ -306,12 +306,16 @@ class PortfolioMostValuableDto {
 class PortfolioFolderValuationDto {
   const PortfolioFolderValuationDto({
     required this.folderId,
+    required this.itemCount,
+    required this.marketPriceStatus,
     required this.currentValueUsd,
     required this.series,
     required this.mostValuable,
   });
 
   final String folderId;
+  final int itemCount;
+  final MarketPriceStatus marketPriceStatus;
   final double currentValueUsd;
   final List<PortfolioValuationPointDto> series;
   final List<PortfolioMostValuableDto> mostValuable;
@@ -324,8 +328,19 @@ class PortfolioFolderValuationDto {
         'Something went wrong. Please try again.',
       );
     }
+    final marketPriceStatus = switch (_requiredString(
+      json['market_price_status'],
+    )) {
+      'available' => MarketPriceStatus.available,
+      'missing' => MarketPriceStatus.missing,
+      _ => throw const PortfolioApiException(
+        'Something went wrong. Please try again.',
+      ),
+    };
     return PortfolioFolderValuationDto(
       folderId: _requiredString(json['folder_id']),
+      itemCount: _requiredInt(json['item_count']),
+      marketPriceStatus: marketPriceStatus,
       currentValueUsd: _requiredDouble(json['current_value_usd']),
       series: series
           .map(_mapItem)

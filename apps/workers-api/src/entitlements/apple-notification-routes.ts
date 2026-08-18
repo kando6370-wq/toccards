@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../env";
 import { createId } from "../id";
 import {
+  classifyAppleVerificationFailure,
   createAppleNotificationVerifier,
   Environment,
   type AppleNotificationVerifier,
@@ -171,8 +172,16 @@ export async function processAppleNotificationInbox(
   let notification: ResponseBodyV2DecodedPayload;
   try {
     notification = await configured.verifier.verifyAndDecodeNotification(inbox.signed_payload);
-  } catch {
-    await failInbox(env.DB, inboxId, environment, "verification_failed", "NOTIFICATION_JWS_INVALID", now);
+  } catch (error) {
+    const failure = await classifyAppleVerificationFailure(error);
+    await failInbox(
+      env.DB,
+      inboxId,
+      environment,
+      failure?.retryable ? "processing_failed" : "verification_failed",
+      failure ? `NOTIFICATION_JWS_${failure.status}` : "NOTIFICATION_JWS_INVALID",
+      failure?.retryable ? undefined : now,
+    );
     return;
   }
 
@@ -191,8 +200,16 @@ export async function processAppleNotificationInbox(
     if (notification.data?.signedRenewalInfo) {
       renewal = await configured.verifier.verifyAndDecodeRenewalInfo(notification.data.signedRenewalInfo);
     }
-  } catch {
-    await failInbox(env.DB, inboxId, environment, "parse_failed", "NESTED_JWS_INVALID", now);
+  } catch (error) {
+    const failure = await classifyAppleVerificationFailure(error);
+    await failInbox(
+      env.DB,
+      inboxId,
+      environment,
+      failure?.retryable ? "processing_failed" : "parse_failed",
+      failure ? `NESTED_JWS_${failure.status}` : "NESTED_JWS_INVALID",
+      failure?.retryable ? undefined : now,
+    );
     return;
   }
 

@@ -41,6 +41,7 @@ type CollectionItemRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
   purchase_price: number | null;
   purchase_currency: string | null;
@@ -168,6 +169,7 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        priceSeriesId,
         quantity,
         purchasePrice,
         purchaseCurrency,
@@ -189,6 +191,7 @@ class FakeD1Statement {
         number | null,
         string | null,
         string | null,
+        number | null,
         number,
         number | null,
         string | null,
@@ -212,6 +215,7 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        price_series_id: priceSeriesId,
         quantity,
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
@@ -378,6 +382,7 @@ describe("collect shortcut route", () => {
       id: "owned", owner_type: "anonymous", owner_id: "anon-1", folder_id: "main",
       card_ref: "card-a", object_type: "tcg", grader: "Raw", condition: "Near Mint (NM)",
       grade: null, language: "English", finish: "Holofoil", quantity: 1,
+      price_series_id: null,
       purchase_price: null, purchase_currency: null,
       performance_start_at: NOW, purchase_price_effective_at: NOW,
       performance_history_available_from: NOW,

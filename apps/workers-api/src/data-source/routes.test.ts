@@ -61,17 +61,10 @@ type GameCatalogRow = {
   search_sort: number;
 };
 
-type TrendingPinRow = {
-  card_ref: string;
-  rank: number;
-  active: number;
-};
-
 class FakeD1Database {
   constructor(
     private readonly cardOverrides: CardOverrideRow[] = [],
     private readonly cards: CardCatalogRow[] = [],
-    private readonly trendingPins: TrendingPinRow[] = [],
     private readonly sets: SetCatalogRow[] = [],
     private readonly games: GameCatalogRow[] = [],
   ) {}
@@ -81,7 +74,6 @@ class FakeD1Database {
       sql,
       this.cardOverrides,
       this.cards,
-      this.trendingPins,
       this.sets,
       this.games,
     );
@@ -93,7 +85,6 @@ class FakeD1Statement {
     private readonly sql: string,
     private readonly cardOverrides: CardOverrideRow[],
     private readonly cards: CardCatalogRow[],
-    private readonly trendingPins: TrendingPinRow[],
     private readonly sets: SetCatalogRow[],
     private readonly games: GameCatalogRow[],
   ) {}
@@ -103,7 +94,6 @@ class FakeD1Statement {
       this.sql,
       this.cardOverrides,
       this.cards,
-      this.trendingPins,
       this.sets,
       this.games,
       values,
@@ -115,7 +105,6 @@ class FakeD1Statement {
       this.sql,
       this.cardOverrides,
       this.cards,
-      this.trendingPins,
       this.sets,
       this.games,
       [],
@@ -128,7 +117,6 @@ class FakeD1BoundStatement {
     private readonly sql: string,
     private readonly cardOverrides: CardOverrideRow[],
     private readonly cards: CardCatalogRow[],
-    private readonly trendingPins: TrendingPinRow[],
     private readonly sets: SetCatalogRow[],
     private readonly games: GameCatalogRow[],
     private readonly values: unknown[],
@@ -160,14 +148,6 @@ class FakeD1BoundStatement {
       const cardRefs = new Set(this.values.map(String));
       return {
         results: this.cardOverrides.filter((row) => cardRefs.has(row.card_ref)) as T[],
-      };
-    }
-
-    if (this.sql.includes("FROM trending_pin")) {
-      return {
-        results: this.trendingPins
-          .filter((pin) => pin.active === 1)
-          .sort((left, right) => left.rank - right.rank) as T[],
       };
     }
 
@@ -363,7 +343,7 @@ describe("data source routes", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses current D1 card catalog tables by default because M2 no longer depends on third-party mock data", async () => {
+  it("uses the PostgreSQL card catalog by default because runtime data must not come from D1 or third-party mock data", async () => {
     const response = await app.request(
       "/api/v1/cards/search?q=pikachu",
       {},
@@ -433,33 +413,6 @@ describe("data source routes", () => {
 
     const body = await response.json<{ data: { items: Array<{ card_ref: string }> } }>();
     expect(body.data.items.map((item) => item.card_ref)).toEqual(["card-1"]);
-  });
-
-  it("does not let admin pins override Trending Today because the feed order is defined by real price change", async () => {
-    const response = await app.request(
-      "/api/v1/cards/trending",
-      {},
-      createTestEnv(
-        [],
-        [
-          {
-            product_id: "300",
-            game_id: 3,
-            game: "Pokemon",
-            set_name: "Base Set",
-            set_code: "BS",
-            name: "Pikachu",
-            rarity: "Common",
-            product_type_name: "Cards",
-            image_url: "https://img.example/300.jpg",
-          },
-        ],
-        [{ card_ref: "300", rank: 1, active: 1 }],
-      ),
-    );
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ success: true, data: { items: [] } });
   });
 
   it("returns transformed R2 detail images and redirects the legacy image route to the R2 master because card rendering must not depend on provider images", async () => {
@@ -770,7 +723,6 @@ describe("data source routes", () => {
           image_url: null,
         },
       ],
-      [],
       [
         {
           game: "Pokemon",
@@ -907,7 +859,6 @@ describe("data source routes", () => {
 
   it("returns enabled games by search_sort because the database owns the Search default", async () => {
     const env = createTestEnv(
-      [],
       [],
       [],
       [],
@@ -1073,7 +1024,7 @@ describe("data source routes", () => {
     });
   });
 
-  it("keeps list fallbacks but fails Trending loudly because clients must not mistake an outage for an empty ranking", async () => {
+  it("fails public data queries loudly because clients must distinguish PostgreSQL outages from empty business data", async () => {
     const routeApp = new Hono<{ Bindings: Env }>();
     routeApp.route(
       "/",
@@ -1120,48 +1071,42 @@ describe("data source routes", () => {
       createTestEnv(),
     );
 
-    expect(search.status).toBe(200);
-    expect(await search.json()).toEqual({
-      success: true,
-      data: { items: [], total: 0, page: 1, page_size: 40 },
-    });
-    expect(sets.status).toBe(200);
-    expect(await sets.json()).toEqual({
-      success: true,
-      data: { items: [], total: 0, page: 1, page_size: 20 },
-    });
-    expect(marketPrices.status).toBe(200);
-    expect(await marketPrices.json()).toEqual({
-      success: true,
-      data: {
-        card_ref: "mock:tcg:charizard-base-4",
-        prices: [],
-        updated_at: expect.any(String),
-      },
-    });
-    expect(priceSeries.status).toBe(200);
-    expect(await priceSeries.json()).toEqual({
-      success: true,
-      data: {
-        card_ref: "mock:tcg:charizard-base-4",
-        grader: "Raw",
-        grade: null,
-        condition: "Near Mint",
-        days: 30,
-        series: [],
-      },
-    });
-    expect(trending.status).toBe(500);
-    expect(soldListings.status).toBe(200);
-    expect(await soldListings.json()).toEqual({
-      success: true,
-      data: { items: [] },
-    });
-    expect(detail.status).toBe(404);
-    expect(await detail.json()).toEqual({
-      success: false,
-      error: { code: "NOT_FOUND", message: "Not found." },
-    });
+    expect([
+      search.status,
+      sets.status,
+      marketPrices.status,
+      priceSeries.status,
+      trending.status,
+      soldListings.status,
+      detail.status,
+    ]).toEqual([500, 500, 500, 500, 500, 500, 500]);
+  });
+
+  it("fails detail and Trending when card overrides cannot be queried because PostgreSQL failures must not become uncorrected success data", async () => {
+    const routeApp = new Hono<{ Bindings: Env }>();
+    routeApp.route(
+      "/",
+      createDataSourceRoutes({
+        createAdapter: () => createMockDataSourceAdapter(),
+      }),
+    );
+    const env = {
+      ...createTestEnv(),
+      DB: {
+        prepare(): never {
+          throw new Error("Injected card override query failure.");
+        },
+      } as unknown as D1Database,
+    };
+
+    const detail = await routeApp.request(
+      `/cards/${encodeURIComponent("mock:tcg:charizard-base-4")}`,
+      {},
+      env,
+    );
+    const trending = await routeApp.request("/cards/trending", {}, env);
+
+    expect([detail.status, trending.status]).toEqual([500, 500]);
   });
 
   it("fails price-query limit breaches loudly because an oversized Hyperdrive response is not empty business data", async () => {
@@ -1251,7 +1196,6 @@ describe("data source routes", () => {
 function createTestEnv(
   cardOverrides: CardOverrideRow[] = [],
   cards: CardCatalogRow[] = [],
-  trendingPins: TrendingPinRow[] = [],
   sets: SetCatalogRow[] = [],
   games: GameCatalogRow[] = [],
 ): Env {
@@ -1259,7 +1203,6 @@ function createTestEnv(
     DB: new FakeD1Database(
       cardOverrides,
       cards,
-      trendingPins,
       sets,
       games,
     ) as unknown as D1Database,

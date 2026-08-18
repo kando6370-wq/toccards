@@ -117,6 +117,24 @@ void main() {
   );
 
   test(
+    'holdings without PostgreSQL prices expose an unknown total instead of an empty portfolio',
+    () {
+      final container = _homeContainer(
+        const _MissingMarketPriceHomeRepository(),
+      );
+      addTearDown(container.dispose);
+
+      final state = container.read(homeControllerProvider);
+
+      expect(state.hasCollectionItems, isTrue);
+      expect(state.isMarketPriceMissing, isTrue);
+      expect(state.totalAmountText, '--');
+      expect(state.changeAmountText, '-- in the last 30 days');
+      expect(state.changePercentText, '-/-');
+    },
+  );
+
+  test(
     'refresh failure preserves the selected dashboard shell instead of resetting it to Main',
     () async {
       final repository = _SuccessfulThenFailingHomeRepository();
@@ -745,6 +763,8 @@ class _NegativeChangeHomeRepository implements HomeRepository {
       portfoliosByFolderId: {
         'main': PortfolioSummary(
           folderId: 'main',
+          itemCount: 1,
+          marketPriceStatus: MarketPriceStatus.available,
           totalValueUsd: 12840,
           previous30dValueUsd: 13260,
           chartValuesByRange: {
@@ -753,6 +773,32 @@ class _NegativeChangeHomeRepository implements HomeRepository {
         ),
       },
       mostValuableByFolderId: {'main': null},
+      trending: [],
+    );
+  }
+}
+
+class _MissingMarketPriceHomeRepository implements HomeRepository {
+  const _MissingMarketPriceHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() {
+    return const HomeDashboard(
+      folders: [HomeFolder(id: 'main', name: 'Main', isDefault: true)],
+      portfoliosByFolderId: {
+        'main': PortfolioSummary(
+          folderId: 'main',
+          itemCount: 1,
+          marketPriceStatus: MarketPriceStatus.missing,
+          totalValueUsd: 0,
+          previous30dValueUsd: 0,
+          chartValuesByRange: {
+            HomeChartRange.oneMonth: [0],
+          },
+        ),
+      },
+      mostValuableByFolderId: {'main': null},
+      mostValuableCardsByFolderId: {'main': []},
       trending: [],
     );
   }

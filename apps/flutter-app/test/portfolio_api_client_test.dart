@@ -367,6 +367,8 @@ void main() {
             'items': [
               {
                 'folder_id': 'main',
+                'item_count': 1,
+                'market_price_status': 'available',
                 'current_value_usd': 42.5,
                 'series': [
                   {'date': '2026-07-15', 'value_usd': 40},
@@ -396,6 +398,8 @@ void main() {
       ).getValuationHistory(_session);
 
       expect(history.single.folderId, 'main');
+      expect(history.single.itemCount, 1);
+      expect(history.single.marketPriceStatus, MarketPriceStatus.available);
       expect(history.single.currentValueUsd, 42.5);
       expect(history.single.series.first.valueUsd, 40);
       expect(history.single.series.last.date, '2026-07-16');

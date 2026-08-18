@@ -4,7 +4,7 @@
 > 适用范围：`apps/workers-api` 的全部 D1 数据迁移；Cloudflare Workers、KV、R2 和现有 HTTP API 边界继续保留。
 > 结论性质：采购前技术选型。价格会随区域、税费、折扣和厂商调价变化，文中估算必须在下单当天用官方计算器复核。
 
-> **实施状态（2026-08-17）**：本文保留为迁移前选型快照，其中“当前 D1/binding”措辞描述当时基线。现已选用 PlanetScale PostgreSQL + Cloudflare Hyperdrive，dev 非价格业务数据与运行时完成切换；prod 仓库配置已准备但 Worker 未部署。当前证据见 [数据迁移](../migration.md) 和 [系统架构](../../02-architecture/architecture.md)。
+> **实施状态（2026-08-18）**：本文保留为迁移前选型快照，其中“当前 D1/binding”措辞描述当时基线。现已选用 PlanetScale PostgreSQL + Cloudflare Hyperdrive，dev 非价格业务数据与运行时完成切换；D1 与 PostgreSQL 已完全独立，运行、修复、回滚和灾备均不得读取 D1。production 实时 deployment 与数据源未在本次整改中重新核验，不从仓库配置或旧快照外推。当前证据见 [数据迁移](../migration.md) 和 [系统架构](../../02-architecture/architecture.md)。
 
 > **容量更新（2026-08-14）**：更新后的规模口径为年初约 808.19 万个价格序列、年末中心约 924.81 万个 365 天历史 JSON，未压缩紧凑内容中心值约 135.03 GB。31.63 亿表示均匀增长假设下的一年逻辑观察点，不是当前 JSON 模型的数据库行数。本文的 100 GB 统一示例及 PS-20/PS-40 初始候选只用于此前的服务商相对比较，**不得作为生产容量或实例规格依据**；现有证据也不能证明必须采购 1 TiB。一年查询、写入、存储、时序数据库对比和目标表结构以 [`price-history-database-capacity-analysis.md`](price-history-database-capacity-analysis.md) 为准。
 

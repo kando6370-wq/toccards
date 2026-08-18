@@ -37,6 +37,7 @@ type CollectionItemRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
   purchase_price: number | null;
   purchase_currency: string | null;
@@ -191,7 +192,7 @@ WHERE owner_type = ? AND owner_id = ? AND id = ?
 
 const SELECT_COLLECTION_ITEMS_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency,
+  finish, price_series_id, quantity, purchase_price, purchase_currency,
   COALESCE(performance_start_at, created_at) AS performance_start_at,
   COALESCE(purchase_price_effective_at, created_at) AS purchase_price_effective_at,
   COALESCE(performance_history_available_from, created_at) AS performance_history_available_from,
@@ -203,7 +204,7 @@ WHERE owner_type = ? AND owner_id = ?
 
 const SELECT_COLLECTION_ITEM_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency,
+  finish, price_series_id, quantity, purchase_price, purchase_currency,
   COALESCE(performance_start_at, created_at) AS performance_start_at,
   COALESCE(purchase_price_effective_at, created_at) AS purchase_price_effective_at,
   COALESCE(performance_history_available_from, created_at) AS performance_history_available_from,
@@ -216,7 +217,7 @@ LIMIT 1
 
 const SELECT_COLLECTION_ITEM_BY_CARD_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
-  finish, quantity, purchase_price, purchase_currency,
+  finish, price_series_id, quantity, purchase_price, purchase_currency,
   COALESCE(performance_start_at, created_at) AS performance_start_at,
   COALESCE(purchase_price_effective_at, created_at) AS purchase_price_effective_at,
   COALESCE(performance_history_available_from, created_at) AS performance_history_available_from,
@@ -230,15 +231,15 @@ LIMIT 1
 const INSERT_COLLECTION_ITEM_SQL = `
 INSERT INTO collection_item
   (id, owner_type, owner_id, folder_id, card_ref, object_type, grader, condition,
-   grade, language, finish, quantity, purchase_price, purchase_currency,
+   grade, language, finish, price_series_id, quantity, purchase_price, purchase_currency,
    performance_start_at, purchase_price_effective_at,
    performance_history_available_from, notes, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const UPDATE_COLLECTION_ITEM_SQL = `
 UPDATE collection_item
-SET folder_id = ?, folder_joined_at = ?, grader = ?, condition = ?, grade = ?, language = ?, finish = ?, quantity = ?,
+SET folder_id = ?, folder_joined_at = ?, grader = ?, condition = ?, grade = ?, language = ?, finish = ?, price_series_id = ?, quantity = ?,
   purchase_price = ?, purchase_currency = ?, notes = ?, updated_at = ?
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 `;
@@ -265,9 +266,9 @@ WHERE owner_type = ? AND owner_id = ? AND id = ?
 const INSERT_COLLECTION_ITEM_EVENT_SQL = `
 INSERT INTO collection_item_event
   (id, item_id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
-   condition, grade, language, finish, quantity, purchase_price,
+   condition, grade, language, finish, price_series_id, quantity, purchase_price,
    purchase_currency, performance_history_available_from, event_type, effective_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const DELETE_WISHLIST_CARD_SQL = `
@@ -533,6 +534,7 @@ export function createPortfolioRoutes(
         draft.grade,
         draft.language,
         draft.finish,
+        null,
         draft.quantity,
         draft.purchase_price,
         draft.purchase_currency,
@@ -546,6 +548,7 @@ export function createPortfolioRoutes(
       collectionItemEventStatement(c.env.DB, auth.owner, {
         id: itemId,
         ...draft,
+        price_series_id: null,
         performance_start_at: now,
         purchase_price_effective_at: now,
         performance_history_available_from: now,
@@ -879,6 +882,7 @@ export function createPortfolioRoutes(
         draft.grade,
         draft.language,
         draft.finish,
+        null,
         draft.quantity,
         draft.purchase_price,
         draft.purchase_currency,
@@ -892,6 +896,7 @@ export function createPortfolioRoutes(
       collectionItemEventStatement(c.env.DB, auth.owner, {
         id: itemId,
         ...draft,
+        price_series_id: null,
         performance_start_at: now,
         purchase_price_effective_at: now,
         performance_history_available_from: now,
@@ -1035,6 +1040,14 @@ export function createPortfolioRoutes(
     const now = new Date().toISOString();
     const folderJoinedAt =
       draft.folder_id === item.folder_id ? item.folder_joined_at : now;
+    const priceSeriesId =
+      draft.grader === item.grader
+      && draft.condition === item.condition
+      && draft.grade === item.grade
+      && draft.language === item.language
+      && draft.finish === item.finish
+        ? item.price_series_id
+        : null;
     await c.env.DB.batch([
       c.env.DB.prepare(UPDATE_COLLECTION_ITEM_SQL).bind(
         draft.folder_id,
@@ -1044,6 +1057,7 @@ export function createPortfolioRoutes(
         draft.grade,
         draft.language,
         draft.finish,
+        priceSeriesId,
         draft.quantity,
         draft.purchase_price,
         draft.purchase_currency,
@@ -1056,7 +1070,7 @@ export function createPortfolioRoutes(
       collectionItemEventStatement(
         c.env.DB,
         auth.owner,
-        { ...item, ...draft, updated_at: now },
+        { ...item, ...draft, price_series_id: priceSeriesId, updated_at: now },
         "upsert",
         now,
       ),
@@ -1483,6 +1497,7 @@ function collectionItemResponse(item: CollectionItemRow): Omit<
   | "performance_start_at"
   | "purchase_price_effective_at"
   | "performance_history_available_from"
+  | "price_series_id"
 > {
   return {
     id: item.id,
@@ -1625,6 +1640,7 @@ function collectionItemEventStatement(
     item.grade,
     item.language,
     item.finish,
+    item.price_series_id,
     item.quantity,
     item.purchase_price,
     item.purchase_currency,

@@ -2,10 +2,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
+import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 void main() {
+  test(
+    'Trending card mapping uses 1D because the market feed must not display Search 30D change',
+    () {
+      final card = trendingCardFromDto(
+        const CardDataCardDto(
+          cardRef: 'window-check',
+          name: 'Window Check',
+          setName: 'Test Set',
+          setCode: 'TEST',
+          cardNumber: '1',
+          finish: 'Normal',
+          language: 'English',
+          objectType: 'tcg',
+          imageUrl: null,
+          rarity: 'Rare',
+          priceUsd: 10,
+          priceChange1dPercent: 1.25,
+          priceChange30dPercent: 30.75,
+        ),
+      );
+
+      expect(card.changeText, '+1.25%');
+    },
+  );
+
   test(
     'API dashboard previews three highest unit prices because Most Valuable ignores quantity',
     () async {
@@ -17,6 +43,11 @@ void main() {
       ).loadDashboard();
 
       expect(dashboard.defaultFolder.name, 'Main');
+      expect(dashboard.portfoliosByFolderId['main']!.itemCount, 3);
+      expect(
+        dashboard.portfoliosByFolderId['main']!.marketPriceStatus,
+        MarketPriceStatus.available,
+      );
       expect(dashboard.portfoliosByFolderId['main']!.totalValueUsd, 760);
       expect(dashboard.portfoliosByFolderId['main']!.previous30dValueUsd, 608);
       expect(
@@ -226,6 +257,8 @@ class _PortfolioApi implements PortfolioApi {
   }) async => [
     PortfolioFolderValuationDto(
       folderId: 'main',
+      itemCount: 3,
+      marketPriceStatus: MarketPriceStatus.available,
       currentValueUsd: 760,
       series: List.generate(
         days + 1,

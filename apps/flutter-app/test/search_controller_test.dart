@@ -69,6 +69,7 @@ void main() {
             priceUsd: 32.13,
             previous30dPriceUsd: 30.67,
             priceChange1dPercent: 8.97,
+            priceChange30dPercent: 30.75,
           ),
           CardDataCardDto(
             cardRef: 'catalog:booster-box',
@@ -100,6 +101,7 @@ void main() {
             priceUsd: 32.13,
             previous30dPriceUsd: 30.67,
             priceChange1dPercent: 8.97,
+            priceChange30dPercent: 30.75,
           ),
         ],
         sets: const [
@@ -131,7 +133,7 @@ void main() {
         'https://image.tcgcard.fun/cards/catalog%3Apikachu-025.jpg',
       );
       expect(catalog.cards.first.priceText(AppCurrency.usd), r'$32.13');
-      expect(catalog.cards.first.changeText, '+8.97%');
+      expect(catalog.cards.first.changeText, '+30.75%');
       expect(catalog.cards.last.type, SearchCardType.sealed);
       expect(catalog.sets.single.id, 'base-set-id');
       expect(catalog.sets.single.gameId, 'pokemon');
@@ -151,7 +153,7 @@ void main() {
       expect(api.searchSetGames, ['Pokemon', 'Pokemon']);
       expect(cards.single.name, 'Pikachu');
       expect(cards.single.priceText(AppCurrency.usd), r'$32.13');
-      expect(cards.single.changeText, '+8.97%');
+      expect(cards.single.changeText, '+30.75%');
       expect(sets.single.name, 'Base Set');
     },
   );
@@ -173,6 +175,7 @@ void main() {
             variantLine: 'Holofoil / English',
             quantity: 0,
             isWishlisted: false,
+            changePercent: null,
           ),
         ],
       );
@@ -198,6 +201,31 @@ void main() {
   );
 
   test(
+    'Search cards do not fall back to a 1D change because Search displays the PostgreSQL 30D window',
+    () {
+      final card = searchCardFromDto(
+        const CardDataCardDto(
+          cardRef: 'catalog:missing-30d',
+          name: 'Missing 30D',
+          setName: 'Test Set',
+          setCode: 'TEST',
+          cardNumber: '001',
+          finish: 'Normal',
+          language: 'English',
+          objectType: 'tcg',
+          game: 'Pokemon',
+          imageUrl: null,
+          rarity: 'Rare',
+          priceUsd: 12,
+          priceChange1dPercent: 12.5,
+        ),
+      );
+
+      expect(card.changeText, '-/-');
+    },
+  );
+
+  test(
     'Cards query matches terms across fields because Search must not discard valid Workers results as a literal phrase mismatch',
     () async {
       final repository = _RecordingSearchRepository(
@@ -214,6 +242,7 @@ void main() {
             variantLine: 'Standard',
             quantity: 0,
             isWishlisted: false,
+            changePercent: null,
           ),
         ],
       );
@@ -347,6 +376,36 @@ void main() {
       expect(state.visibleCards.last.id, 'card-41');
       expect(state.cardPage, 2);
       expect(state.hasMoreCards, isFalse);
+    },
+  );
+
+  test(
+    'a failed next page keeps loaded cards and retries the same page because partial Search results remain usable',
+    () async {
+      final repository = _PaginatedSearchRepository(failPageTwoOnce: true);
+      final container = _searchContainer(repository: repository);
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      await controller.loadNextCardPage();
+
+      var state = container.read(searchControllerProvider);
+      expect(repository.requestedPages, [2]);
+      expect(state.visibleCards, hasLength(40));
+      expect(state.cardPage, 1);
+      expect(state.hasMoreCards, isTrue);
+      expect(state.hasCardPageFailure, isTrue);
+
+      await controller.retryNextCardPage();
+
+      state = container.read(searchControllerProvider);
+      expect(repository.requestedPages, [2, 2]);
+      expect(state.visibleCards, hasLength(41));
+      expect(state.visibleCards.last.id, 'card-41');
+      expect(state.cardPage, 2);
+      expect(state.hasMoreCards, isFalse);
+      expect(state.hasCardPageFailure, isFalse);
     },
   );
 
@@ -1039,6 +1098,7 @@ class _MultiCollectionSearchRepository implements SearchRepository {
           quantity: 2,
           collectionItemCount: 2,
           isWishlisted: false,
+          changePercent: null,
         ),
       ],
       sets: [],
@@ -1071,7 +1131,11 @@ Future<SearchState> _loadedSearchState(ProviderContainer container) async {
 
 class _PaginatedSearchRepository
     implements SearchRepository, PaginatedSearchRepository {
+  _PaginatedSearchRepository({this.failPageTwoOnce = false});
+
+  final bool failPageTwoOnce;
   final requestedPages = <int>[];
+  var _failedPageTwo = false;
 
   @override
   Future<SearchCatalog> loadCatalog() async {
@@ -1089,6 +1153,10 @@ class _PaginatedSearchRepository
     required int page,
   }) async {
     requestedPages.add(page);
+    if (page == 2 && failPageTwoOnce && !_failedPageTwo) {
+      _failedPageTwo = true;
+      throw StateError('mock next page unavailable');
+    }
     return page == 2 ? [_card(41)] : const [];
   }
 
@@ -1115,6 +1183,7 @@ class _PaginatedSearchRepository
       variantLine: 'Normal',
       quantity: 0,
       isWishlisted: false,
+      changePercent: null,
     );
   }
 }

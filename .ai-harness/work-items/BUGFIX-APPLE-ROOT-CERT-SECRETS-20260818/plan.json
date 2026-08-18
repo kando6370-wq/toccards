@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818",
+  "mode": "single",
+  "rationale": "单一确定性配置修复：先核验官方证书与远端目标，再串行更新 dev/prod Secret，同步当前发布文档并验证 Secret 名与部署状态；公开根证书、无代码/数据库变更，评为中风险",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "更新并验证 dev/prod Apple Root CA Secret",
+      "module": "cloudflare-workers/apple-verifier-config",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        ".ai-harness/work-items/BUGFIX-APPLE-ROOT-CERT-SECRETS-20260818/**",
+        "docs/releases/v1.1.0/05-delivery/app-store-connect-subscription-setup.md",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md"
+      ],
+      "verification": [
+        "官方 AppleRootCA-G3.cer 的主体、长度和 SHA-256",
+        "Cloudflare 当前账号及 dev/prod Worker 精确名称",
+        "两次 wrangler secret put 成功且后置 secret list 均包含目标名称",
+        "配置后 dev/prod 健康检查与部署列表只读核验",
+        "git diff --check、Secret 内容未进入仓库、残留文档口径检查"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/app-store-connect-subscription-setup.md",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md",
+        "docs/releases/v1.1.0/05-delivery/traceability-matrix.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "Codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "cf2a6eb9-4f8b-4407-96d5-bbdc0488132d",
+        "e2399ef0-9b0e-4f3f-8694-ec0c114b5518"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "Apple Root CA Secret 配置复核",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T03:16:46.929Z",
+  "updatedAt": "2026-08-18T03:24:12.944Z"
+}

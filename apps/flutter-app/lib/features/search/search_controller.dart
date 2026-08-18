@@ -46,6 +46,7 @@ class SearchState {
     this.hasMoreCards = false,
     this.isSearching = false,
     this.isLoadingMoreCards = false,
+    this.hasCardPageFailure = false,
     this.assetStatus = KandoLoadStatus.content,
   }) : _catalog = catalog,
        loadStatus = KandoLoadStatus.content;
@@ -61,6 +62,7 @@ class SearchState {
       hasMoreCards = false,
       isSearching = false,
       isLoadingMoreCards = false,
+      hasCardPageFailure = false,
       assetStatus = KandoLoadStatus.failure,
       loadStatus = KandoLoadStatus.failure;
 
@@ -75,6 +77,7 @@ class SearchState {
       hasMoreCards = false,
       isSearching = false,
       isLoadingMoreCards = false,
+      hasCardPageFailure = false,
       assetStatus = KandoLoadStatus.loading,
       loadStatus = KandoLoadStatus.loading;
 
@@ -89,6 +92,7 @@ class SearchState {
     required this.hasMoreCards,
     required this.isSearching,
     required this.isLoadingMoreCards,
+    required this.hasCardPageFailure,
     required this.assetStatus,
     required this.loadStatus,
   }) : _catalog = catalog;
@@ -103,6 +107,7 @@ class SearchState {
   final bool hasMoreCards;
   final bool isSearching;
   final bool isLoadingMoreCards;
+  final bool hasCardPageFailure;
   final KandoLoadStatus assetStatus;
   final KandoLoadStatus loadStatus;
 
@@ -163,6 +168,7 @@ class SearchState {
     bool? hasMoreCards,
     bool? isSearching,
     bool? isLoadingMoreCards,
+    bool? hasCardPageFailure,
     KandoLoadStatus? assetStatus,
   }) {
     return SearchState._(
@@ -176,6 +182,7 @@ class SearchState {
       hasMoreCards: hasMoreCards ?? this.hasMoreCards,
       isSearching: isSearching ?? this.isSearching,
       isLoadingMoreCards: isLoadingMoreCards ?? this.isLoadingMoreCards,
+      hasCardPageFailure: hasCardPageFailure ?? this.hasCardPageFailure,
       assetStatus: assetStatus ?? this.assetStatus,
       loadStatus: loadStatus,
     );
@@ -430,6 +437,7 @@ class SearchController extends Notifier<SearchState> {
         state.isCurrentSearchUnavailable ||
         state.isSearching ||
         state.isLoadingMoreCards ||
+        state.hasCardPageFailure ||
         !state.hasMoreCards) {
       return;
     }
@@ -439,7 +447,7 @@ class SearchController extends Notifier<SearchState> {
 
     final generation = ++_loadGeneration;
     final requestedPage = state.cardPage + 1;
-    state = state.copyWith(isLoadingMoreCards: true);
+    state = state.copyWith(isLoadingMoreCards: true, hasCardPageFailure: false);
     try {
       final items = await paginatedRepository.searchCardPage(
         state.searchText.trim(),
@@ -463,9 +471,20 @@ class SearchController extends Notifier<SearchState> {
       );
     } catch (_) {
       if (ref.mounted && generation == _loadGeneration) {
-        state = state.copyWith(isLoadingMoreCards: false);
+        state = state.copyWith(
+          isLoadingMoreCards: false,
+          hasCardPageFailure: true,
+        );
       }
     }
+  }
+
+  Future<void> retryNextCardPage() {
+    if (!state.hasCardPageFailure || state.selectedTab != SearchTab.cards) {
+      return Future<void>.value();
+    }
+    state = state.copyWith(hasCardPageFailure: false);
+    return loadNextCardPage();
   }
 
   Future<SearchCollectAction> toggleCollect(String cardId) async {
@@ -788,6 +807,7 @@ class SearchController extends Notifier<SearchState> {
     Set<SearchTab> failedSearchTabs = const {},
     int cardPage = 1,
     bool? hasMoreCards,
+    bool hasCardPageFailure = false,
     KandoLoadStatus? assetStatus,
   }) {
     final selectedTab = preserveState?.selectedTab ?? SearchTab.cards;
@@ -806,6 +826,7 @@ class SearchController extends Notifier<SearchState> {
       cardPage: cardPage,
       hasMoreCards: hasMoreCards ?? catalog.cards.length == kandoPageSize,
       isLoadingMoreCards: false,
+      hasCardPageFailure: hasCardPageFailure,
       assetStatus:
           assetStatus ?? preserveState?.assetStatus ?? KandoLoadStatus.content,
     );
@@ -935,6 +956,7 @@ class SearchController extends Notifier<SearchState> {
         failedSearchTabs: state.failedSearchTabs,
         cardPage: state.cardPage,
         hasMoreCards: state.hasMoreCards,
+        hasCardPageFailure: state.hasCardPageFailure,
       );
       return fallback == null ? state.cardById(cardId) : resolveCard(fallback);
     } catch (_) {

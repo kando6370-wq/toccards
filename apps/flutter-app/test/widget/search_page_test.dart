@@ -321,6 +321,50 @@ void main() {
     expect(repository.calls, 2);
   });
 
+  testWidgets(
+    'next page failure keeps cards and offers a local retry because partial Search results remain usable',
+    (tester) async {
+      final repository = _FailingPaginatedSearchRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+      );
+      final controller = container.read(searchControllerProvider.notifier);
+
+      await controller.loadNextCardPage();
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedPages, [2]);
+      expect(
+        container.read(searchControllerProvider).visibleCards,
+        hasLength(40),
+      );
+      expect(find.byKey(const Key('search-retry-card-page')), findsOneWidget);
+      expect(find.text('Card 1'), findsOneWidget);
+
+      final retry = find.byKey(const Key('search-retry-card-page'));
+      await tester.ensureVisible(retry);
+      await tester.pumpAndSettle();
+      expect(repository.requestedPages, [2]);
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedPages, [2, 2]);
+      expect(
+        container.read(searchControllerProvider).visibleCards,
+        hasLength(41),
+      );
+      expect(find.text('Card 41'), findsOneWidget);
+      expect(find.byKey(const Key('search-retry-card-page')), findsNothing);
+    },
+  );
+
   testWidgets('search and clear update current tab results', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -1009,6 +1053,62 @@ class _FailingThenSuccessfulSearchRepository implements SearchRepository {
   }
 }
 
+class _FailingPaginatedSearchRepository
+    implements SearchRepository, PaginatedSearchRepository {
+  final requestedPages = <int>[];
+  var _failedPageTwo = false;
+
+  @override
+  Future<SearchCatalog> loadCatalog() async {
+    return SearchCatalog(
+      games: const [SearchGame(id: 'pokemon', label: 'Pokemon')],
+      cards: List.generate(40, (index) => _card(index + 1)),
+      sets: const [],
+    );
+  }
+
+  @override
+  Future<List<SearchCard>> searchCardPage(
+    String query, {
+    String? game,
+    required int page,
+  }) async {
+    requestedPages.add(page);
+    if (page == 2 && !_failedPageTwo) {
+      _failedPageTwo = true;
+      throw StateError('mock next page unavailable');
+    }
+    return page == 2 ? [_card(41)] : const [];
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) async {
+    return (await loadCatalog()).cards;
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) async {
+    return const [];
+  }
+
+  static SearchCard _card(int index) {
+    return SearchCard(
+      id: 'card-$index',
+      gameId: 'pokemon',
+      type: SearchCardType.tcg,
+      name: 'Card $index',
+      priceUsd: index.toDouble(),
+      previous30dPriceUsd: index.toDouble(),
+      setName: 'Test Set',
+      metadataLine: '#$index',
+      variantLine: 'Normal',
+      quantity: 0,
+      isWishlisted: false,
+      changePercent: null,
+    );
+  }
+}
+
 class _TrackingSearchRepository implements SearchRepository {
   var cardCalls = 0;
 
@@ -1150,6 +1250,7 @@ class _ImageSearchRepository implements SearchRepository {
           variantLine: 'Normal',
           quantity: 0,
           isWishlisted: false,
+          changePercent: null,
           language: 'English',
           finish: 'Normal',
           imageUrl: 'https://api.tcgcard.fun/api/v1/cards/9359/image',
@@ -1166,6 +1267,7 @@ class _ImageSearchRepository implements SearchRepository {
           variantLine: 'Normal',
           quantity: 0,
           isWishlisted: false,
+          changePercent: null,
           language: 'Japanese',
         ),
         SearchCard(
@@ -1180,6 +1282,7 @@ class _ImageSearchRepository implements SearchRepository {
           variantLine: 'Normal',
           quantity: 0,
           isWishlisted: false,
+          changePercent: null,
           language: 'Chinese',
         ),
       ],

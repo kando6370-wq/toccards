@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-PG-HISTORY-LEGACY-PRICE-COMPAT-20260818",
+  "mode": "single",
+  "rationale": "单一回归根因，只修改同一解析函数并补兼容测试",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "兼容十进制旧价格字符串",
+      "module": "apps/workers-api/src/data-source",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/workers-api/src/data-source/postgres-price-store.ts",
+        "apps/workers-api/src/data-source/postgres-price-store.test.ts"
+      ],
+      "verification": [
+        "pnpm --filter @kando/workers-api exec vitest run src/data-source/postgres-price-store.test.ts src/data-source/local-db-adapter.test.ts",
+        "pnpm --filter @kando/workers-api type-check",
+        "git diff --check"
+      ],
+      "docsImpact": [
+        "N/A: 既有 {date,price} 兼容契约不变"
+      ],
+      "reviewBatch": "B1",
+      "risk": "low",
+      "owner": "root",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "3bb2d42c-b946-42d0-92c3-3e7f38c2b403",
+        "fe9a550c-161e-4ede-9173-f9ee886dfc0b"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "旧价格字符串兼容",
+      "risk": "low",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T07:26:45.053Z",
+  "updatedAt": "2026-08-18T07:27:50.450Z"
+}

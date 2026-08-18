@@ -7,7 +7,12 @@ import {
   encodedRowBytes,
   takeBoundedRows,
 } from "./batch";
-import { MIGRATION_TABLES, type MigrationTable } from "./tables";
+import {
+  EXPECTED_TARGET_TABLES,
+  EXCLUDED_SOURCE_TABLES,
+  MIGRATION_TABLES,
+  type MigrationTable,
+} from "./tables";
 
 const appleInboxEnvironmentSql = readFileSync(
   new URL("../../src/db/postgres/migrations/0002_apple_inbox_environment.sql", import.meta.url),
@@ -19,6 +24,10 @@ const priceHistoryVisibilityGuardSql = readFileSync(
 );
 const priceHistoryPayloadLimitSql = readFileSync(
   new URL("../../src/db/postgres/migrations/0004_price_history_month_payload_limit.sql", import.meta.url),
+  "utf8",
+);
+const dropTrendingPinSql = readFileSync(
+  new URL("../../src/db/postgres/migrations/0005_drop_trending_pin.sql", import.meta.url),
   "utf8",
 );
 const migrationRunnerSource = readFileSync(new URL("./run.mjs", import.meta.url), "utf8");
@@ -76,10 +85,14 @@ describe("D1 to PostgreSQL migration batches", () => {
     expect(priceHistoryVisibilityGuardSql).toContain("batch.source_id = series.source_id");
     expect(priceHistoryVisibilityGuardSql).toContain("pointer.batch_id = batch.batch_id");
     expect(priceHistoryVisibilityGuardSql).toContain("pointer.scope_code LIKE 'current:%'");
-    expect(priceHistoryVisibilityGuardSql).toContain("AFTER INSERT OR UPDATE\nON price_history_month");
+    expect(priceHistoryVisibilityGuardSql).toMatch(
+      /AFTER INSERT OR UPDATE\r?\nON price_history_month/,
+    );
     expect(priceHistoryVisibilityGuardSql).not.toContain("UPDATE OF series_id, last_batch_id");
     expect(priceHistoryVisibilityGuardSql).toContain("content changes require a new batch lineage");
-    expect(priceHistoryVisibilityGuardSql).toContain("BEFORE INSERT OR UPDATE\nON price_history_month");
+    expect(priceHistoryVisibilityGuardSql).toMatch(
+      /BEFORE INSERT OR UPDATE\r?\nON price_history_month/,
+    );
     expect(priceHistoryVisibilityGuardSql).toContain("batch.status = 'validated'");
     expect(priceHistoryVisibilityGuardSql).toContain("must be written by a validated current batch");
   });
@@ -90,11 +103,20 @@ describe("D1 to PostgreSQL migration batches", () => {
     expect(migrationRunnerSource).toContain("uq_apple_notification_inbox_environment_payload");
     expect(migrationRunnerSource).toContain("idx_apple_notification_inbox_processing");
     expect(migrationRunnerSource).toContain("ck_price_history_month_payload_bytes");
-    expect(migrationRunnerSource).toContain("inventory.migrations.length === 5");
+    expect(migrationRunnerSource).toContain("inventory.migrations.length === 6");
     expect(migrationRunnerSource).toContain("--verify-cutover-state");
     expect(migrationRunnerSource).toContain("/cutover-state");
     expect(migrationWorkerSource).toContain("priceTableCounts");
     expect(migrationWorkerSource).toContain("appleInboxByEnvironment");
+  });
+
+  it("keeps the retired Trending Pin table out of PostgreSQL because obsolete D1 data must not recreate it", () => {
+    expect(MIGRATION_TABLES.some((candidate) => candidate.name === "trending_pin")).toBe(false);
+    expect(EXPECTED_TARGET_TABLES).not.toContain("trending_pin");
+    expect(EXCLUDED_SOURCE_TABLES).toContain("trending_pin");
+    expect(dropTrendingPinSql.trim()).toBe("DROP TABLE trending_pin;");
+    expect(dropTrendingPinSql).not.toContain("CASCADE");
+    expect(migrationWorkerSource).toContain('name: "0005_drop_trending_pin"');
   });
 
   it("rejects cutover-state checks in schema-only mode because cutover proof requires all business digests", () => {

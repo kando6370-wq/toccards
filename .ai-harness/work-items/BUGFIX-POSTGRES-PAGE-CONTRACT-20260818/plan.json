@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-POSTGRES-PAGE-CONTRACT-20260818",
+  "mode": "single",
+  "rationale": "两个剩余问题共同修正页面数据语义，写入范围小且可在同一批次审查",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "修复 Collection 30D 字段映射",
+      "module": "flutter/collection",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/collection/collection_page.dart",
+        "apps/flutter-app/test/widget/collection_page_test.dart"
+      ],
+      "verification": [
+        "先运行新增 Widget 回归并观察失败，再修复并重跑"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "low",
+      "owner": "Codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "fe24d2b9-8bdf-42c2-a1f0-0c879ba440ff",
+        "7d896aab-8e3e-43c4-b59f-7a91ba003edb"
+      ],
+      "deferralApproval": null
+    },
+    {
+      "id": "T2",
+      "title": "停止由价格快照伪造成交记录",
+      "module": "workers/data-source",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/workers-api/src/data-source/local-db-adapter.ts",
+        "apps/workers-api/src/data-source/local-db-adapter.test.ts",
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "verification": [
+        "先修改适配器意图测试观察失败，再实现并运行 Workers 定向测试"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/03-data-api/contract-changes.md"
+      ],
+      "reviewBatch": "R1",
+      "risk": "medium",
+      "owner": "Codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "14c3f540-7ec5-4610-99d2-24ba029687a4",
+        "e70c1846-5bbf-4d6d-a71f-79bf3196daec",
+        "3b73ca7e-8fc6-4658-96e9-01d5a485f9d1"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "R1",
+      "title": "PostgreSQL 页面契约一致性",
+      "risk": "medium",
+      "taskIds": [
+        "T1",
+        "T2"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-18T05:48:41.472Z",
+  "updatedAt": "2026-08-18T05:59:07.984Z"
+}

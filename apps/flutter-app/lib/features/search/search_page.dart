@@ -569,6 +569,17 @@ class _SearchResults extends ConsumerWidget {
             height: 24,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
+        ] else if (state.hasCardPageFailure) ...[
+          const SizedBox(height: 12),
+          IconButton(
+            key: const Key('search-retry-card-page'),
+            tooltip: 'Retry loading cards',
+            onPressed: () {
+              ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+              ref.read(searchControllerProvider.notifier).retryNextCardPage();
+            },
+            icon: const Icon(Icons.refresh),
+          ),
         ],
       ],
     );
