@@ -3,7 +3,7 @@
   "id": "ITER-PG-APP-DEV-DELIVERY-20260818",
   "type": "ITERATION",
   "title": "提交并推送 PostgreSQL-only App 整改到 github/dev",
-  "status": "READY_FOR_ACCEPTANCE",
+  "status": "DONE",
   "flags": [],
   "policyFiles": [
     ".ai-harness/policies/core.md",
@@ -482,8 +482,10 @@
     "independent": false
   },
   "acceptance": {
-    "status": "pending",
-    "evidence": []
+    "status": "pass",
+    "evidence": [
+      "d70bd972-5edb-43b9-a20b-3daa64afdb75"
+    ]
   },
   "analysis": {
     "status": "pending",
@@ -546,8 +548,14 @@
       "to": "READY_FOR_ACCEPTANCE",
       "at": "2026-08-18T08:52:07.089Z",
       "reason": "最终 Review 完成，等待非强制推送与远端 full SHA 验收"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-18T08:53:52.223Z",
+      "reason": "当前本地 dev 全量代码及验收证据已推送并完成远端 SHA 一致性核对"
     }
   ],
   "createdAt": "2026-08-18T08:36:10.092Z",
-  "updatedAt": "2026-08-18T08:52:07.089Z"
+  "updatedAt": "2026-08-18T08:53:52.223Z"
 }
