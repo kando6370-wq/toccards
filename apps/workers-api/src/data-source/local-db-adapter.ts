@@ -227,9 +227,17 @@ LIMIT ? OFFSET ?`,
       return (results.results ?? []).map(trendingCard);
     },
 
-    async getSoldListings(_cardRef): Promise<SoldListing[]> {
-      // Sold listings require an independent transaction source; price snapshots are not listings.
-      return [];
+    async getSoldListings(cardRef): Promise<SoldListing[]> {
+      const card = await db.prepare(`${CARD_SELECT}WHERE product_id = ? LIMIT 1`)
+        .bind(cardRef).first<CardCatalogRow>();
+      if (!card) return [];
+
+      const prices = (await loadPublishedPriceRows(db, [cardRef]))
+        .filter((row) => row.source_code === "tcgplayer");
+      return preferredRawMarketPrices(prices)
+        .map((row) => shopListingFromTcgplayerPrice(card, row))
+        .sort((left, right) => right.date.localeCompare(left.date))
+        .slice(0, 4);
     },
   };
 }
@@ -387,6 +395,25 @@ function gradedMarketPrice(
       ? { increase_percent: row.change_7d_percent! }
       : {}),
     history,
+  };
+}
+
+function shopListingFromTcgplayerPrice(
+  card: CardCatalogRow,
+  row: PublishedPriceRow,
+): SoldListing {
+  const title = [
+    card.name ?? card.product_id,
+    row.condition_name ?? row.condition_code,
+    row.language_name ?? row.language_code,
+    row.variant_name ?? row.variant_code,
+  ].filter((value): value is string => Boolean(value?.trim())).join(" / ");
+  return {
+    date: row.observed_on,
+    title,
+    price: amountMicrosToUsd(row.amount_micros),
+    platform: "TCGplayer",
+    url: `https://www.tcgplayer.com/product/${encodeURIComponent(card.product_id)}`,
   };
 }
 

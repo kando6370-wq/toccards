@@ -858,7 +858,7 @@ describe("PostgreSQL card data source adapter", () => {
     ).resolves.toEqual([{ date: "2026-07-30", price: 30 }]);
   });
 
-  it("keeps Shop empty without an independent sold-listing source because price snapshots are not transactions", async () => {
+  it("builds Shop rows from published TCGplayer products because Card Detail must expose real marketplace links", async () => {
     const db = new FakeCardDatabase(
       [card({ product_id: "100", name: "Charizard" })],
       [
@@ -882,12 +882,36 @@ describe("PostgreSQL card data source adapter", () => {
             { price: 12, date: "2026-07-10" },
           ]),
         }),
+        sku({
+          sku_id: 4,
+          source_code: "pricecharting",
+          source_record_id: "pricecharting-ungraded",
+          condition_code: null,
+          condition_name: "Ungraded",
+          price_history: JSON.stringify([
+            { price: 20, date: "2026-07-11" },
+          ]),
+        }),
       ],
     );
     const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
 
-    await expect(adapter.getSoldListings("100")).resolves.toEqual([]);
-    expect(db.preparedSql).toEqual([]);
+    await expect(adapter.getSoldListings("100")).resolves.toEqual([
+      {
+        date: "2026-07-10",
+        title: "Charizard / Lightly Played / English / Normal",
+        price: 12,
+        platform: "TCGplayer",
+        url: "https://www.tcgplayer.com/product/100",
+      },
+      {
+        date: "2026-07-08",
+        title: "Charizard / Near Mint / English / Normal",
+        price: 15.75,
+        platform: "TCGplayer",
+        url: "https://www.tcgplayer.com/product/100",
+      },
+    ]);
   });
 
   it("reads the published Trending snapshot because Home must not scan all current prices", async () => {

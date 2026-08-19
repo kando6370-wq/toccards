@@ -96,7 +96,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 ### 3.2 搜索、Wishlist 与 Collection
 
 1. 用户按游戏搜索 Card 或 Set，并进入卡牌详情。
-2. 详情加载图片、市场价、价格历史和成交信息。
+2. 详情加载图片、市场价、价格历史和 TCGplayer 商品外链；已成交记录继续通过独立入口查询。
 3. 用户可加入 Wishlist，或选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价后收藏。
 4. 收藏写入同步产生 `collection_item_event`；同卡 Wishlist 被移除。
 5. 后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
