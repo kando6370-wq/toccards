@@ -1,1 +1,0 @@
-{"schemaVersion":1,"id":"2c252538-8044-4ecb-9016-89dbe5ef35d8","workItemId":"ANALYSIS-IOS-12PM-LIVE-DEBUG-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"用户要求释放进程后，已停止本任务残留 devicectl 查询并确认无目标设备调试进程；未影响其他 Release Archive","timestamp":"2026-08-17T09:17:10.907Z","command":null,"independent":false}

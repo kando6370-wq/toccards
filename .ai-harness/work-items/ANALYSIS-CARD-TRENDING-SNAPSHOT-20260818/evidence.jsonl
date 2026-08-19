@@ -1,1 +1,0 @@
-{"schemaVersion":1,"id":"272bff95-674b-4fb7-9423-4311e4a4bd92","workItemId":"ANALYSIS-CARD-TRENDING-SNAPSHOT-20260818","taskId":null,"kind":"analysis","status":"pass","summary":"已交叉核对 Git -S/blame、0001 DDL、远端迁移历史证据、Workers 查询、Flutter 调用方、产品口径和全仓写入检索；事实、设计目标与未知边界已分离。","timestamp":"2026-08-18T08:17:10.323Z","command":null,"independent":false}

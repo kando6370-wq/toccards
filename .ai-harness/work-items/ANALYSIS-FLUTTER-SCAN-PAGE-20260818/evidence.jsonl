@@ -1,1 +1,0 @@
-{"schemaVersion":1,"id":"a083f79b-501b-4d56-80b9-35478d6cdd4d","workItemId":"ANALYSIS-FLUTTER-SCAN-PAGE-20260818","taskId":null,"kind":"analysis","status":"pass","summary":"已读取 Scan 路由、页面状态机、相机/权限适配、识别/API/Review/Quota 实现、平台配置、相关 Widget/单元测试与 v1.0/v1.1 文档；结论已按 PROVEN/UNKNOWN 分离。测试未执行：Runtime WRONG_STAGE。","timestamp":"2026-08-18T02:22:58.836Z","command":null,"independent":false}

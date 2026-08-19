@@ -1,1 +1,0 @@
-{"schemaVersion":1,"id":"fd43aecf-7e25-47c9-8af2-cf6612065910","workItemId":"ANALYSIS-PG-APP-COMPLETENESS-20260818","taskId":null,"kind":"analysis","status":"pass","summary":"已用线上 deployment/binding/Hyperdrive/数据库端点、当前代码与配置、Workers 90 项、Flutter 206+5 项、静态检查和失败项交叉验证；结论区分线上已切换、本地未部署、业务通过与视觉/格式未通过","timestamp":"2026-08-18T07:31:56.246Z","command":null,"independent":false}

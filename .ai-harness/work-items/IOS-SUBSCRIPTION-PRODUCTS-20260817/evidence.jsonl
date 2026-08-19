@@ -1,1 +1,0 @@
-{"schemaVersion":1,"id":"eed4e1eb-b35b-422b-8575-efcd7205ce7a","workItemId":"IOS-SUBSCRIPTION-PRODUCTS-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已用当前代码、iOS test 配置及 App Store Connect 实时状态区分已证实配置缺口、推断根因与运行时未知；未修改产品文件。Flutter 定向测试因 ANALYSIS 阶段 Runtime 拒绝执行而未运行。","timestamp":"2026-08-17T01:36:03.447Z","command":null,"independent":false}

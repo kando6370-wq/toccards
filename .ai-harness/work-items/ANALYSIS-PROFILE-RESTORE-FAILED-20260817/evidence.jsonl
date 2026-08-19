@@ -1,1 +1,0 @@
-{"schemaVersion":1,"id":"d8a46c71-b6f8-48c5-950a-6967bd9b6390","workItemId":"ANALYSIS-PROFILE-RESTORE-FAILED-20260817","taskId":null,"kind":"analysis","status":"pass","summary":"已完成 Profile Restore 调用链、iOS StoreKit bridge、15 秒超时与服务端 proof 时序分析；iPhone 8 iOS 15.5 有线复现成功，但当前代码丢弃底层异常，具体 StoreKit 错误码仍未知。","timestamp":"2026-08-17T09:59:13.881Z","command":null,"independent":false}
