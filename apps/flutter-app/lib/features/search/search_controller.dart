@@ -308,7 +308,10 @@ class SearchController extends Notifier<SearchState> {
               onError: (Object error, StackTrace stackTrace) => null,
             )
           : null;
-      var catalog = await repository.loadCatalog();
+      final catalogLoad = repository is SearchCatalogLoadRepository
+          ? await repository.loadCatalogResult()
+          : SearchCatalogLoadResult(catalog: await repository.loadCatalog());
+      var catalog = catalogLoad.catalog;
       if (!ref.mounted) return;
       if (catalog.games.isEmpty) {
         throw StateError('Search catalog needs at least one game.');
@@ -318,13 +321,16 @@ class SearchController extends Notifier<SearchState> {
           catalog,
           preserveState: preserveState,
           clearOverrides: repository is SearchAssetRepository,
+          failedSearchTabs: catalogLoad.failedSearchTabs,
           assetStatus: loadsAssets
               ? KandoLoadStatus.loading
               : KandoLoadStatus.content,
         );
-        _loadedGameByTab
-          ..[SearchTab.cards] = state.selectedGame.id
-          ..[SearchTab.sets] = state.selectedGame.id;
+        for (final tab in SearchTab.values) {
+          if (!catalogLoad.failedSearchTabs.contains(tab)) {
+            _loadedGameByTab[tab] = state.selectedGame.id;
+          }
+        }
       }
       if (assetsFuture != null) {
         final snapshot = await assetsFuture;
@@ -335,6 +341,7 @@ class SearchController extends Notifier<SearchState> {
               catalog,
               preserveState: state,
               clearOverrides: true,
+              failedSearchTabs: catalogLoad.failedSearchTabs,
               assetStatus: KandoLoadStatus.content,
             );
           }

@@ -311,10 +311,13 @@ export const EXCLUDED_SOURCE_TABLES = [
   "trending_pin",
 ] as const;
 
+export const OPTIONAL_SOURCE_TABLES = ["mutation_lock"] as const;
+
 export const EXPECTED_TARGET_TABLES = [
   "postgres_migration",
   ...MIGRATION_TABLES.map((table) => table.name),
   ...PRICE_TABLES,
+  ...OPTIONAL_SOURCE_TABLES,
 ] as const;
 
 export function findMigrationTable(name: unknown): MigrationTable | undefined {

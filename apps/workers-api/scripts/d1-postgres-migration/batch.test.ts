@@ -4,13 +4,16 @@ import { readFileSync } from "node:fs";
 import {
   MAX_BATCH_BYTES,
   canonicalRow,
+  canonicalMigrationSql,
   encodedRowBytes,
+  sha256Hex,
   takeBoundedRows,
 } from "./batch";
 import {
   EXPECTED_TARGET_TABLES,
   EXCLUDED_SOURCE_TABLES,
   MIGRATION_TABLES,
+  OPTIONAL_SOURCE_TABLES,
   type MigrationTable,
 } from "./tables";
 
@@ -103,11 +106,44 @@ describe("D1 to PostgreSQL migration batches", () => {
     expect(migrationRunnerSource).toContain("uq_apple_notification_inbox_environment_payload");
     expect(migrationRunnerSource).toContain("idx_apple_notification_inbox_processing");
     expect(migrationRunnerSource).toContain("ck_price_history_month_payload_bytes");
-    expect(migrationRunnerSource).toContain("inventory.migrations.length === 6");
+    expect(migrationRunnerSource).toContain("manifest.postgresMigrations");
+    expect(migrationRunnerSource).not.toContain("inventory.migrations.length === 6");
     expect(migrationRunnerSource).toContain("--verify-cutover-state");
     expect(migrationRunnerSource).toContain("/cutover-state");
     expect(migrationWorkerSource).toContain("priceTableCounts");
     expect(migrationWorkerSource).toContain("appleInboxByEnvironment");
+  });
+
+  it("classifies mutation locks as optional source infrastructure and required target schema", () => {
+    expect(MIGRATION_TABLES.some((candidate) => candidate.name === "mutation_lock")).toBe(false);
+    expect(OPTIONAL_SOURCE_TABLES).toContain("mutation_lock");
+    expect(EXPECTED_TARGET_TABLES).toContain("mutation_lock");
+    expect(migrationWorkerSource).toContain('name: "0006_mutation_lock"');
+    expect(migrationWorkerSource).toContain("postgresMigrations: MIGRATIONS.map");
+    expect(migrationRunnerSource).toContain("...manifest.optionalSourceTables");
+  });
+
+  it("normalizes every newline style before checksum and execution because checkout platform is not migration identity", async () => {
+    const lf = "CREATE TABLE example (\n  id text\n);\n";
+    const crlf = lf.replaceAll("\n", "\r\n");
+    const cr = lf.replaceAll("\n", "\r");
+
+    expect(canonicalMigrationSql(crlf)).toBe(lf);
+    expect(canonicalMigrationSql(cr)).toBe(lf);
+    await expect(Promise.all([
+      sha256Hex(canonicalMigrationSql(lf)),
+      sha256Hex(canonicalMigrationSql(crlf)),
+      sha256Hex(canonicalMigrationSql(cr)),
+    ])).resolves.toEqual([
+      await sha256Hex(lf),
+      await sha256Hex(lf),
+      await sha256Hex(lf),
+    ]);
+    expect(migrationWorkerSource).toContain(
+      "const migrationSql = canonicalMigrationSql(migration.sql)",
+    );
+    expect(migrationWorkerSource).toContain("sha256Hex(migrationSql)");
+    expect(migrationWorkerSource).toContain("transaction.unsafe(migrationSql)");
   });
 
   it("keeps the retired Trending Pin table out of PostgreSQL because obsolete D1 data must not recreate it", () => {

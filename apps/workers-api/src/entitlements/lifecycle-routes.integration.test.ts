@@ -23,9 +23,11 @@ describe("current-session Apple lifecycle route", () => {
       db.prepare("INSERT INTO session VALUES ('session-a', 'anonymous', 'owner-1', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO session VALUES ('session-b', 'anonymous', 'owner-1', '2099-01-01T00:00:00.000Z', NULL)"),
       chain("chain-a", "Sandbox", "original-a", "REVOKED"),
+      chain("chain-null", "Sandbox", "original-null", "ACTIVE", null),
       chain("chain-b", "Sandbox", "original-b", "ACTIVE"),
       chain("chain-prod", "Production", "original-prod", "ACTIVE"),
       grant("grant-a", "session-a", "chain-a", "revoked"),
+      grant("grant-null", "session-a", "chain-null", "active"),
       grant("grant-b", "session-b", "chain-b", "active"),
       grant("grant-prod", "session-a", "chain-prod", "active"),
     ]);
@@ -60,12 +62,24 @@ describe("current-session Apple lifecycle route", () => {
         lifecycle_status: "REVOKED",
         state_effective_at: "2026-08-13T00:00:00.000Z",
       },
+      {
+        original_transaction_id: "original-null",
+        product_id: "yearly",
+        lifecycle_status: "ACTIVE",
+        state_effective_at: null,
+      },
     ]);
   });
 
-  function chain(id: string, environment: string, originalId: string, status: string) {
+  function chain(
+    id: string,
+    environment: string,
+    originalId: string,
+    status: string,
+    stateEffectiveAt: string | null = "2026-08-13T00:00:00.000Z",
+  ) {
     return db.prepare(`INSERT INTO billing_purchase_chain VALUES (?, 'app_store', ?, ?, 'yearly', 'performance_pro', ?, ?)`).bind(
-      id, environment, originalId, status, "2026-08-13T00:00:00.000Z",
+      id, environment, originalId, status, stateEffectiveAt,
     );
   }
 

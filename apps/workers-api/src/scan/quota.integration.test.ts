@@ -77,6 +77,18 @@ describe("server-authoritative scan quota", () => {
     expect(await loadScanQuota(db, OWNER)).toEqual({ limit: 10, reserved: 0, consumed: 0, remaining: 10 });
   });
 
+  it("locks only Free reservations because Premium does not consume the shared limit", async () => {
+    await reserveScanQuota(db, OWNER, crypto.randomUUID(), "premium");
+    await expect(db.prepare("SELECT COUNT(*) FROM mutation_lock").first<number>("COUNT(*)"))
+      .resolves.toBe(0);
+
+    await reserveScanQuota(db, OWNER, crypto.randomUUID(), "free");
+    const lock = await db.prepare("SELECT lock_key FROM mutation_lock").first<{ lock_key: string }>();
+
+    expect(lock?.lock_key).toMatch(/^scan-quota:[0-9a-f]{64}$/);
+    expect(lock?.lock_key).not.toContain(OWNER.owner_id);
+  });
+
   it("only takes over an expired lease because concurrent retries must not duplicate OCR", async () => {
     const requestId = crypto.randomUUID();
     await reserveScanQuota(db, OWNER, requestId, "free", new Date(NOW));
@@ -84,14 +96,23 @@ describe("server-authoritative scan quota", () => {
     expect(
       (await reserveScanQuota(db, OWNER, requestId, "free", new Date("2026-08-12T12:00:30.000Z"))).status,
     ).toBe("existing");
-    expect(
-      (await reserveScanQuota(db, OWNER, requestId, "free", new Date("2026-08-12T12:01:01.000Z"))).status,
-    ).toBe("reserved");
+    const takeoverTime = new Date("2026-08-12T12:01:01.000Z");
+    const results = await Promise.all([
+      reserveScanQuota(db, OWNER, requestId, "free", takeoverTime),
+      reserveScanQuota(db, OWNER, requestId, "free", takeoverTime),
+    ]);
+    expect(results.map((result) => result.status).sort()).toEqual(["existing", "reserved"]);
+    await expect(
+      db.prepare("SELECT attempts FROM scan_quota_request WHERE request_id = ?")
+        .bind(requestId)
+        .first<number>("attempts"),
+    ).resolves.toBe(2);
   });
 });
 
 const NOW = "2026-08-12T12:00:00.000Z";
 const SCHEMA = [
+  "CREATE TABLE mutation_lock (lock_key TEXT PRIMARY KEY)",
   "CREATE TABLE session (id TEXT PRIMARY KEY)",
   "INSERT INTO session (id) VALUES ('session-1')",
   "INSERT INTO session (id) VALUES ('session-2')",

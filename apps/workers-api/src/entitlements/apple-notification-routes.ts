@@ -123,7 +123,7 @@ export async function retryAppleNotificationInbox(
       processing_status IN ('pending', 'processing_failed')
       OR (processing_status = 'processing' AND processing_expires_at <= ?)
     )
-    ORDER BY received_at ASC LIMIT ?
+    ORDER BY received_at ASC, id ASC LIMIT ?
   `).bind(environment, now.toISOString(), RETRY_BATCH_SIZE).all<{ id: string }>();
   for (const row of results) await processAppleNotificationInbox(env, row.id, dependencies);
 }

@@ -107,7 +107,10 @@ class FakeD1Statement {
       const [ownerType, ownerId] = this.args;
       const results = this.db.folders
         .filter((row) => row.owner_type === ownerType && row.owner_id === ownerId)
-        .sort((left, right) => left.sort_order - right.sort_order);
+        .sort((left, right) =>
+          left.sort_order - right.sort_order
+          || left.id.localeCompare(right.id)
+        );
 
       return { results: results as T[] };
     }
@@ -116,9 +119,39 @@ class FakeD1Statement {
   }
 
   async run(): Promise<{ success: true; meta: { changes: number } }> {
+    if (this.sql.includes("INSERT INTO mutation_lock")) {
+      return changed(1);
+    }
+
     if (this.sql.includes("INSERT INTO portfolio_folder")) {
-      const [id, ownerType, ownerId, name, sortOrder, createdAt, updatedAt] =
-        this.args as [string, OwnerType, string, string, number, string, string];
+      const [
+        id,
+        ownerType,
+        ownerId,
+        name,
+        sortOwnerType,
+        sortOwnerId,
+        createdAt,
+        updatedAt,
+        access,
+      ] = this.args as [
+        string,
+        OwnerType,
+        string,
+        string,
+        OwnerType,
+        string,
+        string,
+        string,
+        "free" | "premium",
+      ];
+
+      const ownerFolders = this.db.folders.filter(
+        (row) => row.owner_type === ownerType && row.owner_id === ownerId,
+      );
+      if (access === "free" && ownerFolders.length >= 2) {
+        return changed(0);
+      }
 
       if (
         this.db.folders.some(
@@ -130,6 +163,16 @@ class FakeD1Statement {
       ) {
         throw new Error("UNIQUE constraint failed: portfolio_folder.name");
       }
+
+      const sortOrder = Math.max(
+        -100,
+        ...this.db.folders
+          .filter(
+            (row) =>
+              row.owner_type === sortOwnerType && row.owner_id === sortOwnerId,
+          )
+          .map((row) => row.sort_order),
+      ) + 100;
 
       this.db.folders.push({
         id,
@@ -316,6 +359,29 @@ describe("portfolio folder routes", () => {
         ],
       },
     });
+  });
+
+  it("uses folder id as a stable tie-breaker because equal custom positions must not reorder between reads", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(
+      folder({ id: "folder-z", name: "Main", sort_order: 100 }),
+      folder({ id: "folder-a", name: "Main", sort_order: 100 }),
+    );
+
+    const response = await app.request(
+      "/api/v1/portfolio/folders",
+      { headers: await authHeaders("anonymous", "anon-1") },
+      createTestEnv(db),
+    );
+    const body = await response.json() as {
+      data: { items: Array<{ id: string }> };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.items.map((item) => item.id)).toEqual([
+      "folder-a",
+      "folder-z",
+    ]);
   });
 
   it("creates a non-default folder after the current owner's last sort order because new folders should not disturb Main", async () => {

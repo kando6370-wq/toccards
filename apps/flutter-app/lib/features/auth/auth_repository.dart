@@ -394,8 +394,9 @@ class HttpAuthRepository implements AuthRepository {
         email: session.email,
         loginMethod: session.loginMethod,
       );
-    } on AuthApiException {
-      return null;
+    } on AuthApiException catch (error) {
+      if (error.code == 'UNAUTHORIZED') return null;
+      rethrow;
     } on DioException {
       throw const AuthNetworkException();
     }

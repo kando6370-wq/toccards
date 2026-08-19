@@ -2,6 +2,11 @@ import { Hono } from "hono";
 import { collectionItemDraftFromBody } from "../collection-item";
 import type { CardSearchResult, DataSourceAdapter } from "../data-source/adapter";
 import { createLocalDbDataSourceAdapter } from "../data-source/local-db-adapter";
+import {
+  mutationLockKey,
+  ownerCardMutationLockKey,
+  runWithMutationLocks,
+} from "../db/mutation-lock";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
@@ -169,6 +174,10 @@ LIMIT 1
 const DELETE_CONFIRMED_WISHLIST_CARD_SQL = `
 DELETE FROM wishlist_item
 WHERE owner_type = ? AND owner_id = ? AND card_ref = ?
+  AND EXISTS (
+    SELECT 1 FROM collection_item
+    WHERE id = ? AND owner_type = ? AND owner_id = ?
+  )
 `;
 
 const UPDATE_SCAN_CONFIRMATION_SQL = `
@@ -505,50 +514,63 @@ export function createScanRoutes() {
     });
     let results: D1Result<unknown>[];
     try {
-      results = await c.env.DB.batch([
-        c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_SQL).bind(
-        itemId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-        draft.folder_id,
-        draft.card_ref,
-        draft.object_type,
-        draft.grader,
-        draft.condition,
-        draft.grade,
-        draft.language,
-        draft.finish,
-        draft.quantity,
-        draft.purchase_price,
-        draft.purchase_currency,
-        draft.notes,
-        now,
-        now,
-        now,
-        scanId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-      ),
-      c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_EVENT_SQL).bind(
-        createId(),
-        now,
-        itemId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-      ),
-      c.env.DB.prepare(DELETE_CONFIRMED_WISHLIST_CARD_SQL).bind(
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-        draft.card_ref,
-      ),
-      c.env.DB.prepare(UPDATE_SCAN_CONFIRMATION_SQL).bind(
-        candidates[0]?.card_ref === draft.card_ref ? 0 : 1,
-        userResult,
-        scanId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-      ),
-      ]);
+      results = await runWithMutationLocks(
+        c.env.DB,
+        [
+          await ownerCardMutationLockKey(auth.owner, draft.card_ref),
+          await mutationLockKey(
+            "scan-confirm",
+            `${auth.owner.owner_type}:${auth.owner.owner_id}:${scanId}`,
+          ),
+        ],
+        [
+          c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_SQL).bind(
+            itemId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+            draft.folder_id,
+            draft.card_ref,
+            draft.object_type,
+            draft.grader,
+            draft.condition,
+            draft.grade,
+            draft.language,
+            draft.finish,
+            draft.quantity,
+            draft.purchase_price,
+            draft.purchase_currency,
+            draft.notes,
+            now,
+            now,
+            now,
+            scanId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+          ),
+          c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_EVENT_SQL).bind(
+            createId(),
+            now,
+            itemId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+          ),
+          c.env.DB.prepare(DELETE_CONFIRMED_WISHLIST_CARD_SQL).bind(
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+            draft.card_ref,
+            itemId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+          ),
+          c.env.DB.prepare(UPDATE_SCAN_CONFIRMATION_SQL).bind(
+            candidates[0]?.card_ref === draft.card_ref ? 0 : 1,
+            userResult,
+            scanId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+          ),
+        ],
+      );
     } catch (error) {
       if (isUniqueConstraintError(error)) {
         return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);

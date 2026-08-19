@@ -11,9 +11,11 @@ import appleInboxEnvironmentSql from "../../src/db/postgres/migrations/0002_appl
 import priceHistoryVisibilityGuardSql from "../../src/db/postgres/migrations/0003_price_history_visibility_guard.sql";
 import priceHistoryPayloadLimitSql from "../../src/db/postgres/migrations/0004_price_history_month_payload_limit.sql";
 import dropTrendingPinSql from "../../src/db/postgres/migrations/0005_drop_trending_pin.sql";
+import mutationLockSql from "../../src/db/postgres/migrations/0006_mutation_lock.sql";
 import {
   MAX_BATCH_BYTES,
   MAX_BATCH_ROWS,
+  canonicalMigrationSql,
   digestRows,
   sha256Hex,
   takeBoundedRows,
@@ -23,6 +25,7 @@ import {
   EXPECTED_TARGET_TABLES,
   EXCLUDED_SOURCE_TABLES,
   MIGRATION_TABLES,
+  OPTIONAL_SOURCE_TABLES,
   findMigrationTable,
   type MigrationTable,
 } from "./tables";
@@ -42,6 +45,7 @@ const MIGRATIONS = [
   { name: "0003_price_history_visibility_guard", sql: priceHistoryVisibilityGuardSql },
   { name: "0004_price_history_month_payload_limit", sql: priceHistoryPayloadLimitSql },
   { name: "0005_drop_trending_pin", sql: dropTrendingPinSql },
+  { name: "0006_mutation_lock", sql: mutationLockSql },
 ] as const;
 
 export default {
@@ -61,8 +65,10 @@ export default {
       return json({
         ok: true,
         migrationTables: MIGRATION_TABLES,
+        postgresMigrations: MIGRATIONS.map((migration) => migration.name),
         expectedTargetTables: EXPECTED_TARGET_TABLES,
         excludedSourceTables: EXCLUDED_SOURCE_TABLES,
+        optionalSourceTables: OPTIONAL_SOURCE_TABLES,
       });
     }
     if (request.method === "GET" && url.pathname === "/source-inventory") {
@@ -133,7 +139,8 @@ async function applySchema(sql: ReturnType<typeof postgres>) {
   const alreadyApplied: string[] = [];
 
   for (const migration of MIGRATIONS) {
-    const checksum = await sha256Hex(migration.sql);
+    const migrationSql = canonicalMigrationSql(migration.sql);
+    const checksum = await sha256Hex(migrationSql);
     await sql.begin(async (transaction) => {
       await transaction`SELECT pg_advisory_xact_lock(hashtext('kando-postgres-schema'))`;
       const existing = await transaction`
@@ -149,7 +156,7 @@ async function applySchema(sql: ReturnType<typeof postgres>) {
         return;
       }
 
-      await transaction.unsafe(migration.sql);
+      await transaction.unsafe(migrationSql);
       await transaction`
         INSERT INTO postgres_migration (name, checksum_sha256)
         VALUES (${migration.name}, ${checksum})

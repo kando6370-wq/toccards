@@ -82,7 +82,7 @@ export async function retryAppleServerApiCorrections(
       AND n.environment = ?
       AND n.original_transaction_id IS NOT NULL
       AND (i.processing_expires_at IS NULL OR i.processing_expires_at <= ?)
-    ORDER BY i.received_at ASC LIMIT ?
+    ORDER BY i.received_at ASC, i.id ASC LIMIT ?
   `).bind(environment, environment, now.toISOString(), CORRECTION_BATCH_SIZE)
     .all<CorrectionRow>();
 

@@ -160,6 +160,7 @@ class PostgresStatement implements DatabaseStatement {
 }
 
 export function normalizePostgresValue(value: unknown, column?: { type: number }): unknown {
+  if (value === null) return null;
   if (value instanceof Date) {
     const iso = value.toISOString();
     return column?.type === POSTGRES_DATE_OID ? iso.slice(0, 10) : iso;

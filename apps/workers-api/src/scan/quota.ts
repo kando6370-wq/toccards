@@ -1,4 +1,5 @@
 import type { AuthenticatedOwner } from "../owner-auth";
+import { mutationLockKey, runWithMutationLock } from "../db/mutation-lock";
 
 export const FREE_SCAN_LIMIT = 10;
 const PROCESSING_LEASE_MS = 60_000;
@@ -91,8 +92,7 @@ export async function reserveScanQuota(
     now.getTime() + PROCESSING_LEASE_MS,
   ).toISOString();
   try {
-    const inserted = await db
-      .prepare(`
+    const insertStatement = db.prepare(`
         INSERT INTO scan_quota_request
           (request_id, owner_type, owner_id, session_id, access_mode, status,
            processing_expires_at, attempts, created_at, updated_at)
@@ -114,10 +114,19 @@ export async function reserveScanQuota(
         timestamp,
         accessMode,
         owner.owner_type,
-        owner.owner_id,
-        FREE_SCAN_LIMIT,
-      )
-      .run();
+          owner.owner_id,
+          FREE_SCAN_LIMIT,
+      );
+    const inserted = accessMode === "free"
+      ? await runWithMutationLock(
+          db,
+          await mutationLockKey(
+            "scan-quota",
+            `${owner.owner_type}:${owner.owner_id}`,
+          ),
+          insertStatement,
+        )
+      : await insertStatement.run();
     if (inserted.meta.changes === 1) {
       return {
         status: "reserved",

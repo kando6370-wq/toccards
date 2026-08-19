@@ -171,15 +171,20 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
         );
 
     return Center(
-      child: SizedBox(
-        width: double.infinity,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 390),
         child: RefreshIndicator(
           key: const Key('profile-pull-to-refresh'),
           onRefresh: widget.onRefresh,
           child: ListView(
             key: const Key('profile-content-list'),
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              KandoLayout.mainTabTopPadding,
+              20,
+              96,
+            ),
             children: [
               if (subscription.premiumState == AppPremiumState.free) ...[
                 _UpgradeBanner(

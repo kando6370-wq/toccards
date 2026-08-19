@@ -98,7 +98,8 @@ export function createEntitlementRoutes(
           AND session_grant.entitlement_id = ?
           AND purchase_chain.store = 'app_store'
           AND purchase_chain.environment = ?
-        ORDER BY purchase_chain.state_effective_at DESC, purchase_chain.original_transaction_id ASC
+        ORDER BY purchase_chain.state_effective_at DESC NULLS LAST,
+                 purchase_chain.original_transaction_id ASC
       `).bind(
         auth.owner.session_id,
         PREMIUM_ENTITLEMENT_ID,

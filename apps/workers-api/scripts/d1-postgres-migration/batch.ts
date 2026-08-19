@@ -56,3 +56,7 @@ export async function sha256Hex(value: string) {
     (byte) => byte.toString(16).padStart(2, "0"),
   ).join("");
 }
+
+export function canonicalMigrationSql(value: string): string {
+  return value.replace(/\r\n?/g, "\n");
+}

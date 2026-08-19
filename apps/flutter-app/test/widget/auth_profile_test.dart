@@ -1771,7 +1771,10 @@ void main() {
         ),
       ]);
       expect(find.text('Feedback submitted. Thank you.'), findsOneWidget);
-      expect(find.text('Profile'), findsOneWidget);
+      expect(
+        find.byKey(const Key('profile-premium-page-title')),
+        findsOneWidget,
+      );
     },
   );
 
@@ -1888,7 +1891,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester.getSize(find.byKey(const Key('profile-upgrade-banner'))),
-      const Size(390, 152),
+      const Size(350, 152),
     );
     expect(find.text('Restore'), findsOneWidget);
 
@@ -2250,7 +2253,10 @@ void main() {
       await tester.tap(find.text('Log Out'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Profile'), findsOneWidget);
+      expect(
+        find.byKey(const Key('profile-premium-page-title')),
+        findsOneWidget,
+      );
       expect(find.text('Sign in / Sign up'), findsOneWidget);
       expect(repository._currentSession?.anonymousId, 'anon-after-logout');
       expect(find.text('Log Out'), findsNothing);
@@ -2383,7 +2389,7 @@ void main() {
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Profile'), findsOneWidget);
+    expect(find.byKey(const Key('profile-premium-page-title')), findsOneWidget);
     expect(find.text('Sign in / Sign up'), findsOneWidget);
     expect(repository._currentSession?.anonymousId, 'anon-after-delete');
     expect(find.text('person@example.com'), findsNothing);

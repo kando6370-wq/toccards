@@ -36,6 +36,13 @@ class PortfolioApiException implements Exception {
   String toString() => message;
 }
 
+bool _isAmbiguousCreateFailure(PortfolioApiException error) {
+  final statusCode = error.statusCode;
+  return statusCode == null ||
+      statusCode == 408 ||
+      (statusCode >= 500 && statusCode <= 599);
+}
+
 class PortfolioFolderDto {
   const PortfolioFolderDto({
     required this.id,
@@ -684,10 +691,11 @@ class PortfolioApiClient
           if (localPremiumVerified) 'X-Local-Premium-State': 'verified',
         },
       );
+      final folder = PortfolioFolderDto.fromJson(data);
       _pendingFolderRequestIds.remove(operationKey);
-      return PortfolioFolderDto.fromJson(data);
+      return folder;
     } on PortfolioApiException catch (error) {
-      if (error.code != portfolioRequestTimeoutCode) {
+      if (!_isAmbiguousCreateFailure(error)) {
         _pendingFolderRequestIds.remove(operationKey);
       }
       rethrow;
@@ -920,7 +928,7 @@ class PortfolioApiClient
       _pendingItemRequestIds.remove(operationKey);
       return item;
     } on PortfolioApiException catch (error) {
-      if (error.code != portfolioRequestTimeoutCode) {
+      if (!_isAmbiguousCreateFailure(error)) {
         _pendingItemRequestIds.remove(operationKey);
       }
       rethrow;
@@ -979,7 +987,7 @@ class PortfolioApiClient
       _pendingWishlistRequestIds.remove(operationKey);
       return item;
     } on PortfolioApiException catch (error) {
-      if (error.code != portfolioRequestTimeoutCode) {
+      if (!_isAmbiguousCreateFailure(error)) {
         _pendingWishlistRequestIds.remove(operationKey);
       }
       rethrow;

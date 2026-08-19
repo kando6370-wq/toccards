@@ -129,6 +129,74 @@ void main() {
   );
 
   test(
+    'refresh reports server failures because transient backend errors must not replace the stored identity',
+    () async {
+      const stored = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'expired-access',
+        refreshToken: 'stored-refresh',
+        userId: 'user-1',
+      );
+      final adapter = _FakeAuthAdapter({
+        'GET /auth/me': _Response(401, {
+          'success': false,
+          'error': {'code': 'UNAUTHORIZED', 'message': 'Unauthorized.'},
+        }),
+        'POST /auth/token/refresh': _Response(500, {
+          'success': false,
+          'error': {
+            'code': 'INTERNAL_ERROR',
+            'message': 'Something went wrong. Please try again.',
+          },
+        }),
+      });
+      final repository = HttpAuthRepository(
+        _dio(adapter),
+        InMemoryAuthStorage(),
+      );
+
+      await expectLater(
+        repository.validateStoredSession(stored),
+        throwsA(
+          isA<AuthApiException>().having(
+            (error) => error.code,
+            'code',
+            'INTERNAL_ERROR',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'refresh returns no session for unauthorized tokens because revoked identities must not stay active',
+    () async {
+      const stored = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'expired-access',
+        refreshToken: 'revoked-refresh',
+        userId: 'user-1',
+      );
+      final adapter = _FakeAuthAdapter({
+        'GET /auth/me': _Response(401, {
+          'success': false,
+          'error': {'code': 'UNAUTHORIZED', 'message': 'Unauthorized.'},
+        }),
+        'POST /auth/token/refresh': _Response(401, {
+          'success': false,
+          'error': {'code': 'UNAUTHORIZED', 'message': 'Unauthorized.'},
+        }),
+      });
+      final repository = HttpAuthRepository(
+        _dio(adapter),
+        InMemoryAuthStorage(),
+      );
+
+      expect(await repository.validateStoredSession(stored), isNull);
+    },
+  );
+
+  test(
     'stored session validation shares one deadline across me refresh and retry because internal retries must not reset the operation budget',
     () async {
       const stored = AuthSession(

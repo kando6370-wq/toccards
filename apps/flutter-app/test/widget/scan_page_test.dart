@@ -140,7 +140,7 @@ void main() {
   );
 
   testWidgets(
-    'the quota prompt stays tappable where it overlaps the viewfinder',
+    'the quota prompt stays tappable so free users can open the paywall',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.padding = const FakeViewPadding(top: 62);
@@ -150,12 +150,8 @@ void main() {
       final quotaPrompt = tester.getRect(
         find.byKey(const Key('scan-free-quota-pill')),
       );
-      final viewfinder = tester.getRect(
-        find.byKey(const Key('scan-figma-viewfinder')),
-      );
-      expect(quotaPrompt.bottom, greaterThan(viewfinder.top));
 
-      await tester.tapAt(Offset(quotaPrompt.center.dx, quotaPrompt.bottom - 2));
+      await tester.tapAt(quotaPrompt.center);
       await tester.pumpAndSettle();
 
       expect(find.text('Subscription'), findsOneWidget);

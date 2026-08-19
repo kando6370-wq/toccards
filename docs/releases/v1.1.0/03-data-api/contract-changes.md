@@ -50,7 +50,7 @@ App 本机 Premium 使用 `Unknown/Free/Premium` 三态，不把尚未读取、�
 
 Scan API 的 Quota 查询、识别提交和确认写入统一从请求发起时计算 15 秒总 Deadline，不再把 Dio 连接和响应阶段分别累计。Deadline 到达后客户端取消本次等待并返回 `REQUEST_TIMEOUT`；迟到成功响应不能更新当前操作。识别重试继续复用服务端 `request_id` / `Idempotency-Key`，因此客户端 Timeout 不改变服务端额度预占、最终结算和响应重放契约。
 
-Portfolio API 的 Folder、Collection Item、Wishlist、Dashboard 与估值历史请求同样统一使用从调用发起计时的 15 秒总 Deadline；到期取消客户端等待并返回通用 Timeout 文案，迟到响应不能完成已经过期的保存或覆盖当前读取状态。Create Folder、Quick Collect、完整 Collection Item Create 与 Add Wishlist 均发送 UUID `Idempotency-Key`；Timeout 后按稳定 owner、创建入口及规范化名称、完整 Item 草稿或 card ref 复用该 Key，即使 access token 已刷新也不改变。服务端以 Key 作为新资源 ID，同 Key/相同语义返回原资源，同 Key/不同字段返回 `409`，非法 Key 返回 `422`。成功或明确的非 Timeout 响应后客户端清除 Key，后续主动创建是新操作；Quick Collect 与完整 Create 使用不同操作域，不会互相重放。旧客户端不带 Key 时继续兼容。该客户端边界不拆分 Folder Move 与字段编辑的原子 `PATCH`。
+Portfolio API 的 Folder、Collection Item、Wishlist、Dashboard 与估值历史请求同样统一使用从调用发起计时的 15 秒总 Deadline；到期取消客户端等待并返回通用 Timeout 文案，迟到响应不能完成已经过期的保存或覆盖当前读取状态。Create Folder、Quick Collect、完整 Collection Item Create 与 Add Wishlist 均发送 UUID `Idempotency-Key`；Timeout 后按稳定 owner、创建入口及规范化名称、完整 Item 草稿或 card ref 复用该 Key，即使 access token 已刷新也不改变。服务端以 Key 作为新资源 ID，同 Key/相同语义返回原资源，同 Key/不同字段返回 `409`，非法 Key 返回 `422`。网络失败、客户端 Deadline、HTTP `408`/`5xx` 或成功响应 DTO 无法解析等无法确定服务端是否已提交的结果均保留原 Key；成功或 `401`、`403`、`409`、`422` 等明确终态响应后清除，后续主动创建才是新操作。Quick Collect 与完整 Create 使用不同操作域，不会互相重放。旧客户端不带 Key 时继续兼容。该客户端边界不拆分 Folder Move 与字段编辑的原子 `PATCH`。
 
 Card Data API 的 Home 推荐、Search、Set/Card Detail、市场价与 Price History 请求也使用同一 15 秒总 Deadline；到期取消当前客户端等待并返回 `REQUEST_TIMEOUT`。Search 和 Range Controller 继续以当前请求代次决定是否接纳响应，因此旧查询或旧 Range 的迟到结果不能覆盖用户后续选择。
 
@@ -76,6 +76,8 @@ Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时�
 
 `0034_billing_auto_renew_snapshot.sql` 为订单增加 nullable `auto_renew_snapshot`。Admin 展示、筛选和导出只读取订单事件快照，不读取 purchase chain 当前 `auto_renew`。Notifications V2 只有在当次已验签续订信息提供 `autoRenewStatus` 时写 `0/1`；Lifetime 固定写 `0`；Fresh Purchase、Restore 及历史订阅订单无法从交易 JWS 证明该值时保持 `NULL` 并显示 `--`，不以当前状态反向覆盖历史。
 
+Admin 订单列表对 nullable 订单状态、自动续期、原始金额、USD 金额与扣款次数统一显示 `--`；合法 `0` 仍显示金额或次数 0，`auto_renew=false` 显示“否”，不得把缺失值与零值混淆。Card Override 的图片上传按 `card_ref` 原子 UPSERT；并发首次上传只保留一条 override，已有行只更新图片 URL 与审计字段，必须保留原 `id`、`override_fields` 和 `is_missing_card`。
+
 已验签的 Apple 建单类通知在尚无 App owner 关联时，仍可基于启用的 `billing_product` SKU 创建 purchase chain 与订单。该链以 `original_owner_type=unlinked`、空 `original_owner_id` 表达“Apple 事实已保存但 UID 未关联”；Admin 展示空 UID，UID 筛选和安装时间查询忽略空值。通知流程不会为 `unlinked` 链创建 session grant，未知或未启用 SKU 进入 `correction_required`，因此无 UID 订单记录不会成为 Premium 授权来源。之后只有 Fresh Purchase challenge 或 Restore App Attest 这类绑定 live session 的可信证明，才能把仍为 `unlinked` 的链补关联为当前 owner并创建当前 session grant；已关联 owner 不会被其他 session 改写。
 
 | API | 当前行为 |
@@ -91,7 +93,7 @@ UID 只用于关联查询与安装时间，不成为 Premium owner。安装时�
 
 ## Folder Premium 限制
 
-`POST /api/v1/portfolio/folders` 当前契约：Free 用户最多拥有 2 个 Folder（包含默认 Folder）；有效当前 session grant 可突破该限制。数量判断与 INSERT 在一条 SQL 中完成，并发请求不能同时创建第 3 个 Folder。客户端可发送 `X-Local-Premium-State: verified` 表示本机 StoreKit 已验证，但该头只会在无 grant 时触发 `409 ENTITLEMENT_SYNC_REQUIRED`，不能直接授权；明确 Free 超限返回 `403 PREMIUM_REQUIRED`。
+`POST /api/v1/portfolio/folders` 当前契约：Free 用户最多拥有 2 个 Folder（包含默认 Folder）；有效当前 session grant 可突破该限制。同 owner 的创建先取得摘要锁，再在同一事务的 INSERT 中完成数量判断与 `MAX(sort_order) + 100` 计算；并发请求不能同时创建第 3 个 Folder，Premium 并发创建也不会得到重复排序值。客户端可发送 `X-Local-Premium-State: verified` 表示本机 StoreKit 已验证，但该头只会在无 grant 时触发 `409 ENTITLEMENT_SYNC_REQUIRED`，不能直接授权；明确 Free 超限返回 `403 PREMIUM_REQUIRED`。
 
 Flutter Create Folder 在弹窗内等待服务端结果：保存中锁定输入、返回和重复提交；成功才关闭。普通失败保留名称并沿用通用错误反馈；`ENTITLEMENT_SYNC_REQUIRED` 保留名称并提示 Premium 正在同步；`PREMIUM_REQUIRED` 视为多设备下服务端最新限制，先刷新 Folder List，再进入 Functional Paywall，成功后用原名称重新打开 Create Folder，非成功不创建。
 
@@ -104,7 +106,7 @@ Collection Item 编辑与 Folder Move 继续使用单次 `PATCH /api/v1/portfoli
 | `GET /api/v1/scan/quota` | 返回当前 owner 的终身 10 次 Free quota；有效当前 session grant 返回 `access=premium`、`unlimited=true`，本机 Premium 同步中返回 `ENTITLEMENT_SYNC_REQUIRED`。 |
 | `POST /api/v1/scan/recognize` | 要求 body `request_id` 与 `Idempotency-Key` 为同一 UUID；在 R2/OCR 前原子预占。Matched/No Match 消耗，技术失败释放，Premium 不消耗 Free quota；成功及额度耗尽响应中的 quota 均包含 `access`、`unlimited`、`limit`、`reserved`、`consumed`、`remaining`，完成响应可用原 request ID 重放。 |
 
-`scan_quota_request` 同时是额度账本和请求幂等真源。Free 的 `reserved + consumed` 最多 10；同 owner 多 session 并发不能预占同一最后额度。处理中租约为 60 秒，防止 Worker 中断永久占用；released 请求不计入已用额度。Flutter 严格解析完整 quota，不再把缺失权益字段静默降级为 Free；Scan 以本机 Premium 或服务端 `unlimited=true` 的合并结果更新展示、额度拦截与请求同步保护，并在本机为 Free 时于页面生命周期内至少复核一次 StoreKit 权益。Waiting 与服务端确认 Unlimited 后的 Queue 顺序自动递补保持不变。Processing 删除立即移除 UI，但保留原请求的后台观察；最终响应继续更新 Quota，缺少 Quota 时刷新服务端真值，且迟到结果不得重插卡片。
+`scan_quota_request` 同时是额度账本和请求幂等真源。Free 的 `reserved + consumed` 最多 10；Free 预占按 owner 摘要锁串行，同 owner 多 session 并发不能预占同一最后额度。Premium 不取得 Free 配额锁，也不消耗 Free 次数。处理中租约为 60 秒，防止 Worker 中断永久占用；同一过期 lease 的并发接管只有一个请求获得处理权，released 请求不计入已用额度。Flutter 严格解析完整 quota，不再把缺失权益字段静默降级为 Free；Scan 以本机 Premium 或服务端 `unlimited=true` 的合并结果更新展示、额度拦截与请求同步保护，并在本机为 Free 时于页面生命周期内至少复核一次 StoreKit 权益。Waiting 与服务端确认 Unlimited 后的 Queue 顺序自动递补保持不变。Processing 删除立即移除 UI，但保留原请求的后台观察；最终响应继续更新 Quota，缺少 Quota 时刷新服务端真值，且迟到结果不得重插卡片。
 
 Functional Paywall 只在 typed Purchase/Restore success 后恢复仍有效的 Waiting；quota=0 且图片未入 Queue时只返回 Scan，不自动打开相机或图库。Scan Pro Card 使用完整 Subscription Page：Purchase Success 经 Success Page 返回原 Scan 页面实例，Restore/外部解锁直接返回，因此当前 Queue 不会因重新创建路由而丢失。首次 quota 刷新延后到首帧，避免路由切换构建期修改 Riverpod provider。
 
@@ -134,6 +136,20 @@ Card Detail 普通价格历史 1Y 的服务端防绕过已关闭：Free 仍可�
 ## PostgreSQL 查询切换
 
 Workers 业务 API 的路径、请求/响应字段、鉴权、owner 隔离、幂等、Premium 和错误语义保持不变；底层查询已从 SQLite/D1 方言改为 PostgreSQL 兼容方言。部署运行时的 `fetch` 与 `scheduled` 入口必须存在 `HYPERDRIVE`，缺失时立即失败；即使同时存在遗留 `DB` binding 也不得读取或执行任务。测试可继续通过直接调用 `app.request` 注入进程内 `DB` 适配器，但这不是部署运行时的回退路径。D1 与 PostgreSQL 完全独立，运行时不会查询或回退 D1。
+
+Flutter 启动时校验已保存会话：只有 `/auth/me` 或 `/auth/token/refresh` 明确返回 `UNAUTHORIZED` 才判定会话失效并进入匿名账号恢复流程。PostgreSQL、配置或服务端内部错误必须保持显式失败，不能转换为“无会话”，避免短暂后端故障导致客户端错误切换 owner。
+
+PostgreSQL 结果适配器必须在类型转换前把 SQL `NULL` 原样映射为 JavaScript `null`。该规则同时适用于 nullable `bigint` 与 `numeric`：价格 baseline/change 缺失、Collection Item 尚未绑定 `price_series_id`、订单金额未知时均保持原有空值语义，不得转换为 `0`、`NaN` 或查询失败。非空 `bigint` 仍必须处于 JavaScript 安全整数范围，非空 `numeric` 仍必须是有限数值；非法值继续显式失败。该修复不新增 Schema、迁移、数据回填或 D1 回退。
+
+所有使用 `LIMIT/OFFSET` 的目录、Portfolio 与 Admin 列表必须在既有业务主排序后追加唯一稳定键，避免同名、同时间记录因 PostgreSQL 未定义同键顺序而跨页重复或漏项。Card Search 保持 `updated_at DESC`，但对 nullable `updated_at` 显式使用 `NULLS LAST`，再按 `product_id ASC`；Set Search 同名时按 `set_id ASC`；Collection/Wishlist 的可选主排序同键时按 Item ID 升序；Admin 分页按对应资源主键升序，用户联合列表先按 `account_type`、再按 `id`。该修复不改变过滤、DTO、主排序方向、页码协议或 Schema。
+
+同一规则适用于非分页的最新记录、有限批次和用户可见有序列表：Admin 最近 Scan/Installation、匿名账号复用、最新注册/重置验证码、Portfolio Folder、Apple 通知重试与 Server API 校正批次都在原主排序后追加各自唯一 ID；Admin 订单关联的通知 type/subtype 使用完全相同的 `signed_at DESC NULLS LAST, received_at DESC, id ASC`，避免 PostgreSQL 把空 `signed_at` 视为最新，或在并列时把两个字段取自不同通知。订阅 lifecycle 的 nullable `state_effective_at DESC` 同样显式 `NULLS LAST`；Admin 订单导出与列表保持相同的稳定顺序。上述变化只确定原排序完全相等时的结果，不改变业务过滤、正常主顺序、DTO、API 或 Schema。
+
+### PostgreSQL 并发写保护
+
+PostgreSQL 追加 `0006_mutation_lock.sql`，D1 历史/本地测试链追加 `0036_mutation_lock.sql`。`mutation_lock` 仅以主键 `lock_key` 保存串行化键，不保存业务结果；动态身份使用 SHA-256 摘要，不把 owner ID 或邮箱明文写入锁表。账号 UID 使用全局锁保护既有 `MAX(uid) + 1`；Free Scan 与 Folder 使用 owner 级锁；注册和重置验证码分别使用规范化邮箱 + purpose 锁；同设备匿名账号创建使用 device 摘要锁，保证只有一个 live owner 及其默认数据。Wishlist、Quick Collect、完整 Collection Item Create 与 Scan Confirm 对同一 owner/card 使用同一锁，Scan Confirm 另取 owner/scan 锁，防止同一扫描的不同候选各自提交。一次操作需要多把锁时先去重并按字典序获取，避免反向锁顺序。锁和受保护写入必须处于同一个 `DB.batch` 事务，后到事务在取得锁后再执行条件查询/写入；API、UID 格式、Free Scan=10、Free Folder=2、验证码 60 秒窗口及既有错误码均不变。
+
+部署顺序必须先执行 expand migration `0006`，再部署依赖锁表的新 Worker。旧 Worker 会忽略新增表，可在 migration 后继续运行；新 Worker 在表不存在时显式失败，不允许先部署代码。D1-to-PostgreSQL runner 将 `mutation_lock` 视为 source 可选、target 必需的基础设施表，不搬运其中数据，并按 manifest 的完整有序名称校验 migration ledger，不再复制固定数量。runner 在计算 checksum 与执行前统一把 CRLF 和孤立 CR 规范为 LF，因此同一 migration 不会因 Windows Text loader 换行差异与远程 LF ledger 产生伪冲突；规范化之外的 SQL 内容变化仍必须显式失败。2026-08-19 已按该顺序执行共享 PostgreSQL `0006` 并部署依赖锁表的 dev Worker；执行、复核和回滚边界见 [migration.md](migration.md)。production 未执行该迁移或部署；本次 Git 交付不重复执行迁移、部署或数据写入。
 
 旧 `tcg_price` 不参与运行时查询。Search、卡片详情、市场价、Price Series、Trending 和 Portfolio 估值统一读取 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month` 与 `card_trending_snapshot`。当前价只读取 `status=published` 且被 `current:%` pointer 指向的批次；月历史只读取同来源、同 scope 的 `published/superseded` lineage，并要求该来源和 scope 仍有已发布 current pointer。不同 scope 不能互相授权历史可见性；任何月块内容或 checksum 变化都必须记录新的 batch lineage，不能保留旧 `last_batch_id` 原地改写。七张新价格表为空时，市场价和 Trending 返回空集合，不回退旧 D1 价格或旧 KV Trending 缓存。Card Detail 的 Shop 从已发布 current snapshot 中只选择 `source_code=tcgplayer` 的 Raw 商品，按品相生成最多 4 条 TCGplayer 商品外链；`date` 与 `price` 表示当前商品价格快照，不得解释为已成交记录。其他价格来源不得混入 Shop，独立的 View Sold Listings 成交查询入口不受此映射影响。
 

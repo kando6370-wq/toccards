@@ -1,3 +1,5 @@
+import { runWithMutationLock } from "./db/mutation-lock";
+
 type AccountUidRow = {
   uid: number;
 };
@@ -13,10 +15,12 @@ export async function reserveAccountUid(
   db: D1Database,
   createdAt: string,
 ): Promise<string> {
-  const row = await db
-    .prepare(RESERVE_ACCOUNT_UID_SQL)
-    .bind(createdAt)
-    .first<AccountUidRow>();
+  const result = await runWithMutationLock<AccountUidRow>(
+    db,
+    "account-uid",
+    db.prepare(RESERVE_ACCOUNT_UID_SQL).bind(createdAt),
+  );
+  const row = result.results[0];
 
   if (!row || !Number.isSafeInteger(row.uid) || row.uid < 100000) {
     throw new Error("Failed to reserve account UID.");

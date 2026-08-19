@@ -117,6 +117,66 @@ void main() {
       expect(find.text('Recovered card'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'initial failure stays retryable because a PostgreSQL error must not look like an empty set',
+    (tester) async {
+      final api = _FailingThenSuccessfulSetCatalogApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [setCatalogApiClientProvider.overrideWithValue(api)],
+          child: const MaterialApp(
+            home: SetDetailPage(
+              setId: 'base-set-id',
+              game: 'Pokemon',
+              setName: 'Base Set',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('No content available'), findsOneWidget);
+      expect(find.text('No cards available'), findsNothing);
+
+      await tester.tap(find.text('REFRESH'));
+      await tester.pumpAndSettle();
+
+      expect(api.requestedPages, [1, 1]);
+      expect(find.text('Recovered card'), findsOneWidget);
+      expect(find.text('No content available'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'successful zero rows show the imported-data empty state because an empty set is not a query failure',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            setCatalogApiClientProvider.overrideWithValue(
+              const _EmptySetCatalogApi(),
+            ),
+          ],
+          child: const MaterialApp(
+            home: SetDetailPage(
+              setId: 'base-set-id',
+              game: 'Pokemon',
+              setName: 'Base Set',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('No cards available'), findsOneWidget);
+      expect(
+        find.text('Cards for this set have not been imported yet.'),
+        findsOneWidget,
+      );
+      expect(find.text('No content available'), findsNothing);
+    },
+  );
 }
 
 class _PresentationSetCatalogApi implements SetCatalogApi {
@@ -177,6 +237,52 @@ class _RetrySetCatalogApi implements SetCatalogApi {
     }
     return [_card('recovered', 'Recovered card')];
   }
+
+  @override
+  Future<List<CardDataGameDto>> listGames() async => const [];
+
+  @override
+  Future<List<CardDataSetDto>> searchCatalogSets(
+    String query, {
+    String? game,
+  }) async => const [];
+}
+
+class _FailingThenSuccessfulSetCatalogApi implements SetCatalogApi {
+  final requestedPages = <int>[];
+
+  @override
+  Future<List<CardDataCardDto>> cardsForSet(
+    String setCode, {
+    required String game,
+    int page = 1,
+  }) async {
+    requestedPages.add(page);
+    if (requestedPages.length == 1) {
+      throw StateError('transient failure');
+    }
+    return [_card('recovered', 'Recovered card')];
+  }
+
+  @override
+  Future<List<CardDataGameDto>> listGames() async => const [];
+
+  @override
+  Future<List<CardDataSetDto>> searchCatalogSets(
+    String query, {
+    String? game,
+  }) async => const [];
+}
+
+class _EmptySetCatalogApi implements SetCatalogApi {
+  const _EmptySetCatalogApi();
+
+  @override
+  Future<List<CardDataCardDto>> cardsForSet(
+    String setCode, {
+    required String game,
+    int page = 1,
+  }) async => const [];
 
   @override
   Future<List<CardDataGameDto>> listGames() async => const [];

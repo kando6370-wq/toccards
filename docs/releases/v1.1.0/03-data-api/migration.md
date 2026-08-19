@@ -18,8 +18,18 @@ R1 数据库基础批次已通过只在本机运行的 Wrangler remote preview�
 
 - PostgreSQL 新增向前迁移 `0005_drop_trending_pin.sql`，D1 本地/测试迁移链新增 `0035_drop_trending_pin.sql`；历史建表迁移保持不变。
 - 两份迁移均只执行 `DROP TABLE trending_pin`，不使用 `CASCADE`。D1 到 PostgreSQL 清单不再迁移该表，并把旧 D1 源表列为显式排除项，避免重新创建已废弃表。
-- 上线必须先部署不再暴露旧 Admin API 的 Worker，确认没有旧端点调用后，再经单独授权执行 PostgreSQL `0005`。本次代码变更不执行远程迁移或数据删除。
+- 2026-08-18 在不再暴露旧 Admin API 的 dev Worker/Admin 已部署后，经用户单独授权执行 PostgreSQL `0005`。一次性 Wrangler remote dev 入口仅绑定共享 `HYPERDRIVE`，没有 D1、KV、R2、路由或定时任务；执行前 ledger 仅含 `0000-0004`，`trending_pin` 存在但为 0 行，且无外键引用或依赖视图。迁移在 advisory lock 保护的单个事务内执行原始 `DROP TABLE` 并写入 `postgres_migration`，最终记录与 Git 提交 LF 内容一致的 checksum `0f0e9a7804803cad4be2705d3974e12afc70c11da97f8e1f06e02b24f090dab6`、应用时间 `2026-08-18T09:21:56.628Z`；Windows 工作树首次产生的 CRLF checksum 已在确认表不存在且 ledger 精确匹配后，于同一 advisory lock 保护的事务中校正为上述规范值。事务内及事务外复核均确认 ledger 已包含 `0005` 且 `public.trending_pin` 不存在。一次性会话随后关闭，未部署专用 Worker，全程未连接或查询 D1。
 - PostgreSQL drop 前可通过回滚 Worker 恢复旧接口；drop 后若必须恢复，需先按历史 DDL 重建空表，历史置顶配置只能从数据库备份恢复。
+
+## PostgreSQL 并发写锁（2026-08-19）
+
+`0006_mutation_lock.sql` 为共享 PostgreSQL 新增 `public.mutation_lock(lock_key text PRIMARY KEY)`，与 D1 本地/测试迁移 `0036_mutation_lock.sql` 对齐。该表保存确定性作用域锁键，不保存业务结果；新 Worker 的账号 UID、匿名账号、验证码、Folder、Wishlist/Collection 和 Scan Quota 写路径依赖此表完成事务级并发串行化。Admin Card Override 图片上传不依赖该表，而是通过 `card_ref` 唯一键上的单条原子 UPSERT 处理并发首次写入。
+
+2026-08-19 经用户明确授权，在部署依赖该表的新 Worker 与配套 Admin assets 前先执行 PostgreSQL `0006`。一次性 Wrangler remote preview 仅绑定共享 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66`，没有 D1、KV、R2、路由或定时任务。执行前目标为 `postgres/public`、PostgreSQL `18.6`，ledger 精确包含 `0000-0005` 且 `public.mutation_lock` 不存在；迁移在 `pg_advisory_xact_lock(hashtext('kando-postgres-schema'))` 保护的单个事务内执行原始 DDL并写入 `postgres_migration`。事务内及事务外复核均确认 `0006` checksum 为 `aac5595a2e350acc6659b58712a1802a09b9fddf4d4de2cd63be4998a9f7eaea`、`applied_at=2026-08-19T01:09:56.371Z`，表仅含非空 `lock_key text` 主键且为 0 行。一次性会话随后关闭，未部署专用 Worker，全程未连接、查询或写入 D1。
+
+该迁移是向前兼容的 expand 变更：旧 Worker 忽略新表，新 Worker 在表缺失时显式失败。迁移提交后的回滚策略是继续保留空锁表并回滚 Worker version；不得在仍有新 Worker 流量时删除 `mutation_lock`。
+
+迁移后使用仓库标准 `deploy:dev` 部署当前工作树的 Worker 与 Admin assets。Cloudflare deployment `5e19fc97-32d2-4962-acf0-a53e18891fb9` 将 version `98670000-bd7d-42b0-8264-7bb9aa61fe10`（number `176`）置于 100% dev 流量；版本回读确认绑定 dev KV、共享 Hyperdrive 和 dev R2，未绑定 D1。部署后原数据库兼容性故障链路已恢复：Search、Set 卡牌列表、卡牌 `21986` 详情、21 组市场价和 7 个价格曲线点均返回成功；10 个游戏的 Search、3 个 Pokemon Set，以及 `21986`、`91408`、`488038`、`124595`、`219614` 五张卡的详情/市场价/价格曲线扩展矩阵共 28 个请求均返回 `200` 和有效业务结构。公开分享页也已从 `500` 恢复为含正确卡牌内容与 OG 元数据的 `200`，但独立验收发现 iOS/Android 商店回退 URL 均错误指向 YouTube；修正共享 `admin.app_version.ios` / `admin.app_version.google` 配置并复验前，不得宣称分享业务流完整通过。Admin HTML 引用本次构建的 `index-DNPsU3yc.js`，其 10 个 JS/CSS 资源逐个返回 `200` 且与本地构建 SHA-256 一致；未授权 Admin API 仍返回 `401 UNAUTHORIZED`。该检查不替代真实 PostgreSQL 双连接竞争、dev 登录态多设备或 production 部署验收。
 
 keyset 扫描不是跨批次数据库快照，不能在 dev D1 持续写入时作为最终一致性证明。本次先把 dev deployment `36969b9d-2065-4a42-a1ca-3e742f51ea3d` 的 version `4382c55f-bf0c-4018-b108-675f04f817aa` 切为 100% 维护流量：health 返回 `maintenance/databaseWrites=frozen`，业务请求和 Apple 回调均返回 503，scheduled handler 不执行；冻结后 inbox、cards 与 session 计数连续两次稳定。runner 随后收到 `--confirm-source-write-frozen` 才执行正式迁移。该维护版本是切换门禁，不是最终业务版本；必须由 PostgreSQL 正式版本部署和烟测替换后才能结束维护状态。
 

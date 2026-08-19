@@ -25,6 +25,9 @@ test("billing admin follows the v1.1 order facts contract without making UID the
   assert.match(app, /<Pagination disabled=\{loading\} current=\{page\}.*showQuickJumper/s);
   assert.match(app, /const billingValue = \(value: unknown\).*\? "--"/);
   assert.match(app, /dataIndex: "auto_renew".*value === null \? "--" : value \? "是" : "否"/);
+  assert.match(app, /title: "金额（USD）".*billingAmount\(row\.amount_usd_micros, "USD"\)/);
+  assert.match(app, /title: "扣款次数".*render: billingValue/);
+  assert.match(app, /function billingOrderStatusTag\(value: string \| null\).*: "--"/s);
   assert.match(routes, /adminRoutes\.get\("\/billing\/transactions"/);
   assert.match(routes, /adminRoutes\.get\("\/apple-notifications"/);
   assert.match(routes, /createXlsx/);

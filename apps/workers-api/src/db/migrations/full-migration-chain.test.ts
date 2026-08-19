@@ -26,8 +26,8 @@ describe("D1 migration chain", () => {
       for (const statement of statements(sql)) await db.prepare(statement).run();
     }
 
-    expect(migrations).toHaveLength(36);
-    expect(migrations.at(-1)).toBe("0035_drop_trending_pin.sql");
+    expect(migrations).toHaveLength(37);
+    expect(migrations.at(-1)).toBe("0036_mutation_lock.sql");
     const trendingPin = await db.prepare(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'trending_pin'",
     ).first();
@@ -35,12 +35,13 @@ describe("D1 migration chain", () => {
     const tables = await db.prepare(`SELECT name FROM sqlite_master
       WHERE type = 'table' AND name IN (
         'billing_session_entitlement_grant', 'billing_apple_verification_attempt',
-        'billing_apple_app_attest_key', 'apple_notification_inbox', 'scan_quota_request'
+        'billing_apple_app_attest_key', 'apple_notification_inbox', 'mutation_lock',
+        'scan_quota_request'
       ) ORDER BY name`).all();
     expect(tables.results.map((row) => row.name)).toEqual([
       "apple_notification_inbox", "billing_apple_app_attest_key",
       "billing_apple_verification_attempt", "billing_session_entitlement_grant",
-      "scan_quota_request",
+      "mutation_lock", "scan_quota_request",
     ]);
 
     const columns = await db.prepare(`SELECT name FROM pragma_table_info('billing_transaction')

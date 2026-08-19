@@ -194,10 +194,10 @@ const BILLING_TRANSACTION_SELECT_SQL = `SELECT t.id, ${BILLING_UID_SQL} AS uid,
   t.charge_count, t.refund_completed_at,
   (SELECT n.notification_type FROM apple_server_notification n
     WHERE n.environment = t.environment AND n.transaction_id = t.transaction_id
-    ORDER BY n.signed_at DESC, n.received_at DESC LIMIT 1) AS notification_type,
+    ORDER BY n.signed_at DESC NULLS LAST, n.received_at DESC, n.id ASC LIMIT 1) AS notification_type,
   (SELECT n.subtype FROM apple_server_notification n
     WHERE n.environment = t.environment AND n.transaction_id = t.transaction_id
-    ORDER BY n.signed_at DESC, n.received_at DESC LIMIT 1) AS notification_subtype`;
+    ORDER BY n.signed_at DESC NULLS LAST, n.received_at DESC, n.id ASC LIMIT 1) AS notification_subtype`;
 
 const SELECT_ADMIN_BY_EMAIL_SQL = `
   SELECT id, email, password_hash, role, status, created_at
@@ -218,7 +218,7 @@ const SELECT_ADMIN_PERMISSIONS_SQL = `
   FROM admin_user
   WHERE (CAST(? AS text) IS NULL OR lower(email) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR status = ?)
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
 
@@ -263,18 +263,18 @@ const ADMIN_USERS_FILTERED_SQL = `
       CASE WHEN u.status = 'active' THEN 'active' ELSE 'disabled' END AS status,
       COALESCE((
         SELECT ai.provider FROM auth_identity ai WHERE ai.user_id = u.id
-        ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END LIMIT 1
+        ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END, ai.id ASC LIMIT 1
       ), 'email') AS identity,
       COALESCE((
         SELECT sr.platform FROM scan_record sr
         WHERE sr.owner_type = 'user' AND sr.owner_id = u.id
-        ORDER BY sr.created_at DESC LIMIT 1
+        ORDER BY sr.created_at DESC, sr.id ASC LIMIT 1
       ), 'Unknown') AS platform,
       COALESCE((
         SELECT install.country_code FROM app_installation install
         WHERE install.uid = u.id
           AND NULLIF(TRIM(install.country_code), '') IS NOT NULL
-        ORDER BY install.last_seen_at DESC, install.first_seen_at DESC LIMIT 1
+        ORDER BY install.last_seen_at DESC, install.first_seen_at DESC, install.installation_id ASC LIMIT 1
       ), 'Unknown') AS country
     FROM "user" u
     UNION ALL
@@ -284,13 +284,13 @@ const ADMIN_USERS_FILTERED_SQL = `
       COALESCE((
         SELECT sr.platform FROM scan_record sr
         WHERE sr.owner_type = 'anonymous' AND sr.owner_id = a.id
-        ORDER BY sr.created_at DESC LIMIT 1
+        ORDER BY sr.created_at DESC, sr.id ASC LIMIT 1
       ), 'Unknown'),
       COALESCE((
         SELECT install.country_code FROM app_installation install
         WHERE install.uid = a.id
           AND NULLIF(TRIM(install.country_code), '') IS NOT NULL
-        ORDER BY install.last_seen_at DESC, install.first_seen_at DESC LIMIT 1
+        ORDER BY install.last_seen_at DESC, install.first_seen_at DESC, install.installation_id ASC LIMIT 1
       ), 'Unknown')
     FROM anonymous_account a
   )
@@ -304,7 +304,7 @@ const ADMIN_USERS_FILTERED_SQL = `
 `;
 
 const SELECT_ADMIN_USERS_SQL = `${ADMIN_USERS_FILTERED_SQL}
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, account_type ASC, id ASC
   LIMIT ? OFFSET ?
 `;
 
@@ -368,7 +368,7 @@ const SELECT_FEEDBACKS_SQL = `
   SELECT id, uid, email, types, functions, message, status, created_at, updated_at
   FROM feedback_ticket
   WHERE (CAST(? AS text) IS NULL OR status = ?)
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
 
@@ -403,7 +403,7 @@ const SELECT_SCAN_RECORDS_SQL = `
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
     AND (CAST(? AS text) IS NULL OR created_at >= ?)
     AND (CAST(? AS text) IS NULL OR created_at <= ?)
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
 
@@ -443,7 +443,7 @@ const SELECT_CARD_OVERRIDES_SQL = `
   FROM card_override
   WHERE (CAST(? AS integer) IS NULL OR is_missing_card = ?)
     AND (CAST(? AS text) IS NULL OR lower(card_ref) LIKE '%' || ? || '%')
-  ORDER BY updated_at DESC
+  ORDER BY updated_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
 
@@ -465,6 +465,16 @@ const INSERT_CARD_OVERRIDE_SQL = `
   INSERT INTO card_override
     (id, card_ref, override_fields, image_url, is_missing_card, updated_by, updated_at)
   VALUES (?, ?, ?, ?, ?, ?, ?)
+`;
+
+const UPSERT_CARD_OVERRIDE_IMAGE_SQL = `
+  INSERT INTO card_override
+    (id, card_ref, override_fields, image_url, is_missing_card, updated_by, updated_at)
+  VALUES (?, ?, NULL, ?, 0, ?, ?)
+  ON CONFLICT(card_ref) DO UPDATE SET
+    image_url = excluded.image_url,
+    updated_by = excluded.updated_by,
+    updated_at = excluded.updated_at
 `;
 
 const UPDATE_CARD_OVERRIDE_SQL = `
@@ -718,7 +728,7 @@ adminRoutes.get("/billing/transactions/export", async (c) => {
   }
   const rows = await bindAdminQuery(c.env.DB,
     `${BILLING_TRANSACTION_SELECT_SQL} ${BILLING_TRANSACTION_FROM_SQL} ${query.where}
-      ORDER BY order_time DESC, t.created_at DESC`, query.bindings).all<Record<string, unknown>>();
+      ORDER BY order_time DESC, t.created_at DESC, t.id ASC`, query.bindings).all<Record<string, unknown>>();
   const headers = ["UID", "原始交易 ID", "订单 ID", "国家/地区", "国家/地区代码", "安装时间（UTC+0）",
     "订单时间（UTC+0）", "SKU", "订单状态", "当前订阅状态", "自动续订", "环境", "原始金额数值",
     "原始币种", "金额（USD）", "扣款次数", "退款完成时间", "Apple 主通知类型", "Apple 子通知类型"];
@@ -742,7 +752,7 @@ adminRoutes.get("/billing/transactions", async (c) => {
   if (query.error) return c.json(VALIDATION_ERROR_RESPONSE, 422);
   const rows = await bindAdminQuery(c.env.DB,
     `${BILLING_TRANSACTION_SELECT_SQL} ${BILLING_TRANSACTION_FROM_SQL} ${query.where}
-      ORDER BY order_time DESC, t.created_at DESC LIMIT ? OFFSET ?`,
+      ORDER BY order_time DESC, t.created_at DESC, t.id ASC LIMIT ? OFFSET ?`,
     [...query.bindings, pageSize, (page - 1) * pageSize]).all();
   const count = await bindAdminQuery(c.env.DB,
     `SELECT COUNT(*) AS total ${BILLING_TRANSACTION_FROM_SQL} ${query.where}`, query.bindings)
@@ -799,7 +809,7 @@ adminRoutes.get("/apple-notifications", async (c) => {
       ) AS linked_owners) AS uids
     FROM apple_notification_inbox inbox
     LEFT JOIN apple_server_notification n ON n.inbox_id = inbox.id ${where}
-    ORDER BY inbox.received_at DESC LIMIT ? OFFSET ?`,
+    ORDER BY inbox.received_at DESC, inbox.id ASC LIMIT ? OFFSET ?`,
     [...bindings, pageSize, (page - 1) * pageSize]).all();
   const count = await bindAdminQuery(c.env.DB,
     `SELECT COUNT(*) AS total FROM apple_notification_inbox inbox
@@ -1205,27 +1215,11 @@ adminRoutes.post("/card-overrides/image-upload", async (c) => {
   const imageUrl = readRequiredString(input.image_url);
   if (!cardRef || !imageUrl) return c.json(VALIDATION_ERROR_RESPONSE, 422);
 
-  const existing = await c.env.DB.prepare(SELECT_CARD_OVERRIDE_BY_REF_SQL)
-    .bind(cardRef)
-    .first();
-
-  if (isRecord(existing) && typeof existing.id === "string") {
-    await updateCardOverride(c, existing.id, {
-      override_fields: existing.override_fields ?? null,
-      image_url: imageUrl,
-      is_missing_card: existing.is_missing_card ?? 0,
-    });
-    const row = await c.env.DB.prepare(SELECT_CARD_OVERRIDE_BY_ID_SQL)
-      .bind(existing.id)
-      .first();
-    return c.json({ success: true, data: row });
-  }
-
   const id = createId();
-  await c.env.DB.prepare(INSERT_CARD_OVERRIDE_SQL)
-    .bind(id, cardRef, null, imageUrl, 0, c.get("admin").admin_id, new Date().toISOString())
+  await c.env.DB.prepare(UPSERT_CARD_OVERRIDE_IMAGE_SQL)
+    .bind(id, cardRef, imageUrl, c.get("admin").admin_id, new Date().toISOString())
     .run();
-  const row = await c.env.DB.prepare(SELECT_CARD_OVERRIDE_BY_ID_SQL).bind(id).first();
+  const row = await c.env.DB.prepare(SELECT_CARD_OVERRIDE_BY_REF_SQL).bind(cardRef).first();
   return c.json({ success: true, data: row });
 });
 

@@ -27,6 +27,26 @@ describe("Apple Server API purchase-chain correction", () => {
 
   afterEach(async () => { await mf.dispose(); });
 
+  it("uses inbox id as the correction batch tie-breaker because equal receive times need deterministic selection", async () => {
+    const preparedSql: string[] = [];
+    const statement = {
+      bind: (..._values: unknown[]) => statement,
+      all: async () => ({ results: [] }),
+    };
+    const captureDb = {
+      prepare: (sql: string) => {
+        preparedSql.push(sql.replace(/\s+/g, " ").trim());
+        return statement;
+      },
+    } as unknown as D1Database;
+
+    await retryAppleServerApiCorrections({ ...env, DB: captureDb });
+
+    expect(preparedSql[0]).toContain(
+      "ORDER BY i.received_at ASC, i.id ASC LIMIT ?",
+    );
+  });
+
   it("restores only the affected transaction and existing grants from current Apple-signed status", async () => {
     await retryAppleServerApiCorrections(env, dependencies());
 

@@ -71,6 +71,21 @@ describe("PostgresDatabase", () => {
     expect(normalizePostgresValue("42", { type: 20 })).toBe(42);
   });
 
+  it("rejects non-finite PostgreSQL numeric values instead of returning invalid JSON numbers", () => {
+    expect(normalizePostgresValue("12.5", { type: 1700 })).toBe(12.5);
+    for (const value of ["NaN", "Infinity", "-Infinity"]) {
+      expect(() => normalizePostgresValue(value, { type: 1700 }))
+        .toThrow("PostgreSQL numeric value is not finite");
+    }
+  });
+
+  it.each([
+    ["bigint", 20],
+    ["numeric", 1700],
+  ])("preserves SQL NULL for nullable PostgreSQL %s columns so missing values remain unknown", (_type, oid) => {
+    expect(normalizePostgresValue(null, { type: oid })).toBeNull();
+  });
+
   it("keeps PostgreSQL date and timestamptz response shapes distinct", () => {
     const value = new Date("2026-08-17T12:34:56.000Z");
 

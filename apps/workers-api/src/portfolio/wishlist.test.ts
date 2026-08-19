@@ -47,6 +47,14 @@ class FakeD1Database {
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
   }
+
+  async batch<T>(statements: FakeD1Statement[]): Promise<D1Result<T>[]> {
+    const results: D1Result<T>[] = [];
+    for (const statement of statements) {
+      results.push(await statement.run() as D1Result<T>);
+    }
+    return results;
+  }
 }
 
 class FakeD1Statement {
@@ -120,6 +128,10 @@ class FakeD1Statement {
   }
 
   async run(): Promise<{ success: true; meta: { changes: number } }> {
+    if (this.sql.includes("INSERT INTO mutation_lock")) {
+      return changed(1);
+    }
+
     if (this.sql.includes("INSERT INTO wishlist_item")) {
       const [id, ownerType, ownerId, cardRef, createdAt] = this.args as [
         string,
@@ -127,7 +139,21 @@ class FakeD1Statement {
         string,
         string,
         string,
+        OwnerType,
+        string,
+        string,
       ];
+
+      if (
+        this.db.collectionItems.some(
+          (row) =>
+            row.owner_type === ownerType &&
+            row.owner_id === ownerId &&
+            row.card_ref === cardRef,
+        )
+      ) {
+        return changed(0);
+      }
 
       if (
         this.db.wishlist.some(
@@ -201,6 +227,33 @@ describe("wishlist routes", () => {
         page_size: 1,
       },
     });
+  });
+
+  it("uses wishlist id as a stable tie-breaker because equal timestamps must not duplicate or skip wishes across pages", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    const createdAt = "2026-02-01T00:00:00.000Z";
+    db.wishlist.push(
+      wishlist({ id: "wish-b", card_ref: "card-b", created_at: createdAt }),
+      wishlist({ id: "wish-a", card_ref: "card-a", created_at: createdAt }),
+    );
+
+    const [firstPage, secondPage] = await Promise.all([
+      app.request(
+        "/api/v1/wishlist?page=1&page_size=1&sort_by=created_at&sort_order=desc",
+        { headers: await authHeaders("anonymous", "anon-1") },
+        createTestEnv(db),
+      ),
+      app.request(
+        "/api/v1/wishlist?page=2&page_size=1&sort_by=created_at&sort_order=desc",
+        { headers: await authHeaders("anonymous", "anon-1") },
+        createTestEnv(db),
+      ),
+    ]);
+    const firstBody = await firstPage.json() as { data: { items: Array<{ id: string }> } };
+    const secondBody = await secondPage.json() as { data: { items: Array<{ id: string }> } };
+
+    expect(firstBody.data.items.map((entry) => entry.id)).toEqual(["wish-a"]);
+    expect(secondBody.data.items.map((entry) => entry.id)).toEqual(["wish-b"]);
   });
 
   it("creates a wishlist row because search and card detail need to persist owner intent without a folder", async () => {

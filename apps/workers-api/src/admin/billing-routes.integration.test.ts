@@ -43,6 +43,36 @@ describe("Admin billing order contract", () => {
     expect(((await (await get("/admin/billing/transactions?uid=10000")).json()) as any).data.total).toBe(0);
   });
 
+  it("preserves nullable order facts because Admin must distinguish missing data from zero", async () => {
+    await db.prepare(`
+      INSERT INTO billing_transaction
+        (id, purchase_chain_id, environment, transaction_id, product_id,
+         business_status, charge_count, auto_renew_snapshot,
+         storefront_country_code, amount_micros, currency, amount_usd_micros,
+         purchase_at, created_at)
+      VALUES
+        ('order-nullable', 'chain-1', 'Sandbox', 'transaction-nullable',
+         'com.cardai.tcg.pro.yearly', NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)
+    `).bind(NOW, NOW).run();
+
+    const response = await get(
+      "/admin/billing/transactions?order_id=transaction-nullable",
+    );
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      data: { items: Array<Record<string, unknown>>; total: number };
+    };
+    expect(body.data.total).toBe(1);
+    expect(body.data.items[0]).toMatchObject({
+      order_status: null,
+      auto_renew: null,
+      amount_micros: null,
+      currency: null,
+      amount_usd_micros: null,
+      charge_count: null,
+    });
+  });
+
   it("combines every PRD order filter with AND semantics", async () => {
     const matchingQuery = new URLSearchParams({
       uid: "100001",
@@ -108,6 +138,49 @@ describe("Admin billing order contract", () => {
       order_time: "2026-08-11T12:00:00.000Z",
       refund_completed_at: "2026-08-11T12:00:00.000Z",
       amount_micros: 49990000,
+    });
+  });
+
+  it("uses transaction id as a stable tie-breaker because equal order times must remain on deterministic pages", async () => {
+    await db.batch([
+      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, auto_renew_snapshot, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-z', 'chain-1', 'Sandbox', 'transaction-z', 'stable.sku', 'renewal', 2, 1, 'US', 49990000, 'USD', 49990000, ?, ?)").bind(NOW, NOW),
+      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, auto_renew_snapshot, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-a', 'chain-1', 'Sandbox', 'transaction-a', 'stable.sku', 'renewal', 3, 1, 'US', 49990000, 'USD', 49990000, ?, ?)").bind(NOW, NOW),
+    ]);
+
+    const firstPage = await (await get(
+      "/admin/billing/transactions?sku=stable.sku&page=1&page_size=1",
+    )).json() as any;
+    const secondPage = await (await get(
+      "/admin/billing/transactions?sku=stable.sku&page=2&page_size=1",
+    )).json() as any;
+
+    expect(firstPage.data.items.map((item: any) => item.order_id)).toEqual(["transaction-a"]);
+    expect(secondPage.data.items.map((item: any) => item.order_id)).toEqual(["transaction-z"]);
+  });
+
+  it("selects both Apple notification fields from the same latest timed row", async () => {
+    await db.batch([
+      db.prepare(`INSERT INTO apple_server_notification VALUES
+        ('notification-row-z', NULL, 'notification-z', 'TYPE_Z', 'SUBTYPE_Z',
+         'Sandbox', 'original-1', 'transaction-1', 'yearly', '{}', 'processed',
+         '2026-08-12T13:00:00.000Z', '2026-08-12T13:00:01.000Z')`),
+      db.prepare(`INSERT INTO apple_server_notification VALUES
+        ('notification-row-a', NULL, 'notification-a', 'TYPE_A', 'SUBTYPE_A',
+         'Sandbox', 'original-1', 'transaction-1', 'yearly', '{}', 'processed',
+         '2026-08-12T13:00:00.000Z', '2026-08-12T13:00:01.000Z')`),
+      db.prepare(`INSERT INTO apple_server_notification VALUES
+        ('notification-row-null', NULL, 'notification-null', 'TYPE_NULL', 'SUBTYPE_NULL',
+         'Sandbox', 'original-1', 'transaction-1', 'yearly', '{}', 'processed',
+         NULL, '2026-08-12T14:00:00.000Z')`),
+    ]);
+
+    const body = await (await get(
+      "/admin/billing/transactions?order_id=transaction-1",
+    )).json() as any;
+
+    expect(body.data.items[0]).toMatchObject({
+      notification_type: "TYPE_A",
+      notification_subtype: "SUBTYPE_A",
     });
   });
 
@@ -206,6 +279,28 @@ describe("Admin billing order contract", () => {
     expect(secondPage.data).toMatchObject({ total: 2, page: 2, page_size: 1 });
     expect(firstPage.data.items[0].processing_status).toBe("verification_failed");
     expect(secondPage.data.items[0].processing_status).toBe("processed");
+  });
+
+  it("uses inbox id as a stable tie-breaker because equal receive times must remain on deterministic pages", async () => {
+    await db.batch([
+      db.prepare(`INSERT INTO apple_notification_inbox VALUES
+        ('inbox-z', 'hash-z', '{}', 'signed.z.jws', 'verification_failed', 1, NULL, NULL,
+         'Z_FAILED', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z')`),
+      db.prepare(`INSERT INTO apple_notification_inbox VALUES
+        ('inbox-a', 'hash-a', '{}', 'signed.a.jws', 'verification_failed', 1, NULL, NULL,
+         'A_FAILED', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z')`),
+    ]);
+    const range = "created_from=2026-08-12T11:45:00.000Z&created_to=2026-08-12T11:45:00.000Z";
+
+    const firstPage = await (await get(
+      `/admin/apple-notifications?${range}&page=1&page_size=1`,
+    )).json() as any;
+    const secondPage = await (await get(
+      `/admin/apple-notifications?${range}&page=2&page_size=1`,
+    )).json() as any;
+
+    expect(firstPage.data.items.map((item: any) => item.detail_id)).toEqual(["inbox-a"]);
+    expect(secondPage.data.items.map((item: any) => item.detail_id)).toEqual(["inbox-z"]);
   });
 
   it("rejects invalid notification date ranges instead of silently changing their meaning", async () => {

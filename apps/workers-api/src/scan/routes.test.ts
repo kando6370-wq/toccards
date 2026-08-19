@@ -411,12 +411,23 @@ class FakeD1Statement {
       return okResult<T>();
     }
     if (sql.startsWith("DELETE FROM wishlist_item")) {
-      const [ownerType, ownerId, cardRef] = this.values as [string, string, string];
+      const [ownerType, ownerId, cardRef, itemId] = this.values as [
+        string,
+        string,
+        string,
+        string,
+      ];
+      if (!this.db.collectionItems.some((row) => row.id === itemId)) {
+        return okResult<T>([], 0);
+      }
       const before = this.db.wishlistItems.length;
       this.db.wishlistItems = this.db.wishlistItems.filter(
         (row) => !(row.owner_type === ownerType && row.owner_id === ownerId && row.card_ref === cardRef),
       );
       return okResult<T>([], before - this.db.wishlistItems.length);
+    }
+    if (sql.startsWith("INSERT INTO mutation_lock")) {
+      return okResult<T>();
     }
     if (sql.startsWith("UPDATE scan_record")) {
       const [modifiedResult, userResult, id, ownerType, ownerId] = this.values as [

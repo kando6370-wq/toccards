@@ -1,6 +1,7 @@
 import { hashPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
 import { reserveAccountUid } from "../account-uid";
+import { mutationLockKey, runWithMutationLock } from "../db/mutation-lock";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { sendVerificationEmail } from "../mail/verification-email";
@@ -127,7 +128,7 @@ const SELECT_LATEST_REGISTER_CODE_SQL = `
   SELECT id, code, expires_at, used_at
   FROM verification_code
   WHERE email = ? AND purpose = 'register'
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT 1
 `;
 
@@ -247,8 +248,7 @@ export function registerEmailRegistrationRoutes(
 
       const code = createVerificationCode();
       const verificationCodeId = createId();
-      const result = await c.env.DB.prepare(INSERT_VERIFICATION_CODE_SQL)
-        .bind(
+      const insertStatement = c.env.DB.prepare(INSERT_VERIFICATION_CODE_SQL).bind(
           verificationCodeId,
           email,
           code,
@@ -256,8 +256,12 @@ export function registerEmailRegistrationRoutes(
           createdAt,
           email,
           resendWindowStartedAt,
-        )
-        .run();
+        );
+      const result = await runWithMutationLock(
+        c.env.DB,
+        await mutationLockKey("verification-code-register", email),
+        insertStatement,
+      );
       if (result.meta.changes === 0) {
         return c.json(RATE_LIMITED_RESPONSE, 429);
       }

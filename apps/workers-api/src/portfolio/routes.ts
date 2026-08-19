@@ -4,6 +4,12 @@ import {
   collectionItemPatchFromBody,
   type CollectionItemDraft,
 } from "../collection-item";
+import {
+  mutationLockKey,
+  ownerCardMutationLockKey,
+  runWithMutationLock,
+  runWithMutationLockStatements,
+} from "../db/mutation-lock";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
@@ -127,7 +133,7 @@ const SELECT_FOLDERS_SQL = `
 SELECT id, name, is_default, sort_order, created_at, updated_at
 FROM portfolio_folder
 WHERE owner_type = ? AND owner_id = ?
-ORDER BY sort_order ASC
+ORDER BY sort_order ASC, id ASC
 `;
 
 const SELECT_FOLDER_SQL = `
@@ -147,7 +153,9 @@ LIMIT 1
 const INSERT_FOLDER_SQL = `
 INSERT INTO portfolio_folder
   (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
-SELECT ?, ?, ?, ?, 0, ?, ?, ?
+SELECT ?, ?, ?, ?, 0, COALESCE((
+  SELECT MAX(sort_order) FROM portfolio_folder WHERE owner_type = ? AND owner_id = ?
+), -100) + 100, ?, ?
 WHERE ? = 'premium' OR (
   ? = 'free' AND (
     SELECT COUNT(*) FROM portfolio_folder WHERE owner_type = ? AND owner_id = ?
@@ -292,7 +300,11 @@ LIMIT 1
 const INSERT_WISHLIST_ITEM_SQL = `
 INSERT INTO wishlist_item
   (id, owner_type, owner_id, card_ref, created_at)
-VALUES (?, ?, ?, ?, ?)
+SELECT ?, ?, ?, ?, ?
+WHERE NOT EXISTS (
+  SELECT 1 FROM collection_item
+  WHERE owner_type = ? AND owner_id = ? AND card_ref = ?
+)
 `;
 
 const DELETE_WISHLIST_ITEM_SQL = `
@@ -521,46 +533,50 @@ export function createPortfolioRoutes(
     const itemId = idempotencyKey ?? createId();
 
     try {
-      await c.env.DB.batch([
-      c.env.DB.prepare(INSERT_COLLECTION_ITEM_SQL).bind(
-        itemId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-        draft.folder_id,
-        draft.card_ref,
-        draft.object_type,
-        draft.grader,
-        draft.condition,
-        draft.grade,
-        draft.language,
-        draft.finish,
-        null,
-        draft.quantity,
-        draft.purchase_price,
-        draft.purchase_currency,
-        now,
-        now,
-        now,
-        draft.notes,
-        now,
-        now,
-      ),
-      collectionItemEventStatement(c.env.DB, auth.owner, {
-        id: itemId,
-        ...draft,
-        price_series_id: null,
-        performance_start_at: now,
-        purchase_price_effective_at: now,
-        performance_history_available_from: now,
-        created_at: now,
-        updated_at: now,
-      }, "upsert", now),
-      c.env.DB.prepare(DELETE_WISHLIST_CARD_SQL).bind(
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-        draft.card_ref,
-      ),
-      ]);
+      await runWithMutationLockStatements(
+        c.env.DB,
+        await ownerCardMutationLockKey(auth.owner, draft.card_ref),
+        [
+          c.env.DB.prepare(INSERT_COLLECTION_ITEM_SQL).bind(
+            itemId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+            draft.folder_id,
+            draft.card_ref,
+            draft.object_type,
+            draft.grader,
+            draft.condition,
+            draft.grade,
+            draft.language,
+            draft.finish,
+            null,
+            draft.quantity,
+            draft.purchase_price,
+            draft.purchase_currency,
+            now,
+            now,
+            now,
+            draft.notes,
+            now,
+            now,
+          ),
+          collectionItemEventStatement(c.env.DB, auth.owner, {
+            id: itemId,
+            ...draft,
+            price_series_id: null,
+            performance_start_at: now,
+            purchase_price_effective_at: now,
+            performance_history_available_from: now,
+            created_at: now,
+            updated_at: now,
+          }, "upsert", now),
+          c.env.DB.prepare(DELETE_WISHLIST_CARD_SQL).bind(
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+            draft.card_ref,
+          ),
+        ],
+      );
     } catch (error) {
       if (isUniqueConstraintError(error)) {
         if (idempotencyKey) {
@@ -734,9 +750,23 @@ export function createPortfolioRoutes(
     const itemId = idempotencyKey ?? createId();
 
     try {
-      await c.env.DB.prepare(INSERT_WISHLIST_ITEM_SQL)
-        .bind(itemId, auth.owner.owner_type, auth.owner.owner_id, cardRef, now)
-        .run();
+      const [inserted] = await runWithMutationLockStatements(
+        c.env.DB,
+        await ownerCardMutationLockKey(auth.owner, cardRef),
+        [c.env.DB.prepare(INSERT_WISHLIST_ITEM_SQL).bind(
+          itemId,
+          auth.owner.owner_type,
+          auth.owner.owner_id,
+          cardRef,
+          now,
+          auth.owner.owner_type,
+          auth.owner.owner_id,
+          cardRef,
+        )],
+      );
+      if (inserted?.meta.changes !== 1) {
+        return c.json(CONFLICT_RESPONSE, 409);
+      }
     } catch (error) {
       if (isUniqueConstraintError(error)) {
         if (idempotencyKey) {
@@ -869,46 +899,50 @@ export function createPortfolioRoutes(
     const itemId = idempotencyKey ?? createId();
 
     try {
-      await c.env.DB.batch([
-      c.env.DB.prepare(INSERT_COLLECTION_ITEM_SQL).bind(
-        itemId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-        draft.folder_id,
-        draft.card_ref,
-        draft.object_type,
-        draft.grader,
-        draft.condition,
-        draft.grade,
-        draft.language,
-        draft.finish,
-        null,
-        draft.quantity,
-        draft.purchase_price,
-        draft.purchase_currency,
-        now,
-        now,
-        now,
-        draft.notes,
-        now,
-        now,
-      ),
-      collectionItemEventStatement(c.env.DB, auth.owner, {
-        id: itemId,
-        ...draft,
-        price_series_id: null,
-        performance_start_at: now,
-        purchase_price_effective_at: now,
-        performance_history_available_from: now,
-        created_at: now,
-        updated_at: now,
-      }, "upsert", now),
-      c.env.DB.prepare(DELETE_WISHLIST_CARD_SQL).bind(
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-        draft.card_ref,
-      ),
-      ]);
+      await runWithMutationLockStatements(
+        c.env.DB,
+        await ownerCardMutationLockKey(auth.owner, draft.card_ref),
+        [
+          c.env.DB.prepare(INSERT_COLLECTION_ITEM_SQL).bind(
+            itemId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+            draft.folder_id,
+            draft.card_ref,
+            draft.object_type,
+            draft.grader,
+            draft.condition,
+            draft.grade,
+            draft.language,
+            draft.finish,
+            null,
+            draft.quantity,
+            draft.purchase_price,
+            draft.purchase_currency,
+            now,
+            now,
+            now,
+            draft.notes,
+            now,
+            now,
+          ),
+          collectionItemEventStatement(c.env.DB, auth.owner, {
+            id: itemId,
+            ...draft,
+            price_series_id: null,
+            performance_start_at: now,
+            purchase_price_effective_at: now,
+            performance_history_available_from: now,
+            created_at: now,
+            updated_at: now,
+          }, "upsert", now),
+          c.env.DB.prepare(DELETE_WISHLIST_CARD_SQL).bind(
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+            draft.card_ref,
+          ),
+        ],
+      );
     } catch (error) {
       if (isUniqueConstraintError(error)) {
         if (idempotencyKey) {
@@ -1169,9 +1203,6 @@ export function createPortfolioRoutes(
       }
     }
 
-    const existingFolders = await listFolders(c.env.DB, auth.owner);
-    const sortOrder =
-      Math.max(0, ...existingFolders.map((folder) => folder.sort_order)) + 100;
     const now = new Date().toISOString();
     const folderId = idempotencyKey ?? createId();
     const access = await premiumAccess(
@@ -1184,22 +1215,37 @@ export function createPortfolioRoutes(
     }
 
     try {
-      const inserted = await c.env.DB.prepare(INSERT_FOLDER_SQL)
-        .bind(
-          folderId,
-          auth.owner.owner_type,
-          auth.owner.owner_id,
-          name,
-          sortOrder,
-          now,
-          now,
-          access,
-          access,
-          auth.owner.owner_type,
-          auth.owner.owner_id,
-        )
-        .run();
+      const insertStatement = c.env.DB.prepare(INSERT_FOLDER_SQL).bind(
+        folderId,
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+        name,
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+        now,
+        now,
+        access,
+        access,
+        auth.owner.owner_type,
+        auth.owner.owner_id,
+      );
+      const inserted = await runWithMutationLock(
+        c.env.DB,
+        await mutationLockKey(
+          "portfolio-folder",
+          `${auth.owner.owner_type}:${auth.owner.owner_id}`,
+        ),
+        insertStatement,
+      );
       if (inserted.meta.changes !== 1) {
+        if (idempotencyKey) {
+          const replay = await findFolder(c.env.DB, auth.owner, idempotencyKey);
+          if (replay) {
+            return replay.name === name
+              ? c.json({ success: true, data: folderResponse(replay) })
+              : c.json(CONFLICT_RESPONSE, 409);
+          }
+        }
         return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
       }
     } catch (error) {
@@ -1661,7 +1707,8 @@ function sortCollectionItems(
   return [...items].sort((left, right) => {
     const direction = sortOrder === "asc" ? 1 : -1;
 
-    return String(left[sortBy]).localeCompare(String(right[sortBy])) * direction;
+    return String(left[sortBy]).localeCompare(String(right[sortBy])) * direction
+      || left.id.localeCompare(right.id);
   });
 }
 
@@ -1684,7 +1731,8 @@ function sortWishlistItems(
   return [...items].sort((left, right) => {
     const direction = sortOrder === "asc" ? 1 : -1;
 
-    return String(left[sortBy]).localeCompare(String(right[sortBy])) * direction;
+    return String(left[sortBy]).localeCompare(String(right[sortBy])) * direction
+      || left.id.localeCompare(right.id);
   });
 }
 

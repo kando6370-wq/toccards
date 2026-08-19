@@ -693,6 +693,23 @@ describe("PostgreSQL card data source adapter", () => {
     ).resolves.toHaveLength(2);
   });
 
+  it("uses PostgreSQL-stable catalog ordering because equal sort keys must not move cards or sets between pages", async () => {
+    const db = new FakeCardDatabase([], []);
+    const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
+
+    await adapter.searchCards("");
+    await adapter.searchSets("");
+
+    const cardSearchSql = db.preparedSql.find((sql) =>
+      sql.includes("FROM cards_all") && sql.includes("LIMIT ? OFFSET ?")
+    );
+    const setSearchSql = db.preparedSql.find((sql) => sql.includes("FROM sets s"));
+    expect(cardSearchSql).toContain(
+      "ORDER BY updated_at DESC NULLS LAST, product_id ASC",
+    );
+    expect(setSearchSql).toContain("ORDER BY s.name ASC, s.set_id ASC");
+  });
+
   it("adds the preferred SKU price to search results because Search must show real market reference data without per-card HTTP requests", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(

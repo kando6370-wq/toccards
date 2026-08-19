@@ -93,7 +93,7 @@ ${objectTypeClause}
 ${gameClause}
 ${setIdClause}
 ${setClause}
-ORDER BY updated_at DESC, product_id ASC
+ORDER BY updated_at DESC NULLS LAST, product_id ASC
 LIMIT ? OFFSET ?`,
       ).bind(...bindings).all<CardCatalogRow>();
 
@@ -124,7 +124,7 @@ LIMIT ? OFFSET ?`,
          WHERE lower(s.name || ' ' || coalesce(s.set_code, '')) LIKE ?
            AND trim(coalesce(s.set_code, '')) <> ''
            ${gameClause}
-         ORDER BY s.name ASC
+         ORDER BY s.name ASC, s.set_id ASC
          LIMIT ? OFFSET ?`,
       ).bind(...bindings).all<SetSearchResult>();
 

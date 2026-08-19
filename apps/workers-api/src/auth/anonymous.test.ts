@@ -395,7 +395,10 @@ class FakeD1 {
           (row) =>
             row.device_id === deviceId && row.upgraded_user_id === null,
         )
-        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+        .sort((left, right) =>
+          right.created_at.localeCompare(left.created_at)
+          || left.id.localeCompare(right.id)
+        )
         .at(0);
 
       return account ? ({ id: account.id } as T) : null;
@@ -500,7 +503,10 @@ class FakeD1 {
       const [email] = values as [string];
       const code = this.verificationCodes
         .filter((row) => row.email === email && row.purpose === "register")
-        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+        .sort((left, right) =>
+          right.created_at.localeCompare(left.created_at)
+          || left.id.localeCompare(right.id)
+        )
         .at(0);
 
       return code
@@ -520,7 +526,10 @@ class FakeD1 {
         .filter(
           (row) => row.email === email && row.purpose === "reset_password",
         )
-        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+        .sort((left, right) =>
+          right.created_at.localeCompare(left.created_at)
+          || left.id.localeCompare(right.id)
+        )
         .at(0);
 
       return code
@@ -679,14 +688,21 @@ class FakeD1 {
     }
 
     if (normalizedSql === INSERT_ANONYMOUS_ACCOUNT_SQL) {
-      const [id, deviceId, createdAt] = values as [string, string, string];
+      const [id, deviceId, createdAt] = values as [string, string, string, string];
+      if (
+        this.anonymousAccounts.some(
+          (row) => row.device_id === deviceId && row.upgraded_user_id === null,
+        )
+      ) {
+        return okResult<T>(0);
+      }
       this.anonymousAccounts.push({
         id,
         device_id: deviceId,
         created_at: createdAt,
         upgraded_user_id: null,
       });
-      return okResult<T>();
+      return okResult<T>(1);
     }
 
     if (normalizedSql === INSERT_PORTFOLIO_FOLDER_SQL) {
@@ -695,7 +711,11 @@ class FakeD1 {
         string,
         string,
         string,
+        string,
       ];
+      if (!this.anonymousAccounts.some((row) => row.id === ownerId)) {
+        return okResult<T>(0);
+      }
       this.portfolioFolders.push({
         id,
         owner_type: "anonymous",
@@ -715,7 +735,11 @@ class FakeD1 {
         string,
         string,
         string,
+        string,
       ];
+      if (!this.anonymousAccounts.some((row) => row.id === ownerId)) {
+        return okResult<T>(0);
+      }
       this.userPreferences.push({
         id,
         owner_type: "anonymous",
@@ -2361,6 +2385,17 @@ class FakeD1 {
       return okResult<T>(1);
     }
 
+    if (normalizedSql.startsWith("INSERT INTO mutation_lock")) {
+      return okResult<T>(1);
+    }
+
+    if (normalizedSql.startsWith("INSERT INTO account_uid")) {
+      return {
+        ...okResult<T>(1),
+        results: [{ uid: this.nextAccountUid++ }] as T[],
+      };
+    }
+
     throw new Error(`Unsupported run() SQL: ${normalizedSql}`);
   }
 
@@ -2444,7 +2479,7 @@ const SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
   SELECT id
   FROM anonymous_account
   WHERE device_id = ? AND upgraded_user_id IS NULL
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT 1
 `);
 
@@ -2544,7 +2579,7 @@ const SELECT_LATEST_REGISTER_CODE_SQL = normalizeSql(`
   SELECT id, code, expires_at, used_at
   FROM verification_code
   WHERE email = ? AND purpose = 'register'
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT 1
 `);
 
@@ -2552,7 +2587,7 @@ const SELECT_LATEST_RESET_CODE_SQL = normalizeSql(`
   SELECT id, code, expires_at, used_at, created_at
   FROM verification_code
   WHERE email = ? AND purpose = 'reset_password'
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT 1
 `);
 
@@ -2579,19 +2614,25 @@ const SELECT_ANONYMOUS_ACCOUNT_FOR_MIGRATION_SQL = normalizeSql(`
 
 const INSERT_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
   INSERT INTO anonymous_account (id, device_id, created_at, upgraded_user_id)
-  VALUES (?, ?, ?, NULL)
+  SELECT ?, ?, ?, NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM anonymous_account
+    WHERE device_id = ? AND upgraded_user_id IS NULL
+  )
 `);
 
 const INSERT_PORTFOLIO_FOLDER_SQL = normalizeSql(`
   INSERT INTO portfolio_folder
     (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
-  VALUES (?, 'anonymous', ?, 'Main', 1, 0, ?, ?)
+  SELECT ?, 'anonymous', ?, 'Main', 1, 0, ?, ?
+  WHERE EXISTS (SELECT 1 FROM anonymous_account WHERE id = ?)
 `);
 
 const INSERT_USER_PREFERENCE_SQL = normalizeSql(`
   INSERT INTO user_preference
     (id, owner_type, owner_id, currency, amount_hidden, last_selected_folder_id, created_at, updated_at)
-  VALUES (?, 'anonymous', ?, 'USD', 0, NULL, ?, ?)
+  SELECT ?, 'anonymous', ?, 'USD', 0, NULL, ?, ?
+  WHERE EXISTS (SELECT 1 FROM anonymous_account WHERE id = ?)
 `);
 
 const INSERT_SESSION_SQL = normalizeSql(`
@@ -4738,6 +4779,25 @@ describe("POST /api/v1/auth/register/send-code", () => {
     expect(newResponse.status).toBe(200);
   });
 
+  it("uses code id as a stable tie-breaker because migrated equal timestamps must not switch the accepted register code", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const email = "register-tie@example.com";
+    const createdAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 600_000).toISOString();
+    db.verificationCodes.push(
+      { id: "register-z", email, code: "999999", purpose: "register", expires_at: expiresAt, used_at: null, created_at: createdAt },
+      { id: "register-a", email, code: "111111", purpose: "register", expires_at: expiresAt, used_at: null, created_at: createdAt },
+    );
+
+    const response = await requestRegisterVerifyCode(env, {
+      email,
+      code: "111111",
+    });
+
+    expect(response.status).toBe(200);
+  });
+
   it.each([
     {
       name: "missing email",
@@ -6456,6 +6516,34 @@ describe("POST /api/v1/auth/forgot-password", () => {
     expect(code.used_at).toBeNull();
   });
 
+  it("uses code id as a stable tie-breaker because migrated equal timestamps must not switch the accepted reset code", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const email = "reset-tie@example.com";
+    const createdAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 600_000).toISOString();
+    db.users.push({
+      id: "reset-tie-user",
+      email,
+      password_hash: await hashPassword("old-password"),
+      display_name: null,
+      created_at: createdAt,
+      updated_at: createdAt,
+      deleted_at: null,
+    });
+    db.verificationCodes.push(
+      { id: "reset-z", email, code: "999999", purpose: "reset_password", expires_at: expiresAt, used_at: null, created_at: createdAt },
+      { id: "reset-a", email, code: "111111", purpose: "reset_password", expires_at: expiresAt, used_at: null, created_at: createdAt },
+    );
+
+    const response = await requestForgotPasswordVerifyCode(env, {
+      email,
+      code: "111111",
+    });
+
+    expect(response.status).toBe(200);
+  });
+
   it("forgot-password rejects a wrong reset code because only the latest emailed proof can mint a reset token", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
@@ -6792,6 +6880,43 @@ describe("POST /api/v1/auth/anonymous", () => {
     expect(db.sessions[1]?.refresh_token).toBe(
       await hashRefreshToken(secondBody.data.refresh_token),
     );
+  });
+
+  it("reuses one stable account when migrated live rows share a creation time", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const createdAt = "2026-08-18T00:00:00.000Z";
+    db.anonymousAccounts.push(
+      { id: "anonymous-z", device_id: "device-tie", created_at: createdAt, upgraded_user_id: null },
+      { id: "anonymous-a", device_id: "device-tie", created_at: createdAt, upgraded_user_id: null },
+    );
+
+    const response = await requestAnonymous(env, "device-tie");
+    const body = (await response.json()) as AnonymousSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data.anonymous_id).toBe("anonymous-a");
+    expect(db.sessions[0]?.owner_id).toBe("anonymous-a");
+  });
+
+  it("reuses one live anonymous account for overlapping device requests because device ownership is serialized", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    const responses = await Promise.all([
+      requestAnonymous(env, "device-concurrent"),
+      requestAnonymous(env, "device-concurrent"),
+    ]);
+    const bodies = await Promise.all(
+      responses.map((response) => response.json() as Promise<AnonymousSuccessResponse>),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(new Set(bodies.map((body) => body.data.anonymous_id)).size).toBe(1);
+    expect(db.anonymousAccounts).toHaveLength(1);
+    expect(db.portfolioFolders).toHaveLength(1);
+    expect(db.userPreferences).toHaveLength(1);
+    expect(db.sessions).toHaveLength(2);
   });
 
   it("creates a new anonymous account when the same device only has upgraded accounts", async () => {

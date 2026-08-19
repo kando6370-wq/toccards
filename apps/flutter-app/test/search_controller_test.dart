@@ -325,6 +325,97 @@ void main() {
   );
 
   test(
+    'initial Cards failure keeps Sets usable because Search tabs fail independently',
+    () async {
+      final api = _FakeCardDataApi(
+        trendingCardRows: const [],
+        searchCardRows: const [_initialSearchCard],
+        sets: const [_initialSearchSet],
+        cardSearchFailuresRemaining: 1,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            HttpSearchRepository(api, setCatalogApi: _FakeSetCatalogApi()),
+          ),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      var state = container.read(searchControllerProvider);
+      expect(state.isUnavailable, isFalse);
+      expect(state.failedSearchTabs, {SearchTab.cards});
+      expect(state.catalog.sets.single.name, 'Silver Age Chapter 1');
+
+      controller.retrySearch();
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+
+      state = container.read(searchControllerProvider);
+      expect(state.failedSearchTabs, isEmpty);
+      expect(state.visibleCards.single.name, 'Bravo, Flattering Showman');
+    },
+  );
+
+  test(
+    'initial Sets failure keeps Cards usable because Search tabs fail independently',
+    () async {
+      final api = _FakeCardDataApi(
+        trendingCardRows: const [],
+        searchCardRows: const [_initialSearchCard],
+        sets: const [_initialSearchSet],
+        setSearchFailuresRemaining: 1,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            HttpSearchRepository(api, setCatalogApi: _FakeSetCatalogApi()),
+          ),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      final state = container.read(searchControllerProvider);
+      expect(state.isUnavailable, isFalse);
+      expect(state.failedSearchTabs, {SearchTab.sets});
+      expect(state.visibleCards.single.name, 'Bravo, Flattering Showman');
+    },
+  );
+
+  test(
+    'initial Cards and Sets failure shows page failure because no Search results remain usable',
+    () async {
+      final api = _FakeCardDataApi(
+        trendingCardRows: const [],
+        searchCardRows: const [_initialSearchCard],
+        sets: const [_initialSearchSet],
+        cardSearchFailuresRemaining: 1,
+        setSearchFailuresRemaining: 1,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            HttpSearchRepository(api, setCatalogApi: _FakeSetCatalogApi()),
+          ),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final state = await _loadedSearchState(container);
+
+      expect(state.isUnavailable, isTrue);
+      expect(state.loadStatus, KandoLoadStatus.failure);
+    },
+  );
+
+  test(
     'opening Sets loads the complete catalog because the initial page is intentionally partial',
     () async {
       final setCatalogApi = _FakeSetCatalogApi();
@@ -1265,11 +1356,15 @@ class _FakeCardDataApi implements CardDataApi {
     required this.trendingCardRows,
     required this.sets,
     this.searchCardRows = const [],
+    this.cardSearchFailuresRemaining = 0,
+    this.setSearchFailuresRemaining = 0,
   });
 
   final List<CardDataCardDto> trendingCardRows;
   final List<CardDataCardDto> searchCardRows;
   final List<CardDataSetDto> sets;
+  int cardSearchFailuresRemaining;
+  int setSearchFailuresRemaining;
   var trendingCalls = 0;
   final List<String> searchCardQueries = [];
   final List<String> searchSetQueries = [];
@@ -1283,6 +1378,10 @@ class _FakeCardDataApi implements CardDataApi {
   }) async {
     searchCardQueries.add(query);
     searchCardGames.add(game);
+    if (cardSearchFailuresRemaining > 0) {
+      cardSearchFailuresRemaining -= 1;
+      throw StateError('mock initial card search unavailable');
+    }
     return searchCardRows;
   }
 
@@ -1290,6 +1389,10 @@ class _FakeCardDataApi implements CardDataApi {
   Future<List<CardDataSetDto>> searchSets(String query, {String? game}) async {
     searchSetQueries.add(query);
     searchSetGames.add(game);
+    if (setSearchFailuresRemaining > 0) {
+      setSearchFailuresRemaining -= 1;
+      throw StateError('mock initial set search unavailable');
+    }
     return sets;
   }
 
@@ -1330,6 +1433,29 @@ class _FakeCardDataApi implements CardDataApi {
     throw UnimplementedError();
   }
 }
+
+const _initialSearchCard = CardDataCardDto(
+  cardRef: '664850',
+  name: 'Bravo, Flattering Showman',
+  setName: 'Silver Age Chapter 1',
+  setCode: 'SIL',
+  cardNumber: '001',
+  finish: 'Normal',
+  language: 'English',
+  objectType: 'tcg',
+  game: 'Flesh and Blood TCG',
+  imageUrl: null,
+  rarity: 'Rare',
+);
+
+const _initialSearchSet = CardDataSetDto(
+  setId: 'silver-age-chapter-1',
+  setCode: 'SIL',
+  setName: 'Silver Age Chapter 1',
+  game: 'Flesh and Blood TCG',
+  imageUrl: null,
+  cardCount: 1,
+);
 
 const _session = AuthSession(
   ownerType: OwnerType.anonymous,

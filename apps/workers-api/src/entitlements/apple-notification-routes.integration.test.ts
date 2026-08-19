@@ -175,6 +175,26 @@ describe("Apple Notifications V2 durable consumption", () => {
     });
   });
 
+  it("uses inbox id as the retry batch tie-breaker because equal receive times need fair deterministic selection", async () => {
+    const preparedSql: string[] = [];
+    const statement = {
+      bind: (..._values: unknown[]) => statement,
+      all: async () => ({ results: [] }),
+    };
+    const captureDb = {
+      prepare: (sql: string) => {
+        preparedSql.push(sql.replace(/\s+/g, " ").trim());
+        return statement;
+      },
+    } as unknown as D1Database;
+
+    await retryAppleNotificationInbox({ ...env, DB: captureDb });
+
+    expect(preparedSql[0]).toContain(
+      "ORDER BY received_at ASC, id ASC LIMIT ?",
+    );
+  });
+
   it("keeps identical payload hashes separate by Worker environment because dev and prod share PostgreSQL", async () => {
     const app = createAppleNotificationRoutes({
       now: () => NOW,

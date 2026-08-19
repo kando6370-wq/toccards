@@ -7,6 +7,10 @@ import {
 } from "@kando/auth-core";
 import { Hono } from "hono";
 import { reserveAccountUid } from "../account-uid";
+import {
+  mutationLockKey,
+  runWithMutationLockStatements,
+} from "../db/mutation-lock";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { registerAccountRoutes } from "./account";
@@ -41,13 +45,17 @@ const SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL = `
   SELECT id
   FROM anonymous_account
   WHERE device_id = ? AND upgraded_user_id IS NULL
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT 1
 `;
 
 const INSERT_ANONYMOUS_ACCOUNT_SQL = `
   INSERT INTO anonymous_account (id, device_id, created_at, upgraded_user_id)
-  VALUES (?, ?, ?, NULL)
+  SELECT ?, ?, ?, NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM anonymous_account
+    WHERE device_id = ? AND upgraded_user_id IS NULL
+  )
 `;
 
 const UPSERT_APP_INSTALLATION_SQL = `
@@ -64,13 +72,15 @@ const UPSERT_APP_INSTALLATION_SQL = `
 const INSERT_PORTFOLIO_FOLDER_SQL = `
   INSERT INTO portfolio_folder
     (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
-  VALUES (?, 'anonymous', ?, 'Main', 1, 0, ?, ?)
+  SELECT ?, 'anonymous', ?, 'Main', 1, 0, ?, ?
+  WHERE EXISTS (SELECT 1 FROM anonymous_account WHERE id = ?)
 `;
 
 const INSERT_USER_PREFERENCE_SQL = `
   INSERT INTO user_preference
     (id, owner_type, owner_id, currency, amount_hidden, last_selected_folder_id, created_at, updated_at)
-  VALUES (?, 'anonymous', ?, 'USD', 0, NULL, ?, ?)
+  SELECT ?, 'anonymous', ?, 'USD', 0, NULL, ?, ?
+  WHERE EXISTS (SELECT 1 FROM anonymous_account WHERE id = ?)
 `;
 
 const INSERT_SESSION_SQL = `
@@ -208,17 +218,28 @@ async function findOrCreateAnonymousAccount(
 
   const anonymousId = await reserveAccountUid(db, createdAt);
 
-  await db.batch([
-    db
-      .prepare(INSERT_ANONYMOUS_ACCOUNT_SQL)
-      .bind(anonymousId, deviceId, createdAt),
-    db
-      .prepare(INSERT_PORTFOLIO_FOLDER_SQL)
-      .bind(createId(), anonymousId, createdAt, createdAt),
-    db
-      .prepare(INSERT_USER_PREFERENCE_SQL)
-      .bind(createId(), anonymousId, createdAt, createdAt),
-  ]);
+  await runWithMutationLockStatements(
+    db,
+    await mutationLockKey("anonymous-device", deviceId),
+    [
+      db
+        .prepare(INSERT_ANONYMOUS_ACCOUNT_SQL)
+        .bind(anonymousId, deviceId, createdAt, deviceId),
+      db
+        .prepare(INSERT_PORTFOLIO_FOLDER_SQL)
+        .bind(createId(), anonymousId, createdAt, createdAt, anonymousId),
+      db
+        .prepare(INSERT_USER_PREFERENCE_SQL)
+        .bind(createId(), anonymousId, createdAt, createdAt, anonymousId),
+    ],
+  );
 
-  return anonymousId;
+  const created = await db
+    .prepare(SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL)
+    .bind(deviceId)
+    .first<AnonymousAccountRow>();
+  if (!created) {
+    throw new Error("Anonymous account mutation did not create or find an account");
+  }
+  return created.id;
 }

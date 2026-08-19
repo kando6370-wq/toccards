@@ -460,6 +460,34 @@ describe("collection item routes", () => {
     });
   });
 
+  it("uses item id as a stable tie-breaker because equal timestamps must not duplicate or skip items across pages", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    const createdAt = "2026-02-01T00:00:00.000Z";
+    db.items.push(
+      item({ id: "item-b", folder_id: "main", card_ref: "card-b", created_at: createdAt }),
+      item({ id: "item-a", folder_id: "main", card_ref: "card-a", created_at: createdAt }),
+    );
+
+    const [firstPage, secondPage] = await Promise.all([
+      app.request(
+        "/api/v1/portfolio/items?page=1&page_size=1&sort_by=created_at&sort_order=desc",
+        { headers: await authHeaders("anonymous", "anon-1") },
+        createTestEnv(db),
+      ),
+      app.request(
+        "/api/v1/portfolio/items?page=2&page_size=1&sort_by=created_at&sort_order=desc",
+        { headers: await authHeaders("anonymous", "anon-1") },
+        createTestEnv(db),
+      ),
+    ]);
+    const firstBody = await firstPage.json() as { data: { items: Array<{ id: string }> } };
+    const secondBody = await secondPage.json() as { data: { items: Array<{ id: string }> } };
+
+    expect(firstBody.data.items.map((entry) => entry.id)).toEqual(["item-a"]);
+    expect(secondBody.data.items.map((entry) => entry.id)).toEqual(["item-b"]);
+  });
+
   it("creates a Raw collection item and removes the matching wishlist row because Collect transfers intent into ownership", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }));

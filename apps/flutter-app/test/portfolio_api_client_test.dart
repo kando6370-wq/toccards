@@ -680,6 +680,74 @@ void main() {
     },
   );
 
+  const retryDraft = PortfolioItemDraftDto(
+    folderId: 'main',
+    cardRef: 'squirtle',
+    objectType: 'tcg',
+    grader: 'Raw',
+    condition: 'Near Mint (NM)',
+    grade: null,
+    language: 'English',
+    finish: 'Holofoil',
+    quantity: 1,
+    purchasePrice: 12.5,
+    purchaseCurrency: 'USD',
+    notes: 'binder copy',
+  );
+  final itemCreateOperations = {
+    'Quick Collect': (PortfolioApiClient api) =>
+        api.quickCollect(_session, cardRef: 'squirtle', draft: retryDraft),
+    'Collection Item Create': (PortfolioApiClient api) =>
+        api.createCollectionItem(_session, retryDraft),
+  };
+  for (final operation in itemCreateOperations.entries) {
+    test(
+      'HTTP 500 ${operation.key} retry reuses its key because the write may already have committed',
+      () async {
+        var call = 0;
+        final adapter = _RecordingAdapter((request) {
+          call += 1;
+          if (call == 1) {
+            return _json(500, {
+              'success': false,
+              'error': {
+                'code': 'INTERNAL_ERROR',
+                'message': 'Internal server error.',
+              },
+            });
+          }
+          return _json(200, {
+            'success': true,
+            'data': _portfolioItemJson(id: 'item-$call', cardRef: 'squirtle'),
+          });
+        });
+        final api = PortfolioApiClient(_dio(adapter));
+
+        await expectLater(
+          operation.value(api),
+          throwsA(
+            isA<PortfolioApiException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              500,
+            ),
+          ),
+        );
+        await operation.value(api);
+        await operation.value(api);
+
+        expect(
+          adapter.requests[1].idempotencyKey,
+          adapter.requests[0].idempotencyKey,
+        );
+        expect(
+          adapter.requests[2].idempotencyKey,
+          isNot(adapter.requests[1].idempotencyKey),
+        );
+      },
+    );
+  }
+
   test(
     'updateCollectionItem sends folder with fields because edited moves must complete atomically',
     () async {
@@ -853,6 +921,56 @@ void main() {
   );
 
   test(
+    'HTTP 500 Wishlist Add retry reuses its key because the row may already exist',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) {
+        call += 1;
+        if (call == 1) {
+          return _json(500, {
+            'success': false,
+            'error': {
+              'code': 'INTERNAL_ERROR',
+              'message': 'Internal server error.',
+            },
+          });
+        }
+        return _json(200, {
+          'success': true,
+          'data': {
+            'id': 'wish-$call',
+            'card_ref': 'squirtle',
+            'created_at': '2026-01-03T00:00:00.000Z',
+          },
+        });
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+
+      await expectLater(
+        api.addWishlist(_session, 'squirtle'),
+        throwsA(
+          isA<PortfolioApiException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            500,
+          ),
+        ),
+      );
+      await api.addWishlist(_session, 'squirtle');
+      await api.addWishlist(_session, 'squirtle');
+
+      expect(
+        adapter.requests[1].idempotencyKey,
+        adapter.requests[0].idempotencyKey,
+      );
+      expect(
+        adapter.requests[2].idempotencyKey,
+        isNot(adapter.requests[1].idempotencyKey),
+      );
+    },
+  );
+
+  test(
     'deleteWishlist sends backend wishlist item id because card refs are not row ids',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -952,6 +1070,149 @@ void main() {
         isNot(adapter.requests[1].idempotencyKey),
       );
       await Future<void>.delayed(const Duration(milliseconds: 100));
+    },
+  );
+
+  for (final statusCode in const [408, 500]) {
+    test(
+      'HTTP $statusCode Folder retry reuses its key because commit status is ambiguous',
+      () async {
+        var call = 0;
+        final adapter = _RecordingAdapter((request) {
+          call += 1;
+          if (call == 1) {
+            return _json(statusCode, {
+              'success': false,
+              'error': {
+                'code': statusCode == 408
+                    ? 'REQUEST_TIMEOUT'
+                    : 'INTERNAL_ERROR',
+                'message': 'Create result is unknown.',
+              },
+            });
+          }
+          return _json(200, {
+            'success': true,
+            'data': _folderJson(
+              id: 'folder-$call',
+              name: 'Trade',
+              sortOrder: 200,
+            ),
+          });
+        });
+        final api = PortfolioApiClient(_dio(adapter));
+
+        await expectLater(
+          api.createFolder(_session, 'Trade'),
+          throwsA(
+            isA<PortfolioApiException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              statusCode,
+            ),
+          ),
+        );
+        await api.createFolder(_session, 'Trade');
+        await api.createFolder(_session, 'Trade');
+
+        expect(
+          adapter.requests[1].idempotencyKey,
+          adapter.requests[0].idempotencyKey,
+        );
+        expect(
+          adapter.requests[2].idempotencyKey,
+          isNot(adapter.requests[1].idempotencyKey),
+        );
+      },
+    );
+  }
+
+  test(
+    'malformed Folder success keeps its key because parsing cannot prove whether the create committed',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) {
+        call += 1;
+        if (call == 1) {
+          return _json(201, {
+            'success': true,
+            'data': {'name': 'Trade', 'is_default': false, 'sort_order': 200},
+          });
+        }
+        return _json(200, {
+          'success': true,
+          'data': _folderJson(
+            id: 'folder-$call',
+            name: 'Trade',
+            sortOrder: 200,
+          ),
+        });
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+
+      await expectLater(
+        api.createFolder(_session, 'Trade'),
+        throwsA(
+          isA<PortfolioApiException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            isNull,
+          ),
+        ),
+      );
+      await api.createFolder(_session, 'Trade');
+      await api.createFolder(_session, 'Trade');
+
+      expect(
+        adapter.requests[1].idempotencyKey,
+        adapter.requests[0].idempotencyKey,
+      );
+      expect(
+        adapter.requests[2].idempotencyKey,
+        isNot(adapter.requests[1].idempotencyKey),
+      );
+    },
+  );
+
+  test(
+    'HTTP 409 Folder response clears its key because the server rejected the create conclusively',
+    () async {
+      var call = 0;
+      final adapter = _RecordingAdapter((request) {
+        call += 1;
+        if (call == 1) {
+          return _json(409, {
+            'success': false,
+            'error': {'code': 'CONFLICT', 'message': 'Conflict.'},
+          });
+        }
+        return _json(200, {
+          'success': true,
+          'data': _folderJson(
+            id: 'folder-$call',
+            name: 'Trade',
+            sortOrder: 200,
+          ),
+        });
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+
+      await expectLater(
+        api.createFolder(_session, 'Trade'),
+        throwsA(
+          isA<PortfolioApiException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            409,
+          ),
+        ),
+      );
+      await api.createFolder(_session, 'Trade');
+
+      expect(
+        adapter.requests[1].idempotencyKey,
+        isNot(adapter.requests[0].idempotencyKey),
+      );
     },
   );
 }

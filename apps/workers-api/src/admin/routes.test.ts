@@ -420,6 +420,32 @@ class FakeD1Statement {
     }
 
     if (sql.startsWith("INSERT INTO card_override")) {
+      if (sql.includes("ON CONFLICT(card_ref)")) {
+        const [id, cardRef, imageUrl, updatedBy, updatedAt] = this.values as [
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
+        const row = this.db.cardOverrides.find((override) => override.card_ref === cardRef);
+        if (row) {
+          row.image_url = imageUrl;
+          row.updated_by = updatedBy;
+          row.updated_at = updatedAt;
+        } else {
+          this.db.cardOverrides.push({
+            id,
+            card_ref: cardRef,
+            override_fields: null,
+            image_url: imageUrl,
+            is_missing_card: 0,
+            updated_by: updatedBy,
+            updated_at: updatedAt,
+          });
+        }
+        return okResult<T>();
+      }
       const [id, cardRef, fields, imageUrl, isMissingCard, updatedBy, updatedAt] = this.values as [
         string,
         string,
@@ -821,6 +847,53 @@ describe("admin routes", () => {
     expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 200]);
   });
 
+  it("adds unique tie-breakers to every Admin offset query because equal timestamps must not move records between pages", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-stable-pages", "stable-pages@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "stable-pages@example.com", "correct-password");
+
+    await Promise.all([
+      "/users",
+      "/feedbacks",
+      "/scans",
+      "/permissions",
+      "/card-overrides",
+    ].map((path) => requestAdmin(env, path, "GET", undefined, login.data.access_token)));
+
+    const usersSql = env.DB.preparedSql.find((sql) => sql.includes("WITH accounts AS"));
+    const permissionsSql = env.DB.preparedSql.find((sql) =>
+      sql.startsWith("SELECT id, email, password_hash") && sql.includes("LIMIT ? OFFSET ?")
+    );
+    const feedbackSql = env.DB.preparedSql.find((sql) =>
+      sql.startsWith("SELECT id, uid, email, types") && sql.includes("LIMIT ? OFFSET ?")
+    );
+    const scansSql = env.DB.preparedSql.find((sql) =>
+      sql.startsWith("SELECT id, owner_type, owner_id, image_url")
+        && sql.includes("LIMIT ? OFFSET ?")
+    );
+    const overridesSql = env.DB.preparedSql.find((sql) =>
+      sql.startsWith("SELECT id, card_ref, override_fields")
+        && sql.includes("LIMIT ? OFFSET ?")
+    );
+
+    expect(usersSql).toContain(
+      "ORDER BY created_at DESC, account_type ASC, id ASC",
+    );
+    expect(usersSql).toContain(
+      "ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END, ai.id ASC LIMIT 1",
+    );
+    expect(usersSql).toContain(
+      "ORDER BY sr.created_at DESC, sr.id ASC LIMIT 1",
+    );
+    expect(usersSql).toContain(
+      "ORDER BY install.last_seen_at DESC, install.first_seen_at DESC, install.installation_id ASC LIMIT 1",
+    );
+    for (const sql of [permissionsSql, feedbackSql, scansSql]) {
+      expect(sql).toContain("ORDER BY created_at DESC, id ASC");
+    }
+    expect(overridesSql).toContain("ORDER BY updated_at DESC, id ASC");
+  });
+
   it("lists scan records with detail fields because support must audit recognition and user confirmation", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "admin-scan", "scan@example.com", "correct-password", "operator");
@@ -1075,6 +1148,72 @@ describe("admin routes", () => {
     expect(superDeleteOverrideResponse.status).toBe(200);
     expect(env.DB.cardOverrides).toHaveLength(0);
   });
+
+  it("upserts overlapping first image uploads because card_ref has one durable override row", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "operator-image", "image-ops@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "image-ops@example.com", "correct-password");
+
+    const responses = await Promise.all([
+      requestAdmin(
+        env,
+        "/card-overrides/image-upload",
+        "POST",
+        { card_ref: "card-concurrent", image_url: "https://example.com/first.jpg" },
+        login.data.access_token,
+      ),
+      requestAdmin(
+        env,
+        "/card-overrides/image-upload",
+        "POST",
+        { card_ref: "card-concurrent", image_url: "https://example.com/second.jpg" },
+        login.data.access_token,
+      ),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(env.DB.cardOverrides).toHaveLength(1);
+    expect(env.DB.cardOverrides[0]).toMatchObject({
+      card_ref: "card-concurrent",
+      override_fields: null,
+      is_missing_card: 0,
+      image_url: expect.stringMatching(/first|second/),
+    });
+  });
+
+  it("updates only image metadata on upload because editorial override fields and row identity must survive", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "operator-preserve", "preserve@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "preserve@example.com", "correct-password");
+    env.DB.cardOverrides.push({
+      id: "override-existing",
+      card_ref: "card-existing",
+      override_fields: JSON.stringify({ name: "Editorial Name" }),
+      image_url: "https://example.com/old.jpg",
+      is_missing_card: 1,
+      updated_by: "previous-admin",
+      updated_at: "2026-08-17T00:00:00.000Z",
+    });
+
+    const response = await requestAdmin(
+      env,
+      "/card-overrides/image-upload",
+      "POST",
+      { card_ref: "card-existing", image_url: "https://example.com/new.jpg" },
+      login.data.access_token,
+    );
+
+    expect(response.status).toBe(200);
+    expect(env.DB.cardOverrides).toEqual([
+      expect.objectContaining({
+        id: "override-existing",
+        card_ref: "card-existing",
+        override_fields: JSON.stringify({ name: "Editorial Name" }),
+        image_url: "https://example.com/new.jpg",
+        is_missing_card: 1,
+      }),
+    ]);
+  });
 });
 
 async function seedAdmin(
@@ -1159,11 +1298,18 @@ function adminUserResults(db: FakeD1, values: unknown[]) {
   const latestPlatform = (accountType: "user" | "anonymous", id: string) =>
     [...db.scanRecords]
       .filter((row) => row.owner_type === accountType && row.owner_id === id)
-      .sort((left, right) => right.created_at.localeCompare(left.created_at))[0]?.platform ?? "Unknown";
+      .sort((left, right) =>
+        right.created_at.localeCompare(left.created_at)
+        || left.id.localeCompare(right.id)
+      )[0]?.platform ?? "Unknown";
   const latestCountry = (id: string) =>
     [...db.installations]
       .filter((row) => row.uid === id && row.country_code?.trim())
-      .sort((left, right) => right.last_seen_at.localeCompare(left.last_seen_at))[0]?.country_code ?? "Unknown";
+      .sort((left, right) =>
+        right.last_seen_at.localeCompare(left.last_seen_at)
+        || right.first_seen_at.localeCompare(left.first_seen_at)
+        || left.installation_id.localeCompare(right.installation_id)
+      )[0]?.country_code ?? "Unknown";
   const formalUsers = db.users.map((row) => ({
     account_type: "user" as const,
     id: row.id,

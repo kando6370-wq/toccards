@@ -198,6 +198,10 @@ export const accountUid = sqliteTable(
   (t) => [check("ck_account_uid_minimum", sql`${t.uid} >= 100000`)],
 );
 
+export const mutationLock = sqliteTable("mutation_lock", {
+  lockKey: text("lock_key").primaryKey(),
+});
+
 export const appInstallation = sqliteTable("app_installation", {
   installationId: text("installation_id").primaryKey(),
   uid: text("uid"),

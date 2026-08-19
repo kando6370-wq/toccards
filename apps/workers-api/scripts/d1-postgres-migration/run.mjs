@@ -205,14 +205,16 @@ async function verifySourceInventory(manifest) {
     ...manifest.migrationTables.map((table) => table.name),
     ...manifest.excludedSourceTables,
   ].sort();
+  const allowed = [...expected, ...manifest.optionalSourceTables].sort();
   const missing = expected.filter((table) => !actual.includes(table));
-  const unexpected = actual.filter((table) => !expected.includes(table));
+  const unexpected = actual.filter((table) => !allowed.includes(table));
   assert(missing.length === 0, `dev D1 缺少已知表：${missing.join(",")}`);
   assert(unexpected.length === 0, `dev D1 存在未分类表：${unexpected.join(",")}`);
   console.log(JSON.stringify({
     phase: "source-inventory-verified",
     businessTables: manifest.migrationTables.length,
     excludedTables: manifest.excludedSourceTables.length,
+    optionalTables: manifest.optionalSourceTables.length,
   }));
 }
 
@@ -226,7 +228,11 @@ function verifyTargetInventory(inventory, manifest) {
   assert(missing.length === 0, `PostgreSQL 缺少表：${missing.join(",")}`);
   assert(unexpected.length === 0, `PostgreSQL 存在未纳入迁移的表：${unexpected.join(",")}`);
   assert(excluded.length === 0, `PostgreSQL 错误创建了排除表：${excluded.join(",")}`);
-  assert(inventory.migrations.length === 6, "PostgreSQL migration 记录数量不是 6");
+  const actualMigrations = inventory.migrations.map((migration) => migration.name);
+  assert(
+    JSON.stringify(actualMigrations) === JSON.stringify(manifest.postgresMigrations),
+    `PostgreSQL migration ledger 不一致：${actualMigrations.join(",")}`,
+  );
   assert(
     inventory.constraints.every((constraint) => constraint.validated),
     "PostgreSQL 存在未验证约束",

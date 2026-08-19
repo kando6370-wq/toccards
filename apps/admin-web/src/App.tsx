@@ -63,7 +63,7 @@ type InstallationRow = {
 
 type BillingTransactionRow = {
   id: string; uid: string; order_id: string; country: string | null;
-  install_time: string | null; order_time: string; sku: string; order_status: string;
+  install_time: string | null; order_time: string; sku: string; order_status: string | null;
   subscription_status: string;
   auto_renew: number | null; environment: string; amount_micros: number | null;
   currency: string | null; amount_usd_micros: number | null;
@@ -520,8 +520,8 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
     { title: "自动续期", dataIndex: "auto_renew", width: 90, render: (value) => value === null ? "--" : value ? "是" : "否" },
     { title: "环境", dataIndex: "environment", width: 100, render: billingEnvironmentLabel },
     { title: "原始金额", width: 110, render: (_, row) => billingAmount(row.amount_micros, row.currency) },
-    { title: "金额（USD）", width: 110, render: (_, row) => formatMicros(row.amount_usd_micros, "USD") },
-    { title: "扣款次数", dataIndex: "charge_count", width: 90, render: displayValue },
+    { title: "金额（USD）", width: 110, render: (_, row) => billingAmount(row.amount_usd_micros, "USD") },
+    { title: "扣款次数", dataIndex: "charge_count", width: 90, render: billingValue },
   ];
   return <PagePanel error={error ? "订单数据加载失败，请稍后重试" : null} onRefresh={reload} refreshing={loading} showRefresh={false}>
     <section className="scans-filter-panel">
@@ -1300,7 +1300,7 @@ function billingOrderStatusTag(value: string | null) {
     renewal: "续期付款", grace_recovery: "宽限期重试成功",
     billing_recovery: "重试期成功", refunded: "退款",
   };
-  return <Tag>{value ? labels[value] ?? value : "-"}</Tag>;
+  return <Tag>{value ? labels[value] ?? value : "--"}</Tag>;
 }
 
 function billingSubscriptionStatusTag(value: string | null) {
