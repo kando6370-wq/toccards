@@ -519,6 +519,73 @@ void main() {
   );
 
   test(
+    'graded market rows sort by numeric grade descending because users compare the highest grade first',
+    () {
+      const state = CardDetailState(
+        cardId: 'pikachu',
+        detail: CardDetail(
+          id: 'pikachu',
+          type: CardDetailType.tcg,
+          name: 'Pikachu',
+          game: 'Pokemon',
+          setName: 'Base Set',
+          identityLine: '58/102',
+          finish: 'Normal',
+          language: 'English',
+          quantity: 0,
+          isWishlisted: false,
+          marketPrices: [
+            CardMarketPrice(
+              label: '7',
+              grader: 'Grade',
+              grade: 7,
+              priceUsd: 262.50,
+              previous30dPriceUsd: 250,
+            ),
+            CardMarketPrice(
+              label: '9.5',
+              grader: 'Grade',
+              grade: 9.5,
+              priceUsd: 819,
+              previous30dPriceUsd: 803,
+            ),
+            CardMarketPrice(
+              label: '8',
+              grader: 'Grade',
+              grade: 8,
+              priceUsd: 376.88,
+              previous30dPriceUsd: 376.88,
+            ),
+            CardMarketPrice(
+              label: '9',
+              grader: 'Grade',
+              grade: 9,
+              priceUsd: 744.76,
+              previous30dPriceUsd: 730,
+            ),
+            CardMarketPrice(
+              label: 'Unknown',
+              grader: 'Grade',
+              priceUsd: 100,
+              previous30dPriceUsd: 100,
+            ),
+          ],
+        ),
+        currency: AppCurrency.usd,
+        selectedMarketPriceCategory: CardMarketPriceCategory.grade,
+      );
+
+      expect(state.priceTabMarketRows.map((row) => row.label), [
+        '9.5',
+        '9',
+        '8',
+        '7',
+        'Unknown',
+      ]);
+    },
+  );
+
+  test(
     'quick Collect updates from repository result and clears Wishlist because backend owns the item id',
     () async {
       final repository = _RecordingCardDetailRepository();

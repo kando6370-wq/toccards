@@ -553,23 +553,31 @@ class CardDetailState {
   }
 
   List<CardMarketRow> get priceTabMarketRows {
-    return detail.marketPrices
+    final prices = detail.marketPrices
         .where(
           (price) =>
               price.grader.toLowerCase() ==
               selectedMarketPriceCategory.grader.toLowerCase(),
         )
-        .map((price) {
-          return CardMarketRow(
-            label:
-                selectedMarketPriceCategory == CardMarketPriceCategory.ungraded
-                ? _rawMarketRowLabel(price)
-                : _gradedMarketRowLabel(price),
-            priceText: _formatter.formatUsd(price.priceUsd),
-            changeText: _marketChange7d(price).percentText,
-          );
-        })
         .toList();
+    if (selectedMarketPriceCategory != CardMarketPriceCategory.ungraded) {
+      prices.sort((left, right) {
+        final leftGrade = left.grade;
+        final rightGrade = right.grade;
+        if (leftGrade == null) return rightGrade == null ? 0 : 1;
+        if (rightGrade == null) return -1;
+        return rightGrade.compareTo(leftGrade);
+      });
+    }
+    return prices.map((price) {
+      return CardMarketRow(
+        label: selectedMarketPriceCategory == CardMarketPriceCategory.ungraded
+            ? _rawMarketRowLabel(price)
+            : _gradedMarketRowLabel(price),
+        priceText: _formatter.formatUsd(price.priceUsd),
+        changeText: _marketChange7d(price).percentText,
+      );
+    }).toList();
   }
 
   List<CardMarketPriceCategory> get availableMarketPriceCategories {
