@@ -726,7 +726,7 @@ CardCollectionItem _collectionItemFromDto(
     quantity: dto.quantity,
     grader: dto.grader,
     condition: dto.condition,
-    grade: dto.grade?.toString(),
+    grade: dto.grade == null ? null : _gradeText(dto.grade!),
     language: dto.language,
     finish: dto.finish,
     purchasePriceUsd: dto.purchasePrice,

@@ -781,7 +781,7 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
   void _editMissingPurchasePrice() {
     final itemId = widget.currentCollectionItemId;
     if (itemId == null) return;
-    widget.controller.startEditingCollectionItem(itemId);
+    unawaited(widget.controller.startEditingCollectionItem(itemId));
     _tabController.animateTo(0);
   }
 
@@ -1311,7 +1311,9 @@ class _CollectionItems extends StatelessWidget {
                     _CollectionItemSummaryCard(
                       item: item,
                       onEdit: () {
-                        controller.startEditingCollectionItem(item.id);
+                        unawaited(
+                          controller.startEditingCollectionItem(item.id),
+                        );
                       },
                     ),
                     const SizedBox(height: 12),

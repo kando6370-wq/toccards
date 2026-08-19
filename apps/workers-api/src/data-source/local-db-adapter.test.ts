@@ -477,6 +477,41 @@ describe("PostgreSQL card data source adapter", () => {
     expect(prices.some((price) => price.price === 9999)).toBe(false);
   });
 
+  it("normalizes PostgreSQL GENERIC grades because collection clients use the existing Grade API bucket", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "100", name: "Charizard" })],
+        [gradedPrice({
+          product_id: "100",
+          metric_code: "generic_90",
+          variant_code: "N",
+          variant_name: "Normal",
+          grader_code: "GENERIC",
+          grade_min_x10: 90,
+          grade_max_x10: 90,
+          price_history: JSON.stringify([
+            { price: 40, date: "2026-07-29" },
+            { price: 42, date: "2026-07-30" },
+          ]),
+        })],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.getMarketPrices("100", "Normal", "English"))
+      .resolves.toContainEqual(expect.objectContaining({
+        grader: "Grade",
+        grade: 9,
+        grade_label: "9",
+        price: 42,
+      }));
+    await expect(
+      adapter.getPriceSeries("100", "Grade", 9, null, 30, "Normal"),
+    ).resolves.toEqual([
+      { date: "2026-07-29", price: 40 },
+      { date: "2026-07-30", price: 42 },
+    ]);
+  });
+
   it("loads the requested graded series because Card Detail sends Raw and Graded ranges through one batch", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(

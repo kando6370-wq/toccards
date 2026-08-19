@@ -51,6 +51,17 @@ void main() {
       expect(
         cardCollectionPriceMatches(
           grader: 'PSA',
+          grade: 9,
+          marketGrader: 'GENERIC',
+          marketGrade: 9,
+        ),
+        isTrue,
+        reason:
+            'PostgreSQL GENERIC and the existing Grade API bucket represent the same shared grade price.',
+      );
+      expect(
+        cardCollectionPriceMatches(
+          grader: 'PSA',
           grade: 10,
           marketGrader: 'SGC',
           marketGrade: 10,
@@ -918,6 +929,136 @@ void main() {
   );
 
   test(
+    'opening Collection Item edit reloads its language and finish because the total must use that exact price dimension',
+    () async {
+      final cardDataApi = _QualifierSwitchingCardDataApi();
+      final now = DateTime.parse('2026-01-01T00:00:00.000Z');
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [
+            PortfolioFolderDto(
+              id: 'main',
+              name: 'Main',
+              isDefault: true,
+              sortOrder: 0,
+            ),
+          ],
+          items: [
+            PortfolioItemDto(
+              id: 'item-japanese',
+              folderId: 'main',
+              cardRef: 'catalog:pikachu-025',
+              objectType: 'tcg',
+              grader: 'PSA',
+              condition: null,
+              grade: 9,
+              language: 'Japanese',
+              finish: 'Normal',
+              quantity: 2,
+              purchasePrice: null,
+              purchaseCurrency: null,
+              notes: null,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          ],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+      await _loadedState(container, 'catalog:pikachu-025');
+      await _drainSectionLoads();
+
+      await container
+          .read(provider.notifier)
+          .startEditingCollectionItem('item-japanese');
+
+      final edited = container.read(provider);
+      expect(cardDataApi.marketSelections.last, ('Normal', 'Japanese'));
+      expect(edited.marketPricesStatus, KandoLoadStatus.content);
+      expect(edited.priceFinish, 'Normal');
+      expect(edited.collectionItemDraft?.grader, 'PSA');
+      expect(edited.collectionItemDraft?.grade, '9');
+      expect(edited.collectionItemDraft?.language, 'Japanese');
+      expect(
+        edited.detail.marketPrices,
+        contains(
+          isA<CardMarketPrice>()
+              .having((price) => price.grader, 'grader', 'GENERIC')
+              .having((price) => price.grade, 'grade', 9)
+              .having((price) => price.priceUsd, 'price', 42),
+        ),
+      );
+      expect(edited.collectionItemDraftMarketPriceText, r'$42.00');
+      expect(edited.collectionItemDraftTotalText, r'$84.00');
+    },
+  );
+
+  test(
+    'late initial prices cannot overwrite Collection Item qualifiers because the editor total must stay on the selected variant',
+    () async {
+      final cardDataApi = _LateInitialQualifierCardDataApi();
+      final now = DateTime.parse('2026-01-01T00:00:00.000Z');
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [
+            PortfolioFolderDto(
+              id: 'main',
+              name: 'Main',
+              isDefault: true,
+              sortOrder: 0,
+            ),
+          ],
+          items: [
+            PortfolioItemDto(
+              id: 'item-japanese',
+              folderId: 'main',
+              cardRef: 'catalog:pikachu-025',
+              objectType: 'tcg',
+              grader: 'PSA',
+              condition: null,
+              grade: 9,
+              language: 'Japanese',
+              finish: 'Normal',
+              quantity: 2,
+              purchasePrice: null,
+              purchaseCurrency: null,
+              notes: null,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          ],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+      await _loadedState(container, 'catalog:pikachu-025');
+      await cardDataApi.initialMarketRequested.future;
+      await _drainSectionLoads();
+
+      await container
+          .read(provider.notifier)
+          .startEditingCollectionItem('item-japanese');
+      expect(container.read(provider).collectionItemDraftTotalText, r'$84.00');
+
+      cardDataApi.completeInitialMarket();
+      await _drainSectionLoads();
+
+      final edited = container.read(provider);
+      expect(edited.priceFinish, 'Normal');
+      expect(edited.collectionItemDraft?.language, 'Japanese');
+      expect(edited.collectionItemDraftMarketPriceText, r'$42.00');
+      expect(edited.collectionItemDraftTotalText, r'$84.00');
+    },
+  );
+
+  test(
     'editing a Collection Item switches graded state to Raw state',
     () async {
       final repository = _RecordingCardDetailRepository();
@@ -927,7 +1068,7 @@ void main() {
       final controller = container.read(provider.notifier);
       await _loadedState(container, 'charizard-ex');
 
-      controller.startEditingCollectionItem('item-charizard');
+      await controller.startEditingCollectionItem('item-charizard');
       controller.updateCollectionItemDraft(
         quantityText: '3',
         grader: 'Raw',
@@ -965,7 +1106,7 @@ void main() {
       await collectionController.loadComplete;
       final collectionBeforeMove = container.read(collectionControllerProvider);
 
-      controller.startEditingCollectionItem('item-charizard');
+      await controller.startEditingCollectionItem('item-charizard');
       controller.updateCollectionItemDraft(
         portfolioName: 'Sealed',
         notes: 'Keep this input after the failed move.',
@@ -1015,7 +1156,7 @@ void main() {
           .load(folderId: 'folder-main-db', localPremiumVerified: true);
       expect(container.read(homePerformanceControllerProvider).hasLoaded, true);
 
-      controller.startEditingCollectionItem('item-charizard');
+      await controller.startEditingCollectionItem('item-charizard');
       controller.updateCollectionItemDraft(portfolioName: 'Sealed');
 
       expect(await controller.saveCollectionItemDraft(), isTrue);
@@ -1039,7 +1180,7 @@ void main() {
       final controller = container.read(provider.notifier);
       await _loadedState(container, 'charizard-ex');
 
-      controller.startEditingCollectionItem('item-charizard');
+      await controller.startEditingCollectionItem('item-charizard');
       controller.updateCollectionItemDraft(quantityText: '0');
 
       expect(await controller.saveCollectionItemDraft(), isFalse);
@@ -2071,6 +2212,64 @@ class _FinishSwitchingCardDataApi extends _FakeCardDataApi {
       CardDataPricePointDto(date: '2026-07-01', price: current - 1),
       CardDataPricePointDto(date: '2026-07-30', price: current),
     ];
+  }
+}
+
+class _QualifierSwitchingCardDataApi extends _FakeCardDataApi {
+  final List<(String?, String?)> marketSelections = [];
+
+  @override
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+    String? language,
+  }) async {
+    marketSelections.add((finish, language));
+    if (finish == 'Normal' && language == 'Japanese') {
+      return const [
+        CardDataMarketPriceDto(
+          grader: 'GENERIC',
+          grade: 9,
+          gradeLabel: '9',
+          condition: null,
+          price: 42,
+        ),
+      ];
+    }
+    return super.getMarketPrices(cardRef, finish: finish, language: language);
+  }
+}
+
+class _LateInitialQualifierCardDataApi extends _QualifierSwitchingCardDataApi {
+  final initialMarketRequested = Completer<void>();
+  final _initialMarket = Completer<List<CardDataMarketPriceDto>>();
+
+  @override
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+    String? language,
+  }) {
+    if (finish == 'Holofoil' && language == 'English') {
+      marketSelections.add((finish, language));
+      if (!initialMarketRequested.isCompleted) {
+        initialMarketRequested.complete();
+      }
+      return _initialMarket.future;
+    }
+    return super.getMarketPrices(cardRef, finish: finish, language: language);
+  }
+
+  void completeInitialMarket() {
+    _initialMarket.complete(const [
+      CardDataMarketPriceDto(
+        grader: 'PSA',
+        grade: 10,
+        gradeLabel: '10',
+        condition: null,
+        price: 70,
+      ),
+    ]);
   }
 }
 

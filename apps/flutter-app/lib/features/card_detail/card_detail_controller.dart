@@ -110,19 +110,21 @@ bool cardCollectionPriceMatches({
   required double? marketGrade,
 }) {
   if (marketGrade == null) return false;
+  final isGenericGrade = switch (marketGrader.trim().toLowerCase()) {
+    'grade' || 'generic' => true,
+    _ => false,
+  };
   if (grade == 7 || grade == 7.5) {
-    return marketGrader.toLowerCase() == 'grade' && marketGrade == 7;
+    return isGenericGrade && marketGrade == 7;
   }
   if (grade == 8 || grade == 8.5) {
-    return marketGrader.toLowerCase() == 'grade' && marketGrade == 8;
+    return isGenericGrade && marketGrade == 8;
   }
   if (grade == 9) {
-    return marketGrader.toLowerCase() == 'grade' && marketGrade == 9;
+    return isGenericGrade && marketGrade == 9;
   }
   if (grade == 9.5) {
-    return grader == 'BGS' &&
-        marketGrader.toLowerCase() == 'grade' &&
-        marketGrade == 9.5;
+    return grader == 'BGS' && isGenericGrade && marketGrade == 9.5;
   }
   return grade == 10 &&
       grader.toLowerCase() == marketGrader.toLowerCase() &&
@@ -1091,7 +1093,7 @@ class CardDetailController extends Notifier<CardDetailState> {
     );
   }
 
-  void startEditingCollectionItem(String itemId) {
+  Future<void> startEditingCollectionItem(String itemId) async {
     if (state.isUnavailable || state.isLoading) {
       return;
     }
@@ -1134,6 +1136,17 @@ class CardDetailController extends Notifier<CardDetailState> {
       editingCollectionItemId: item.id,
       collectionItemFormError: null,
     );
+    await _refreshCollectionItemDraftPrices();
+  }
+
+  Future<void> _refreshCollectionItemDraftPrices() async {
+    final draft = state.collectionItemDraft;
+    if (draft == null) return;
+    if (draft.finish != state.priceFinish) {
+      await selectPriceFinish(draft.finish);
+      return;
+    }
+    await selectCollectionPriceLanguage(draft.language);
   }
 
   List<String> _optionsWithCurrent(List<String> options, String? current) {
@@ -1406,6 +1419,7 @@ class CardDetailController extends Notifier<CardDetailState> {
 
   void _invalidateLoad() {
     _loadGeneration += 1;
+    _priceLoadGeneration += 1;
     final completer = _loadCompleter;
     if (completer != null && !completer.isCompleted) {
       completer.complete();
@@ -1419,6 +1433,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   }) {
     final completer = Completer<void>();
     final generation = ++_loadGeneration;
+    _priceLoadGeneration += 1;
     _loadCompleter = completer;
     unawaited(_loadDetail(session, currency, generation, completer));
   }
@@ -1482,11 +1497,17 @@ class CardDetailController extends Notifier<CardDetailState> {
       );
       if (!completer.isCompleted) completer.complete();
 
-      final marketFuture = _loadMarketPrices(repository, generation);
+      final priceGeneration = _priceLoadGeneration;
+      final marketFuture = _loadMarketPrices(
+        repository,
+        generation,
+        priceGeneration,
+      );
       await Future.wait([
         _loadAssetState(repository, session, generation),
         marketFuture.then(
-          (market) => _loadPriceSeries(repository, generation, market),
+          (market) =>
+              _loadPriceSeries(repository, generation, priceGeneration, market),
         ),
         _loadSoldListings(repository, generation),
       ]);
@@ -1522,6 +1543,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   Future<CardDetailMarketData?> _loadMarketPrices(
     CardDetailSectionRepository repository,
     int generation,
+    int priceGeneration,
   ) async {
     try {
       final data = await repository.loadMarketPrices(
@@ -1529,7 +1551,7 @@ class CardDetailController extends Notifier<CardDetailState> {
         finish: state.priceFinish,
         language: state.detail.language,
       );
-      if (generation == _loadGeneration) {
+      if (_isCurrentPriceLoad(generation, priceGeneration)) {
         state = state.copyWith(
           detail: state.detail.copyWith(
             marketPrices: _resolvedMarketPrices(data.marketPrices),
@@ -1539,7 +1561,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       }
       return data;
     } catch (_) {
-      if (generation == _loadGeneration) {
+      if (_isCurrentPriceLoad(generation, priceGeneration)) {
         state = state.copyWith(marketPricesStatus: KandoLoadStatus.failure);
       }
       return null;
@@ -1549,15 +1571,17 @@ class CardDetailController extends Notifier<CardDetailState> {
   Future<void> _loadPriceSeries(
     CardDetailSectionRepository repository,
     int generation,
+    int priceGeneration,
     CardDetailMarketData? market,
   ) async {
+    if (!_isCurrentPriceLoad(generation, priceGeneration)) return;
     try {
       final data = await repository.loadPriceSeries(
         cardId,
         market: market,
         finish: state.priceFinish,
       );
-      if (generation == _loadGeneration) {
+      if (_isCurrentPriceLoad(generation, priceGeneration)) {
         state = state.copyWith(
           detail: state.detail.copyWith(
             marketPrices: _resolvedMarketPrices(data.marketPrices),
@@ -1570,10 +1594,15 @@ class CardDetailController extends Notifier<CardDetailState> {
         );
       }
     } catch (_) {
-      if (generation == _loadGeneration) {
+      if (_isCurrentPriceLoad(generation, priceGeneration)) {
         state = state.copyWith(priceSeriesStatus: KandoLoadStatus.failure);
       }
     }
+  }
+
+  bool _isCurrentPriceLoad(int generation, int priceGeneration) {
+    return generation == _loadGeneration &&
+        priceGeneration == _priceLoadGeneration;
   }
 
   Future<void> _loadSoldListings(

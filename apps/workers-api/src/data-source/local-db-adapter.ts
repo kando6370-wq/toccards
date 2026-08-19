@@ -249,11 +249,12 @@ async function loadPriceSeriesBatch(
 ): Promise<PricePoint[][]> {
   const rows = await loadPublishedPriceRows(db, [cardRef]);
   const selectedRows = requests.map((request) => {
-    const isRawRequest = normalizedQualifier(request.grader) === "raw";
+    const isRawRequest = normalizedGraderQualifier(request.grader) === "raw";
     const graderRows = isRawRequest
       ? rows.filter(isRawPrice)
       : rows.filter((row) =>
-        normalizedQualifier(row.grader_code) === normalizedQualifier(request.grader)
+        normalizedGraderQualifier(row.grader_code)
+          === normalizedGraderQualifier(request.grader)
         && priceMatchesGrade(row, request.grade)
       );
     const finishRows = filterPricesByFinish(graderRows, request.finish);
@@ -630,6 +631,11 @@ function normalizedQualifier(value: string | null | undefined): string {
   return (value ?? "").trim().toLowerCase();
 }
 
+function normalizedGraderQualifier(value: string | null | undefined): string {
+  const normalized = normalizedQualifier(value);
+  return normalized === "grade" || normalized === "generic" ? "generic" : normalized;
+}
+
 function searchPriceRank(row: PublishedPriceRow): number {
   return (
     (row.condition_code === "NM" ? 0 : 100)
@@ -727,7 +733,7 @@ function filterPointsByDays(points: PricePoint[], days: number): PricePoint[] {
 
 function graderDisplayName(graderCode: string): string {
   const normalized = graderCode.trim().toUpperCase();
-  return normalized === "GRADE" ? "Grade" : normalized;
+  return normalized === "GRADE" || normalized === "GENERIC" ? "Grade" : normalized;
 }
 
 function formatGrade(grade: number): string {
