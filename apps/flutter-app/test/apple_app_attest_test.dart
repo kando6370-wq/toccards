@@ -11,12 +11,13 @@ void main() {
       final bridge = _Bridge();
       final storage = _Storage();
 
-      await AppleRestoreProofSync(
+      final synchronized = await AppleRestoreProofSync(
         api: api,
         bridge: bridge,
         storage: storage,
       ).sync(_session, 'apple-jws');
 
+      expect(synchronized, isTrue);
       expect(api.calls, [
         'challenge:register:generated-key:null',
         'register:generated-key:register-attestation',
@@ -37,11 +38,12 @@ void main() {
     () async {
       final api = _Api();
       final bridge = _Bridge(supported: false);
-      await AppleRestoreProofSync(
+      final synchronized = await AppleRestoreProofSync(
         api: api,
         bridge: bridge,
         storage: _Storage(),
       ).sync(_session, 'apple-jws');
+      expect(synchronized, isFalse);
       expect(api.calls, isEmpty);
       expect(bridge.calls, isEmpty);
     },
@@ -133,5 +135,4 @@ class _Api implements AppleRestoreProofApi {
   }) async {
     calls.add('restore:$keyId:$assertion:$signedTransactionInfo');
   }
-
 }

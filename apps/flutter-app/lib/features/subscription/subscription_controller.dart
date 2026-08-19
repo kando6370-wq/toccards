@@ -325,6 +325,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   var _restoreAttempt = 0;
   var _purchasePresentationActive = false;
   Future<AppPremiumState>? _entitlementRefreshInFlight;
+  Future<bool>? _serverEntitlementSyncInFlight;
   Future<bool>? _productLoadInFlight;
   var _productLoadCycle = 0;
 
@@ -498,6 +499,63 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     return refresh;
   }
 
+  Future<bool> synchronizeServerEntitlement() {
+    final inFlight = _serverEntitlementSyncInFlight;
+    if (inFlight != null) return inFlight;
+    late final Future<bool> sync;
+    sync = _synchronizeServerEntitlement().whenComplete(() {
+      if (identical(_serverEntitlementSyncInFlight, sync)) {
+        _serverEntitlementSyncInFlight = null;
+      }
+    });
+    _serverEntitlementSyncInFlight = sync;
+    return sync;
+  }
+
+  Future<bool> _synchronizeServerEntitlement() async {
+    final session = ref.read(authControllerProvider).session;
+    final configuration = ref.read(appSubscriptionConfigurationProvider);
+    final productIds = configuration.configuredProductIds.values.toSet();
+    if (session == null ||
+        configuration.store != SubscriptionStore.appStore ||
+        productIds.isEmpty) {
+      return false;
+    }
+    try {
+      final entitlements = await ref
+          .read(appleCurrentEntitlementReaderProvider)
+          .read(productIds)
+          .timeout(const Duration(seconds: 15));
+      AppleCurrentEntitlement? selected;
+      for (final entitlement in entitlements) {
+        final payload = decodeStoreKitJwsPayload(
+          entitlement.signedTransactionInfo,
+        );
+        final transactionReason = payload?['transactionReason'];
+        if (payload?['productId'] != entitlement.productId ||
+            (transactionReason != 'PURCHASE' &&
+                transactionReason != 'RENEWAL')) {
+          continue;
+        }
+        selected = entitlement;
+        if (entitlement.productId ==
+            configuration.configuredProductIds[subscriptionLifetimePlanId]) {
+          break;
+        }
+      }
+      if (selected == null) return false;
+      return await ref
+          .read(appleRestoreProofSyncProvider)
+          .sync(session, selected.signedTransactionInfo);
+    } on Object catch (error, stackTrace) {
+      debugPrint(
+        'Unable to synchronize current Apple entitlement: $error\n'
+        '$stackTrace',
+      );
+      return false;
+    }
+  }
+
   Future<AppPremiumState> _runEntitlementRefresh({
     required bool showFailure,
   }) async {
@@ -555,6 +613,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
                     'Unable to synchronize Apple Restore proof: $error\n'
                     '$stackTrace',
                   );
+                  return false;
                 }),
           );
         }
@@ -575,9 +634,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       );
       await _cacheRestoreResult(result);
     } on Object catch (error, stackTrace) {
-      debugPrint(
-        'Unable to restore Apple subscription: $error\n$stackTrace',
-      );
+      debugPrint('Unable to restore Apple subscription: $error\n$stackTrace');
       if (attempt != _restoreAttempt) return;
       state = state.copyWith(
         isLoading: false,
@@ -998,7 +1055,9 @@ class StoreKit2SubscriptionReceiptVerifier
       );
     }
 
-    if (request.purchase.status == SubscriptionPurchaseStatus.purchased) {
+    final payload = decodeStoreKitJwsPayload(request.purchase.verificationData);
+    if (request.purchase.status == SubscriptionPurchaseStatus.purchased &&
+        payload?['transactionReason'] == 'PURCHASE') {
       final appAccountToken = request.purchase.applicationUserName;
       final session = _session();
       if (session != null &&

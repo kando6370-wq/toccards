@@ -538,6 +538,58 @@ void main() {
   );
 
   testWidgets(
+    'Performance repairs a missing session grant once and retries the failed request once',
+    (tester) async {
+      final api = _EntitlementSyncPerformanceApi(succeedAfterRepair: true);
+      final repair = _EntitlementRepairTracker(result: true);
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          () => _RepairingHomeSubscriptionController(repair),
+          api,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      expect(repair.calls, 1);
+      expect(api.calls, 2);
+      expect(find.byKey(const Key('home-performance-failure')), findsNothing);
+      expect(find.text('Market Value'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Performance stops after the one repaired retry also needs entitlement sync',
+    (tester) async {
+      final api = _EntitlementSyncPerformanceApi(succeedAfterRepair: false);
+      final repair = _EntitlementRepairTracker(result: true);
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          () => _RepairingHomeSubscriptionController(repair),
+          api,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(repair.calls, 1);
+      expect(api.calls, 2);
+      expect(find.byKey(const Key('home-performance-failure')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'Performance tooltip and partial-price info are mutually exclusive because stale overlays misstate the selected context',
     (tester) async {
       await tester.pumpWidget(
@@ -1886,6 +1938,7 @@ Widget _mockHomeApp([
   CurrencyRateApi currencyRateApi = const _TestCurrencyRateApi(),
   HomeRepository homeRepository = const MockHomeRepository(),
   SubscriptionController Function()? subscriptionController,
+  PortfolioApiClient? performanceApi,
 ]) {
   final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
   return ProviderScope(
@@ -1896,7 +1949,9 @@ Widget _mockHomeApp([
         _HomeCollectionRepository(portfolioManagement),
       ),
       portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
-      portfolioApiClientProvider.overrideWithValue(_TestHomePerformanceApi()),
+      portfolioApiClientProvider.overrideWithValue(
+        performanceApi ?? _TestHomePerformanceApi(),
+      ),
       currencyRateApiProvider.overrideWithValue(currencyRateApi),
       subscriptionControllerProvider.overrideWith(
         subscriptionController ?? _FreeHomeSubscriptionController.new,
@@ -1915,6 +1970,28 @@ class _FreeHomeSubscriptionController extends SubscriptionController {
   @override
   SubscriptionState build() =>
       const SubscriptionState(premiumState: AppPremiumState.free);
+}
+
+class _EntitlementRepairTracker {
+  _EntitlementRepairTracker({required this.result});
+
+  final bool result;
+  var calls = 0;
+}
+
+class _RepairingHomeSubscriptionController extends SubscriptionController {
+  _RepairingHomeSubscriptionController(this.tracker);
+
+  final _EntitlementRepairTracker tracker;
+
+  @override
+  SubscriptionState build() => const SubscriptionState(isPro: true);
+
+  @override
+  Future<bool> synchronizeServerEntitlement() async {
+    tracker.calls++;
+    return tracker.result;
+  }
 }
 
 class _TestHomePerformanceApi extends PortfolioApiClient {
@@ -1968,6 +2045,36 @@ class _TestHomePerformanceApi extends PortfolioApiClient {
       series: range == PerformanceRange.oneDay
           ? [current]
           : [previous, current],
+    );
+  }
+}
+
+class _EntitlementSyncPerformanceApi extends _TestHomePerformanceApi {
+  _EntitlementSyncPerformanceApi({required this.succeedAfterRepair});
+
+  final bool succeedAfterRepair;
+  var calls = 0;
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) {
+    calls++;
+    if (calls == 1 || !succeedAfterRepair) {
+      throw const PortfolioApiException(
+        'Premium access is still syncing.',
+        code: 'ENTITLEMENT_SYNC_REQUIRED',
+        statusCode: 409,
+      );
+    }
+    return super.getPortfolioPerformance(
+      session,
+      range: range,
+      folderId: folderId,
+      localPremiumVerified: localPremiumVerified,
     );
   }
 }

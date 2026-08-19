@@ -27,9 +27,36 @@ void main() {
       expect(entitlement.entitlementId, 'performance_pro');
     },
   );
+
+  test(
+    'a StoreKit renewal is not submitted as a fresh purchase because the server requires PURCHASE evidence',
+    () async {
+      final storage = _MemoryStorage();
+      final api = _RecordingApi();
+      final verifier = StoreKit2SubscriptionReceiptVerifier(
+        session: () => _session('session-a'),
+        syncQueue: SubscriptionSyncQueue(storage: storage, api: api),
+      );
+
+      final entitlement = await verifier.verify(
+        _request(transactionReason: 'RENEWAL'),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(entitlement.status, SubscriptionEntitlementStatus.active);
+      expect(api.verifyFreshPurchaseCalls, 0);
+      expect(storage.entries, isEmpty);
+    },
+  );
 }
 
-SubscriptionVerificationRequest _request() {
+SubscriptionVerificationRequest _request({
+  String transactionReason = 'PURCHASE',
+}) {
+  final evidence = _jws({
+    'productId': 'ios.yearly',
+    'transactionReason': transactionReason,
+  });
   return SubscriptionVerificationRequest(
     plan: SubscriptionPlanConfig(
       id: 'yearly',
@@ -40,14 +67,14 @@ SubscriptionVerificationRequest _request() {
       store: SubscriptionStore.appStore,
       storeProductId: 'ios.yearly',
       status: SubscriptionPurchaseStatus.purchased,
-      verificationData: 'apple.jws.value',
+      verificationData: evidence,
       applicationUserName: '123e4567-e89b-42d3-a456-426614174000',
       storeData: SK2PurchaseDetails(
         productID: 'ios.yearly',
         purchaseID: 'transaction-1',
         verificationData: PurchaseVerificationData(
-          localVerificationData: 'apple.jws.value',
-          serverVerificationData: 'apple.jws.value',
+          localVerificationData: evidence,
+          serverVerificationData: evidence,
           source: 'app_store',
         ),
         transactionDate: DateTime.utc(
@@ -60,6 +87,11 @@ SubscriptionVerificationRequest _request() {
       ),
     ),
   );
+}
+
+String _jws(Map<String, Object?> payload) {
+  final encoded = base64Url.encode(utf8.encode(jsonEncode(payload)));
+  return 'header.$encoded.signature';
 }
 
 AuthSession _session(String sessionId) => AuthSession(
@@ -83,6 +115,37 @@ class _FailingStorage implements SubscriptionSyncStorage {
   @override
   Future<void> write(List<PendingSubscriptionSync> entries) {
     throw StateError('secure storage unavailable');
+  }
+}
+
+class _MemoryStorage implements SubscriptionSyncStorage {
+  List<PendingSubscriptionSync> entries = [];
+
+  @override
+  Future<List<PendingSubscriptionSync>> read() async => [...entries];
+
+  @override
+  Future<void> write(List<PendingSubscriptionSync> entries) async {
+    this.entries = [...entries];
+  }
+}
+
+class _RecordingApi implements SubscriptionEntitlementApi {
+  var verifyFreshPurchaseCalls = 0;
+
+  @override
+  Future<String> createPurchaseChallenge(
+    AuthSession session, {
+    required String productId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> verifyFreshPurchase(
+    AuthSession session, {
+    required String requestId,
+    required String signedTransactionInfo,
+  }) async {
+    verifyFreshPurchaseCalls++;
   }
 }
 

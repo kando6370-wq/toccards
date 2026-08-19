@@ -724,6 +724,50 @@ void main() {
       expect(find.text('Choose Your Plan'), findsNothing);
     },
   );
+
+  testWidgets(
+    'Repeated premium events do not dismiss the purchase Success page',
+    (tester) async {
+      final host = _RestoreTestHost(initialLocation: '/profile');
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+
+      host.router.push('/subscription?source=profile');
+      await tester.pumpAndSettle();
+      host.controller.emit(
+        SubscriptionResultEvent.purchaseSuccess,
+        isPro: true,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text("You're Premium!"), findsOneWidget);
+
+      host.controller.emit(
+        SubscriptionResultEvent.externalPremium,
+        isPro: true,
+      );
+      await tester.pumpAndSettle();
+      host.controller.emit(
+        SubscriptionResultEvent.externalPremium,
+        isPro: true,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text("You're Premium!"), findsOneWidget);
+      expect(find.text('Choose Your Plan'), findsNothing);
+      expect(find.text('Profile Page'), findsNothing);
+
+      final startExploring = find.byKey(
+        const Key('subscription-success-continue'),
+      );
+      await tester.ensureVisible(startExploring);
+      await tester.tap(startExploring);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Profile Page'), findsOneWidget);
+      expect(find.text("You're Premium!"), findsNothing);
+      expect(find.text('Choose Your Plan'), findsNothing);
+    },
+  );
 }
 
 void _sendAppToBackground(WidgetTester tester) {

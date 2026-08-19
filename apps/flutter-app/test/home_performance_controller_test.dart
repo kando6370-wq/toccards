@@ -85,6 +85,41 @@ void main() {
       ]);
     },
   );
+
+  test(
+    'A failed automatic load is not repeated for the same target until an explicit retry',
+    () async {
+      final api = _ControlledPerformanceApi();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          portfolioApiClientProvider.overrideWithValue(api),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        homePerformanceControllerProvider.notifier,
+      );
+
+      final initial = controller.load(
+        folderId: 'main',
+        localPremiumVerified: true,
+      );
+      api.failNext();
+      await initial;
+
+      final duplicate = controller.load(
+        folderId: 'main',
+        localPremiumVerified: true,
+      );
+      if (api.requests.length > 1) {
+        api.completeAt(1, _performance(PerformanceRange.oneMonth, 100));
+      }
+      await duplicate;
+
+      expect(api.requests, hasLength(1));
+    },
+  );
 }
 
 class _ReadyAuthController extends AuthController {

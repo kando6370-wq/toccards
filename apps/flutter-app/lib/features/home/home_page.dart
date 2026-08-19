@@ -87,12 +87,10 @@ class _HomePageState extends ConsumerState<HomePage>
     if (_performanceSelected &&
         isPro &&
         (performance.folderId != state.selectedFolderId ||
-            !performance.hasLoaded && !performance.isLoading)) {
-      Future<void>.microtask(
-        () => ref
-            .read(homePerformanceControllerProvider.notifier)
-            .load(folderId: state.selectedFolderId, localPremiumVerified: true),
-      );
+            !performance.hasLoaded &&
+                !performance.isLoading &&
+                !performance.isFailure)) {
+      Future<void>.microtask(() => _loadPerformance(state.selectedFolderId));
     }
 
     return KandoTabScaffold(
@@ -151,24 +149,16 @@ class _HomePageState extends ConsumerState<HomePage>
                       isPro: isPro,
                       onHidePressed: controller.toggleAmountHidden,
                       onFolderPressed: () => _showFolderSheet(context, ref),
-                      onRangeSelected: (range) => ref
-                          .read(homePerformanceControllerProvider.notifier)
-                          .selectRange(
-                            range,
-                            folderId: state.selectedFolderId,
-                            localPremiumVerified: true,
-                          ),
+                      onRangeSelected: (range) => _selectPerformanceRange(
+                        range,
+                        folderId: state.selectedFolderId,
+                      ),
                       onUnlock: () => _unlockPerformance(
                         context,
                         folderId: state.selectedFolderId,
                       ),
-                      onRefresh: () => ref
-                          .read(homePerformanceControllerProvider.notifier)
-                          .load(
-                            folderId: state.selectedFolderId,
-                            localPremiumVerified: true,
-                            force: true,
-                          ),
+                      onRefresh: () =>
+                          _loadPerformance(state.selectedFolderId, force: true),
                     )
                   else ...[
                     _PortfolioCard(
@@ -243,9 +233,7 @@ class _HomePageState extends ConsumerState<HomePage>
     final premiumState = await _resolvePremiumForRestrictedAction();
     if (!mounted || !context.mounted) return;
     if (premiumState == AppPremiumState.premium) {
-      await ref
-          .read(homePerformanceControllerProvider.notifier)
-          .load(folderId: folderId, localPremiumVerified: true, force: true);
+      await _loadPerformance(folderId, force: true);
       return;
     }
     if (premiumState == AppPremiumState.unknown) return;
@@ -263,9 +251,7 @@ class _HomePageState extends ConsumerState<HomePage>
     }
     final home = ref.read(homeControllerProvider);
     if (!_performanceSelected || home.selectedFolderId != folderId) return;
-    await ref
-        .read(homePerformanceControllerProvider.notifier)
-        .load(folderId: folderId, localPremiumVerified: true, force: true);
+    await _loadPerformance(folderId, force: true);
   }
 
   Future<void> _selectOverviewRange(
@@ -309,9 +295,68 @@ class _HomePageState extends ConsumerState<HomePage>
   Future<void> _loadPerformanceIfPremium(String folderId) async {
     final premiumState = await _resolvePremiumForRestrictedAction();
     if (!mounted || premiumState != AppPremiumState.premium) return;
-    await ref
-        .read(homePerformanceControllerProvider.notifier)
-        .load(folderId: folderId, localPremiumVerified: true);
+    await _loadPerformance(folderId);
+  }
+
+  Future<void> _loadPerformance(String folderId, {bool force = false}) async {
+    final controller = ref.read(homePerformanceControllerProvider.notifier);
+    await controller.load(
+      folderId: folderId,
+      localPremiumVerified: true,
+      force: force,
+    );
+    if (!mounted) return;
+    final failedState = ref.read(homePerformanceControllerProvider);
+    if (failedState.failureCode != 'ENTITLEMENT_SYNC_REQUIRED') {
+      return;
+    }
+    final synchronized = await ref
+        .read(subscriptionControllerProvider.notifier)
+        .synchronizeServerEntitlement();
+    if (!mounted ||
+        !synchronized ||
+        !_performanceSelected ||
+        ref.read(homeControllerProvider).selectedFolderId != folderId ||
+        !identical(ref.read(homePerformanceControllerProvider), failedState)) {
+      return;
+    }
+    await controller.load(
+      folderId: folderId,
+      localPremiumVerified: true,
+      force: true,
+    );
+  }
+
+  Future<void> _selectPerformanceRange(
+    PerformanceRange range, {
+    required String folderId,
+  }) async {
+    final controller = ref.read(homePerformanceControllerProvider.notifier);
+    await controller.selectRange(
+      range,
+      folderId: folderId,
+      localPremiumVerified: true,
+    );
+    if (!mounted) return;
+    final failedState = ref.read(homePerformanceControllerProvider);
+    if (failedState.failureCode != 'ENTITLEMENT_SYNC_REQUIRED') {
+      return;
+    }
+    final synchronized = await ref
+        .read(subscriptionControllerProvider.notifier)
+        .synchronizeServerEntitlement();
+    if (!mounted ||
+        !synchronized ||
+        !_performanceSelected ||
+        ref.read(homeControllerProvider).selectedFolderId != folderId ||
+        !identical(ref.read(homePerformanceControllerProvider), failedState)) {
+      return;
+    }
+    await controller.selectRange(
+      range,
+      folderId: folderId,
+      localPremiumVerified: true,
+    );
   }
 
   Future<void> _showCurrencySheet(BuildContext context, WidgetRef ref) {

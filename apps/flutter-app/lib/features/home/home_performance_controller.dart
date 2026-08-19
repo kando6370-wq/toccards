@@ -18,6 +18,7 @@ class HomePerformanceState {
     this.data,
     this.status = KandoLoadStatus.content,
     this.hasLoaded = false,
+    this.failureCode,
   });
 
   final PerformanceRange selectedRange;
@@ -25,6 +26,7 @@ class HomePerformanceState {
   final PortfolioPerformanceDto? data;
   final KandoLoadStatus status;
   final bool hasLoaded;
+  final String? failureCode;
 
   bool get isLoading => status == KandoLoadStatus.loading;
   bool get isFailure => status == KandoLoadStatus.failure;
@@ -41,10 +43,9 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
     required bool localPremiumVerified,
     bool force = false,
   }) {
-    if (!force &&
-        state.hasLoaded &&
-        state.folderId == folderId &&
-        !state.isFailure) {
+    final sameFolder = state.folderId == folderId;
+    if (sameFolder &&
+        (state.isLoading || !force && (state.hasLoaded || state.isFailure))) {
       return Future<void>.value();
     }
     return _request(
@@ -105,7 +106,7 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
         data: data,
         hasLoaded: true,
       );
-    } catch (_) {
+    } catch (error) {
       if (!ref.mounted || generation != _generation) return;
       state = HomePerformanceState(
         selectedRange: previous.selectedRange,
@@ -113,6 +114,7 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
         data: clearData ? null : previous.data,
         status: KandoLoadStatus.failure,
         hasLoaded: previous.hasLoaded && !clearData,
+        failureCode: error is PortfolioApiException ? error.code : null,
       );
     }
   }

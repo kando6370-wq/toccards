@@ -87,8 +87,8 @@ class AppleRestoreProofSync {
   final AppleAppAttestBridge bridge;
   final AppleAppAttestKeyStorage storage;
 
-  Future<void> sync(AuthSession session, String signedTransactionInfo) async {
-    if (!await bridge.isSupported()) return;
+  Future<bool> sync(AuthSession session, String signedTransactionInfo) async {
+    if (!await bridge.isSupported()) return false;
     var keyId = await storage.read();
     if (keyId == null) {
       keyId = await bridge.generateKey();
@@ -133,6 +133,7 @@ class AppleRestoreProofSync {
       assertion: assertion,
       signedTransactionInfo: signedTransactionInfo,
     );
+    return true;
   }
 }
 

@@ -78,7 +78,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     final useUpdatedSheetUi = widget.sheet && useUpdatedSkuUi;
     ref.listen(subscriptionControllerProvider, (previous, next) {
       if (next.resultEventCount != previous?.resultEventCount &&
-          context.mounted) {
+          context.mounted &&
+          ModalRoute.of(context)?.isCurrent == true) {
         switch (next.resultEvent) {
           case SubscriptionResultEvent.purchaseSuccess:
             if (widget.sheet && context.canPop()) {

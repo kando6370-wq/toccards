@@ -131,7 +131,7 @@ reserved -> released
 
 1. App 从 StoreKit 加载已配置商品并展示本地化价格。
 2. Purchase 成功必须是 StoreKit verified transaction；客户端立即写入已验证缓存并解锁本机 Premium。
-3. App 使用一次性 challenge 和 signed transaction 调用 `/entitlements/apple/verify`。
+3. App 仅在 signed transaction 的 `transactionReason=PURCHASE` 时使用一次性 challenge 调用 `/entitlements/apple/verify`；`RENEWAL` 不进入 Fresh Purchase 队列。
 4. Workers 验证 Bundle、环境、Product ID、nonce/证据、幂等和交易新旧，写 purchase chain、transaction 与当前 session grant。
 
 #### Restore
@@ -140,6 +140,7 @@ reserved -> released
 2. 有有效本机 entitlement 时立即恢复本机 Premium。
 3. 服务端 Restore 还要求 App Attest challenge/assertion 和 Apple 证据，为当前 session 建立 grant。
 4. Restore Not Found、Cancelled、Pending 或 Failed 不执行来源动作恢复。
+5. Performance 遇到 `ENTITLEMENT_SYNC_REQUIRED` 时，可用已读取的 current entitlement 静默执行一次相同的 App Attest proof；成功后仅重试原请求一次，失败后等待用户显式刷新。
 
 #### 生命周期
 

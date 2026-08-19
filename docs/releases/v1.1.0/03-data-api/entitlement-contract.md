@@ -60,7 +60,7 @@ Idempotency-Key: <request-id>
 
 `environment_hint` 不可信。Workers 必须从验签 Payload 确认 environment，并校验 Apple 证书链、Bundle ID `com.cardai.tcg`、Product ID 白名单、交易有效期和撤销状态。若 Flutter 最终只能取得 receipt/serverVerificationData，必须新增独立 `evidence_type` 和验证器，不能复用 JWS 解析器。
 
-当前 `in_app_purchase_storekit 0.4.11` 的实际代码已确认：StoreKit 2 的 `serverVerificationData` 是交易 JWS；StoreKit 1 的同名字段是 Base64 App Receipt。因此客户端必须按 `SK2PurchaseDetails` 运行时类型标注 `storekit2_signed_transaction`，不得根据字符串外观猜测。v1.1 首发可信同步以 StoreKit 2 JWS 为主；StoreKit 1 Receipt 验证器未完成时显式返回不支持，不能当 JWS 处理。
+当前 `in_app_purchase_storekit 0.4.11` 的实际代码已确认：StoreKit 2 的 `serverVerificationData` 是交易 JWS；StoreKit 1 的同名字段是 Base64 App Receipt。因此客户端必须按 `SK2PurchaseDetails` 运行时类型标注 `storekit2_signed_transaction`，不得根据字符串外观猜测。客户端只有在已解析 JWS 的 `transactionReason=PURCHASE` 时才将证据加入 Fresh Purchase 队列；`RENEWAL` 不得提交到 `/entitlements/apple/verify`，已有购买链的续期由 Notifications V2/Apple Server API 归约。v1.1 首发可信同步以 StoreKit 2 JWS 为主；StoreKit 1 Receipt 验证器未完成时显式返回不支持，不能当 JWS 处理。
 
 稳定业务状态为：`VERIFIED_ACTIVE`、`VERIFIED_INACTIVE`、`EVIDENCE_INVALID`、`VERIFICATION_UNAVAILABLE`、`STATE_CONFLICT`、`REPLAY_REJECTED`。
 
@@ -70,7 +70,7 @@ Idempotency-Key: <request-id>
 
 App Store Server Notifications V2 已通过 `POST /api/v1/apple/notifications/v2` 接收：先以 `signedPayload` SHA-256 幂等保存原始请求，再用 Apple 官方库验签外层通知及嵌套 transaction/renewal JWS。Grace 保持同链 session grant 至 `gracePeriodExpiresDate`，Billing Retry/Expired 使其失效，Refund/Revoke 撤销；旧 `signedDate` 不得回滚新状态。无法确定最终状态时标记 `correction_required`，由 5 分钟补偿任务调用 Apple Server API 并再次验签当前 transaction/renewal JWS；只更新对应 purchase chain 与该链已有 grant，不按 UID 或订单创建权益。
 
-Restore proof API 分为 `POST /entitlements/apple/app-attest/challenge`、`POST /entitlements/apple/app-attest/register` 和 `POST /entitlements/apple/restore`。注册与 Restore challenge 均绑定当前 live session、request ID 与 key ID；Restore 还绑定 StoreKit JWS SHA-256。challenge 10 分钟有效且以随机 `consumption_id` 原子单次消费；assertion counter 使用旧值条件更新，counter 或消费条件失败时 purchase chain 与 grant 均不写入。相同 session/request/key/JWS 的重试返回已保存终态，不重复验签或写入；任一绑定字段不同则返回冲突。App Attest key 属于安装实例，登录/登出不清理；仅全新安装清除 Secure Storage 中的陈旧 key ID并重新注册。
+Restore proof API 分为 `POST /entitlements/apple/app-attest/challenge`、`POST /entitlements/apple/app-attest/register` 和 `POST /entitlements/apple/restore`。注册与 Restore challenge 均绑定当前 live session、request ID 与 key ID；Restore 还绑定 StoreKit JWS SHA-256。challenge 10 分钟有效且以随机 `consumption_id` 原子单次消费；assertion counter 使用旧值条件更新，counter 或消费条件失败时 purchase chain 与 grant 均不写入。相同 session/request/key/JWS 的重试返回已保存终态，不重复验签或写入；任一绑定字段不同则返回冲突。App Attest key 属于安装实例，登录/登出不清理；仅全新安装清除 Secure Storage 中的陈旧 key ID并重新注册。Performance 在本机 Premium 但服务端返回 `ENTITLEMENT_SYNC_REQUIRED` 时，可读取已经由 `Transaction.currentEntitlements` 验证的当前证据，最多执行一次 App Attest Restore proof；同步成功后原 Performance 请求最多重试一次，同步或重试失败后保留失败状态并等待显式刷新，不循环请求，也不重新调用 `AppStore.sync()`。
 
 客户端将待同步 StoreKit 2 JWS、原始 `request_id` 和 JWT `session_id` 保存在 Secure Storage，启动及 session 刷新后按原幂等键顺序重试。队列最多 20 条；切换 session 或全新安装时清除不匹配证据。`VERIFICATION_UNAVAILABLE`、网络错误、超时、429/5xx 保留重试；`EVIDENCE_INVALID`、`REPLAY_REJECTED` 和 `STATE_CONFLICT` 等终态错误移除，不阻塞后续交易。服务端对仍处于 60 秒处理租约的同一证据返回 `VERIFICATION_UNAVAILABLE`，不复用终态 `STATE_CONFLICT`。客户端在返回本机 active entitlement 前尽力完成队列持久化，但不等待后台网络同步；若 Secure Storage 自身失败，则记录诊断并仍按 App PRD 将本机 StoreKit verified 交易即时解锁，服务端受限操作继续按无 session grant 处理。
 
