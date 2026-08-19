@@ -162,6 +162,78 @@ void main() {
   });
 
   testWidgets(
+    'compact portrait keeps the card viewfinder between the quota and shutter controls',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(375, 667);
+      tester.view.padding = const FakeViewPadding(top: 20);
+      addTearDown(tester.view.reset);
+
+      await _pumpScanTestApp(tester);
+
+      final quotaPrompt = tester.getRect(
+        find.byKey(const Key('scan-free-quota-pill')),
+      );
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final shutter = tester.getRect(find.byTooltip('Take Photo'));
+
+      expect(viewfinder.width, lessThan(280));
+      expect(viewfinder.width / viewfinder.height, closeTo(0.7, 0.0001));
+      expect(viewfinder.top, greaterThanOrEqualTo(quotaPrompt.bottom + 16));
+      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 20));
+    },
+  );
+
+  for (final viewport in const [
+    Size(320, 568),
+    Size(360, 640),
+    Size(375, 667),
+    Size(390, 844),
+    Size(430, 932),
+  ]) {
+    testWidgets(
+      'portrait ${viewport.width.toInt()}x${viewport.height.toInt()} keeps one responsive viewfinder geometry',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = viewport;
+        tester.view.padding = FakeViewPadding(
+          top: viewport.width >= 390 ? 59 : 20,
+          bottom: viewport.width >= 390 ? 34 : 0,
+        );
+        addTearDown(tester.view.reset);
+
+        await _pumpScanTestApp(tester);
+
+        final quotaPrompt = tester.getRect(
+          find.byKey(const Key('scan-free-quota-pill')),
+        );
+        final viewfinder = tester.getRect(
+          find.byKey(const Key('scan-figma-viewfinder')),
+        );
+        final overlayViewfinder = tester.getRect(
+          find.byKey(const Key('scan-figma-overlay-viewfinder')),
+        );
+        final shutter = tester.getRect(find.byTooltip('Take Photo'));
+
+        expect(viewfinder, overlayViewfinder);
+        expect(viewfinder.width, lessThanOrEqualTo(280));
+        expect(viewfinder.width / viewfinder.height, closeTo(0.7, 0.0001));
+        expect(viewfinder.center.dx, closeTo(viewport.width / 2, 0.0001));
+        expect(viewfinder.top, greaterThanOrEqualTo(quotaPrompt.bottom + 16));
+        expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 20));
+
+        if (viewport.width == 390 && viewport.height == 844) {
+          expect(viewfinder, const Rect.fromLTWH(55, 213, 280, 400));
+        } else if (viewport.width < 390 || viewport.height < 844) {
+          expect(viewfinder.width, lessThan(280));
+        }
+      },
+    );
+  }
+
+  testWidgets(
     'a completed free scan consumes one allowance so the displayed limit stays truthful',
     (tester) async {
       await _pumpScanTestApp(tester);
@@ -752,19 +824,58 @@ void main() {
       tester.view.physicalSize = const Size(360, 800);
       addTearDown(tester.view.reset);
 
-      await _pumpScanTestApp(tester);
+      await _pumpScanTestApp(
+        tester,
+        scanCameraFactory: _TestScanCameraFactory(_TestScanCameraSession()),
+      );
       await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
 
       final visible = tester.getRect(
         find.byKey(const Key('scan-figma-viewfinder')),
       );
+      final scanningArea = tester.getRect(
+        find.byKey(const Key('scan-figma-scanning-line')),
+      );
+      expect(scanningArea, visible);
+
+      await tester.pump(const Duration(seconds: 1));
+
       final mask = tester.getRect(
         find.byKey(const Key('scan-figma-overlay-viewfinder')),
       );
       expect(mask, visible);
     },
   );
+
+  testWidgets('Figma scan compact portrait renders at 375x667', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(375, 667);
+    tester.view.padding = const FakeViewPadding(top: 20);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: ProviderScope(
+          overrides: _scanGoldenOverrides(),
+          child: const RepaintBoundary(
+            key: Key('scan-compact-figma-golden'),
+            child: ScanPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byKey(const Key('scan-compact-figma-golden')),
+      matchesGoldenFile('goldens/rendered/figma_scan_compact_375x667.png'),
+    );
+  });
 
   testWidgets('Figma scan pre-scan renders at the 390x844 baseline', (
     tester,

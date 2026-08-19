@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "BUGFIX-SCAN-VIEWFINDER-RESPONSIVE-20260819",
+  "mode": "single",
+  "rationale": "单一小屏布局根因及其直接测试、文档，按BUGFIX固定一个Review Batch。",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "实现并验证扫描定位框竖屏响应式几何",
+      "module": "apps/flutter-app",
+      "status": "COMPLETED",
+      "blockedBy": [],
+      "blocks": [],
+      "writeScopes": [
+        "apps/flutter-app/lib/features/scan/scan_page.dart",
+        "apps/flutter-app/test/widget/scan_page_test.dart",
+        "apps/flutter-app/test/widget/goldens/rendered/figma_scan_compact_375x667.png",
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "verification": [
+        "小屏失败测试与修复后复测",
+        "多尺寸布局、遮罩、扫描线、OCR裁剪和390x844 Golden",
+        "完整scan_page_test、flutter analyze、dart format、git diff --check"
+      ],
+      "docsImpact": [
+        "docs/releases/v1.1.0/05-delivery/development-plan.md"
+      ],
+      "reviewBatch": "B1",
+      "risk": "medium",
+      "owner": "codex",
+      "verificationStatus": "pass",
+      "reviewStatus": "pass",
+      "evidence": [
+        "9f6d0d0b-9452-4963-9b7b-2e218a18cf87",
+        "e8bb5fec-b209-4222-9e83-a2e227c903b3"
+      ],
+      "deferralApproval": null
+    }
+  ],
+  "reviewBatches": [
+    {
+      "id": "B1",
+      "title": "扫描定位框响应式修复审查",
+      "risk": "medium",
+      "taskIds": [
+        "T1"
+      ],
+      "independentRequired": false
+    }
+  ],
+  "createdAt": "2026-08-19T02:39:18.282Z",
+  "updatedAt": "2026-08-19T02:57:20.681Z"
+}

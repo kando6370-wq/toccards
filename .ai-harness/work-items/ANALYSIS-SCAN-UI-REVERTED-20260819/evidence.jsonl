@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"39784bb0-9794-40dd-94fa-a7b13629323f","workItemId":"ANALYSIS-SCAN-UI-REVERTED-20260819","taskId":null,"kind":"analysis","status":"pass","summary":"已基于当前检出源码、唯一路由、提交哈希、clean 构建记录、IPA/Archive Info.plist、产物时间与 SHA-256 区分事实、推断和未知；未修改产品代码。","timestamp":"2026-08-19T02:18:40.569Z","command":null,"independent":false}

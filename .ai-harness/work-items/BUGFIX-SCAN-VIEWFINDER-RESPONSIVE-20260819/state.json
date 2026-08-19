@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "id": "BUGFIX-SCAN-VIEWFINDER-RESPONSIVE-20260819",
+  "type": "BUGFIX",
+  "title": "修复扫描定位框在小屏竖屏设备上的尺寸与位置适配",
+  "status": "DONE",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/bugfix.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "autonomous",
+    "source": "用户确认按照推荐方案列计划并开始修改"
+  },
+  "input": {
+    "references": [
+      "apps/flutter-app/lib/features/scan/scan_page.dart",
+      "apps/flutter-app/test/widget/scan_page_test.dart",
+      "docs/releases/v1.0.0/00-product/ui-design-system.md",
+      "docs/releases/v1.1.0/05-delivery/development-plan.md"
+    ],
+    "acceptance": [
+      "390x844保持280x400且top=213不变",
+      "小屏竖屏定位框位于顶部最大控件区与底部拍照区之间且保持0.7宽高比",
+      "黄色四角、径向遮罩、扫描线和OCR recognitionCrop使用同一响应式Rect",
+      "iOS与Android共享Flutter实现且不改变扫描、订阅、额度、队列或接口逻辑"
+    ],
+    "nonGoals": [
+      "不设计Android横屏专用布局，不放大大屏定位框，不调整顶部和底部控件"
+    ],
+    "version": "v1.1.0"
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": {
+    "actual": "定位框固定280x400且top=213，在低高度小屏竖屏设备上会与底部拍照操作区重叠或比例位置不协调",
+    "expected": "定位框按视口和安全区连续缩小、上移，390x844基准保持不变，且所有扫描视觉与OCR裁剪严格同框",
+    "reproduction": "将扫描页视口设置为375x667或360x640，当前定位框仍从top=213延伸到bottom=613，与底部88px拍照操作区发生重叠"
+  },
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "dev-scan-page-update-ui@f2be9ec；scan_page.dart与scan_page_test.dart无工作区差异，保护现有pubspec与Harness改动。",
+      "固定框top=213、width=280、height=400；375x667时框bottom=613，而底部控件top约557，存在约56px重叠；360x640时重叠更明显。",
+      "390x844为Figma基准并有4张扫描阶段Golden；当前360x800测试仅校验裁剪同框，没有真正低高度小屏无重叠测试。"
+    ],
+    "completedAt": "2026-08-19T02:38:39.426Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev-scan-page-update-ui",
+      "commit": "f2be9ec979a056076950d674344dac23b4d403c6",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/state.json",
+        ".ai-harness/work-items/ANALYSIS-SCAN-VIEWFINDER-RESPONSIVE-20260819/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-VIEWFINDER-RESPONSIVE-20260819/evidence.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-VIEWFINDER-RESPONSIVE-20260819/state.json",
+        ".ai-harness/work-items/BUGFIX-SCAN-VIEWFINDER-RESPONSIVE-20260819/events.jsonl",
+        ".ai-harness/work-items/BUGFIX-SCAN-VIEWFINDER-RESPONSIVE-20260819/state.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/plan.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/state.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/plan.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/state.json",
+        "apps/flutter-app/pubspec.yaml"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/pubspec.yaml": "94f11cb65546e6133793ca0e7306331261ec7091641a0ae1d93ecd8db003ff09",
+        ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/events.jsonl": "0dd58a9c5c3249e4f47fe3a58a36724b6addfbd7f1359e96cef0d348620683cd",
+        ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/evidence.jsonl": "3e236c60fee9575a50f0ae1736267b07e0200e1e9960dbda33df2c0e6759ff15",
+        ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/state.json": "b5acf31f4200f46988428b893a36430fef31ebd074ffc5d1a088614291572c78",
+        ".ai-harness/work-items/ANALYSIS-SCAN-VIEWFINDER-RESPONSIVE-20260819/events.jsonl": "224ac677ed7f9fd71a6f1094eabb72b45fbb33ebd20f2c44bb6f3cf96d86d97b",
+        ".ai-harness/work-items/ANALYSIS-SCAN-VIEWFINDER-RESPONSIVE-20260819/evidence.jsonl": "429d6a9d2f12d52f187174c45902f24daeee0e8a5ef3e5106bbbcf5e41636262",
+        ".ai-harness/work-items/ANALYSIS-SCAN-VIEWFINDER-RESPONSIVE-20260819/state.json": "8ed5cde05af2c30429c38c3567aad27ea7eeaacfd510073635af1ed79fc986b5",
+        ".ai-harness/work-items/BUGFIX-SCAN-VIEWFINDER-RESPONSIVE-20260819/events.jsonl": "54603156de733001c3ca30d8d8a9325afc90437bf45317082bfea451911ef6ae",
+        ".ai-harness/work-items/BUGFIX-SCAN-VIEWFINDER-RESPONSIVE-20260819/state.json": "4d013ca2f8b2732935b42c88cc6e94086ddef86ead1a2e8fd6346470be8d1d50",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/events.jsonl": "db2debcaebf2cfd1906852d56b61ffcb284e3aca32c67f7ee1dfeeb7605005e3",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/evidence.jsonl": "a631356bfb3dcc4f8958df5ec2c0aa7d2bca377f5398558123bf1307a9c6960d",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/plan.json": "ef2078f963cb79d69df1a37d4a802672fbc2b6a6f938db0f6ff8ab1d10e1fe4e",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/state.json": "c2b38d8b48096e00fa10821da9d95e564718bcea158ee5ed9e305cb9fd886c4b",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/events.jsonl": "9a19432b2048cc5e5477ce5491c125e40a1187d4ab042b22cff7ed7df0332f04",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/evidence.jsonl": "58e619b5e2b77f3b56f78faf238243aa30a62614d78d22a33209bfdd1a82b87b",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/plan.json": "496b64ffa735dd6bdcb23c6e8a163908a81259633f4a2da6086cd2176f3f7b7c",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/state.json": "0dd112ec0cbf8338443b607ae09def7b82a254000ecbabaacdce84d58c1511dd"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": ".ai-harness/work-items/BUGFIX-SCAN-VIEWFINDER-RESPONSIVE-20260819/solution.md",
+    "evidence": [
+      "方案保持390x844基准，采用单一纯几何函数连续缩小，并让所有视觉与OCR裁剪共用Rect；范围仅Flutter UI。"
+    ],
+    "completedAt": "2026-08-19T02:39:18.141Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅修改Flutter扫描页布局、Widget/Golden测试和v1.1实现文档，不涉及Schema、查询、API、迁移或持久化。"
+    ],
+    "completedAt": "2026-08-19T02:39:18.199Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/BUGFIX-SCAN-VIEWFINDER-RESPONSIVE-20260819/plan.json",
+    "approved": true,
+    "approvalRef": "用户明确要求按照已给方案列计划并开始修改"
+  },
+  "verification": {
+    "status": "pass",
+    "evidence": [
+      "aacc1bd0-bbca-43fd-8471-1210d7bb4eac"
+    ]
+  },
+  "review": {
+    "status": "pass",
+    "evidence": [
+      "8dc23dc1-a560-46b1-bbfd-96baad4a7ff5"
+    ],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pass",
+    "evidence": [
+      "a3060727-591f-4b0d-8189-84708bcf53d1"
+    ]
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pass",
+    "evidence": [
+      "ee137152-7167-4133-a9f2-ac284dd7f331"
+    ]
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-19T02:38:27.791Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-19T02:38:39.286Z",
+      "reason": "记录固定定位框在小屏与底部控件重叠的代码和测试基线"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-19T02:38:39.506Z",
+      "reason": "根因和跨端竖屏范围已确认"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-19T02:39:18.643Z",
+      "reason": "方案、数据库无影响判断和批准计划完成"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-19T02:39:18.725Z",
+      "reason": "开始失败测试和UI层响应式修复"
+    },
+    {
+      "from": "IMPLEMENTING",
+      "to": "VERIFYING",
+      "at": "2026-08-19T02:57:20.764Z",
+      "reason": "任务实现、定向验证和Review Batch均完成"
+    },
+    {
+      "from": "VERIFYING",
+      "to": "CODE_REVIEW",
+      "at": "2026-08-19T02:57:40.959Z",
+      "reason": "范围验证与v1.1文档检查通过"
+    },
+    {
+      "from": "CODE_REVIEW",
+      "to": "READY_FOR_ACCEPTANCE",
+      "at": "2026-08-19T02:57:56.472Z",
+      "reason": "最终Code Review通过，进入按用户批准验收条件的自动验收"
+    },
+    {
+      "from": "READY_FOR_ACCEPTANCE",
+      "to": "DONE",
+      "at": "2026-08-19T02:58:03.928Z",
+      "reason": "批准验收条件全部满足"
+    }
+  ],
+  "createdAt": "2026-08-19T02:38:27.791Z",
+  "updatedAt": "2026-08-19T02:58:03.928Z"
+}

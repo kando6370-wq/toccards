@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "id": "ITER-IOS-TEST-IPA-72-20260819",
+  "type": "ITERATION",
+  "title": "使用当前最新代码重新构建 iOS 测试内部包 72",
+  "status": "IMPLEMENTING",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/iteration.md",
+    ".ai-harness/policies/database.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "autonomous",
+    "source": "用户明确要求重新构建"
+  },
+  "input": {
+    "references": [
+      "用户在 dev-scan-page-update-ui 分支更新并提交代码后要求重新构建；已发现同目标 release_ios.sh 构建正在运行，接管监控而不重复启动"
+    ],
+    "acceptance": [
+      "使用 f2be9ec 当前磁盘代码生成 test flavor、真实 ML Kit、dev API、测试 Firebase、Apple Development 签名、App Attest development 的 1.1.0 (72) 设备白名单 IPA；验证最新代码、签名、环境、dSYM、UDID 与 SHA-256"
+    ],
+    "nonGoals": [
+      "不上传、不安装、不修改业务代码/测试/Golden/文档，不中断或重复启动现有构建"
+    ],
+    "version": null
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "doctor 通过；dev-scan-page-update-ui@f2be9ec；工作树在工作项创建前干净；pubspec 1.1.0+71；release_ios.sh --env test --build-number 72 已运行并进入 Xcode archive，未启动重复构建",
+      "源码、测试与 pubspec 修改时间均为 2026-08-19 09:26:14 +0800；本任务保护提交内容，只允许现有构建流程将 pubspec 构建号同步为 72"
+    ],
+    "completedAt": "2026-08-19T01:27:43.096Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev-scan-page-update-ui",
+      "commit": "f2be9ec979a056076950d674344dac23b4d403c6",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/state.json"
+      ],
+      "fingerprints": {
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/events.jsonl": "7e02f0a4029a1b45482215dd0a89cfc3c7e935e508106a75bc3433a4f693aeda",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/state.json": "b5b0eb8446657b485c3ec13634d6326e7d51484b4f8a2c8e2f525954844679c0"
+      }
+    }
+  },
+  "solution": {
+    "status": "complete",
+    "document": "apps/flutter-app/tool/release_ios.sh",
+    "evidence": [
+      "沿用现有 test 发布脚本：依赖解析、flutter analyze、clean、Release-test archive、App Store IPA 校验和 dSYM 覆盖；完成后从归档保留 Apple Development 原签名封装内部 IPA，避免 Xcode 二次导出改写 App Attest entitlement"
+    ],
+    "completedAt": "2026-08-19T01:28:01.156Z"
+  },
+  "database": {
+    "impact": "none",
+    "status": "not-applicable",
+    "document": null,
+    "evidence": [
+      "仅本地 Flutter/iOS 构建、产物封装和 build number 同步，不涉及数据库、Hyperdrive 或远程写入"
+    ],
+    "completedAt": "2026-08-19T01:28:01.197Z"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/plan.json",
+    "approved": true,
+    "approvalRef": "用户明确要求重新构建"
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pending",
+    "evidence": [],
+    "conclusions": [],
+    "unknowns": []
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-19T01:27:31.025Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-19T01:27:42.984Z",
+      "reason": "记录新分支提交、干净工作树和既有构建进程"
+    },
+    {
+      "from": "BASELINING",
+      "to": "SOLUTION_DESIGN",
+      "at": "2026-08-19T01:27:43.136Z",
+      "reason": "进入构建方案确认"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "PLANNED",
+      "at": "2026-08-19T01:28:01.408Z",
+      "reason": "方案、数据库判断和计划已完成"
+    },
+    {
+      "from": "PLANNED",
+      "to": "IMPLEMENTING",
+      "at": "2026-08-19T01:28:01.449Z",
+      "reason": "接管并继续监控已运行的构建"
+    }
+  ],
+  "createdAt": "2026-08-19T01:27:31.025Z",
+  "updatedAt": "2026-08-19T01:47:13.383Z"
+}

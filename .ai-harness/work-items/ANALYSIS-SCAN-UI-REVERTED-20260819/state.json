@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "id": "ANALYSIS-SCAN-UI-REVERTED-20260819",
+  "type": "ANALYSIS",
+  "title": "核查重新构建包中的扫描页为何恢复旧界面",
+  "status": "ANSWERED",
+  "flags": [
+    "mobile"
+  ],
+  "policyFiles": [
+    ".ai-harness/policies/core.md",
+    ".ai-harness/policies/security.md",
+    ".ai-harness/policies/documentation.md",
+    ".ai-harness/policies/analysis.md",
+    ".ai-harness/policies/mobile.md"
+  ],
+  "authorization": {
+    "mode": "approval-required",
+    "source": "用户明确要求只查看、不修改代码"
+  },
+  "input": {
+    "references": [
+      "apps/flutter-app/lib/features/scan/scan_page.dart",
+      "apps/flutter-app/test/widget/scan_page_test.dart",
+      "apps/flutter-app/pubspec.yaml",
+      ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819",
+      ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819"
+    ],
+    "acceptance": [
+      "确定当前检出代码中的扫描页UI是否包含昨日修改",
+      "确定最近构建包使用的分支、提交和版本号，并区分代码回退与构建缓存"
+    ],
+    "nonGoals": [
+      "不修改产品代码、不重新构建、不安装或发布"
+    ],
+    "version": "v1.1.0"
+  },
+  "architecture": {
+    "source": null,
+    "approvalRef": null
+  },
+  "bug": null,
+  "baseline": {
+    "status": "complete",
+    "document": null,
+    "evidence": [
+      "当前分支 dev-scan-page-update-ui，HEAD 与远端均为 f2be9ec；scan_page.dart 无工作区差异且 SHA-256 与 f2be9ec 中版本完全一致（42151989f2c59424cc5a747f3306fdfc634a7a7142c59c386127936af22973a4）",
+      "现有测试内部 IPA 于 2026-08-19 10:09:53 +0800 生成，SHA-256 为 7afc3374d13fd5713cae4e70396c0fe44efe25a18e19dabaf1837f4762fcb67e，IPA 与 archive Info.plist 均为 1.1.0 (73)、com.kando.kandoApp.beta",
+      "已连接 iPhone 可被 devicectl 发现，但读取已安装应用和设备详情均超时；未执行安装、构建或产品代码修改"
+    ],
+    "completedAt": "2026-08-19T02:17:18.914Z",
+    "repository": {
+      "isGit": true,
+      "branch": "dev-scan-page-update-ui",
+      "commit": "f2be9ec979a056076950d674344dac23b4d403c6",
+      "dirty": true,
+      "changedFiles": [
+        ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/events.jsonl",
+        ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/state.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/plan.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/state.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/events.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/evidence.jsonl",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/plan.json",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/state.json",
+        "apps/flutter-app/pubspec.yaml"
+      ],
+      "fingerprints": {
+        "apps/flutter-app/pubspec.yaml": "94f11cb65546e6133793ca0e7306331261ec7091641a0ae1d93ecd8db003ff09",
+        ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/events.jsonl": "2682d902d091ba9e1c9c7a42e45ba69603ab1826188f7bb5aa913cb460587a2e",
+        ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/state.json": "4d1f52000f5f23fad93534d47b3767d3900789af096db63c2de42edd40fa35ef",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/events.jsonl": "db2debcaebf2cfd1906852d56b61ffcb284e3aca32c67f7ee1dfeeb7605005e3",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/evidence.jsonl": "a631356bfb3dcc4f8958df5ec2c0aa7d2bca377f5398558123bf1307a9c6960d",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/plan.json": "ef2078f963cb79d69df1a37d4a802672fbc2b6a6f938db0f6ff8ab1d10e1fe4e",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-72-20260819/state.json": "c2b38d8b48096e00fa10821da9d95e564718bcea158ee5ed9e305cb9fd886c4b",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/events.jsonl": "9a19432b2048cc5e5477ce5491c125e40a1187d4ab042b22cff7ed7df0332f04",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/evidence.jsonl": "58e619b5e2b77f3b56f78faf238243aa30a62614d78d22a33209bfdd1a82b87b",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/plan.json": "496b64ffa735dd6bdcb23c6e8a163908a81259633f4a2da6086cd2176f3f7b7c",
+        ".ai-harness/work-items/ITER-IOS-TEST-IPA-73-20260819/state.json": "0dd112ec0cbf8338443b607ae09def7b82a254000ecbabaacdce84d58c1511dd"
+      }
+    }
+  },
+  "solution": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null
+  },
+  "database": {
+    "status": "pending",
+    "document": null,
+    "evidence": [],
+    "completedAt": null,
+    "impact": "unknown"
+  },
+  "plan": {
+    "path": ".ai-harness/work-items/ANALYSIS-SCAN-UI-REVERTED-20260819/plan.json",
+    "approved": false,
+    "approvalRef": null
+  },
+  "verification": {
+    "status": "pending",
+    "evidence": []
+  },
+  "review": {
+    "status": "pending",
+    "evidence": [],
+    "independent": false
+  },
+  "acceptance": {
+    "status": "pending",
+    "evidence": []
+  },
+  "analysis": {
+    "status": "pass",
+    "evidence": [
+      "39784bb0-9794-40dd-94fa-a7b13629323f"
+    ],
+    "conclusions": [
+      {
+        "id": "0bd7e7f3-8e8d-4e02-ba1d-c5918727c6ce",
+        "status": "PROVEN",
+        "text": "当前扫描页源码没有恢复旧版：唯一 /scan 路由指向 ScanPage；scan_page.dart 与 f2be9ec 中版本哈希完全一致，仍包含定位框 top=213、统一径向暗化、透明框内、无白色柔光、固定遮罩 key、顶部/底部操作区无 RevealEntrance，以及拍照扫描线。",
+        "evidence": [
+          "git diff 对 scan_page.dart 为空；工作区文件与 git show f2be9ec:scan_page.dart 的 SHA-256 均为 42151989f2c59424cc5a747f3306fdfc634a7a7142c59c386127936af22973a4；router.dart 的 /scan 唯一构建 ScanPage。"
+        ]
+      },
+      {
+        "id": "f35c8267-e360-42c3-9b9c-a4f220c9612a",
+        "status": "PROVEN",
+        "text": "现有 Card AI Test.ipa 是 Build 73，不是旧的 Build 72；发布记录证明它在 flutter clean 后使用 f2be9ec 当前源码构建成功。",
+        "evidence": [
+          "IPA 与 archive 均为 1.1.0 (73)、com.kando.kandoApp.beta；IPA 时间 2026-08-19 10:09:53 +0800，SHA-256 7afc3374d13fd5713cae4e70396c0fe44efe25a18e19dabaf1837f4762fcb67e；ITER-IOS-TEST-IPA-73 的验证证据记录 release_ios.sh 退出码 0、flutter analyze 通过且使用 f2be9ec 当前源码。"
+        ]
+      },
+      {
+        "id": "8571e4ba-f90b-436c-9ba9-b150a7c2aeb0",
+        "status": "PROVEN",
+        "text": "Build 73 工作项当前的 verification=fail 不代表 IPA 或构建失败；失败原因是同一提交已知的 Review Golden 2.24%/7377px 差异，本次按重建范围未更新 Golden。",
+        "evidence": [
+          "ITER-IOS-TEST-IPA-73 evidence.jsonl 明确记录构建产物、签名、环境、dSYM、完整性均通过，整体回归仅因已知 Golden 差异记 fail。"
+        ]
+      },
+      {
+        "id": "a2687359-2aaf-451b-a2e5-7e1b6916c794",
+        "status": "INFERRED",
+        "text": "若设备关于页确认当前运行的是 1.1.0 (73)，那么看到“最开始的样子”应视为当前 UI 实现在真机上的实际表现仍不符合预期，而不是代码或构建包回退。",
+        "evidence": [
+          "源码、唯一路由、clean 构建记录和 IPA 本体版本均已排除旧代码被重新打包；设备运行版本是剩余区分条件。"
+        ]
+      },
+      {
+        "id": "49ea287d-2d1a-4460-b8df-d080aeefb553",
+        "status": "UNKNOWN",
+        "text": "当前无法确认连接 iPhone 实际安装/打开的 App build number。",
+        "evidence": []
+      }
+    ],
+    "unknowns": [
+      "devicectl 能发现设备，但 device info apps 与 details 均超时；需要设备保持解锁后读取，或由用户查看 App 内显示的版本号并提供扫描页截图。"
+    ]
+  },
+  "documentation": {
+    "status": "pending",
+    "evidence": []
+  },
+  "blocked": null,
+  "history": [
+    {
+      "from": null,
+      "to": "INTAKE",
+      "at": "2026-08-19T02:09:48.798Z",
+      "reason": "work-item-created"
+    },
+    {
+      "from": "INTAKE",
+      "to": "BASELINING",
+      "at": "2026-08-19T02:10:16.608Z",
+      "reason": "核对当前扫描源码、提交历史与72/73构建记录"
+    },
+    {
+      "from": "BASELINING",
+      "to": "ANALYZING",
+      "at": "2026-08-19T02:17:26.959Z",
+      "reason": "源码、路由、提交、构建产物及设备可查询性基线已核对"
+    },
+    {
+      "from": "ANALYZING",
+      "to": "ANSWERED",
+      "at": "2026-08-19T02:18:46.723Z",
+      "reason": "代码与构建包均未回退，设备实际运行版本仍待设备侧确认"
+    }
+  ],
+  "createdAt": "2026-08-19T02:09:48.798Z",
+  "updatedAt": "2026-08-19T02:18:46.723Z"
+}
