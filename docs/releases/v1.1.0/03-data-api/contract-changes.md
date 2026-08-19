@@ -177,6 +177,8 @@ Hyperdrive 查询边界固定如下：当前价格按最多 40 个 card ref 分�
 
 dev/prod 共用 PostgreSQL 后，`apple_notification_inbox.environment` 是通知队列的持久化归属。入站去重键为 `(environment, payload_sha256)`；通知重试、processing lease、完成/失败更新和 Server API 校正均同时过滤运行时环境。dev 只能领取 `Sandbox`，prod 只能领取 `Production`，不能由一个环境处理另一环境的队列。无法证明环境的既有 PostgreSQL 行会阻止 schema migration，不静默猜测。
 
+Apple 官方 Node SDK 的证书吊销检查和 Server API 请求依赖 `node-fetch` 接口；Workers bundle 将该模块定向 alias 到原生 Worker `fetch` 兼容层，只补齐 SDK 实际使用的 `Headers`、请求超时和 `Response.buffer()`。证书验签仍保持 `onlineChecks=true`，网络失败继续进入可重试状态，不允许通过关闭在线检查或直接解析未验签 JWS 绕过安全边界。
+
 未知但已验签的主通知类型和 Payload 字段会完整进入结构化通知及 Admin 动态选项/详情；在没有已定义业务语义时标记为 `processed`，不猜测建单或修改 purchase chain/grant。验签后的通知以 `notificationUUID` 幂等，新订单以 `environment + transactionId` 幂等。purchase chain 生命周期按 `(signedDate, notificationUUID)` 保护：更早事件不能覆盖更新状态，同一时点冲突进入 `correction_required`。Grace 保持 grant 有效至 `gracePeriodExpiresDate`，Billing Retry/Expired 使 grant 失效，Refund 修改原交易并撤销同链 grant；`REFUND_REVERSED` 等不能从通知本身确定终态的事件先进入校正，再由 Apple Server API 当前状态恢复受影响订单/链路。校正不会创建 owner/session grant，也不按 UID 传播 Premium。
 
 ## 当前边界

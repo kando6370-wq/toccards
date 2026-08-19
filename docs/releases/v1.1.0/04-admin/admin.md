@@ -91,6 +91,7 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
 - 前端只在用户主动操作时复制 JSON，成功提示“已复制通知内容”。
 - API 不返回 `signed_payload`，避免把原始 JWS 暴露给浏览器。
 - 未产生 decoded payload 时展示固定失败类型和 `last_error`，不显示伪造 JSON。
+- 原始 JWS 已入 inbox 不代表已经生成明文；只有 Worker 完成外层通知及嵌套 transaction/renewal JWS 在线验签后才写 `decoded_payload`。可重试验签失败会由 5 分钟任务继续处理，成功后同一详情自动获得结构化字段和 Decoded Payload，无需人工改写数据库。
 
 Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecycle 或人工授予 Premium 的操作。
 
