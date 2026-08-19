@@ -1866,7 +1866,7 @@ void main() {
     expect(feedbackRepository.submissions, isEmpty);
   });
 
-  testWidgets('unsubscribed Profile banner opens the full Subscription Page', (
+  testWidgets('unsubscribed Profile banner opens the Subscription sheet', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -1913,7 +1913,10 @@ void main() {
     await tester.tap(find.text('Upgrade Now'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('subscription-sheet-handle')), findsNothing);
+    expect(
+      tester.widget<SubscriptionPage>(find.byType(SubscriptionPage)).sheet,
+      isTrue,
+    );
     expect(find.text('Choose Your Plan'), findsOneWidget);
     expect(find.text('Unlimited Card Scanning'), findsOneWidget);
     expect(find.text('Yearly'), findsOneWidget);

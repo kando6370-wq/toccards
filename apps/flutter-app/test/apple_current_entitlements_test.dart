@@ -85,6 +85,77 @@ void main() {
   });
 
   test(
+    'Restore uses a verified current entitlement when StoreKit synchronization reports system error',
+    () async {
+      final reader = _SynchronizationFailureReader(
+        error: PlatformException(
+          code: 'apple_restore_failed',
+          details: const {'domain': 'StoreKit.StoreKitError', 'code': 3},
+        ),
+        values: const [
+          AppleCurrentEntitlement(
+            productId: 'ios.yearly',
+            signedTransactionInfo: 'jws-yearly',
+          ),
+        ],
+      );
+
+      final result = await AppleSubscriptionRestorer(
+        reader: reader,
+      ).restore({'ios.yearly'});
+
+      expect(result.isSuccess, isTrue);
+      expect(result.signedTransactionInfo, 'jws-yearly');
+      expect(reader.readCount, 1);
+    },
+  );
+
+  test(
+    'Restore keeps StoreKit system error as Failed when fallback has no current entitlement',
+    () async {
+      final error = PlatformException(
+        code: 'apple_restore_failed',
+        details: const {'domain': 'StoreKit.StoreKitError', 'code': 3},
+      );
+      final reader = _SynchronizationFailureReader(
+        error: error,
+        values: const [],
+      );
+
+      await expectLater(
+        AppleSubscriptionRestorer(reader: reader).restore({'ios.yearly'}),
+        throwsA(same(error)),
+      );
+      expect(reader.readCount, 1);
+    },
+  );
+
+  test(
+    'Restore does not fallback for non-system StoreKit synchronization errors',
+    () async {
+      final error = PlatformException(
+        code: 'apple_restore_failed',
+        details: const {'domain': 'StoreKit.StoreKitError', 'code': 1},
+      );
+      final reader = _SynchronizationFailureReader(
+        error: error,
+        values: const [
+          AppleCurrentEntitlement(
+            productId: 'ios.yearly',
+            signedTransactionInfo: 'jws-yearly',
+          ),
+        ],
+      );
+
+      await expectLater(
+        AppleSubscriptionRestorer(reader: reader).restore({'ios.yearly'}),
+        throwsA(same(error)),
+      );
+      expect(reader.readCount, 0);
+    },
+  );
+
+  test(
     'Restore Not Found is distinct from failure when Apple returns no current Premium entitlement',
     () async {
       final result = await AppleSubscriptionRestorer(
@@ -297,4 +368,21 @@ class _PendingSynchronizationReader implements AppleCurrentEntitlementReader {
 
   @override
   Future<void> synchronize() => _synchronization.future;
+}
+
+class _SynchronizationFailureReader implements AppleCurrentEntitlementReader {
+  _SynchronizationFailureReader({required this.error, required this.values});
+
+  final Object error;
+  final List<AppleCurrentEntitlement> values;
+  var readCount = 0;
+
+  @override
+  Future<List<AppleCurrentEntitlement>> read(Set<String> productIds) async {
+    readCount++;
+    return values;
+  }
+
+  @override
+  Future<void> synchronize() => Future<void>.error(error);
 }

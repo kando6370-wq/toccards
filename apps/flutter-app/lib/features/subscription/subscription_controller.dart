@@ -22,7 +22,7 @@ const subscriptionLifetimePlanId = 'lifetime';
 const subscriptionSheetLocation = '/subscription?presentation=sheet';
 const scanSubscriptionLocation = '/subscription?source=scan';
 const profileSubscriptionLocation =
-    '/subscription?source=profile&entry_source=profile_banner';
+    '/subscription?source=profile&entry_source=profile_banner&presentation=sheet';
 
 enum SubscriptionPaywallResult { premiumUnlocked, premiumRestored }
 

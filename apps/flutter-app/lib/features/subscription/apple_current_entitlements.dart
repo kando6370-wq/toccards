@@ -1,5 +1,8 @@
 import 'package:flutter/services.dart';
 
+const _storeKitErrorDomain = 'StoreKit.StoreKitError';
+const _storeKitSystemErrorCode = 3;
+
 class AppleCurrentEntitlement {
   const AppleCurrentEntitlement({
     required this.productId,
@@ -80,7 +83,15 @@ class AppleSubscriptionRestorer {
   final Duration deadline;
 
   Future<AppleRestoreResult> restore(Set<String> premiumProductIds) async {
-    await _reader.synchronize();
+    Object? synchronizationError;
+    StackTrace? synchronizationStackTrace;
+    try {
+      await _reader.synchronize();
+    } on Object catch (error, stackTrace) {
+      if (!_isStoreKitSystemError(error)) rethrow;
+      synchronizationError = error;
+      synchronizationStackTrace = stackTrace;
+    }
     final entitlements = await _reader
         .read(premiumProductIds)
         .timeout(deadline);
@@ -89,6 +100,24 @@ class AppleSubscriptionRestorer {
         return AppleRestoreResult.success(entitlement.signedTransactionInfo);
       }
     }
+    if (synchronizationError != null) {
+      Error.throwWithStackTrace(
+        synchronizationError,
+        synchronizationStackTrace!,
+      );
+    }
     return AppleRestoreResult.notFound;
   }
+}
+
+bool _isStoreKitSystemError(Object error) {
+  if (error is! PlatformException || error.code != 'apple_restore_failed') {
+    return false;
+  }
+  final details = error.details;
+  if (details is! Map) return false;
+  final nativeCode = details['code'];
+  return details['domain'] == _storeKitErrorDomain &&
+      nativeCode is num &&
+      nativeCode == _storeKitSystemErrorCode;
 }

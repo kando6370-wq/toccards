@@ -216,6 +216,25 @@ void main() {
     expect(find.text('Charizard ex'), findsOneWidget);
   });
 
+  testWidgets('Collection controls share the pull-to-refresh scroll surface', (
+    tester,
+  ) async {
+    await _pumpCollection(tester);
+
+    final controls = find.byKey(const Key('collection-segmented-tabs'));
+    expect(
+      find.ancestor(
+        of: controls,
+        matching: find.byKey(const Key('collection-pull-to-refresh')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(of: controls, matching: find.byType(CustomScrollView)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'Collection content uses the standard top spacing below the safe area',
     (tester) async {
@@ -224,15 +243,15 @@ void main() {
       final header = tester.widget<Padding>(
         find.byKey(const Key('collection-fixed-header')),
       );
-      final listView = tester.widget<ListView>(
-        find.byKey(const Key('collection-content-list')),
+      final contentPadding = tester.widget<SliverPadding>(
+        find.byKey(const Key('collection-content-padding')),
       );
 
       expect(
         header.padding,
         const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 16),
       );
-      expect(listView.padding, const EdgeInsets.fromLTRB(20, 0, 20, 24));
+      expect(contentPadding.padding, const EdgeInsets.fromLTRB(20, 0, 20, 24));
     },
   );
 
@@ -260,15 +279,18 @@ void main() {
       await _pumpCollection(tester);
 
       final header = find.byKey(const Key('collection-fixed-header'));
+      final controls = find.byKey(const Key('collection-controls-header'));
       final list = find.byKey(const Key('collection-content-list'));
       final firstCard = find.text('Charizard ex');
       final headerBeforeScroll = tester.getRect(header);
+      final controlsBeforeScroll = tester.getRect(controls);
       final cardBeforeScroll = tester.getRect(firstCard);
 
       await tester.drag(list, const Offset(0, -300));
       await tester.pumpAndSettle();
 
       expect(tester.getRect(header), headerBeforeScroll);
+      expect(tester.getRect(controls), controlsBeforeScroll);
       expect(tester.getTopLeft(firstCard).dy, lessThan(cardBeforeScroll.top));
     },
   );

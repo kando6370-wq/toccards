@@ -41,112 +41,105 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
       currentTab: KandoMainTab.collection,
       body: SafeArea(
         bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isPageFailure = state.isUnavailable;
+        child: Column(
+          children: [
+            const Padding(
+              key: Key('collection-fixed-header'),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                KandoLayout.mainTabTopPadding,
+                20,
+                16,
+              ),
+              child: PremiumPageHeader(
+                title: 'Collection',
+                source: 'collection',
+              ),
+            ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isPageFailure = state.isUnavailable;
 
-            if (state.loadStatus == KandoLoadStatus.loading || isPageFailure) {
-              return RefreshIndicator(
-                key: const Key('collection-pull-to-refresh'),
-                onRefresh: () => _refresh(controller, preserveContent: true),
-                child: ListView(
-                  key: const Key('collection-content-list'),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        20,
-                        KandoLayout.mainTabTopPadding,
-                        20,
-                        8,
+                  if (state.loadStatus == KandoLoadStatus.loading ||
+                      isPageFailure) {
+                    return RefreshIndicator(
+                      key: const Key('collection-pull-to-refresh'),
+                      onRefresh: () =>
+                          _refresh(controller, preserveContent: true),
+                      child: ListView(
+                        key: const Key('collection-content-list'),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        children: [
+                          if (state.loadStatus == KandoLoadStatus.loading)
+                            const KandoLoadingBlock()
+                          else
+                            SizedBox(
+                              height: math.max(0.0, constraints.maxHeight),
+                              child: KandoFailureBlock(
+                                onRefresh: () => _refresh(controller),
+                              ),
+                            ),
+                        ],
                       ),
-                      child: PremiumPageHeader(
-                        title: 'Collection',
-                        source: 'collection',
-                      ),
-                    ),
-                    if (state.loadStatus == KandoLoadStatus.loading)
-                      const KandoLoadingBlock()
-                    else
-                      SizedBox(
-                        height: math.max(0.0, constraints.maxHeight),
-                        child: KandoFailureBlock(
-                          onRefresh: () => _refresh(controller),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            }
+                    );
+                  }
 
-            return Column(
-              children: [
-                Padding(
-                  key: const Key('collection-fixed-header'),
-                  padding: const EdgeInsets.fromLTRB(
-                    20,
-                    KandoLayout.mainTabTopPadding,
-                    20,
-                    16,
-                  ),
-                  child: Column(
-                    children: [
-                      const PremiumPageHeader(
-                        title: 'Collection',
-                        source: 'collection',
-                      ),
-                      const SizedBox(height: 16),
-                      _SegmentedTabs(
-                        selected: state.selectedTab,
-                        onSelect: controller.selectTab,
-                      ),
-                      const SizedBox(height: 16),
-                      _SearchField(
-                        fieldKey: ValueKey(state.selectedTab),
-                        onChanged: controller.updateSearch,
-                        onFilterPressed: () => _showFilterSheet(context, ref),
-                      ),
-                      const SizedBox(height: 16),
-                      if (state.selectedTab == CollectionTab.portfolio) ...[
-                        _PortfolioSummaryCard(
-                          state: state,
-                          onFolderPressed: () {
-                            ref
-                                .read(analyticsProvider)
-                                .track(AnalyticsEvent.folderClick);
-                            showPortfolioFolderSheet(context, ref);
-                          },
-                          onHidePressed: () async {
-                            if (!await controller.toggleAmountHidden() &&
-                                context.mounted) {
-                              showKandoTopFailureToast(context);
-                            }
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: RefreshIndicator(
+                  return RefreshIndicator(
                     key: const Key('collection-pull-to-refresh'),
                     onRefresh: () =>
                         _refresh(controller, preserveContent: true),
-                    child: ListView(
+                    child: CustomScrollView(
                       key: const Key('collection-content-list'),
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                      children: [
-                        _CollectionContent(state: state),
-                        const SizedBox(height: 100),
+                      slivers: [
+                        SliverPersistentHeader(
+                          pinned: true,
+                          delegate: _CollectionControlsHeaderDelegate(
+                            extent: state.selectedTab == CollectionTab.portfolio
+                                ? _CollectionControlsHeader.portfolioExtent
+                                : _CollectionControlsHeader.wishlistExtent,
+                            child: _CollectionControlsHeader(
+                              state: state,
+                              onSelectTab: controller.selectTab,
+                              onSearchChanged: controller.updateSearch,
+                              onFilterPressed: () =>
+                                  _showFilterSheet(context, ref),
+                              onFolderPressed: () {
+                                ref
+                                    .read(analyticsProvider)
+                                    .track(AnalyticsEvent.folderClick);
+                                showPortfolioFolderSheet(context, ref);
+                              },
+                              onHidePressed: () async {
+                                if (!await controller.toggleAmountHidden() &&
+                                    context.mounted) {
+                                  showKandoTopFailureToast(context);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        SliverPadding(
+                          key: const Key('collection-content-padding'),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                          sliver: SliverToBoxAdapter(
+                            child: Column(
+                              children: [
+                                _CollectionContent(state: state),
+                                const SizedBox(height: 100),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ),
-              ],
-            );
-          },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -176,6 +169,84 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
         ? controller.refreshPreservingContent()
         : controller.refresh();
   }
+}
+
+class _CollectionControlsHeader extends StatelessWidget {
+  const _CollectionControlsHeader({
+    required this.state,
+    required this.onSelectTab,
+    required this.onSearchChanged,
+    required this.onFilterPressed,
+    required this.onFolderPressed,
+    required this.onHidePressed,
+  });
+
+  static const portfolioExtent = 246.0;
+  static const wishlistExtent = 136.0;
+
+  final CollectionState state;
+  final ValueChanged<CollectionTab> onSelectTab;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onFilterPressed;
+  final VoidCallback onFolderPressed;
+  final VoidCallback onHidePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Padding(
+        key: const Key('collection-controls-header'),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: Column(
+          children: [
+            _SegmentedTabs(selected: state.selectedTab, onSelect: onSelectTab),
+            const SizedBox(height: 16),
+            _SearchField(
+              fieldKey: ValueKey(state.selectedTab),
+              onChanged: onSearchChanged,
+              onFilterPressed: onFilterPressed,
+            ),
+            const SizedBox(height: 16),
+            if (state.selectedTab == CollectionTab.portfolio)
+              _PortfolioSummaryCard(
+                state: state,
+                onFolderPressed: onFolderPressed,
+                onHidePressed: onHidePressed,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectionControlsHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _CollectionControlsHeaderDelegate({
+    required this.extent,
+    required this.child,
+  });
+
+  final double extent;
+  final Widget child;
+
+  @override
+  double get minExtent => extent;
+
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(_CollectionControlsHeaderDelegate oldDelegate) => true;
 }
 
 class _SegmentedTabs extends StatelessWidget {

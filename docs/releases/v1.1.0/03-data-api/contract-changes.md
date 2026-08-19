@@ -64,7 +64,7 @@ Apple entitlement 的 purchase challenge、Fresh Purchase JWS 同步、App Attes
 
 Subscription Page 固定使用 `Choose Your Plan` 和四项 Premium Benefits；Subscription Success 固定使用 `You're Premium!`、`Your premium features are now unlocked.`、相同四项权益及 `Start Exploring`。Wishlist 不属于 Premium，Success 不提供额外的 `Manage subscription` 正常出口。
 
-Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时显示，Unknown/Premium 隐藏；入口打开完整 Subscription Page，并分别携带 `source=home/search/collection/profile` 与 `entry_source=top_subscription_entry`。Profile Banner 使用 `source=profile&entry_source=profile_banner`；启动门禁使用 `onboarding/cold_start`，Scan Pro Card 使用 `scan`，Scan 顶部及二级页面不挂载入口。Purchase Success 将来源及入口来源传入 Subscription Success；四个一级页面和 Scan 通过 `push/pop` 返回原页面实例，`Start Exploring` 不重建来源页；功能卡点仍使用 `presentation=sheet`，不进入 Subscription Success。
+Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时显示，Unknown/Premium 隐藏；四个入口均使用 `presentation=sheet` 打开 Subscription Bottom Sheet，并分别携带 `source=home/search/collection/profile` 与 `entry_source=top_subscription_entry`。Profile Banner 同样使用 Bottom Sheet，并携带 `source=profile&entry_source=profile_banner`；启动门禁使用 `onboarding/cold_start`，Scan Pro Card 使用 `scan`，两者仍打开完整 Subscription Page，Scan 顶部及二级页面不挂载入口。Bottom Sheet 的 Purchase/Restore Success 直接关闭并返回来源页，不进入 Subscription Success；完整页面的 Purchase Success 继续将来源及入口来源传入 Subscription Success，并通过 `push/pop` 保留来源页面实例。
 
 ## Admin 订单与通知契约
 
@@ -186,7 +186,7 @@ Apple 官方 Node SDK 的证书吊销检查和 Server API 请求依赖 `node-fet
 上述能力定位为 **App 订阅体验原型 + StoreKit 抽象层 + Admin/PostgreSQL 数据骨架**，不是生产可用的订阅闭环。当前至少存在以下上线阻塞：
 
 - 客户端已在 Fresh Purchase 前尽力申请 challenge，并仅将 StoreKit 2 signed transaction 作为即时 Premium 证据异步上传；业务接口失败不反向覆盖本机购买成功。
-- App 已将静默权益读取与主动 Restore 分离：启动只读取 Apple verified `Transaction.currentEntitlements`，用户主动 Restore 才调用 `AppStore.sync()`；Restore 实现 Success/Not Found/Failed/15 秒 Timeout 分流，Success 不进入 Purchase Success，并在后台尽力完成 App Attest proof，不以同步失败覆盖本机成功。
+- App 已将静默权益读取与主动 Restore 分离：启动只读取 Apple verified `Transaction.currentEntitlements`，用户主动 Restore 才调用 `AppStore.sync()`；Restore 实现 Success/Not Found/Failed/15 秒 Timeout 分流。`AppStore.sync()` 的 StoreKit `systemError` 可回退读取本机 current entitlements，但仅以 Apple verified 且命中配置 SKU 的证据判定 Success；无匹配权益仍保留同步失败，其他同步错误不回退。Success 不进入 Purchase Success，并在后台尽力完成 App Attest proof，不以 proof 同步失败覆盖本机成功。
 - Workers 已有 Fresh Purchase、Restore、Notifications V2 与 Apple Server API 校正链；App Attest 原生代码尚未在 Xcode/真机验证，dev Apple Server API Secret 配置项已存在但内容有效性尚未通过真实调用证明，production 需独立配置。
 - `billing_entitlement_grant` 旧 owner 关联只兼容保留，不参与授权。
 - Scan Quota 与 Folder 限制已由服务端基于可信 grant 原子执行；Waiting/自动递补、Processing 删除后的后台结算和 `blocked_action=create_folder` 已按页面内最小上下文实现，非成功或目标失效不执行旧动作。

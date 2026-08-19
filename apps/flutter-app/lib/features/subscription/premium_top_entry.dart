@@ -67,6 +67,7 @@ class PremiumTopEntry extends ConsumerWidget {
           queryParameters: {
             'source': source,
             'entry_source': 'top_subscription_entry',
+            'presentation': 'sheet',
           },
         ).toString(),
       );

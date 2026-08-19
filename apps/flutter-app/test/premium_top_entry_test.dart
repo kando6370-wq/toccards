@@ -41,7 +41,7 @@ void main() {
   });
 
   testWidgets(
-    'only explicit Free shows the top entry and preserves its PRD source context',
+    'only explicit Free shows the top entry and opens the source sheet',
     (tester) async {
       final router = GoRouter(
         initialLocation: '/source',
@@ -83,6 +83,7 @@ void main() {
         find.textContaining('entry_source=top_subscription_entry'),
         findsOneWidget,
       );
+      expect(find.textContaining('presentation=sheet'), findsOneWidget);
     },
   );
 
