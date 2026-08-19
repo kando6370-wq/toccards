@@ -439,7 +439,28 @@ void main() {
         find.textContaining('Premium access is still syncing'),
         findsOneWidget,
       );
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.byKey(const Key('kando-floating-toast')), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        tester
+            .widget<Icon>(
+              find.descendant(
+                of: find.byKey(const Key('kando-top-toast')),
+                matching: find.byIcon(Icons.priority_high_rounded),
+              ),
+            )
+            .color,
+        KandoColors.errorText,
+      );
       expect(find.text('SAVE'), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('kando-top-toast')),
+          matching: find.byTooltip('Close'),
+        ),
+      );
+      await tester.pump();
     },
   );
 

@@ -54,6 +54,7 @@ void main() {
     expect(text.style?.fontSize, 14);
     expect(text.style?.height, 20 / 14);
     expect(text.style?.letterSpacing, 0);
+    expect(text.style?.decoration, TextDecoration.none);
 
     await tester.pump(premiumUnlockedToastDuration);
     expect(toast, findsNothing);

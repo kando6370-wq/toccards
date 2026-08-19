@@ -156,7 +156,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       if (next.errorMessage != null &&
           next.errorMessage != previous?.errorMessage &&
           context.mounted) {
-        showKandoToast(context, message: next.errorMessage!);
+        showKandoTopToast(
+          context,
+          message: next.errorMessage!,
+          type: KandoTopToastType.failure,
+        );
       }
     });
     final isUser = session?.ownerType == OwnerType.user;
@@ -372,7 +376,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
     if (authorized == true) {
       context.push('/profile/api-requests');
     } else if (authorized == false) {
-      showKandoToast(context, message: 'Invalid code.');
+      showKandoTopToast(
+        context,
+        message: 'Invalid code.',
+        type: KandoTopToastType.failure,
+      );
     }
   }
 
@@ -393,7 +401,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       await action();
     } on Exception {
       if (context.mounted) {
-        showKandoToast(context, message: profileActionFailureText);
+        showKandoTopToast(
+          context,
+          message: profileActionFailureText,
+          type: KandoTopToastType.failure,
+        );
       }
     }
   }
@@ -408,7 +420,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       await ref.read(authControllerProvider.notifier).deleteAccount();
     } on Exception {
       if (context.mounted) {
-        showKandoToast(context, message: authAccountActionFailedMessage);
+        showKandoTopToast(
+          context,
+          message: authAccountActionFailedMessage,
+          type: KandoTopToastType.failure,
+        );
       }
     }
   }
@@ -421,11 +437,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       }
     } on AuthNetworkException {
       if (context.mounted) {
-        showKandoNetworkToast(context);
+        showKandoTopNetworkToast(context);
       }
     } on Exception {
       if (context.mounted) {
-        showKandoFailureToast(context);
+        showKandoTopFailureToast(context);
       }
     }
   }

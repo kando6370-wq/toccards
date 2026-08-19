@@ -111,6 +111,7 @@ class PremiumUnlockedToast extends StatelessWidget {
                           fontWeight: FontWeight.w400,
                           height: 20 / 14,
                           letterSpacing: 0,
+                          decoration: TextDecoration.none,
                         ),
                       ),
                     ),

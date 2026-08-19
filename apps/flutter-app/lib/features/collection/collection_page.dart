@@ -120,7 +120,7 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                           onHidePressed: () async {
                             if (!await controller.toggleAmountHidden() &&
                                 context.mounted) {
-                              showKandoFailureToast(context);
+                              showKandoTopFailureToast(context);
                             }
                           },
                         ),
@@ -1309,9 +1309,10 @@ class _CreateFolderBottomSheetState extends State<_CreateFolderBottomSheet> {
     }
 
     if (result.status == CreateFolderStatus.entitlementSyncRequired) {
-      showKandoToast(
+      showKandoTopToast(
         context,
         message: 'Premium access is still syncing. Please try again.',
+        type: KandoTopToastType.failure,
       );
     } else {
       _showCollectionActionError(context);
@@ -1672,7 +1673,7 @@ void _trackCollectionEvent(BuildContext context, String event) {
 }
 
 void _showCollectionActionError(BuildContext context) {
-  showKandoFailureToast(context);
+  showKandoTopFailureToast(context);
 }
 
 Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {

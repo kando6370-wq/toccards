@@ -446,7 +446,7 @@ class _CardHero extends ConsumerWidget {
                                       );
                                 } catch (_) {
                                   if (context.mounted) {
-                                    showKandoFailureToast(context);
+                                    showKandoTopFailureToast(context);
                                   }
                                 }
                               },
@@ -604,7 +604,7 @@ class _PrimaryActions extends ConsumerWidget {
                       setName: detail.setName,
                     );
               } catch (_) {
-                if (context.mounted) showKandoFailureToast(context);
+                if (context.mounted) showKandoTopFailureToast(context);
               }
             },
             child: const Row(
@@ -3608,6 +3608,7 @@ class _PriceOverview extends ConsumerWidget {
                     _PriceRangeButton(
                       range: range,
                       selected: state.selectedPriceRange == range,
+                      showProBadge: !isPro && range == CardPriceRange.oneYear,
                       onSelected: (range) => _selectRange(context, ref, range),
                     ),
                 ],
@@ -3665,7 +3666,9 @@ class _PriceOverview extends ConsumerWidget {
                             .read(cardDetailActionsProvider)
                             .openMarketplaceListing(row.url!);
                       } catch (_) {
-                        if (context.mounted) showKandoFailureToast(context);
+                        if (context.mounted) {
+                          showKandoTopFailureToast(context);
+                        }
                       }
                     },
             ),
@@ -3688,7 +3691,9 @@ class _PriceOverview extends ConsumerWidget {
       if (!context.mounted || premiumState == AppPremiumState.unknown) return;
       if (premiumState == AppPremiumState.premium) {
         final selected = await controller.selectPriceRange(range);
-        if (!selected && context.mounted) showKandoFailureToast(context);
+        if (!selected && context.mounted) {
+          showKandoTopFailureToast(context);
+        }
         return;
       }
       final result = await context.push<SubscriptionPaywallResult>(
@@ -3705,7 +3710,7 @@ class _PriceOverview extends ConsumerWidget {
       }
     }
     final selected = await controller.selectPriceRange(range);
-    if (!selected && context.mounted) showKandoFailureToast(context);
+    if (!selected && context.mounted) showKandoTopFailureToast(context);
   }
 }
 
@@ -3980,40 +3985,93 @@ class _PriceRangeButton extends StatelessWidget {
   const _PriceRangeButton({
     required this.range,
     required this.selected,
+    required this.showProBadge,
     required this.onSelected,
   });
 
   final CardPriceRange range;
   final bool selected;
+  final bool showProBadge;
   final ValueChanged<CardPriceRange> onSelected;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(999),
+      key: Key('card-detail-price-range-${range.label}'),
+      borderRadius: BorderRadius.circular(showProBadge ? 4 : 999),
       onTap: () => onSelected(range),
-      child: Container(
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFBAC158) : Colors.transparent,
-          shape: BoxShape.circle,
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: KandoColors.accent.withValues(alpha: 0.2),
-                    blurRadius: 6,
+      child: showProBadge
+          ? SizedBox(
+              width: 70,
+              height: 40,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    range.label.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: KandoColors.mutedText,
+                    ),
                   ),
-                ]
-              : null,
-        ),
-        child: Text(
-          range.label.toUpperCase(),
-          style: TextStyle(
-            fontSize: 10,
-            color: selected ? const Color(0xFF191E00) : KandoColors.mutedText,
-          ),
+                  const SizedBox(width: 4),
+                  Container(
+                    key: const Key('card-detail-price-range-1y-pro-badge'),
+                    width: 35,
+                    height: 20,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: KandoColors.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'PRO',
+                      style: TextStyle(
+                        color: KandoColors.accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        height: 18 / 12,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : _PriceRangeCircle(range: range, selected: selected),
+    );
+  }
+}
+
+class _PriceRangeCircle extends StatelessWidget {
+  const _PriceRangeCircle({required this.range, required this.selected});
+
+  final CardPriceRange range;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFFBAC158) : Colors.transparent,
+        shape: BoxShape.circle,
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: KandoColors.accent.withValues(alpha: 0.2),
+                  blurRadius: 6,
+                ),
+              ]
+            : null,
+      ),
+      child: Text(
+        range.label.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10,
+          color: selected ? const Color(0xFF191E00) : KandoColors.mutedText,
         ),
       ),
     );

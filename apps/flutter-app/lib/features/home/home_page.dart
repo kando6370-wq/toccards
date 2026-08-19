@@ -173,6 +173,7 @@ class _HomePageState extends ConsumerState<HomePage>
                   else ...[
                     _PortfolioCard(
                       state: state,
+                      showOneYearProBadge: !isPro,
                       onFolderPressed: () {
                         ref
                             .read(analyticsProvider)
@@ -294,7 +295,7 @@ class _HomePageState extends ConsumerState<HomePage>
       }
     }
     final selected = await controller.selectChartRange(range);
-    if (!selected && context.mounted) showKandoFailureToast(context);
+    if (!selected && context.mounted) showKandoTopFailureToast(context);
   }
 
   Future<AppPremiumState> _resolvePremiumForRestrictedAction() async {
@@ -1242,6 +1243,7 @@ class _PerformanceMetric extends StatelessWidget {
 class _PortfolioCard extends StatelessWidget {
   const _PortfolioCard({
     required this.state,
+    required this.showOneYearProBadge,
     required this.onFolderPressed,
     required this.onHidePressed,
     required this.onRangeSelected,
@@ -1249,6 +1251,7 @@ class _PortfolioCard extends StatelessWidget {
   });
 
   final HomeState state;
+  final bool showOneYearProBadge;
   final VoidCallback onFolderPressed;
   final VoidCallback onHidePressed;
   final ValueChanged<HomeChartRange> onRangeSelected;
@@ -1347,6 +1350,7 @@ class _PortfolioCard extends StatelessWidget {
                 children: [
                   _ChartRangePicker(
                     selected: state.chartRange,
+                    showOneYearProBadge: showOneYearProBadge,
                     onSelected: onRangeSelected,
                   ),
                   const SizedBox(height: 28),
@@ -1467,9 +1471,14 @@ class _FolderPill extends StatelessWidget {
 }
 
 class _ChartRangePicker extends StatelessWidget {
-  const _ChartRangePicker({required this.selected, required this.onSelected});
+  const _ChartRangePicker({
+    required this.selected,
+    required this.showOneYearProBadge,
+    required this.onSelected,
+  });
 
   final HomeChartRange selected;
+  final bool showOneYearProBadge;
   final ValueChanged<HomeChartRange> onSelected;
 
   @override
@@ -1486,45 +1495,79 @@ class _ChartRangePicker extends StatelessWidget {
         child: Row(
           children: [
             for (final range in HomeChartRange.values)
-              Expanded(
-                child: GestureDetector(
-                  key: Key('home-chart-range-${range.label}'),
-                  onTap: () => onSelected(range),
-                  child: Container(
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      gradient: range == selected
-                          ? const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0x99747B26), Color(0x33747B26)],
-                            )
-                          : null,
-                      boxShadow: range == selected
-                          ? const [
-                              BoxShadow(
-                                color: Color(0x0D000000),
-                                offset: Offset(0, 1),
-                                blurRadius: 2,
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Text(
-                      range.label.toUpperCase(),
-                      style: TextStyle(
-                        color: range == selected
-                            ? KandoColors.accent
-                            : const Color(0xFF92927D),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        height: 16 / 13,
-                      ),
-                    ),
+              if (showOneYearProBadge && range == HomeChartRange.oneYear)
+                SizedBox(width: 70, child: _rangeOption(range))
+              else
+                Expanded(child: _rangeOption(range)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _rangeOption(HomeChartRange range) {
+    return GestureDetector(
+      key: Key('home-chart-range-${range.label}'),
+      onTap: () => onSelected(range),
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          gradient: range == selected
+              ? const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x99747B26), Color(0x33747B26)],
+                )
+              : null,
+          boxShadow: range == selected
+              ? const [
+                  BoxShadow(
+                    color: Color(0x0D000000),
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              range.label.toUpperCase(),
+              style: TextStyle(
+                color: range == selected
+                    ? KandoColors.accent
+                    : const Color(0xFF92927D),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                height: 16 / 13,
+              ),
+            ),
+            if (showOneYearProBadge && range == HomeChartRange.oneYear) ...[
+              const SizedBox(width: 4),
+              Container(
+                key: const Key('home-chart-range-1y-pro-badge'),
+                width: 35,
+                height: 20,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: KandoColors.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'PRO',
+                  style: TextStyle(
+                    color: KandoColors.accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    height: 18 / 12,
+                    letterSpacing: 0,
                   ),
                 ),
               ),
+            ],
           ],
         ),
       ),

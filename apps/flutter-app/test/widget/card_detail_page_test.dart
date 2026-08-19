@@ -252,6 +252,23 @@ void main() {
     expect(find.text('1M'), findsOneWidget);
     expect(find.text('3M'), findsOneWidget);
     expect(find.text('1Y'), findsOneWidget);
+    final oneYearProBadge = find.byKey(
+      const Key('card-detail-price-range-1y-pro-badge'),
+    );
+    expect(oneYearProBadge, findsOneWidget);
+    expect(tester.getSize(oneYearProBadge), const Size(35, 20));
+    expect(
+      tester.getRect(oneYearProBadge).left -
+          tester.getRect(find.text('1Y')).right,
+      4,
+    );
+    expect(
+      find.ancestor(
+        of: oneYearProBadge,
+        matching: find.byKey(const Key('card-detail-price-range-1y')),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('6M'), findsNothing);
     expect(find.text('12M'), findsNothing);
     expect(find.text('MAX'), findsNothing);
@@ -270,6 +287,51 @@ void main() {
     expect(find.text('Collection Item'), findsNothing);
     expect(
       find.byKey(const Key('card-detail-remove-from-portfolio')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('free owners can tap the Price 1Y PRO badge to open Premium', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const _CardDetailPriceRangeRouteApp());
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('card-detail-price-chart')),
+      400,
+    );
+    final oneYearProBadge = find.byKey(
+      const Key('card-detail-price-range-1y-pro-badge'),
+    );
+    await tester.ensureVisible(oneYearProBadge);
+    await tester.pumpAndSettle();
+
+    await tester.tap(oneYearProBadge);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('card-detail-price-subscription-target')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Pro owners see Price 1Y without the PRO badge', (tester) async {
+    await tester.pumpWidget(
+      const _CardDetailTestApp(
+        cardId: 'squirtle',
+        collectionItemId: null,
+        subscriptionController: _ProCardSubscriptionController.new,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('card-detail-price-chart')),
+      400,
+    );
+
+    expect(find.text('1Y'), findsOneWidget);
+    expect(
+      find.byKey(const Key('card-detail-price-range-1y-pro-badge')),
       findsNothing,
     );
   });
@@ -1729,6 +1791,46 @@ class _CardDetailTestApp extends StatelessWidget {
           cardId: cardId,
           collectionItemId: collectionItemId,
           entrySource: entrySource,
+        ),
+      ),
+    );
+  }
+}
+
+class _CardDetailPriceRangeRouteApp extends StatelessWidget {
+  const _CardDetailPriceRangeRouteApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return ProviderScope(
+      overrides: [
+        authStorageProvider.overrideWithValue(_cardDetailAuthStorage),
+        authRepositoryProvider.overrideWithValue(_cardDetailAuthRepository),
+        cardDetailRepositoryProvider.overrideWithValue(
+          const MockCardDetailRepository(),
+        ),
+        portfolioApiClientProvider.overrideWithValue(_CardPerformanceApi()),
+        subscriptionControllerProvider.overrideWith(
+          _FreeCardSubscriptionController.new,
+        ),
+      ],
+      child: MaterialApp.router(
+        routerConfig: GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (context, state) => const CardDetailPage(
+                cardId: 'squirtle',
+                collectionItemId: null,
+              ),
+            ),
+            GoRoute(
+              path: '/subscription',
+              builder: (context, state) => const Scaffold(
+                key: Key('card-detail-price-subscription-target'),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -137,7 +137,11 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
       if (next.errorMessage != null &&
           next.errorMessage != previous?.errorMessage &&
           context.mounted) {
-        showKandoToast(context, message: next.errorMessage!);
+        showKandoTopToast(
+          context,
+          message: next.errorMessage!,
+          type: KandoTopToastType.failure,
+        );
       }
     });
 
@@ -1492,7 +1496,11 @@ class _LegalLink extends StatelessWidget {
                 await onTap!();
               } on Exception {
                 if (context.mounted) {
-                  showKandoToast(context, message: 'Unable to open this page.');
+                  showKandoTopToast(
+                    context,
+                    message: 'Unable to open this page.',
+                    type: KandoTopToastType.failure,
+                  );
                 }
               }
             },

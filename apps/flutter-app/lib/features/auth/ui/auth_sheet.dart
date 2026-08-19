@@ -627,7 +627,6 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
     if (successMessage != null && mounted) {
       final rootNavigator = Navigator.of(context, rootNavigator: true);
       final rootContext = rootNavigator.context;
-      final messenger = ScaffoldMessenger.of(context);
       final router = GoRouter.of(context);
       ref.read(homeControllerProvider);
       Navigator.of(context).pop();
@@ -650,14 +649,12 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
 
       final modalCopy = _successModalCopy(successMessage);
       if (modalCopy == null) {
-        messenger
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            buildKandoToast(
-              successMessage,
-              onClose: messenger.hideCurrentSnackBar,
-            ),
-          );
+        if (!rootContext.mounted) return;
+        showKandoTopToast(
+          rootContext,
+          message: successMessage,
+          type: KandoTopToastType.success,
+        );
         return;
       }
 
@@ -776,7 +773,11 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
       await action();
     } on Exception {
       if (mounted) {
-        showKandoToast(context, message: profileActionFailureText);
+        showKandoTopToast(
+          context,
+          message: profileActionFailureText,
+          type: KandoTopToastType.failure,
+        );
       }
     }
   }

@@ -236,7 +236,11 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
 
     final session = ref.read(authControllerProvider).session;
     if (session == null) {
-      showKandoToast(context, message: feedbackSubmitFailureText);
+      showKandoTopToast(
+        context,
+        message: feedbackSubmitFailureText,
+        type: KandoTopToastType.failure,
+      );
       return;
     }
 
@@ -260,11 +264,19 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
       if (!mounted) {
         return;
       }
-      showKandoToast(context, message: feedbackSubmittedToastText);
+      showKandoTopToast(
+        context,
+        message: feedbackSubmittedToastText,
+        type: KandoTopToastType.success,
+      );
       context.go('/profile');
     } on Exception {
       if (mounted) {
-        showKandoToast(context, message: feedbackSubmitFailureText);
+        showKandoTopToast(
+          context,
+          message: feedbackSubmitFailureText,
+          type: KandoTopToastType.failure,
+        );
       }
     } finally {
       if (mounted) {

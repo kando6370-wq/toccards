@@ -234,6 +234,28 @@ void main() {
     expect(find.text('15D'), findsOneWidget);
     expect(find.text('1M'), findsOneWidget);
     expect(find.text('3M'), findsOneWidget);
+    expect(find.text('1Y'), findsOneWidget);
+    final oneYearProBadge = find.byKey(
+      const Key('home-chart-range-1y-pro-badge'),
+    );
+    expect(oneYearProBadge, findsOneWidget);
+    expect(
+      find.descendant(of: oneYearProBadge, matching: find.text('PRO')),
+      findsOneWidget,
+    );
+    expect(tester.getSize(oneYearProBadge), const Size(35, 20));
+    expect(
+      tester.getRect(oneYearProBadge).left -
+          tester.getRect(find.text('1Y')).right,
+      4,
+    );
+    expect(
+      find.ancestor(
+        of: oneYearProBadge,
+        matching: find.byKey(const Key('home-chart-range-1y')),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('6M'), findsNothing);
     expect(find.text('MAX'), findsNothing);
     expect(find.text('Most Valuable'), findsOneWidget);
@@ -438,6 +460,55 @@ void main() {
     },
   );
 
+  testWidgets('free users can tap the 1Y PRO badge to open Premium', (
+    tester,
+  ) async {
+    final portfolioManagement = _TestPortfolioManagementApi();
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (context, state) => const HomePage()),
+        GoRoute(
+          path: '/subscription',
+          builder: (context, state) =>
+              const Scaffold(key: Key('home-1y-subscription-target')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._localAuthOverrides(),
+          homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+          collectionRepositoryProvider.overrideWithValue(
+            _HomeCollectionRepository(portfolioManagement),
+          ),
+          portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
+          portfolioApiClientProvider.overrideWithValue(
+            _TestHomePerformanceApi(),
+          ),
+          currencyRateApiProvider.overrideWithValue(
+            const _TestCurrencyRateApi(),
+          ),
+          subscriptionControllerProvider.overrideWith(
+            _FreeHomeSubscriptionController.new,
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('home-chart-range-1y-pro-badge')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('home-1y-subscription-target')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'Pro users see Performance data and trends because the entitlement unlocks analytics',
     (tester) async {
@@ -451,6 +522,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(
+        find.byKey(const Key('home-chart-range-1y-pro-badge')),
+        findsNothing,
+      );
       await tester.tap(find.byKey(const Key('home-performance-tab')));
       await tester.pumpAndSettle();
 

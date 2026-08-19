@@ -1607,6 +1607,7 @@ void main() {
         find.text('Unable to open this page. Please try again later.'),
         findsOneWidget,
       );
+      await _dismissTopToast(tester);
     },
   );
 
@@ -1771,10 +1772,24 @@ void main() {
         ),
       ]);
       expect(find.text('Feedback submitted. Thank you.'), findsOneWidget);
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        tester
+            .widget<Icon>(
+              find.descendant(
+                of: find.byKey(const Key('kando-top-toast')),
+                matching: find.byIcon(Icons.check_rounded),
+              ),
+            )
+            .color,
+        KandoColors.gain,
+      );
       expect(
         find.byKey(const Key('profile-premium-page-title')),
         findsOneWidget,
       );
+      await _dismissTopToast(tester);
     },
   );
 
@@ -2309,8 +2324,18 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('kando-top-toast')),
+          matching: find.byIcon(Icons.wifi_off_rounded),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Sign in / Sign up'), findsNothing);
       expect(repository._currentSession?.isUser, isTrue);
+      await _dismissTopToast(tester);
     },
   );
 
@@ -2338,7 +2363,17 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('kando-top-toast')),
+        matching: find.byIcon(Icons.wifi_off_rounded),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('person@example.com'), findsWidgets);
+    await _dismissTopToast(tester);
   });
 
   testWidgets(
@@ -2423,6 +2458,7 @@ void main() {
     expect(find.byKey(const Key('account-content-list')), findsOneWidget);
     expect(find.text('person@example.com'), findsWidgets);
     expect(repository._currentSession?.userId, 'user-1');
+    await _dismissTopToast(tester);
   });
 
   testWidgets('guest delete failure keeps guest and shows failure', (
@@ -2452,7 +2488,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Sign in / Sign up'), findsOneWidget);
     expect(repository._currentSession?.anonymousId, 'anon-old');
+    await _dismissTopToast(tester);
   });
+}
+
+Future<void> _dismissTopToast(WidgetTester tester) async {
+  final toast = find.byKey(const Key('kando-top-toast'));
+  expect(toast, findsOneWidget);
+  await tester.tap(
+    find.descendant(of: toast, matching: find.byTooltip('Close')),
+  );
+  await tester.pump();
+  expect(toast, findsNothing);
 }
 
 Future<void> _openProfileTab(WidgetTester tester) async {
