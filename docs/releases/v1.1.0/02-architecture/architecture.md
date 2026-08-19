@@ -71,33 +71,32 @@ Apple Notifications V2 + Server API --> purchase chain lifecycle correction
 
 | 资源 | 当前职责 | 一致性边界 |
 |---|---|---|
-| D1 | 与当前 PostgreSQL 完全独立的历史库；仓库只保留历史 schema/migration、退役迁移工具和本地测试能力 | App、Admin、Worker、Cron、数据修复和灾备均不得查询、补全、回退或恢复 D1 |
-| PlanetScale PostgreSQL | 当前业务、目录与价格域唯一真源；迁移检查点已迁入 33 张业务表、270,577 行，并创建 7 张新价格域表 | dev/prod 仓库配置共享数据集；运行环境、KV、R2 和 Apple 契约仍分离 |
+| PlanetScale PostgreSQL | 业务、目录与价格域唯一真源；迁移检查点已迁入 33 张业务表、270,577 行，并创建 7 张新价格域表 | dev/prod 通过同一 Hyperdrive 共用一个数据库；运行环境、KV、R2 和 Apple 契约仍分离 |
 | Hyperdrive | dev/prod 当前代码与 Wrangler 配置的唯一数据库连接入口，代码通过 Postgres.js 兼容层访问 | 查询缓存关闭；每请求或 cron 独立 client，后台任务结束后关闭；缺少 binding 立即失败 |
 | KV | 目录查询和汇率等可重新获取数据 | 缓存失败不得改变授权或业务真值 |
 | R2 | 扫描原图等对象 | 读取受 Admin 授权保护 |
 | Flutter 安全存储 | 会话、已验证 Premium 缓存和待同步证据 | 只辅助本机体验，不替代服务端授权 |
 
-Drizzle `src/db/schema.ts` 和 SQL `src/db/migrations/0000-0035` 只保留历史 D1 演进事实与本地测试契约；`scripts/d1-postgres-migration/` 和 `wrangler.migration.toml` 已退役，禁止运行。PostgreSQL 结构以 `src/db/postgres/migrations/0000_business_schema.sql` 至 `0005_drop_trending_pin.sql` 为准。运行时代码仅创建 PostgreSQL 适配器，同时保留既有 `prepare/bind/first/all/run/batch` 调用形状；适配器把问号占位符转换为参数化查询，并把 `batch` 放在单一事务中顺序执行。共享 PostgreSQL 中 Apple inbox 以 `environment` 持久化队列归属，通知与校正 cron 只能领取当前 `APP_ENVIRONMENT` 对应的 Sandbox 或 Production 行；价格月历史只对同来源、同 `current:%` scope 的已发布 pointer 可见，单个月块 JSONB 文本不得超过 24 KiB。
+PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准；后续 schema 变更只允许增加 PostgreSQL 向前迁移。运行时代码仅创建 PostgreSQL 适配器，适配器提供 `prepare/bind/first/all/run/batch` 调用形状、把问号占位符转换为参数化查询，并把 `batch` 放在单一事务中顺序执行。共享 PostgreSQL 中 Apple inbox 以 `environment` 持久化队列归属，通知与校正 cron 只能领取当前 `APP_ENVIRONMENT` 对应的 Sandbox 或 Production 行；价格月历史只对同来源、同 `current:%` scope 的已发布 pointer 可见，单个月块 JSONB 文本不得超过 24 KiB。
 
 ## 6. 环境与部署
 
 | 环境 | Worker | 域名 | 数据资源 |
 |---|---|---|---|
 | dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 正式 PostgreSQL Worker/Admin 已部署；共享 PG 为业务真源，dev KV/R2 与 `APP_ENVIRONMENT=development` 保持独立 |
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 当前仓库代码与 Wrangler 配置为共享 PostgreSQL + 独立 prod KV/R2；本任务未重新核验或部署 production，发布前必须重新确认实时 deployment |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | 与 dev 共用 PostgreSQL；prod KV/R2 与 `APP_ENVIRONMENT=production` 保持独立 |
 
 Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev 与 prod 共用业务 PostgreSQL 是本次明确的成本决策，但 `APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。
 
 ## 7. 当前与目标架构的区分
 
-dev 切换已完成：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 兼容访问层、PostgreSQL 业务方言和新价格域读取均已投入 dev；迁移检查点把 33 张非价格业务表、270,577 行写入共享 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存已关闭。当前核验的 dev version `f6ca031c-6b96-498d-ac42-acd84e1b7a7e` 承载 100% 流量，存在 `HYPERDRIVE` 且没有 D1 binding；`fetch` 和 `scheduled` 缺少 Hyperdrive 时直接失败。D1 与 PostgreSQL 此后完全独立，历史 D1 不参与运行、数据修复、重试、回滚或灾备。production 的实时 deployment 未在本任务中重新核验，不从仓库配置外推线上状态。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
+数据库迁移已经完成：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 访问层、PostgreSQL 业务方言和新价格域读取构成 dev/prod 的统一数据库架构；迁移检查点把 33 张非价格业务表、270,577 行写入共享 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存已关闭。当前代码的 `fetch` 和 `scheduled` 缺少 Hyperdrive 时直接失败，不存在数据库降级路径。后续开发、测试、数据修复、重试、回滚和灾备均只允许使用 PostgreSQL。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
 
 ## 8. 证据索引
 
 - `apps/workers-api/src/index.ts`：路由组合与定时任务。
 - `apps/workers-api/src/env.ts`、`wrangler.toml`：binding 与环境边界。
-- `apps/workers-api/src/db/schema.ts`、`src/db/migrations/`：当前数据结构。
+- `apps/workers-api/src/db/postgres/migrations/`：当前数据结构与顺序迁移。
 - `apps/flutter-app/lib/app/router.dart`：App 页面入口。
 - `apps/admin-web/src/App.tsx`：Admin 菜单与页面。
 - `apps/workers-api/src/entitlements/`：Apple 证据、grant 和通知生命周期。

@@ -6,7 +6,7 @@
 |---|---|---|
 | `apps/flutter-app` | iOS、Android、Web 客户端 | Dart workspace |
 | `dart-packages/subscription-core` | 订阅购买/Restore 业务模块 | Dart workspace |
-| `apps/workers-api` | Hono API、PostgreSQL/Hyperdrive 访问层、PostgreSQL 与历史 D1 迁移和部署入口 | pnpm workspace |
+| `apps/workers-api` | Hono API、PostgreSQL/Hyperdrive 访问层、PostgreSQL migrations 和部署入口 | pnpm workspace |
 | `apps/admin-web` | React Admin SPA | pnpm workspace |
 | `apps/marketing-web` | 营销与法律站点 | pnpm workspace |
 | `packages/auth-core` | 共享认证与密码能力 | pnpm workspace |
@@ -34,7 +34,7 @@ Flutter <---- HTTP ----> Workers
 | Flutter 页面、状态、平台桥接 | `apps/flutter-app/lib/` 及平台目录 |
 | 通用订阅商品/购买/Restore | `dart-packages/subscription-core/` |
 | API、鉴权、业务事务和外部服务 | `apps/workers-api/src/` |
-| Schema 与迁移 | 当前 PostgreSQL：`src/db/postgres/migrations/`；历史 D1/测试：`src/db/schema.ts` + `src/db/migrations/` |
+| Schema 与迁移 | `apps/workers-api/src/db/postgres/migrations/`；后续数据库变更只允许新增 PostgreSQL 向前迁移 |
 | Admin 页面 | `apps/admin-web/src/`；服务端授权仍在 Workers |
 | 营销与法律内容 | `apps/marketing-web/` |
 | 实际跨应用复用的 TS 能力 | `packages/*` |

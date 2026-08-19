@@ -7,7 +7,7 @@
 | 移动/Web App | Flutter、Dart、Riverpod、GoRouter、Dio | `apps/flutter-app/pubspec.yaml` |
 | 订阅模块 | `in_app_purchase`、StoreKit adapter | `dart-packages/subscription-core/pubspec.yaml` |
 | API | TypeScript、Hono、Cloudflare Workers | `apps/workers-api/package.json` |
-| 数据访问 | Postgres.js 兼容适配器、Cloudflare Hyperdrive、PostgreSQL 顺序 migrations；Drizzle/D1 保留历史结构与测试 | `src/db/postgres-database.ts`、`src/db/postgres/migrations/`、`src/db/schema.ts` |
+| 数据访问 | Postgres.js 适配器、Cloudflare Hyperdrive、PostgreSQL 顺序 migrations | `src/db/postgres-database.ts`、`src/db/postgres/migrations/` |
 | Admin | React 18、Vite 6、Ant Design 5、TanStack Query 5 | `apps/admin-web/package.json` |
 | Marketing | Cloudflare static assets/Workers | `apps/marketing-web/wrangler.jsonc` |
 | Monorepo | pnpm 11.9.0、Turborepo 2、Dart pub workspace、Melos 8 | 根 manifests |
@@ -32,8 +32,7 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 |---|---|
 | Workers | API、分享页、定时补偿与 Admin assets 入口 |
 | Hyperdrive | Workers 到共享 PlanetScale PostgreSQL 的连接边界，查询缓存已关闭 |
-| PlanetScale PostgreSQL 18.6 | dev 目录、账号、资产、扫描、订阅、通知和运营真源；prod 仓库配置使用同一数据集 |
-| D1 | 与 PostgreSQL 完全独立的迁移前历史库、历史 migration 与本地 Miniflare 集成测试；当前运行、修复、回滚和灾备均不得读取或回退 D1 |
+| PlanetScale PostgreSQL 18.6 | dev/prod 共用的目录、账号、资产、扫描、订阅、通知、价格和运营唯一真源 |
 | KV | 可重建目录/汇率缓存 |
 | R2 | 扫描图片 |
 | Wrangler 4.106.0 | 本地开发、迁移、dry-run 与环境部署 |

@@ -6,7 +6,7 @@
 
 - 仓库内已形成 Apple 订阅与 session grant、Scan Quota、Folder 限制、Performance、Extended Price History、Admin 订单与 Apple Notifications V2 的实现和自动化证据。
 - “代码已完成”不等于发布完成。Apple 生产配置、Sandbox/TestFlight、真机、多设备、重度数据和真实订单规模仍是独立验收门槛。
-- dev 持久化运行架构已切换为 PlanetScale PostgreSQL（经 Hyperdrive）+ KV/R2；仓库中的 prod 配置已指向同一 PostgreSQL 数据集，但当前 prod 已部署版本仍使用 D1，本轮未部署 prod。7 张新价格表已创建但仍为空，旧 `tcg_price` 未迁移，详见[数据迁移](03-data-api/migration.md)。
+- 数据库迁移已经完成；dev/prod 通过同一 Hyperdrive 使用同一个 PlanetScale PostgreSQL 数据库，后续 schema、迁移、运行、测试、修复、回滚与灾备只允许基于 PostgreSQL。KV、R2、`APP_ENVIRONMENT`、Apple 配置、域名和 secrets 继续按环境隔离。7 张新价格表已创建但仍为空，价格实数仍依赖独立上游导入，详见[数据迁移](03-data-api/migration.md)。
 - 三份原始 PRD 保持字节不变；实现状态只在 `01-flows` 至 `05-delivery` 更新。
 
 ## 原始产品输入
@@ -35,7 +35,7 @@
 - [Premium 权益契约](03-data-api/entitlement-contract.md)
 - [数据迁移](03-data-api/migration.md)
 - [Trending Today 数据采集与 PostgreSQL 写入指南](03-data-api/trending-collector-integration.md)
-- [D1 到 PostgreSQL 选型研究](03-data-api/research/database-migration-research.md)
+- [历史数据库迁移选型研究](03-data-api/research/database-migration-research.md)
 - [价格历史容量与性能分析](03-data-api/research/price-history-database-capacity-analysis.md)
 - [PostgreSQL 价格域详细 DDL 设计](03-data-api/research/price-domain-postgresql-ddl.md)
 
@@ -63,4 +63,4 @@
 
 - `00-product` 与 `docs/releases/v1.0.0` 不在本版本实现任务中修改。
 - 当前代码与文档冲突时，以代码、Schema/迁移、配置和测试为实现事实，同时保留产品差距。
-- 带日期的远程 D1、部署和性能数据保留原日期；没有重新连接环境时不得写成实时状态。
+- 带日期的历史迁移、部署和性能数据保留原日期；没有重新连接环境时不得写成实时状态。
