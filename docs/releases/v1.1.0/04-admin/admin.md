@@ -129,7 +129,7 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 Admin 没有独立生产部署目标。Workers deploy 会先按 dev/prod 模式构建 `auth-core` 和 Admin，再由 Worker assets 发布。验证时至少区分 API health、SPA HTML 和实际 JS assets。
 
-本次退款撤销依赖 `billing_transaction.business_status_before_refund`。该列是 nullable 向后兼容扩展，必须先应用 PostgreSQL `0007_billing_refund_status`，再部署读取该列的新 Worker；旧 Worker 可忽略该列，代码回滚时保留列。dev/prod 共用 PostgreSQL Schema，迁移会同时影响两套 Worker 所连接的数据结构，不能把 dev 部署与 Schema 迁移当作互相隔离的动作。共享 Schema 已于 2026-08-19 应用 `0007` 并完成幂等复核，dev Worker 与 Admin assets 部署待后续执行。
+本次退款撤销依赖 `billing_transaction.business_status_before_refund`。该列是 nullable 向后兼容扩展，必须先应用 PostgreSQL `0007_billing_refund_status`，再部署读取该列的新 Worker；旧 Worker 可忽略该列，代码回滚时保留列。dev/prod 共用 PostgreSQL Schema，迁移会同时影响两套 Worker 所连接的数据结构，不能把 dev 部署与 Schema 迁移当作互相隔离的动作。共享 Schema 已于 2026-08-19 应用 `0007` 并完成幂等复核，同日完成 dev Worker 与 Admin assets 部署。当前 dev version 为 `ce9ee177-27a0-49fe-8e87-0a0f4414b620`；health 与 Admin HTML 返回 `200`，HTML 引用的 10 个 JS/CSS 资源全部返回 `200`，未授权订单 API 返回 `401`。
 
 仓库内证据：
 

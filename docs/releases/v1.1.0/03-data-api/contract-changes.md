@@ -76,7 +76,7 @@ Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时�
 
 `0034_billing_auto_renew_snapshot.sql` 为订单增加 nullable `auto_renew_snapshot`。Admin 展示、筛选和导出只读取订单事件快照，不读取 purchase chain 当前 `auto_renew`。Notifications V2 只有在当次已验签续订信息提供 `autoRenewStatus` 时写 `0/1`；Lifetime 固定写 `0`；Fresh Purchase、Restore 及历史订阅订单无法从交易 JWS 证明该值时保持 `NULL` 并显示 `--`，不以当前状态反向覆盖历史。
 
-PostgreSQL `0007_billing_refund_status.sql` 为 `billing_transaction` 增加 nullable `business_status_before_refund`。`REFUND` 首次落地时保存退款前业务状态；重复退款保持原值。`REFUND_REVERSED` 只有在 Apple Server API 校正证明对应链路 active 后才恢复该状态并清空退款事实；历史已退款记录不猜测回填，退款前业务状态缺失时恢复为 `NULL`，不得继续标记为 `refunded` 或推断为其他订单类型。新 Worker 依赖该列，发布顺序必须为先迁移共享 PostgreSQL Schema、后部署 Worker；共享 Schema 已于 2026-08-19 应用 `0007` 并完成幂等复核，dev Worker 部署待后续执行。
+PostgreSQL `0007_billing_refund_status.sql` 为 `billing_transaction` 增加 nullable `business_status_before_refund`。`REFUND` 首次落地时保存退款前业务状态；重复退款保持原值。`REFUND_REVERSED` 只有在 Apple Server API 校正证明对应链路 active 后才恢复该状态并清空退款事实；历史已退款记录不猜测回填，退款前业务状态缺失时恢复为 `NULL`，不得继续标记为 `refunded` 或推断为其他订单类型。新 Worker 依赖该列，发布顺序必须为先迁移共享 PostgreSQL Schema、后部署 Worker；共享 Schema 已于 2026-08-19 应用 `0007` 并完成幂等复核，同日完成 dev Worker 与 Admin assets 部署。
 
 Admin 订单列表对 nullable 订单状态、自动续期、原始金额、USD 金额与扣款次数统一显示 `--`；合法 `0` 仍显示金额或次数 0，`auto_renew=false` 显示“否”，不得把缺失值与零值混淆。Card Override 的图片上传按 `card_ref` 原子 UPSERT；并发首次上传只保留一条 override，已有行只更新图片 URL 与审计字段，必须保留原 `id`、`override_fields` 和 `is_missing_card`。
 

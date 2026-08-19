@@ -166,6 +166,6 @@ Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-a
 - 不回填历史退款：既有 `business_status='refunded'` 行的退款前状态无法从现有列可靠证明，保持 `NULL`。
 - 重复 `REFUND` 不覆盖已经保存的退款前状态；未证明 active 的 `REFUND_REVERSED` 不清除退款事实。
 - 列为 nullable 向后兼容扩展；旧 Worker 会忽略，应用代码回滚时保留该列。
-- 新 Worker 的退款与校正 SQL 依赖该列，必须先应用共享 PostgreSQL `0007` 再部署。dev/prod 共用 PostgreSQL Schema，远程迁移不是仅 dev 生效的操作。2026-08-19 已通过仅绑定共享 Hyperdrive 的一次性 Wrangler remote preview 应用 `0007`，事务外复核确认目标列存在，幂等复跑返回 `alreadyApplied`；一次性 preview 随后关闭，dev Worker 部署尚未执行。
+- 新 Worker 的退款与校正 SQL 依赖该列，必须先应用共享 PostgreSQL `0007` 再部署。dev/prod 共用 PostgreSQL Schema，远程迁移不是仅 dev 生效的操作。2026-08-19 已通过仅绑定共享 Hyperdrive 的一次性 Wrangler remote preview 应用 `0007`，事务外复核确认目标列存在，幂等复跑返回 `alreadyApplied`；一次性 preview 随后关闭。同日按“先迁移、后应用”的顺序完成 dev Worker 与 Admin assets 部署；Cloudflare 当前以 version `ce9ee177-27a0-49fe-8e87-0a0f4414b620` 承载 100% dev 流量，回读确认使用共享 Hyperdrive 且无 D1 binding。
 
 PostgreSQL migration manifest 测试保护 `0007` 的顺序与内容；远程 Schema 状态以上述实际迁移与复核记录为准。
