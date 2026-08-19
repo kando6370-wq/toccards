@@ -341,6 +341,33 @@ describe("Apple Notifications V2 durable consumption", () => {
     expect((await db.prepare("SELECT status FROM billing_session_entitlement_grant").first())?.status).toBe("active");
   });
 
+  it("promotes client proof into an Admin order only after verified notification cleaning", async () => {
+    await db.prepare(`INSERT INTO billing_transaction
+      (id, purchase_chain_id, store, environment, transaction_id, product_id,
+       transaction_reason, status, business_status, charge_count, source_notification_uuid,
+       purchase_at, created_at, updated_at)
+      VALUES ('client-order', 'chain-1', 'app_store', 'Sandbox', 'transaction-1',
+        'client.product', 'PURCHASE', 'purchased', 'initial_purchase', NULL, NULL, ?, ?, ?)`)
+      .bind(NOW.toISOString(), NOW.toISOString(), NOW.toISOString()).run();
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("promoted-uuid", "DID_RENEW", 10 * 60 + 5),
+      }),
+    }) });
+
+    await post(app, env, "promote-client-order");
+
+    expect(await db.prepare(`SELECT product_id, business_status, charge_count,
+      source_notification_uuid FROM billing_transaction WHERE transaction_id = 'transaction-1'`).first())
+      .toMatchObject({
+        product_id: "yearly",
+        business_status: "renewal",
+        charge_count: 1,
+        source_notification_uuid: "promoted-uuid",
+      });
+  });
+
   it("recovers a business failure from the durable inbox", async () => {
     await db.exec("DROP TABLE billing_transaction");
     const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
@@ -426,9 +453,11 @@ describe("Apple Notifications V2 durable consumption", () => {
   it("classifies RESUBSCRIBE by purchase chain instead of trusting PURCHASE reason alone", async () => {
     await db.prepare(`INSERT INTO billing_transaction
       (id, purchase_chain_id, store, environment, transaction_id, product_id,
-       transaction_reason, status, business_status, charge_count, purchase_at, created_at, updated_at)
+       transaction_reason, status, business_status, charge_count, source_notification_uuid,
+       purchase_at, created_at, updated_at)
       VALUES ('order-first', 'chain-1', 'app_store', 'Sandbox', 'transaction-first', 'yearly',
-              'PURCHASE', 'purchased', 'initial_purchase', 1, '2026-07-01T00:00:00.000Z', ?, ?)`)
+              'PURCHASE', 'purchased', 'initial_purchase', 1, 'first-notification-uuid',
+              '2026-07-01T00:00:00.000Z', ?, ?)`)
       .bind(NOW.toISOString(), NOW.toISOString()).run();
     const sameChain = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
       environment: Environment.SANDBOX,
@@ -522,7 +551,14 @@ describe("Apple Notifications V2 durable consumption", () => {
 
     expect(await db.prepare("SELECT status, revoked_at FROM billing_purchase_chain").first()).toMatchObject({ status: "REVOKED", revoked_at: new Date(revokedAt).toISOString() });
     expect((await db.prepare("SELECT status FROM billing_session_entitlement_grant").first())?.status).toBe("revoked");
-    expect(await db.prepare("SELECT status, business_status, refund_completed_at FROM billing_transaction").first()).toMatchObject({ status: "refunded", business_status: "refunded", refund_completed_at: new Date(revokedAt).toISOString() });
+    expect(await db.prepare(`SELECT status, business_status, business_status_before_refund,
+      source_notification_uuid, refund_completed_at FROM billing_transaction`).first()).toMatchObject({
+      status: "refunded",
+      business_status: "refunded",
+      business_status_before_refund: "first_paid",
+      source_notification_uuid: "refund-uuid",
+      refund_completed_at: new Date(revokedAt).toISOString(),
+    });
   });
 
   async function scalar(sql: string): Promise<number> {
@@ -572,7 +608,8 @@ async function post(
 const TRANSACTION_SCHEMA = `CREATE TABLE billing_transaction (
   id TEXT PRIMARY KEY, purchase_chain_id TEXT NOT NULL, store TEXT NOT NULL, environment TEXT NOT NULL,
   transaction_id TEXT NOT NULL, product_id TEXT NOT NULL, transaction_reason TEXT NOT NULL, status TEXT NOT NULL,
-  business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT, auto_renew_snapshot INTEGER,
+  business_status TEXT, business_status_before_refund TEXT, charge_count INTEGER,
+  source_notification_uuid TEXT, auto_renew_snapshot INTEGER,
   storefront_country_code TEXT, amount_micros INTEGER, currency TEXT, amount_usd_micros INTEGER,
   usd_exchange_rate TEXT, usd_exchange_rate_base TEXT, usd_exchange_rate_quote TEXT,
   usd_exchange_rate_source TEXT, usd_exchange_rate_effective_at TEXT, usd_exchange_rate_fetched_at TEXT,

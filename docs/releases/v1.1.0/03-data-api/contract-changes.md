@@ -2,7 +2,7 @@
 
 ## 订阅与内购数据骨架
 
-这些表最初由 D1 migration `apps/workers-api/src/db/migrations/0025_billing_admin.sql` 引入；当前 PostgreSQL 等价结构位于 `apps/workers-api/src/db/postgres/migrations/0000_business_schema.sql`，dev 数据已完成迁移：
+这些表的当前 PostgreSQL 结构位于 `apps/workers-api/src/db/postgres/migrations/0000_business_schema.sql`，dev 数据已完成迁移：
 
 | 表 | 当前用途 |
 |---|---|
@@ -68,7 +68,7 @@ Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时�
 
 ## Admin 订单与通知契约
 
-`0032_billing_order_facts.sql` 为 `billing_transaction` 增加 `business_status`、`charge_count` 和 `source_notification_uuid`。新交易由 Fresh Purchase、Restore 和 Notifications V2 三条已验证 Apple 证据链共享同一事实计算：免费试用固定为 0；成功付费按同一 `environment + originalTransactionId` 内的 `purchase_at + transactionId` 排序；重复交易不增加次数；退款不减序号、不重排。只有存在更早试用交易且尚无成功付费时才标记 `trial_conversion`，不从单独一条历史 `RENEWAL` 猜测试用转换。
+`0032_billing_order_facts.sql` 为 `billing_transaction` 增加 `business_status`、`charge_count` 和 `source_notification_uuid`。Fresh Purchase、Restore 与 Notifications V2 都可保存服务端验签通过的 Apple 交易证据并维护即时权益，但 Admin 订单真值只读取 `source_notification_uuid IS NOT NULL` 的通知确认记录；客户端路径写入的暂存交易不进入订单列表、动态筛选选项或 XLSX，也不参与扣款序号。建单类通知命中已有 `environment + transactionId` 时用通知解码字段晋升该记录。免费试用固定为 0；通知确认的成功付费按同一 `environment + originalTransactionId` 内的 `purchase_at + transactionId` 排序；重复通知不增加次数；退款不减序号、不重排。只有存在更早通知确认试用且尚无通知确认成功付费时才标记 `trial_conversion`，不从单独一条历史 `RENEWAL` 猜测试用转换。
 
 `DID_CHANGE_RENEWAL_PREF + UPGRADE/DOWNGRADE` 只更新购买链的 `next_product_id`，不创建订单。`SUBSCRIBED + RESUBSCRIBE` 使用新的 `originalTransactionId` 时是该链首次付费，业务状态为 `initial_purchase`、扣款次数为 1；沿用已有 `originalTransactionId` 时视为同链续费，即使 Apple 交易原因为 `PURCHASE`，也按 `renewal` 计入下一次扣款。确定性重算保证同链只有第一笔实际付费保留 `initial_purchase`。
 
@@ -76,15 +76,17 @@ Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时�
 
 `0034_billing_auto_renew_snapshot.sql` 为订单增加 nullable `auto_renew_snapshot`。Admin 展示、筛选和导出只读取订单事件快照，不读取 purchase chain 当前 `auto_renew`。Notifications V2 只有在当次已验签续订信息提供 `autoRenewStatus` 时写 `0/1`；Lifetime 固定写 `0`；Fresh Purchase、Restore 及历史订阅订单无法从交易 JWS 证明该值时保持 `NULL` 并显示 `--`，不以当前状态反向覆盖历史。
 
+PostgreSQL `0007_billing_refund_status.sql` 为 `billing_transaction` 增加 nullable `business_status_before_refund`。`REFUND` 首次落地时保存退款前业务状态；重复退款保持原值。`REFUND_REVERSED` 只有在 Apple Server API 校正证明对应链路 active 后才恢复该状态并清空退款事实；历史已退款记录不猜测回填，退款前业务状态缺失时恢复为 `NULL`，不得继续标记为 `refunded` 或推断为其他订单类型。新 Worker 依赖该列，发布顺序必须为先迁移共享 PostgreSQL Schema、后部署 Worker；共享 Schema 已于 2026-08-19 应用 `0007` 并完成幂等复核，dev Worker 部署待后续执行。
+
 Admin 订单列表对 nullable 订单状态、自动续期、原始金额、USD 金额与扣款次数统一显示 `--`；合法 `0` 仍显示金额或次数 0，`auto_renew=false` 显示“否”，不得把缺失值与零值混淆。Card Override 的图片上传按 `card_ref` 原子 UPSERT；并发首次上传只保留一条 override，已有行只更新图片 URL 与审计字段，必须保留原 `id`、`override_fields` 和 `is_missing_card`。
 
 已验签的 Apple 建单类通知在尚无 App owner 关联时，仍可基于启用的 `billing_product` SKU 创建 purchase chain 与订单。该链以 `original_owner_type=unlinked`、空 `original_owner_id` 表达“Apple 事实已保存但 UID 未关联”；Admin 展示空 UID，UID 筛选和安装时间查询忽略空值。通知流程不会为 `unlinked` 链创建 session grant，未知或未启用 SKU 进入 `correction_required`，因此无 UID 订单记录不会成为 Premium 授权来源。之后只有 Fresh Purchase challenge 或 Restore App Attest 这类绑定 live session 的可信证明，才能把仍为 `unlinked` 的链补关联为当前 owner并创建当前 session grant；已关联 owner 不会被其他 session 改写。
 
 | API | 当前行为 |
 |---|---|
-| `GET /api/v1/admin/billing/transactions/options` | 从实际交易动态返回国家代码与 SKU。 |
-| `GET /api/v1/admin/billing/transactions` | 支持 PRD 组合筛选及 13 列订单事实；UID、订单 ID 精确匹配。 |
-| `GET /api/v1/admin/billing/transactions/export` | 导出当前筛选的全部结果为 XLSX；同步上限 10,000 行，超限显式失败。 |
+| `GET /api/v1/admin/billing/transactions/options` | 只从通知确认订单动态返回国家代码与 SKU。 |
+| `GET /api/v1/admin/billing/transactions` | 只返回通知确认订单，支持 PRD 组合筛选及 13 列订单事实；UID、订单 ID 精确匹配。 |
+| `GET /api/v1/admin/billing/transactions/export` | 只导出当前筛选的全部通知确认订单；同步上限 10,000 行，超限显式失败。 |
 | `GET /api/v1/admin/apple-notifications/options` | 从已验签结构化通知动态返回主/子通知类型。 |
 | `GET /api/v1/admin/apple-notifications` | 以 `apple_notification_inbox` 为入口，包含验签、解析、校正和处理失败记录。 |
 | `GET /api/v1/admin/apple-notifications/:detailId` | 仅返回基本信息、处理失败原因和 Decoded Payload；不返回原始 `signedPayload`。 |
@@ -135,11 +137,11 @@ Card Detail 普通价格历史 1Y 的服务端防绕过已关闭：Free 仍可�
 
 ## PostgreSQL 查询切换
 
-Workers 业务 API 的路径、请求/响应字段、鉴权、owner 隔离、幂等、Premium 和错误语义保持不变；底层查询已从 SQLite/D1 方言改为 PostgreSQL 兼容方言。部署运行时的 `fetch` 与 `scheduled` 入口必须存在 `HYPERDRIVE`，缺失时立即失败；即使同时存在遗留 `DB` binding 也不得读取或执行任务。测试可继续通过直接调用 `app.request` 注入进程内 `DB` 适配器，但这不是部署运行时的回退路径。D1 与 PostgreSQL 完全独立，运行时不会查询或回退 D1。
+Workers 业务 API 的路径、请求/响应字段、鉴权、owner 隔离、幂等、Premium 和错误语义保持不变；底层查询使用 PostgreSQL 方言。部署运行时的 `fetch` 与 `scheduled` 入口必须存在 `HYPERDRIVE`，缺失时立即失败，不允许读取其他数据库 binding 或执行任务。测试可继续通过直接调用 `app.request` 注入进程内 `DB` 适配器，但这不是部署运行时的回退路径。
 
 Flutter 启动时校验已保存会话：只有 `/auth/me` 或 `/auth/token/refresh` 明确返回 `UNAUTHORIZED` 才判定会话失效并进入匿名账号恢复流程。PostgreSQL、配置或服务端内部错误必须保持显式失败，不能转换为“无会话”，避免短暂后端故障导致客户端错误切换 owner。
 
-PostgreSQL 结果适配器必须在类型转换前把 SQL `NULL` 原样映射为 JavaScript `null`。该规则同时适用于 nullable `bigint` 与 `numeric`：价格 baseline/change 缺失、Collection Item 尚未绑定 `price_series_id`、订单金额未知时均保持原有空值语义，不得转换为 `0`、`NaN` 或查询失败。非空 `bigint` 仍必须处于 JavaScript 安全整数范围，非空 `numeric` 仍必须是有限数值；非法值继续显式失败。该修复不新增 Schema、迁移、数据回填或 D1 回退。
+PostgreSQL 结果适配器必须在类型转换前把 SQL `NULL` 原样映射为 JavaScript `null`。该规则同时适用于 nullable `bigint` 与 `numeric`：价格 baseline/change 缺失、Collection Item 尚未绑定 `price_series_id`、订单金额未知时均保持原有空值语义，不得转换为 `0`、`NaN` 或查询失败。非空 `bigint` 仍必须处于 JavaScript 安全整数范围，非空 `numeric` 仍必须是有限数值；非法值继续显式失败。该修复不新增 Schema、迁移、数据回填或数据库回退。
 
 所有使用 `LIMIT/OFFSET` 的目录、Portfolio 与 Admin 列表必须在既有业务主排序后追加唯一稳定键，避免同名、同时间记录因 PostgreSQL 未定义同键顺序而跨页重复或漏项。Card Search 保持 `updated_at DESC`，但对 nullable `updated_at` 显式使用 `NULLS LAST`，再按 `product_id ASC`；Set Search 同名时按 `set_id ASC`；Collection/Wishlist 的可选主排序同键时按 Item ID 升序；Admin 分页按对应资源主键升序，用户联合列表先按 `account_type`、再按 `id`。该修复不改变过滤、DTO、主排序方向、页码协议或 Schema。
 
@@ -147,23 +149,23 @@ PostgreSQL 结果适配器必须在类型转换前把 SQL `NULL` 原样映射为
 
 ### PostgreSQL 并发写保护
 
-PostgreSQL 追加 `0006_mutation_lock.sql`，D1 历史/本地测试链追加 `0036_mutation_lock.sql`。`mutation_lock` 仅以主键 `lock_key` 保存串行化键，不保存业务结果；动态身份使用 SHA-256 摘要，不把 owner ID 或邮箱明文写入锁表。账号 UID 使用全局锁保护既有 `MAX(uid) + 1`；Free Scan 与 Folder 使用 owner 级锁；注册和重置验证码分别使用规范化邮箱 + purpose 锁；同设备匿名账号创建使用 device 摘要锁，保证只有一个 live owner 及其默认数据。Wishlist、Quick Collect、完整 Collection Item Create 与 Scan Confirm 对同一 owner/card 使用同一锁，Scan Confirm 另取 owner/scan 锁，防止同一扫描的不同候选各自提交。一次操作需要多把锁时先去重并按字典序获取，避免反向锁顺序。锁和受保护写入必须处于同一个 `DB.batch` 事务，后到事务在取得锁后再执行条件查询/写入；API、UID 格式、Free Scan=10、Free Folder=2、验证码 60 秒窗口及既有错误码均不变。
+PostgreSQL 追加 `0006_mutation_lock.sql`。`mutation_lock` 仅以主键 `lock_key` 保存串行化键，不保存业务结果；动态身份使用 SHA-256 摘要，不把 owner ID 或邮箱明文写入锁表。账号 UID 使用全局锁保护既有 `MAX(uid) + 1`；Free Scan 与 Folder 使用 owner 级锁；注册和重置验证码分别使用规范化邮箱 + purpose 锁；同设备匿名账号创建使用 device 摘要锁，保证只有一个 live owner 及其默认数据。Wishlist、Quick Collect、完整 Collection Item Create 与 Scan Confirm 对同一 owner/card 使用同一锁，Scan Confirm 另取 owner/scan 锁，防止同一扫描的不同候选各自提交。一次操作需要多把锁时先去重并按字典序获取，避免反向锁顺序。锁和受保护写入必须处于同一个 `DB.batch` 事务，后到事务在取得锁后再执行条件查询/写入；API、UID 格式、Free Scan=10、Free Folder=2、验证码 60 秒窗口及既有错误码均不变。
 
-部署顺序必须先执行 expand migration `0006`，再部署依赖锁表的新 Worker。旧 Worker 会忽略新增表，可在 migration 后继续运行；新 Worker 在表不存在时显式失败，不允许先部署代码。D1-to-PostgreSQL runner 将 `mutation_lock` 视为 source 可选、target 必需的基础设施表，不搬运其中数据，并按 manifest 的完整有序名称校验 migration ledger，不再复制固定数量。runner 在计算 checksum 与执行前统一把 CRLF 和孤立 CR 规范为 LF，因此同一 migration 不会因 Windows Text loader 换行差异与远程 LF ledger 产生伪冲突；规范化之外的 SQL 内容变化仍必须显式失败。2026-08-19 已按该顺序执行共享 PostgreSQL `0006` 并部署依赖锁表的 dev Worker；执行、复核和回滚边界见 [migration.md](migration.md)。production 未执行该迁移或部署；本次 Git 交付不重复执行迁移、部署或数据写入。
+部署顺序必须先执行 expand migration `0006`，再部署依赖锁表的新 Worker。旧 Worker 会忽略新增表，可在 migration 后继续运行；新 Worker 在表不存在时显式失败，不允许先部署代码。PostgreSQL migration manifest 按完整有序名称校验 ledger；runner 在计算 checksum 与执行前统一把 CRLF 和孤立 CR 规范为 LF，因此同一 migration 不会因 Windows Text loader 换行差异与远程 LF ledger 产生伪冲突，规范化之外的 SQL 内容变化仍必须显式失败。2026-08-19 已按该顺序执行共享 PostgreSQL `0006` 并部署依赖锁表的 dev Worker；该 schema 变更对共用数据库的 dev/prod 同时生效，prod Worker 部署仍是独立发布动作。执行、复核和回滚边界见 [migration.md](migration.md)；本次 Git 交付不重复执行迁移、部署或数据写入。
 
-旧 `tcg_price` 不参与运行时查询。Search、卡片详情、市场价、Price Series、Trending 和 Portfolio 估值统一读取 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month` 与 `card_trending_snapshot`。当前价只读取 `status=published` 且被 `current:%` pointer 指向的批次；月历史只读取同来源、同 scope 的 `published/superseded` lineage，并要求该来源和 scope 仍有已发布 current pointer。不同 scope 不能互相授权历史可见性；任何月块内容或 checksum 变化都必须记录新的 batch lineage，不能保留旧 `last_batch_id` 原地改写。PostgreSQL 的通用评级 `grader_code=GENERIC` 在 API 边界继续显示为既有 `Grade` 桶，Price Series 查询同时接受 `GENERIC` 与 `Grade`，避免数据库代码变化破坏收藏编辑和扫描确认的 PSA/BGS 共享等级估值。收藏编辑页打开已有 Item 时按该 Item 的 language 与 finish 重新加载市场价，后续切换语言或版本也只展示对应价格维度。七张新价格表为空时，市场价和 Trending 返回空集合，不回退旧 D1 价格或旧 KV Trending 缓存。Card Detail 的 Shop 从已发布 current snapshot 中只选择 `source_code=tcgplayer` 的 Raw 商品，按品相生成最多 4 条 TCGplayer 商品外链；`date` 与 `price` 表示当前商品价格快照，不得解释为已成交记录。其他价格来源不得混入 Shop，独立的 View Sold Listings 成交查询入口不受此映射影响。
+旧 `tcg_price` 不参与运行时查询。Search、卡片详情、市场价、Price Series、Trending 和 Portfolio 估值统一读取 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month` 与 `card_trending_snapshot`。当前价只读取 `status=published` 且被 `current:%` pointer 指向的批次；月历史只读取同来源、同 scope 的 `published/superseded` lineage，并要求该来源和 scope 仍有已发布 current pointer。不同 scope 不能互相授权历史可见性；任何月块内容或 checksum 变化都必须记录新的 batch lineage，不能保留旧 `last_batch_id` 原地改写。PostgreSQL 的通用评级 `grader_code=GENERIC` 在 API 边界继续显示为既有 `Grade` 桶，Price Series 查询同时接受 `GENERIC` 与 `Grade`，避免数据库代码变化破坏收藏编辑和扫描确认的 PSA/BGS 共享等级估值。收藏编辑页打开已有 Item 时按该 Item 的 language 与 finish 重新加载市场价，后续切换语言或版本也只展示对应价格维度。七张新价格表为空时，市场价和 Trending 返回空集合，不回退旧价格结果或旧 KV Trending 缓存。Card Detail 的 Shop 从已发布 current snapshot 中只选择 `source_code=tcgplayer` 的 Raw 商品，按品相生成最多 4 条 TCGplayer 商品外链；`date` 与 `price` 表示当前商品价格快照，不得解释为已成交记录。其他价格来源不得混入 Shop，独立的 View Sold Listings 成交查询入口不受此映射影响。
 
-公共数据接口必须区分 PostgreSQL 成功返回零行与查询失败：前者按既有契约返回正常空集合或 `404 NOT_FOUND`，后者返回非 2xx，使 Flutter 进入整页或局部失败态。Search、Sets、卡片详情、Market Prices、Price Series 与 Shop 不得捕获数据库异常后伪装为成功空数据或不存在。Flutter Trending Today 对成功空集合显示正常空态，仅在查询失败时显示失败重试；后续分页失败保留已加载卡片并提供局部重试。Flutter Search 的追加页失败同样保留已加载卡片和当前页码，停止滚动触发的自动重试，并通过列表底部操作重试同一下一页；成功后才推进页码和继续分页。缓存只可复用本次 PostgreSQL 切换后产生的有效响应，不得成为 D1 或旧价格结果的回退通道。
+公共数据接口必须区分 PostgreSQL 成功返回零行与查询失败：前者按既有契约返回正常空集合或 `404 NOT_FOUND`，后者返回非 2xx，使 Flutter 进入整页或局部失败态。Search、Sets、卡片详情、Market Prices、Price Series 与 Shop 不得捕获数据库异常后伪装为成功空数据或不存在。Flutter Trending Today 对成功空集合显示正常空态，仅在查询失败时显示失败重试；后续分页失败保留已加载卡片并提供局部重试。Flutter Search 的追加页失败同样保留已加载卡片和当前页码，停止滚动触发的自动重试，并通过列表底部操作重试同一下一页；成功后才推进页码和继续分页。缓存只可复用 PostgreSQL 切换后产生的有效响应，不得成为迁移前价格结果的回退通道。
 
-价格变化窗口按页面语义固定：Trending Today 只消费 `change_1d_percent`，Search、Collection 和 Most Valuable 只消费 `change_30d_percent`，Card Detail Market Prices 只消费 `change_7d_percent`。Market Prices 响应通过 `previous_7d_price_usd` 直接返回 PostgreSQL `baseline_7d_amount_micros` 的美元值；Flutter 使用该字段计算 7D Change，不得从稀疏 Price Series 推导基准价。Workers 必须显式返回对应窗口字段，Flutter 不得把一个通用变化率跨页面复用；对应 baseline 不存在时保持 `null`，界面显示 `-/-`，不得伪装为 `0%`。D1 与 PostgreSQL 完全独立，不参与该字段的查询、补全或回退。
+价格变化窗口按页面语义固定：Trending Today 只消费 `change_1d_percent`，Search、Collection 和 Most Valuable 只消费 `change_30d_percent`，Card Detail Market Prices 只消费 `change_7d_percent`。Market Prices 响应通过 `previous_7d_price_usd` 直接返回 PostgreSQL `baseline_7d_amount_micros` 的美元值；Flutter 使用该字段计算 7D Change，不得从稀疏 Price Series 推导基准价。Workers 必须显式返回对应窗口字段，Flutter 不得把一个通用变化率跨页面复用；对应 baseline 不存在时保持 `null`，界面显示 `-/-`，不得伪装为 `0%`。
 
 Home Most Valuable 与 Portfolio 总资产使用不同金额口径：`current_value_usd` 和历史 `series[].value_usd` 继续按单张市场价乘 `quantity` 汇总；`most_valuable[].price_usd` 与 `previous_30d_price_usd` 均为单张价格，`quantity` 不参与展示或排名。排名使用未提前舍入的当前单张价格降序；相同单价依次按已知 30D 涨幅降序、Collection Item 创建时间倒序、名称 A-Z 和稳定 `item_id` 排序。创建时间由该 Item 的首个事件 `effective_at` 表达，不把后续数量或属性编辑时间误当成加入时间。
 
-`GET /api/v1/portfolio/valuation-history` 的每个 Folder 增加 `item_count` 与 `market_price_status`。`item_count` 是响应结束日该 Folder 中未删除的 Collection Item 数；至少一个当前 Item 存在可匹配的已发布 PostgreSQL 价格时状态为 `available`，否则为 `missing`，合法零价格仍属于 `available`。Flutter Home 以 `item_count=0` 显示添加卡牌引导；有 Item 且状态为 `missing` 时总额显示 `--` 和市场价格不可用状态，不把未知估值伪装为 `$0`，也不从 D1 补全。Flutter Collection 同样仅把 `null` 视为缺价：空 Folder 显示零总额，有 Item 且全部缺价时显示 `--`，至少一个价格已知时汇总已知值，合法零价格按 `$0.00` 展示。
+`GET /api/v1/portfolio/valuation-history` 的每个 Folder 增加 `item_count` 与 `market_price_status`。`item_count` 是响应结束日该 Folder 中未删除的 Collection Item 数；至少一个当前 Item 存在可匹配的已发布 PostgreSQL 价格时状态为 `available`，否则为 `missing`，合法零价格仍属于 `available`。Flutter Home 以 `item_count=0` 显示添加卡牌引导；有 Item 且状态为 `missing` 时总额显示 `--` 和市场价格不可用状态，不把未知估值伪装为 `$0`，也不从其他来源补全。Flutter Collection 同样仅把 `null` 视为缺价：空 Folder 显示零总额，有 Item 且全部缺价时显示 `--`，至少一个价格已知时汇总已知值，合法零价格按 `$0.00` 展示。
 
 Hyperdrive 查询边界固定如下：当前价格按最多 40 个 card ref 分块，单块最多接收 1,000 行；历史按最多 100 个 series 分块，单块最多接收 1,600 个自然月块；数据库把每个月块的 JSONB 文本限制为 24 KiB，因此一批历史 JSON 理论上限为 39,321,600 bytes（37.5 MiB），并为 50 MB 响应边界中的其他列与协议开销保留余量；单次历史范围最多 400 天；Portfolio 估值事件一次最多接收 10,000 行。超出任一行数或月块字节上限均显式失败，不截断后继续返回不完整业务结果。`POST /api/v1/cards/:card_ref/price-series/batch` 继续最多接收 100 项，但默认 PostgreSQL 实现改为当前快照集合查询加历史集合查询，不再对 100 项执行 `Promise.all` 查询扇出。Admin 安装分析不再读取完整 `app_installation` 后由 Worker 过滤：日期、平台与国家筛选在 SQL 执行，summary 固定返回一行、trend 只返回按日聚合行，分组明细在数据库 `LIMIT/OFFSET` 且 `page_size` 最大 100；环境筛选不匹配当前 Worker 时直接返回空统计，不查询共享数据库。
 
-价格金额在 PostgreSQL 使用整数 `amount_micros`，API 边界转换为美元数值；月度 JSONB 同时支持紧凑 `{d,a}` 与既有 `{date,price}` 点位格式。空点数组是正常无历史数据；顶层非数组、非法日期、非法金额或不完整点位必须显式失败，不得过滤后返回空历史或部分历史。Search、Trending、Price Series 与 Market Prices 的缓存版本已分别提升，防止迁移前 D1 价格结果跨切换复用；Shop 使用的 `GET /api/v1/cards/:card_ref/sold-listings` 保持 `no-store`，只读取已发布 PostgreSQL TCGplayer current snapshot，不回退 D1。
+价格金额在 PostgreSQL 使用整数 `amount_micros`，API 边界转换为美元数值；月度 JSONB 同时支持紧凑 `{d,a}` 与既有 `{date,price}` 点位格式。空点数组是正常无历史数据；顶层非数组、非法日期、非法金额或不完整点位必须显式失败，不得过滤后返回空历史或部分历史。Search、Trending、Price Series 与 Market Prices 的缓存版本已分别提升，防止迁移前价格结果跨切换复用；Shop 使用的 `GET /api/v1/cards/:card_ref/sold-listings` 保持 `no-store`，只读取已发布 PostgreSQL TCGplayer current snapshot，不使用其他数据库来源。
 
 ## Apple Notifications V2
 
@@ -173,7 +175,7 @@ Hyperdrive 查询边界固定如下：当前价格按最多 40 个 card ref 分�
 | 每 5 分钟 Cron | 重试 `pending`、`processing_failed` 或处理租约已过期的收件箱记录。 |
 | Apple Server API 校正 | Cron 查询 `correction_required` 对应的现有 purchase chain，调用 Apple 当前订阅状态/交易接口并再次验签嵌套 JWS；只修正同链状态与已有 grant。 |
 
-dev/prod 共用 PostgreSQL 后，`apple_notification_inbox.environment` 是通知队列的持久化归属。入站去重键为 `(environment, payload_sha256)`；通知重试、processing lease、完成/失败更新和 Server API 校正均同时过滤运行时环境。dev 只能领取 `Sandbox`，prod 只能领取 `Production`，不能由一个环境处理另一环境的队列。D1 inbox 与 PostgreSQL 完全独立，不迁移、不查询或补全；无法证明环境的既有 PostgreSQL 行会阻止 schema migration，不静默猜测。
+dev/prod 共用 PostgreSQL 后，`apple_notification_inbox.environment` 是通知队列的持久化归属。入站去重键为 `(environment, payload_sha256)`；通知重试、processing lease、完成/失败更新和 Server API 校正均同时过滤运行时环境。dev 只能领取 `Sandbox`，prod 只能领取 `Production`，不能由一个环境处理另一环境的队列。无法证明环境的既有 PostgreSQL 行会阻止 schema migration，不静默猜测。
 
 未知但已验签的主通知类型和 Payload 字段会完整进入结构化通知及 Admin 动态选项/详情；在没有已定义业务语义时标记为 `processed`，不猜测建单或修改 purchase chain/grant。验签后的通知以 `notificationUUID` 幂等，新订单以 `environment + transactionId` 幂等。purchase chain 生命周期按 `(signedDate, notificationUUID)` 保护：更早事件不能覆盖更新状态，同一时点冲突进入 `correction_required`。Grace 保持 grant 有效至 `gracePeriodExpiresDate`，Billing Retry/Expired 使 grant 失效，Refund 修改原交易并撤销同链 grant；`REFUND_REVERSED` 等不能从通知本身确定终态的事件先进入校正，再由 Apple Server API 当前状态恢复受影响订单/链路。校正不会创建 owner/session grant，也不按 UID 传播 Premium。
 

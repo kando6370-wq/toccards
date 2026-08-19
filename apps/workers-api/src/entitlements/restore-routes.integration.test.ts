@@ -114,10 +114,13 @@ describe("Apple Restore proof routes", () => {
       source: "restore",
       status: "active",
     });
-    expect(await db.prepare(`SELECT business_status, charge_count, auto_renew_snapshot, storefront_country_code
+    // Restore proves this session's entitlement but remains outside Admin until notification confirmation.
+    expect(await db.prepare(`SELECT business_status, charge_count, source_notification_uuid,
+      auto_renew_snapshot, storefront_country_code
       FROM billing_transaction`).first()).toEqual({
       business_status: "renewal",
-      charge_count: 1,
+      charge_count: null,
+      source_notification_uuid: null,
       auto_renew_snapshot: null,
       storefront_country_code: null,
     });

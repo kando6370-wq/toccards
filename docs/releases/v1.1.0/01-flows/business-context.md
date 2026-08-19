@@ -165,11 +165,12 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 
 ### 3.6 Admin 订单与 Apple 通知
 
-1. Apple 通知/验证写入购买链、交易、业务状态和通知事实。
-2. Admin 订单页按 UID、订单、国家、SKU、状态、时间、续订、环境和扣款次数组合查询。
-3. 订单导出复用同一筛选，最多 10,000 行 XLSX。
-4. 通知页查询 inbox/结构化通知；只有打开详情时返回 decoded payload，不返回 signed JWS。
-5. 失败记录保留 processing status 和错误，供排障；Admin 不能人工改 Premium。
+1. Fresh Purchase/Restore 的 Apple 签名交易可先写入交易暂存证据并维护当前 session 权益；它们不直接成为 Admin 订单。
+2. 已验签、已解码的 Notifications V2 建单事件按 `environment + transactionId` 新建或晋升暂存记录，并写入来源通知 UUID；Admin 订单页只查询这些通知确认记录。
+3. Admin 订单页按 UID、订单、国家、SKU、状态、时间、续订、环境和扣款次数组合查询；扣款序号只在通知确认记录之间计算。
+4. 订单导出复用同一筛选，最多 10,000 行 XLSX。
+5. 通知页查询 inbox/结构化通知；只有打开详情时返回 decoded payload，不返回 signed JWS。
+6. 失败记录保留 processing status 和错误，供排障；Admin 不能人工改 Premium。
 
 证据：`admin/routes.ts`、`admin/xlsx.ts`、`billing-routes.integration.test.ts`、[Admin 实现文档](../04-admin/admin.md)。
 
@@ -211,7 +212,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | 通知 | `apple_notification_inbox`、`apple_server_notification` | 原始请求与结构化通知一对零/一，失败仍保留 inbox |
 | Admin/运营 | `admin_user`、`app_config`、`feedback_ticket`、`card_override` | 独立管理员身份与运营记录 |
 
-当前运行字段、约束和索引以 `apps/workers-api/src/db/postgres/migrations/0000_business_schema.sql` 至 `0005_drop_trending_pin.sql` 为准；`src/db/schema.ts` 与 `src/db/migrations/0000-0035` 仅保留历史 D1/本地测试契约。
+当前运行字段、约束和索引以 `apps/workers-api/src/db/postgres/migrations/` 内的顺序 migration 为准；后续 schema 变更只允许新增 PostgreSQL 向前迁移。
 
 ## 5. 业务规则与计算公式
 
@@ -236,7 +237,6 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | Apple Notifications/Server API | 上游校正 | JWS、通知、当前交易历史 | 生命周期延迟；inbox/校正任务应保留并重试 |
 | OCR | 上游 | 扫描图片识别 | Scan 失败并释放 Free 预占 |
 | PlanetScale PostgreSQL / Hyperdrive | 核心真源与连接边界 | 参数化 PostgreSQL SQL | 账号、资产、额度、订阅和 Admin 不可用 |
-| D1 | 与 PostgreSQL 完全独立的历史库与本地测试能力 | 历史 SQL/Drizzle、Miniflare | 当前 App、Admin、Worker、Cron、数据修复和灾备均不得查询、补全、回退或恢复 D1 |
 | KV | 缓存 | 目录/汇率快照 | 可回源或显式失败，不能改变授权真值 |
 | R2 | 对象存储 | 扫描原图 | 识别可按配置继续；Admin 图片可能不可查看 |
 | 邮件/OAuth | 身份上游 | 验证码和第三方登录 | 注册、找回或 OAuth 登录受阻 |
@@ -280,7 +280,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 |---|---|---|
 | Lifetime 已验证本地缓存最长离线时间是多少？ | 冷启动/离线 Premium 体验 | 产品待决，不擅自设时限 |
 | Android 是否在 v1.1 销售 Premium？ | 商品、授权和跨端验收 | 当前只激活 Apple/iOS；保留抽象但不误售 |
-| 独立价格上游导入、目标规模压测和冷数据方案何时验收？ | 价格 API 实数可用性与容量 | PlanetScale PostgreSQL/Hyperdrive 和 7 表结构已实施；迁移检查点七表为空，旧 `tcg_price` 与 D1 均被明确排除，需独立上游契约、R2 冷层和目标规模压测 |
+| 独立价格上游导入、目标规模压测和冷数据方案何时验收？ | 价格 API 实数可用性与容量 | PlanetScale PostgreSQL/Hyperdrive 和 7 表结构已实施；迁移检查点七表为空，旧 `tcg_price` 被明确排除，需独立上游契约、R2 冷层和目标规模压测 |
 | 后续 dev/prod 的迁移、Secret 和部署是否仍与 2026-08-17 记录一致？ | 发布判断 | 本次已重连核验 dev/prod deployment；Secret 仅核实配置项存在。远程状态会变化，后续发布前必须重新查询 |
 | Apple 生产 SKU、Root CA、Server API 与 Sandbox/TestFlight 是否完成？ | 购买/通知发布验收 | 本次未验证，不宣称完成 |
 | 重度 Portfolio、真实订单与多设备并发是否达标？ | Performance/Admin/Quota SLA | 自动化只证明仓库内逻辑，仍需目标规模验收 |

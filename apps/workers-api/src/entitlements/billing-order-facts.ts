@@ -35,12 +35,14 @@ export function billingOrderFactStatements(
       SET business_status = 'renewal'
       WHERE purchase_chain_id = ? AND environment = ?
         AND business_status = 'initial_purchase'
+        AND source_notification_uuid IS NOT NULL
         AND EXISTS (
           SELECT 1 FROM billing_transaction AS earlier_paid_transaction
           WHERE earlier_paid_transaction.purchase_chain_id = current_transaction.purchase_chain_id
             AND earlier_paid_transaction.environment = current_transaction.environment
             AND earlier_paid_transaction.business_status IS NOT NULL
             AND earlier_paid_transaction.business_status != 'trial'
+            AND earlier_paid_transaction.source_notification_uuid IS NOT NULL
             AND (
               earlier_paid_transaction.purchase_at < current_transaction.purchase_at
               OR (earlier_paid_transaction.purchase_at = current_transaction.purchase_at
@@ -55,6 +57,7 @@ export function billingOrderFactStatements(
         WHERE trial_transaction.purchase_chain_id = current_transaction.purchase_chain_id
           AND trial_transaction.environment = current_transaction.environment
           AND trial_transaction.business_status = 'trial'
+          AND trial_transaction.source_notification_uuid IS NOT NULL
           AND (
             trial_transaction.purchase_at < current_transaction.purchase_at
             OR (trial_transaction.purchase_at = current_transaction.purchase_at
@@ -66,6 +69,7 @@ export function billingOrderFactStatements(
           AND earlier_paid_transaction.environment = current_transaction.environment
           AND earlier_paid_transaction.business_status IS NOT NULL
           AND earlier_paid_transaction.business_status != 'trial'
+          AND earlier_paid_transaction.source_notification_uuid IS NOT NULL
           AND (
             earlier_paid_transaction.purchase_at < current_transaction.purchase_at
             OR (earlier_paid_transaction.purchase_at = current_transaction.purchase_at
@@ -74,6 +78,7 @@ export function billingOrderFactStatements(
       ) THEN 'trial_conversion' ELSE 'renewal' END
       WHERE purchase_chain_id = ? AND environment = ?
         AND business_status IN ('trial_conversion', 'renewal')
+        AND source_notification_uuid IS NOT NULL
     `).bind(purchaseChainId, environment),
     db.prepare(`
       UPDATE billing_transaction AS current_transaction
@@ -86,6 +91,7 @@ export function billingOrderFactStatements(
             AND counted_transaction.environment = current_transaction.environment
             AND counted_transaction.business_status IS NOT NULL
             AND counted_transaction.business_status != 'trial'
+            AND counted_transaction.source_notification_uuid IS NOT NULL
             AND (
               counted_transaction.purchase_at < current_transaction.purchase_at
               OR (counted_transaction.purchase_at = current_transaction.purchase_at
@@ -94,6 +100,7 @@ export function billingOrderFactStatements(
         )
       END
       WHERE purchase_chain_id = ? AND environment = ?
+        AND source_notification_uuid IS NOT NULL
     `).bind(purchaseChainId, environment),
   ];
 }

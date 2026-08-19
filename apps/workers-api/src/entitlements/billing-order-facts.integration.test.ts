@@ -17,7 +17,7 @@ describe("billing order facts", () => {
     await db.prepare(`CREATE TABLE billing_transaction (
       id TEXT PRIMARY KEY, purchase_chain_id TEXT NOT NULL, environment TEXT NOT NULL,
       transaction_id TEXT NOT NULL, purchase_at TEXT NOT NULL,
-      business_status TEXT, charge_count INTEGER
+      business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT
     )`).run();
   });
 
@@ -60,6 +60,17 @@ describe("billing order facts", () => {
     ]);
   });
 
+  it("does not let client proof affect Admin charge order before an Apple notification promotes it", async () => {
+    await insert("client-only", "t-1", "2026-01-01T00:00:00.000Z", "initial_purchase", null);
+    await insert("notification-order", "t-2", "2026-02-01T00:00:00.000Z", "renewal");
+    await recalculate();
+
+    expect(await rows()).toEqual([
+      { transaction_id: "t-1", business_status: "initial_purchase", charge_count: null },
+      { transaction_id: "t-2", business_status: "renewal", charge_count: 1 },
+    ]);
+  });
+
   it("does not infer trial conversion without a proven trial transaction", () => {
     expect(businessStatusForAppleTransaction("DID_RENEW", "ACTIVE", {
       transactionReason: "RENEWAL",
@@ -70,11 +81,18 @@ describe("billing order facts", () => {
     })).toBe("trial");
   });
 
-  async function insert(id: string, transactionId: string, purchaseAt: string, status: string) {
+  async function insert(
+    id: string,
+    transactionId: string,
+    purchaseAt: string,
+    status: string,
+    sourceNotificationUuid: string | null = `notification-${id}`,
+  ) {
     await db.prepare(`INSERT INTO billing_transaction
-      (id, purchase_chain_id, environment, transaction_id, purchase_at, business_status)
-      VALUES (?, 'chain-1', 'Sandbox', ?, ?, ?)`)
-      .bind(id, transactionId, purchaseAt, status).run();
+      (id, purchase_chain_id, environment, transaction_id, purchase_at, business_status,
+       source_notification_uuid)
+      VALUES (?, 'chain-1', 'Sandbox', ?, ?, ?, ?)`)
+      .bind(id, transactionId, purchaseAt, status, sourceNotificationUuid).run();
   }
 
   async function recalculate() {

@@ -12,6 +12,7 @@ import priceHistoryVisibilityGuardSql from "../../src/db/postgres/migrations/000
 import priceHistoryPayloadLimitSql from "../../src/db/postgres/migrations/0004_price_history_month_payload_limit.sql";
 import dropTrendingPinSql from "../../src/db/postgres/migrations/0005_drop_trending_pin.sql";
 import mutationLockSql from "../../src/db/postgres/migrations/0006_mutation_lock.sql";
+import billingRefundStatusSql from "../../src/db/postgres/migrations/0007_billing_refund_status.sql";
 import {
   MAX_BATCH_BYTES,
   MAX_BATCH_ROWS,
@@ -46,6 +47,7 @@ const MIGRATIONS = [
   { name: "0004_price_history_month_payload_limit", sql: priceHistoryPayloadLimitSql },
   { name: "0005_drop_trending_pin", sql: dropTrendingPinSql },
   { name: "0006_mutation_lock", sql: mutationLockSql },
+  { name: "0007_billing_refund_status", sql: billingRefundStatusSql },
 ] as const;
 
 export default {

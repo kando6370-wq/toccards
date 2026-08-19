@@ -13,6 +13,7 @@ import {
   Select,
   Segmented,
   Space,
+  Spin,
   Switch,
   Table,
   Tag,
@@ -20,7 +21,7 @@ import {
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { resolveAdminApiBase } from "./api-base";
 
@@ -379,7 +380,7 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
 
   return (
     <Layout className="admin-layout">
-      <Sider width={186} className="admin-sider">
+      <Sider width={186} breakpoint="lg" collapsedWidth={0} className="admin-sider">
         <div className="sidebar-brand">
           <strong>TCG Admin</strong>
           <span>Backend Portal</span>
@@ -517,7 +518,7 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
     { title: "SKU", dataIndex: "sku", width: 180, ellipsis: true },
     { title: "订单状态", dataIndex: "order_status", width: 135, render: billingOrderStatusTag },
     { title: "当前订阅状态", dataIndex: "subscription_status", width: 130, render: billingSubscriptionStatusTag },
-    { title: "自动续期", dataIndex: "auto_renew", width: 90, render: (value) => value === null ? "--" : value ? "是" : "否" },
+    { title: "自动续期", dataIndex: "auto_renew", width: 90, render: billingAutoRenewTag },
     { title: "环境", dataIndex: "environment", width: 100, render: billingEnvironmentLabel },
     { title: "原始金额", width: 110, render: (_, row) => billingAmount(row.amount_micros, row.currency) },
     { title: "金额（USD）", width: 110, render: (_, row) => billingAmount(row.amount_usd_micros, "USD") },
@@ -527,15 +528,15 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
     <section className="scans-filter-panel">
       <ScanFilterField label="UID"><Input value={draft.uid ?? ""} placeholder="请输入用户 ID。" onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} placeholder="请输入订单 ID。" onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
-      <ScanFilterField label="国家/地区"><Select showSearch mode="multiple" value={csvValues(draft.country)} options={countryOptions} onChange={(v) => setDraft({ ...draft, country: v.join(",") })} /></ScanFilterField>
-      <ScanFilterField label="SKU"><Select showSearch mode="multiple" value={csvValues(draft.sku)} options={skuOptions} onChange={(v) => setDraft({ ...draft, sku: v.join(",") })} /></ScanFilterField>
-      <ScanFilterField label="订单状态"><Select mode="multiple" value={csvValues(draft.status)} options={billingStatusOptions} onChange={(v) => setDraft({ ...draft, status: v.join(",") })} /></ScanFilterField>
-      <ScanFilterField label="当前订阅状态"><Select mode="multiple" value={csvValues(draft.subscription_status)} options={billingSubscriptionStatusOptions} onChange={(v) => setDraft({ ...draft, subscription_status: v.join(",") })} /></ScanFilterField>
+      <ScanFilterField label="国家/地区"><Select showSearch mode="multiple" placeholder="全部" value={csvValues(draft.country)} options={countryOptions} onChange={(v) => setDraft({ ...draft, country: v.join(",") })} /></ScanFilterField>
+      <ScanFilterField label="SKU"><Select showSearch mode="multiple" placeholder="全部" value={csvValues(draft.sku)} options={skuOptions} onChange={(v) => setDraft({ ...draft, sku: v.join(",") })} /></ScanFilterField>
+      <ScanFilterField label="订单状态"><Select mode="multiple" placeholder="全部" value={csvValues(draft.status)} options={billingStatusOptions} onChange={(v) => setDraft({ ...draft, status: v.join(",") })} /></ScanFilterField>
+      <ScanFilterField label="当前订阅状态"><Select mode="multiple" placeholder="全部" value={csvValues(draft.subscription_status)} options={billingSubscriptionStatusOptions} onChange={(v) => setDraft({ ...draft, subscription_status: v.join(",") })} /></ScanFilterField>
       <ScanFilterField label="安装时间（UTC+0）"><DatePicker.RangePicker key={`install-${dateKey}`} showTime onChange={(_, v) => setDraft({ ...draft, install_from: v[0], install_to: v[1] })} /></ScanFilterField>
       <ScanFilterField label="订单时间（UTC+0）"><DatePicker.RangePicker key={`purchase-${dateKey}`} showTime onChange={(_, v) => setDraft({ ...draft, purchase_from: v[0], purchase_to: v[1] })} /></ScanFilterField>
-      <ScanFilterField label="自动续期"><Select allowClear value={draft.auto_renew || undefined} options={[{ value: "true", label: "是" }, { value: "false", label: "否" }]} onChange={(v) => setDraft({ ...draft, auto_renew: v ?? "" })} /></ScanFilterField>
-      <ScanFilterField label="环境"><Select allowClear value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
-      <ScanFilterField label="扣款次数"><Select allowClear value={draft.charge_count || undefined} options={billingChargeCountOptions} onChange={(v) => setDraft({ ...draft, charge_count: v ?? "" })} /></ScanFilterField>
+      <ScanFilterField label="自动续期"><Select allowClear placeholder="全部" value={draft.auto_renew || undefined} options={[{ value: "true", label: "是" }, { value: "false", label: "否" }]} onChange={(v) => setDraft({ ...draft, auto_renew: v ?? "" })} /></ScanFilterField>
+      <ScanFilterField label="环境"><Select allowClear placeholder="全部" value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
+      <ScanFilterField label="扣款次数"><Select allowClear placeholder="全部" value={draft.charge_count || undefined} options={billingChargeCountOptions} onChange={(v) => setDraft({ ...draft, charge_count: v ?? "" })} /></ScanFilterField>
       <div className="scans-filter-actions"><Button disabled={loading} onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyFilters}>查询</Button></div>
     </section>
     <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>订单列表</Title><Space><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button><Button disabled={!data?.total || loading || exporting} loading={exporting} onClick={exportOrders}>导出</Button></Space></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的订单" }} pagination={false} scroll={{ x: 1650 }} />
@@ -550,23 +551,75 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [detail, setDetail] = useState<AppleNotificationDetail | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(false);
+  const detailRequestVersion = useRef(0);
   const path = useMemo(() => queryPath("/apple-notifications", page, filters), [filters, page]);
   const { data, loading, reload, error } = useAdminData<PagedResponse<AppleNotificationRow>>(path, session);
   const { data: optionData } = useAdminData<AppleNotificationOptions>("/apple-notifications/options", session);
+  useEffect(() => {
+    if (loading || !data) return;
+    const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
+    if (page > lastPage) setPage(lastPage);
+  }, [data, loading, page]);
   const notificationTypes = [...new Set((optionData?.items ?? []).map((item) => item.notification_type))];
   const notificationTypeOptions = notificationTypes.map((value) => ({ value, label: value }));
-  const selectedTypes = csvValues(draft.notification_type);
+  const selectedType = draft.notification_type || undefined;
   const subtypeOptions = [...new Set((optionData?.items ?? [])
-    .filter((item) => selectedTypes.length === 0 || selectedTypes.includes(item.notification_type))
+    .filter((item) => !selectedType || item.notification_type === selectedType)
     .map((item) => item.subtype).filter((value): value is string => !!value))]
     .map((value) => ({ value, label: value }));
-  async function openDetail(id: string) { setDetail(await adminRequest<AppleNotificationDetail>(`/apple-notifications/${id}`, { token: session.accessToken })); }
+  function applyNotificationFilters() {
+    const nextFilters = {
+      ...draft,
+      uid: draft.uid?.trim() ?? "",
+      original_transaction_id: draft.original_transaction_id?.trim() ?? "",
+      order_id: draft.order_id?.trim() ?? "",
+    };
+    setDraft(nextFilters);
+    setFilters(nextFilters);
+    setPage(1);
+  }
+  function resetNotificationFilters() {
+    setDraft({});
+    setFilters({});
+    setPage(1);
+    setDateKey((value) => value + 1);
+  }
+  async function openDetail(id: string) {
+    const requestVersion = ++detailRequestVersion.current;
+    setDetailId(id);
+    setDetail(null);
+    setDetailError(false);
+    setDetailLoading(true);
+    try {
+      const nextDetail = await adminRequest<AppleNotificationDetail>(`/apple-notifications/${id}`, { token: session.accessToken });
+      if (requestVersion === detailRequestVersion.current) setDetail(nextDetail);
+    } catch {
+      if (requestVersion === detailRequestVersion.current) setDetailError(true);
+    } finally {
+      if (requestVersion === detailRequestVersion.current) setDetailLoading(false);
+    }
+  }
+  function closeDetail() {
+    detailRequestVersion.current += 1;
+    setDetailId(null);
+    setDetail(null);
+    setDetailError(false);
+    setDetailLoading(false);
+  }
   async function copyDecodedPayload() {
     if (!detail?.decoded_payload) return;
-    await navigator.clipboard.writeText(prettyJson(detail.decoded_payload));
-    message.success("已复制通知内容");
+    try {
+      await navigator.clipboard.writeText(prettyJson(detail.decoded_payload));
+      message.success("已复制通知内容");
+    } catch {
+      message.error("复制失败，请稍后重试");
+    }
   }
   const notificationValue = (value: unknown) => value === null || value === undefined || value === "" ? "--" : String(value);
+  const notificationUtcTime = (value: string | null) => value ? formatUtcTime(value).replace(/^-$|^--$/, "--") : "--";
   const columns: ColumnsType<AppleNotificationRow> = [
     { title: "UID", dataIndex: "uids", width: 120, ellipsis: true, render: notificationValue },
     { title: "原始交易 ID", dataIndex: "original_transaction_id", width: 190, ellipsis: true, render: notificationValue },
@@ -575,34 +628,37 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     { title: "子通知类型", dataIndex: "subtype", width: 150, render: notificationValue },
     { title: "SKU", dataIndex: "sku", width: 170, ellipsis: true, render: notificationValue },
     { title: "环境", dataIndex: "environment", width: 90, render: (v) => v ? billingEnvironmentLabel(v) : "--" },
-    { title: "创建时间（UTC+0）", dataIndex: "received_at", width: 170, render: formatUtcTime },
+    { title: "创建时间（UTC+0）", dataIndex: "received_at", width: 170, render: notificationUtcTime },
     { title: "操作", width: 90, render: (_, row) => <Button type="link" onClick={() => openDetail(row.detail_id)}>查看详情</Button> },
   ];
-  return <PagePanel error={error} onRefresh={reload} showRefresh={false}>
+  return <PagePanel error={error ? "通知消息加载失败，请稍后重试" : null} onRefresh={reload} refreshing={loading} showRefresh={false}>
     <section className="scans-filter-panel">
-      <ScanFilterField label="UID"><Input value={draft.uid ?? ""} onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
-      <ScanFilterField label="原始交易 ID"><Input value={draft.original_transaction_id ?? ""} onChange={(e) => setDraft({ ...draft, original_transaction_id: e.target.value })} /></ScanFilterField>
-      <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
-      <ScanFilterField label="环境"><Select allowClear value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
-      <ScanFilterField label="主通知类型"><Select showSearch mode="multiple" value={selectedTypes} options={notificationTypeOptions} onChange={(v) => setDraft({ ...draft, notification_type: v.join(","), subtype: "" })} /></ScanFilterField>
-      <ScanFilterField label="子通知类型"><Select showSearch mode="multiple" value={csvValues(draft.subtype)} options={subtypeOptions} onChange={(v) => setDraft({ ...draft, subtype: v.join(",") })} /></ScanFilterField>
+      <ScanFilterField label="UID"><Input value={draft.uid ?? ""} placeholder="请输入用户 ID。" onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="原始交易 ID"><Input value={draft.original_transaction_id ?? ""} placeholder="请输入原始交易 ID。" onChange={(e) => setDraft({ ...draft, original_transaction_id: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} placeholder="请输入订单 ID。" onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="环境"><Select allowClear placeholder="全部" value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
+      <ScanFilterField label="主通知类型"><Select showSearch allowClear placeholder="全部" value={selectedType} options={notificationTypeOptions} onChange={(v) => setDraft({ ...draft, notification_type: v ?? "", subtype: "" })} /></ScanFilterField>
+      <ScanFilterField label="子通知类型"><Select showSearch allowClear placeholder="全部" value={draft.subtype || undefined} options={subtypeOptions} onChange={(v) => setDraft({ ...draft, subtype: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} showTime onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
-      <div className="scans-filter-actions"><Button onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" onClick={() => { setFilters(draft); setPage(1); }}>查询</Button></div>
+      <div className="scans-filter-actions"><Button disabled={loading} onClick={resetNotificationFilters}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyNotificationFilters}>查询</Button></div>
     </section>
-    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button onClick={reload}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} pagination={false} scroll={{ x: 1250 }} />
-      <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
+    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的通知消息" }} pagination={false} scroll={{ x: 1250 }} />
+      <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination disabled={loading} current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
     </section>
-    <Drawer className="notification-detail-drawer" title="通知消息详情" width="55%" open={detail !== null} onClose={() => setDetail(null)}>{detail && <Space direction="vertical" size="large" style={{ width: "100%" }}>
-      <InfoGrid items={[
+    <Drawer className="notification-detail-drawer" rootClassName="notification-detail-drawer-root" title="通知消息详情" width="55%" open={detailId !== null} onClose={closeDetail}>
+      {detailLoading ? <div className="notification-detail-state"><Spin size="large" /></div>
+        : detailError ? <Alert type="error" showIcon message="通知详情加载失败，请稍后重试" action={<Button onClick={() => detailId && openDetail(detailId)}>重试</Button>} />
+        : detail && <Space direction="vertical" size="large" style={{ width: "100%" }}>
+      <DetailSection title="基本信息"><InfoGrid items={[
         { label: "UID", value: notificationValue(detail.uids) },
         { label: "原始交易 ID", value: notificationValue(detail.original_transaction_id) },
         { label: "订单 ID", value: notificationValue(detail.transaction_id) },
         { label: "主通知类型", value: notificationValue(detail.notification_type) },
         { label: "子通知类型", value: notificationValue(detail.subtype) },
         { label: "SKU", value: notificationValue(detail.sku) },
-        { label: "环境", value: detail.environment ? billingEnvironmentLabel(detail.environment) : "--" },
-        { label: "创建时间（UTC+0）", value: formatUtcTime(detail.received_at) },
-      ]} />
+        { label: "环境", value: billingEnvironmentDetailLabel(detail.environment) },
+        { label: "创建时间（UTC+0）", value: notificationUtcTime(detail.received_at) },
+      ]} /></DetailSection>
       <DetailSection title="完整通知内容（Decoded Payload）">
         {detail.decoded_payload
           ? <><div className="notification-detail-actions"><Button onClick={copyDecodedPayload}>复制 JSON</Button></div><pre className="json-block">{prettyJson(detail.decoded_payload)}</pre></>
@@ -1308,13 +1364,23 @@ function billingSubscriptionStatusTag(value: string | null) {
     TRIAL: "试用中", ACTIVE: "生效中", LIFETIME: "生效中",
     GRACE_PERIOD: "宽限期", BILLING_RETRY: "重试期", EXPIRED: "已过期", REVOKED: "已过期",
   };
-  return <Tag>{value ? labels[value] ?? value : "-"}</Tag>;
+  return <Tag>{value ? labels[value] ?? value : "--"}</Tag>;
+}
+
+function billingAutoRenewTag(value: number | null) {
+  return value === null ? "--" : <Tag>{value ? "是" : "否"}</Tag>;
 }
 
 function billingEnvironmentLabel(value: string | null) {
   if (value === "Production") return "正式";
   if (value === "Sandbox") return "测试";
   return displayValue(value);
+}
+
+function billingEnvironmentDetailLabel(value: string | null) {
+  if (value === "Production") return "Production（正式）";
+  if (value === "Sandbox") return "Sandbox（测试）";
+  return value || "--";
 }
 
 function prettyJson(value: string): string {

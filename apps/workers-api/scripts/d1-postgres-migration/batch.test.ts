@@ -33,6 +33,10 @@ const dropTrendingPinSql = readFileSync(
   new URL("../../src/db/postgres/migrations/0005_drop_trending_pin.sql", import.meta.url),
   "utf8",
 );
+const billingRefundStatusSql = readFileSync(
+  new URL("../../src/db/postgres/migrations/0007_billing_refund_status.sql", import.meta.url),
+  "utf8",
+);
 const migrationRunnerSource = readFileSync(new URL("./run.mjs", import.meta.url), "utf8");
 const migrationWorkerSource = readFileSync(new URL("./worker.ts", import.meta.url), "utf8");
 
@@ -121,6 +125,11 @@ describe("D1 to PostgreSQL migration batches", () => {
     expect(migrationWorkerSource).toContain('name: "0006_mutation_lock"');
     expect(migrationWorkerSource).toContain("postgresMigrations: MIGRATIONS.map");
     expect(migrationRunnerSource).toContain("...manifest.optionalSourceTables");
+  });
+
+  it("appends refund provenance to PostgreSQL so REFUND_REVERSED can restore the prior order status", () => {
+    expect(billingRefundStatusSql).toContain("ADD COLUMN business_status_before_refund text");
+    expect(migrationWorkerSource).toContain('name: "0007_billing_refund_status"');
   });
 
   it("normalizes every newline style before checksum and execution because checkout platform is not migration identity", async () => {

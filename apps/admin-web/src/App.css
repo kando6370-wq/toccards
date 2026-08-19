@@ -572,10 +572,22 @@ body {
 }
 
 .json-block {
+  background: #111820;
+  border-radius: 6px;
+  color: #dce7ec;
+  font-family: Consolas, "Courier New", monospace;
+  line-height: 1.55;
   max-height: 52vh;
   overflow: auto;
   overflow-wrap: anywhere;
+  padding: 16px;
   white-space: pre-wrap;
+}
+
+.notification-detail-state {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
 }
 
 .scans-table-panel .ant-table-thead > tr > th {
@@ -628,7 +640,8 @@ body {
   width: 100%;
 }
 
-.scan-detail-drawer .detail-section h5 {
+.scan-detail-drawer .detail-section h5,
+.notification-detail-drawer .detail-section h5 {
   border-left: 4px solid #087d89;
   margin: 0 0 12px;
   padding-left: 10px;
@@ -655,6 +668,7 @@ body {
 .notification-detail-drawer .info-item strong {
   color: #17212b;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .scan-detail-drawer .candidate-list {
@@ -766,7 +780,22 @@ body {
   justify-content: flex-end;
 }
 
+@media (max-width: 991px) {
+  .admin-sider {
+    overflow: visible;
+    z-index: 10;
+  }
+}
+
 @media (max-width: 900px) {
+  .notification-detail-drawer-root .ant-drawer-content-wrapper {
+    width: 92vw !important;
+  }
+
+  .notification-detail-drawer .info-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .scans-filter-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

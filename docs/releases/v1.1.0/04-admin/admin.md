@@ -55,14 +55,16 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
 
 ### 4.2 订单事实
 
+- Admin 订单统计的直接真值是已验签、已解码并完成业务清洗的 Apple 通知。Fresh Purchase/Restore 可先保存服务端验签通过的交易暂存证据并维护当前 session grant，但 `source_notification_uuid` 为空的记录不进入订单列表、筛选选项或 XLSX，也不参与 Admin 扣款序号。
+- 建单类通知到达已有 `environment + transactionId` 时，会用通知中的已验签交易字段晋升暂存记录并写入来源通知 UUID；不会因唯一键冲突继续保留为客户端暂存口径。
 - purchase chain 以 `environment + originalTransactionId` 唯一。
 - 单笔交易以 `store + environment + transactionId` 幂等。
-- Trial 扣款次数为 0；有效非 Trial 收费按购买链时序累计。
-- Refund 更新原订单为 refunded 并保留交易事实，不创建虚假收费订单。
+- Trial 扣款次数为 0；通知确认的有效非 Trial 收费按购买链时序累计，客户端暂存记录不占序号。
+- Refund 更新原订单为 refunded、保存退款前业务状态并保留交易事实，不创建虚假收费订单；`REFUND_REVERSED` 经 Apple Server API 校正为 active 后恢复退款前状态。迁移前历史退款若没有该状态，则业务分类显示为未知，不继续显示退款，也不猜测订单类型。
 - 自动续订显示使用交易发生时的 snapshot，不能被购买链后续状态倒灌。
 - UID 仅用于业务关联；`unlinked` 购买链不是匿名用户，也不是 Premium owner。
 
-来源：迁移 `0025`、`0029`、`0032-0034`，`billing-order-facts.ts` 和集成测试。
+来源：PostgreSQL 迁移 `0000_business_schema.sql`、`0007_billing_refund_status.sql`，`billing-order-facts.ts` 和集成测试。
 
 ### 4.3 XLSX 导出
 
@@ -77,12 +79,16 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
 
 筛选项为 UID、原始交易 ID、订单 ID、环境、主通知类型、子通知类型和创建时间范围。列表显示 UID、原始交易 ID、订单 ID、主/子通知、SKU、环境、UTC+0 创建时间和详情操作，默认按 inbox 接收时间倒序。
 
+主通知类型和子通知类型均为可搜索单选，选中主类型后子类型只显示对应实际组合；选项来自结构化通知实际数据，未知 Apple 类型直接显示原值。查询、重置、刷新和分页在列表请求期间禁用；空结果与加载失败使用固定业务文案，页码超过最新总页数时回退到最后一个有效页。
+
 结构化通知与原始 inbox 使用 LEFT JOIN：验签、解析或处理失败时，即使没有结构化行，失败记录仍出现在列表，供排障。
 
 ### 5.2 详情与敏感内容
 
 - 列表不返回完整 payload。
-- 详情按需返回 decoded payload 和 processing error；前端提供用户主动复制 JSON。
+- 详情按需返回 decoded payload 和 processing error；抽屉先显示独立 Loading，请求失败显示固定错误和重试入口。
+- 详情按“基本信息”和“完整通知内容（Decoded Payload）”分区；桌面基本信息两列、小屏一列，JSON 使用深色可滚动代码块。
+- 前端只在用户主动操作时复制 JSON，成功提示“已复制通知内容”。
 - API 不返回 `signed_payload`，避免把原始 JWS 暴露给浏览器。
 - 未产生 decoded payload 时展示固定失败类型和 `last_error`，不显示伪造 JSON。
 
@@ -123,6 +129,8 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 Admin 没有独立生产部署目标。Workers deploy 会先按 dev/prod 模式构建 `auth-core` 和 Admin，再由 Worker assets 发布。验证时至少区分 API health、SPA HTML 和实际 JS assets。
 
+本次退款撤销依赖 `billing_transaction.business_status_before_refund`。该列是 nullable 向后兼容扩展，必须先应用 PostgreSQL `0007_billing_refund_status`，再部署读取该列的新 Worker；旧 Worker 可忽略该列，代码回滚时保留列。dev/prod 共用 PostgreSQL Schema，迁移会同时影响两套 Worker 所连接的数据结构，不能把 dev 部署与 Schema 迁移当作互相隔离的动作。共享 Schema 已于 2026-08-19 应用 `0007` 并完成幂等复核，dev Worker 与 Admin assets 部署待后续执行。
+
 仓库内证据：
 
 - `apps/admin-web/test/billing-admin-intent.test.mjs`：订单/通知页面意图、空值和交互边界。
@@ -137,4 +145,4 @@ Admin 没有独立生产部署目标。Workers deploy 会先按 dev/prod 模式�
 - 当前 PRD 未要求 Admin 人工调整 Premium，因此不得新增 grant/lifecycle 修改按钮。
 - Card Override 和通用 App Config 是否补 UI 需独立产品需求；现有 API 不等于页面已交付。Trending Pin 已明确废弃，不应再补 UI 或调用旧接口。
 - 生产订单保留期、审计访问范围和运营角色细分若需变化，应先补产品/安全决策和迁移设计。
-- 未重新连接远程环境时，不得把旧的 dev D1 空订单样本、部署 ID 或 HTTP 200 写成当前实时结论。
+- 未重新连接远程环境时，不得把旧的 dev 空订单样本、部署 ID 或 HTTP 200 写成当前实时结论。

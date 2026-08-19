@@ -253,6 +253,13 @@ async function applyCorrection(
     statements.push(db.prepare(`
       UPDATE billing_transaction SET
         status = CASE WHEN ? = 'active' THEN 'purchased' ELSE status END,
+        business_status = CASE WHEN ? = 'active'
+          THEN business_status_before_refund
+          ELSE business_status END,
+        business_status_before_refund = CASE WHEN ? = 'active'
+          THEN NULL ELSE business_status_before_refund END,
+        source_notification_uuid = CASE WHEN ? = 'active'
+          THEN ? ELSE source_notification_uuid END,
         revoked_at = CASE WHEN ? = 'active' THEN NULL ELSE revoked_at END,
         refund_completed_at = CASE WHEN ? = 'active' THEN NULL ELSE refund_completed_at END,
         updated_at = ?
@@ -262,6 +269,8 @@ async function applyCorrection(
       ) AND transaction_id = ?
     `).bind(
       evidence.grantStatus, evidence.grantStatus, evidence.grantStatus,
+      evidence.grantStatus, row.notification_uuid,
+      evidence.grantStatus, evidence.grantStatus,
       correctionVersion, row.environment, row.original_transaction_id,
       row.transaction_id ?? transaction.transactionId,
     ));

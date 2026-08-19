@@ -60,11 +60,14 @@ describe("Apple Fresh Purchase routes", () => {
     }, env);
 
     expect(verified.status).toBe(200);
-    expect(await db.prepare(`SELECT auto_renew_snapshot, business_status, charge_count
+    // Fresh Purchase unlocks the proving session immediately; Admin charging waits for a notification.
+    expect(await db.prepare(`SELECT auto_renew_snapshot, business_status, charge_count,
+      source_notification_uuid
       FROM billing_transaction`).first()).toEqual({
       auto_renew_snapshot: null,
       business_status: "initial_purchase",
-      charge_count: 1,
+      charge_count: null,
+      source_notification_uuid: null,
     });
     expect(await db.prepare("SELECT session_id, status FROM billing_session_entitlement_grant").first())
       .toEqual({ session_id: "session-a", status: "active" });

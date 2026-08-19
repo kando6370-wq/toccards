@@ -505,6 +505,7 @@ export const billingTransaction = sqliteTable(
     transactionReason: text("transaction_reason").notNull(),
     status: text("status").notNull(),
     businessStatus: text("business_status"),
+    businessStatusBeforeRefund: text("business_status_before_refund"),
     chargeCount: integer("charge_count"),
     sourceNotificationUuid: text("source_notification_uuid"),
     autoRenewSnapshot: integer("auto_renew_snapshot"),

@@ -26,8 +26,8 @@ describe("D1 migration chain", () => {
       for (const statement of statements(sql)) await db.prepare(statement).run();
     }
 
-    expect(migrations).toHaveLength(37);
-    expect(migrations.at(-1)).toBe("0036_mutation_lock.sql");
+    expect(migrations).toHaveLength(38);
+    expect(migrations.at(-1)).toBe("0037_billing_refund_status.sql");
     const trendingPin = await db.prepare(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'trending_pin'",
     ).first();
@@ -45,13 +45,14 @@ describe("D1 migration chain", () => {
     ]);
 
     const columns = await db.prepare(`SELECT name FROM pragma_table_info('billing_transaction')
-      WHERE name IN ('business_status', 'charge_count', 'source_notification_uuid', 'auto_renew_snapshot',
+      WHERE name IN ('business_status', 'business_status_before_refund', 'charge_count',
+        'source_notification_uuid', 'auto_renew_snapshot',
         'usd_exchange_rate', 'usd_exchange_rate_source', 'usd_conversion_version', 'usd_rounding_mode')
       ORDER BY cid`).all();
     expect(columns.results.map((row) => row.name)).toEqual([
       "business_status", "charge_count", "source_notification_uuid", "usd_exchange_rate",
       "usd_exchange_rate_source", "usd_conversion_version", "usd_rounding_mode",
-      "auto_renew_snapshot",
+      "auto_renew_snapshot", "business_status_before_refund",
     ]);
   }, 30_000);
 

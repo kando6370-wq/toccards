@@ -158,7 +158,7 @@ describe("Admin billing order contract", () => {
     expect(secondPage.data.items.map((item: any) => item.order_id)).toEqual(["transaction-z"]);
   });
 
-  it("selects both Apple notification fields from the same latest timed row", async () => {
+  it("selects Apple notification fields from the notification that promoted the Admin order", async () => {
     await db.batch([
       db.prepare(`INSERT INTO apple_server_notification VALUES
         ('notification-row-z', NULL, 'notification-z', 'TYPE_Z', 'SUBTYPE_Z',
@@ -179,9 +179,21 @@ describe("Admin billing order contract", () => {
     )).json() as any;
 
     expect(body.data.items[0]).toMatchObject({
-      notification_type: "TYPE_A",
-      notification_subtype: "SUBTYPE_A",
+      notification_type: "DID_RENEW",
+      notification_subtype: null,
     });
+  });
+
+  it("does not expose client-only transaction staging rows as notification-cleaned Admin orders", async () => {
+    await db.prepare(`INSERT INTO billing_transaction
+      (id, purchase_chain_id, environment, transaction_id, product_id, business_status,
+       charge_count, source_notification_uuid, purchase_at, created_at)
+      VALUES ('client-only', 'chain-1', 'Sandbox', 'client-only-transaction',
+        'com.cardai.tcg.pro.yearly', 'renewal', 2, NULL, ?, ?)`)
+      .bind(NOW, NOW).run();
+
+    const body = await (await get("/admin/billing/transactions")).json() as any;
+    expect(body.data.items.map((item: any) => item.order_id)).not.toContain("client-only-transaction");
   });
 
   it("rejects invalid order filters instead of silently returning unfiltered data", async () => {
@@ -246,10 +258,17 @@ describe("Admin billing order contract", () => {
       "verification_failed", "processed",
     ]);
 
+    const sandboxList = await (await get("/admin/apple-notifications?environment=Sandbox")).json() as any;
+    expect(sandboxList.data.total).toBe(2);
+    expect(sandboxList.data.items[0]).toMatchObject({
+      detail_id: "inbox-failed",
+      environment: "Sandbox",
+    });
+
     const failed = await (await get("/admin/apple-notifications/inbox-failed")).json() as any;
     expect(failed.data).toMatchObject({
       processing_status: "verification_failed", last_error: "NOTIFICATION_JWS_INVALID",
-      decoded_payload: null,
+      decoded_payload: null, environment: "Sandbox",
     });
     expect(JSON.stringify(failed)).not.toContain("signed.failure.jws");
 
@@ -285,10 +304,10 @@ describe("Admin billing order contract", () => {
     await db.batch([
       db.prepare(`INSERT INTO apple_notification_inbox VALUES
         ('inbox-z', 'hash-z', '{}', 'signed.z.jws', 'verification_failed', 1, NULL, NULL,
-         'Z_FAILED', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z')`),
+         'Z_FAILED', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z', 'Sandbox')`),
       db.prepare(`INSERT INTO apple_notification_inbox VALUES
         ('inbox-a', 'hash-a', '{}', 'signed.a.jws', 'verification_failed', 1, NULL, NULL,
-         'A_FAILED', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z')`),
+         'A_FAILED', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z', 'Sandbox')`),
     ]);
     const range = "created_from=2026-08-12T11:45:00.000Z&created_to=2026-08-12T11:45:00.000Z";
 
@@ -315,7 +334,7 @@ describe("Admin billing order contract", () => {
       db.prepare(`INSERT INTO apple_notification_inbox VALUES
         ('inbox-future', 'hash-future', '{"signedPayload":"signed.future.jws","futureRequestField":"kept"}',
          'signed.future.jws', 'processed', 1, NULL, 'notification-future', NULL,
-         '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z')`),
+         '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z', 'Sandbox')`),
       db.prepare(`INSERT INTO apple_server_notification VALUES
         ('notification-row-future', 'inbox-future', 'notification-future', 'FUTURE_NOTIFICATION',
          'FUTURE_SUBTYPE', 'Sandbox', NULL, NULL, NULL,
@@ -348,8 +367,8 @@ describe("Admin billing order contract", () => {
       db.prepare("INSERT INTO app_installation VALUES ('install-1', '100001', 'iOS', 'US', '2026-08-01T00:00:00.000Z', ?)").bind(NOW),
       db.prepare("INSERT INTO session VALUES ('user-session', 'user', '100001', 'refresh-user', '2099-01-01T00:00:00.000Z', ?, NULL)").bind(NOW),
       db.prepare("INSERT INTO billing_session_entitlement_grant VALUES ('grant-1', 'user-session', 'chain-1')"),
-      db.prepare("INSERT INTO apple_notification_inbox VALUES ('inbox-success', 'hash-success', '{}', 'signed.success.jws', 'processed', 1, NULL, 'notification-1', NULL, '2026-08-12T11:00:00.000Z', '2026-08-12T11:00:01.000Z')"),
-      db.prepare("INSERT INTO apple_notification_inbox VALUES ('inbox-failed', 'hash-failed', '{}', 'signed.failure.jws', 'verification_failed', 1, NULL, NULL, 'NOTIFICATION_JWS_INVALID', '2026-08-12T11:30:00.000Z', '2026-08-12T11:30:01.000Z')"),
+      db.prepare("INSERT INTO apple_notification_inbox VALUES ('inbox-success', 'hash-success', '{}', 'signed.success.jws', 'processed', 1, NULL, 'notification-1', NULL, '2026-08-12T11:00:00.000Z', '2026-08-12T11:00:01.000Z', 'Sandbox')"),
+      db.prepare("INSERT INTO apple_notification_inbox VALUES ('inbox-failed', 'hash-failed', '{}', 'signed.failure.jws', 'verification_failed', 1, NULL, NULL, 'NOTIFICATION_JWS_INVALID', '2026-08-12T11:30:00.000Z', '2026-08-12T11:30:01.000Z', 'Sandbox')"),
       db.prepare("INSERT INTO apple_server_notification VALUES ('notification-row-1', 'inbox-success', 'notification-1', 'DID_RENEW', NULL, 'Sandbox', 'original-1', 'transaction-1', 'com.cardai.tcg.pro.yearly', '{\"notification\":{\"notificationType\":\"DID_RENEW\"}}', 'processed', '2026-08-12T11:00:00.000Z', '2026-08-12T11:00:00.000Z')"),
     ]);
   }
@@ -359,9 +378,9 @@ const SCHEMA = [
   "CREATE TABLE admin_user (id TEXT PRIMARY KEY, email TEXT, password_hash TEXT, role TEXT, status TEXT, created_at TEXT)",
   "CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT, owner_id TEXT, refresh_token TEXT UNIQUE, expires_at TEXT, created_at TEXT, revoked_at TEXT)",
   "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, environment TEXT, original_transaction_id TEXT, original_owner_id TEXT, status TEXT, auto_renew INTEGER)",
-  "CREATE TABLE billing_transaction (id TEXT PRIMARY KEY, purchase_chain_id TEXT, environment TEXT, transaction_id TEXT, product_id TEXT, business_status TEXT, charge_count INTEGER, auto_renew_snapshot INTEGER, storefront_country_code TEXT, amount_micros INTEGER, currency TEXT, amount_usd_micros INTEGER, purchase_at TEXT, refund_completed_at TEXT, created_at TEXT)",
+  "CREATE TABLE billing_transaction (id TEXT PRIMARY KEY, purchase_chain_id TEXT, environment TEXT, transaction_id TEXT, product_id TEXT, business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT DEFAULT 'notification-1', auto_renew_snapshot INTEGER, storefront_country_code TEXT, amount_micros INTEGER, currency TEXT, amount_usd_micros INTEGER, purchase_at TEXT, refund_completed_at TEXT, created_at TEXT)",
   "CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT, purchase_chain_id TEXT)",
   "CREATE TABLE app_installation (installation_id TEXT PRIMARY KEY, uid TEXT, platform TEXT, country_code TEXT, first_seen_at TEXT, last_seen_at TEXT)",
-  "CREATE TABLE apple_notification_inbox (id TEXT PRIMARY KEY, payload_sha256 TEXT, request_json TEXT, signed_payload TEXT, processing_status TEXT, attempts INTEGER, processing_expires_at TEXT, notification_uuid TEXT, last_error TEXT, received_at TEXT, processed_at TEXT)",
+  "CREATE TABLE apple_notification_inbox (id TEXT PRIMARY KEY, payload_sha256 TEXT, request_json TEXT, signed_payload TEXT, processing_status TEXT, attempts INTEGER, processing_expires_at TEXT, notification_uuid TEXT, last_error TEXT, received_at TEXT, processed_at TEXT, environment TEXT)",
   "CREATE TABLE apple_server_notification (id TEXT PRIMARY KEY, inbox_id TEXT, notification_uuid TEXT, notification_type TEXT, subtype TEXT, environment TEXT, original_transaction_id TEXT, transaction_id TEXT, product_id TEXT, decoded_payload TEXT, processing_status TEXT, signed_at TEXT, received_at TEXT)",
 ];

@@ -430,7 +430,35 @@ async function consumeNotification(
          purchase_at, expires_at, revoked_at, refund_completed_at,
          signed_transaction, created_at, updated_at)
       VALUES (?, ?, 'app_store', ?, ?, ?, ?, 'purchased', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)
-      ON CONFLICT DO NOTHING
+      ON CONFLICT(store, environment, transaction_id) DO UPDATE SET
+        purchase_chain_id = excluded.purchase_chain_id,
+        product_id = excluded.product_id,
+        transaction_reason = excluded.transaction_reason,
+        status = excluded.status,
+        business_status = excluded.business_status,
+        charge_count = NULL,
+        source_notification_uuid = excluded.source_notification_uuid,
+        auto_renew_snapshot = excluded.auto_renew_snapshot,
+        storefront_country_code = excluded.storefront_country_code,
+        amount_micros = excluded.amount_micros,
+        currency = excluded.currency,
+        amount_usd_micros = excluded.amount_usd_micros,
+        usd_exchange_rate = excluded.usd_exchange_rate,
+        usd_exchange_rate_base = excluded.usd_exchange_rate_base,
+        usd_exchange_rate_quote = excluded.usd_exchange_rate_quote,
+        usd_exchange_rate_source = excluded.usd_exchange_rate_source,
+        usd_exchange_rate_effective_at = excluded.usd_exchange_rate_effective_at,
+        usd_exchange_rate_fetched_at = excluded.usd_exchange_rate_fetched_at,
+        usd_exchange_rate_stale = excluded.usd_exchange_rate_stale,
+        usd_conversion_version = excluded.usd_conversion_version,
+        usd_rounding_mode = excluded.usd_rounding_mode,
+        purchase_at = excluded.purchase_at,
+        expires_at = excluded.expires_at,
+        revoked_at = excluded.revoked_at,
+        signed_transaction = excluded.signed_transaction,
+        updated_at = excluded.updated_at
+      WHERE billing_transaction.source_notification_uuid IS NULL
+        AND billing_transaction.status != 'refunded'
     `).bind(
       createId(now), chain.id, envelope.environment, transaction.transactionId,
       transaction.productId, transaction.transactionReason ?? "PURCHASE",
@@ -456,13 +484,21 @@ async function consumeNotification(
     if (!refundedOrder) return "correction_required";
     statements.push(db.prepare(`
       UPDATE billing_transaction
-      SET status = 'refunded', business_status = 'refunded', revoked_at = ?, refund_completed_at = ?, updated_at = ?
+      SET status = 'refunded',
+          business_status_before_refund = CASE
+            WHEN business_status = 'refunded' THEN business_status_before_refund
+            ELSE business_status
+          END,
+          business_status = 'refunded', source_notification_uuid = ?,
+          revoked_at = ?, refund_completed_at = ?, updated_at = ?
       WHERE purchase_chain_id = ? AND environment = ? AND transaction_id = ?
     `).bind(
+      envelope.notificationUuid,
       toNullableIso(transaction.revocationDate) ?? envelope.signedAt,
       toNullableIso(transaction.revocationDate) ?? envelope.signedAt,
       now.toISOString(), chain.id, envelope.environment, transaction.transactionId,
     ));
+    statements.push(...billingOrderFactStatements(db, chain.id, envelope.environment));
   }
 
   const applyLifecycle = lifecycle && (

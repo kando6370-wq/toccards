@@ -193,11 +193,9 @@ const BILLING_TRANSACTION_SELECT_SQL = `SELECT t.id, ${BILLING_UID_SQL} AS uid,
   t.auto_renew_snapshot AS auto_renew, t.environment, t.amount_micros, t.currency, t.amount_usd_micros,
   t.charge_count, t.refund_completed_at,
   (SELECT n.notification_type FROM apple_server_notification n
-    WHERE n.environment = t.environment AND n.transaction_id = t.transaction_id
-    ORDER BY n.signed_at DESC NULLS LAST, n.received_at DESC, n.id ASC LIMIT 1) AS notification_type,
+    WHERE n.notification_uuid = t.source_notification_uuid LIMIT 1) AS notification_type,
   (SELECT n.subtype FROM apple_server_notification n
-    WHERE n.environment = t.environment AND n.transaction_id = t.transaction_id
-    ORDER BY n.signed_at DESC NULLS LAST, n.received_at DESC, n.id ASC LIMIT 1) AS notification_subtype`;
+    WHERE n.notification_uuid = t.source_notification_uuid LIMIT 1) AS notification_subtype`;
 
 const SELECT_ADMIN_BY_EMAIL_SQL = `
   SELECT id, email, password_hash, role, status, created_at
@@ -706,9 +704,11 @@ adminRoutes.get("/analytics/installations", async (c) => {
 adminRoutes.get("/billing/transactions/options", async (c) => {
   const [countries, skus] = await Promise.all([
     c.env.DB.prepare(`SELECT DISTINCT storefront_country_code AS value FROM billing_transaction
-      WHERE NULLIF(TRIM(storefront_country_code), '') IS NOT NULL ORDER BY value`).all<{ value: string }>(),
+      WHERE source_notification_uuid IS NOT NULL
+        AND NULLIF(TRIM(storefront_country_code), '') IS NOT NULL ORDER BY value`).all<{ value: string }>(),
     c.env.DB.prepare(`SELECT DISTINCT product_id AS value FROM billing_transaction
-      WHERE NULLIF(TRIM(product_id), '') IS NOT NULL ORDER BY value`).all<{ value: string }>(),
+      WHERE source_notification_uuid IS NOT NULL
+        AND NULLIF(TRIM(product_id), '') IS NOT NULL ORDER BY value`).all<{ value: string }>(),
   ]);
   return c.json({ success: true, data: {
     countries: (countries.results ?? []).map((row) => row.value),
@@ -782,7 +782,7 @@ adminRoutes.get("/apple-notifications", async (c) => {
   }
   addListCondition(conditions, bindings, "n.notification_type", c.req.query("notification_type"));
   addListCondition(conditions, bindings, "n.subtype", c.req.query("subtype"));
-  addExactCondition(conditions, bindings, "n.environment", c.req.query("environment"));
+  addExactCondition(conditions, bindings, "inbox.environment", c.req.query("environment"));
   const createdFrom = readDateBoundary(c.req.query("created_from"), false);
   const createdTo = readDateBoundary(c.req.query("created_to"), true);
   if (createdFrom === "invalid" || createdTo === "invalid" || invalidDateRange(createdFrom, createdTo)) {
@@ -792,7 +792,7 @@ adminRoutes.get("/apple-notifications", async (c) => {
   if (createdTo) { conditions.push("inbox.received_at <= ?"); bindings.push(createdTo); }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = await bindAdminQuery(c.env.DB, `SELECT inbox.id, COALESCE(n.notification_uuid, inbox.id) AS detail_id,
-      n.notification_type, n.subtype, n.environment, n.original_transaction_id,
+      n.notification_type, n.subtype, inbox.environment, n.original_transaction_id,
       n.transaction_id, n.product_id AS sku, inbox.processing_status, inbox.received_at,
       (SELECT string_agg(owner_id, ',') FROM (
         SELECT linked_chain.original_owner_id AS owner_id
@@ -827,7 +827,7 @@ adminRoutes.get("/apple-notifications/options", async (c) => {
 
 adminRoutes.get("/apple-notifications/:detailId", async (c) => {
   const row = await c.env.DB.prepare(`SELECT inbox.id, inbox.processing_status, inbox.last_error,
-      inbox.received_at, n.notification_type, n.subtype, n.environment,
+      inbox.received_at, n.notification_type, n.subtype, inbox.environment,
       n.original_transaction_id, n.transaction_id, n.product_id AS sku, n.decoded_payload,
       (SELECT string_agg(owner_id, ',') FROM (
         SELECT linked_chain.original_owner_id AS owner_id
@@ -1379,7 +1379,7 @@ function bindAdminQuery(db: D1Database, sql: string, bindings: unknown[]): D1Pre
 type BillingTransactionQuery = { where: string; bindings: unknown[]; error: boolean };
 
 function billingTransactionQuery(read: (name: string) => string | undefined): BillingTransactionQuery {
-  const conditions: string[] = [];
+  const conditions = ["t.source_notification_uuid IS NOT NULL"];
   const bindings: unknown[] = [];
   const uid = normalizeQuery(read("uid"));
   if (uid) {
