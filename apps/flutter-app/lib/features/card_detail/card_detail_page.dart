@@ -988,53 +988,67 @@ class _CardPerformance extends StatelessWidget {
       key: const Key('card-detail-performance-content'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _CardPerformanceRangePicker(
-          selected: performance.selectedRange,
-          onSelected: onRangeSelected,
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         if (missingPrice)
           _CardPerformanceMetric(
+            key: const Key('card-detail-performance-metric-market-value'),
+            iconAsset: 'assets/collection/performance_current_value.svg',
             label: 'Market Value',
             value: formatter.formatUsd(data.current.marketValueUsd),
           )
         else
           Row(
+            key: const Key('card-detail-performance-metrics-row-1'),
             children: [
               Expanded(
                 child: _CardPerformanceMetric(
+                  key: const Key(
+                    'card-detail-performance-metric-purchase-cost',
+                  ),
+                  iconAsset: 'assets/collection/performance_purchase_cost.svg',
                   label: 'Purchase Cost',
                   value: formatter.formatUsd(data.current.totalPaidUsd),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: _CardPerformanceMetric(
-                  label: 'Market Value',
+                  key: const Key(
+                    'card-detail-performance-metric-current-value',
+                  ),
+                  iconAsset: 'assets/collection/performance_current_value.svg',
+                  label: 'Current Value',
                   value: formatter.formatUsd(data.current.marketValueUsd),
                 ),
               ),
             ],
           ),
         if (!missingPrice) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Row(
+            key: const Key('card-detail-performance-metrics-row-2'),
             children: [
               Expanded(
                 child: _CardPerformanceMetric(
+                  key: const Key('card-detail-performance-metric-profit-loss'),
+                  iconAsset: 'assets/collection/performance_profit_loss.svg',
                   label: 'Profit / Loss',
                   value: data.current.profitLossUsd == null
                       ? '--'
                       : _signedAmount(formatter, data.current.profitLossUsd!),
+                  helper: 'Priced cards only',
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: _CardPerformanceMetric(
-                  label: 'Return',
+                  key: const Key('card-detail-performance-metric-return'),
+                  iconAsset: 'assets/collection/performance_return.svg',
+                  label: 'Return %',
                   value: data.current.returnPercent == null
                       ? '--'
                       : '${data.current.returnPercent!.toStringAsFixed(2)}%',
+                  helper: 'Priced cards only',
                 ),
               ),
             ],
@@ -1045,26 +1059,70 @@ class _CardPerformance extends StatelessWidget {
           Container(
             key: const Key('card-detail-missing-purchase-price'),
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: _kPanel(strong: true),
+            padding: const EdgeInsets.all(17),
+            decoration: BoxDecoration(
+              color: KandoColors.accent.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: KandoColors.border.withValues(alpha: 0.55),
+              ),
+            ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Add purchase price to calculate your card performance.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: KandoColors.mutedText,
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
+                const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(top: 3),
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        size: 16,
+                        color: KandoColors.accent,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Add purchase price to calculate your card performance.',
+                        style: TextStyle(
+                          color: KandoColors.mutedText,
+                          fontSize: 14,
+                          height: 24 / 14,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    key: const Key('card-detail-edit-missing-purchase-price'),
-                    onPressed: onEditPurchasePrice,
-                    child: const Text('Edit Collection Item'),
+                const SizedBox(height: 8),
+                Center(
+                  child: SizedBox(
+                    height: 36,
+                    child: FilledButton.icon(
+                      key: Key('card-detail-edit-missing-purchase-price'),
+                      onPressed: onEditPurchasePrice,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        backgroundColor: KandoColors.accent,
+                        foregroundColor: KandoColors.primaryOnDefault,
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          height: 20 / 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      icon: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: Center(
+                          child: SvgPicture.asset(
+                            'assets/collection/performance_edit_collection_item.svg',
+                          ),
+                        ),
+                      ),
+                      label: const Text('Edit Collection Item'),
+                    ),
                   ),
                 ),
               ],
@@ -1072,52 +1130,67 @@ class _CardPerformance extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 28),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                missingPrice ? 'Price Trend' : 'Performance Chart',
-                style: _kSectionTitleStyle,
-              ),
-            ),
-            Text(
-              missingPrice ? 'MARKET VALUE' : 'PROFIT / LOSS',
-              style: _kFieldLabelStyle,
-            ),
-          ],
+        Text(
+          missingPrice ? 'Price Trend' : 'Performance Chart',
+          style: _kSectionTitleStyle,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Container(
-          height: 190,
-          padding: const EdgeInsets.fromLTRB(12, 18, 12, 12),
-          decoration: _kPanel(),
-          child: chartSeries.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No performance history available.',
-                    style: _kFieldLabelStyle,
-                  ),
-                )
-              : _InteractivePriceChart(
-                  key: ValueKey(
-                    'card-performance-${performance.selectedRange.apiValue}',
-                  ),
-                  series: chartSeries,
-                  quantities: data.series
-                      .map((point) => point.quantity)
-                      .toList(),
-                  persistentSelection: true,
-                  semanticKey: const Key('card-detail-performance-chart'),
-                  semanticLabel: 'Card performance chart',
-                  tooltipRows: [
-                    for (final point in data.series)
-                      _cardPerformanceTooltipRows(
-                        formatter,
-                        point,
-                        missingPrice: missingPrice,
+          key: const Key('card-detail-performance-chart-panel'),
+          height: 203,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: KandoColors.border.withValues(alpha: 0.55),
+            ),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                const Color(0xFF747B26).withValues(alpha: 0.12),
+                KandoColors.elevatedSurface.withValues(alpha: 0.28),
+              ],
+            ),
+          ),
+          child: Column(
+            children: [
+              _CardPerformanceRangePicker(
+                selected: performance.selectedRange,
+                onSelected: onRangeSelected,
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: chartSeries.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No performance history available.',
+                          style: _kFieldLabelStyle,
+                        ),
+                      )
+                    : _InteractivePriceChart(
+                        key: ValueKey(
+                          'card-performance-${performance.selectedRange.apiValue}',
+                        ),
+                        series: chartSeries,
+                        quantities: data.series
+                            .map((point) => point.quantity)
+                            .toList(),
+                        persistentSelection: true,
+                        semanticKey: const Key('card-detail-performance-chart'),
+                        semanticLabel: 'Card performance chart',
+                        tooltipRows: [
+                          for (final point in data.series)
+                            _cardPerformanceTooltipRows(
+                              formatter,
+                              point,
+                              missingPrice: missingPrice,
+                            ),
+                        ],
                       ),
-                  ],
-                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -1175,22 +1248,53 @@ class _CardPerformanceRangePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
       height: 32,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: KandoColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: KandoColors.border.withValues(alpha: 0.55)),
+      ),
       child: Row(
         children: [
           for (final range in PerformanceRange.values)
             Expanded(
-              child: InkWell(
-                key: Key('card-detail-performance-range-${range.apiValue}'),
-                onTap: () => onSelected(range),
-                child: Center(
-                  child: Text(
-                    range.apiValue,
-                    style: TextStyle(
-                      color: range == selected
-                          ? KandoColors.accent
-                          : KandoColors.mutedText,
+              child: Material(
+                color: Colors.transparent,
+                child: Ink(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    gradient: range == selected
+                        ? LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              const Color(0xFF747B26).withValues(alpha: 0.8),
+                              const Color(0xFF747B26).withValues(alpha: 0.45),
+                            ],
+                          )
+                        : null,
+                  ),
+                  child: InkWell(
+                    key: Key('card-detail-performance-range-${range.apiValue}'),
+                    borderRadius: BorderRadius.circular(4),
+                    overlayColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
+                    splashFactory: NoSplash.splashFactory,
+                    onTap: () => onSelected(range),
+                    child: Center(
+                      child: Text(
+                        range.apiValue,
+                        style: TextStyle(
+                          color: range == selected
+                              ? KandoColors.accent
+                              : _kCollectionSecondaryText,
+                          fontSize: 12,
+                          height: 16 / 12,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1203,30 +1307,57 @@ class _CardPerformanceRangePicker extends StatelessWidget {
 }
 
 class _CardPerformanceMetric extends StatelessWidget {
-  const _CardPerformanceMetric({required this.label, required this.value});
+  const _CardPerformanceMetric({
+    required this.iconAsset,
+    required this.label,
+    required this.value,
+    this.helper,
+    super.key,
+  });
 
+  final String iconAsset;
   final String label;
   final String value;
+  final String? helper;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 100,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0x1F747B26), Color(0x4D343434)],
+          colors: [
+            const Color(0xFF747B26).withValues(alpha: 0.06),
+            const Color(0xFF343434).withValues(alpha: 0.3),
+          ],
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: _kFieldLabelStyle),
-          const SizedBox(height: 4),
+          Row(
+            children: [
+              SvgPicture.asset(iconAsset),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: KandoColors.mutedText,
+                    fontSize: 12,
+                    height: 16 / 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -1236,9 +1367,23 @@ class _CardPerformanceMetric extends StatelessWidget {
                 color: KandoColors.text,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
+                height: 24 / 20,
               ),
             ),
           ),
+          if (helper != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              helper!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF999578),
+                fontSize: 10,
+                height: 14 / 10,
+              ),
+            ),
+          ],
         ],
       ),
     );

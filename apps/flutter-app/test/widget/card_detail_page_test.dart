@@ -1050,9 +1050,51 @@ void main() {
         findsNothing,
       );
 
+      final purchaseCostCard = find.byKey(
+        const Key('card-detail-performance-metric-purchase-cost'),
+      );
+      final currentValueCard = find.byKey(
+        const Key('card-detail-performance-metric-current-value'),
+      );
+      final profitLossCard = find.byKey(
+        const Key('card-detail-performance-metric-profit-loss'),
+      );
+      expect(tester.getSize(purchaseCostCard).height, 100);
+      expect(tester.getSize(currentValueCard).height, 100);
+      expect(tester.getSize(profitLossCard).height, 100);
+      expect(
+        tester.getTopLeft(currentValueCard).dx -
+            tester.getTopRight(purchaseCostCard).dx,
+        12,
+      );
+      expect(
+        tester.getTopLeft(profitLossCard).dy -
+            tester.getBottomLeft(purchaseCostCard).dy,
+        12,
+      );
+
       await tester.ensureVisible(
         find.byKey(const Key('card-detail-performance-chart')),
       );
+      final chartPanel = find.byKey(
+        const Key('card-detail-performance-chart-panel'),
+      );
+      expect(tester.getSize(chartPanel).height, 203);
+      expect(
+        find.descendant(
+          of: chartPanel,
+          matching: find.byKey(const Key('card-detail-performance-range-1D')),
+        ),
+        findsOneWidget,
+      );
+      final oneDayRange = tester.widget<InkWell>(
+        find.byKey(const Key('card-detail-performance-range-1D')),
+      );
+      expect(
+        oneDayRange.overlayColor?.resolve({WidgetState.pressed}),
+        Colors.transparent,
+      );
+      expect(oneDayRange.splashFactory, same(NoSplash.splashFactory));
       final chart = find.byKey(const Key('card-detail-performance-chart'));
       await tester.tapAt(tester.getRect(chart).center);
       await tester.pump();
@@ -1125,6 +1167,17 @@ void main() {
 
       await tester.ensureVisible(
         find.byKey(const Key('card-detail-edit-missing-purchase-price')),
+      );
+      final missingPriceCard = find.byKey(
+        const Key('card-detail-missing-purchase-price'),
+      );
+      final editPurchasePriceButton = find.byKey(
+        const Key('card-detail-edit-missing-purchase-price'),
+      );
+      expect(tester.getSize(editPurchasePriceButton).height, 36);
+      expect(
+        tester.getSize(editPurchasePriceButton).width,
+        lessThan(tester.getSize(missingPriceCard).width),
       );
       await tester.tap(
         find.byKey(const Key('card-detail-edit-missing-purchase-price')),
