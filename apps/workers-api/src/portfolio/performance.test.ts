@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   calculatePerformance,
   loadPortfolioPerformance,
@@ -9,6 +9,24 @@ describe("portfolio performance", () => {
   it("uses calendar boundaries because 1M and 1Y are not fixed day counts", () => {
     expect(performanceRangeStart("1M", new Date("2026-03-31T12:00:00Z"))).toBe("2026-02-28");
     expect(performanceRangeStart("1Y", new Date("2024-02-29T12:00:00Z"))).toBe("2023-02-28");
+  });
+
+  it("parses each price history a bounded number of times because Range latency must not grow through repeated JSON decoding", () => {
+    const parse = vi.spyOn(JSON, "parse");
+    try {
+      calculatePerformance(
+        [{
+          ...event("one", "2025-08-12T00:00:00.000Z", 1, 10),
+          performance_history_available_from: "2025-08-12T00:00:00.000Z",
+        }],
+        [sku([{ date: "2025-08-12", price: 30 }])],
+        "1Y",
+        { folderId: "main", now: new Date("2026-08-12T12:00:00Z") },
+      );
+      expect(parse).toHaveBeenCalledTimes(2);
+    } finally {
+      parse.mockRestore();
+    }
   });
 
   it("uses historical quantity but the latest purchase price because cost edits are retroactive", () => {
@@ -82,6 +100,16 @@ describe("portfolio performance", () => {
     );
 
     expect(result.top_performer_count).toBe(7);
+    expect(result.purchase_price_item_count).toBe(7);
+    expect(result.top_performer_item_ids).toEqual([
+      "item-a",
+      "item-b",
+      "item-c",
+      "item-d",
+      "item-e",
+      "item-f",
+      "item-g",
+    ]);
     expect(result.top_performers.map((item) => item.item_id)).toEqual([
       "item-a",
       "item-b",
@@ -150,6 +178,7 @@ describe("portfolio performance", () => {
       { folderId: "main", now: new Date("2026-08-12T12:00:00Z") },
     );
     expect(result.purchase_price_status).toBe("missing");
+    expect(result.purchase_price_item_count).toBe(0);
     expect(result.current).toMatchObject({
       market_value_usd: 30,
       total_paid_usd: null,
@@ -299,8 +328,42 @@ describe("portfolio performance", () => {
     );
 
     expect(calls[0]?.sql).toContain("AND item_id = ?");
+    expect(calls[0]?.sql).toContain("DISTINCT ON (item_id)");
+    expect(calls[0]?.sql).toContain("effective_at >= ?");
     expect(calls[0]?.sql).toContain("LIMIT 10001");
-    expect(calls[0]?.bindings).toEqual(["user", "owner-1", "item-1"]);
+    expect(calls[0]?.bindings).toEqual([
+      "user",
+      "owner-1",
+      "item-1",
+      "2026-07-12T00:00:00.000Z",
+      "2026-07-12T00:00:00.000Z",
+    ]);
+  });
+
+  it("filters Home to Items whose latest event belongs to the Folder because other Folder histories must not cross Hyperdrive", async () => {
+    const calls: Array<{ sql: string; bindings: unknown[] }> = [];
+    const db = recordingDatabase([], calls);
+
+    await loadPortfolioPerformance(
+      db,
+      { owner_type: "user", owner_id: "owner-1", session_id: "session-1" },
+      "1M",
+      {
+        folderId: "main",
+        now: new Date("2026-08-12T12:00:00Z"),
+      },
+    );
+
+    expect(calls[0]?.sql).toContain("DISTINCT ON (item_id)");
+    expect(calls[0]?.sql).toContain("latest.folder_id = ?");
+    expect(calls[0]?.sql).toContain("effective_at >= ?");
+    expect(calls[0]?.bindings).toEqual([
+      "user",
+      "owner-1",
+      "main",
+      "2026-07-12T00:00:00.000Z",
+      "2026-07-12T00:00:00.000Z",
+    ]);
   });
 
   it("fails above 10000 events because Hyperdrive responses must stay bounded", async () => {

@@ -1,6 +1,13 @@
 enum CollectionTab { portfolio, wishlist }
 
-enum CollectionSort { newest, valueDesc, valueAsc, changeDesc, nameAsc }
+enum CollectionSort {
+  newest,
+  valueDesc,
+  valueAsc,
+  changeDesc,
+  nameAsc,
+  performanceDesc,
+}
 
 enum CreateFolderStatus {
   success,

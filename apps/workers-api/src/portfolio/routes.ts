@@ -473,7 +473,8 @@ export function createPortfolioRoutes(
     });
     const {
       top_performer_count: _,
-      top_performers: __,
+      top_performer_item_ids: __,
+      top_performers: ___,
       ...itemPerformance
     } = performance;
     return c.json({ success: true, data: { item_id: item.id, ...itemPerformance } });

@@ -122,7 +122,7 @@ Functional Paywall 只在 typed Purchase/Restore success 后恢复仍有效的 W
 
 | API | 当前行为 |
 |---|---|
-| `GET /api/v1/portfolio/performance?range=...&folder_id=...` | 仅当前 session grant 可访问；返回指定 Folder 的指标、曲线、Item 数、市场价与购买价完整性状态，以及当前时点的 `top_performer_count` 和最多 5 条 `top_performers`。 |
+| `GET /api/v1/portfolio/performance?range=...&folder_id=...` | 仅当前 session grant 可访问；返回指定 Folder 的指标、曲线、Item 数、`purchase_price_item_count`、市场价与购买价完整性状态，以及当前时点的 `top_performer_count`、完整有序 `top_performer_item_ids` 和最多 5 条 `top_performers`。 |
 | `GET /api/v1/portfolio/items/:item_id/performance?range=...` | 仅当前 session grant 可访问；先校验 Item 归属，再只计算该 Collection Item，不聚合同卡其他 Item。 |
 | `GET /api/v1/portfolio/valuation-history?days=...` | `days<=90` 保持 Free 可用；`days>90`、最多 365 天时强制当前 session grant。本机 verified 头不能授权，只能触发 `ENTITLEMENT_SYNC_REQUIRED`。 |
 | `GET /api/v1/cards/:card_ref/market-prices` | 继续公开当前市场价与最多 90 天 history；路由层统一裁剪，不能借此绕过 1Y Premium。 |
@@ -135,7 +135,7 @@ Home Performance 的 `current` 与 `series[]` 点位提供 nullable `market_valu
 
 Home Performance 的 Folder 归属遵循 App PRD 的整体迁移规则：每个 Item 以最新 Event 的 Folder 作为全部可靠历史的当前归属，再按目标日期还原 Quantity、价格映射和删除状态。v1.1 Folder Move 成功后，Source Folder 立即移除该 Item 的当前及全部可靠历史，Target Folder 从 `performance_history_available_from` 起获得完整可靠历史；不会把 Move 前的可靠片段继续留在 Source。Card Detail Performance 不按 Folder 过滤，仍只计算目标 `collection_item_id`。
 
-冻结原始 PRD 中“不新增其他 Performance 卡牌榜单”的约束指 Home Overview 保持 v1.0 原流程；`Top Performers` 只在新增的 Home Premium Performance 容器展示，不扩展到 Home Overview 或 Card Detail。当前 Folder 内每个 Collection Item 独立参与，排除 Purchase Price 或当前 Market Price 缺失项，按未提前舍入的当前 Profit/Loss、可计算的 Return、Market Value 依次降序，最后以 `item_id` 稳定排序；响应末端才格式化金额与百分比。Purchase Price 为 0 时保留该 Item，但 Return 返回 `null`；全部亏损时仍返回相对最高项。该列表与 Range 无关，切换币种只由客户端换算金额，Return 数值不变。本次为现有响应的向后兼容字段扩展，不新增 Schema 或 migration。
+冻结原始 PRD 中“不新增其他 Performance 卡牌榜单”的约束指 Home Overview 保持 v1.0 原流程；`Top Performers` 只在新增的 Home Premium Performance 容器展示，不扩展到 Home Overview 或 Card Detail。当前 Folder 内每个 Collection Item 独立参与，排除 Purchase Price 或当前 Market Price 缺失项，按未提前舍入的当前 Profit/Loss、可计算的 Return、Market Value 依次降序，最后以 `item_id` 稳定排序；响应末端才格式化金额与百分比。Purchase Price 为 0 时保留该 Item，但 Return 返回 `null`；全部亏损时仍返回相对最高项。Home 最多展示前 5 项；`View all` 使用服务端返回的完整有序 `top_performer_item_ids` 打开当前 Folder，并让已入榜 Item 保持相同顺序，未入榜 Item 按最近加入时间排在其后。该列表与 Range 无关，切换币种只由客户端换算金额，Return 数值不变。`purchase_price_item_count` 按当前 Folder 中 Purchase Price 有效的 Collection Item 数统计，不按 Quantity 展开。本次为现有响应的向后兼容字段扩展，不新增 Schema 或 migration。
 
 同一点位同时增加 nullable `market_value_change_usd` 与 `profit_loss_change_usd`，供 Card Detail Performance 使用。两项均由服务端以未提前舍入的目标 Item 历史值和 `t_prev` 计算，Range 首点沿用范围外紧邻可靠节点；不存在可信前态或成本不可计算时返回 `null`。正常状态曲线使用 Profit/Loss，Tooltip 仅展示 Date、Daily Change、Market Value、Profit/Loss、Qty；Purchase Price 缺失状态曲线使用 Market Value，Tooltip 不得展示 Profit/Loss、Purchase Cost 或 Return。1D 单点仍可点击，切 Range 或离开 Performance 会销毁旧 Tooltip 状态。
 

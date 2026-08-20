@@ -140,6 +140,7 @@ PortfolioPerformanceDto _performance(PerformanceRange range, double value) {
     itemCount: 1,
     marketPriceStatus: MarketPriceStatus.available,
     purchasePriceStatus: PurchasePriceStatus.complete,
+    purchasePriceItemCount: 1,
     current: point,
     series: [point],
   );

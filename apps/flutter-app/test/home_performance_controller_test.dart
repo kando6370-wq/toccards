@@ -11,6 +11,51 @@ import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 
 void main() {
   test(
+    'A slow Range request selects the tapped Range immediately because delayed feedback makes the tap look lost',
+    () async {
+      final api = _ControlledPerformanceApi();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          portfolioApiClientProvider.overrideWithValue(api),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        homePerformanceControllerProvider.notifier,
+      );
+
+      final initial = controller.load(
+        folderId: 'main',
+        localPremiumVerified: true,
+      );
+      api.completeNext(_performance(PerformanceRange.oneMonth, 100));
+      await initial;
+      final previousData = container
+          .read(homePerformanceControllerProvider)
+          .data;
+
+      final pending = controller.selectRange(
+        PerformanceRange.oneYear,
+        folderId: 'main',
+        localPremiumVerified: true,
+      );
+
+      final loading = container.read(homePerformanceControllerProvider);
+      expect(loading.selectedRange, PerformanceRange.oneYear);
+      expect(loading.isLoading, isTrue);
+      expect(loading.data, same(previousData));
+
+      api.completeAt(1, _performance(PerformanceRange.oneYear, 120));
+      await pending;
+      expect(
+        container.read(homePerformanceControllerProvider).selectedRange,
+        PerformanceRange.oneYear,
+      );
+    },
+  );
+
+  test(
     'Range failures preserve the last valid range because a failed selection must not replace visible data',
     () async {
       final api = _ControlledPerformanceApi();
@@ -47,6 +92,54 @@ void main() {
   );
 
   test(
+    'A failed newer Range returns to the last loaded Range and an older late response cannot replace it',
+    () async {
+      final api = _ControlledPerformanceApi();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          portfolioApiClientProvider.overrideWithValue(api),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        homePerformanceControllerProvider.notifier,
+      );
+
+      final initial = controller.load(
+        folderId: 'main',
+        localPremiumVerified: true,
+      );
+      api.completeNext(_performance(PerformanceRange.oneMonth, 100));
+      await initial;
+
+      final older = controller.selectRange(
+        PerformanceRange.oneYear,
+        folderId: 'main',
+        localPremiumVerified: true,
+      );
+      final newer = controller.selectRange(
+        PerformanceRange.sevenDays,
+        folderId: 'main',
+        localPremiumVerified: true,
+      );
+      api.failNext();
+      await newer;
+
+      expect(
+        container.read(homePerformanceControllerProvider).selectedRange,
+        PerformanceRange.oneMonth,
+      );
+      api.completeAt(1, _performance(PerformanceRange.oneYear, 999));
+      await older;
+      final state = container.read(homePerformanceControllerProvider);
+      expect(state.selectedRange, PerformanceRange.oneMonth);
+      expect(state.data?.current.marketValueUsd, 100);
+      expect(state.isFailure, isTrue);
+    },
+  );
+
+  test(
     'A late old-range response cannot overwrite the newer folder context',
     () async {
       final api = _ControlledPerformanceApi();
@@ -70,14 +163,14 @@ void main() {
         folderId: 'folder-b',
         localPremiumVerified: true,
       );
-      api.completeAt(1, _performance(PerformanceRange.oneMonth, 200));
+      api.completeAt(1, _performance(PerformanceRange.oneYear, 200));
       await newRequest;
       api.completeAt(0, _performance(PerformanceRange.oneYear, 999));
       await oldRequest;
 
       final state = container.read(homePerformanceControllerProvider);
       expect(state.folderId, 'folder-b');
-      expect(state.selectedRange, PerformanceRange.oneMonth);
+      expect(state.selectedRange, PerformanceRange.oneYear);
       expect(state.data?.current.marketValueUsd, 200);
       expect(api.requests.map((request) => request.folderId), [
         'folder-a',
@@ -196,6 +289,7 @@ PortfolioPerformanceDto _performance(PerformanceRange range, double value) {
     itemCount: 1,
     marketPriceStatus: MarketPriceStatus.available,
     purchasePriceStatus: PurchasePriceStatus.complete,
+    purchasePriceItemCount: 1,
     current: point,
     series: [point],
   );

@@ -83,7 +83,7 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
     final generation = ++_generation;
     final previous = state;
     state = HomePerformanceState(
-      selectedRange: previous.selectedRange,
+      selectedRange: range,
       folderId: folderId,
       data: clearData ? null : previous.data,
       status: KandoLoadStatus.loading,
@@ -109,7 +109,7 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
     } catch (error) {
       if (!ref.mounted || generation != _generation) return;
       state = HomePerformanceState(
-        selectedRange: previous.selectedRange,
+        selectedRange: previous.data?.range ?? previous.selectedRange,
         folderId: folderId,
         data: clearData ? null : previous.data,
         status: KandoLoadStatus.failure,

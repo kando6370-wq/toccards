@@ -10,7 +10,6 @@ import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
-import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -172,11 +171,13 @@ class _HomePageState extends ConsumerState<HomePage>
                       ),
                       onViewAllTopPerformers: () {
                         ref
-                            .read(selectedPortfolioFolderProvider.notifier)
-                            .select(state.selectedFolderId);
-                        ref
                             .read(collectionControllerProvider.notifier)
-                            .selectTab(CollectionTab.portfolio);
+                            .showTopPerformers(
+                              folderId: state.selectedFolderId,
+                              itemIds:
+                                  performance.data?.topPerformerItemIds ??
+                                  const [],
+                            );
                         context.push('/collection');
                       },
                     )
@@ -214,7 +215,7 @@ class _HomePageState extends ConsumerState<HomePage>
                       },
                     ),
                   ],
-                  if (!_performanceSelected || isPro) ...[
+                  if (!_performanceSelected) ...[
                     const SizedBox(height: 32),
                     _TrendingSection(
                       state: state,
@@ -828,9 +829,12 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
   Widget build(BuildContext context) {
     final state = widget.state;
     final performance = widget.performance;
+    final performanceData = performance.data;
+    final showPurchasePriceCount = widget.isPro && performanceData != null;
     final showPurchasePriceInfo =
-        widget.isPro &&
-        performance.data?.purchasePriceStatus == PurchasePriceStatus.partial;
+        showPurchasePriceCount &&
+        performanceData.purchasePriceStatus == PurchasePriceStatus.partial;
+    final purchasePriceItemCount = performanceData?.purchasePriceItemCount ?? 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -885,19 +889,19 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                     ],
                   ),
                 ),
-                if (showPurchasePriceInfo) ...[
+                if (showPurchasePriceCount) ...[
                   const SizedBox(height: 4),
                   SizedBox(
                     height: 20,
                     child: Row(
                       children: [
-                        const Flexible(
+                        Flexible(
                           fit: FlexFit.loose,
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Cards with purchase price',
+                              '$purchasePriceItemCount ${purchasePriceItemCount == 1 ? 'card' : 'cards'} with purchase price',
                               maxLines: 1,
                               style: TextStyle(
                                 color: KandoColors.mutedText,
@@ -908,19 +912,23 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        Center(
-                          child: CompositedTransformTarget(
-                            link: _infoLayerLink,
-                            child: TapRegion(
-                              onTapOutside: (_) => _removeInfoTip(),
-                              child: _PerformanceInfoButton(
-                                key: const Key('home-performance-partial-info'),
-                                onPressed: _toggleInfoTip,
+                        if (showPurchasePriceInfo) ...[
+                          const SizedBox(width: 4),
+                          Center(
+                            child: CompositedTransformTarget(
+                              link: _infoLayerLink,
+                              child: TapRegion(
+                                onTapOutside: (_) => _removeInfoTip(),
+                                child: _PerformanceInfoButton(
+                                  key: const Key(
+                                    'home-performance-partial-info',
+                                  ),
+                                  onPressed: _toggleInfoTip,
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -1031,6 +1039,7 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                 children: [
                   _PerformanceRangePicker(
                     selected: performance.selectedRange,
+                    isLoading: performance.isLoading,
                     onSelected: (range) {
                       _clearOverlays();
                       widget.onRangeSelected(range);
@@ -1087,7 +1096,6 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
             _TopPerformersSection(
               state: state,
               performers: data.topPerformers,
-              totalCount: data.topPerformerCount,
               onPerformerPressed: widget.onTopPerformerPressed,
               onViewAll: widget.onViewAllTopPerformers,
             ),
@@ -1197,14 +1205,12 @@ class _TopPerformersSection extends StatelessWidget {
   const _TopPerformersSection({
     required this.state,
     required this.performers,
-    required this.totalCount,
     required this.onPerformerPressed,
     required this.onViewAll,
   });
 
   final HomeState state;
   final List<PortfolioTopPerformerDto> performers;
-  final int totalCount;
   final ValueChanged<PortfolioTopPerformerDto> onPerformerPressed;
   final VoidCallback onViewAll;
 
@@ -1212,48 +1218,56 @@ class _TopPerformersSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final visiblePerformers = performers.take(5).toList();
     return Column(
-      key: const Key('home-top-performers-list'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Top Performers',
-                style: TextStyle(
-                  color: KandoColors.text,
-                  fontFamily: 'Fraunces',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  height: 32 / 24,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Top Performers',
+                  style: TextStyle(
+                    color: KandoColors.text,
+                    fontFamily: 'Fraunces',
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    height: 32 / 24,
+                  ),
                 ),
               ),
-            ),
-            if (totalCount > 5)
-              TextButton(
+              InkWell(
                 key: const Key('home-top-performers-view-all'),
-                onPressed: onViewAll,
-                style: TextButton.styleFrom(
-                  foregroundColor: KandoColors.accent,
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  minimumSize: const Size(0, 40),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'View All',
-                      style: TextStyle(fontSize: 14, height: 20 / 14),
-                    ),
-                    SizedBox(width: 4),
-                    Icon(Icons.arrow_forward, size: 14),
-                  ],
+                onTap: onViewAll,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'View all',
+                        style: TextStyle(
+                          color: KandoColors.accent,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          height: 24 / 14,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      SvgPicture.asset(
+                        'assets/home/view_all_arrow.svg',
+                        width: 14,
+                        height: 10,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         if (visiblePerformers.isEmpty)
           const SizedBox(
             key: Key('home-top-performers-empty'),
@@ -1271,23 +1285,32 @@ class _TopPerformersSection extends StatelessWidget {
             ),
           )
         else
-          for (var index = 0; index < visiblePerformers.length; index++) ...[
-            _TopPerformerRow(
-              key: Key('home-top-performer-${visiblePerformers[index].itemId}'),
-              state: state,
-              performer: visiblePerformers[index],
-              onPressed: () => onPerformerPressed(visiblePerformers[index]),
+          SizedBox(
+            height: 269,
+            child: ListView.separated(
+              key: const Key('home-top-performers-list'),
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(bottom: 16),
+              itemCount: visiblePerformers.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 16),
+              itemBuilder: (context, index) {
+                final performer = visiblePerformers[index];
+                return _TopPerformerCard(
+                  key: Key('home-top-performer-${performer.itemId}'),
+                  state: state,
+                  performer: performer,
+                  onPressed: () => onPerformerPressed(performer),
+                );
+              },
             ),
-            if (index != visiblePerformers.length - 1)
-              const SizedBox(height: 10),
-          ],
+          ),
       ],
     );
   }
 }
 
-class _TopPerformerRow extends StatelessWidget {
-  const _TopPerformerRow({
+class _TopPerformerCard extends StatelessWidget {
+  const _TopPerformerCard({
     super.key,
     required this.state,
     required this.performer,
@@ -1300,127 +1323,150 @@ class _TopPerformerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profitLoss = _topPerformerProfitLoss(state, performer.profitLossUsd);
     final returnText = performer.returnPercent == null
         ? '--'
         : '${performer.returnPercent! > 0 ? '+' : ''}${performer.returnPercent!.toStringAsFixed(2)}%';
     final subtitle = performer.cardNumber.isEmpty
         ? performer.setName
-        : '${performer.setName} #${performer.cardNumber}';
+        : '#${performer.cardNumber} • ${performer.setName}';
+    final marketValue = _performanceAmount(state, performer.marketValueUsd);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Ink(
-          height: 88,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: KandoColors.surface.withValues(alpha: .72),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: KandoColors.borderSubtle),
-          ),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: SizedBox(
-                  width: 52,
-                  height: 72,
-                  child: _HomeCardImage(
-                    imageAssetPath: null,
-                    imageUrl: performer.imageUrl,
-                    height: 72,
-                  ),
-                ),
+    return SizedBox(
+      width: 144,
+      height: 253,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0x1FFFFFFF)),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xCC1C1E15), Color(0xE612140D)],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      performer.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: KandoColors.text,
-                        fontFamily: 'Fraunces',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        height: 20 / 15,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: KandoColors.mutedText,
-                        fontSize: 11,
-                        height: 16 / 11,
-                      ),
-                    ),
-                  ],
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x66000000),
+                  offset: Offset(0, 4),
+                  blurRadius: 20,
                 ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 96,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        profitLoss,
-                        maxLines: 1,
-                        style: TextStyle(
-                          color: state.amountHidden
-                              ? KandoColors.money
-                              : performer.profitLossUsd < 0
-                              ? KandoColors.loss
-                              : KandoColors.gain,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          height: 20 / 14,
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 155,
+                  width: double.infinity,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: KandoColors.ink,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: _HomeCardImage(
+                              imageAssetPath: null,
+                              imageUrl: performer.imageUrl,
+                              height: 143,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      returnText,
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: performer.returnPercent == null
-                            ? KandoColors.mutedText
-                            : performer.returnPercent! < 0
-                            ? KandoColors.loss
-                            : KandoColors.gain,
-                        fontSize: 12,
-                        height: 16 / 12,
+                      Positioned(
+                        top: 0,
+                        right: -2,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: BackdropFilter(
+                            filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: KandoColors.accentGlow10,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                returnText,
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: performer.returnPercent == null
+                                      ? KandoColors.mutedText
+                                      : performer.returnPercent! < 0
+                                      ? KandoColors.loss
+                                      : KandoColors.gain,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w400,
+                                  height: 14 / 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  performer.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFE4E3D3),
+                    fontFamily: 'Fraunces',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 20 / 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: KandoColors.mutedText,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w400,
+                    height: 18 / 10,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    marketValue,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: KandoColors.money,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      height: 20 / 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-}
-
-String _topPerformerProfitLoss(HomeState state, double value) {
-  final amount = _performanceAmount(state, value);
-  if (state.amountHidden || value <= 0) return amount;
-  return '+$amount';
 }
 
 class _PerformanceInfoButton extends StatelessWidget {
@@ -1555,10 +1601,12 @@ String _performanceAmount(HomeState state, double? value) {
 class _PerformanceRangePicker extends StatelessWidget {
   const _PerformanceRangePicker({
     required this.selected,
+    required this.isLoading,
     required this.onSelected,
   });
 
   final PerformanceRange selected;
+  final bool isLoading;
   final ValueChanged<PerformanceRange> onSelected;
 
   @override
@@ -1573,13 +1621,31 @@ class _PerformanceRangePicker extends StatelessWidget {
                 key: Key('home-performance-range-${range.apiValue}'),
                 onTap: () => onSelected(range),
                 child: Center(
-                  child: Text(
-                    range.apiValue,
-                    style: TextStyle(
-                      color: range == selected
-                          ? KandoColors.accent
-                          : KandoColors.mutedText,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        range.apiValue,
+                        style: TextStyle(
+                          color: range == selected
+                              ? KandoColors.accent
+                              : KandoColors.mutedText,
+                        ),
+                      ),
+                      if (isLoading && range == selected) ...[
+                        const SizedBox(width: 4),
+                        SizedBox.square(
+                          key: Key(
+                            'home-performance-range-loading-${range.apiValue}',
+                          ),
+                          dimension: 10,
+                          child: const CircularProgressIndicator(
+                            color: KandoColors.accent,
+                            strokeWidth: 1.5,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),

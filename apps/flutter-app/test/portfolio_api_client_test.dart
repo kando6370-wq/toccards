@@ -456,7 +456,10 @@ void main() {
             'item_count': 2,
             'market_price_status': 'available',
             'purchase_price_status': 'partial',
+            'purchase_price_item_count': 1,
             if (call == 1) 'top_performer_count': 6,
+            if (call == 1)
+              'top_performer_item_ids': ['item-top', 'item-second'],
             if (call == 1)
               'top_performers': [
                 {
@@ -522,6 +525,7 @@ void main() {
       expect(home.itemCount, 2);
       expect(home.marketPriceStatus, MarketPriceStatus.available);
       expect(home.purchasePriceStatus, PurchasePriceStatus.partial);
+      expect(home.purchasePriceItemCount, 1);
       expect(home.current.totalPaidUsd, 30);
       expect(home.current.marketChangeUsd, 20);
       expect(home.current.marketValueChangeUsd, 30);
@@ -530,6 +534,7 @@ void main() {
       expect(home.series.single.quantity, 3);
       expect(home.series.single.quantityChange, 1);
       expect(home.topPerformerCount, 6);
+      expect(home.topPerformerItemIds, ['item-top', 'item-second']);
       expect(home.topPerformers.single.itemId, 'item-top');
       expect(home.topPerformers.single.cardRef, 'card-top');
       expect(home.topPerformers.single.profitLossUsd, 40);

@@ -1991,6 +1991,7 @@ class _CardPerformanceApi extends PortfolioApiClient {
       itemCount: 1,
       marketPriceStatus: MarketPriceStatus.available,
       purchasePriceStatus: PurchasePriceStatus.complete,
+      purchasePriceItemCount: 1,
       current: point,
       series: [point],
     );
@@ -2034,6 +2035,7 @@ class _MissingPriceCardPerformanceApi extends _CardPerformanceApi {
       itemCount: 1,
       marketPriceStatus: MarketPriceStatus.available,
       purchasePriceStatus: PurchasePriceStatus.missing,
+      purchasePriceItemCount: 0,
       current: point,
       series: [point],
     );

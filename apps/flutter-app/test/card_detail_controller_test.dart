@@ -1898,6 +1898,7 @@ class _ImmediatePerformanceApi extends PortfolioApiClient {
       itemCount: 1,
       marketPriceStatus: MarketPriceStatus.available,
       purchasePriceStatus: PurchasePriceStatus.complete,
+      purchasePriceItemCount: 1,
       current: point,
       series: [point],
     );

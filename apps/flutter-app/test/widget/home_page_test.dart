@@ -538,12 +538,13 @@ void main() {
       expect(find.text('Market Value'), findsOneWidget);
       expect(find.text(r'$12,450.80'), findsOneWidget);
       expect(find.text(r'$800.00'), findsOneWidget);
-      expect(find.text('Trending Today'), findsOneWidget);
+      expect(find.text('60 cards with purchase price'), findsOneWidget);
+      expect(find.text('Trending Today'), findsNothing);
     },
   );
 
   testWidgets(
-    'Premium Home Performance shows only the top five Item records in a vertical list because the ranking is a current Folder preview',
+    'Premium Home Performance uses the Figma horizontal asset cards because ranking must stay scannable without a second vertical feed',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -567,22 +568,74 @@ void main() {
         350,
       );
       expect(find.text('Performer 1'), findsOneWidget);
-      expect(find.text('Performer 5'), findsOneWidget);
       expect(find.text('Performer 6'), findsNothing);
-      expect(find.text('View All'), findsOneWidget);
+      expect(find.text('View all'), findsOneWidget);
       expect(
-        find.byKey(const Key('home-top-performer-item-1')),
+        find.byKey(const Key('home-top-performer-item-pikachu')),
         findsOneWidget,
       );
-      expect(find.text(r'+$50.00'), findsOneWidget);
+      expect(find.text(r'$100.00'), findsOneWidget);
       expect(find.text('+50.00%'), findsOneWidget);
+      expect(
+        tester.getSize(
+          find.byKey(const Key('home-top-performer-item-pikachu')),
+        ),
+        const Size(144, 253),
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const Key('home-top-performer-item-charizard')),
+            )
+            .dx,
+        greaterThan(
+          tester
+              .getTopLeft(
+                find.byKey(const Key('home-top-performer-item-pikachu')),
+              )
+              .dx,
+        ),
+      );
 
       await tester.tap(find.byKey(const Key('home-performance-hide-amount')));
       await tester.pump();
       expect(find.text(hiddenMoneyText), findsWidgets);
-      expect(find.text(r'+$50.00'), findsNothing);
+      expect(find.text(r'$100.00'), findsNothing);
       expect(find.text('+50.00%'), findsOneWidget);
+      await tester.ensureVisible(
+        find.byKey(const Key('home-top-performers-list')),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('home-top-performers-list')),
+        const Offset(-500, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Performer 5'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Top Performers keeps View all visible for a short ranking because it is the collection navigation entry',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+          _TestHomePerformanceApi(topPerformerCount: 3),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('home-top-performers-view-all')),
+        findsOneWidget,
+      );
     },
   );
 
@@ -636,14 +689,16 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('home-performance-tab')));
       await tester.pumpAndSettle();
-      final performer = find.byKey(const Key('home-top-performer-item-1'));
+      final performer = find.byKey(
+        const Key('home-top-performer-item-pikachu'),
+      );
       await tester.ensureVisible(performer);
       await tester.pumpAndSettle();
       await tester.tap(performer);
       await tester.pumpAndSettle();
 
       expect(
-        find.text('card-1|item-1|home performance|portfolio'),
+        find.text('card-1|item-pikachu|home performance|portfolio'),
         findsOneWidget,
       );
     },
@@ -725,6 +780,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('portfolio|main|main'), findsOneWidget);
+      final collectionContext = tester.element(
+        find.text('portfolio|main|main'),
+      );
+      final collectionContainer = ProviderScope.containerOf(collectionContext);
+      expect(
+        collectionContainer
+            .read(collectionControllerProvider)
+            .visibleItems
+            .map((item) => item.source.id)
+            .toList(),
+        ['item-pikachu', 'item-charizard', 'item-umbreon'],
+      );
       await tester.tap(find.byKey(const Key('collection-return-home')));
       await tester.pumpAndSettle();
 
@@ -788,6 +855,47 @@ void main() {
       expect(repair.calls, 1);
       expect(api.calls, 2);
       expect(find.byKey(const Key('home-performance-failure')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'A slow Performance Range request highlights the tap and shows bounded progress while keeping prior data visible',
+    (tester) async {
+      final api = _SlowRangePerformanceApi();
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+          api,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-performance-range-7D')));
+      await tester.pump();
+
+      final homeContext = tester.element(find.byType(HomePage));
+      final loading = ProviderScope.containerOf(
+        homeContext,
+      ).read(homePerformanceControllerProvider);
+      expect(loading.selectedRange, PerformanceRange.sevenDays);
+      expect(loading.isLoading, isTrue);
+      expect(find.text(r'$12,450.80'), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-performance-range-loading-7D')),
+        findsOneWidget,
+      );
+
+      api.completeRange();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('home-performance-range-loading-7D')),
+        findsNothing,
+      );
     },
   );
 
@@ -1011,13 +1119,16 @@ void main() {
       final header = find.byKey(const Key('home-performance-header'));
       final title = find.text('PERFORMANCE');
       final eye = find.byKey(const Key('home-performance-hide-amount'));
-      final subtitle = find.text('Cards with purchase price');
+      final subtitle = find.text('60 cards with purchase price');
       final info = find.byKey(const Key('home-performance-partial-info'));
       expect(tester.getSize(header), const Size(350, 56));
       expect(tester.getSize(eye), const Size(24, 24));
       expect(tester.getSize(info), const Size(13, 13));
       expect(tester.getRect(eye).left - tester.getRect(title).right, 8);
-      expect(tester.getRect(info).left - tester.getRect(subtitle).right, 4);
+      expect(
+        tester.getRect(info).left - tester.getRect(subtitle).right,
+        closeTo(4, 0.001),
+      );
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -2306,7 +2417,9 @@ class _RepairingHomeSubscriptionController extends SubscriptionController {
 }
 
 class _TestHomePerformanceApi extends PortfolioApiClient {
-  _TestHomePerformanceApi() : super(Dio());
+  _TestHomePerformanceApi({this.topPerformerCount = 6}) : super(Dio());
+
+  final int topPerformerCount;
 
   @override
   Future<PortfolioPerformanceDto> getPortfolioPerformance(
@@ -2349,14 +2462,27 @@ class _TestHomePerformanceApi extends PortfolioApiClient {
       rangeEnd: '2026-08-12',
       historyAvailableFrom: '2026-07-12',
       partialHistory: false,
-      itemCount: 2,
+      itemCount: 75,
       marketPriceStatus: MarketPriceStatus.available,
       purchasePriceStatus: PurchasePriceStatus.partial,
-      topPerformerCount: 6,
+      purchasePriceItemCount: 60,
+      topPerformerCount: topPerformerCount,
+      topPerformerItemIds: const [
+        'item-pikachu',
+        'item-charizard',
+        'item-umbreon',
+      ],
       topPerformers: List.generate(
-        6,
+        topPerformerCount,
         (index) => PortfolioTopPerformerDto(
-          itemId: 'item-${index + 1}',
+          itemId: const [
+            'item-pikachu',
+            'item-charizard',
+            'item-umbreon',
+            'item-4',
+            'item-5',
+            'item-6',
+          ][index],
           cardRef: 'card-${index + 1}',
           name: 'Performer ${index + 1}',
           setName: 'Ranking Set',
@@ -2427,6 +2553,30 @@ class _FailingRangePerformanceApi extends _TestHomePerformanceApi {
       localPremiumVerified: localPremiumVerified,
     );
   }
+}
+
+class _SlowRangePerformanceApi extends _TestHomePerformanceApi {
+  final _rangeGate = Completer<void>();
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) async {
+    if (range == PerformanceRange.sevenDays) {
+      await _rangeGate.future;
+    }
+    return super.getPortfolioPerformance(
+      session,
+      range: range,
+      folderId: folderId,
+      localPremiumVerified: localPremiumVerified,
+    );
+  }
+
+  void completeRange() => _rangeGate.complete();
 }
 
 class _EntitlementSyncRangePerformanceApi extends _TestHomePerformanceApi {

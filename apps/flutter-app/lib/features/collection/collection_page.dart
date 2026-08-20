@@ -1948,6 +1948,7 @@ String _sortLabel(CollectionSort sort) {
     CollectionSort.valueAsc => 'Price: Low to High',
     CollectionSort.changeDesc => '30D gain high to low',
     CollectionSort.nameAsc => 'Name A-Z',
+    CollectionSort.performanceDesc => 'Top performance',
   };
 }
 

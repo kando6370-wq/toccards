@@ -35,6 +35,11 @@ final collectionInitialSortProvider =
       CollectionInitialSortController.new,
     );
 
+final collectionPerformanceOrderProvider =
+    NotifierProvider<CollectionPerformanceOrderController, List<String>>(
+      CollectionPerformanceOrderController.new,
+    );
+
 class CollectionInitialSortController extends Notifier<CollectionSort?> {
   @override
   CollectionSort? build() => null;
@@ -45,6 +50,19 @@ class CollectionInitialSortController extends Notifier<CollectionSort?> {
 
   void clear() {
     state = null;
+  }
+}
+
+class CollectionPerformanceOrderController extends Notifier<List<String>> {
+  @override
+  List<String> build() => const [];
+
+  void select(List<String> itemIds) {
+    state = List.unmodifiable(itemIds);
+  }
+
+  void clear() {
+    state = const [];
   }
 }
 
@@ -94,6 +112,7 @@ class CollectionState {
     required this.sortByTab,
     required this.gamesByTab,
     required this.languagesByTab,
+    this.performanceItemIds = const [],
     this.gameOptions = const [],
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.content;
@@ -119,6 +138,7 @@ class CollectionState {
         CollectionTab.portfolio: <String>{},
         CollectionTab.wishlist: <String>{},
       },
+      performanceItemIds = const [],
       gameOptions = const [],
       loadStatus = KandoLoadStatus.failure;
 
@@ -143,6 +163,7 @@ class CollectionState {
         CollectionTab.portfolio: <String>{},
         CollectionTab.wishlist: <String>{},
       },
+      performanceItemIds = const [],
       gameOptions = const [],
       loadStatus = KandoLoadStatus.loading;
 
@@ -156,6 +177,7 @@ class CollectionState {
     required this.sortByTab,
     required this.gamesByTab,
     required this.languagesByTab,
+    required this.performanceItemIds,
     required this.gameOptions,
     required this.loadStatus,
   }) : _dashboard = dashboard;
@@ -169,6 +191,7 @@ class CollectionState {
   final Map<CollectionTab, CollectionSort> sortByTab;
   final Map<CollectionTab, Set<String>> gamesByTab;
   final Map<CollectionTab, Set<String>> languagesByTab;
+  final List<String> performanceItemIds;
   final List<String> gameOptions;
   final KandoLoadStatus loadStatus;
 
@@ -223,6 +246,10 @@ class CollectionState {
       return matchesSearch && matchesGame && matchesLanguage;
     }).toList();
 
+    final performanceRanks = {
+      for (var index = 0; index < performanceItemIds.length; index++)
+        performanceItemIds[index]: index,
+    };
     filtered.sort((a, b) {
       return switch (selectedSort) {
         CollectionSort.newest => b.addedAtSort.compareTo(a.addedAtSort),
@@ -239,6 +266,11 @@ class CollectionState {
           _changePercent(b),
         ),
         CollectionSort.nameAsc => a.name.compareTo(b.name),
+        CollectionSort.performanceDesc => _performanceRankCompare(
+          a,
+          b,
+          performanceRanks,
+        ),
       };
     });
 
@@ -299,6 +331,7 @@ class CollectionState {
     Map<CollectionTab, CollectionSort>? sortByTab,
     Map<CollectionTab, Set<String>>? gamesByTab,
     Map<CollectionTab, Set<String>>? languagesByTab,
+    List<String>? performanceItemIds,
     List<String>? gameOptions,
   }) {
     return CollectionState._(
@@ -311,6 +344,7 @@ class CollectionState {
       sortByTab: sortByTab ?? this.sortByTab,
       gamesByTab: gamesByTab ?? this.gamesByTab,
       languagesByTab: languagesByTab ?? this.languagesByTab,
+      performanceItemIds: performanceItemIds ?? this.performanceItemIds,
       gameOptions: gameOptions ?? this.gameOptions,
       loadStatus: loadStatus,
     );
@@ -320,6 +354,21 @@ class CollectionState {
     return CurrencyFormatter(
       currency: currency,
     ).formatUsd(valueUsd, hidden: amountHidden);
+  }
+
+  int _performanceRankCompare(
+    CollectionItem left,
+    CollectionItem right,
+    Map<String, int> ranks,
+  ) {
+    final leftRank = ranks[left.id];
+    final rightRank = ranks[right.id];
+    if (leftRank != null && rightRank != null) {
+      return leftRank.compareTo(rightRank);
+    }
+    if (leftRank != null) return -1;
+    if (rightRank != null) return 1;
+    return right.addedAtSort.compareTo(left.addedAtSort);
   }
 
   String _formatMoney(double? valueUsd, int quantity) {
@@ -487,6 +536,9 @@ class CollectionController extends Notifier<CollectionState> {
         final initialSort = preserveState == null
             ? ref.read(collectionInitialSortProvider) ?? CollectionSort.newest
             : null;
+        final initialPerformanceOrder = preserveState == null
+            ? ref.read(collectionPerformanceOrderProvider)
+            : const <String>[];
         ref.read(selectedCurrencyProvider.notifier).select(preferredCurrency);
         state = CollectionState(
           dashboard: dashboard,
@@ -515,10 +567,13 @@ class CollectionController extends Notifier<CollectionState> {
                 CollectionTab.portfolio: <String>{},
                 CollectionTab.wishlist: <String>{},
               },
+          performanceItemIds:
+              preserveState?.performanceItemIds ?? initialPerformanceOrder,
           gameOptions: gameOptions,
         );
         if (preserveState == null) {
           ref.read(collectionInitialSortProvider.notifier).clear();
+          ref.read(collectionPerformanceOrderProvider.notifier).clear();
         }
         if (sharedFolderId == null) {
           ref
@@ -570,6 +625,33 @@ class CollectionController extends Notifier<CollectionState> {
       gamesByTab: {...state.gamesByTab, previousTab: <String>{}},
       languagesByTab: {...state.languagesByTab, previousTab: <String>{}},
     );
+  }
+
+  void showTopPerformers({
+    required String folderId,
+    required List<String> itemIds,
+  }) {
+    ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
+    if (state.isUnavailable || state.isLoading) {
+      ref
+          .read(collectionInitialSortProvider.notifier)
+          .select(CollectionSort.performanceDesc);
+      ref.read(collectionPerformanceOrderProvider.notifier).select(itemIds);
+      return;
+    }
+    if (!state.dashboard.folders.any((folder) => folder.id == folderId)) return;
+
+    state = state.copyWith(
+      selectedTab: CollectionTab.portfolio,
+      selectedFolderId: folderId,
+      sortByTab: {
+        ...state.sortByTab,
+        CollectionTab.portfolio: CollectionSort.performanceDesc,
+      },
+      performanceItemIds: itemIds,
+    );
+    ref.read(collectionInitialSortProvider.notifier).clear();
+    ref.read(collectionPerformanceOrderProvider.notifier).clear();
   }
 
   Future<bool> selectFolder(String folderId) async {

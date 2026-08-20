@@ -473,7 +473,9 @@ class PortfolioPerformanceDto {
     required this.itemCount,
     required this.marketPriceStatus,
     required this.purchasePriceStatus,
+    required this.purchasePriceItemCount,
     this.topPerformerCount = 0,
+    this.topPerformerItemIds = const [],
     this.topPerformers = const [],
     required this.current,
     required this.series,
@@ -487,7 +489,9 @@ class PortfolioPerformanceDto {
   final int itemCount;
   final MarketPriceStatus marketPriceStatus;
   final PurchasePriceStatus purchasePriceStatus;
+  final int purchasePriceItemCount;
   final int topPerformerCount;
+  final List<String> topPerformerItemIds;
   final List<PortfolioTopPerformerDto> topPerformers;
   final PerformancePointDto current;
   final List<PerformancePointDto> series;
@@ -509,9 +513,13 @@ class PortfolioPerformanceDto {
           _requiredString(json['market_price_status']),
         ),
         purchasePriceStatus: PurchasePriceStatus.values.byName(statusValue),
+        purchasePriceItemCount: _requiredInt(json['purchase_price_item_count']),
         topPerformerCount: json['top_performer_count'] == null
             ? 0
             : _requiredInt(json['top_performer_count']),
+        topPerformerItemIds: json['top_performer_item_ids'] == null
+            ? const []
+            : _stringsFrom(json['top_performer_item_ids']),
         topPerformers: json['top_performers'] == null
             ? const []
             : _itemsFrom(
@@ -1153,6 +1161,13 @@ List<Map<String, Object?>> _itemsFrom(Object? items) {
     );
   }
   return items.map(_mapItem).toList();
+}
+
+List<String> _stringsFrom(Object? values) {
+  if (values is! List<Object?>) {
+    throw const FormatException('Expected a list of strings');
+  }
+  return values.map(_requiredString).toList();
 }
 
 String _requiredString(Object? value) {
