@@ -229,12 +229,14 @@ describe("Admin billing order contract", () => {
   });
 
   it("exports all filtered rows as a real XLSX workbook", async () => {
+    await db.prepare("UPDATE billing_transaction SET storefront_country_code = 'USA' WHERE transaction_id = 'transaction-1'").run();
     await db.prepare("INSERT INTO billing_purchase_chain (id, environment, original_transaction_id, original_owner_id, status, auto_renew) VALUES ('chain-other', 'Production', 'original-other', '200002', 'EXPIRED', 0)").run();
     await db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, auto_renew_snapshot, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-other', 'chain-other', 'Production', 'transaction-other', 'other.sku', 'renewal', 2, 0, 'CA', 1000000, 'CAD', 750000, ?, ?)").bind(NOW, NOW).run();
-    const filters = "uid=100001&country=US&sku=com.cardai.tcg.pro.yearly&status=initial_purchase"
+    const filters = "uid=100001&country=USA&sku=com.cardai.tcg.pro.yearly&status=initial_purchase"
       + "&subscription_status=ACTIVE&auto_renew=true&environment=Sandbox&charge_count=1";
     const list = await (await get(`/admin/billing/transactions?${filters}`)).json() as any;
     expect(list.data.items.map((item: any) => item.order_id)).toEqual(["transaction-1"]);
+    expect(list.data.items[0].country).toBe("USA");
 
     const response = await get(`/admin/billing/transactions/export?${filters}`);
     expect(response.status).toBe(200);
@@ -246,6 +248,8 @@ describe("Admin billing order contract", () => {
     expect(sheet).toContain("原始交易 ID");
     expect(sheet).toContain("transaction-1");
     expect(sheet).toContain("100001");
+    expect(sheet).toContain("美国");
+    expect(sheet).toContain("USA");
     expect(sheet).not.toContain("transaction-other");
   });
 

@@ -24,6 +24,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { resolveAdminApiBase } from "./api-base";
+import { countryName } from "./country-name";
 
 type AdminRole = "super_admin" | "operator";
 type MenuKey = "installations" | "billing-orders" | "apple-notifications" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions";
@@ -1468,11 +1469,6 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "请求失败，请稍后重试";
 }
 
-function countryName(countryCode: string): string {
-  const normalized = countryCode.trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(normalized)) return "未知";
-  return new Intl.DisplayNames(["zh-CN"], { type: "region" }).of(normalized) ?? normalized;
-}
 const platformOptions = ["iOS", "Google"].map((value) => ({ value, label: value }));
 const environmentOptions = [{ value: "production", label: "Production" }, { value: "development", label: "Development" }];
 const userPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));

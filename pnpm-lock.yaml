@@ -23,6 +23,9 @@ importers:
       antd:
         specifier: ^5.22.0
         version: 5.29.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      i18n-iso-countries:
+        specifier: 7.14.0
+        version: 7.14.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -72,6 +75,9 @@ importers:
       hono:
         specifier: ^4.6.0
         version: 4.12.27
+      i18n-iso-countries:
+        specifier: 7.14.0
+        version: 7.14.0
       postgres:
         specifier: 3.4.9
         version: 3.4.9
@@ -1549,6 +1555,9 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
+  diacritics@1.3.0:
+    resolution: {integrity: sha512-wlwEkqcsaxvPJML+rDh/2iS824jbREk6DUMUKkEaSlxdYHeS43cClJtsWglvw2RfeXGm6ohKDqsXteJ5sP5enA==}
+
   drizzle-kit@0.30.0:
     resolution: {integrity: sha512-zAf0qg/BX2lV/Xip4igXrtbDv+Ub8S39U6qSOEGNvqcHrnmaQjS4mkkFZOUsgXRbuH56QUeWZxfnLHefrKCV5g==}
     hasBin: true
@@ -1771,6 +1780,10 @@ packages:
   hono@4.12.27:
     resolution: {integrity: sha512-1yrb/+w6HWQJrUCLkJ2IF5jNIPvvFkblV5RNOYl6bV+OA6p9GLcMpHFFGTosSvHvcAUibuUukRqhlYI4z32C7Q==}
     engines: {node: '>=16.9.0'}
+
+  i18n-iso-countries@7.14.0:
+    resolution: {integrity: sha512-nXHJZYtNrfsi1UQbyRqm3Gou431elgLjKl//CYlnBGt5aTWdRPH1PiS2T/p/n8Q8LnqYqzQJik3Q7mkwvLokeg==}
+    engines: {node: '>= 12'}
 
   js-tokens@3.0.0:
     resolution: {integrity: sha512-poXEQHPMmTrYZuJgNRll2sbc3kJsSU1m/g1Q93IE6txNj3p6xOOOmdj1G/zCVGawYSPzTkSoWGg1otqbeqKJeg==}
@@ -3513,6 +3526,8 @@ snapshots:
 
   detect-libc@2.1.2: {}
 
+  diacritics@1.3.0: {}
+
   drizzle-kit@0.30.0:
     dependencies:
       '@drizzle-team/brocli': 0.10.2
@@ -3738,6 +3753,10 @@ snapshots:
       function-bind: 1.1.2
 
   hono@4.12.27: {}
+
+  i18n-iso-countries@7.14.0:
+    dependencies:
+      diacritics: 1.3.0
 
   js-tokens@3.0.0: {}
 

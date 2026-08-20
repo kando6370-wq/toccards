@@ -12,6 +12,7 @@ import type { Env } from "../env";
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
 import { cardImageUrl } from "../card-image-url";
 import { createId } from "../id";
+import { countryDisplayName } from "./country-name";
 import { createXlsx } from "./xlsx";
 
 type AdminRole = "super_admin" | "operator";
@@ -1428,11 +1429,6 @@ function invalidDateRange(from: string | null | "invalid", to: string | null | "
 
 function microsToDecimal(value: unknown): number | "" {
   return typeof value === "number" && Number.isFinite(value) ? value / 1_000_000 : "";
-}
-
-function countryDisplayName(value: unknown): string {
-  if (typeof value !== "string" || !/^[A-Za-z]{2}$/.test(value)) return "";
-  return new Intl.DisplayNames(["zh-CN"], { type: "region" }).of(value.toUpperCase()) ?? value.toUpperCase();
 }
 
 function addExactCondition(conditions: string[], bindings: unknown[], column: string, value: string | undefined): void {
