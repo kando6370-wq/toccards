@@ -179,4 +179,6 @@ PostgreSQL migration manifest 测试保护 `0007` 的顺序与内容；远程 Sc
 - 应用代码回滚时可以保留新索引，旧 Worker 会恢复旧的查询行为。若必须恢复旧索引，必须先停止相关写入，并检查、导出和处理同一 `owner/folder/card/finish/language` 下已经共存的多评级 Item；未经单独的数据处理授权不得删除或合并这些记录，否则旧索引可能无法重建。
 - dev/prod 当前共用 PostgreSQL Schema，远程执行 `0008` 会同时改变两套环境使用的数据库约束，不是仅 dev 生效的操作。
 
-本任务只新增 migration 及其本地契约测试，没有远程执行 `0008`、部署 Worker 或写入数据库。远程 Schema 当前状态必须在实际发布任务中重新只读核验。
+2026-08-20 经用户明确授权，通过只绑定共享 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66` 的一次性 Wrangler remote preview 执行 `0008`；该 preview 没有 D1、KV、R2、路由或定时任务。执行前目标为 `postgres/public`、PostgreSQL 18.6，ledger 精确包含 `0000-0007`，旧索引存在、新索引不存在，84 条 Collection Item 按新完整身份计算的冲突组为 0。迁移在 `pg_advisory_xact_lock(hashtext('kando-postgres-schema'))` 保护的单个事务内执行并写入 ledger，checksum 为 `7d6edd0e996dabbb1f571790d13b9ef20b0a44ae3f3c7799d825b657df22e1f2`，`applied_at=2026-08-20T06:20:55.020Z`。
+
+事务外复核确认旧索引已不存在，新 `uq_collection_item_folder_card_variant` 的实际定义包含 `owner_type`、`owner_id`、`folder_id`、`card_ref`、`finish`、`language`、`grader`、`condition` 和 `grade`；Collection Item 仍为 84 条且冲突组为 0。幂等复跑返回 `alreadyApplied` 且 checksum 一致，preview 随后关闭并删除本地临时执行器。本次操作没有主动部署 Worker；实时 deployment 状态需在发布任务中单独核验。

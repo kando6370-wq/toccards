@@ -56,7 +56,7 @@ Portfolio API 的 Folder、Collection Item、Wishlist、Dashboard 与估值历�
 
 Quick Collect、完整 Collection Item Create 与 Scan Confirm 使用相同重复身份：`owner_type + owner_id + folder_id + card_ref + finish + language + grader + condition + grade`。Raw Item 以 `grader=Raw + condition` 区分品相，评级卡以 `grader + grade` 区分评级机构和分数；因此 `Raw NM`/`Raw LP`、`PSA 9`/`PSA 10`、`PSA 10`/`BGS 10` 可以在同一 Folder 分别收藏。只有上述身份字段全部相同时返回 `409 DUPLICATE_COLLECTION_ITEM`；`quantity`、购买价、币种和备注不参与重复身份，不能用这些字段创建同一状态的第二条 Item。
 
-PostgreSQL `0008_collection_item_grading_identity.sql` 用包含完整评级状态的唯一索引替换旧的 `card_ref + finish + language` 索引。现有数据受旧索引约束，天然满足新索引，无需回填。该迁移尚未在远程数据库执行；dev/prod 共用 PostgreSQL Schema，后续执行会同时改变两套 Worker 面向的数据库约束，发布与回滚边界见 [migration.md](migration.md)。
+PostgreSQL `0008_collection_item_grading_identity.sql` 用包含完整评级状态的唯一索引替换旧的 `card_ref + finish + language` 索引。现有数据受旧索引约束，天然满足新索引，无需回填。该迁移已于 2026-08-20 应用到 dev/prod 共用的 PostgreSQL Schema，因此两套 Worker 面向的数据库约束已经同时变更；执行与回滚边界见 [migration.md](migration.md)。
 
 Card Data API 的 Home 推荐、Search、Set/Card Detail、市场价与 Price History 请求也使用同一 15 秒总 Deadline；到期取消当前客户端等待并返回 `REQUEST_TIMEOUT`。Search 和 Range Controller 继续以当前请求代次决定是否接纳响应，因此旧查询或旧 Range 的迟到结果不能覆盖用户后续选择。
 
