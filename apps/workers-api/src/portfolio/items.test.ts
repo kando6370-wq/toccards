@@ -147,10 +147,21 @@ class FakeD1Statement {
 
     if (this.sql.includes("FROM collection_item")) {
       if (this.sql.includes("folder_id = ?")) {
-        const [ownerType, ownerId, folderId, cardRef, language, finish] = this.args;
+        const [
+          ownerType,
+          ownerId,
+          folderId,
+          cardRef,
+          language,
+          finish,
+          grader,
+          condition,
+          grade,
+        ] = this.args;
         return (this.db.items.find((row) =>
           row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
-          row.card_ref === cardRef && row.language === language && row.finish === finish
+          row.card_ref === cardRef && row.language === language && row.finish === finish &&
+          row.grader === grader && row.condition === condition && row.grade === grade
         ) ?? null) as T | null;
       }
       const [ownerType, ownerId, itemId] = this.args;
@@ -785,10 +796,43 @@ describe("collection item routes", () => {
     });
   });
 
-  it("rejects the same card, finish, and language despite different grading", async () => {
+  it("allows the same card variant and grade when the grader differs", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }));
-    db.items.push(item({ id: "owned", folder_id: "main", card_ref: "card-a" }));
+    db.items.push(item({
+      id: "owned",
+      folder_id: "main",
+      card_ref: "card-a",
+      grader: "PSA",
+      condition: null,
+      grade: 10,
+    }));
+
+    const response = await app.request("/api/v1/portfolio/items", {
+      method: "POST",
+      headers: await authHeaders("anonymous", "anon-1"),
+      body: JSON.stringify({
+        folder_id: "main", card_ref: "card-a", object_type: "tcg", grader: "BGS",
+        condition: null, grade: 10, language: "English",
+        finish: "Holofoil", quantity: 1,
+      }),
+    }, createTestEnv(db));
+
+    expect(response.status).toBe(201);
+    expect(db.items).toHaveLength(2);
+  });
+
+  it("allows the same graded card variant when the grade differs", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    db.items.push(item({
+      id: "owned",
+      folder_id: "main",
+      card_ref: "card-a",
+      grader: "PSA",
+      condition: null,
+      grade: 9,
+    }));
 
     const response = await app.request("/api/v1/portfolio/items", {
       method: "POST",
@@ -800,9 +844,27 @@ describe("collection item routes", () => {
       }),
     }, createTestEnv(db));
 
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({ error: { code: "DUPLICATE_COLLECTION_ITEM" } });
-    expect(db.items).toHaveLength(1);
+    expect(response.status).toBe(201);
+    expect(db.items).toHaveLength(2);
+  });
+
+  it("allows the same Raw card variant when the condition differs", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    db.items.push(item({ id: "owned", folder_id: "main", card_ref: "card-a" }));
+
+    const response = await app.request("/api/v1/portfolio/items", {
+      method: "POST",
+      headers: await authHeaders("anonymous", "anon-1"),
+      body: JSON.stringify({
+        folder_id: "main", card_ref: "card-a", object_type: "tcg", grader: "Raw",
+        condition: "Lightly Played (LP)", grade: null, language: "English",
+        finish: "Holofoil", quantity: 1,
+      }),
+    }, createTestEnv(db));
+
+    expect(response.status).toBe(201);
+    expect(db.items).toHaveLength(2);
   });
 
   it("defaults to current-folder join time because moved assets must appear before older folder entries", async () => {

@@ -107,7 +107,8 @@ const DUPLICATE_COLLECTION_ITEM_RESPONSE = {
   success: false,
   error: {
     code: "DUPLICATE_COLLECTION_ITEM",
-    message: "This card with the same finish and language is already in this portfolio.",
+    message:
+      "This card with the same finish, language, and grading is already in this portfolio.",
   },
 } as const;
 
@@ -257,6 +258,7 @@ SELECT id
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND folder_id = ? AND card_ref = ?
   AND language IS NOT DISTINCT FROM ? AND finish IS NOT DISTINCT FROM ?
+  AND grader = ? AND condition IS NOT DISTINCT FROM ? AND grade IS NOT DISTINCT FROM ?
 LIMIT 1
 `;
 
@@ -1668,6 +1670,9 @@ async function findCollectionItemBySku(
       draft.card_ref,
       draft.language,
       draft.finish,
+      draft.grader,
+      draft.condition,
+      draft.grade,
     )
     .first<{ id: string }>();
 }

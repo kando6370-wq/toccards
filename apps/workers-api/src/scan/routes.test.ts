@@ -194,10 +194,21 @@ class FakeD1Statement {
       ) ?? null) as T | null;
     }
     if (sql.includes("FROM collection_item") && sql.includes("folder_id = ?")) {
-      const [ownerType, ownerId, folderId, cardRef, language, finish] = this.values;
+      const [
+        ownerType,
+        ownerId,
+        folderId,
+        cardRef,
+        language,
+        finish,
+        grader,
+        condition,
+        grade,
+      ] = this.values;
       return (this.db.collectionItems.find((row) =>
         row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
-        row.card_ref === cardRef && row.language === language && row.finish === finish
+        row.card_ref === cardRef && row.language === language && row.finish === finish &&
+        row.grader === grader && row.condition === condition && row.grade === grade
       ) ?? null) as T | null;
     }
     return null;
@@ -1096,7 +1107,7 @@ describe("scan routes", () => {
     expect(env.DB.collectionItems).toHaveLength(1);
   });
 
-  it("rejects the same scanned card, finish, and language despite different grading", async () => {
+  it("allows the same scanned card, finish, and language when grading differs", async () => {
     const env = createConfirmEnv();
     env.DB.collectionItems.push({
       id: "owned", owner_type: "anonymous", owner_id: "anon-1", folder_id: "main",
@@ -1112,10 +1123,9 @@ describe("scan routes", () => {
       finish: "Holofoil", purchase_price: null, purchase_currency: null, notes: null,
     });
 
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({ error: { code: "DUPLICATE_COLLECTION_ITEM" } });
-    expect(env.DB.collectionItems).toHaveLength(1);
-    expect(env.DB.scanRecords[0]?.user_confirmation_status).toBe("pending");
+    expect(response.status).toBe(201);
+    expect(env.DB.collectionItems).toHaveLength(2);
+    expect(env.DB.scanRecords[0]?.user_confirmation_status).toBe("confirmed");
   });
 });
 

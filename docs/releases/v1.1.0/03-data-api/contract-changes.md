@@ -52,6 +52,12 @@ Scan API 的 Quota 查询、识别提交和确认写入统一从请求发起时�
 
 Portfolio API 的 Folder、Collection Item、Wishlist、Dashboard 与估值历史请求同样统一使用从调用发起计时的 15 秒总 Deadline；到期取消客户端等待并返回通用 Timeout 文案，迟到响应不能完成已经过期的保存或覆盖当前读取状态。Create Folder、Quick Collect、完整 Collection Item Create 与 Add Wishlist 均发送 UUID `Idempotency-Key`；Timeout 后按稳定 owner、创建入口及规范化名称、完整 Item 草稿或 card ref 复用该 Key，即使 access token 已刷新也不改变。服务端以 Key 作为新资源 ID，同 Key/相同语义返回原资源，同 Key/不同字段返回 `409`，非法 Key 返回 `422`。网络失败、客户端 Deadline、HTTP `408`/`5xx` 或成功响应 DTO 无法解析等无法确定服务端是否已提交的结果均保留原 Key；成功或 `401`、`403`、`409`、`422` 等明确终态响应后清除，后续主动创建才是新操作。Quick Collect 与完整 Create 使用不同操作域，不会互相重放。旧客户端不带 Key 时继续兼容。该客户端边界不拆分 Folder Move 与字段编辑的原子 `PATCH`。
 
+## Collection Item 重复规则
+
+Quick Collect、完整 Collection Item Create 与 Scan Confirm 使用相同重复身份：`owner_type + owner_id + folder_id + card_ref + finish + language + grader + condition + grade`。Raw Item 以 `grader=Raw + condition` 区分品相，评级卡以 `grader + grade` 区分评级机构和分数；因此 `Raw NM`/`Raw LP`、`PSA 9`/`PSA 10`、`PSA 10`/`BGS 10` 可以在同一 Folder 分别收藏。只有上述身份字段全部相同时返回 `409 DUPLICATE_COLLECTION_ITEM`；`quantity`、购买价、币种和备注不参与重复身份，不能用这些字段创建同一状态的第二条 Item。
+
+PostgreSQL `0008_collection_item_grading_identity.sql` 用包含完整评级状态的唯一索引替换旧的 `card_ref + finish + language` 索引。现有数据受旧索引约束，天然满足新索引，无需回填。该迁移尚未在远程数据库执行；dev/prod 共用 PostgreSQL Schema，后续执行会同时改变两套 Worker 面向的数据库约束，发布与回滚边界见 [migration.md](migration.md)。
+
 Card Data API 的 Home 推荐、Search、Set/Card Detail、市场价与 Price History 请求也使用同一 15 秒总 Deadline；到期取消当前客户端等待并返回 `REQUEST_TIMEOUT`。Search 和 Range Controller 继续以当前请求代次决定是否接纳响应，因此旧查询或旧 Range 的迟到结果不能覆盖用户后续选择。
 
 Auth API 的每次 HTTP 请求已使用 15 秒 Deadline。启动时 `validateStoredSession` 从业务操作开始计时，`/auth/me → token refresh → /auth/me` 内部校验链的每一步只获得当前剩余预算，不会重新获得 15 秒。到期取消客户端等待并进入现有网络失败处理，不返回迟到 session；OAuth 继续沿用统一授权失败文案，不因 Deadline 引入新的用户可见错误类型。

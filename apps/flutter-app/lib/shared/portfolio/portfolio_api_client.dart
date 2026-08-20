@@ -10,7 +10,7 @@ import 'package:uuid/uuid.dart';
 const portfolioApiBaseUrl = authApiBaseUrl;
 const duplicateCollectionItemErrorCode = 'DUPLICATE_COLLECTION_ITEM';
 const duplicateCollectionItemMessage =
-    'This card with the same finish and language is already in this portfolio.';
+    'This card with the same finish, language, and grading is already in this portfolio.';
 const portfolioRequestDeadline = Duration(seconds: 15);
 const portfolioRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const portfolioRequestTimeoutMessage = 'Request timed out. Please try again.';

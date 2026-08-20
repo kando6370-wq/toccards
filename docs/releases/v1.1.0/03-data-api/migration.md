@@ -169,3 +169,14 @@ Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-a
 - 新 Worker 的退款与校正 SQL 依赖该列，必须先应用共享 PostgreSQL `0007` 再部署。dev/prod 共用 PostgreSQL Schema，远程迁移不是仅 dev 生效的操作。2026-08-19 已通过仅绑定共享 Hyperdrive 的一次性 Wrangler remote preview 应用 `0007`，事务外复核确认目标列存在，幂等复跑返回 `alreadyApplied`；一次性 preview 随后关闭。同日按“先迁移、后应用”的顺序完成 dev Worker 与 Admin assets 部署；本次发布验收检查点的 Cloudflare version `ce9ee177-27a0-49fe-8e87-0a0f4414b620` 当时承载 100% dev 流量，回读确认使用共享 Hyperdrive 且无 D1 binding。后续 dev 提交可能产生新 version，实时流量版本必须以 Cloudflare deployment 回读为准。
 
 PostgreSQL migration manifest 测试保护 `0007` 的顺序与内容；远程 Schema 状态以上述实际迁移与复核记录为准。
+
+## PostgreSQL 0008 Collection Item Grading Identity
+
+`0008_collection_item_grading_identity.sql` 删除旧的 `uq_collection_item_folder_card_finish_language`，并创建 `uq_collection_item_folder_card_variant`。新唯一键为 `owner_type + owner_id + folder_id + card_ref + finish + language + grader + condition + grade`，与 Quick Collect、完整 Collection Item Create 和 Scan Confirm 的服务端重复查询一致。Raw 使用 condition 区分品相，评级卡使用 grader 与 grade 区分机构和分数。
+
+- 新索引是在旧唯一键后增加评级维度，只放宽可共存的数据，不修改或回填现有 Item；旧索引下合法的数据一定满足新索引。
+- 发布顺序为先应用共享 PostgreSQL `0008`，再部署使用新重复查询的 Worker。旧 Worker 在新索引下仍以旧查询拒绝多评级共存，不会写入超出旧应用语义的数据；新 Worker 若先于 migration 部署，旧索引仍会把不同评级写入拒绝为重复，因此功能不会完整生效。
+- 应用代码回滚时可以保留新索引，旧 Worker 会恢复旧的查询行为。若必须恢复旧索引，必须先停止相关写入，并检查、导出和处理同一 `owner/folder/card/finish/language` 下已经共存的多评级 Item；未经单独的数据处理授权不得删除或合并这些记录，否则旧索引可能无法重建。
+- dev/prod 当前共用 PostgreSQL Schema，远程执行 `0008` 会同时改变两套环境使用的数据库约束，不是仅 dev 生效的操作。
+
+本任务只新增 migration 及其本地契约测试，没有远程执行 `0008`、部署 Worker 或写入数据库。远程 Schema 当前状态必须在实际发布任务中重新只读核验。

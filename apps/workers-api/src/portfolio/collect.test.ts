@@ -128,10 +128,21 @@ class FakeD1Statement {
     }
 
     if (this.sql.includes("FROM collection_item") && this.sql.includes("folder_id = ?")) {
-      const [ownerType, ownerId, folderId, cardRef, language, finish] = this.args;
+      const [
+        ownerType,
+        ownerId,
+        folderId,
+        cardRef,
+        language,
+        finish,
+        grader,
+        condition,
+        grade,
+      ] = this.args;
       return (this.db.items.find((row) =>
         row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
-        row.card_ref === cardRef && row.language === language && row.finish === finish
+        row.card_ref === cardRef && row.language === language && row.finish === finish &&
+        row.grader === grader && row.condition === condition && row.grade === grade
       ) ?? null) as T | null;
     }
 
@@ -375,7 +386,7 @@ describe("collect shortcut route", () => {
     });
   });
 
-  it("rejects the same card, finish, and language despite different grading", async () => {
+  it("allows different grading while rejecting an exact collection item duplicate", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main", is_default: 1 }));
     db.items.push({
@@ -395,16 +406,19 @@ describe("collect shortcut route", () => {
       body: JSON.stringify({ folder_id: "main", object_type: "tcg", grader: "Raw", condition: "Near Mint (NM)", grade: null, language: "English", finish, quantity: 1 }),
     }, createTestEnv(db));
 
-    const duplicate = await app.request("/api/v1/cards/card-a/collect", {
+    const differentGrading = await app.request("/api/v1/cards/card-a/collect", {
       method: "POST", headers,
       body: JSON.stringify({ folder_id: "main", object_type: "tcg", grader: "PSA", condition: null, grade: 10, language: "English", finish: "Holofoil", quantity: 1 }),
     }, createTestEnv(db));
-    expect(db.items).toHaveLength(1);
+    expect(db.items).toHaveLength(2);
+    const duplicate = await request("Holofoil");
     const distinct = await request("Reverse Holofoil");
 
+    expect(differentGrading.status).toBe(201);
     expect(duplicate.status).toBe(409);
     expect(await duplicate.json()).toMatchObject({ error: { code: "DUPLICATE_COLLECTION_ITEM" } });
     expect(distinct.status).toBe(201);
+    expect(db.items).toHaveLength(3);
   });
 
   it("rejects invalid grading and another owner's folder because Collect must preserve collection item invariants", async () => {
