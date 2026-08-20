@@ -1059,6 +1059,16 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                                 _performanceAmount(state, point.marketValueUsd),
                           )
                           .toList(),
+                      tooltipHeaderValues: data.series
+                          .map(
+                            (point) => point.marketValueChangeUsd == null
+                                ? null
+                                : _performanceChange(
+                                    state,
+                                    point.marketValueChangeUsd!,
+                                  ),
+                          )
+                          .toList(),
                       tooltipRows: [
                         for (var index = 0; index < data.series.length; index++)
                           _performanceTooltipRows(state, data.series, index),
@@ -3012,6 +3022,7 @@ class _InteractiveChart extends StatefulWidget {
     this.quantities = const [],
     this.semanticKey = const Key('home-portfolio-chart'),
     this.semanticLabel = 'Portfolio value chart',
+    this.tooltipHeaderValues = const [],
     this.tooltipRows,
     this.persistentSelection = false,
     this.onSelectionChanged,
@@ -3023,6 +3034,7 @@ class _InteractiveChart extends StatefulWidget {
   final List<int> quantities;
   final Key semanticKey;
   final String semanticLabel;
+  final List<String?> tooltipHeaderValues;
   final List<List<String>>? tooltipRows;
   final bool persistentSelection;
   final ValueChanged<bool>? onSelectionChanged;
@@ -3039,6 +3051,9 @@ class _InteractiveChartState extends State<_InteractiveChart> {
     final selectedIndex = _selectedIndex;
     if (selectedIndex == null) return 'No chart point selected';
     final index = selectedIndex.clamp(0, widget.values.length - 1);
+    final tooltipHeaderValue = index < widget.tooltipHeaderValues.length
+        ? widget.tooltipHeaderValues[index]
+        : null;
     final rows =
         widget.tooltipRows?[index] ??
         [
@@ -3048,6 +3063,7 @@ class _InteractiveChartState extends State<_InteractiveChart> {
         ];
     return [
       'Date: ${_formatChartDate(widget.dates, index)}',
+      if (tooltipHeaderValue != null) 'Daily Change: $tooltipHeaderValue',
       ...rows,
     ].join(', ');
   }
@@ -3108,6 +3124,7 @@ class _InteractiveChartState extends State<_InteractiveChart> {
                   values: widget.values,
                   dates: widget.dates,
                   formattedValues: widget.formattedValues,
+                  tooltipHeaderValues: widget.tooltipHeaderValues,
                   tooltipRows: widget.tooltipRows,
                   selectedIndex: _selectedIndex,
                 ),
@@ -3126,6 +3143,7 @@ class _ChartPainter extends CustomPainter {
     required this.values,
     required this.dates,
     required this.formattedValues,
+    required this.tooltipHeaderValues,
     required this.tooltipRows,
     required this.selectedIndex,
   });
@@ -3133,6 +3151,7 @@ class _ChartPainter extends CustomPainter {
   final List<double> values;
   final List<String> dates;
   final List<String> formattedValues;
+  final List<String?> tooltipHeaderValues;
   final List<List<String>>? tooltipRows;
   final int? selectedIndex;
 
@@ -3237,6 +3256,25 @@ class _ChartPainter extends CustomPainter {
       maxLines: 1,
       textDirection: TextDirection.ltr,
     )..layout();
+    final tooltipHeaderValue =
+        resolvedSelectedIndex < tooltipHeaderValues.length
+        ? tooltipHeaderValues[resolvedSelectedIndex]
+        : null;
+    final tooltipHeaderPainter = tooltipHeaderValue == null
+        ? null
+        : (TextPainter(
+            text: TextSpan(
+              text: tooltipHeaderValue,
+              style: const TextStyle(
+                color: KandoColors.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                height: 16 / 11,
+              ),
+            ),
+            maxLines: 1,
+            textDirection: TextDirection.ltr,
+          )..layout());
     final rowPainters =
         (tooltipRows?[resolvedSelectedIndex] ??
                 ['Price: ${_chartPrice(formattedValues, resolvedSelectedIndex)}'])
@@ -3258,7 +3296,10 @@ class _ChartPainter extends CustomPainter {
             .toList();
     final tooltipSize = Size(
       [
-            datePainter.width,
+            datePainter.width +
+                (tooltipHeaderPainter == null
+                    ? 0
+                    : 8 + tooltipHeaderPainter.width),
             ...rowPainters.map((painter) => painter.width),
           ].reduce(math.max) +
           16,
@@ -3293,6 +3334,15 @@ class _ChartPainter extends CustomPainter {
         ..style = PaintingStyle.stroke,
     );
     datePainter.paint(canvas, tooltipRect.topLeft + const Offset(8, 8));
+    if (tooltipHeaderPainter != null) {
+      tooltipHeaderPainter.paint(
+        canvas,
+        Offset(
+          tooltipRect.right - tooltipHeaderPainter.width - 8,
+          tooltipRect.top + 8,
+        ),
+      );
+    }
     for (var index = 0; index < rowPainters.length; index++) {
       rowPainters[index].paint(
         canvas,
@@ -3306,6 +3356,7 @@ class _ChartPainter extends CustomPainter {
     return oldDelegate.values != values ||
         oldDelegate.dates != dates ||
         oldDelegate.formattedValues != formattedValues ||
+        oldDelegate.tooltipHeaderValues != tooltipHeaderValues ||
         oldDelegate.tooltipRows != tooltipRows ||
         oldDelegate.selectedIndex != selectedIndex;
   }

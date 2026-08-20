@@ -921,11 +921,11 @@ void main() {
 
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
       expect(tooltip, contains('Date: Aug 12, 2026'));
+      expect(tooltip, contains(r'Daily Change: +$44.00'));
       expect(tooltip, contains(r'Market: +$20.00'));
       expect(tooltip, contains(r'Portfolio: +$24.00'));
       expect(tooltip, contains('Qty: 4 (+2)'));
       expect(tooltip, isNot(contains('Price:')));
-      expect(tooltip, isNot(contains('Daily Change')));
 
       await tester.tap(find.byKey(const Key('home-performance-partial-info')));
       await tester.pumpAndSettle();
@@ -1098,6 +1098,7 @@ void main() {
       await tester.tapAt(tester.getRect(chart).center);
       await tester.pump();
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
+      expect(tooltip, contains('Daily Change: $hiddenMoneyText'));
       expect(tooltip, contains('Market: $hiddenMoneyText'));
       expect(tooltip, contains('Portfolio: $hiddenMoneyText'));
       expect(tooltip, contains('Qty: 4 (+2)'));
@@ -1123,10 +1124,10 @@ void main() {
         Offset(chartRect.left + 1, chartRect.center.dy),
       );
       await tester.pump();
-      expect(
-        tester.widget<Semantics>(chart).properties.value,
-        contains('Date: Jan 20, 2025'),
-      );
+      final overviewTooltip = tester.widget<Semantics>(chart).properties.value!;
+      expect(overviewTooltip, contains('Date: Jan 20, 2025'));
+      expect(overviewTooltip, contains('Price:'));
+      expect(overviewTooltip, isNot(contains('Daily Change')));
 
       await touch.moveTo(Offset(chartRect.right - 1, chartRect.center.dy));
       await tester.pump();
