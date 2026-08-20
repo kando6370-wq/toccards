@@ -35,6 +35,113 @@ describe("portfolio performance", () => {
     expect(result).toMatchObject({ item_count: 1, market_price_status: "available" });
   });
 
+  it("ranks current Folder items by profit, return, then market value because Top Performers is an Item-level current snapshot", () => {
+    const definitions = [
+      ["a", 10, 50],
+      ["b", 20, 60],
+      ["c", 0, 40],
+      ["d", 20, 40],
+      ["e", 10, 20],
+      ["f", 100, 90],
+      ["g", 100, 80],
+    ] as const;
+    const result = calculatePerformance(
+      [
+        ...definitions.map(([id, purchasePrice]) => ({
+          ...event(id, "2026-08-01T00:00:00.000Z", 1, purchasePrice),
+          item_id: `item-${id}`,
+          card_ref: `card-${id}`,
+        })),
+        {
+          ...event("missing", "2026-08-01T00:00:00.000Z", 1, 0),
+          item_id: "item-missing",
+          card_ref: "card-missing",
+          purchase_price: null,
+          purchase_currency: null,
+        },
+      ],
+      definitions.map(([id, , marketPrice], index) => ({
+        ...sku([{ date: "2026-08-01", price: marketPrice }]),
+        series_id: index + 1,
+        product_id: `card-${id}`,
+      })),
+      "1D",
+      {
+        folderId: "main",
+        now: new Date("2026-08-12T12:00:00Z"),
+        includeTopPerformers: true,
+        cards: definitions.map(([id]) => ({
+          product_id: `card-${id}`,
+          game: "Pokemon",
+          name: `Card ${id.toUpperCase()}`,
+          set_name: "Ranking Set",
+          number: id,
+          rarity: "Rare",
+        })),
+      },
+    );
+
+    expect(result.top_performer_count).toBe(7);
+    expect(result.top_performers.map((item) => item.item_id)).toEqual([
+      "item-a",
+      "item-b",
+      "item-c",
+      "item-d",
+      "item-e",
+    ]);
+    expect(result.top_performers[0]).toMatchObject({
+      name: "Card A",
+      profit_loss_usd: 40,
+      return_percent: 400,
+      market_value_usd: 50,
+    });
+    expect(result.top_performers[2]).toMatchObject({
+      item_id: "item-c",
+      profit_loss_usd: 40,
+      return_percent: null,
+    });
+  });
+
+  it("ranks Top Performers before response rounding because display precision must not change business order", () => {
+    const result = calculatePerformance(
+      [
+        {
+          ...event("a", "2026-08-01T00:00:00.000Z", 1, 100),
+          item_id: "item-a",
+          card_ref: "card-a",
+        },
+        {
+          ...event("b", "2026-08-01T00:00:00.000Z", 1, 0.001),
+          item_id: "item-b",
+          card_ref: "card-b",
+        },
+      ],
+      [
+        {
+          ...sku([{ date: "2026-08-01", price: 100.004 }]),
+          series_id: 1,
+          product_id: "card-a",
+        },
+        {
+          ...sku([{ date: "2026-08-01", price: 0.004 }]),
+          series_id: 2,
+          product_id: "card-b",
+        },
+      ],
+      "1D",
+      {
+        folderId: "main",
+        now: new Date("2026-08-12T12:00:00Z"),
+        includeTopPerformers: true,
+      },
+    );
+
+    expect(result.top_performers.map((item) => item.item_id)).toEqual([
+      "item-a",
+      "item-b",
+    ]);
+  });
+
   it("does not treat non-USD purchase prices as USD without a reliable historical rate", () => {
     const result = calculatePerformance(
       [{ ...event("one", "2026-08-01T00:00:00.000Z", 1, 100), purchase_currency: "JPY" }],

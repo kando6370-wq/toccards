@@ -132,7 +132,12 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
       );
     }
     final currentCollectionItemId = state.loadStatus == KandoLoadStatus.content
-        ? _currentCollectionItemId(state, widget.collectionItemId)
+        ? _currentCollectionItemId(
+            state,
+            widget.collectionItemId,
+            allowSingleFallback:
+                widget.entrySource != AnalyticsValue.sourceHomePerformance,
+          )
         : null;
     _trackViewWhenLoaded(state);
 
@@ -284,14 +289,15 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
 
 String? _currentCollectionItemId(
   CardDetailState state,
-  String? requestedItemId,
-) {
+  String? requestedItemId, {
+  bool allowSingleFallback = true,
+}) {
   final items = state.detail.collectionItems;
   if (requestedItemId != null &&
       items.any((item) => item.id == requestedItemId)) {
     return requestedItemId;
   }
-  return items.length == 1 ? items.single.id : null;
+  return allowSingleFallback && items.length == 1 ? items.single.id : null;
 }
 
 class _CardDetailKeyboardDismissOnPointerDown extends StatelessWidget {
@@ -721,15 +727,31 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
   @override
   void initState() {
     super.initState();
+    final opensHomePerformance =
+        widget.entrySource == AnalyticsValue.sourceHomePerformance &&
+        widget.currentCollectionItemId != null;
     _tabController = TabController(
       length: widget.currentCollectionItemId == null ? 2 : 3,
-      initialIndex: widget.entrySource == AnalyticsValue.sourceEdit
+      initialIndex: opensHomePerformance
+          ? 1
+          : widget.entrySource == AnalyticsValue.sourceEdit
           ? widget.currentCollectionItemId == null
                 ? 1
                 : 2
           : 0,
       vsync: this,
     )..addListener(_handleTabChange);
+    if (opensHomePerformance && widget.isPro) {
+      final itemId = widget.currentCollectionItemId!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _tabController.index != 1) return;
+        unawaited(
+          ref
+              .read(cardPerformanceControllerProvider(itemId).notifier)
+              .load(localPremiumVerified: true),
+        );
+      });
+    }
   }
 
   @override

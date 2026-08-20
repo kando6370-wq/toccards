@@ -378,6 +378,44 @@ enum PurchasePriceStatus { complete, partial, missing }
 
 enum MarketPriceStatus { available, missing }
 
+class PortfolioTopPerformerDto {
+  const PortfolioTopPerformerDto({
+    required this.itemId,
+    required this.cardRef,
+    required this.name,
+    required this.setName,
+    required this.cardNumber,
+    required this.imageUrl,
+    required this.profitLossUsd,
+    required this.returnPercent,
+    required this.marketValueUsd,
+  });
+
+  final String itemId;
+  final String cardRef;
+  final String name;
+  final String setName;
+  final String cardNumber;
+  final String? imageUrl;
+  final double profitLossUsd;
+  final double? returnPercent;
+  final double marketValueUsd;
+
+  factory PortfolioTopPerformerDto.fromJson(Map<String, Object?> json) {
+    return PortfolioTopPerformerDto(
+      itemId: _requiredString(json['item_id']),
+      cardRef: _requiredString(json['card_ref']),
+      name: _requiredString(json['name']),
+      setName: _requiredString(json['set_name']),
+      cardNumber: _stringOrEmpty(json['card_number']),
+      imageUrl: _nullableString(json['image_url']),
+      profitLossUsd: _requiredDouble(json['profit_loss_usd']),
+      returnPercent: _nullableDouble(json['return_percent']),
+      marketValueUsd: _requiredDouble(json['market_value_usd']),
+    );
+  }
+}
+
 class PerformancePointDto {
   const PerformancePointDto({
     required this.date,
@@ -435,6 +473,8 @@ class PortfolioPerformanceDto {
     required this.itemCount,
     required this.marketPriceStatus,
     required this.purchasePriceStatus,
+    this.topPerformerCount = 0,
+    this.topPerformers = const [],
     required this.current,
     required this.series,
   });
@@ -447,6 +487,8 @@ class PortfolioPerformanceDto {
   final int itemCount;
   final MarketPriceStatus marketPriceStatus;
   final PurchasePriceStatus purchasePriceStatus;
+  final int topPerformerCount;
+  final List<PortfolioTopPerformerDto> topPerformers;
   final PerformancePointDto current;
   final List<PerformancePointDto> series;
 
@@ -467,6 +509,14 @@ class PortfolioPerformanceDto {
           _requiredString(json['market_price_status']),
         ),
         purchasePriceStatus: PurchasePriceStatus.values.byName(statusValue),
+        topPerformerCount: json['top_performer_count'] == null
+            ? 0
+            : _requiredInt(json['top_performer_count']),
+        topPerformers: json['top_performers'] == null
+            ? const []
+            : _itemsFrom(
+                json['top_performers'],
+              ).map(PortfolioTopPerformerDto.fromJson).toList(),
         current: PerformancePointDto.fromJson({
           'date': _requiredString(json['range_end']),
           ..._mapItem(json['current']),

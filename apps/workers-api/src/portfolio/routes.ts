@@ -442,6 +442,7 @@ export function createPortfolioRoutes(
     if (!folder) return c.json(NOT_FOUND_RESPONSE, 404);
     const performance = await loadPortfolioPerformance(c.env.DB, auth.owner, range, {
       folderId: folder.id,
+      includeTopPerformers: true,
     });
     return c.json({ success: true, data: { folder_id: folder.id, ...performance } });
   });
@@ -468,7 +469,12 @@ export function createPortfolioRoutes(
     const performance = await loadPortfolioPerformance(c.env.DB, auth.owner, range, {
       itemId: item.id,
     });
-    return c.json({ success: true, data: { item_id: item.id, ...performance } });
+    const {
+      top_performer_count: _,
+      top_performers: __,
+      ...itemPerformance
+    } = performance;
+    return c.json({ success: true, data: { item_id: item.id, ...itemPerformance } });
   });
 
   routes.post("/cards/:card_ref/collect", async (c) => {

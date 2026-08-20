@@ -1,9 +1,12 @@
 import type { AuthenticatedOwner } from "../owner-auth";
+import { cardImageUrl } from "../card-image-url";
 import {
   groupSkus,
+  loadCards,
   loadSkus,
   matchingPrice,
   parsePriceHistory,
+  type CardRow,
   type SkuRow,
 } from "./valuation-history";
 
@@ -44,6 +47,18 @@ export type PerformancePoint = {
   quantity_change: number | null;
 };
 
+export type TopPerformer = {
+  item_id: string;
+  card_ref: string;
+  name: string;
+  set_name: string;
+  card_number: string;
+  image_url: string;
+  profit_loss_usd: number;
+  return_percent: number | null;
+  market_value_usd: number;
+};
+
 export type PerformanceResult = {
   range: PerformanceRange;
   range_start: string;
@@ -53,8 +68,18 @@ export type PerformanceResult = {
   item_count: number;
   market_price_status: "available" | "missing";
   purchase_price_status: "complete" | "partial" | "missing";
+  top_performer_count: number;
+  top_performers: TopPerformer[];
   current: Omit<PerformancePoint, "date">;
   series: PerformancePoint[];
+};
+
+type PerformanceOptions = {
+  folderId?: string;
+  itemId?: string;
+  now?: Date;
+  includeTopPerformers?: boolean;
+  cards?: CardRow[];
 };
 
 const PERFORMANCE_EVENT_LIMIT = 10_000;
@@ -80,7 +105,7 @@ export async function loadPortfolioPerformance(
   db: D1Database,
   owner: AuthenticatedOwner,
   range: PerformanceRange,
-  options: { folderId?: string; itemId?: string; now?: Date } = {},
+  options: PerformanceOptions = {},
 ): Promise<PerformanceResult> {
   const itemClause = options.itemId ? " AND item_id = ?" : "";
   const bindings = options.itemId
@@ -95,20 +120,44 @@ export async function loadPortfolioPerformance(
     throw new Error(`Portfolio performance query exceeded ${PERFORMANCE_EVENT_LIMIT} events`);
   }
   const now = options.now ?? new Date();
+  const cardRefs = [...new Set(scopedEvents.map((event) => event.card_ref))];
   const skus = await loadSkus(
     db,
-    [...new Set(scopedEvents.map((event) => event.card_ref))],
+    cardRefs,
     performanceRangeStart(range, now),
     dateKey(now),
   );
-  return calculatePerformance(scopedEvents, skus, range, options);
+  const performance = calculatePerformance(scopedEvents, skus, range, {
+    ...options,
+    cards: [],
+  });
+  if (!options.includeTopPerformers || performance.top_performers.length === 0) {
+    return performance;
+  }
+  const cards = await loadCards(
+    db,
+    performance.top_performers.map((performer) => performer.card_ref),
+  );
+  const cardsByRef = new Map(cards.map((card) => [card.product_id, card]));
+  return {
+    ...performance,
+    top_performers: performance.top_performers.map((performer) => {
+      const card = cardsByRef.get(performer.card_ref);
+      return {
+        ...performer,
+        name: card?.name ?? performer.name,
+        set_name: card?.set_name ?? performer.set_name,
+        card_number: card?.number ?? performer.card_number,
+      };
+    }),
+  };
 }
 
 export function calculatePerformance(
   events: PerformanceEventRow[],
   skus: SkuRow[],
   range: PerformanceRange,
-  options: { folderId?: string; itemId?: string; now?: Date } = {},
+  options: PerformanceOptions = {},
 ): PerformanceResult {
   const now = options.now ?? new Date();
   const rangeEnd = dateKey(now);
@@ -174,6 +223,15 @@ export function calculatePerformance(
   });
   const current = series.at(-1) ?? emptyPoint(rangeEnd);
   const currentStates = statesOnDate(grouped, rangeEnd, options.folderId);
+  const topPerformers = options.includeTopPerformers
+    ? calculateTopPerformers(
+      currentStates,
+      grouped,
+      skusByProduct,
+      new Map((options.cards ?? []).map((card) => [card.product_id, card])),
+      rangeEnd,
+    )
+    : [];
   const priced = currentStates.filter(hasUsdPurchasePrice).length;
   const status = currentStates.length === 0 || priced === 0
     ? "missing"
@@ -193,9 +251,67 @@ export function calculatePerformance(
       ? "available"
       : "missing",
     purchase_price_status: status,
+    top_performer_count: topPerformers.length,
+    top_performers: topPerformers.slice(0, 5),
     current: withoutDate(current),
     series,
   };
+}
+
+function calculateTopPerformers(
+  states: PerformanceEventRow[],
+  grouped: Map<string, PerformanceEventRow[]>,
+  skus: Map<string, SkuRow[]>,
+  cards: Map<string, CardRow>,
+  date: string,
+): TopPerformer[] {
+  const ranked = [];
+  for (const state of states) {
+    const purchasePrice = latestPurchasePrice(grouped.get(state.item_id) ?? []);
+    const matched = matchingPrice(state, skus.get(state.card_ref) ?? []);
+    const unitMarket = matched ? priceWithFallback(matched.history, date) : null;
+    if (purchasePrice === null || unitMarket === null) continue;
+
+    const marketValue = unitMarket * state.quantity;
+    const totalPaid = purchasePrice * state.quantity;
+    const profitLoss = marketValue - totalPaid;
+    const card = cards.get(state.card_ref);
+    ranked.push({
+      itemId: state.item_id,
+      cardRef: state.card_ref,
+      name: card?.name ?? state.card_ref,
+      setName: card?.set_name ?? "Card data unavailable",
+      cardNumber: card?.number ?? "",
+      profitLoss,
+      returnPercent: totalPaid === 0 ? null : (profitLoss / totalPaid) * 100,
+      marketValue,
+    });
+  }
+
+  ranked.sort((left, right) =>
+    right.profitLoss - left.profitLoss
+    || compareNullableDescending(left.returnPercent, right.returnPercent)
+    || right.marketValue - left.marketValue
+    || left.itemId.localeCompare(right.itemId)
+  );
+
+  return ranked.map((item) => ({
+    item_id: item.itemId,
+    card_ref: item.cardRef,
+    name: item.name,
+    set_name: item.setName,
+    card_number: item.cardNumber,
+    image_url: cardImageUrl(item.cardRef, "thumbnail"),
+    profit_loss_usd: round(item.profitLoss),
+    return_percent: item.returnPercent === null ? null : round(item.returnPercent),
+    market_value_usd: round(item.marketValue),
+  }));
+}
+
+function compareNullableDescending(left: number | null, right: number | null): number {
+  if (left === null) return right === null ? 0 : 1;
+  if (right === null) return -1;
+  return right - left;
 }
 
 export function performanceRangeStart(range: PerformanceRange, now: Date): string {

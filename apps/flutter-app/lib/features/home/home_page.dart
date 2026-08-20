@@ -10,6 +10,7 @@ import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -159,6 +160,25 @@ class _HomePageState extends ConsumerState<HomePage>
                       ),
                       onRefresh: () =>
                           _loadPerformance(state.selectedFolderId, force: true),
+                      onTopPerformerPressed: (performer) => context.push(
+                        Uri(
+                          path: '/cards/${performer.cardRef}',
+                          queryParameters: {
+                            'collection': 'portfolio',
+                            'entry': AnalyticsValue.sourceHomePerformance,
+                            'item_id': performer.itemId,
+                          },
+                        ).toString(),
+                      ),
+                      onViewAllTopPerformers: () {
+                        ref
+                            .read(selectedPortfolioFolderProvider.notifier)
+                            .select(state.selectedFolderId);
+                        ref
+                            .read(collectionControllerProvider.notifier)
+                            .selectTab(CollectionTab.portfolio);
+                        context.push('/collection');
+                      },
                     )
                   else ...[
                     _PortfolioCard(
@@ -340,16 +360,24 @@ class _HomePageState extends ConsumerState<HomePage>
     if (!mounted) return;
     final failedState = ref.read(homePerformanceControllerProvider);
     if (failedState.failureCode != 'ENTITLEMENT_SYNC_REQUIRED') {
+      if (failedState.isFailure &&
+          _performanceSelected &&
+          ref.read(homeControllerProvider).selectedFolderId == folderId) {
+        showKandoTopFailureToast(context);
+      }
       return;
     }
     final synchronized = await ref
         .read(subscriptionControllerProvider.notifier)
         .synchronizeServerEntitlement();
     if (!mounted ||
-        !synchronized ||
         !_performanceSelected ||
         ref.read(homeControllerProvider).selectedFolderId != folderId ||
         !identical(ref.read(homePerformanceControllerProvider), failedState)) {
+      return;
+    }
+    if (!synchronized) {
+      showKandoTopFailureToast(context);
       return;
     }
     await controller.selectRange(
@@ -357,6 +385,14 @@ class _HomePageState extends ConsumerState<HomePage>
       folderId: folderId,
       localPremiumVerified: true,
     );
+    if (!mounted ||
+        !_performanceSelected ||
+        ref.read(homeControllerProvider).selectedFolderId != folderId) {
+      return;
+    }
+    if (ref.read(homePerformanceControllerProvider).isFailure) {
+      showKandoTopFailureToast(context);
+    }
   }
 
   Future<void> _showCurrencySheet(BuildContext context, WidgetRef ref) {
@@ -744,6 +780,8 @@ class _PerformanceSection extends StatefulWidget {
     required this.onRangeSelected,
     required this.onUnlock,
     required this.onRefresh,
+    required this.onTopPerformerPressed,
+    required this.onViewAllTopPerformers,
   });
 
   final HomeState state;
@@ -754,6 +792,8 @@ class _PerformanceSection extends StatefulWidget {
   final ValueChanged<PerformanceRange> onRangeSelected;
   final VoidCallback onUnlock;
   final VoidCallback onRefresh;
+  final ValueChanged<PortfolioTopPerformerDto> onTopPerformerPressed;
+  final VoidCallback onViewAllTopPerformers;
 
   @override
   State<_PerformanceSection> createState() => _PerformanceSectionState();
@@ -769,7 +809,10 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.state.selectedFolderId != widget.state.selectedFolderId ||
         oldWidget.performance.selectedRange !=
-            widget.performance.selectedRange) {
+            widget.performance.selectedRange ||
+        oldWidget.isPro != widget.isPro ||
+        oldWidget.performance.data?.purchasePriceStatus !=
+            widget.performance.data?.purchasePriceStatus) {
       _removeInfoTip();
       _chartKey.currentState?.clearSelection();
     }
@@ -785,6 +828,9 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
   Widget build(BuildContext context) {
     final state = widget.state;
     final performance = widget.performance;
+    final showPurchasePriceInfo =
+        widget.isPro &&
+        performance.data?.purchasePriceStatus == PurchasePriceStatus.partial;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -802,14 +848,21 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                       Expanded(
                         child: Row(
                           children: [
-                            const Text(
-                              'PERFORMANCE',
-                              style: TextStyle(
-                                color: KandoColors.text,
-                                fontFamily: 'Fraunces',
-                                fontSize: 24,
-                                fontWeight: FontWeight.w400,
-                                height: 32 / 24,
+                            const Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'PERFORMANCE',
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    color: KandoColors.text,
+                                    fontFamily: 'Fraunces',
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w400,
+                                    height: 32 / 24,
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -832,44 +885,46 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  height: 20,
-                  child: Row(
-                    children: [
-                      const Flexible(
-                        fit: FlexFit.loose,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Cards with purchase price',
-                            maxLines: 1,
-                            style: TextStyle(
-                              color: KandoColors.mutedText,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                              height: 20 / 14,
+                if (showPurchasePriceInfo) ...[
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    height: 20,
+                    child: Row(
+                      children: [
+                        const Flexible(
+                          fit: FlexFit.loose,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Cards with purchase price',
+                              maxLines: 1,
+                              style: TextStyle(
+                                color: KandoColors.mutedText,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                                height: 20 / 14,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Center(
-                        child: CompositedTransformTarget(
-                          link: _infoLayerLink,
-                          child: TapRegion(
-                            onTapOutside: (_) => _removeInfoTip(),
-                            child: _PerformanceInfoButton(
-                              key: const Key('home-performance-partial-info'),
-                              onPressed: _toggleInfoTip,
+                        const SizedBox(width: 4),
+                        Center(
+                          child: CompositedTransformTarget(
+                            link: _infoLayerLink,
+                            child: TapRegion(
+                              onTapOutside: (_) => _removeInfoTip(),
+                              child: _PerformanceInfoButton(
+                                key: const Key('home-performance-partial-info'),
+                                onPressed: _toggleInfoTip,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -895,11 +950,7 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
             onRefresh: widget.onRefresh,
           )
         else if (performance.isLoading && performance.data == null)
-          const SizedBox(
-            key: Key('home-performance-loading'),
-            height: 390,
-            child: Center(child: CircularProgressIndicator()),
-          )
+          const _PerformanceLoadingSkeleton()
         else if (performance.data case final data?) ...[
           if (data.itemCount == 0)
             const SizedBox(
@@ -1022,6 +1073,14 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                 padding: EdgeInsets.only(top: 12),
                 child: Text('Add purchase prices to track profit and return.'),
               ),
+            const SizedBox(height: 32),
+            _TopPerformersSection(
+              state: state,
+              performers: data.topPerformers,
+              totalCount: data.topPerformerCount,
+              onPerformerPressed: widget.onTopPerformerPressed,
+              onViewAll: widget.onViewAllTopPerformers,
+            ),
           ],
         ],
       ],
@@ -1069,6 +1128,289 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
     _infoOverlay?.remove();
     _infoOverlay = null;
   }
+}
+
+class _PerformanceLoadingSkeleton extends StatelessWidget {
+  const _PerformanceLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const Key('home-performance-loading'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var row = 0; row < 2; row++) ...[
+          Row(
+            children: [
+              for (var column = 0; column < 2; column++) ...[
+                const Expanded(child: _PerformanceSkeletonBlock(height: 94)),
+                if (column == 0) const SizedBox(width: 12),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+        const _PerformanceSkeletonBlock(height: 190),
+        const SizedBox(height: 32),
+        const _PerformanceSkeletonBlock(height: 32, width: 190),
+        const SizedBox(height: 12),
+        for (var index = 0; index < 3; index++) ...[
+          const _PerformanceSkeletonBlock(height: 88),
+          if (index < 2) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _PerformanceSkeletonBlock extends StatelessWidget {
+  const _PerformanceSkeletonBlock({required this.height, this.width});
+
+  final double height;
+  final double? width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: KandoColors.surface.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: KandoColors.borderSubtle),
+      ),
+    );
+  }
+}
+
+class _TopPerformersSection extends StatelessWidget {
+  const _TopPerformersSection({
+    required this.state,
+    required this.performers,
+    required this.totalCount,
+    required this.onPerformerPressed,
+    required this.onViewAll,
+  });
+
+  final HomeState state;
+  final List<PortfolioTopPerformerDto> performers;
+  final int totalCount;
+  final ValueChanged<PortfolioTopPerformerDto> onPerformerPressed;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final visiblePerformers = performers.take(5).toList();
+    return Column(
+      key: const Key('home-top-performers-list'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Top Performers',
+                style: TextStyle(
+                  color: KandoColors.text,
+                  fontFamily: 'Fraunces',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  height: 32 / 24,
+                ),
+              ),
+            ),
+            if (totalCount > 5)
+              TextButton(
+                key: const Key('home-top-performers-view-all'),
+                onPressed: onViewAll,
+                style: TextButton.styleFrom(
+                  foregroundColor: KandoColors.accent,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  minimumSize: const Size(0, 40),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'View All',
+                      style: TextStyle(fontSize: 14, height: 20 / 14),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward, size: 14),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (visiblePerformers.isEmpty)
+          const SizedBox(
+            key: Key('home-top-performers-empty'),
+            height: 96,
+            child: Center(
+              child: Text(
+                'Add purchase prices to see your top performers.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: KandoColors.mutedText,
+                  fontSize: 14,
+                  height: 20 / 14,
+                ),
+              ),
+            ),
+          )
+        else
+          for (var index = 0; index < visiblePerformers.length; index++) ...[
+            _TopPerformerRow(
+              key: Key('home-top-performer-${visiblePerformers[index].itemId}'),
+              state: state,
+              performer: visiblePerformers[index],
+              onPressed: () => onPerformerPressed(visiblePerformers[index]),
+            ),
+            if (index != visiblePerformers.length - 1)
+              const SizedBox(height: 10),
+          ],
+      ],
+    );
+  }
+}
+
+class _TopPerformerRow extends StatelessWidget {
+  const _TopPerformerRow({
+    super.key,
+    required this.state,
+    required this.performer,
+    required this.onPressed,
+  });
+
+  final HomeState state;
+  final PortfolioTopPerformerDto performer;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final profitLoss = _topPerformerProfitLoss(state, performer.profitLossUsd);
+    final returnText = performer.returnPercent == null
+        ? '--'
+        : '${performer.returnPercent! > 0 ? '+' : ''}${performer.returnPercent!.toStringAsFixed(2)}%';
+    final subtitle = performer.cardNumber.isEmpty
+        ? performer.setName
+        : '${performer.setName} #${performer.cardNumber}';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Ink(
+          height: 88,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: KandoColors.surface.withValues(alpha: .72),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: KandoColors.borderSubtle),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: SizedBox(
+                  width: 52,
+                  height: 72,
+                  child: _HomeCardImage(
+                    imageAssetPath: null,
+                    imageUrl: performer.imageUrl,
+                    height: 72,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      performer.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: KandoColors.text,
+                        fontFamily: 'Fraunces',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        height: 20 / 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: KandoColors.mutedText,
+                        fontSize: 11,
+                        height: 16 / 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 96,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        profitLoss,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: state.amountHidden
+                              ? KandoColors.money
+                              : performer.profitLossUsd < 0
+                              ? KandoColors.loss
+                              : KandoColors.gain,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 20 / 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      returnText,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: performer.returnPercent == null
+                            ? KandoColors.mutedText
+                            : performer.returnPercent! < 0
+                            ? KandoColors.loss
+                            : KandoColors.gain,
+                        fontSize: 12,
+                        height: 16 / 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _topPerformerProfitLoss(HomeState state, double value) {
+  final amount = _performanceAmount(state, value);
+  if (state.amountHidden || value <= 0) return amount;
+  return '+$amount';
 }
 
 class _PerformanceInfoButton extends StatelessWidget {
@@ -1264,7 +1606,11 @@ class _PerformanceMetric extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(color: KandoColors.mutedText, fontSize: 12),
+            style: const TextStyle(
+              color: KandoColors.mutedText,
+              fontSize: 12,
+              height: 16 / 12,
+            ),
           ),
           const SizedBox(height: 5),
           FittedBox(
@@ -1276,6 +1622,7 @@ class _PerformanceMetric extends StatelessWidget {
                 color: KandoColors.accent,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
+                height: 24 / 20,
               ),
             ),
           ),

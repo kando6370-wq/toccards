@@ -122,6 +122,7 @@ abstract final class AnalyticsValue {
   static const sourceSearch = 'search';
   static const sourceTrendingToday = 'trending today';
   static const sourceEdit = 'edit';
+  static const sourceHomePerformance = 'home performance';
 
   static const scanFailed = 'failed';
   static const scanSuccess = 'success';

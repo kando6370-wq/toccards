@@ -159,6 +159,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 - Free 所有者最多有 2 个 Folder（包含默认 Folder）；条件 INSERT 在服务端防止多设备并发越限。
 - 当前 session 有 active grant 时可超过上限；同 UID 的另一 session 不自动继承。
 - Home Performance 可按 Folder 聚合；Card Detail Performance 必须有明确 `collection_item_id`，同卡多 Item 时不猜测聚合。
+- Home Premium Performance 的 Top Performers 只读取当前 Folder 的当前持仓快照；每条 Collection Item 独立排序，Range 切换不改变榜单，金额隐藏不隐藏 Return。该模块不扩展到 Home Overview 或 Card Detail 页面。
 - Range 为 `1D/7D/15D/1M/3M/1Y`，默认 1M；历史从可靠起点开始，数据不足返回 `partial_history=true`，不补虚假点。
 - 1Y 价格历史只接受当前 live session grant；普通公开历史接口仍限制到 90 天。
 

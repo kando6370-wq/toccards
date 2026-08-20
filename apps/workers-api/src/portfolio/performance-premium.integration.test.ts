@@ -33,6 +33,7 @@ describe("Premium Performance routes", () => {
       db.prepare("INSERT INTO price_series VALUES (1, 1, '100', 'market', '100', 'NM', 'Near Mint', 'EN', 'English', 'N', 'Normal', 'RAW', NULL, NULL, 'USD', 1)"),
       db.prepare("INSERT INTO price_current_snapshot VALUES ('batch-1', 1, '2026-08-01', 20000000, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)"),
       db.prepare("INSERT INTO price_history_month VALUES (1, '2026-08-01', '[{\"d\":\"2026-08-01\",\"a\":20000000}]', 'batch-1')"),
+      db.prepare("INSERT INTO cards_all VALUES ('100', 'Pokemon', 'Pikachu', 'Ranking Set', '95', 'Rare')"),
     ]);
     env = { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET, APP_ENVIRONMENT: "development" };
   });
@@ -79,9 +80,27 @@ describe("Premium Performance routes", () => {
     ]);
     const allowed = await request("session-a", "/portfolio/items/item-1/performance?range=15D");
     expect(allowed.status).toBe(200);
-    const body = await allowed.json() as { data: { item_id: string; current: { market_value_usd: number } } };
+    const body = await allowed.json() as { data: Record<string, unknown> & { item_id: string; current: { market_value_usd: number } } };
     expect(body.data.item_id).toBe("item-1");
     expect(body.data.current.market_value_usd).toBe(20);
+    expect(body.data).not.toHaveProperty("top_performers");
+
+    const home = await request("session-a", "/portfolio/performance?range=15D&folder_id=main");
+    expect(home.status).toBe(200);
+    const homeBody = await home.json() as {
+      data: {
+        top_performer_count: number;
+        top_performers: Array<{ item_id: string; name: string; profit_loss_usd: number }>;
+      };
+    };
+    expect(homeBody.data.top_performer_count).toBe(1);
+    expect(homeBody.data.top_performers).toEqual([
+      expect.objectContaining({
+        item_id: "item-1",
+        name: "Pikachu",
+        profit_loss_usd: 10,
+      }),
+    ]);
 
     const otherSession = await request("session-b", "/portfolio/items/item-1/performance?range=15D");
     expect(otherSession.status).toBe(403);

@@ -152,7 +152,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 - 新增 `performance_start_at`、`performance_history_available_from` 和 v1.0 不可恢复历史 baseline。
 - 保存 Purchase Price/Currency、Quantity、价格映射属性及 Folder Move 历史。
 - 实现 Home/Card Detail 计算、缺失购买价分支、货币换算和精度规则。
-- Home Performance 已实现 Market/Portfolio 变化分解、Tooltip 字段白名单、Qty 差值和金额隐藏；标题区已同步 Figma `1911:8120` 的 24px 眼睛入口及 13px 购买价说明入口，说明 Tips 按 `2209:15661` 以根 Overlay 锚定在图标上方，并与图表 Tooltip、Range、Folder、Tab 切换互斥清理。仍需真实历史数据规模与多设备远端删除人工验收。
+- Home Performance 已实现 Market/Portfolio 变化分解、Tooltip 字段白名单、Qty 差值和金额隐藏；标题区已同步 Figma `1911:8120` 的 24px 眼睛入口，并仅在 Premium 的 Partial Purchase Price Missing 状态显示 13px 购买价说明入口。说明 Tips 按 `2209:15661` 以根 Overlay 锚定在图标上方，并与图表 Tooltip、Range、Folder、Tab 切换互斥清理。仍需真实历史数据规模与多设备远端删除人工验收。
+- Home Premium Performance 已增加 `Top Performers`：服务端以当前 Folder 的独立 Collection Item 按未提前舍入的原始收益排序，返回前 5 条及总数；App 使用纵向列表、按数量控制 `View All`、金额隐藏只遮蔽 Profit/Loss，并在 Folder 切换时清空旧列表显示骨架。榜单条目通过统一 `home performance` 来源携带 `card_ref` 和 `collection_item_id`，Card Detail 只在该来源且 Item 有效时默认进入并加载当前 Item Performance，原有 Collection Item、Price 入口保持不变。Home Performance Range 普通失败、权益同步失败或同步后重试仍失败时均保留点击前 Range 与已有数据，并使用项目顶部失败提示；回归测试覆盖三类失败分支，以及 `View All` 进入当前 Folder 的 Portfolio 后返回时保留 Performance Tab、Range、金额隐藏和滚动位置。原始 v1.1 PRD 的“不新增其他 Performance 卡牌榜单”指 Home Overview 保持 v1.0 原流程，本模块只属于新增的 Home Performance，不扩展榜单到 Home Overview 或 Card Detail。真实设备弱网 15 秒 Timeout、Sandbox 权益同步和多设备远端数据刷新仍待人工验收。
 
 验收：计算样例覆盖 PRD 第 10-14 章；迁移可重复且不伪造 v1.0 历史；1Y 查询达到性能门槛。
 

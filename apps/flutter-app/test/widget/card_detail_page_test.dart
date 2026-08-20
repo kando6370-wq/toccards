@@ -1241,6 +1241,63 @@ void main() {
   });
 
   testWidgets(
+    'Home Performance entry opens the selected Item Performance because the ranking links to that financial context',
+    (tester) async {
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          entrySource: AnalyticsValue.sourceHomePerformance,
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-owned-tabs')),
+        400,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-performance-content')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-collection-item-item-charizard')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('card-detail-price-chart')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Home Performance entry does not substitute another Item when the ranked Item is no longer valid',
+    (tester) async {
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: 'deleted-item',
+          entrySource: AnalyticsValue.sourceHomePerformance,
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-owned-tabs')),
+        400,
+      );
+
+      expect(
+        find.byKey(const Key('card-detail-performance-content')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('card-detail-collection-item-item-charizard')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'owned CardDetail displays one Collection Item while keeping list data',
     (tester) async {
       await tester.pumpWidget(

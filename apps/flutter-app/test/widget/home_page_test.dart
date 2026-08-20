@@ -17,6 +17,7 @@ import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_page.dart';
+import 'package:kando_app/features/home/home_performance_controller.dart';
 import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/features/home/trending_today_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
@@ -297,6 +298,10 @@ void main() {
       expect(find.text('Unlock Performance'), findsOneWidget);
       expect(find.text('Most Valuable'), findsNothing);
       expect(find.text(r'$12,450.80'), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-performance-partial-info')),
+        findsNothing,
+      );
 
       final panel = find.byKey(const Key('home-performance-locked'));
       final preview = find.byKey(
@@ -538,6 +543,203 @@ void main() {
   );
 
   testWidgets(
+    'Premium Home Performance shows only the top five Item records in a vertical list because the ranking is a current Folder preview',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Top Performers'), findsOneWidget);
+      expect(find.byKey(const Key('home-top-performers-list')), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const Key('home-top-performers-list'))).width,
+        350,
+      );
+      expect(find.text('Performer 1'), findsOneWidget);
+      expect(find.text('Performer 5'), findsOneWidget);
+      expect(find.text('Performer 6'), findsNothing);
+      expect(find.text('View All'), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-top-performer-item-1')),
+        findsOneWidget,
+      );
+      expect(find.text(r'+$50.00'), findsOneWidget);
+      expect(find.text('+50.00%'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('home-performance-hide-amount')));
+      await tester.pump();
+      expect(find.text(hiddenMoneyText), findsWidgets);
+      expect(find.text(r'+$50.00'), findsNothing);
+      expect(find.text('+50.00%'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Top Performer opens the matching Card Detail Item Performance context',
+    (tester) async {
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(
+            path: '/cards/:cardId',
+            builder: (context, state) => Scaffold(
+              body: Text(
+                '${state.pathParameters['cardId']}|'
+                '${state.uri.queryParameters['item_id']}|'
+                '${state.uri.queryParameters['entry']}|'
+                '${state.uri.queryParameters['collection']}',
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      final portfolioManagement = _TestPortfolioManagementApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._localAuthOverrides(),
+            homeRepositoryProvider.overrideWithValue(
+              const MockHomeRepository(),
+            ),
+            collectionRepositoryProvider.overrideWithValue(
+              _HomeCollectionRepository(portfolioManagement),
+            ),
+            portfolioManagementApiProvider.overrideWithValue(
+              portfolioManagement,
+            ),
+            portfolioApiClientProvider.overrideWithValue(
+              _TestHomePerformanceApi(),
+            ),
+            currencyRateApiProvider.overrideWithValue(
+              const _TestCurrencyRateApi(),
+            ),
+            subscriptionControllerProvider.overrideWith(
+              _ProHomeSubscriptionController.new,
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      final performer = find.byKey(const Key('home-top-performer-item-1'));
+      await tester.ensureVisible(performer);
+      await tester.pumpAndSettle();
+      await tester.tap(performer);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('card-1|item-1|home performance|portfolio'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'Top Performers View All opens the current Folder Portfolio and returning preserves the Home Performance context',
+    (tester) async {
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          GoRoute(
+            path: '/collection',
+            builder: (context, state) => Consumer(
+              builder: (context, ref, child) {
+                final collection = ref.watch(collectionControllerProvider);
+                final sharedFolder = ref.watch(selectedPortfolioFolderProvider);
+                return Scaffold(
+                  body: Column(
+                    children: [
+                      Text(
+                        '${collection.selectedTab.name}|'
+                        '${collection.selectedFolderId}|$sharedFolder',
+                      ),
+                      TextButton(
+                        key: const Key('collection-return-home'),
+                        onPressed: context.pop,
+                        child: const Text('Back'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      final portfolioManagement = _TestPortfolioManagementApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._localAuthOverrides(),
+            homeRepositoryProvider.overrideWithValue(
+              const MockHomeRepository(),
+            ),
+            collectionRepositoryProvider.overrideWithValue(
+              _HomeCollectionRepository(portfolioManagement),
+            ),
+            portfolioManagementApiProvider.overrideWithValue(
+              portfolioManagement,
+            ),
+            portfolioApiClientProvider.overrideWithValue(
+              _TestHomePerformanceApi(),
+            ),
+            currencyRateApiProvider.overrideWithValue(
+              const _TestCurrencyRateApi(),
+            ),
+            subscriptionControllerProvider.overrideWith(
+              _ProHomeSubscriptionController.new,
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-range-7D')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-hide-amount')));
+      await tester.pumpAndSettle();
+
+      final viewAll = find.byKey(const Key('home-top-performers-view-all'));
+      await tester.ensureVisible(viewAll);
+      await tester.pumpAndSettle();
+      final viewAllTop = tester.getTopLeft(viewAll).dy;
+      await tester.tap(viewAll);
+      await tester.pumpAndSettle();
+
+      expect(find.text('portfolio|main|main'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('collection-return-home')));
+      await tester.pumpAndSettle();
+
+      final homeContext = tester.element(find.byType(HomePage));
+      final container = ProviderScope.containerOf(homeContext);
+      expect(
+        container.read(homePerformanceControllerProvider).selectedRange,
+        PerformanceRange.sevenDays,
+      );
+      expect(container.read(homeControllerProvider).amountHidden, isTrue);
+      expect(tester.getTopLeft(viewAll).dy, closeTo(viewAllTop, 0.1));
+    },
+  );
+
+  testWidgets(
     'Performance repairs a missing session grant once and retries the failed request once',
     (tester) async {
       final api = _EntitlementSyncPerformanceApi(succeedAfterRepair: true);
@@ -586,6 +788,114 @@ void main() {
       expect(repair.calls, 1);
       expect(api.calls, 2);
       expect(find.byKey(const Key('home-performance-failure')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Performance Range failure keeps the previous Range and data and reports the failed action at the top',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+          _FailingRangePerformanceApi(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      final homeContext = tester.element(find.byType(HomePage));
+      final container = ProviderScope.containerOf(homeContext);
+      final previousData = container
+          .read(homePerformanceControllerProvider)
+          .data;
+      await tester.tap(find.byKey(const Key('home-performance-range-7D')));
+      await tester.pumpAndSettle();
+
+      final failed = container.read(homePerformanceControllerProvider);
+      expect(failed.selectedRange, PerformanceRange.oneMonth);
+      expect(failed.data, same(previousData));
+      expect(find.text(r'$12,450.80'), findsOneWidget);
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.text(genericFailureToastText), findsOneWidget);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'Performance Range reports failure after the one entitlement repair retry is exhausted',
+    (tester) async {
+      final api = _EntitlementSyncRangePerformanceApi();
+      final repair = _EntitlementRepairTracker(result: true);
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          () => _RepairingHomeSubscriptionController(repair),
+          api,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-range-7D')));
+      await tester.pumpAndSettle();
+
+      final homeContext = tester.element(find.byType(HomePage));
+      final failed = ProviderScope.containerOf(
+        homeContext,
+      ).read(homePerformanceControllerProvider);
+      expect(repair.calls, 1);
+      expect(api.rangeCalls, 2);
+      expect(failed.selectedRange, PerformanceRange.oneMonth);
+      expect(failed.data, isNotNull);
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.text(genericFailureToastText), findsOneWidget);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'Performance Range keeps prior data when entitlement repair itself fails because an unknown grant cannot authorize a retry',
+    (tester) async {
+      final api = _EntitlementSyncRangePerformanceApi();
+      final repair = _EntitlementRepairTracker(result: false);
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          () => _RepairingHomeSubscriptionController(repair),
+          api,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      final homeContext = tester.element(find.byType(HomePage));
+      final container = ProviderScope.containerOf(homeContext);
+      final previousData = container
+          .read(homePerformanceControllerProvider)
+          .data;
+      await tester.tap(find.byKey(const Key('home-performance-range-7D')));
+      await tester.pumpAndSettle();
+
+      final failed = container.read(homePerformanceControllerProvider);
+      expect(repair.calls, 1);
+      expect(api.rangeCalls, 1);
+      expect(failed.selectedRange, PerformanceRange.oneMonth);
+      expect(failed.data, same(previousData));
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(find.text(genericFailureToastText), findsOneWidget);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
     },
   );
 
@@ -691,7 +1001,7 @@ void main() {
           null,
           const _TestCurrencyRateApi(),
           const MockHomeRepository(),
-          _FreeHomeSubscriptionController.new,
+          _ProHomeSubscriptionController.new,
         ),
       );
       await tester.pumpAndSettle();
@@ -2041,6 +2351,21 @@ class _TestHomePerformanceApi extends PortfolioApiClient {
       itemCount: 2,
       marketPriceStatus: MarketPriceStatus.available,
       purchasePriceStatus: PurchasePriceStatus.partial,
+      topPerformerCount: 6,
+      topPerformers: List.generate(
+        6,
+        (index) => PortfolioTopPerformerDto(
+          itemId: 'item-${index + 1}',
+          cardRef: 'card-${index + 1}',
+          name: 'Performer ${index + 1}',
+          setName: 'Ranking Set',
+          cardNumber: '${index + 1}',
+          imageUrl: null,
+          profitLossUsd: 50.0 - index,
+          returnPercent: index == 5 ? null : 50.0 - index,
+          marketValueUsd: 100.0 - index,
+        ),
+      ),
       current: current,
       series: range == PerformanceRange.oneDay
           ? [current]
@@ -2064,6 +2389,57 @@ class _EntitlementSyncPerformanceApi extends _TestHomePerformanceApi {
   }) {
     calls++;
     if (calls == 1 || !succeedAfterRepair) {
+      throw const PortfolioApiException(
+        'Premium access is still syncing.',
+        code: 'ENTITLEMENT_SYNC_REQUIRED',
+        statusCode: 409,
+      );
+    }
+    return super.getPortfolioPerformance(
+      session,
+      range: range,
+      folderId: folderId,
+      localPremiumVerified: localPremiumVerified,
+    );
+  }
+}
+
+class _FailingRangePerformanceApi extends _TestHomePerformanceApi {
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) {
+    if (range == PerformanceRange.sevenDays) {
+      throw const PortfolioApiException(
+        'Range request failed.',
+        code: 'PERFORMANCE_UNAVAILABLE',
+        statusCode: 503,
+      );
+    }
+    return super.getPortfolioPerformance(
+      session,
+      range: range,
+      folderId: folderId,
+      localPremiumVerified: localPremiumVerified,
+    );
+  }
+}
+
+class _EntitlementSyncRangePerformanceApi extends _TestHomePerformanceApi {
+  var rangeCalls = 0;
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) {
+    if (range == PerformanceRange.sevenDays) {
+      rangeCalls++;
       throw const PortfolioApiException(
         'Premium access is still syncing.',
         code: 'ENTITLEMENT_SYNC_REQUIRED',

@@ -456,6 +456,21 @@ void main() {
             'item_count': 2,
             'market_price_status': 'available',
             'purchase_price_status': 'partial',
+            if (call == 1) 'top_performer_count': 6,
+            if (call == 1)
+              'top_performers': [
+                {
+                  'item_id': 'item-top',
+                  'card_ref': 'card-top',
+                  'name': 'Pikachu',
+                  'set_name': 'Diamond & Pearl',
+                  'card_number': '95',
+                  'image_url': 'https://example.com/pikachu.png',
+                  'profit_loss_usd': 40,
+                  'return_percent': 200,
+                  'market_value_usd': 60,
+                },
+              ],
             'current': {
               'market_value_usd': 60,
               'market_value_change_usd': 30,
@@ -514,7 +529,13 @@ void main() {
       expect(home.current.portfolioChangeUsd, 10);
       expect(home.series.single.quantity, 3);
       expect(home.series.single.quantityChange, 1);
+      expect(home.topPerformerCount, 6);
+      expect(home.topPerformers.single.itemId, 'item-top');
+      expect(home.topPerformers.single.cardRef, 'card-top');
+      expect(home.topPerformers.single.profitLossUsd, 40);
+      expect(home.topPerformers.single.returnPercent, 200);
       expect(item.range, PerformanceRange.oneYear);
+      expect(item.topPerformers, isEmpty);
       expect(adapter.requests, hasLength(2));
     },
   );
