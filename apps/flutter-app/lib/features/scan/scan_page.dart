@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
@@ -49,24 +50,77 @@ class _ScanReviewLoadException implements Exception {
   const _ScanReviewLoadException();
 }
 
-const _viewfinderTop = 213.0;
-const _viewfinderWidth = 280.0;
-const _viewfinderHeight = 400.0;
+const _viewfinderBaseTop = 213.0;
+const _viewfinderBaseWidth = 280.0;
+const _viewfinderBaseHeight = 400.0;
+const _viewfinderHorizontalMargin = 24.0;
+const _viewfinderControlGap = 16.0;
+// Reserve the full Free chrome so unlocking Premium never moves the frame.
+const _viewfinderTopChromeHeight = 10 + 32 + 2 + 34 + 6 + 48;
+const _viewfinderBottomChromeHeight = 22 + 88;
 
-ScanImageCrop _cameraRecognitionCrop(Size viewport) {
-  final viewfinderLeft = (viewport.width - _viewfinderWidth) / 2;
-  final left = viewfinderLeft.clamp(0.0, viewport.width);
-  final top = _viewfinderTop.clamp(0.0, viewport.height);
-  final right = (viewfinderLeft + _viewfinderWidth).clamp(0.0, viewport.width);
-  final bottom = (_viewfinderTop + _viewfinderHeight).clamp(
+class _ScanViewfinderGeometry {
+  const _ScanViewfinderGeometry(this.rect);
+
+  final Rect rect;
+
+  Alignment radialAlignment(Size viewport) {
+    if (viewport.isEmpty) return Alignment.center;
+    return Alignment(
+      (rect.center.dx * 2 / viewport.width) - 1,
+      (rect.center.dy * 2 / viewport.height) - 1,
+    );
+  }
+}
+
+_ScanViewfinderGeometry _scanViewfinderGeometry(
+  Size viewport,
+  EdgeInsets padding,
+) {
+  if (viewport.isEmpty) {
+    return const _ScanViewfinderGeometry(Rect.zero);
+  }
+  final leftLimit = (padding.left + _viewfinderHorizontalMargin).clamp(
     0.0,
-    viewport.height,
+    viewport.width,
   );
+  final rightLimit =
+      (viewport.width - padding.right - _viewfinderHorizontalMargin).clamp(
+        leftLimit,
+        viewport.width,
+      );
+  final topLimit =
+      (padding.top + _viewfinderTopChromeHeight + _viewfinderControlGap).clamp(
+        0.0,
+        viewport.height,
+      );
+  final bottomLimit =
+      (viewport.height -
+              padding.bottom -
+              _viewfinderBottomChromeHeight -
+              _viewfinderControlGap)
+          .clamp(topLimit, viewport.height);
+  final widthScale = (rightLimit - leftLimit) / _viewfinderBaseWidth;
+  final heightScale = (bottomLimit - topLimit) / _viewfinderBaseHeight;
+  final scale = math.max(0.0, math.min(1.0, math.min(widthScale, heightScale)));
+  final width = _viewfinderBaseWidth * scale;
+  final height = _viewfinderBaseHeight * scale;
+  final left = leftLimit + ((rightLimit - leftLimit - width) / 2);
+  final maxTop = math.max(topLimit, bottomLimit - height);
+  final top = _viewfinderBaseTop.clamp(topLimit, maxTop);
+  return _ScanViewfinderGeometry(Rect.fromLTWH(left, top, width, height));
+}
+
+ScanImageCrop _cameraRecognitionCrop(Size viewport, EdgeInsets padding) {
+  final rect = _scanViewfinderGeometry(
+    viewport,
+    padding,
+  ).rect.intersect(Offset.zero & viewport);
   return ScanImageCrop(
-    left: left / viewport.width,
-    top: top / viewport.height,
-    width: (right - left) / viewport.width,
-    height: (bottom - top) / viewport.height,
+    left: rect.left / viewport.width,
+    top: rect.top / viewport.height,
+    width: rect.width / viewport.width,
+    height: rect.height / viewport.height,
     viewportAspectRatio: viewport.width / viewport.height,
   );
 }
@@ -602,10 +656,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
     required ValueChanged<ScanImage> onCaptured,
     required ValueChanged<Uint8List> onDisplayImageReady,
   }) async {
-    final recognitionCrop = _cameraRecognitionCrop(MediaQuery.sizeOf(context));
     try {
       setState(() => _captureFeedbackItemId = itemId);
       await _captureController.forward(from: 0).orCancel;
+      if (!mounted) return const ScanResolution.failed();
+      final mediaQuery = MediaQueryData.fromView(View.of(context));
+      final recognitionCrop = _cameraRecognitionCrop(
+        mediaQuery.size,
+        mediaQuery.padding,
+      );
       final image = await camera.takePhoto();
       onCaptured(image);
       return await source.recognize(
@@ -746,7 +805,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
   }
 
-  Future<void> _openQuotaPaywall({bool resumeWaiting = false}) async {
+  Future<void> _openQuotaPaywall() async {
     if (!mounted || _quotaPaywallOpen) return;
     _quotaPaywallOpen = true;
     try {
@@ -762,9 +821,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       } else {
         showPremiumUnlockedToast(context);
       }
-      if (resumeWaiting && _items.any(_isWaitingForCapacity)) {
-        unawaited(_confirmPremiumAndResumeWaiting());
-      }
+      unawaited(_synchronizePremiumForScan());
     } finally {
       _quotaPaywallOpen = false;
     }
@@ -777,20 +834,25 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (mounted && refreshed) _resumeWaitingFromServerQuota();
   }
 
-  Future<void> _confirmPremiumAndResumeWaiting() async {
+  Future<void> _synchronizePremiumForScan() async {
     if (_entitlementRefreshInFlight) return;
     _entitlementRefreshInFlight = true;
     try {
+      await ref
+          .read(subscriptionControllerProvider.notifier)
+          .synchronizeServerEntitlement();
+      if (!mounted) return;
       final deadline = DateTime.now().add(const Duration(seconds: 15));
-      while (mounted && _items.any(_isWaitingForCapacity)) {
+      do {
         await _refreshQuotaAndResumeWaiting();
         if (!mounted ||
             ref.read(scanQuotaControllerProvider).unlimited ||
             DateTime.now().isAfter(deadline)) {
           return;
         }
+        if (!_items.any(_isWaitingForCapacity)) return;
         await _waitForEntitlementRefresh();
-      }
+      } while (mounted && _items.any(_isWaitingForCapacity));
     } finally {
       _entitlementRefreshInFlight = false;
     }
@@ -906,7 +968,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!await _resolvePremiumBeforeScan()) return;
     if (_scanQuotaExhausted()) {
       _replaceItem(item.copyWith(status: _ScanItemStatus.waiting));
-      unawaited(_openQuotaPaywall(resumeWaiting: true));
+      unawaited(_openQuotaPaywall());
       return;
     }
     _restartScan(item);
@@ -1208,9 +1270,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       } else {
         setState(() => _items.removeWhere((item) => item.id == itemId));
       }
-      unawaited(
-        _openQuotaPaywall(resumeWaiting: item?.retainOnQuotaExhausted == true),
-      );
+      unawaited(_openQuotaPaywall());
       return;
     }
     if (resolution.kind == ScanResolutionKind.entitlementSyncRequired) {
@@ -1226,9 +1286,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           ),
         );
       }
-      if (ref.read(subscriptionControllerProvider).isPro) {
-        unawaited(_confirmPremiumAndResumeWaiting());
-      }
+      unawaited(_synchronizePremiumForScan());
       return;
     }
     pending.resolution = resolution;
@@ -1974,9 +2032,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                       } else {
                         showPremiumUnlockedToast(context);
                       }
-                      if (_items.any(_isWaitingForCapacity)) {
-                        unawaited(_confirmPremiumAndResumeWaiting());
-                      }
+                      unawaited(_synchronizePremiumForScan());
                     },
                     onPhotoPressed: _startPhotoScan,
                     onLibraryPressed: _startLibraryScan,
@@ -1987,7 +2043,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     onDeleteItem: _removeScanFromUser,
                     onSearchItem: (item) {
                       if (item.status == _ScanItemStatus.waiting) {
-                        unawaited(_openQuotaPaywall(resumeWaiting: true));
+                        unawaited(_openQuotaPaywall());
                       } else {
                         unawaited(_searchManually(item));
                       }
@@ -2064,7 +2120,10 @@ class _ScanCameraView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final safeTop = MediaQuery.paddingOf(context).top;
+    final viewport = MediaQuery.sizeOf(context);
+    final padding = MediaQuery.paddingOf(context);
+    final geometry = _scanViewfinderGeometry(viewport, padding);
+    final safeTop = padding.top;
     final topInset = safeTop + 10;
     return Stack(
       children: [
@@ -2076,9 +2135,9 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         if (recognizing)
-          const Positioned.fill(child: _FigmaRecognizingOverlay())
+          Positioned.fill(child: _FigmaRecognizingOverlay(geometry: geometry))
         else if (revealing)
-          const Positioned.fill(child: _FigmaRevealingOverlay())
+          Positioned.fill(child: _FigmaRevealingOverlay(geometry: geometry))
         else ...[
           Positioned.fill(
             child: ColoredBox(
@@ -2090,6 +2149,7 @@ class _ScanCameraView extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
+                  center: geometry.radialAlignment(viewport),
                   radius: 0.86,
                   colors: [
                     Colors.transparent,
@@ -2110,22 +2170,16 @@ class _ScanCameraView extends StatelessWidget {
             color: Color(0xFF10100B),
           ),
         ),
-        Positioned(
-          top: _viewfinderTop,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: _ViewfinderCorners(
-              focusFrameShadow: recognizing || revealing,
-            ),
+        Positioned.fromRect(
+          rect: geometry.rect,
+          child: _ViewfinderCorners(
+            size: geometry.rect.size,
+            focusFrameShadow: recognizing || revealing,
           ),
         ),
         if (capturingPhoto) ...[
-          Positioned(
-            left: 55,
-            top: _viewfinderTop,
-            width: _viewfinderWidth,
-            height: _viewfinderHeight,
+          Positioned.fromRect(
+            rect: geometry.rect,
             child: _FigmaScanningLine(
               key: Key('scan-figma-scanning-line'),
               animation: captureAnimation,
@@ -2136,7 +2190,7 @@ class _ScanCameraView extends StatelessWidget {
           Positioned(
             left: 16,
             right: 16,
-            bottom: 126 + MediaQuery.paddingOf(context).bottom,
+            bottom: 126 + padding.bottom,
             child: _ScanResults(
               items: items,
               cards: cards,
@@ -2152,12 +2206,11 @@ class _ScanCameraView extends StatelessWidget {
         Positioned(
           left: 16,
           right: 16,
-          bottom: revealing ? 19 : 22,
+          bottom: 22,
           child: SafeArea(
             top: false,
             child: _ScanBottomControls(
               canReview: canReview,
-              centered: revealing,
               onPhotoPressed: onPhotoPressed,
               onLibraryPressed: onLibraryPressed,
               onReviewPressed: onReviewPressed,
@@ -2443,28 +2496,30 @@ class _FigmaScanningLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      child: Stack(
-        children: [
-          AnimatedBuilder(
-            animation: animation,
-            child: const SizedBox(
-              width: _viewfinderWidth,
-              height: 4,
-              child: CustomPaint(
-                key: Key('scan-figma-scanning-line-canvas'),
-                painter: _FigmaScanningLinePainter(),
+    return LayoutBuilder(
+      builder: (context, constraints) => ClipRect(
+        child: Stack(
+          children: [
+            AnimatedBuilder(
+              animation: animation,
+              child: SizedBox(
+                width: constraints.maxWidth,
+                height: 4,
+                child: const CustomPaint(
+                  key: Key('scan-figma-scanning-line-canvas'),
+                  painter: _FigmaScanningLinePainter(),
+                ),
               ),
+              builder: (context, child) {
+                final progress = Curves.easeInOut.transform(animation.value);
+                return Transform.translate(
+                  offset: Offset(0, (constraints.maxHeight - 4) * progress),
+                  child: child,
+                );
+              },
             ),
-            builder: (context, child) {
-              final progress = Curves.easeInOut.transform(animation.value);
-              return Transform.translate(
-                offset: Offset(0, (_viewfinderHeight - 4) * progress),
-                child: child,
-              );
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2493,14 +2548,12 @@ class _FigmaScanningLinePainter extends CustomPainter {
 class _ScanBottomControls extends StatelessWidget {
   const _ScanBottomControls({
     required this.canReview,
-    required this.centered,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
     required this.onReviewPressed,
   });
 
   final bool canReview;
-  final bool centered;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
   final VoidCallback onReviewPressed;
@@ -2509,14 +2562,12 @@ class _ScanBottomControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final controls = Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: centered
-          ? CrossAxisAlignment.center
-          : CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         _ScanSideAction(
           label: 'GALLERY',
           tooltip: 'Choose from Library',
-          width: centered ? 62 : 72,
+          width: 72,
           icon: SvgPicture.asset(
             'assets/scan/gallery.svg',
             key: const Key('scan-figma-gallery-icon'),
@@ -2555,12 +2606,7 @@ class _ScanBottomControls extends StatelessWidget {
         _ScanDoneAction(enabled: canReview, onPressed: onReviewPressed),
       ],
     );
-    return Padding(
-      padding: centered
-          ? const EdgeInsets.symmetric(horizontal: 8)
-          : EdgeInsets.zero,
-      child: controls,
-    );
+    return Padding(padding: EdgeInsets.zero, child: controls);
   }
 }
 
@@ -2704,54 +2750,39 @@ class _ScanSideAction extends StatelessWidget {
 }
 
 class _FigmaRecognizingOverlay extends StatelessWidget {
-  const _FigmaRecognizingOverlay();
+  const _FigmaRecognizingOverlay({required this.geometry});
+
+  final _ScanViewfinderGeometry geometry;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: constraints.maxWidth,
-            height: constraints.maxHeight < 884 ? 884 : constraints.maxHeight,
-            child: Stack(
-              children: [
-                const Positioned.fill(
-                  child: CustomPaint(
-                    key: Key('scan-figma-recognizing-overlay'),
-                    painter: _FigmaRecognizingOverlayPainter(),
-                  ),
-                ),
-                const Positioned(
-                  top: _viewfinderTop,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: SizedBox(
-                      key: Key('scan-figma-overlay-viewfinder'),
-                      width: _viewfinderWidth,
-                      height: _viewfinderHeight,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: CustomPaint(
+            key: const Key('scan-figma-recognizing-overlay'),
+            painter: _FigmaRecognizingOverlayPainter(geometry.rect),
           ),
-        );
-      },
+        ),
+        Positioned.fromRect(
+          rect: geometry.rect,
+          child: const SizedBox(key: Key('scan-figma-overlay-viewfinder')),
+        ),
+      ],
     );
   }
 }
 
 class _FigmaRecognizingOverlayPainter extends CustomPainter {
-  const _FigmaRecognizingOverlayPainter();
+  const _FigmaRecognizingOverlayPainter(this.viewfinderRect);
+
+  final Rect viewfinderRect;
 
   @override
   void paint(Canvas canvas, Size size) {
     final vignette = Paint()
       ..shader = ui.Gradient.radial(
-        size.center(Offset.zero),
+        viewfinderRect.center,
         size.longestSide * 0.55,
         const [Color(0x000D0F08), Color(0xD90D0F08)],
         const [0.6, 1],
@@ -2762,10 +2793,7 @@ class _FigmaRecognizingOverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
       ..addRRect(
-        RRect.fromRectAndRadius(
-          _viewfinderRect(size),
-          const Radius.circular(16),
-        ),
+        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(16)),
       );
     canvas.drawPath(
       dimOutsideViewfinder,
@@ -2775,59 +2803,45 @@ class _FigmaRecognizingOverlayPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _FigmaRecognizingOverlayPainter oldDelegate) =>
-      false;
+  bool shouldRepaint(covariant _FigmaRecognizingOverlayPainter oldDelegate) {
+    return viewfinderRect != oldDelegate.viewfinderRect;
+  }
 }
 
 class _FigmaRevealingOverlay extends StatelessWidget {
-  const _FigmaRevealingOverlay();
+  const _FigmaRevealingOverlay({required this.geometry});
+
+  final _ScanViewfinderGeometry geometry;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: constraints.maxWidth,
-            height: constraints.maxHeight < 884 ? 884 : constraints.maxHeight,
-            child: Stack(
-              children: [
-                const Positioned.fill(
-                  child: CustomPaint(
-                    key: Key('scan-figma-revealing-overlay'),
-                    painter: _FigmaRevealingOverlayPainter(),
-                  ),
-                ),
-                const Positioned(
-                  top: _viewfinderTop,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: SizedBox(
-                      key: Key('scan-figma-overlay-viewfinder'),
-                      width: _viewfinderWidth,
-                      height: _viewfinderHeight,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: CustomPaint(
+            key: const Key('scan-figma-revealing-overlay'),
+            painter: _FigmaRevealingOverlayPainter(geometry.rect),
           ),
-        );
-      },
+        ),
+        Positioned.fromRect(
+          rect: geometry.rect,
+          child: const SizedBox(key: Key('scan-figma-overlay-viewfinder')),
+        ),
+      ],
     );
   }
 }
 
 class _FigmaRevealingOverlayPainter extends CustomPainter {
-  const _FigmaRevealingOverlayPainter();
+  const _FigmaRevealingOverlayPainter(this.viewfinderRect);
+
+  final Rect viewfinderRect;
 
   @override
   void paint(Canvas canvas, Size size) {
     final vignette = Paint()
       ..shader = ui.Gradient.radial(
-        size.center(Offset.zero),
+        viewfinderRect.center,
         size.longestSide * 0.55,
         const [Color(0x000D0F08), Color(0xD90D0F08)],
         const [0.6, 1],
@@ -2838,10 +2852,7 @@ class _FigmaRevealingOverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
       ..addRRect(
-        RRect.fromRectAndRadius(
-          _viewfinderRect(size),
-          const Radius.circular(16),
-        ),
+        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(16)),
       );
     canvas.drawPath(
       dimOutsideViewfinder,
@@ -2850,8 +2861,9 @@ class _FigmaRevealingOverlayPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _FigmaRevealingOverlayPainter oldDelegate) =>
-      false;
+  bool shouldRepaint(covariant _FigmaRevealingOverlayPainter oldDelegate) {
+    return viewfinderRect != oldDelegate.viewfinderRect;
+  }
 }
 
 class _ScanRevealingToast extends StatelessWidget {
@@ -2961,30 +2973,22 @@ class _ScanRevealingToast extends StatelessWidget {
 }
 
 class _ViewfinderCorners extends StatelessWidget {
-  const _ViewfinderCorners({this.focusFrameShadow = false});
+  const _ViewfinderCorners({required this.size, this.focusFrameShadow = false});
 
+  final Size size;
   final bool focusFrameShadow;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       key: const Key('scan-figma-viewfinder'),
-      width: _viewfinderWidth,
-      height: _viewfinderHeight,
+      width: size.width,
+      height: size.height,
       child: CustomPaint(
         painter: _ViewfinderPainter(focusFrameShadow: focusFrameShadow),
       ),
     );
   }
-}
-
-Rect _viewfinderRect(Size size) {
-  return Rect.fromLTWH(
-    (size.width - _viewfinderWidth) / 2,
-    _viewfinderTop,
-    _viewfinderWidth,
-    _viewfinderHeight,
-  );
 }
 
 class _ViewfinderPainter extends CustomPainter {
@@ -3002,7 +3006,12 @@ class _ViewfinderPainter extends CustomPainter {
         ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 5.1);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          const Rect.fromLTWH(0.5, 1.5, 279, 397),
+          Rect.fromLTWH(
+            0.5,
+            1.5,
+            math.max(0, size.width - 1),
+            math.max(0, size.height - 3),
+          ),
           const Radius.circular(16),
         ),
         focusFramePaint,
@@ -3197,6 +3206,8 @@ class _ScanItemCard extends StatelessWidget {
         ? 'Failed'
         : waiting
         ? 'Waiting to scan'
+        : entitlementSync
+        ? 'Premium Syncing'
         : 'No Match Found';
     final action = matched
         ? onReview

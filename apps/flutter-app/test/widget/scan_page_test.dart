@@ -193,6 +193,9 @@ void main() {
   testWidgets(
     'unlocking Premium after an exhausted Capture returns to Scan without starting the camera action',
     (tester) async {
+      final subscription = _SynchronizingScanSubscriptionController(
+        premiumState: AppPremiumState.free,
+      );
       final source = _TestScanResultSource(
         photoResult: Future.value(const ScanResolution.noMatch()),
       );
@@ -200,6 +203,7 @@ void main() {
         tester,
         scanResultSource: source,
         scanQuota: _exhaustedQuota,
+        subscriptionController: () => subscription,
         subscriptionResult: SubscriptionPaywallResult.premiumUnlocked,
       );
 
@@ -210,6 +214,7 @@ void main() {
 
       expect(find.byKey(const Key('scan-page-test-boundary')), findsOneWidget);
       expect(source.photoCallCount, 0);
+      expect(subscription.synchronizeCount, 1);
       await tester.pump(const Duration(seconds: 3));
     },
   );
@@ -573,10 +578,11 @@ void main() {
         photoResult: Future.value(const ScanResolution.failed()),
         recognizeResult: Future.value(const ScanResolution.noMatch()),
       );
+      final camera = _TestScanCameraSession();
       await _pumpScanTestApp(
         tester,
         scanResultSource: source,
-        scanCameraFactory: _TestScanCameraFactory(_TestScanCameraSession()),
+        scanCameraFactory: _TestScanCameraFactory(camera),
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
@@ -591,6 +597,125 @@ void main() {
       expect(crop.top, closeTo(viewfinder.top / 800, 0.0001));
       expect(crop.left + crop.width, closeTo(viewfinder.right / 360, 0.0001));
       expect(crop.top + crop.height, closeTo(viewfinder.bottom / 800, 0.0001));
+    },
+  );
+
+  testWidgets(
+    'iPhone 8 keeps one adaptive viewfinder clear of the top and bottom controls',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(375, 667);
+      tester.view.padding = const FakeViewPadding(top: 20);
+      addTearDown(tester.view.reset);
+      final pending = Completer<ScanResolution>();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        recognizeResult: pending.future,
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: _TestScanCameraFactory(_TestScanCameraSession()),
+      );
+
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final quota = tester.getRect(
+        find.byKey(const Key('scan-free-quota-pill')),
+      );
+      final shutter = tester.getRect(find.byTooltip('Take Photo'));
+
+      expect(viewfinder.top, closeTo(168, 0.01));
+      expect(viewfinder.width, closeTo(261.1, 0.01));
+      expect(viewfinder.height, closeTo(373, 0.01));
+      expect(viewfinder.width / viewfinder.height, closeTo(0.7, 0.0001));
+      expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
+      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(
+        tester.getRect(find.byKey(const Key('scan-figma-scanning-line'))),
+        viewfinder,
+      );
+
+      await tester.pump(const Duration(milliseconds: 750));
+      final crop = source.recognizedImages.single.recognitionCrop!;
+      expect(crop.left, closeTo(viewfinder.left / 375, 0.0001));
+      expect(crop.top, closeTo(viewfinder.top / 667, 0.0001));
+      expect(crop.width, closeTo(viewfinder.width / 375, 0.0001));
+      expect(crop.height, closeTo(viewfinder.height / 667, 0.0001));
+      expect(
+        tester.getRect(find.byKey(const Key('scan-figma-overlay-viewfinder'))),
+        viewfinder,
+      );
+
+      pending.complete(const ScanResolution.noMatch());
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'compact Android keeps the adaptive viewfinder inside both safe areas',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+      addTearDown(tester.view.reset);
+      await _pumpScanTestApp(tester);
+
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final quota = tester.getRect(
+        find.byKey(const Key('scan-free-quota-pill')),
+      );
+      final shutter = tester.getRect(find.byTooltip('Take Photo'));
+
+      expect(viewfinder.left, closeTo(68.7, 0.01));
+      expect(viewfinder.top, closeTo(172, 0.01));
+      expect(viewfinder.width, closeTo(222.6, 0.01));
+      expect(viewfinder.height, closeTo(318, 0.01));
+      expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
+      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
+    },
+  );
+
+  testWidgets(
+    'capture uses the latest adaptive geometry when the viewport changes during feedback',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        recognizeResult: Future.value(const ScanResolution.noMatch()),
+      );
+      final camera = _TestScanCameraSession();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: _TestScanCameraFactory(camera),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(milliseconds: 250));
+      tester.view.physicalSize = const Size(375, 667);
+      tester.view.padding = const FakeViewPadding(top: 20);
+      await tester.pump(const Duration(milliseconds: 501));
+
+      expect(camera.takePhotoCount, 1);
+      expect(source.recognizedImages, hasLength(1));
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final crop = source.recognizedImages.single.recognitionCrop!;
+      expect(crop.left, closeTo(viewfinder.left / 375, 0.0001));
+      expect(crop.top, closeTo(viewfinder.top / 667, 0.0001));
+      expect(crop.width, closeTo(viewfinder.width / 375, 0.0001));
+      expect(crop.height, closeTo(viewfinder.height / 667, 0.0001));
     },
   );
 
@@ -875,6 +1000,12 @@ void main() {
       final initialDoneAction = tester.renderObject(
         find.byKey(const Key('scan-done-action')),
       );
+      final initialGalleryRect = tester.getRect(
+        find.byTooltip('Choose from Library'),
+      );
+      final initialDoneRect = tester.getRect(
+        find.byKey(const Key('scan-done-action')),
+      );
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump(const Duration(seconds: 1));
@@ -886,6 +1017,14 @@ void main() {
       expect(
         tester.renderObject(find.byKey(const Key('scan-done-action'))),
         same(initialDoneAction),
+      );
+      expect(
+        tester.getRect(find.byTooltip('Choose from Library')),
+        initialGalleryRect,
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('scan-done-action'))),
+        initialDoneRect,
       );
 
       await tester.pump(const Duration(seconds: 1));
@@ -899,6 +1038,32 @@ void main() {
         tester.renderObject(find.byKey(const Key('scan-done-action'))),
         same(initialDoneAction),
         reason: 'Reveal must not remount and replay the bottom controls.',
+      );
+      expect(
+        tester.getRect(find.byTooltip('Choose from Library')),
+        initialGalleryRect,
+        reason: 'Reveal must not move the Gallery action.',
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('scan-done-action'))),
+        initialDoneRect,
+        reason: 'Reveal must not move the Done action.',
+      );
+
+      pending.complete(const ScanResolution.failed());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1530));
+      await tester.pump();
+
+      expect(
+        tester.getRect(find.byTooltip('Choose from Library')),
+        initialGalleryRect,
+        reason: 'Recognition completion must not move the Gallery action.',
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('scan-done-action'))),
+        initialDoneRect,
+        reason: 'Recognition completion must not move the Done action.',
       );
     },
   );
@@ -986,8 +1151,8 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pump(const Duration(milliseconds: 1500));
 
-    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 31);
-    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 745);
+    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 28);
+    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 750);
 
     await expectLater(
       find.byKey(const Key('scan-revealing-figma-golden')),
@@ -1630,7 +1795,7 @@ void main() {
       );
       expect(
         tester.getTopLeft(find.byKey(const Key('scan-figma-scanning-line'))).dy,
-        213,
+        tester.getTopLeft(find.byKey(const Key('scan-figma-viewfinder'))).dy,
       );
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Scanning'), findsNothing);
@@ -2845,7 +3010,9 @@ void main() {
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pumpAndSettle();
 
+      expect(find.text('Premium Syncing'), findsOneWidget);
       expect(find.text('Syncing Premium'), findsOneWidget);
+      expect(find.text('No Match Found'), findsNothing);
       expect(find.text('Subscription'), findsNothing);
       expect(find.text('Failed'), findsNothing);
     },
@@ -2880,11 +3047,12 @@ void main() {
         ),
         retryResult: Future.value(const ScanResolution.noMatch()),
       );
+      final subscription = _SynchronizingScanSubscriptionController();
       await _pumpScanTestApp(
         tester,
         scanResultSource: source,
         scanQuotaController: quotaController,
-        subscriptionController: _ProScanSubscriptionController.new,
+        subscriptionController: () => subscription,
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
@@ -2895,6 +3063,60 @@ void main() {
 
       expect(source.lastRetryFileName, 'premium.png');
       expect(quotaController.state.unlimited, isTrue);
+      expect(subscription.synchronizeCount, 1);
+    },
+  );
+
+  testWidgets(
+    'concurrent Premium sync items share one entitlement synchronization',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final synchronization = Completer<bool>();
+      final subscription = _SynchronizingScanSubscriptionController(
+        onSynchronize: () => synchronization.future,
+      );
+      final quotaController = _TestScanQuotaController(
+        _exhaustedQuota,
+        refreshQuotas: const [_exhaustedQuota, _unlimitedQuota],
+      );
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        libraryImages: [
+          ScanImage(bytes: bytes, fileName: 'premium-1.png'),
+          ScanImage(bytes: bytes, fileName: 'premium-2.png'),
+        ],
+        libraryResults: [
+          for (var index = 1; index <= 2; index += 1)
+            Future.value(
+              ScanResolution.entitlementSyncRequired(
+                imageBytes: bytes,
+                displayImageBytes: bytes,
+                imageFileName: 'premium-$index.png',
+              ),
+            ),
+        ],
+        retryResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quotaController,
+        subscriptionController: () => subscription,
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Premium Syncing'), findsNWidgets(2));
+      expect(subscription.synchronizeCount, 1);
+
+      synchronization.complete(true);
+      await tester.pump();
+      await tester.pump();
+
+      expect(quotaController.state.unlimited, isTrue);
+      expect(source.retryCallCount, 2);
     },
   );
 
@@ -3379,6 +3601,31 @@ class _ProScanSubscriptionController extends SubscriptionController {
   SubscriptionState build() => const SubscriptionState(isPro: true);
 }
 
+class _SynchronizingScanSubscriptionController extends SubscriptionController {
+  _SynchronizingScanSubscriptionController({
+    this.premiumState = AppPremiumState.premium,
+    this.onSynchronize,
+  });
+
+  final AppPremiumState premiumState;
+  final Future<bool> Function()? onSynchronize;
+  var synchronizeCount = 0;
+
+  @override
+  SubscriptionState build() => SubscriptionState(premiumState: premiumState);
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    return premiumState;
+  }
+
+  @override
+  Future<bool> synchronizeServerEntitlement() async {
+    synchronizeCount += 1;
+    return await onSynchronize?.call() ?? true;
+  }
+}
+
 class _FreeScanSubscriptionController extends SubscriptionController {
   @override
   SubscriptionState build() =>
@@ -3662,6 +3909,7 @@ class _TestScanResultSource implements ScanResultSource {
   final Future<ScanResolution> _retryResult;
   var photoCallCount = 0;
   var libraryCallCount = 0;
+  var retryCallCount = 0;
   var _nextPhotoResult = 0;
   var _nextRecognizeResult = 0;
   Uint8List? lastRetryBytes;
@@ -3716,6 +3964,7 @@ class _TestScanResultSource implements ScanResultSource {
 
   @override
   Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName}) {
+    retryCallCount += 1;
     lastRetryBytes = imageBytes;
     lastRetryFileName = fileName;
     return _retryResult;

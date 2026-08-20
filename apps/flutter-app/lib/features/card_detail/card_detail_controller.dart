@@ -16,6 +16,7 @@ import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'card_detail_models.dart';
 import 'card_detail_repository.dart';
+import 'card_performance_controller.dart';
 
 final cardDetailRepositoryProvider = Provider<CardDetailRepository>((ref) {
   return HttpCardDetailRepository(
@@ -732,8 +733,12 @@ class CardDetailController extends Notifier<CardDetailState> {
   }
 
   Future<void> refresh() {
+    final performanceItemIds = state.isLoading || state.isUnavailable
+        ? const <String>[]
+        : state.detail.collectionItems.map((item) => item.id).toList();
     final session = ref.read(authControllerProvider).session;
     if (session == null) {
+      _invalidateItemPerformanceCaches(performanceItemIds);
       _invalidateLoad();
       state = CardDetailState.loading(cardId: cardId, currency: state.currency);
       return Future<void>.value();
@@ -741,7 +746,9 @@ class CardDetailController extends Notifier<CardDetailState> {
 
     state = CardDetailState.loading(cardId: cardId, currency: state.currency);
     _startLoad(session: session, currency: state.currency);
-    return loadComplete;
+    return loadComplete.whenComplete(
+      () => _invalidateItemPerformanceCaches(performanceItemIds),
+    );
   }
 
   Future<void> refreshPriceSeries() {
@@ -1364,6 +1371,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       collectionItemFormError: null,
       isSavingCollectionItemDraft: false,
     );
+    ref.invalidate(cardPerformanceControllerProvider(savedItem.id));
     _invalidateAssetConsumers();
     return true;
   }
@@ -1423,6 +1431,12 @@ class CardDetailController extends Notifier<CardDetailState> {
     ref.invalidate(homePerformanceControllerProvider);
     ref.invalidate(collectionControllerProvider);
     ref.invalidate(searchControllerProvider);
+  }
+
+  void _invalidateItemPerformanceCaches(Iterable<String> itemIds) {
+    for (final itemId in itemIds) {
+      ref.invalidate(cardPerformanceControllerProvider(itemId));
+    }
   }
 
   void _invalidateLoad() {

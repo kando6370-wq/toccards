@@ -765,20 +765,28 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
   @override
   void didUpdateWidget(covariant _OwnedDetailTabs oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!oldWidget.isPro &&
-        widget.isPro &&
-        _tabController.index == 1 &&
-        widget.currentCollectionItemId != null) {
-      unawaited(
-        ref
-            .read(
-              cardPerformanceControllerProvider(
-                widget.currentCollectionItemId!,
-              ).notifier,
-            )
-            .load(localPremiumVerified: true),
-      );
+    final becamePro = !oldWidget.isPro && widget.isPro;
+    if (!widget.isPro ||
+        _tabController.index != 1 ||
+        widget.currentCollectionItemId == null) {
+      return;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final itemId = widget.currentCollectionItemId;
+      if (!mounted ||
+          !widget.isPro ||
+          _tabController.index != 1 ||
+          itemId == null) {
+        return;
+      }
+      final provider = cardPerformanceControllerProvider(itemId);
+      final performance = ref.read(provider);
+      if (performance.isLoading ||
+          (!becamePro && (performance.isFailure || performance.hasLoaded))) {
+        return;
+      }
+      unawaited(ref.read(provider.notifier).load(localPremiumVerified: true));
+    });
   }
 
   void _handleTabChange() {

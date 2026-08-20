@@ -1199,6 +1199,122 @@ void main() {
   );
 
   testWidgets(
+    'saving a missing purchase price reloads Item Performance because the previous missing response is stale',
+    (tester) async {
+      final repository = _EditableMissingPurchasePriceCardDetailRepository();
+      final performanceApi = _MissingPriceCardPerformanceApi(
+        hasPurchasePrice: () => repository.hasPurchasePrice,
+      );
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          repository: repository,
+          performanceApi: performanceApi,
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(performanceApi.requestCount, 1);
+      expect(
+        find.byKey(const Key('card-detail-missing-purchase-price')),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-edit-missing-purchase-price')),
+      );
+      await tester.tap(
+        find.byKey(const Key('card-detail-edit-missing-purchase-price')),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-item-purchase-price')),
+      );
+      await tester.enterText(
+        find.byKey(const Key('card-detail-item-purchase-price')),
+        '600',
+      );
+      final submit = find.byKey(const Key('card-detail-item-submit'));
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+
+      expect(repository.hasPurchasePrice, isTrue);
+      await tester.drag(
+        find.byKey(const Key('card-detail-scroll')),
+        const Offset(0, 500),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(performanceApi.requestCount, 2);
+      expect(
+        find.byKey(const Key('card-detail-missing-purchase-price')),
+        findsNothing,
+      );
+      expect(find.text(r'$600.00'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'refreshing Card Detail reloads Item Performance because refresh must not retain its previous response',
+    (tester) async {
+      final repository = _EditableMissingPurchasePriceCardDetailRepository();
+      final performanceApi = _MissingPriceCardPerformanceApi(
+        hasPurchasePrice: () => repository.hasPurchasePrice,
+      );
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          repository: repository,
+          performanceApi: performanceApi,
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(performanceApi.requestCount, 1);
+      expect(
+        find.byKey(const Key('card-detail-missing-purchase-price')),
+        findsOneWidget,
+      );
+
+      repository.hasPurchasePrice = true;
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      await container
+          .read(cardDetailControllerProvider('charizard-ex').notifier)
+          .refresh();
+      await tester.pumpAndSettle();
+      final refreshed = container.read(
+        cardDetailControllerProvider('charizard-ex'),
+      );
+      expect(refreshed.isUnavailable, isFalse);
+      expect(refreshed.isLoading, isFalse);
+      expect(refreshed.detail.collectionItems.single.id, 'item-charizard');
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(performanceApi.requestCount, 2);
+      expect(
+        find.byKey(const Key('card-detail-missing-purchase-price')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
     'same-card multiple Items hide Performance without an Item context because guessing would mix ownership',
     (tester) async {
       await tester.pumpWidget(
@@ -1999,6 +2115,11 @@ class _CardPerformanceApi extends PortfolioApiClient {
 }
 
 class _MissingPriceCardPerformanceApi extends _CardPerformanceApi {
+  _MissingPriceCardPerformanceApi({this.hasPurchasePrice});
+
+  final bool Function()? hasPurchasePrice;
+  int requestCount = 0;
+
   @override
   Future<PortfolioPerformanceDto> getItemPerformance(
     AuthSession session, {
@@ -2006,12 +2127,14 @@ class _MissingPriceCardPerformanceApi extends _CardPerformanceApi {
     required PerformanceRange range,
     bool localPremiumVerified = false,
   }) async {
+    requestCount += 1;
     final normal = await super.getItemPerformance(
       session,
       itemId: itemId,
       range: range,
       localPremiumVerified: localPremiumVerified,
     );
+    if (hasPurchasePrice?.call() ?? false) return normal;
     final point = PerformancePointDto(
       date: normal.current.date,
       marketValueUsd: normal.current.marketValueUsd,
@@ -2374,6 +2497,32 @@ class _MissingPurchasePriceCardDetailRepository
         detail.collectionItems.first.copyWith(purchasePriceUsd: null),
       ],
     );
+  }
+}
+
+class _EditableMissingPurchasePriceCardDetailRepository
+    extends _MissingPurchasePriceCardDetailRepository {
+  bool hasPurchasePrice = false;
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    final detail = await super.loadDetail(session, cardId);
+    if (!hasPurchasePrice) return detail;
+    return detail.copyWith(
+      collectionItems: [
+        detail.collectionItems.first.copyWith(purchasePriceUsd: 600.0),
+      ],
+    );
+  }
+
+  @override
+  Future<CardCollectionItem> updateCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+  }) async {
+    hasPurchasePrice = item.purchasePriceUsd != null;
+    return item.copyWith(cardRef: detail.id);
   }
 }
 
