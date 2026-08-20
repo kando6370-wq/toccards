@@ -338,10 +338,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _appActive = true;
   var _openingReview = false;
   var _reviewing = false;
-  var _photoRecognitionInFlight = false;
+  int? _photoRecognitionItemId;
   var _premiumResolutionInFlight = false;
   var _freeEntitlementConfirmedForLifecycle = false;
-  var _capturingPhoto = false;
+  int? _captureFeedbackItemId;
   var _librarySelectionInFlight = false;
   var _quotaPaywallOpen = false;
   var _entitlementRefreshInFlight = false;
@@ -394,20 +394,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
           item.status == _ScanItemStatus.revealing,
     );
     return _matchedItems.isNotEmpty && !processing;
-  }
-
-  Animation<double> get _revealAnimation {
-    final revealingItem = _items
-        .where(
-          (item) =>
-              item.usesCameraFeedback &&
-              item.status == _ScanItemStatus.revealing,
-        )
-        .firstOrNull;
-    return revealingItem == null
-        ? const AlwaysStoppedAnimation(0)
-        : _pendingScans[revealingItem.id]?.revealController ??
-              const AlwaysStoppedAnimation(0);
   }
 
   bool get _hasUnsavedScanResults {
@@ -526,7 +512,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
   Future<void> _closeCamera() async {
     _cameraGeneration += 1;
     _cameraPausedForLifecycle = false;
-    _photoRecognitionInFlight = false;
+    _photoRecognitionItemId = null;
+    _captureFeedbackItemId = null;
     final session = _cameraSession;
     if (session == null) return;
     if (mounted) {
@@ -540,7 +527,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
   Future<void> _pauseCameraForLifecycle() async {
     if (_cameraPausedForLifecycle) return;
     _cameraPausedForLifecycle = true;
-    _photoRecognitionInFlight = false;
+    _photoRecognitionItemId = null;
+    _captureFeedbackItemId = null;
     final session = _cameraSession;
     if (session == null) return;
     try {
@@ -587,25 +575,28 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _addScan(Future.sync(source.photo));
       return;
     }
-    if (_photoRecognitionInFlight) return;
+    if (_photoRecognitionItemId != null) return;
     if (_scanQuotaExhausted()) {
       unawaited(_openQuotaPaywall());
       return;
     }
     ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
-    _photoRecognitionInFlight = true;
-    late final int itemId;
+    final itemId = _nextScanId;
+    _photoRecognitionItemId = itemId;
     final result = _captureAndRecognize(
+      itemId,
       camera,
       source,
       onCaptured: (image) => _attachScanImage(itemId, image),
       onDisplayImageReady: (bytes) => _attachScanDisplayImage(itemId, bytes),
     );
-    itemId = _addScan(result);
-    unawaited(_finishPhotoRecognition(result));
+    final addedItemId = _addScan(result);
+    assert(addedItemId == itemId);
+    unawaited(_finishPhotoRecognition(itemId, result));
   }
 
   Future<ScanResolution> _captureAndRecognize(
+    int itemId,
     ScanCameraSession camera,
     ScanResultSource source, {
     required ValueChanged<ScanImage> onCaptured,
@@ -613,7 +604,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }) async {
     final recognitionCrop = _cameraRecognitionCrop(MediaQuery.sizeOf(context));
     try {
-      setState(() => _capturingPhoto = true);
+      setState(() => _captureFeedbackItemId = itemId);
       await _captureController.forward(from: 0).orCancel;
       final image = await camera.takePhoto();
       onCaptured(image);
@@ -628,13 +619,20 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } catch (_) {
       return const ScanResolution.failed();
     } finally {
-      if (mounted) setState(() => _capturingPhoto = false);
+      if (mounted && _captureFeedbackItemId == itemId) {
+        setState(() => _captureFeedbackItemId = null);
+      }
     }
   }
 
-  Future<void> _finishPhotoRecognition(Future<ScanResolution> pending) async {
+  Future<void> _finishPhotoRecognition(
+    int itemId,
+    Future<ScanResolution> pending,
+  ) async {
     await pending;
-    _photoRecognitionInFlight = false;
+    if (_photoRecognitionItemId == itemId) {
+      _photoRecognitionItemId = null;
+    }
   }
 
   Future<void> _toggleFlash() async {
@@ -975,6 +973,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _scanResultValues[item.id] = AnalyticsValue.scanFailed;
     } else {
       ref.read(analyticsProvider).track(AnalyticsEvent.deleteClick);
+    }
+    if (_photoRecognitionItemId == item.id) {
+      _photoRecognitionItemId = null;
+    }
+    if (_captureFeedbackItemId == item.id) {
+      _captureFeedbackItemId = null;
     }
     _removeScan(item, settleInBackground: processing);
   }
@@ -1939,12 +1943,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     flashEnabled: _cameraSession?.flashEnabled ?? false,
                     items: _items,
                     canReview: _canReview,
-                    capturingPhoto: _capturingPhoto,
+                    capturingPhoto: _captureFeedbackItemId != null,
                     recognizing: _isRecognizing,
                     revealing: _isRevealing,
                     showRevealingFeedback: _showRevealingFeedback,
                     captureAnimation: _captureController,
-                    revealAnimation: _revealAnimation,
                     cards: _reviewCards,
                     currency: currency,
                     remainingScans: hasPremiumAccess
@@ -2016,7 +2019,6 @@ class _ScanCameraView extends StatelessWidget {
     required this.revealing,
     required this.showRevealingFeedback,
     required this.captureAnimation,
-    required this.revealAnimation,
     required this.cards,
     required this.currency,
     required this.remainingScans,
@@ -2044,7 +2046,6 @@ class _ScanCameraView extends StatelessWidget {
   final bool revealing;
   final bool showRevealingFeedback;
   final Animation<double> captureAnimation;
-  final Animation<double> revealAnimation;
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
   final int? remainingScans;
@@ -2152,24 +2153,14 @@ class _ScanCameraView extends StatelessWidget {
           left: 16,
           right: 16,
           bottom: revealing ? 19 : 22,
-          child: _FigmaRevealEntrance(
-            animation: revealAnimation,
-            active: revealing,
-            opacityStart: 0.52293,
-            opacityEnd: 0.84834,
-            translateStart: 0.52293,
-            translateEnd: 0.91512,
-            initialOffsetY: -25,
-            opacityCurve: const _FigmaSpringCurve(),
-            child: SafeArea(
-              top: false,
-              child: _ScanBottomControls(
-                canReview: canReview,
-                centered: revealing,
-                onPhotoPressed: onPhotoPressed,
-                onLibraryPressed: onLibraryPressed,
-                onReviewPressed: onReviewPressed,
-              ),
+          child: SafeArea(
+            top: false,
+            child: _ScanBottomControls(
+              canReview: canReview,
+              centered: revealing,
+              onPhotoPressed: onPhotoPressed,
+              onLibraryPressed: onLibraryPressed,
+              onReviewPressed: onReviewPressed,
             ),
           ),
         ),
@@ -2178,34 +2169,25 @@ class _ScanCameraView extends StatelessWidget {
           top: topInset,
           left: 8,
           right: 8,
-          child: _FigmaRevealEntrance(
-            animation: revealAnimation,
-            active: revealing,
-            opacityStart: 0,
-            opacityEnd: 0.26146,
-            translateStart: 0,
-            translateEnd: 0.39219,
-            initialOffsetY: -40,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ScanTopBar(
-                  onClosePressed: onClosePressed,
-                  onFlashPressed: onFlashPressed,
-                  flashEnabled: flashEnabled,
-                  onSearchPressed: onSearchPressed,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ScanTopBar(
+                onClosePressed: onClosePressed,
+                onFlashPressed: onFlashPressed,
+                flashEnabled: flashEnabled,
+                onSearchPressed: onSearchPressed,
+              ),
+              const SizedBox(height: 2),
+              const _AlignCardPill(),
+              if (remainingScans != null) ...[
+                const SizedBox(height: 6),
+                _ScanQuotaPill(
+                  remainingScans: remainingScans!,
+                  onPressed: onUpgradePressed,
                 ),
-                const SizedBox(height: 2),
-                const _AlignCardPill(),
-                if (remainingScans != null) ...[
-                  const SizedBox(height: 6),
-                  _ScanQuotaPill(
-                    remainingScans: remainingScans!,
-                    onPressed: onUpgradePressed,
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
       ],
@@ -2573,12 +2555,12 @@ class _ScanBottomControls extends StatelessWidget {
         _ScanDoneAction(enabled: canReview, onPressed: onReviewPressed),
       ],
     );
-    return centered
-        ? Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: controls,
-          )
-        : controls;
+    return Padding(
+      padding: centered
+          ? const EdgeInsets.symmetric(horizontal: 8)
+          : EdgeInsets.zero,
+      child: controls,
+    );
   }
 }
 
@@ -2870,147 +2852,6 @@ class _FigmaRevealingOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _FigmaRevealingOverlayPainter oldDelegate) =>
       false;
-}
-
-class _FigmaRevealEntrance extends StatelessWidget {
-  const _FigmaRevealEntrance({
-    required this.animation,
-    required this.active,
-    required this.opacityStart,
-    required this.opacityEnd,
-    required this.translateStart,
-    required this.translateEnd,
-    required this.initialOffsetY,
-    required this.child,
-    this.opacityCurve = const Cubic(0.5, 0, 0.5, 1),
-  });
-
-  final Animation<double> animation;
-  final bool active;
-  final double opacityStart;
-  final double opacityEnd;
-  final double translateStart;
-  final double translateEnd;
-  final double initialOffsetY;
-  final Curve opacityCurve;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!active) {
-      return child;
-    }
-    return AnimatedBuilder(
-      animation: animation,
-      child: child,
-      builder: (context, child) {
-        final opacity = _figmaInterval(
-          animation.value,
-          opacityStart,
-          opacityEnd,
-          opacityCurve,
-        );
-        final translate = _figmaInterval(
-          animation.value,
-          translateStart,
-          translateEnd,
-          const _FigmaSpringCurve(),
-        );
-        return IgnorePointer(
-          ignoring: opacity == 0,
-          child: Opacity(
-            opacity: opacity.clamp(0, 1).toDouble(),
-            child: Transform.translate(
-              offset: Offset(0, initialOffsetY * (1 - translate)),
-              child: child,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-double _figmaInterval(double progress, double start, double end, Curve curve) {
-  if (progress <= start) {
-    return 0;
-  }
-  if (progress >= end) {
-    return 1;
-  }
-  return curve.transform((progress - start) / (end - start));
-}
-
-class _FigmaSpringCurve extends Curve {
-  const _FigmaSpringCurve();
-
-  static const _samples = [
-    0.0,
-    0.0188,
-    0.0679,
-    0.1374,
-    0.2195,
-    0.308,
-    0.3978,
-    0.4856,
-    0.5686,
-    0.6452,
-    0.7142,
-    0.7753,
-    0.8283,
-    0.8735,
-    0.9113,
-    0.9423,
-    0.9671,
-    0.9866,
-    1.0014,
-    1.0123,
-    1.0198,
-    1.0247,
-    1.0274,
-    1.0283,
-    1.0281,
-    1.0268,
-    1.025,
-    1.0227,
-    1.0202,
-    1.0177,
-    1.0152,
-    1.0128,
-    1.0106,
-    1.0085,
-    1.0068,
-    1.0052,
-    1.0039,
-    1.0028,
-    1.0018,
-    1.0011,
-    1.0005,
-    1.0,
-    0.9997,
-    0.9995,
-    0.9993,
-    0.9992,
-    0.9992,
-    0.9992,
-    0.9992,
-    0.9993,
-    0.9993,
-  ];
-
-  @override
-  double transformInternal(double t) {
-    if (t >= 1) {
-      return 1;
-    }
-    final position = t * (_samples.length - 1);
-    final lower = position.floor();
-    if (lower >= _samples.length - 1) {
-      return _samples.last;
-    }
-    final fraction = position - lower;
-    return _samples[lower] + (_samples[lower + 1] - _samples[lower]) * fraction;
-  }
 }
 
 class _ScanRevealingToast extends StatelessWidget {

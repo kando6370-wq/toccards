@@ -860,6 +860,49 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Scan controls stay mounted while recognition advances to reveal',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(photoResult: pending.future),
+      );
+
+      final initialTopBar = tester.renderObject(
+        find.byKey(const Key('scan-figma-top-bar')),
+      );
+      final initialDoneAction = tester.renderObject(
+        find.byKey(const Key('scan-done-action')),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(
+        tester.renderObject(find.byKey(const Key('scan-figma-top-bar'))),
+        same(initialTopBar),
+      );
+      expect(
+        tester.renderObject(find.byKey(const Key('scan-done-action'))),
+        same(initialDoneAction),
+      );
+
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(
+        tester.renderObject(find.byKey(const Key('scan-figma-top-bar'))),
+        same(initialTopBar),
+        reason: 'Reveal must not remount and replay the top controls.',
+      );
+      expect(
+        tester.renderObject(find.byKey(const Key('scan-done-action'))),
+        same(initialDoneAction),
+        reason: 'Reveal must not remount and replay the bottom controls.',
+      );
+    },
+  );
+
   testWidgets('Figma recognition renders at the 390x844 baseline', (
     tester,
   ) async {
@@ -2335,6 +2378,60 @@ void main() {
   );
 
   testWidgets(
+    'deleting an in-flight camera scan allows another capture while the old request settles',
+    (tester) async {
+      final first = Completer<ScanResolution>();
+      final second = Completer<ScanResolution>();
+      final third = Completer<ScanResolution>();
+      final camera = _TestScanCameraSession();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+          recognizeResult: first.future,
+          subsequentRecognizeResults: [second.future, third.future],
+        ),
+        scanCameraFactory: _TestScanCameraFactory(camera),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(camera.takePhotoCount, 1);
+
+      await tester.tap(find.byKey(const Key('scan-delete-item-1')));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(
+        camera.takePhotoCount,
+        2,
+        reason: 'Deleting the Processing item must release its local gate.',
+      );
+      expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
+
+      first.complete(const ScanResolution.failed());
+      await tester.pump();
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(
+        camera.takePhotoCount,
+        2,
+        reason: 'The deleted request must not unlock the newer capture.',
+      );
+      expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
+      expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'a deleted Processing failure refreshes returned quota and resumes an existing Waiting item',
     (tester) async {
       final pending = Completer<ScanResolution>();
@@ -3544,12 +3641,16 @@ class _TestScanResultSource implements ScanResultSource {
     this.libraryImages = const [],
     this.libraryGate,
     Future<ScanResolution>? recognizeResult,
+    List<Future<ScanResolution>> subsequentRecognizeResults = const [],
     Future<ScanResolution>? retryResult,
   }) : _photoResults = [photoResult, ...subsequentPhotoResults],
        _libraryResults =
            libraryResults ??
            [libraryResult ?? Future.value(const ScanResolution.noMatch())],
-       _recognizeResult = recognizeResult ?? photoResult,
+       _recognizeResults = [
+         recognizeResult ?? photoResult,
+         ...subsequentRecognizeResults,
+       ],
        _retryResult =
            retryResult ?? Future.value(const ScanResolution.failed());
 
@@ -3557,11 +3658,12 @@ class _TestScanResultSource implements ScanResultSource {
   final List<Future<ScanResolution>> _libraryResults;
   final List<ScanImage> libraryImages;
   final Future<void>? libraryGate;
-  final Future<ScanResolution> _recognizeResult;
+  final List<Future<ScanResolution>> _recognizeResults;
   final Future<ScanResolution> _retryResult;
   var photoCallCount = 0;
   var libraryCallCount = 0;
   var _nextPhotoResult = 0;
+  var _nextRecognizeResult = 0;
   Uint8List? lastRetryBytes;
   String? lastRetryFileName;
   final recognizedImages = <ScanImage>[];
@@ -3600,7 +3702,11 @@ class _TestScanResultSource implements ScanResultSource {
     ValueChanged<Uint8List>? onDisplayImageReady,
   }) async {
     recognizedImages.add(image);
-    final result = await _recognizeResult;
+    final resultIndex = _nextRecognizeResult < _recognizeResults.length
+        ? _nextRecognizeResult
+        : _recognizeResults.length - 1;
+    _nextRecognizeResult += 1;
+    final result = await _recognizeResults[resultIndex];
     final displayImageBytes = result.displayImageBytes;
     if (displayImageBytes != null) {
       onDisplayImageReady?.call(displayImageBytes);
