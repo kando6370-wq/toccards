@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/app/theme.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 
 void main() {
@@ -13,10 +15,12 @@ void main() {
       addTearDown(tester.view.reset);
 
       await tester.pumpWidget(
-        const MaterialApp(
-          home: KandoTabScaffold(
-            currentTab: KandoMainTab.home,
-            body: SizedBox.expand(),
+        const ProviderScope(
+          child: MaterialApp(
+            home: KandoTabScaffold(
+              currentTab: KandoMainTab.home,
+              body: SizedBox.expand(),
+            ),
           ),
         ),
       );
@@ -73,10 +77,12 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: KandoTabScaffold(
-          currentTab: KandoMainTab.home,
-          body: SizedBox.expand(),
+      const ProviderScope(
+        child: MaterialApp(
+          home: KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
+          ),
         ),
       ),
     );
@@ -84,6 +90,62 @@ void main() {
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.extendBody, isTrue);
   });
+
+  testWidgets(
+    'pending collection notice stays on four main tabs and is hidden on Scan',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'card-1',
+              name: 'Card 1',
+              game: 'Pokemon',
+              setName: 'Set',
+              metadataLine: '#1',
+              variantLine: 'Normal',
+            ),
+          );
+
+      for (final tab in const [
+        KandoMainTab.home,
+        KandoMainTab.search,
+        KandoMainTab.collection,
+        KandoMainTab.profile,
+      ]) {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: KandoTabScaffold(
+                currentTab: tab,
+                body: const SizedBox.expand(),
+              ),
+            ),
+          ),
+        );
+        expect(
+          find.byKey(const Key('pending-collection-notice')),
+          findsOneWidget,
+        );
+      }
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: KandoTabScaffold(
+              currentTab: KandoMainTab.scan,
+              body: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      expect(find.byKey(const Key('pending-collection-notice')), findsNothing);
+    },
+  );
 
   testWidgets('selected tab background slides from the previous active tab', (
     tester,
@@ -117,7 +179,9 @@ void main() {
     );
     addTearDown(router.dispose);
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
 
     final background = find.byKey(const Key('kando-tab-selected-background'));
     final collection = find.byKey(const Key('kando-tab-collection'));
@@ -149,14 +213,17 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: buildKandoTheme(),
-        home: const KandoTabScaffold(
-          currentTab: KandoMainTab.home,
-          body: SizedBox.expand(),
+      ProviderScope(
+        child: MaterialApp(
+          theme: buildKandoTheme(),
+          home: const KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
+          ),
         ),
       ),
     );
+    await tester.pumpAndSettle();
     await expectLater(
       find.byKey(const Key('kando-tab-bar')),
       matchesGoldenFile('goldens/rendered/figma_tab_bar_home_390x844.png'),

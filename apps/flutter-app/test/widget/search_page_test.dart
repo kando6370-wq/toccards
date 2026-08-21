@@ -19,6 +19,7 @@ import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -102,6 +103,23 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('search-wishlist-charizard-ex')), findsNothing);
+    expect(find.byKey(const Key('search-wishlist-squirtle')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('search-collect-charizard-ex')),
+        matching: find.byTooltip('Edit collection item'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('search-collect-charizard-ex')),
+        matching: find.byKey(
+          const ValueKey('assets/search/collection_off.svg'),
+        ),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Collect'), findsNothing);
 
     ProviderScope.containerOf(tester.element(find.byType(SearchPage)))
@@ -624,7 +642,7 @@ void main() {
     },
   );
 
-  testWidgets('Collect and Wishlist actions update local card state', (
+  testWidgets('Collect creates a pending item without changing persisted Qty', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -652,7 +670,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('search-card-squirtle')),
-        matching: find.byTooltip('Collected'),
+        matching: find.byTooltip('Pending collection item'),
       ),
       findsOneWidget,
     );
@@ -667,7 +685,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('search-card-squirtle')),
-        matching: find.text('Qty: 1'),
+        matching: find.text('Qty: 0'),
       ),
       findsOneWidget,
     );
@@ -676,6 +694,8 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
+    expect(find.text('1 card waiting for details'), findsOneWidget);
+    expect(find.text('Tap to Review and edit it'), findsOneWidget);
     expect(find.byKey(const Key('kando-top-toast')), findsNothing);
   });
 
@@ -707,6 +727,154 @@ void main() {
     expect(find.byKey(const Key('card-detail-hero')), findsNothing);
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsNothing);
   });
+
+  testWidgets(
+    'single pending card opens its accumulated quantity and delete only cancels the draft',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final collect = find.byKey(const Key('search-collect-squirtle'));
+      await tester.tap(collect);
+      await tester.tap(collect);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-add-item-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('pending-collection-card-strip')),
+        findsNothing,
+      );
+      final quantity = find.descendant(
+        of: find.byKey(const Key('card-detail-item-quantity')),
+        matching: find.byType(TextFormField),
+      );
+      expect(tester.widget<TextFormField>(quantity).initialValue, '2');
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final reopenedQuantity = find.descendant(
+        of: find.byKey(const Key('card-detail-item-quantity')),
+        matching: find.byType(TextFormField),
+      );
+      expect(tester.widget<TextFormField>(reopenedQuantity).initialValue, '3');
+
+      await tester.tap(find.byKey(const Key('pending-collection-delete')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SearchPage), findsOneWidget);
+      expect(find.byKey(const Key('pending-collection-notice')), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('search-card-squirtle')),
+          matching: find.text('Qty: 0'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('search-wishlist-squirtle')), findsOneWidget);
+    },
+  );
+
+  testWidgets('multiple pending cards use card strip and batch actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+        child: const _SearchTestAppWithRoutes(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SearchPage)),
+      listen: false,
+    );
+    container
+        .read(pendingCollectionProvider.notifier)
+        .add(
+          const PendingCollectionCard(
+            id: 'mystery-promo',
+            name: 'Mystery Promo',
+            game: 'Pokemon',
+            setName: 'Promo',
+            metadataLine: 'Promo #001',
+            variantLine: 'Normal',
+          ),
+        );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 cards waiting for details'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pending-collection-notice')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('pending-collection-card-strip')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('pending-collection-card-squirtle')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('pending-collection-card-mystery-promo')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('pending-collection-add-all')), findsOneWidget);
+    expect(
+      find.byKey(const Key('pending-collection-delete-all')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'saving a pending item removes the notice and commits its accumulated quantity',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final collect = find.byKey(const Key('search-collect-squirtle'));
+      await tester.tap(collect);
+      await tester.tap(collect);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+        listen: false,
+      );
+      await tester.tap(find.byKey(const Key('card-detail-item-submit')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SearchPage), findsOneWidget);
+      expect(container.read(pendingCollectionProvider), isEmpty);
+      final detail = container.read(cardDetailControllerProvider('squirtle'));
+      expect(detail.detail.quantity, 2);
+      expect(detail.detail.isWishlisted, isFalse);
+    },
+  );
 
   testWidgets('Search card action failures do not show a toast', (
     tester,
@@ -1015,6 +1183,10 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
                 collectionItemId: state.uri.queryParameters['item_id'],
               );
             },
+          ),
+          GoRoute(
+            path: '/collection-items/pending',
+            builder: (context, state) => const QuickCollectionReviewPage(),
           ),
           GoRoute(
             path: '/search',
@@ -1328,18 +1500,6 @@ class _FailingActionSearchRepository implements SearchAssetRepository {
       statesByCardRef: {},
     );
   }
-
-  @override
-  Future<PortfolioItemDto> collect(
-    AuthSession session, {
-    required SearchCard card,
-    required String folderId,
-  }) {
-    throw StateError('mock collect unavailable');
-  }
-
-  @override
-  Future<void> deleteCollectionItem(AuthSession session, String itemId) async {}
 
   @override
   Future<WishlistItemDto> addWishlist(AuthSession session, String cardRef) {

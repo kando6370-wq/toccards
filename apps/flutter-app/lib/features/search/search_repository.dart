@@ -39,12 +39,6 @@ abstract interface class SearchAssetRepository implements SearchRepository {
     AuthSession session, {
     String? selectedFolderId,
   });
-  Future<PortfolioItemDto> collect(
-    AuthSession session, {
-    required SearchCard card,
-    required String folderId,
-  });
-  Future<void> deleteCollectionItem(AuthSession session, String itemId);
   Future<WishlistItemDto> addWishlist(AuthSession session, String cardRef);
   Future<void> deleteWishlist(AuthSession session, String itemId);
 }
@@ -225,38 +219,6 @@ class HttpSearchRepository
           ),
       },
     );
-  }
-
-  @override
-  Future<PortfolioItemDto> collect(
-    AuthSession session, {
-    required SearchCard card,
-    required String folderId,
-  }) {
-    final sealed = card.type == SearchCardType.sealed;
-    return _requiredPortfolioApi.quickCollect(
-      session,
-      cardRef: card.id,
-      draft: PortfolioItemDraftDto(
-        folderId: folderId,
-        cardRef: card.id,
-        objectType: card.type.name,
-        grader: 'Raw',
-        condition: sealed ? null : 'Near Mint (NM)',
-        grade: null,
-        language: card.language ?? 'English',
-        finish: card.finish,
-        quantity: 1,
-        purchasePrice: null,
-        purchaseCurrency: null,
-        notes: null,
-      ),
-    );
-  }
-
-  @override
-  Future<void> deleteCollectionItem(AuthSession session, String itemId) {
-    return _requiredPortfolioApi.deleteCollectionItem(session, itemId);
   }
 
   @override

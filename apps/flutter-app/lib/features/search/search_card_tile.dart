@@ -6,9 +6,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
-import 'package:kando_app/shared/ui/toast.dart';
-import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import 'search_controller.dart';
@@ -35,6 +34,11 @@ class SearchCardTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currency = ref.watch(selectedCurrencyProvider);
+    final isPendingCollection = ref.watch(
+      pendingCollectionProvider.select(
+        (items) => items.any((item) => item.card.id == card.id),
+      ),
+    );
     final showFilledHeart = card.isWishlisted;
     final change = card.changeText;
     final changeColor = marketChangeTextColor(change);
@@ -119,10 +123,12 @@ class SearchCardTile extends ConsumerWidget {
                                 children: [
                                   _SearchCardActionButton(
                                     key: Key('search-collect-${card.id}'),
-                                    tooltip: card.isCollected
-                                        ? 'Collected'
+                                    tooltip: isPendingCollection
+                                        ? 'Pending collection item'
+                                        : card.isCollected
+                                        ? 'Edit collection item'
                                         : 'Collect',
-                                    iconAsset: card.isCollected
+                                    iconAsset: isPendingCollection
                                         ? 'assets/search/collection_on.svg'
                                         : 'assets/search/collection_off.svg',
                                     onPressed: !actionsEnabled
@@ -145,21 +151,11 @@ class SearchCardTile extends ConsumerWidget {
                                                   ),
                                                 );
                                               }
-                                            } else if (action ==
-                                                SearchCollectAction.duplicate) {
-                                              if (context.mounted) {
-                                                showKandoTopToast(
-                                                  context,
-                                                  message:
-                                                      duplicateCollectionItemMessage,
-                                                  type:
-                                                      KandoTopToastType.failure,
-                                                );
-                                              }
                                             }
                                           },
                                   ),
-                                  if (!card.isCollected) ...[
+                                  if (!card.isCollected &&
+                                      !isPendingCollection) ...[
                                     const SizedBox(width: 8),
                                     _SearchCardActionButton(
                                       key: Key('search-wishlist-${card.id}'),

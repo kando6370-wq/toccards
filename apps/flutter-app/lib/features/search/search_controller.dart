@@ -8,7 +8,7 @@ import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
-import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -32,7 +32,7 @@ final searchControllerProvider =
 
 const searchDebounceDuration = Duration(milliseconds: 300);
 
-enum SearchCollectAction { updated, openDetail, duplicate, ignored }
+enum SearchCollectAction { updated, openDetail, ignored }
 
 class SearchState {
   const SearchState({
@@ -517,126 +517,22 @@ class SearchController extends Notifier<SearchState> {
 
   Future<SearchCollectAction> _toggleCollect(SearchCard card) async {
     if (card.isCollected) {
-      final collectionItemCount = card.collectionItemCount > 0
-          ? card.collectionItemCount
-          : 1;
+      return SearchCollectAction.openDetail;
+    }
 
-      if (collectionItemCount > 1) {
-        return SearchCollectAction.openDetail;
-      }
-
-      final repository = ref.read(searchRepositoryProvider);
-      if (repository is SearchAssetRepository) {
-        final session = ref.read(searchSessionProvider);
-        final itemId = card.collectionItemId;
-        if (session == null || itemId == null) {
-          return SearchCollectAction.openDetail;
-        }
-        _replaceCard(
-          card.copyWith(
-            quantity: 0,
-            collectionItemCount: 0,
-            collectionItemId: null,
-            collectionInfo: null,
+    ref
+        .read(pendingCollectionProvider.notifier)
+        .add(
+          PendingCollectionCard(
+            id: card.id,
+            name: card.name,
+            game: state.selectedGame.label,
+            setName: card.setName,
+            metadataLine: card.metadataLine,
+            variantLine: card.variantLine,
+            imageUrl: card.imageUrl,
           ),
         );
-        try {
-          await repository.deleteCollectionItem(session, itemId);
-        } catch (_) {
-          _replaceCard(card);
-          return SearchCollectAction.ignored;
-        }
-        _resetAssets();
-        _invalidateAssetConsumers(card.id);
-        return SearchCollectAction.updated;
-      }
-      _replaceCard(
-        card.copyWith(
-          quantity: 0,
-          collectionItemCount: 0,
-          collectionItemId: null,
-          collectionInfo: null,
-        ),
-      );
-      _invalidateAssetConsumers(card.id);
-      return SearchCollectAction.updated;
-    }
-
-    final repository = ref.read(searchRepositoryProvider);
-    if (repository is SearchAssetRepository) {
-      final session = ref.read(searchSessionProvider);
-      final folderId = ref.read(selectedPortfolioFolderProvider);
-      if (session == null || folderId == null) {
-        return SearchCollectAction.ignored;
-      }
-      _replaceCard(
-        card.copyWith(
-          quantity: 1,
-          collectionItemCount: 1,
-          collectionItemId: null,
-          collectionInfo: card.type == SearchCardType.sealed
-              ? null
-              : 'Near Mint (NM)',
-          isWishlisted: false,
-          wishlistItemId: null,
-        ),
-      );
-      try {
-        final item = await repository.collect(
-          session,
-          card: card,
-          folderId: folderId,
-        );
-        if (card.wishlistItemId != null) {
-          await repository.deleteWishlist(session, card.wishlistItemId!);
-        }
-        final next = card.copyWith(
-          quantity: item.quantity,
-          collectionItemCount: 1,
-          collectionItemId: item.id,
-          collectionInfo: collectionItemInfo(item),
-          isWishlisted: false,
-          wishlistItemId: null,
-        );
-        _replaceCard(next);
-        _resetAssets();
-        _invalidateAssetConsumers(card.id);
-        return SearchCollectAction.updated;
-      } catch (error) {
-        final isDuplicate =
-            error is PortfolioApiException &&
-            error.code == duplicateCollectionItemErrorCode;
-        _resetAssets();
-        final synced = await _reloadAssetsAfterMutation(
-          card.id,
-          fallback: card,
-        );
-        if (isDuplicate) {
-          if (synced?.isCollected ?? false) {
-            _invalidateAssetConsumers(card.id);
-          } else {
-            _replaceCard(card);
-          }
-          return SearchCollectAction.duplicate;
-        }
-        if (synced?.isCollected ?? false) {
-          _invalidateAssetConsumers(card.id);
-          return SearchCollectAction.updated;
-        }
-        _replaceCard(card);
-        return SearchCollectAction.ignored;
-      }
-    }
-
-    final next = card.copyWith(
-      quantity: 1,
-      collectionItemCount: 1,
-      collectionInfo: card.type == SearchCardType.sealed
-          ? null
-          : 'Near Mint (NM)',
-      isWishlisted: false,
-    );
-    _replaceCard(next);
     return SearchCollectAction.updated;
   }
 

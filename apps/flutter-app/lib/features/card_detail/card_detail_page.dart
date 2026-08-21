@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/premium_locked_panel.dart';
@@ -2028,14 +2029,332 @@ Future<void> _openAddCollectionItemSheet(
   }
 }
 
+class QuickCollectionReviewPage extends ConsumerStatefulWidget {
+  const QuickCollectionReviewPage({super.key});
+
+  @override
+  ConsumerState<QuickCollectionReviewPage> createState() =>
+      _QuickCollectionReviewPageState();
+}
+
+class _QuickCollectionReviewPageState
+    extends ConsumerState<QuickCollectionReviewPage> {
+  int _selectedIndex = 0;
+  String? _initializingCardId;
+  bool _isSavingAll = false;
+  final _initializedCardIds = <String>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final pendingItems = ref.watch(pendingCollectionProvider);
+    if (pendingItems.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/search');
+        }
+      });
+      return const SizedBox.shrink();
+    }
+
+    final selectedIndex = math.min(_selectedIndex, pendingItems.length - 1);
+    final pendingItem = pendingItems[selectedIndex];
+    final provider = cardDetailControllerProvider(pendingItem.card.id);
+    final state = ref.watch(provider);
+    final controller = ref.read(provider.notifier);
+
+    if (state.isLoading) {
+      return const _QuickCollectionLoading();
+    }
+    if (state.isUnavailable) {
+      return _QuickCollectionFailure(onRetry: controller.refresh);
+    }
+    if (state.collectionItemDraft == null ||
+        pendingItem.unappliedQuantity > 0) {
+      _initializeDraft(controller, pendingItem);
+      return const _QuickCollectionLoading();
+    }
+
+    final multiple = pendingItems.length > 1;
+    return _AddCollectionItemSheet(
+      cardId: pendingItem.card.id,
+      entrySource: AnalyticsValue.sourceSearch,
+      actionsEnabled: !_isSavingAll,
+      topContent: multiple
+          ? _PendingCollectionStrip(
+              items: pendingItems,
+              selectedIndex: selectedIndex,
+              onSelected: (index) => setState(() => _selectedIndex = index),
+              onClose: context.pop,
+            )
+          : null,
+      onSaved: () => _completeCurrent(pendingItem.card.id),
+      onDelete: () => _deleteCurrent(controller, pendingItem.card.id),
+      onAddAll: multiple ? () => _saveAll(pendingItems) : null,
+      onDeleteAll: multiple ? _deleteAll : null,
+    );
+  }
+
+  void _initializeDraft(
+    CardDetailController controller,
+    PendingCollectionItem item,
+  ) {
+    if (_initializingCardId == item.card.id) return;
+    _initializingCardId = item.card.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final existingDraft = ref
+          .read(cardDetailControllerProvider(item.card.id))
+          .collectionItemDraft;
+      if (existingDraft == null) controller.startAddingCollectionItem();
+      final unapplied = ref
+          .read(pendingCollectionProvider.notifier)
+          .consumeUnappliedQuantity(item.card.id);
+      final currentQuantity = int.tryParse(existingDraft?.quantityText ?? '0');
+      controller.updateCollectionItemDraft(
+        quantityText: existingDraft == null
+            ? item.quantity.toString()
+            : ((currentQuantity ?? 0) + unapplied).toString(),
+      );
+      _initializedCardIds.add(item.card.id);
+      setState(() => _initializingCardId = null);
+    });
+  }
+
+  Future<void> _completeCurrent(String cardId) async {
+    ref.read(pendingCollectionProvider.notifier).remove(cardId);
+    if (!mounted) return;
+    final remaining = ref.read(pendingCollectionProvider);
+    if (remaining.isEmpty) {
+      context.pop();
+      return;
+    }
+    setState(() {
+      _selectedIndex = math.min(_selectedIndex, remaining.length - 1);
+    });
+  }
+
+  void _deleteCurrent(CardDetailController controller, String cardId) {
+    controller.cancelCollectionItemEdit();
+    ref.read(pendingCollectionProvider.notifier).remove(cardId);
+    if (!mounted) return;
+    final remaining = ref.read(pendingCollectionProvider);
+    if (remaining.isEmpty) {
+      context.pop();
+      return;
+    }
+    setState(() {
+      _selectedIndex = math.min(_selectedIndex, remaining.length - 1);
+    });
+  }
+
+  Future<void> _saveAll(List<PendingCollectionItem> pendingItems) async {
+    if (_isSavingAll) return;
+    setState(() => _isSavingAll = true);
+    String? savingCardId;
+    try {
+      for (var index = 0; index < pendingItems.length; index++) {
+        final item = pendingItems[index];
+        savingCardId = item.card.id;
+        final provider = cardDetailControllerProvider(item.card.id);
+        ref.read(provider);
+        final controller = ref.read(provider.notifier);
+        await controller.loadComplete;
+        if (!mounted) return;
+
+        var state = ref.read(provider);
+        if (state.isUnavailable) {
+          _selectPendingCard(item.card.id);
+          return;
+        }
+        if (state.collectionItemDraft == null) {
+          controller.startAddingCollectionItem();
+          controller.updateCollectionItemDraft(
+            quantityText: item.quantity.toString(),
+          );
+          ref
+              .read(pendingCollectionProvider.notifier)
+              .consumeUnappliedQuantity(item.card.id);
+          _initializedCardIds.add(item.card.id);
+          state = ref.read(provider);
+        } else if (item.unappliedQuantity > 0) {
+          final currentQuantity =
+              int.tryParse(state.collectionItemDraft!.quantityText) ?? 0;
+          final unapplied = ref
+              .read(pendingCollectionProvider.notifier)
+              .consumeUnappliedQuantity(item.card.id);
+          controller.updateCollectionItemDraft(
+            quantityText: (currentQuantity + unapplied).toString(),
+          );
+          state = ref.read(provider);
+        }
+        if (state.collectionItemDraft == null) {
+          _selectPendingCard(item.card.id);
+          return;
+        }
+
+        final saved = await controller.saveCollectionItemDraft();
+        if (!mounted) return;
+        if (!saved) {
+          _selectPendingCard(item.card.id);
+          return;
+        }
+        ref.read(pendingCollectionProvider.notifier).remove(item.card.id);
+      }
+      if (mounted) context.pop();
+    } catch (_) {
+      if (mounted) {
+        if (savingCardId != null) _selectPendingCard(savingCardId);
+        showKandoTopToast(
+          context,
+          message: genericFailureToastText,
+          type: KandoTopToastType.failure,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingAll = false);
+    }
+  }
+
+  void _selectPendingCard(String cardId) {
+    final index = ref
+        .read(pendingCollectionProvider)
+        .indexWhere((item) => item.card.id == cardId);
+    if (index >= 0 && mounted) setState(() => _selectedIndex = index);
+  }
+
+  void _deleteAll() {
+    for (final cardId in _initializedCardIds) {
+      final provider = cardDetailControllerProvider(cardId);
+      final state = ref.read(provider);
+      if (!state.isLoading &&
+          !state.isUnavailable &&
+          state.collectionItemDraft != null) {
+        ref.read(provider.notifier).cancelCollectionItemEdit();
+      }
+    }
+    ref.read(pendingCollectionProvider.notifier).clear();
+    context.pop();
+  }
+}
+
+class _QuickCollectionLoading extends StatelessWidget {
+  const _QuickCollectionLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Material(
+      color: Color(0xFF222222),
+      child: Center(
+        child: CircularProgressIndicator(color: KandoColors.accent),
+      ),
+    );
+  }
+}
+
+class _QuickCollectionFailure extends StatelessWidget {
+  const _QuickCollectionFailure({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF222222),
+      child: Center(
+        child: FilledButton(onPressed: onRetry, child: const Text('Try again')),
+      ),
+    );
+  }
+}
+
+class _PendingCollectionStrip extends StatelessWidget {
+  const _PendingCollectionStrip({
+    required this.items,
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.onClose,
+  });
+
+  final List<PendingCollectionItem> items;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const Key('pending-collection-card-strip'),
+      height: 70,
+      child: Row(
+        children: [
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+              scrollDirection: Axis.horizontal,
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return InkWell(
+                  key: Key('pending-collection-card-${item.card.id}'),
+                  onTap: () => onSelected(index),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    width: 40,
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: index == selectedIndex
+                            ? KandoColors.accent
+                            : KandoColors.border,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: KandoCardImage(imageUrl: item.card.imageUrl),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          IconButton(
+            key: const Key('pending-collection-close'),
+            tooltip: 'Close',
+            onPressed: onClose,
+            icon: const Icon(Icons.close, color: KandoColors.mutedText),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+    );
+  }
+}
+
 class _AddCollectionItemSheet extends ConsumerWidget {
   const _AddCollectionItemSheet({
     required this.cardId,
     required this.entrySource,
+    this.topContent,
+    this.onSaved,
+    this.onDelete,
+    this.onAddAll,
+    this.onDeleteAll,
+    this.actionsEnabled = true,
   });
 
   final String cardId;
   final String entrySource;
+  final Widget? topContent;
+  final Future<void> Function()? onSaved;
+  final VoidCallback? onDelete;
+  final Future<void> Function()? onAddAll;
+  final VoidCallback? onDeleteAll;
+  final bool actionsEnabled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2071,6 +2390,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
+              if (topContent != null) topContent!,
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
                 child: Row(
@@ -2204,57 +2524,105 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        key: const Key('card-detail-item-submit'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: KandoColors.accent,
-                          disabledBackgroundColor: KandoColors.accent,
-                          foregroundColor: KandoColors.ink,
-                          disabledForegroundColor: KandoColors.ink,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: const StadiumBorder(),
-                          textStyle: const TextStyle(fontSize: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            key: const Key('card-detail-item-submit'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: KandoColors.accent,
+                              disabledBackgroundColor: KandoColors.accent,
+                              foregroundColor: KandoColors.ink,
+                              disabledForegroundColor: KandoColors.ink,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: const StadiumBorder(),
+                              textStyle: const TextStyle(fontSize: 16),
+                            ),
+                            onPressed:
+                                state.isSavingCollectionItemDraft ||
+                                    !actionsEnabled
+                                ? null
+                                : () async {
+                                    ref
+                                        .read(analyticsProvider)
+                                        .track(
+                                          AnalyticsEvent.collectionItemAddClick,
+                                          properties: {
+                                            AnalyticsProperty.ipType:
+                                                analyticsIpType(
+                                                  state.detail.game,
+                                                ),
+                                            AnalyticsProperty.gradeType:
+                                                draft.grader.toLowerCase() ==
+                                                    'raw'
+                                                ? AnalyticsValue.gradeNormal
+                                                : AnalyticsValue.gradeGraded,
+                                            AnalyticsProperty.entrySource:
+                                                entrySource,
+                                          },
+                                        );
+                                    final saved = await controller
+                                        .saveCollectionItemDraft();
+                                    if (saved && context.mounted) {
+                                      if (onSaved != null) {
+                                        await onSaved!();
+                                      } else {
+                                        Navigator.of(context).pop(true);
+                                      }
+                                    }
+                                  },
+                            icon: state.isSavingCollectionItemDraft
+                                ? const SizedBox(
+                                    key: Key('card-detail-item-submit-loading'),
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: KandoColors.ink,
+                                    ),
+                                  )
+                                : const Icon(Icons.add_circle_outline),
+                            label: const Text('Add this card'),
+                          ),
                         ),
-                        onPressed: state.isSavingCollectionItemDraft
-                            ? null
-                            : () async {
-                                ref
-                                    .read(analyticsProvider)
-                                    .track(
-                                      AnalyticsEvent.collectionItemAddClick,
-                                      properties: {
-                                        AnalyticsProperty.ipType:
-                                            analyticsIpType(state.detail.game),
-                                        AnalyticsProperty.gradeType:
-                                            draft.grader.toLowerCase() == 'raw'
-                                            ? AnalyticsValue.gradeNormal
-                                            : AnalyticsValue.gradeGraded,
-                                        AnalyticsProperty.entrySource:
-                                            entrySource,
-                                      },
-                                    );
-                                final saved = await controller
-                                    .saveCollectionItemDraft();
-                                if (saved && context.mounted) {
-                                  Navigator.of(context).pop(true);
-                                }
-                              },
-                        icon: state.isSavingCollectionItemDraft
-                            ? const SizedBox(
-                                key: Key('card-detail-item-submit-loading'),
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: KandoColors.ink,
-                                ),
-                              )
-                            : const Icon(Icons.add_circle_outline),
-                        label: const Text('Add this card'),
-                      ),
+                        if (onDelete != null) ...[
+                          const SizedBox(width: 10),
+                          IconButton.filled(
+                            key: const Key('pending-collection-delete'),
+                            tooltip: 'Delete pending item',
+                            onPressed: actionsEnabled ? onDelete : null,
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFF33282C),
+                              foregroundColor: const Color(0xFFE58B93),
+                              fixedSize: const Size.square(52),
+                            ),
+                            icon: const Icon(Icons.delete_outline),
+                          ),
+                        ],
+                      ],
                     ),
+                    if (onAddAll != null && onDeleteAll != null) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              key: const Key('pending-collection-add-all'),
+                              onPressed: actionsEnabled ? onAddAll : null,
+                              child: const Text('ADD ALL CARDS'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton(
+                              key: const Key('pending-collection-delete-all'),
+                              onPressed: actionsEnabled ? onDeleteAll : null,
+                              child: const Text('DELETE ALL CARDS'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

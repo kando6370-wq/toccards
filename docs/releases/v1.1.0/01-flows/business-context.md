@@ -97,11 +97,12 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 1. 用户按游戏搜索 Card 或 Set，并进入卡牌详情。
 2. 详情加载图片、市场价、价格历史和 TCGplayer 商品外链；已成交记录继续通过独立入口查询。
-3. 用户可加入 Wishlist，或选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价后收藏。
-4. 收藏写入同步产生 `collection_item_event`；同卡 Wishlist 被移除。
-5. 后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
+3. Search 卡牌列表的收藏按钮先建立本地待编辑 Item：按钮显示亮黄色但持久化 Qty 不变；重复点击同一卡牌只增加待编辑数量，不执行快捷删除。待编辑提示持续显示在 Home、Search、Collection、Profile 底部，Scan 不显示；单张进入单卡编辑样式，多张进入带卡片条和批量操作的 Review 样式。
+4. 用户在完整 Item 表单选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价后保存，才创建 Collection Item 并增加 Qty；保存后移除待编辑提示，按钮恢复灰色已收藏状态。只有在 Review 中删除待编辑 Item 才取消本次待收藏；已收藏卡牌再次点击收藏按钮进入 Item 管理，不直接取消收藏。
+5. 收藏与 Wishlist 保持互斥：待编辑期间隐藏 Wishlist 快捷入口但不提前写服务端，保存 Collection Item 时由既有服务端流程移除同卡 Wishlist，删除待编辑 Item 后恢复原 Wishlist 状态；Wishlist 快捷加入/移除流程本身不变。
+6. 收藏写入同步产生 `collection_item_event`；后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
 
-关键约束：数量至少为 1；同所有者、Folder、卡牌、finish、language 组合唯一；目标 Folder 必须属于当前所有者。证据：`src/db/schema.ts`、`portfolio/routes.ts`、`portfolio/collect.test.ts`。
+关键约束：待编辑队列不属于服务端资产真值，账号身份切换时清空；Search 中 `Qty=0` 表示未收藏并显示 Wishlist 入口，`Qty>0` 表示已收藏并隐藏 Wishlist 入口；数量至少为 1；同所有者、Folder、卡牌、finish、language、grader、condition、grade 组合唯一；目标 Folder 必须属于当前所有者。证据：`pending_collection.dart`、`search_controller.dart`、`card_detail_controller.dart`、`portfolio/routes.ts`、`portfolio/collect.test.ts`。
 
 ### 3.3 扫描与服务端额度
 

@@ -1,14 +1,16 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 
 import 'kando_style.dart';
 
 enum KandoMainTab { home, collection, scan, search, profile }
 
-class KandoTabScaffold extends StatelessWidget {
+class KandoTabScaffold extends ConsumerWidget {
   const KandoTabScaffold({
     super.key,
     required this.currentTab,
@@ -19,13 +21,27 @@ class KandoTabScaffold extends StatelessWidget {
   final Widget body;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingItems = ref.watch(pendingCollectionProvider);
+    final showPendingNotice =
+        currentTab != KandoMainTab.scan && pendingItems.isNotEmpty;
     return Theme(
       data: _tabTheme(context),
       child: Scaffold(
         extendBody: true,
         backgroundColor: KandoColors.ink,
-        body: body,
+        body: Stack(
+          children: [
+            Positioned.fill(child: body),
+            if (showPendingNotice)
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 96 + MediaQuery.paddingOf(context).bottom,
+                child: _PendingCollectionNotice(count: pendingItems.length),
+              ),
+          ],
+        ),
         bottomNavigationBar: _FigmaTabBar(
           currentTab: currentTab,
           onSelected: (next) {
@@ -77,6 +93,82 @@ class KandoTabScaffold extends StatelessWidget {
         ),
       ),
       dividerTheme: const DividerThemeData(color: KandoColors.border),
+    );
+  }
+}
+
+class _PendingCollectionNotice extends StatelessWidget {
+  const _PendingCollectionNotice({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final singular = count == 1;
+    return Material(
+      key: const Key('pending-collection-notice'),
+      color: const Color(0xF7393C21),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0xFF55582D)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/collection-items/pending'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: KandoColors.accent,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: SvgPicture.asset(
+                  'assets/search/collection_on.svg',
+                  width: 20,
+                  height: 20,
+                  colorFilter: const ColorFilter.mode(
+                    KandoColors.ink,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$count ${singular ? 'card' : 'cards'} waiting for details',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: KandoColors.text,
+                        fontSize: 15,
+                        height: 20 / 15,
+                      ),
+                    ),
+                    Text(
+                      'Tap to Review and edit ${singular ? 'it' : 'them'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: KandoColors.text,
+                        fontSize: 12,
+                        height: 16 / 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

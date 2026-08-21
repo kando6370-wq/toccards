@@ -82,6 +82,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/collection-items/pending',
+        pageBuilder: (context, state) => CustomTransitionPage<void>(
+          key: state.pageKey,
+          opaque: false,
+          barrierColor: const Color(0xB8000000),
+          barrierDismissible: true,
+          child: const QuickCollectionReviewPage(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: animation.drive(
+                Tween(
+                  begin: const Offset(0, 1),
+                  end: Offset.zero,
+                ).chain(CurveTween(curve: Curves.easeOutCubic)),
+              ),
+              child: child,
+            );
+          },
+        ),
+      ),
+      GoRoute(
         path: '/search',
         pageBuilder: (context, state) => _mainTabPage(
           state,

@@ -186,6 +186,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 验收：Admin PRD 第 20 章、App PRD 第 21 章和权益方案第 17 章全部有测试或人工验收证据；全量 CI 通过后才可进入发布。
 
+- 2026-08-21 Search 快速收藏流程按 Figma `2363:21960`、`2363:21978`、`2363:21957` 收口。根因为旧 Search Controller 在收藏按钮点击时直接调用 Quick Collect，并把单 Item 的再次点击解释为快捷删除，无法表达“待补详情”状态。现改为账号生命周期内的本地待编辑队列：首次/重复点击只建立或累加草稿，持久化 Qty 不变；Home、Search、Collection、Profile 固定显示待编辑提示，Scan 隐藏；单张使用完整 Collection Item 编辑样式，多张增加顶部卡片条及逐张/批量保存删除。保存才复用既有完整 Item Create、刷新资产并执行 Wishlist 服务端互斥，删除草稿不写服务端；已收藏按钮保持灰色并只进入 Item 管理。修复前 Controller/Widget 测试分别稳定暴露 `Qty=1` 和缺少 Pending 状态，修复后 Search Controller、Search Widget、Card Detail Widget 共 105 项通过，跨页提示与导航几何 2 项通过，`flutter analyze` 与 `git diff --check` 通过。Code Review 修正了批量保存失败后的旧下标定位、Delete All 不必要的详情加载、Review 关闭后重复点击漏加数量，并删除 Search 侧不可达的 Quick Collect/快捷删除接口；复审未发现阻断项。导航栏既有 Golden 在当前 Windows 渲染环境仍以 4.96% 文字像素差失败，未更新基线；iOS/Android 真机的弹层手势、键盘、安全区和真实弱网保存尚未验证。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。
