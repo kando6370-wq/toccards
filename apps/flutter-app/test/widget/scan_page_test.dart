@@ -1124,6 +1124,21 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Scanning progress paints inside its bounds so no edge is clipped',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 2));
+
+      final progress = tester.widget<CircularProgressIndicator>(
+        find.byKey(const Key('scan-recognition-progress')),
+      );
+      expect(progress.strokeAlign, CircularProgressIndicator.strokeAlignInside);
+    },
+  );
+
   testWidgets('Figma scan reveal renders at the 390x844 baseline', (
     tester,
   ) async {

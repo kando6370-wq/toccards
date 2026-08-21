@@ -1198,6 +1198,42 @@ void main() {
   );
 
   testWidgets(
+    'slow Card Performance range shows Home-style progress while preserving the chart',
+    (tester) async {
+      final performanceApi = _SlowRangeCardPerformanceApi();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          performanceApi: performanceApi,
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('card-detail-performance-range-7D')),
+      );
+      await tester.pump();
+
+      expect(find.text(r'$790.00'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-performance-range-loading-7D')),
+        findsOneWidget,
+      );
+
+      await performanceApi.completeRange();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('card-detail-performance-range-loading-7D')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
     'Pro owners without purchase price can edit the Collection Item because Performance cannot be calculated yet',
     (tester) async {
       await tester.pumpWidget(
@@ -2182,6 +2218,34 @@ class _CardPerformanceApi extends PortfolioApiClient {
       current: point,
       series: [point],
     );
+  }
+}
+
+class _SlowRangeCardPerformanceApi extends _CardPerformanceApi {
+  Completer<PortfolioPerformanceDto>? _pending;
+  Future<PortfolioPerformanceDto>? _response;
+
+  @override
+  Future<PortfolioPerformanceDto> getItemPerformance(
+    AuthSession session, {
+    required String itemId,
+    required PerformanceRange range,
+    bool localPremiumVerified = false,
+  }) {
+    final response = super.getItemPerformance(
+      session,
+      itemId: itemId,
+      range: range,
+      localPremiumVerified: localPremiumVerified,
+    );
+    if (range == PerformanceRange.oneMonth) return response;
+    _pending = Completer<PortfolioPerformanceDto>();
+    _response = response;
+    return _pending!.future;
+  }
+
+  Future<void> completeRange() async {
+    _pending!.complete(await _response!);
   }
 }
 

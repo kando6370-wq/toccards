@@ -5,11 +5,60 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/home/home_entitlement_repair.dart';
 import 'package:kando_app/features/home/home_performance_controller.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 
 void main() {
+  test(
+    'Entitlement sync 409 keeps loading, repairs once, and retries once',
+    () async {
+      final api = _RepairablePerformanceApi();
+      var repairs = 0;
+      final repair = Completer<bool>();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          portfolioApiClientProvider.overrideWithValue(api),
+          homeEntitlementRepairProvider.overrideWithValue(() {
+            repairs += 1;
+            return repair.future;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        homePerformanceControllerProvider.notifier,
+      );
+
+      final load = controller.load(
+        folderId: 'main',
+        localPremiumVerified: true,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repairs, 1);
+      expect(api.calls, 1);
+      expect(
+        container.read(homePerformanceControllerProvider).isLoading,
+        isTrue,
+      );
+      expect(
+        container.read(homePerformanceControllerProvider).isFailure,
+        isFalse,
+      );
+
+      repair.complete(true);
+      await load;
+
+      final state = container.read(homePerformanceControllerProvider);
+      expect(api.calls, 2);
+      expect(state.isFailure, isFalse);
+      expect(state.data?.current.marketValueUsd, 100);
+    },
+  );
+
   test(
     'A slow Range request selects the tapped Range immediately because delayed feedback makes the tap look lost',
     () async {
@@ -262,6 +311,30 @@ class _ControlledPerformanceApi extends PortfolioApiClient {
 
   void failNext() {
     _pending.last.completeError(const PortfolioApiException('failed'));
+  }
+}
+
+class _RepairablePerformanceApi extends PortfolioApiClient {
+  _RepairablePerformanceApi() : super(Dio());
+
+  var calls = 0;
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) async {
+    calls += 1;
+    if (calls == 1) {
+      throw const PortfolioApiException(
+        'Premium access is still syncing.',
+        code: 'ENTITLEMENT_SYNC_REQUIRED',
+        statusCode: 409,
+      );
+    }
+    return _performance(range, 100);
   }
 }
 

@@ -1187,6 +1187,7 @@ class _CardPerformance extends StatelessWidget {
             children: [
               _CardPerformanceRangePicker(
                 selected: performance.selectedRange,
+                isLoading: performance.isLoading,
                 onSelected: onRangeSelected,
               ),
               const SizedBox(height: 8),
@@ -1270,10 +1271,12 @@ class _CardPerformanceLocked extends StatelessWidget {
 class _CardPerformanceRangePicker extends StatelessWidget {
   const _CardPerformanceRangePicker({
     required this.selected,
+    required this.isLoading,
     required this.onSelected,
   });
 
   final PerformanceRange selected;
+  final bool isLoading;
   final ValueChanged<PerformanceRange> onSelected;
 
   @override
@@ -1315,15 +1318,33 @@ class _CardPerformanceRangePicker extends StatelessWidget {
                     splashFactory: NoSplash.splashFactory,
                     onTap: () => onSelected(range),
                     child: Center(
-                      child: Text(
-                        range.apiValue,
-                        style: TextStyle(
-                          color: range == selected
-                              ? KandoColors.accent
-                              : _kCollectionSecondaryText,
-                          fontSize: 12,
-                          height: 16 / 12,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            range.apiValue,
+                            style: TextStyle(
+                              color: range == selected
+                                  ? KandoColors.accent
+                                  : _kCollectionSecondaryText,
+                              fontSize: 12,
+                              height: 16 / 12,
+                            ),
+                          ),
+                          if (isLoading && range == selected) ...[
+                            const SizedBox(width: 4),
+                            SizedBox.square(
+                              key: Key(
+                                'card-detail-performance-range-loading-${range.apiValue}',
+                              ),
+                              dimension: 10,
+                              child: const CircularProgressIndicator(
+                                color: KandoColors.accent,
+                                strokeWidth: 1.5,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),

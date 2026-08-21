@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Env } from "../env";
 import { createId } from "../id";
-import { authenticateOwner } from "../owner-auth";
+import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
 import {
   createAppleVerifier,
   Environment,
@@ -65,6 +65,24 @@ type ChallengeRow = {
 };
 type ProductRow = { entitlement_id: string };
 type ChainRow = { id: string; status: string; state_effective_at: string | null };
+export type ExistingFreshPurchaseRecord = {
+  transaction_id: string;
+  transaction_product_id: string;
+  transaction_status: string;
+  transaction_revoked_at: string | null;
+  purchase_chain_id: string;
+  chain_store: string;
+  chain_environment: string;
+  original_transaction_id: string;
+  chain_product_id: string;
+  entitlement_id: string;
+  original_owner_type: string;
+  original_owner_id: string;
+  app_account_token: string | null;
+  chain_status: string;
+  chain_expires_at: string | null;
+  chain_revoked_at: string | null;
+};
 type SessionLifecycleRow = {
   original_transaction_id: string;
   product_id: string;
@@ -258,16 +276,46 @@ export function createEntitlementRoutes(
       }, normalized.transactionId);
     }
 
-    const existingTransaction = await c.env.DB.prepare(`
-      SELECT id FROM billing_transaction
-      WHERE store = 'app_store' AND environment = ? AND transaction_id = ?
-      LIMIT 1
-    `).bind(normalized.environment, normalized.transactionId).first<{ id: string }>();
-    if (existingTransaction) {
-      return await finishAttempt(c, auth.owner.session_id, body.requestId, "REPLAY_REJECTED", 409, {
-        success: false,
-        error: { code: "REPLAY_REJECTED", message: "Apple transaction was already processed." },
-      }, normalized.transactionId);
+    const successResponse = {
+      success: true,
+      data: {
+        schema_version: 1,
+        state: "VERIFIED_ACTIVE",
+        entitlement_id: product.entitlement_id,
+        product_id: normalized.productId,
+        expires_at: normalized.expiresAt,
+      },
+    } as const;
+    const existingPurchase = await loadExistingFreshPurchase(c.env.DB, normalized);
+    if (existingPurchase) {
+      if (
+        isLinkableExistingFreshPurchase(
+          existingPurchase,
+          normalized,
+          product.entitlement_id,
+          auth.owner.owner_type,
+          auth.owner.owner_id,
+          attemptedAt,
+        ) &&
+        await linkExistingFreshPurchase(
+          c.env.DB,
+          existingPurchase.purchase_chain_id,
+          normalized,
+          product.entitlement_id,
+          auth.owner,
+          body.requestId,
+          successResponse,
+          attemptedAt,
+        )
+      ) {
+        return c.json(successResponse, 200);
+      }
+      return await rejectProcessedTransaction(
+        c,
+        auth.owner.session_id,
+        body.requestId,
+        normalized.transactionId,
+      );
     }
 
     const existingChain = await c.env.DB.prepare(`
@@ -287,16 +335,6 @@ export function createEntitlementRoutes(
     const usd = await loadBillingUsdSnapshot(
       c.env.CACHE_KV, normalized.amountMicros, normalized.currency, attemptedAt,
     );
-    const successResponse = {
-      success: true,
-      data: {
-        schema_version: 1,
-        state: "VERIFIED_ACTIVE",
-        entitlement_id: product.entitlement_id,
-        product_id: normalized.productId,
-        expires_at: normalized.expiresAt,
-      },
-    } as const;
     const orderFactStatements = billingOrderFactStatements(c.env.DB, chainId, normalized.environment);
     const grantResultIndex = 3 + orderFactStatements.length;
     const attemptResultIndex = grantResultIndex + 1;
@@ -427,10 +465,36 @@ export function createEntitlementRoutes(
       ),
       ]);
     } catch {
-      return await finishAttempt(c, auth.owner.session_id, body.requestId, "REPLAY_REJECTED", 409, {
-        success: false,
-        error: { code: "REPLAY_REJECTED", message: "Apple transaction was already processed." },
-      }, normalized.transactionId);
+      const racedPurchase = await loadExistingFreshPurchase(c.env.DB, normalized);
+      if (
+        racedPurchase &&
+        isLinkableExistingFreshPurchase(
+          racedPurchase,
+          normalized,
+          product.entitlement_id,
+          auth.owner.owner_type,
+          auth.owner.owner_id,
+          attemptedAt,
+        ) &&
+        await linkExistingFreshPurchase(
+          c.env.DB,
+          racedPurchase.purchase_chain_id,
+          normalized,
+          product.entitlement_id,
+          auth.owner,
+          body.requestId,
+          successResponse,
+          attemptedAt,
+        )
+      ) {
+        return c.json(successResponse, 200);
+      }
+      return await rejectProcessedTransaction(
+        c,
+        auth.owner.session_id,
+        body.requestId,
+        normalized.transactionId,
+      );
     }
 
     if (
@@ -549,6 +613,223 @@ function validChallenge(
 ): challenge is ChallengeRow {
   return !!challenge && challenge.session_id === sessionId && challenge.product_id === productId &&
     challenge.consumed_at === null && Date.parse(challenge.expires_at) > now.getTime();
+}
+
+async function loadExistingFreshPurchase(
+  db: D1Database,
+  transaction: NormalizedTransaction,
+): Promise<ExistingFreshPurchaseRecord | null> {
+  return await db.prepare(`
+    SELECT purchase.transaction_id,
+           purchase.product_id AS transaction_product_id,
+           purchase.status AS transaction_status,
+           purchase.revoked_at AS transaction_revoked_at,
+           purchase.purchase_chain_id,
+           purchase_chain.store AS chain_store,
+           purchase_chain.environment AS chain_environment,
+           purchase_chain.original_transaction_id,
+           purchase_chain.product_id AS chain_product_id,
+           purchase_chain.entitlement_id,
+           purchase_chain.original_owner_type,
+           purchase_chain.original_owner_id,
+           purchase_chain.app_account_token,
+           purchase_chain.status AS chain_status,
+           purchase_chain.expires_at AS chain_expires_at,
+           purchase_chain.revoked_at AS chain_revoked_at
+    FROM billing_transaction AS purchase
+    INNER JOIN billing_purchase_chain AS purchase_chain
+      ON purchase_chain.id = purchase.purchase_chain_id
+    WHERE purchase.store = 'app_store'
+      AND purchase.environment = ?
+      AND purchase.transaction_id = ?
+    LIMIT 1
+  `).bind(transaction.environment, transaction.transactionId)
+    .first<ExistingFreshPurchaseRecord>();
+}
+
+export function isLinkableExistingFreshPurchase(
+  purchase: ExistingFreshPurchaseRecord,
+  transaction: Pick<
+    NormalizedTransaction,
+    | "transactionId"
+    | "originalTransactionId"
+    | "productId"
+    | "appAccountToken"
+    | "environment"
+  >,
+  entitlementId: string,
+  ownerType: string,
+  ownerId: string,
+  now: Date,
+): boolean {
+  const activeStatus = ["ACTIVE", "TRIAL", "GRACE_PERIOD", "LIFETIME"]
+    .includes(purchase.chain_status);
+  const expiresAt = purchase.chain_expires_at === null
+    ? Number.POSITIVE_INFINITY
+    : Date.parse(purchase.chain_expires_at);
+  const unlinkedOwner = purchase.original_owner_type === "unlinked" &&
+    (purchase.app_account_token === null ||
+      purchase.app_account_token === transaction.appAccountToken);
+  const matchingOwner = purchase.original_owner_type === ownerType &&
+    purchase.original_owner_id === ownerId &&
+    purchase.app_account_token === transaction.appAccountToken;
+
+  return purchase.transaction_id === transaction.transactionId &&
+    purchase.transaction_product_id === transaction.productId &&
+    purchase.transaction_status === "purchased" &&
+    purchase.transaction_revoked_at === null &&
+    purchase.chain_store === "app_store" &&
+    purchase.chain_environment === transaction.environment &&
+    purchase.original_transaction_id === transaction.originalTransactionId &&
+    purchase.chain_product_id === transaction.productId &&
+    purchase.entitlement_id === entitlementId &&
+    activeStatus &&
+    purchase.chain_revoked_at === null &&
+    expiresAt > now.getTime() &&
+    (unlinkedOwner || matchingOwner);
+}
+
+async function linkExistingFreshPurchase(
+  db: D1Database,
+  chainId: string,
+  transaction: NormalizedTransaction,
+  entitlementId: string,
+  owner: AuthenticatedOwner,
+  requestId: string,
+  successResponse: object,
+  attemptedAt: Date,
+): Promise<boolean> {
+  const timestamp = attemptedAt.toISOString();
+  try {
+    const results = await db.batch([
+      db.prepare(`
+        UPDATE billing_apple_purchase_challenge
+        SET consumed_at = ?, consumed_transaction_id = ?
+        WHERE token = ? AND session_id = ? AND product_id = ?
+          AND consumed_at IS NULL AND expires_at > ?
+          AND EXISTS (
+            SELECT 1
+            FROM billing_transaction AS purchase
+            INNER JOIN billing_purchase_chain AS purchase_chain
+              ON purchase_chain.id = purchase.purchase_chain_id
+            WHERE purchase.store = 'app_store'
+              AND purchase.environment = ?
+              AND purchase.transaction_id = ?
+              AND purchase.product_id = ?
+              AND purchase.status = 'purchased'
+              AND purchase.revoked_at IS NULL
+              AND purchase_chain.id = ?
+              AND purchase_chain.store = 'app_store'
+              AND purchase_chain.environment = ?
+              AND purchase_chain.original_transaction_id = ?
+              AND purchase_chain.product_id = ?
+              AND purchase_chain.entitlement_id = ?
+              AND purchase_chain.status IN ('ACTIVE', 'TRIAL', 'GRACE_PERIOD', 'LIFETIME')
+              AND purchase_chain.revoked_at IS NULL
+              AND (purchase_chain.expires_at IS NULL OR purchase_chain.expires_at > ?)
+              AND (
+                (purchase_chain.original_owner_type = 'unlinked'
+                  AND (purchase_chain.app_account_token IS NULL
+                    OR purchase_chain.app_account_token = ?))
+                OR (purchase_chain.original_owner_type = ?
+                  AND purchase_chain.original_owner_id = ?
+                  AND purchase_chain.app_account_token = ?)
+              )
+            FOR UPDATE OF purchase, purchase_chain
+          )
+      `).bind(
+        timestamp, transaction.transactionId, transaction.appAccountToken,
+        owner.session_id, transaction.productId, timestamp,
+        transaction.environment, transaction.transactionId, transaction.productId,
+        chainId, transaction.environment, transaction.originalTransactionId, transaction.productId,
+        entitlementId, timestamp, transaction.appAccountToken,
+        owner.owner_type, owner.owner_id, transaction.appAccountToken,
+      ),
+      db.prepare(`
+        UPDATE billing_purchase_chain
+        SET original_owner_type = ?,
+            original_owner_id = ?,
+            app_account_token = COALESCE(app_account_token, ?),
+            updated_at = ?
+        WHERE id = ?
+          AND EXISTS (
+            SELECT 1 FROM billing_apple_purchase_challenge
+            WHERE token = ? AND consumed_transaction_id = ?
+          )
+          AND (
+            (original_owner_type = 'unlinked'
+              AND (app_account_token IS NULL OR app_account_token = ?))
+            OR (original_owner_type = ? AND original_owner_id = ?
+              AND app_account_token = ?)
+          )
+      `).bind(
+        owner.owner_type, owner.owner_id, transaction.appAccountToken, timestamp,
+        chainId, transaction.appAccountToken, transaction.transactionId,
+        transaction.appAccountToken, owner.owner_type, owner.owner_id,
+        transaction.appAccountToken,
+      ),
+      db.prepare(`
+        INSERT INTO billing_session_entitlement_grant
+          (id, session_id, purchase_chain_id, entitlement_id, source, status,
+           granted_at, expires_at, last_verified_at, revoked_at, updated_at)
+        SELECT ?, ?, purchase_chain.id, ?, 'fresh_purchase', 'active',
+               ?, purchase_chain.expires_at, ?, NULL, ?
+        FROM billing_purchase_chain AS purchase_chain
+        WHERE purchase_chain.id = ?
+          AND purchase_chain.status IN ('ACTIVE', 'TRIAL', 'GRACE_PERIOD', 'LIFETIME')
+          AND purchase_chain.revoked_at IS NULL
+          AND (purchase_chain.expires_at IS NULL OR purchase_chain.expires_at > ?)
+          AND EXISTS (
+            SELECT 1 FROM billing_apple_purchase_challenge
+            WHERE token = ? AND consumed_transaction_id = ?
+          )
+        ON CONFLICT(session_id, purchase_chain_id, entitlement_id) DO UPDATE SET
+          source = excluded.source,
+          status = 'active',
+          expires_at = excluded.expires_at,
+          last_verified_at = excluded.last_verified_at,
+          revoked_at = NULL,
+          updated_at = excluded.updated_at
+      `).bind(
+        createId(attemptedAt), owner.session_id, entitlementId,
+        timestamp, timestamp, timestamp, chainId, timestamp,
+        transaction.appAccountToken, transaction.transactionId,
+      ),
+      db.prepare(`
+        UPDATE billing_apple_verification_attempt
+        SET result_code = 'VERIFIED_ACTIVE', transaction_id = ?, response_json = ?,
+            http_status = 200, processing_expires_at = NULL
+        WHERE session_id = ? AND request_id = ? AND result_code = 'PROCESSING'
+          AND EXISTS (
+            SELECT 1 FROM billing_session_entitlement_grant
+            WHERE session_id = ? AND purchase_chain_id = ? AND entitlement_id = ?
+              AND status = 'active' AND last_verified_at = ?
+          )
+      `).bind(
+        transaction.transactionId, JSON.stringify(successResponse),
+        owner.session_id, requestId, owner.session_id, chainId,
+        entitlementId, timestamp,
+      ),
+    ]);
+    return results.every((result) => result.meta.changes === 1);
+  } catch {
+    return false;
+  }
+}
+
+function rejectProcessedTransaction(
+  c: Context<{ Bindings: Env }>,
+  sessionId: string,
+  requestId: string,
+  transactionId: string,
+) {
+  return finishAttempt(c, sessionId, requestId, "REPLAY_REJECTED", 409, {
+    success: false,
+    error: {
+      code: "REPLAY_REJECTED",
+      message: "Apple transaction was already processed.",
+    },
+  }, transactionId);
 }
 
 function hasLaterChainState(chain: ChainRow | null, incomingEffectiveAt: string): boolean {

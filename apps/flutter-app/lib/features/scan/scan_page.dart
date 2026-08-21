@@ -2953,6 +2953,8 @@ class _ScanRevealingToast extends StatelessWidget {
                                 child: CircularProgressIndicator(
                                   key: Key('scan-recognition-progress'),
                                   strokeWidth: 2,
+                                  strokeAlign: CircularProgressIndicator
+                                      .strokeAlignInside,
                                   color: Color(0xFFF0FE6F),
                                 ),
                               ),

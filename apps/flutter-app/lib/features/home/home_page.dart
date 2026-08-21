@@ -326,26 +326,6 @@ class _HomePageState extends ConsumerState<HomePage>
       localPremiumVerified: true,
       force: force,
     );
-    if (!mounted) return;
-    final failedState = ref.read(homePerformanceControllerProvider);
-    if (failedState.failureCode != 'ENTITLEMENT_SYNC_REQUIRED') {
-      return;
-    }
-    final synchronized = await ref
-        .read(subscriptionControllerProvider.notifier)
-        .synchronizeServerEntitlement();
-    if (!mounted ||
-        !synchronized ||
-        !_performanceSelected ||
-        ref.read(homeControllerProvider).selectedFolderId != folderId ||
-        !identical(ref.read(homePerformanceControllerProvider), failedState)) {
-      return;
-    }
-    await controller.load(
-      folderId: folderId,
-      localPremiumVerified: true,
-      force: true,
-    );
   }
 
   Future<void> _selectPerformanceRange(
@@ -360,38 +340,10 @@ class _HomePageState extends ConsumerState<HomePage>
     );
     if (!mounted) return;
     final failedState = ref.read(homePerformanceControllerProvider);
-    if (failedState.failureCode != 'ENTITLEMENT_SYNC_REQUIRED') {
-      if (failedState.isFailure &&
-          _performanceSelected &&
-          ref.read(homeControllerProvider).selectedFolderId == folderId) {
-        showKandoTopFailureToast(context);
-      }
-      return;
-    }
-    final synchronized = await ref
-        .read(subscriptionControllerProvider.notifier)
-        .synchronizeServerEntitlement();
-    if (!mounted ||
-        !_performanceSelected ||
-        ref.read(homeControllerProvider).selectedFolderId != folderId ||
-        !identical(ref.read(homePerformanceControllerProvider), failedState)) {
-      return;
-    }
-    if (!synchronized) {
-      showKandoTopFailureToast(context);
-      return;
-    }
-    await controller.selectRange(
-      range,
-      folderId: folderId,
-      localPremiumVerified: true,
-    );
-    if (!mounted ||
-        !_performanceSelected ||
-        ref.read(homeControllerProvider).selectedFolderId != folderId) {
-      return;
-    }
-    if (ref.read(homePerformanceControllerProvider).isFailure) {
+    if (failedState.isFailure &&
+        _performanceSelected &&
+        ref.read(homeControllerProvider).selectedFolderId == folderId &&
+        identical(ref.read(homePerformanceControllerProvider), failedState)) {
       showKandoTopFailureToast(context);
     }
   }

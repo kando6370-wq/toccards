@@ -88,6 +88,8 @@ Admin 订单列表对 nullable 订单状态、自动续期、原始金额、USD 
 
 已验签的 Apple 建单类通知在尚无 App owner 关联时，仍可基于启用的 `billing_product` SKU 创建 purchase chain 与订单。该链以 `original_owner_type=unlinked`、空 `original_owner_id` 表达“Apple 事实已保存但 UID 未关联”；Admin 展示空 UID，UID 筛选和安装时间查询忽略空值。通知流程不会为 `unlinked` 链创建 session grant，未知或未启用 SKU 进入 `correction_required`，因此无 UID 订单记录不会成为 Premium 授权来源。之后只有 Fresh Purchase challenge 或 Restore App Attest 这类绑定 live session 的可信证明，才能把仍为 `unlinked` 的链补关联为当前 owner并创建当前 session grant；已关联 owner 不会被其他 session 改写。
 
+Apple 通知先于客户端 Fresh Purchase proof 到达时，`POST /entitlements/apple/verify` 不把“交易已存在”单独视为重放。仅当已保存交易与 JWS 的 environment、transaction、original transaction、SKU、entitlement 一致，purchase chain 仍为 `unlinked` 或已属于同一 owner，chain 与交易均未撤销/退款且 Premium 生命周期仍有效，并且当前 session challenge 未消费且匹配 JWS `appAccountToken` 时，Worker 才原子消费 challenge、补关联 owner 并创建当前 session grant。该路径保留通知建立的订单、`source_notification_uuid`、扣款事实和较新的 lifecycle 状态，不重复建单；不同 owner、不同 challenge、过期、Billing Retry、Expired、Revoked 或 Refunded 仍返回 `409 REPLAY_REJECTED`。客户端本机已验证 Premium 后若受保护请求收到 `409 ENTITLEMENT_SYNC_REQUIRED`，先等待 Fresh Purchase 补偿队列并查询当前 session lifecycle；已有 active grant 即完成，否则继续 Restore proof。Home Overview 1Y 与 Performance 在此期间保持 loading、共享同一个同步任务并最多自动重试原请求一次，只有同步失败或重试仍失败时才展示现有顶部失败提示。
+
 | API | 当前行为 |
 |---|---|
 | `GET /api/v1/admin/billing/transactions/options` | 只从通知确认订单动态返回国家代码与 SKU。 |

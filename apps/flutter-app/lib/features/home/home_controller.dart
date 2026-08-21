@@ -15,6 +15,7 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'home_models.dart';
+import 'home_entitlement_repair.dart';
 import 'home_repository.dart';
 
 final homeRepositoryProvider = Provider<HomeRepository?>((ref) {
@@ -908,15 +909,10 @@ class HomeController extends Notifier<HomeState> {
       isChartRangeLoading: true,
     );
     try {
-      final valuations = await ref
-          .read(portfolioApiClientProvider)
-          .getValuationHistory(
-            session,
-            days: 365,
-            folderId: folderId,
-            localPremiumVerified: true,
-          )
-          .timeout(const Duration(seconds: 15));
+      final valuations = await _loadOneYearWithEntitlementRepair(
+        session,
+        folderId,
+      );
       if (!ref.mounted ||
           generation != _chartRangeGeneration ||
           state.selectedFolderId != folderId) {
@@ -964,6 +960,31 @@ class HomeController extends Notifier<HomeState> {
         isChartRangeLoading: false,
       );
       return false;
+    }
+  }
+
+  Future<List<PortfolioFolderValuationDto>> _loadOneYearWithEntitlementRepair(
+    AuthSession session,
+    String folderId,
+  ) async {
+    Future<List<PortfolioFolderValuationDto>> request() => ref
+        .read(portfolioApiClientProvider)
+        .getValuationHistory(
+          session,
+          days: 365,
+          folderId: folderId,
+          localPremiumVerified: true,
+        )
+        .timeout(const Duration(seconds: 15));
+
+    try {
+      return await request();
+    } catch (error) {
+      if (!isEntitlementSyncRequired(error) ||
+          !await ref.read(homeEntitlementRepairProvider)()) {
+        rethrow;
+      }
+      return request();
     }
   }
 

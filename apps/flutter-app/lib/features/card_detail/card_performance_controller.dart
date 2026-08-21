@@ -68,7 +68,7 @@ class CardPerformanceController extends Notifier<CardPerformanceState> {
     final generation = ++_generation;
     final previous = state;
     state = CardPerformanceState(
-      selectedRange: previous.selectedRange,
+      selectedRange: range,
       data: previous.data,
       status: KandoLoadStatus.loading,
       hasLoaded: previous.hasLoaded,

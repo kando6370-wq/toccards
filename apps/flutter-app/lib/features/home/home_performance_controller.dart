@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+
+import 'home_entitlement_repair.dart';
 
 final homePerformanceControllerProvider =
     NotifierProvider<HomePerformanceController, HomePerformanceState>(
@@ -90,15 +93,12 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
       hasLoaded: previous.hasLoaded && !clearData,
     );
     try {
-      final data = await ref
-          .read(portfolioApiClientProvider)
-          .getPortfolioPerformance(
-            session,
-            range: range,
-            folderId: folderId,
-            localPremiumVerified: localPremiumVerified,
-          )
-          .timeout(const Duration(seconds: 15));
+      final data = await _loadWithEntitlementRepair(
+        session,
+        range: range,
+        folderId: folderId,
+        localPremiumVerified: localPremiumVerified,
+      );
       if (!ref.mounted || generation != _generation) return;
       state = HomePerformanceState(
         selectedRange: range,
@@ -116,6 +116,33 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
         hasLoaded: previous.hasLoaded && !clearData,
         failureCode: error is PortfolioApiException ? error.code : null,
       );
+    }
+  }
+
+  Future<PortfolioPerformanceDto> _loadWithEntitlementRepair(
+    AuthSession session, {
+    required PerformanceRange range,
+    required String folderId,
+    required bool localPremiumVerified,
+  }) async {
+    Future<PortfolioPerformanceDto> request() => ref
+        .read(portfolioApiClientProvider)
+        .getPortfolioPerformance(
+          session,
+          range: range,
+          folderId: folderId,
+          localPremiumVerified: localPremiumVerified,
+        )
+        .timeout(const Duration(seconds: 15));
+
+    try {
+      return await request();
+    } catch (error) {
+      if (!isEntitlementSyncRequired(error) ||
+          !await ref.read(homeEntitlementRepairProvider)()) {
+        rethrow;
+      }
+      return request();
     }
   }
 }

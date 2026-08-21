@@ -11,6 +11,45 @@ import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 
 void main() {
   test(
+    'slow Item range selects immediately and keeps the last valid data visible',
+    () async {
+      final api = _ControlledItemPerformanceApi();
+      final container = _container(api);
+      addTearDown(container.dispose);
+      final controller = container.read(
+        cardPerformanceControllerProvider('item-1').notifier,
+      );
+      final initial = controller.load(localPremiumVerified: true);
+      api.completeAt(0, _performance(PerformanceRange.oneMonth, 100));
+      await initial;
+      final previousData = container
+          .read(cardPerformanceControllerProvider('item-1'))
+          .data;
+
+      final pending = controller.selectRange(
+        PerformanceRange.sevenDays,
+        localPremiumVerified: true,
+      );
+
+      final loading = container.read(
+        cardPerformanceControllerProvider('item-1'),
+      );
+      expect(loading.selectedRange, PerformanceRange.sevenDays);
+      expect(loading.isLoading, isTrue);
+      expect(loading.data, same(previousData));
+
+      api.completeAt(1, _performance(PerformanceRange.sevenDays, 120));
+      await pending;
+      expect(
+        container
+            .read(cardPerformanceControllerProvider('item-1'))
+            .selectedRange,
+        PerformanceRange.sevenDays,
+      );
+    },
+  );
+
+  test(
     'failed Item range keeps the last valid Card Performance data',
     () async {
       final api = _ControlledItemPerformanceApi();

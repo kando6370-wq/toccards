@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/home/home_entitlement_repair.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
@@ -22,6 +23,53 @@ import 'support/local_placeholder_auth_repository.dart';
 import 'support/mock_home_repository.dart';
 
 void main() {
+  test(
+    'one year keeps loading while repairing a missing session grant',
+    () async {
+      final portfolioApi = _RepairableOneYearPortfolioApi();
+      final repair = Completer<bool>();
+      var repairs = 0;
+      final container = _homeContainer(
+        const MockHomeRepository(),
+        portfolioApi: portfolioApi,
+        entitlementRepair: () {
+          repairs += 1;
+          return repair.future;
+        },
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      final load = container
+          .read(homeControllerProvider.notifier)
+          .selectChartRange(HomeChartRange.oneYear);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repairs, 1);
+      expect(portfolioApi.calls, 1);
+      expect(
+        container.read(homeControllerProvider).chartRange,
+        HomeChartRange.oneYear,
+      );
+      expect(
+        container.read(homeControllerProvider).isChartRangeLoading,
+        isTrue,
+      );
+
+      repair.complete(true);
+      expect(await load, isTrue);
+      expect(portfolioApi.calls, 2);
+      expect(
+        container.read(homeControllerProvider).chartRange,
+        HomeChartRange.oneYear,
+      );
+      expect(
+        container.read(homeControllerProvider).isChartRangeLoading,
+        isFalse,
+      );
+    },
+  );
+
   test(
     'dashboard exposes spec-shaped folder, portfolio, highlight, and trend data',
     () {
@@ -740,6 +788,7 @@ ProviderContainer _homeContainer(
   CardDataApi? cardDataApi,
   PortfolioApiClient? portfolioApi,
   bool initialAmountHidden = false,
+  Future<bool> Function()? entitlementRepair,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -755,6 +804,8 @@ ProviderContainer _homeContainer(
         cardDataApiClientProvider.overrideWithValue(cardDataApi),
       if (portfolioApi != null)
         portfolioApiClientProvider.overrideWithValue(portfolioApi),
+      if (entitlementRepair != null)
+        homeEntitlementRepairProvider.overrideWithValue(entitlementRepair),
       portfolioManagementApiProvider.overrideWithValue(
         const _TestPortfolioManagementApi(),
       ),
@@ -805,6 +856,42 @@ class _DelayedOneYearPortfolioApi extends PortfolioApiClient {
 
   void fail() {
     _response.completeError(StateError('one year unavailable'));
+  }
+}
+
+class _RepairableOneYearPortfolioApi extends PortfolioApiClient {
+  _RepairableOneYearPortfolioApi() : super(Dio());
+
+  var calls = 0;
+
+  @override
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+    bool localPremiumVerified = false,
+    String? folderId,
+  }) async {
+    calls += 1;
+    if (calls == 1) {
+      throw const PortfolioApiException(
+        'Premium access is still syncing.',
+        code: 'ENTITLEMENT_SYNC_REQUIRED',
+        statusCode: 409,
+      );
+    }
+    return const [
+      PortfolioFolderValuationDto(
+        folderId: 'main',
+        itemCount: 1,
+        marketPriceStatus: MarketPriceStatus.available,
+        currentValueUsd: 125,
+        series: [
+          PortfolioValuationPointDto(date: '2025-08-20', valueUsd: 100),
+          PortfolioValuationPointDto(date: '2026-08-20', valueUsd: 125),
+        ],
+        mostValuable: [],
+      ),
+    ];
   }
 }
 

@@ -522,6 +522,30 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       return false;
     }
     try {
+      await ref.read(subscriptionSyncQueueProvider).flush(session);
+      try {
+        final lifecycle = await ref
+            .read(appleLifecycleApiProvider)
+            .loadCurrentSessionLifecycle(session)
+            .timeout(const Duration(seconds: 15));
+        if (lifecycle.any(
+          (chain) =>
+              productIds.contains(chain.productId) &&
+              const {
+                'ACTIVE',
+                'TRIAL',
+                'GRACE_PERIOD',
+                'LIFETIME',
+              }.contains(chain.lifecycleStatus),
+        )) {
+          return true;
+        }
+      } on Object catch (error, stackTrace) {
+        debugPrint(
+          'Unable to confirm the current server entitlement: $error\n'
+          '$stackTrace',
+        );
+      }
       final entitlements = await ref
           .read(appleCurrentEntitlementReaderProvider)
           .read(productIds)
@@ -913,6 +937,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       }
       if (event.purchase?.status == SubscriptionPurchaseStatus.purchased &&
           event.failure == null) {
+        unawaited(synchronizeServerEntitlement());
         unawaited(
           ref
               .read(subscriptionRevenueReporterProvider)

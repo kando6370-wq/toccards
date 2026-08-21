@@ -4,6 +4,8 @@ import {
   APPLE_VERIFICATION_PROCESSING_HTTP_STATUS,
   APPLE_VERIFICATION_PROCESSING_RESPONSE,
   configuredProductIds,
+  type ExistingFreshPurchaseRecord,
+  isLinkableExistingFreshPurchase,
   normalizeAppleTransaction,
   shouldResumeAppleVerificationAttempt,
 } from "./routes";
@@ -140,4 +142,69 @@ describe("Apple entitlement verification rules", () => {
       "VERIFICATION_UNAVAILABLE",
     );
   });
+
+  it("links a notification-first unlinked transaction without treating its later notification timestamp as replay", () => {
+    const normalized = normalizeAppleTransaction(
+      transaction(),
+      Environment.SANDBOX,
+      PRODUCTS,
+      NOW,
+    )!;
+    expect(isLinkableExistingFreshPurchase(
+      existingPurchase(),
+      normalized,
+      "performance_pro",
+      "user",
+      "user-1",
+      NOW,
+    )).toBe(true);
+  });
+
+  it.each([
+    ["another owner", { original_owner_type: "user", original_owner_id: "user-2", app_account_token: TOKEN }],
+    ["another challenge", { app_account_token: "123e4567-e89b-42d3-a456-426614174999" }],
+    ["another chain environment", { chain_environment: "Production" }],
+    ["an expired chain", { chain_expires_at: NOW.toISOString() }],
+    ["a revoked chain", { chain_revoked_at: NOW.toISOString() }],
+    ["a refunded transaction", { transaction_status: "refunded" }],
+  ])("still rejects %s because an existing transaction is not transferable", (_name, overrides) => {
+    const normalized = normalizeAppleTransaction(
+      transaction(),
+      Environment.SANDBOX,
+      PRODUCTS,
+      NOW,
+    )!;
+    expect(isLinkableExistingFreshPurchase(
+      existingPurchase(overrides as Partial<ExistingFreshPurchaseRecord>),
+      normalized,
+      "performance_pro",
+      "user",
+      "user-1",
+      NOW,
+    )).toBe(false);
+  });
 });
+
+function existingPurchase(
+  overrides: Partial<ExistingFreshPurchaseRecord> = {},
+): ExistingFreshPurchaseRecord {
+  return {
+    transaction_id: "transaction-1",
+    transaction_product_id: "com.cardai.tcg.pro.yearly",
+    transaction_status: "purchased",
+    transaction_revoked_at: null,
+    purchase_chain_id: "chain-1",
+    chain_store: "app_store",
+    chain_environment: "Sandbox",
+    original_transaction_id: "original-1",
+    chain_product_id: "com.cardai.tcg.pro.yearly",
+    entitlement_id: "performance_pro",
+    original_owner_type: "unlinked",
+    original_owner_id: "",
+    app_account_token: null,
+    chain_status: "ACTIVE",
+    chain_expires_at: "2026-08-13T08:00:00.000Z",
+    chain_revoked_at: null,
+    ...overrides,
+  };
+}
