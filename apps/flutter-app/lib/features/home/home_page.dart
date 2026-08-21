@@ -960,13 +960,20 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
         else if (performance.isLoading && performance.data == null)
           const _PerformanceLoadingSkeleton()
         else if (performance.data case final data?) ...[
-          if (data.itemCount == 0)
+          if (data.itemCount == 0) ...[
             const SizedBox(
               key: Key('home-performance-empty'),
               height: 300,
               child: Center(child: Text('Your portfolio is empty.')),
-            )
-          else if (data.marketPriceStatus == MarketPriceStatus.missing)
+            ),
+            const SizedBox(height: 32),
+            _TopPerformersSection(
+              state: state,
+              performers: data.topPerformers,
+              onPerformerPressed: widget.onTopPerformerPressed,
+              onViewAll: widget.onViewAllTopPerformers,
+            ),
+          ] else if (data.marketPriceStatus == MarketPriceStatus.missing)
             const SizedBox(
               key: Key('home-performance-no-data'),
               height: 300,
@@ -1613,44 +1620,63 @@ class _PerformanceRangePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 30,
-      child: Row(
-        children: [
-          for (final range in PerformanceRange.values)
-            Expanded(
-              child: InkWell(
-                key: Key('home-performance-range-${range.apiValue}'),
-                onTap: () => onSelected(range),
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        range.apiValue,
-                        style: TextStyle(
-                          color: range == selected
-                              ? KandoColors.accent
-                              : KandoColors.mutedText,
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: Row(
+          children: [
+            for (final range in PerformanceRange.values)
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      gradient: range == selected
+                          ? const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0x99747B26), Color(0x33747B26)],
+                            )
+                          : null,
+                    ),
+                    child: InkWell(
+                      key: Key('home-performance-range-${range.apiValue}'),
+                      borderRadius: BorderRadius.circular(4),
+                      onTap: () => onSelected(range),
+                      child: Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              range.apiValue,
+                              style: TextStyle(
+                                color: range == selected
+                                    ? KandoColors.accent
+                                    : KandoColors.mutedText,
+                              ),
+                            ),
+                            if (isLoading && range == selected) ...[
+                              const SizedBox(width: 4),
+                              SizedBox.square(
+                                key: Key(
+                                  'home-performance-range-loading-${range.apiValue}',
+                                ),
+                                dimension: 10,
+                                child: const CircularProgressIndicator(
+                                  color: KandoColors.accent,
+                                  strokeWidth: 1.5,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (isLoading && range == selected) ...[
-                        const SizedBox(width: 4),
-                        SizedBox.square(
-                          key: Key(
-                            'home-performance-range-loading-${range.apiValue}',
-                          ),
-                          dimension: 10,
-                          child: const CircularProgressIndicator(
-                            color: KandoColors.accent,
-                            strokeWidth: 1.5,
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1818,6 +1844,7 @@ class _PortfolioCard extends StatelessWidget {
                 children: [
                   _ChartRangePicker(
                     selected: state.chartRange,
+                    isLoading: state.isChartRangeLoading,
                     showOneYearProBadge: showOneYearProBadge,
                     onSelected: onRangeSelected,
                   ),
@@ -1941,11 +1968,13 @@ class _FolderPill extends StatelessWidget {
 class _ChartRangePicker extends StatelessWidget {
   const _ChartRangePicker({
     required this.selected,
+    required this.isLoading,
     required this.showOneYearProBadge,
     required this.onSelected,
   });
 
   final HomeChartRange selected;
+  final bool isLoading;
   final bool showOneYearProBadge;
   final ValueChanged<HomeChartRange> onSelected;
 
@@ -2013,6 +2042,17 @@ class _ChartRangePicker extends StatelessWidget {
                 height: 16 / 13,
               ),
             ),
+            if (isLoading && range == selected) ...[
+              const SizedBox(width: 4),
+              SizedBox.square(
+                key: Key('home-chart-range-loading-${range.label}'),
+                dimension: 10,
+                child: const CircularProgressIndicator(
+                  color: KandoColors.accent,
+                  strokeWidth: 1.5,
+                ),
+              ),
+            ],
             if (showOneYearProBadge && range == HomeChartRange.oneYear) ...[
               const SizedBox(width: 4),
               Container(

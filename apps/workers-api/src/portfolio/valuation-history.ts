@@ -21,6 +21,7 @@ type ItemEventRow = {
   quantity: number;
   event_type: "upsert" | "delete";
   effective_at: string;
+  first_effective_at?: string;
 };
 
 export type SkuRow = {
@@ -49,6 +50,16 @@ export type MatchedPrice = {
 };
 
 type PricePoint = { date: string; price: number };
+
+type PriceHistoryLookup = {
+  points: PricePoint[];
+  pricesByDate: Map<string, number | null>;
+};
+
+type ValuationCalculationCache = {
+  matchingPriceByState: WeakMap<ItemEventRow, MatchedPrice | null>;
+  priceHistoryByValue: Map<string, PriceHistoryLookup>;
+};
 
 export type CardRow = {
   product_id: string;
@@ -81,14 +92,10 @@ export type FolderValuationHistory = {
   most_valuable: MostValuableItem[];
 };
 
-const SELECT_EVENTS_SQL = `
-SELECT id, item_id, folder_id, card_ref, grader, condition, grade, language,
-  finish, price_series_id, quantity, event_type, effective_at
-FROM collection_item_event
-WHERE owner_type = ? AND owner_id = ?
-ORDER BY effective_at ASC, id ASC
-LIMIT 10001
-`;
+const VALUATION_EVENT_LIMIT = 10_000;
+const VALUATION_EVENT_COLUMNS = `
+id, item_id, folder_id, card_ref, grader, condition, grade, language,
+  finish, price_series_id, quantity, event_type, effective_at`;
 
 export async function loadValuationHistory(
   db: D1Database,
@@ -97,42 +104,143 @@ export async function loadValuationHistory(
   days: number,
   now = new Date(),
 ): Promise<FolderValuationHistory[]> {
+  if (folderIds.length === 0) return [];
+  const endDate = dateKeys(now, 0)[0]!;
+  const rangeStart = shiftDate(endDate, -Math.max(days, 1));
+  const rangeStartTimestamp = `${rangeStart}T00:00:00.000Z`;
+  const folderPlaceholders = folderIds.map(() => "?").join(", ");
   const result = await db
-    .prepare(SELECT_EVENTS_SQL)
-    .bind(owner.owner_type, owner.owner_id)
+    .prepare(`
+WITH scoped_events AS (
+  SELECT ${VALUATION_EVENT_COLUMNS},
+    MIN(effective_at) OVER (PARTITION BY item_id) AS first_effective_at
+  FROM collection_item_event
+  WHERE owner_type = ? AND owner_id = ?
+),
+ranked_baselines AS (
+  SELECT scoped_events.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY item_id
+      ORDER BY effective_at DESC, id DESC
+    ) AS baseline_rank
+  FROM scoped_events
+  WHERE effective_at < ?
+),
+bounded_events AS (
+  SELECT ${VALUATION_EVENT_COLUMNS}, first_effective_at
+  FROM ranked_baselines
+  WHERE baseline_rank = 1
+  UNION ALL
+  SELECT ${VALUATION_EVENT_COLUMNS}, first_effective_at
+  FROM scoped_events
+  WHERE effective_at >= ?
+),
+relevant_items AS (
+  SELECT DISTINCT item_id
+  FROM bounded_events
+  WHERE folder_id IN (${folderPlaceholders})
+)
+SELECT ${VALUATION_EVENT_COLUMNS}, first_effective_at
+FROM bounded_events
+WHERE item_id IN (SELECT item_id FROM relevant_items)
+ORDER BY effective_at ASC, id ASC
+LIMIT ${VALUATION_EVENT_LIMIT + 1}
+`)
+    .bind(
+      owner.owner_type,
+      owner.owner_id,
+      rangeStartTimestamp,
+      rangeStartTimestamp,
+      ...folderIds,
+    )
     .all<ItemEventRow>();
   const events = result.results ?? [];
-  if (events.length > 10000) {
-    throw new Error("Portfolio valuation query exceeded 10000 events");
+  if (events.length > VALUATION_EVENT_LIMIT) {
+    throw new Error(`Portfolio valuation query exceeded ${VALUATION_EVENT_LIMIT} events`);
   }
-  const endDate = dateKeys(now, 0)[0]!;
+  const eventsByItem = new Map(
+    [...groupEvents(events)].filter(([, itemEvents]) =>
+      itemEvents.some((event) => event.event_type === "upsert")
+    ),
+  );
+  const relevantEvents = [...eventsByItem.values()].flat();
   const skus = await loadSkus(
     db,
-    [...new Set(events.map((event) => event.card_ref))],
+    [...new Set(relevantEvents.map((event) => event.card_ref))],
     shiftDate(endDate, -Math.max(days, 1) - 30),
     endDate,
   );
-  const cards = await loadCards(db, [...new Set(events.map((event) => event.card_ref))]);
+  const cards = await loadCards(
+    db,
+    [...new Set(relevantEvents.map((event) => event.card_ref))],
+  );
   const skusByProduct = groupSkus(skus);
   const cardsByProduct = new Map(cards.map((card) => [card.product_id, card]));
-  const eventsByItem = groupEvents(events);
   const dates = dateKeys(now, days);
+  const folderIdSet = new Set(folderIds);
+  const seriesByFolder = new Map(
+    folderIds.map((folderId) => [
+      folderId,
+      [] as Array<{ date: string; value_usd: number }>,
+    ]),
+  );
+  const cache: ValuationCalculationCache = {
+    matchingPriceByState: new WeakMap(),
+    priceHistoryByValue: new Map(),
+  };
+  let currentStates: ItemEventRow[] = [];
+
+  for (const date of dates) {
+    const totals = new Map<string, number>();
+    const states = statesOnDate(eventsByItem, date);
+    if (date === endDate) currentStates = states;
+    for (const state of states) {
+      if (!folderIdSet.has(state.folder_id)) continue;
+      const matched = matchingPriceForState(
+        state,
+        skusByProduct.get(state.card_ref) ?? [],
+        cache,
+      );
+      const price = matched
+        ? priceOnDateWithCache(matched.history, date, cache.priceHistoryByValue)
+        : null;
+      if (price !== null) {
+        totals.set(
+          state.folder_id,
+          (totals.get(state.folder_id) ?? 0) + price * state.quantity,
+        );
+      }
+    }
+    for (const folderId of folderIds) {
+      seriesByFolder.get(folderId)!.push({
+        date,
+        value_usd: roundMoney(totals.get(folderId) ?? 0),
+      });
+    }
+  }
+
+  const currentItemsByFolder = new Map<string, ItemEventRow[]>();
+  for (const state of currentStates) {
+    if (!folderIdSet.has(state.folder_id)) continue;
+    const items = currentItemsByFolder.get(state.folder_id);
+    if (items) items.push(state);
+    else currentItemsByFolder.set(state.folder_id, [state]);
+  }
 
   return folderIds.map((folderId) => {
-    const series = dates.map((date) => ({
-      date,
-      value_usd: valueOnDate(eventsByItem, skusByProduct, folderId, date),
-    }));
-    const currentItems = [...eventsByItem.values()]
-      .map((itemEvents) => stateOnDate(itemEvents, endDate))
-      .filter((state): state is ItemEventRow =>
-        state !== null
-        && state.event_type !== "delete"
-        && state.folder_id === folderId
-      );
+    const series = seriesByFolder.get(folderId)!;
+    const currentItems = currentItemsByFolder.get(folderId) ?? [];
     const hasMarketPrice = currentItems.some((state) => {
-      const matched = matchingPrice(state, skusByProduct.get(state.card_ref) ?? []);
-      return matched !== null && priceOnDate(matched.history, endDate) !== null;
+      const matched = matchingPriceForState(
+        state,
+        skusByProduct.get(state.card_ref) ?? [],
+        cache,
+      );
+      return matched !== null && priceOnDateWithCache(
+        matched.history,
+        endDate,
+        cache.priceHistoryByValue,
+      ) !== null;
     });
     return {
       folder_id: folderId,
@@ -141,22 +249,24 @@ export async function loadValuationHistory(
       current_value_usd: series.at(-1)?.value_usd ?? 0,
       series,
       most_valuable: mostValuableItems(
+        currentItems,
         eventsByItem,
         skusByProduct,
         cardsByProduct,
-        folderId,
         dates.at(-1)!,
+        cache,
       ),
     };
   });
 }
 
 function mostValuableItems(
+  currentItems: ItemEventRow[],
   eventsByItem: Map<string, ItemEventRow[]>,
   skusByProduct: Map<string, SkuRow[]>,
   cardsByProduct: Map<string, CardRow>,
-  folderId: string,
   date: string,
+  cache: ValuationCalculationCache,
 ): MostValuableItem[] {
   const baselineDate = shiftDate(date, -30);
   const items: Array<{
@@ -164,14 +274,23 @@ function mostValuableItems(
     unitPrice: number;
     addedAt: string;
   }> = [];
-  for (const events of eventsByItem.values()) {
-    const state = stateOnDate(events, date);
-    if (!state || state.event_type === "delete" || state.folder_id !== folderId) continue;
-    const matched = matchingPrice(state, skusByProduct.get(state.card_ref) ?? []);
+  for (const state of currentItems) {
+    const events = eventsByItem.get(state.item_id) ?? [];
+    const matched = matchingPriceForState(
+      state,
+      skusByProduct.get(state.card_ref) ?? [],
+      cache,
+    );
     const card = cardsByProduct.get(state.card_ref);
-    const current = matched ? priceOnDate(matched.history, date) : null;
+    const current = matched
+      ? priceOnDateWithCache(matched.history, date, cache.priceHistoryByValue)
+      : null;
     if (!matched || !card || current === null) continue;
-    const previous = priceOnDate(matched.history, baselineDate);
+    const previous = priceOnDateWithCache(
+      matched.history,
+      baselineDate,
+      cache.priceHistoryByValue,
+    );
     items.push({
       item: {
         item_id: state.item_id,
@@ -189,7 +308,7 @@ function mostValuableItems(
             : null,
       },
       unitPrice: current,
-      addedAt: events[0]!.effective_at,
+      addedAt: events[0]?.first_effective_at ?? events[0]?.effective_at ?? state.effective_at,
     });
   }
   return items
@@ -210,28 +329,24 @@ function compareNullableNumberDesc(left: number | null, right: number | null): n
   return right - left;
 }
 
-function stateOnDate(events: ItemEventRow[], date: string): ItemEventRow | null {
-  const endOfDay = `${date}T23:59:59.999Z`;
-  return events.filter((event) => event.effective_at <= endOfDay).at(-1) ?? null;
-}
-
-function valueOnDate(
+function statesOnDate(
   eventsByItem: Map<string, ItemEventRow[]>,
-  skusByProduct: Map<string, SkuRow[]>,
-  folderId: string,
   date: string,
-): number {
-  let total = 0;
+): ItemEventRow[] {
+  const endOfDay = `${date}T23:59:59.999Z`;
+  const states: ItemEventRow[] = [];
   for (const events of eventsByItem.values()) {
-    const state = stateOnDate(events, date);
-    if (!state || state.event_type === "delete" || state.folder_id !== folderId) {
-      continue;
+    let low = 0;
+    let high = events.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (events[middle]!.effective_at <= endOfDay) low = middle + 1;
+      else high = middle;
     }
-    const matched = matchingPrice(state, skusByProduct.get(state.card_ref) ?? []);
-    const price = matched ? priceOnDate(matched.history, date) : null;
-    if (price !== null) total += price * state.quantity;
+    const state = events[low - 1];
+    if (state && state.event_type !== "delete") states.push(state);
   }
-  return roundMoney(total);
+  return states;
 }
 
 export function matchingPrice(
@@ -241,17 +356,28 @@ export function matchingPrice(
   >,
   rows: SkuRow[],
 ): MatchedPrice | null {
+  return matchingPriceWithCache(event, rows);
+}
+
+function matchingPriceWithCache(
+  event: Pick<
+    ItemEventRow,
+    "grader" | "condition" | "grade" | "language" | "finish" | "price_series_id"
+  >,
+  rows: SkuRow[],
+  historyCache?: Map<string, PriceHistoryLookup>,
+): MatchedPrice | null {
   if (event.price_series_id !== null) {
     const row = rows.find((candidate) =>
       candidate.series_id === event.price_series_id
-      && parsePriceHistory(candidate.price_history).length > 0
+      && historyPoints(candidate.price_history, historyCache).length > 0
     );
     return row
       ? { row, history: row.price_history, change30dPercent: row.change_30d_percent }
       : null;
   }
   if (event.grader.toLowerCase() === "raw") {
-    const row = matchingSku(event, rows);
+    const row = matchingSkuWithCache(event, rows, historyCache);
     return row
       ? { row, history: row.price_history, change30dPercent: row.change_30d_percent }
       : null;
@@ -264,7 +390,7 @@ export function matchingPrice(
     .filter((row) => gradeMatches(event.grade!, row.grade_min_x10, row.grade_max_x10))
     .filter((row) => optionalQualifierMatches(language, row.language_code, row.language_name))
     .filter((row) => optionalQualifierMatches(finish, row.variant_code, row.variant_name))
-    .filter((row) => parsePriceHistory(row.price_history).length > 0)
+    .filter((row) => historyPoints(row.price_history, historyCache).length > 0)
     .sort((left, right) =>
       ((left.grade_max_x10 ?? 100) - (left.grade_min_x10 ?? 0))
       - ((right.grade_max_x10 ?? 100) - (right.grade_min_x10 ?? 0))
@@ -285,6 +411,14 @@ export function matchingSku(
   event: Pick<ItemEventRow, "grader" | "condition" | "language" | "finish">,
   rows: SkuRow[],
 ): SkuRow | null {
+  return matchingSkuWithCache(event, rows);
+}
+
+function matchingSkuWithCache(
+  event: Pick<ItemEventRow, "grader" | "condition" | "language" | "finish">,
+  rows: SkuRow[],
+  historyCache?: Map<string, PriceHistoryLookup>,
+): SkuRow | null {
   if (event.grader.toLowerCase() !== "raw") return null;
   const condition = normalizedQualifier(event.condition);
   const language = normalizedOptionalQualifier(event.language);
@@ -295,7 +429,7 @@ export function matchingSku(
       .filter((row) => qualifierMatches(condition, row.condition_code, row.condition_name))
       .filter((row) => !language || qualifierMatches(language, row.language_code, row.language_name))
       .filter((row) => !finish || qualifierMatches(finish, row.variant_code, row.variant_name))
-      .filter((row) => parsePriceHistory(row.price_history).length > 0)
+      .filter((row) => historyPoints(row.price_history, historyCache).length > 0)
       .sort((left, right) =>
         skuRank(left) - skuRank(right)
         || compareNaturalQualifiers(left, right)
@@ -370,11 +504,59 @@ function roundMoney(value: number): number {
 }
 
 export function priceOnDate(history: string, date: string): number | null {
-  return (
-    parsePriceHistory(history)
-      .filter((point) => point.date <= date)
-      .at(-1)?.price ?? null
-  );
+  return priceOnDateWithCache(history, date);
+}
+
+function priceOnDateWithCache(
+  history: string,
+  date: string,
+  cache?: Map<string, PriceHistoryLookup>,
+): number | null {
+  const lookup = historyLookup(history, cache);
+  if (lookup.pricesByDate.has(date)) {
+    return lookup.pricesByDate.get(date) ?? null;
+  }
+  let low = 0;
+  let high = lookup.points.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (lookup.points[middle]!.date <= date) low = middle + 1;
+    else high = middle;
+  }
+  const price = lookup.points[low - 1]?.price ?? null;
+  lookup.pricesByDate.set(date, price);
+  return price;
+}
+
+function historyPoints(
+  history: string,
+  cache?: Map<string, PriceHistoryLookup>,
+): PricePoint[] {
+  return historyLookup(history, cache).points;
+}
+
+function historyLookup(
+  history: string,
+  cache?: Map<string, PriceHistoryLookup>,
+): PriceHistoryLookup {
+  const cached = cache?.get(history);
+  if (cached) return cached;
+  const lookup = { points: parsePriceHistory(history), pricesByDate: new Map() };
+  cache?.set(history, lookup);
+  return lookup;
+}
+
+function matchingPriceForState(
+  state: ItemEventRow,
+  rows: SkuRow[],
+  cache: ValuationCalculationCache,
+): MatchedPrice | null {
+  if (cache.matchingPriceByState.has(state)) {
+    return cache.matchingPriceByState.get(state) ?? null;
+  }
+  const matched = matchingPriceWithCache(state, rows, cache.priceHistoryByValue);
+  cache.matchingPriceByState.set(state, matched);
+  return matched;
 }
 
 export function parsePriceHistory(value: string): PricePoint[] {
@@ -473,6 +655,12 @@ function groupEvents(rows: ItemEventRow[]): Map<string, ItemEventRow[]> {
   const grouped = new Map<string, ItemEventRow[]>();
   for (const row of rows) {
     grouped.set(row.item_id, [...(grouped.get(row.item_id) ?? []), row]);
+  }
+  for (const events of grouped.values()) {
+    events.sort((left, right) =>
+      left.effective_at.localeCompare(right.effective_at)
+      || left.id.localeCompare(right.id)
+    );
   }
   return grouped;
 }

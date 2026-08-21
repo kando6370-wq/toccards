@@ -336,6 +336,77 @@ void main() {
     );
   });
 
+  testWidgets(
+    'Card Detail chart ranges keep a compact accent indicator because every range switch needs visible confirmation',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'squirtle',
+          collectionItemId: null,
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-price-chart')),
+        400,
+      );
+
+      final priceRange = find.byKey(const Key('card-detail-price-range-7d'));
+      await tester.ensureVisible(priceRange);
+      await tester.pumpAndSettle();
+      await tester.tap(priceRange);
+      await tester.pumpAndSettle();
+
+      final priceIndicator = find.descendant(
+        of: priceRange,
+        matching: find.byType(Container),
+      );
+      expect(priceIndicator, findsOneWidget);
+      expect(tester.getSize(priceIndicator), const Size(40, 24));
+      final priceDecoration =
+          tester.widget<Container>(priceIndicator).decoration! as BoxDecoration;
+      expect(priceDecoration.shape, BoxShape.rectangle);
+      expect(priceDecoration.borderRadius, BorderRadius.circular(4));
+      expect(priceDecoration.gradient, isNotNull);
+
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-performance-range-7D')),
+      );
+      await tester.pumpAndSettle();
+
+      final performanceIndicator = find.ancestor(
+        of: find.byKey(const Key('card-detail-performance-range-7D')),
+        matching: find.byType(Ink),
+      );
+      expect(performanceIndicator, findsOneWidget);
+      expect(tester.getSize(performanceIndicator).height, 24);
+      final performanceDecoration =
+          tester.widget<Ink>(performanceIndicator).decoration! as BoxDecoration;
+      expect(performanceDecoration.borderRadius, BorderRadius.circular(4));
+      expect(performanceDecoration.gradient, isNotNull);
+
+      final previousIndicator = find.ancestor(
+        of: find.byKey(const Key('card-detail-performance-range-1M')),
+        matching: find.byType(Ink),
+      );
+      expect(previousIndicator, findsOneWidget);
+      final previousDecoration =
+          tester.widget<Ink>(previousIndicator).decoration! as BoxDecoration;
+      expect(previousDecoration.gradient, isNull);
+    },
+  );
+
   testWidgets('Price Tab missing data renders fallback copy', (tester) async {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'mystery-promo'));
     await tester.pumpAndSettle();

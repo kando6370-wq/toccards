@@ -633,6 +633,7 @@ abstract interface class PortfolioApi {
   Future<List<PortfolioFolderValuationDto>> getValuationHistory(
     AuthSession session, {
     int days = 90,
+    String? folderId,
     bool localPremiumVerified = false,
   });
   Future<PortfolioPerformanceDto> getPortfolioPerformance(
@@ -854,13 +855,17 @@ class PortfolioApiClient
   Future<List<PortfolioFolderValuationDto>> getValuationHistory(
     AuthSession session, {
     int days = 90,
+    String? folderId,
     bool localPremiumVerified = false,
   }) async {
     final data = await _requestData(
       'GET',
       '/portfolio/valuation-history',
       session,
-      queryParameters: {'days': days},
+      queryParameters: {
+        'days': days,
+        if (folderId != null) 'folder_id': folderId,
+      },
       headers: {if (localPremiumVerified) 'X-Local-Premium-State': 'verified'},
     );
     return _items(data).map(PortfolioFolderValuationDto.fromJson).toList();

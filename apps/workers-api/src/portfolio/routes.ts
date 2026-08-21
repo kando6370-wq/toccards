@@ -410,7 +410,18 @@ export function createPortfolioRoutes(
       }
       if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
     }
-    const folders = await listFolders(c.env.DB, auth.owner);
+    const folderIdValue = c.req.query("folder_id");
+    const folderId = folderIdValue === undefined ? null : requiredString(folderIdValue);
+    if (folderIdValue !== undefined && folderId === null) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const requestedFolder = folderId
+      ? await findFolder(c.env.DB, auth.owner, folderId)
+      : null;
+    if (folderId && !requestedFolder) return c.json(NOT_FOUND_RESPONSE, 404);
+    const folders = requestedFolder
+      ? [requestedFolder]
+      : await listFolders(c.env.DB, auth.owner);
     const items = await loadValuationHistory(
       c.env.DB,
       auth.owner,

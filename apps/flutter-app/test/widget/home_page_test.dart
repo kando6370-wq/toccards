@@ -515,6 +515,109 @@ void main() {
   });
 
   testWidgets(
+    'Overview 1Y shows immediate loading while preserving the chart because slow history must acknowledge the tap',
+    (tester) async {
+      final portfolioApi = _SlowOverviewHistoryApi();
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+          portfolioApi,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.byKey(const Key('home-chart-range-1y')));
+      await tester.pump();
+
+      final context = tester.element(find.byType(HomePage));
+      final state = ProviderScope.containerOf(
+        context,
+      ).read(homeControllerProvider);
+      expect(state.chartRange, HomeChartRange.oneYear);
+      expect(
+        state.chartValues,
+        mockHomeDashboard
+            .portfoliosByFolderId['main']!
+            .chartValuesByRange[HomeChartRange.oneMonth],
+      );
+      expect(portfolioApi.folderIds, ['main']);
+
+      await tester.pump();
+      expect(
+        find.byKey(const Key('home-chart-range-loading-1y')),
+        findsOneWidget,
+      );
+
+      portfolioApi.complete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('home-chart-range-loading-1y')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'Home chart ranges keep a compact accent indicator because every range switch needs visible confirmation',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-chart-range-7d')));
+      await tester.pumpAndSettle();
+
+      final overviewIndicator = find.descendant(
+        of: find.byKey(const Key('home-chart-range-7d')),
+        matching: find.byType(Container),
+      );
+      expect(overviewIndicator, findsOneWidget);
+      expect(tester.getSize(overviewIndicator).height, 22);
+      final overviewDecoration =
+          tester.widget<Container>(overviewIndicator).decoration!
+              as BoxDecoration;
+      expect(overviewDecoration.borderRadius, BorderRadius.circular(4));
+      expect(overviewDecoration.gradient, isNotNull);
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-range-7D')));
+      await tester.pumpAndSettle();
+
+      final performanceIndicator = find.ancestor(
+        of: find.byKey(const Key('home-performance-range-7D')),
+        matching: find.byType(Ink),
+      );
+      expect(performanceIndicator, findsOneWidget);
+      expect(tester.getSize(performanceIndicator).height, 24);
+      final selectedDecoration =
+          tester.widget<Ink>(performanceIndicator).decoration! as BoxDecoration;
+      expect(selectedDecoration.borderRadius, BorderRadius.circular(4));
+      expect(selectedDecoration.gradient, isNotNull);
+
+      final previousIndicator = find.ancestor(
+        of: find.byKey(const Key('home-performance-range-1M')),
+        matching: find.byType(Ink),
+      );
+      expect(previousIndicator, findsOneWidget);
+      final previousDecoration =
+          tester.widget<Ink>(previousIndicator).decoration! as BoxDecoration;
+      expect(previousDecoration.gradient, isNull);
+    },
+  );
+
+  testWidgets(
     'Pro users see Performance data and trends because the entitlement unlocks analytics',
     (tester) async {
       await tester.pumpWidget(
@@ -636,6 +739,36 @@ void main() {
         find.byKey(const Key('home-top-performers-view-all')),
         findsOneWidget,
       );
+    },
+  );
+
+  testWidgets(
+    'Empty Performance keeps Top Performers navigation and guidance because an empty collection still needs the ranking entry point',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+          _TestHomePerformanceApi(itemCount: 0, topPerformerCount: 0),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('home-performance-empty')), findsOneWidget);
+      expect(find.text('Top Performers'), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-top-performers-view-all')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Add purchase prices to see your top performers.'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('home-top-performers-list')), findsNothing);
     },
   );
 
@@ -2417,8 +2550,10 @@ class _RepairingHomeSubscriptionController extends SubscriptionController {
 }
 
 class _TestHomePerformanceApi extends PortfolioApiClient {
-  _TestHomePerformanceApi({this.topPerformerCount = 6}) : super(Dio());
+  _TestHomePerformanceApi({this.itemCount = 75, this.topPerformerCount = 6})
+    : super(Dio());
 
+  final int itemCount;
   final int topPerformerCount;
 
   @override
@@ -2462,16 +2597,18 @@ class _TestHomePerformanceApi extends PortfolioApiClient {
       rangeEnd: '2026-08-12',
       historyAvailableFrom: '2026-07-12',
       partialHistory: false,
-      itemCount: 75,
-      marketPriceStatus: MarketPriceStatus.available,
-      purchasePriceStatus: PurchasePriceStatus.partial,
-      purchasePriceItemCount: 60,
+      itemCount: itemCount,
+      marketPriceStatus: itemCount == 0
+          ? MarketPriceStatus.missing
+          : MarketPriceStatus.available,
+      purchasePriceStatus: itemCount == 0
+          ? PurchasePriceStatus.missing
+          : PurchasePriceStatus.partial,
+      purchasePriceItemCount: itemCount == 0 ? 0 : 60,
       topPerformerCount: topPerformerCount,
-      topPerformerItemIds: const [
-        'item-pikachu',
-        'item-charizard',
-        'item-umbreon',
-      ],
+      topPerformerItemIds: topPerformerCount == 0
+          ? const []
+          : const ['item-pikachu', 'item-charizard', 'item-umbreon'],
       topPerformers: List.generate(
         topPerformerCount,
         (index) => PortfolioTopPerformerDto(
@@ -2498,6 +2635,38 @@ class _TestHomePerformanceApi extends PortfolioApiClient {
           ? [current]
           : [previous, current],
     );
+  }
+}
+
+class _SlowOverviewHistoryApi extends _TestHomePerformanceApi {
+  final _response = Completer<List<PortfolioFolderValuationDto>>();
+  final folderIds = <String?>[];
+
+  @override
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) {
+    folderIds.add(folderId);
+    return _response.future;
+  }
+
+  void complete() {
+    _response.complete(const [
+      PortfolioFolderValuationDto(
+        folderId: 'main',
+        itemCount: 1,
+        marketPriceStatus: MarketPriceStatus.available,
+        currentValueUsd: 125,
+        series: [
+          PortfolioValuationPointDto(date: '2025-08-20', valueUsd: 100),
+          PortfolioValuationPointDto(date: '2026-08-20', valueUsd: 125),
+        ],
+        mostValuable: [],
+      ),
+    ]);
   }
 }
 

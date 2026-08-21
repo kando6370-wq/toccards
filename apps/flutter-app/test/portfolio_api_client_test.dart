@@ -414,7 +414,7 @@ void main() {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'GET');
         expect(request.path, '/portfolio/valuation-history');
-        expect(request.queryParameters, {'days': '365'});
+        expect(request.queryParameters, {'days': '365', 'folder_id': 'main'});
         expect(request.localPremiumState, 'verified');
         return _json(200, {
           'success': true,
@@ -422,9 +422,13 @@ void main() {
         });
       });
 
-      final history = await PortfolioApiClient(
-        _dio(adapter),
-      ).getValuationHistory(_session, days: 365, localPremiumVerified: true);
+      final history = await PortfolioApiClient(_dio(adapter))
+          .getValuationHistory(
+            _session,
+            days: 365,
+            folderId: 'main',
+            localPremiumVerified: true,
+          );
 
       expect(history, isEmpty);
     },

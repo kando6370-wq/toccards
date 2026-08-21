@@ -53,9 +53,28 @@ describe("Premium Performance routes", () => {
     await db.batch([
       db.prepare("INSERT INTO billing_purchase_chain (id, environment, status, expires_at, revoked_at) VALUES ('chain-history', 'Sandbox', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO billing_session_entitlement_grant (id, session_id, purchase_chain_id, entitlement_id, status, expires_at, revoked_at) VALUES ('grant-history', 'session-a', 'chain-history', 'performance_pro', 'active', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO portfolio_folder (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at) VALUES ('trade', 'user', 'user-1', 'Trade', 0, 100, '2026-08-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z')"),
     ]);
 
-    expect((await request("session-a", "/portfolio/valuation-history?days=365")).status).toBe(200);
+    const scoped = await request(
+      "session-a",
+      "/portfolio/valuation-history?days=365&folder_id=main",
+    );
+    expect(scoped.status).toBe(200);
+    const scopedBody = await scoped.json() as {
+      data: { items: Array<{ folder_id: string }> };
+    };
+    expect(scopedBody.data.items.map((item) => item.folder_id)).toEqual(["main"]);
+    const emptyFolder = await request(
+      "session-a",
+      "/portfolio/valuation-history?days=365&folder_id=",
+    );
+    expect(emptyFolder.status).toBe(422);
+    const missingFolder = await request(
+      "session-a",
+      "/portfolio/valuation-history?days=365&folder_id=missing",
+    );
+    expect(missingFolder.status).toBe(404);
     expect((await request("session-b", "/portfolio/valuation-history?days=365")).status).toBe(403);
   });
 

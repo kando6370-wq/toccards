@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
@@ -46,6 +47,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    this.isChartRangeLoading = false,
     this.trendingStatus = KandoLoadStatus.content,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.content;
@@ -56,6 +58,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    this.isChartRangeLoading = false,
     this.trendingStatus = KandoLoadStatus.failure,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.failure;
@@ -66,6 +69,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    this.isChartRangeLoading = false,
     this.trendingStatus = KandoLoadStatus.loading,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.loading;
@@ -76,6 +80,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    required this.isChartRangeLoading,
     required this.loadStatus,
     required this.trendingStatus,
   }) : _dashboard = dashboard;
@@ -85,6 +90,7 @@ class HomeState {
   final AppCurrency currency;
   final bool amountHidden;
   final HomeChartRange chartRange;
+  final bool isChartRangeLoading;
   final KandoLoadStatus loadStatus;
   final KandoLoadStatus trendingStatus;
 
@@ -224,6 +230,7 @@ class HomeState {
     AppCurrency? currency,
     bool? amountHidden,
     HomeChartRange? chartRange,
+    bool? isChartRangeLoading,
     KandoLoadStatus? trendingStatus,
   }) {
     return HomeState._(
@@ -232,6 +239,7 @@ class HomeState {
       currency: currency ?? this.currency,
       amountHidden: amountHidden ?? this.amountHidden,
       chartRange: chartRange ?? this.chartRange,
+      isChartRangeLoading: isChartRangeLoading ?? this.isChartRangeLoading,
       loadStatus: loadStatus,
       trendingStatus: trendingStatus ?? this.trendingStatus,
     );
@@ -263,6 +271,8 @@ class HomeController extends Notifier<HomeState> {
   var _trendingLoadGeneration = 0;
   var _isSelectingCurrency = false;
   var _chartRangeGeneration = 0;
+  Future<bool>? _oneYearLoad;
+  String? _oneYearLoadFolderId;
   String? _restoringCurrencyCode;
 
   Future<HomeCoreLoadResult> get coreLoadComplete {
@@ -711,9 +721,11 @@ class HomeController extends Notifier<HomeState> {
         state.selectedPortfolio;
     final previousFolderId = state.selectedFolderId;
     final previousRange = state.chartRange;
+    _chartRangeGeneration++;
     state = state.copyWith(
       selectedFolderId: folderId,
       chartRange: _bestChartRange(portfolio, preferred: state.chartRange),
+      isChartRangeLoading: false,
     );
     try {
       await _updatePreferences(lastSelectedFolderId: folderId);
@@ -723,6 +735,7 @@ class HomeController extends Notifier<HomeState> {
       state = state.copyWith(
         selectedFolderId: previousFolderId,
         chartRange: previousRange,
+        isChartRangeLoading: false,
       );
       return false;
     }
@@ -851,7 +864,8 @@ class HomeController extends Notifier<HomeState> {
       return false;
     }
 
-    state = state.copyWith(chartRange: chartRange);
+    if (state.isChartRangeLoading) _chartRangeGeneration++;
+    state = state.copyWith(chartRange: chartRange, isChartRangeLoading: false);
     return true;
   }
 
@@ -859,21 +873,61 @@ class HomeController extends Notifier<HomeState> {
     final session = ref.read(authControllerProvider).session;
     if (session == null || state.isLoading || state.isUnavailable) return false;
     final folderId = state.selectedFolderId;
+    final inFlight = _oneYearLoad;
+    if (inFlight != null &&
+        _oneYearLoadFolderId == folderId &&
+        state.chartRange == HomeChartRange.oneYear &&
+        state.isChartRangeLoading) {
+      return inFlight;
+    }
+    final request = _loadOneYearChartForFolder(
+      session,
+      folderId,
+      state.chartRange,
+    );
+    _oneYearLoad = request;
+    _oneYearLoadFolderId = folderId;
+    try {
+      return await request;
+    } finally {
+      if (identical(_oneYearLoad, request)) {
+        _oneYearLoad = null;
+        _oneYearLoadFolderId = null;
+      }
+    }
+  }
+
+  Future<bool> _loadOneYearChartForFolder(
+    AuthSession session,
+    String folderId,
+    HomeChartRange previousRange,
+  ) async {
     final generation = ++_chartRangeGeneration;
+    state = state.copyWith(
+      chartRange: HomeChartRange.oneYear,
+      isChartRangeLoading: true,
+    );
     try {
       final valuations = await ref
           .read(portfolioApiClientProvider)
-          .getValuationHistory(session, days: 365, localPremiumVerified: true)
+          .getValuationHistory(
+            session,
+            days: 365,
+            folderId: folderId,
+            localPremiumVerified: true,
+          )
           .timeout(const Duration(seconds: 15));
       if (!ref.mounted ||
           generation != _chartRangeGeneration ||
           state.selectedFolderId != folderId) {
-        return false;
+        return true;
       }
       final valuation = valuations
           .where((item) => item.folderId == folderId)
           .firstOrNull;
-      if (valuation == null) return false;
+      if (valuation == null) {
+        throw StateError('One year portfolio valuation is unavailable.');
+      }
       final points = _homeRangePoints(valuation.series, HomeChartRange.oneYear);
       final portfolio = state.selectedPortfolio;
       final updated = portfolio.copyWith(
@@ -896,9 +950,19 @@ class HomeController extends Notifier<HomeState> {
           },
         ),
         chartRange: HomeChartRange.oneYear,
+        isChartRangeLoading: false,
       );
       return true;
     } catch (_) {
+      if (!ref.mounted ||
+          generation != _chartRangeGeneration ||
+          state.selectedFolderId != folderId) {
+        return true;
+      }
+      state = state.copyWith(
+        chartRange: previousRange,
+        isChartRangeLoading: false,
+      );
       return false;
     }
   }

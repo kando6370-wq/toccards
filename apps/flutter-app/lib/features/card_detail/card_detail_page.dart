@@ -4173,7 +4173,7 @@ class _PriceRangeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       key: Key('card-detail-price-range-${range.label}'),
-      borderRadius: BorderRadius.circular(showProBadge ? 4 : 999),
+      borderRadius: BorderRadius.circular(4),
       onTap: () => onSelected(range),
       child: showProBadge
           ? SizedBox(
@@ -4213,40 +4213,53 @@ class _PriceRangeButton extends StatelessWidget {
                 ],
               ),
             )
-          : _PriceRangeCircle(range: range, selected: selected),
+          : _PriceRangeIndicator(range: range, selected: selected),
     );
   }
 }
 
-class _PriceRangeCircle extends StatelessWidget {
-  const _PriceRangeCircle({required this.range, required this.selected});
+class _PriceRangeIndicator extends StatelessWidget {
+  const _PriceRangeIndicator({required this.range, required this.selected});
 
   final CardPriceRange range;
   final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 40,
       height: 40,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: selected ? const Color(0xFFBAC158) : Colors.transparent,
-        shape: BoxShape.circle,
-        boxShadow: selected
-            ? [
-                BoxShadow(
-                  color: KandoColors.accent.withValues(alpha: 0.2),
-                  blurRadius: 6,
-                ),
-              ]
-            : null,
-      ),
-      child: Text(
-        range.label.toUpperCase(),
-        style: TextStyle(
-          fontSize: 10,
-          color: selected ? const Color(0xFF191E00) : KandoColors.mutedText,
+      child: Center(
+        child: Container(
+          width: 40,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            gradient: selected
+                ? const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x99747B26), Color(0x33747B26)],
+                  )
+                : null,
+            boxShadow: selected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x0D000000),
+                      offset: Offset(0, 1),
+                      blurRadius: 2,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            range.label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              color: selected ? KandoColors.accent : KandoColors.mutedText,
+            ),
+          ),
         ),
       ),
     );

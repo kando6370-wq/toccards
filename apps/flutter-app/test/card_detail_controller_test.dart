@@ -1946,6 +1946,7 @@ class _FakePortfolioApiClient implements PortfolioApi {
   Future<List<PortfolioFolderValuationDto>> getValuationHistory(
     AuthSession session, {
     int days = 90,
+    String? folderId,
     bool localPremiumVerified = false,
   }) async => const [];
 

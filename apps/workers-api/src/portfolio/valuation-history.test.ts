@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { loadSkus, loadValuationHistory, matchingPrice } from "./valuation-history";
 
 class FakeDb {
@@ -32,6 +32,37 @@ class FakeDb {
 }
 
 describe("portfolio valuation history", () => {
+  it("bounds 365D events and price decoding because extended history must scale with the requested window", async () => {
+    const db = new FakeDb(
+      [event("a1", "item-a", "main", "100", "upsert", "2024-01-01T00:00:00.000Z", 1)],
+      [sku("100", 1, [{ date: "2025-07-10", price: 10 }])],
+      [card("100", "One Year Card")],
+    );
+    const parse = vi.spyOn(JSON, "parse");
+    try {
+      await loadValuationHistory(
+        db as unknown as D1Database,
+        { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+        ["main"],
+        365,
+        new Date("2026-07-10T12:00:00.000Z"),
+      );
+
+      const eventQuery = db.bindings.find(({ sql }) => sql.includes("collection_item_event"));
+      expect(eventQuery?.sql).toContain("effective_at >= ?");
+      expect(eventQuery?.values).toEqual([
+        "anonymous",
+        "anon-1",
+        "2025-07-10T00:00:00.000Z",
+        "2025-07-10T00:00:00.000Z",
+        "main",
+      ]);
+      expect(parse).toHaveBeenCalledTimes(2);
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
   it("binds every text card reference because PostgreSQL price_series.card_ref is not numeric-only", async () => {
     const db = new FakeDb([], [], []);
 
