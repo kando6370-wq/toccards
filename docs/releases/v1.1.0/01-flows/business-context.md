@@ -88,7 +88,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 1. App 读取本地会话、环境配置和已验证 Premium 缓存。
 2. 无有效身份时调用 `POST /api/v1/auth/anonymous` 建立匿名账号和 session。
 3. 用户可通过邮箱、Google 或 Apple 登录；Access Token 过期时使用同一 session 的 Refresh Token 换新。
-4. 游客注册或绑定后，服务端把 Folder、Collection、Wishlist、偏好和扫描记录迁移到正式 UID。
+4. 游客注册为新用户后，服务端把 Folder、Collection、Wishlist、偏好、扫描记录和已结算的 Free Scan 消费迁移到正式 UID；游客登录已有用户时不合并游客 Scan Quota。
 5. 登出撤销 session；删除账号按正式/匿名类型清理或失效业务数据。
 
 异常：刷新失败后客户端清理无效会话；验证码错误/过期、重复邮箱和禁用账号由服务端拒绝。证据：`auth/`、`auth_session_interceptor.dart`。
@@ -121,6 +121,9 @@ reserved -> released
 - Free 终身上限为 10；`remaining = max(0, 10 - reserved - consumed)`。
 - 同一 request 重试返回已有结果；60 秒 processing lease 过期后允许接管。
 - Premium 请求记录审计但不消耗 Free 额度。
+- 客户端超时或传输结果不确定时，Failed Retry 复用原 request ID，避免服务端迟到成功后以新 ID 再次消费；收到明确终态响应后的 Retry 使用新请求。
+- Premium 在 Scan 页面内确认降级为 Free，或服务端 quota 从 Unlimited 收敛为 Free 时，App 主动刷新并恢复该身份原有 Remaining；Free 提示条在 Scanning、Recognizing、Revealing 和结果状态持续显示并跟随最新服务端结算值。
+- Capture 与 Gallery 共用 10 张 Queue 上限，Waiting、Processing、Matched、Failed 和 No Match 均计入容量。
 - App Queue 的 Processing、Waiting、Done 是客户端展示状态；删除 Processing 不取消已发出的服务端结算，但后台结果不会把已删 Item 插回 UI。
 
 证据：`src/scan/quota.ts`、`routes.ts`、`quota.integration.test.ts`、`scan_page_test.dart`。

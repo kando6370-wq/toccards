@@ -369,6 +369,7 @@ class ScanPage extends ConsumerStatefulWidget {
 
 class _ScanPageState extends ConsumerState<ScanPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  static const _maxQueueItems = 10;
   static const _revealTimelineDuration = Duration(microseconds: 1529856);
   static const _captureAnimationDuration = Duration(milliseconds: 500);
   static const _galleryCameraWarmupDuration = Duration(milliseconds: 500);
@@ -395,6 +396,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   int? _photoRecognitionItemId;
   var _premiumResolutionInFlight = false;
   var _freeEntitlementConfirmedForLifecycle = false;
+  var _premiumDowngradedToFree = false;
   int? _captureFeedbackItemId;
   var _librarySelectionInFlight = false;
   var _quotaPaywallOpen = false;
@@ -615,6 +617,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   Future<void> _startPhotoScan() async {
+    if (!_hasScanQueueCapacity()) return;
     if (!await _resolvePremiumBeforeScan()) return;
     if (!mounted) return;
     final source = ref.read(scanResultSourceProvider);
@@ -703,21 +706,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _startLibraryScan() async {
     if (_librarySelectionInFlight) return;
+    if (!_hasScanQueueCapacity()) return;
     if (!await _resolvePremiumBeforeScan()) return;
     if (!mounted) return;
     if (_scanQuotaExhausted()) {
       unawaited(_openQuotaPaywall());
       return;
     }
-    final remainingQueueCapacity = 10 - _items.length;
-    if (remainingQueueCapacity <= 0) {
-      showKandoTopToast(
-        context,
-        message: 'Scan queue is full',
-        type: KandoTopToastType.info,
-      );
-      return;
-    }
+    final remainingQueueCapacity = _maxQueueItems - _items.length;
     ref.read(analyticsProvider).track(AnalyticsEvent.imageClick);
     setState(() => _librarySelectionInFlight = true);
     try {
@@ -783,6 +779,16 @@ class _ScanPageState extends ConsumerState<ScanPage>
     return quota.isServerAuthoritative && quota.remainingScans == 0;
   }
 
+  bool _hasScanQueueCapacity() {
+    if (_items.length < _maxQueueItems) return true;
+    showKandoTopToast(
+      context,
+      message: 'Scan queue is full',
+      type: KandoTopToastType.info,
+    );
+    return false;
+  }
+
   Future<bool> _resolvePremiumBeforeScan() async {
     final current = ref.read(subscriptionControllerProvider).premiumState;
     final quota = ref.read(scanQuotaControllerProvider);
@@ -828,10 +834,19 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   Future<void> _refreshQuotaAndResumeWaiting() async {
+    final wasUnlimited = ref.read(scanQuotaControllerProvider).unlimited;
     final refreshed = await ref
         .read(scanQuotaControllerProvider.notifier)
         .refresh();
-    if (mounted && refreshed) _resumeWaitingFromServerQuota();
+    if (!mounted || !refreshed) return;
+    final quota = ref.read(scanQuotaControllerProvider);
+    if (wasUnlimited &&
+        !quota.unlimited &&
+        ref.read(subscriptionControllerProvider).premiumState ==
+            AppPremiumState.free) {
+      _premiumDowngradedToFree = true;
+    }
+    _resumeWaitingFromServerQuota();
   }
 
   Future<void> _synchronizePremiumForScan() async {
@@ -845,8 +860,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
       final deadline = DateTime.now().add(const Duration(seconds: 15));
       do {
         await _refreshQuotaAndResumeWaiting();
+        final quota = ref.read(scanQuotaControllerProvider);
+        final premiumState = ref
+            .read(subscriptionControllerProvider)
+            .premiumState;
         if (!mounted ||
-            ref.read(scanQuotaControllerProvider).unlimited ||
+            quota.unlimited ||
+            (_premiumDowngradedToFree &&
+                premiumState == AppPremiumState.free &&
+                quota.isServerAuthoritative) ||
             DateTime.now().isAfter(deadline)) {
           return;
         }
@@ -878,11 +900,36 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!mounted) return;
     final quota = ref.read(scanQuotaControllerProvider);
     if (!quota.isServerAuthoritative) return;
+    final entitlementSyncItems = _items
+        .where((item) => item.status == _ScanItemStatus.entitlementSync)
+        .toList();
+    final confirmedFree =
+        _premiumDowngradedToFree &&
+        ref.read(subscriptionControllerProvider).premiumState ==
+            AppPremiumState.free;
+    if (!quota.unlimited &&
+        confirmedFree &&
+        quota.remainingScans == 0 &&
+        entitlementSyncItems.isNotEmpty) {
+      setState(() {
+        for (final item in entitlementSyncItems) {
+          final index = _items.indexWhere(
+            (candidate) => candidate.id == item.id,
+          );
+          if (index >= 0) {
+            _items[index] = item.copyWith(status: _ScanItemStatus.waiting);
+          }
+        }
+      });
+      unawaited(_openQuotaPaywall());
+      return;
+    }
     var capacity = quota.unlimited ? _items.length : quota.remainingScans;
     if (capacity <= 0) return;
     final resumable = _items.where((item) {
       if (item.status == _ScanItemStatus.waiting) return true;
-      return quota.unlimited && item.status == _ScanItemStatus.entitlementSync;
+      return item.status == _ScanItemStatus.entitlementSync &&
+          (quota.unlimited || confirmedFree);
     }).toList();
     for (final item in resumable) {
       if (capacity <= 0) break;
@@ -1931,6 +1978,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AppPremiumState>(
+      subscriptionControllerProvider.select((value) => value.premiumState),
+      (previous, next) {
+        if (previous == AppPremiumState.premium &&
+            next == AppPremiumState.free) {
+          _freeEntitlementConfirmedForLifecycle = true;
+          _premiumDowngradedToFree = true;
+          unawaited(_refreshQuotaAndResumeWaiting());
+        }
+      },
+    );
     final currency = ref.watch(selectedCurrencyProvider);
     final isPro = ref.watch(
       subscriptionControllerProvider.select((value) => value.isPro),

@@ -171,6 +171,48 @@ void main() {
   );
 
   testWidgets(
+    'the Free quota prompt stays visible through scanning and follows the settled server count',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(photoResult: pending.future),
+      );
+
+      expect(find.text('10 scans remaining'), findsOneWidget);
+      expect(find.text('Tap to get unlimited scans'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(find.text('10 scans remaining'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('10 scans remaining'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('10 scans remaining'), findsOneWidget);
+
+      pending.complete(
+        const ScanResolution.noMatch(
+          quota: ScanQuotaDto(
+            access: ScanQuotaAccess.free,
+            limit: 10,
+            reserved: 0,
+            consumed: 1,
+            remaining: 9,
+            unlimited: false,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1530));
+
+      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(find.text('Tap to get unlimited scans'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'an exhausted free allowance opens the paywall without starting recognition',
     (tester) async {
       final source = _TestScanResultSource(
@@ -265,6 +307,38 @@ void main() {
       await _pumpScanTestApp(tester, scanQuota: _unlimitedQuota);
 
       expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Premium becoming Free refreshes the original quota so the Free prompt follows entitlement state',
+    (tester) async {
+      const restoredFreeQuota = ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 0,
+        consumed: 3,
+        remaining: 7,
+        unlimited: false,
+      );
+      final subscription = _MutableScanSubscriptionController();
+      final quotaController = _TestScanQuotaController(
+        _unlimitedQuota,
+        refreshQuotas: const [_unlimitedQuota, restoredFreeQuota],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanQuotaController: quotaController,
+        subscriptionController: () => subscription,
+      );
+
+      expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+      subscription.setPremiumState(AppPremiumState.free);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('7 scans remaining'), findsOneWidget);
+      expect(find.text('Tap to get unlimited scans'), findsOneWidget);
     },
   );
 
@@ -2695,6 +2769,29 @@ void main() {
   });
 
   testWidgets(
+    'Capture refuses an eleventh item because Waiting and results share the ten-card queue limit',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      final source = _TestScanResultSource(photoResult: pending.future);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        subscriptionController: _ProScanSubscriptionController.new,
+      );
+
+      for (var index = 0; index < 11; index += 1) {
+        await tester.tap(find.byTooltip('Take Photo'));
+        await tester.pump();
+      }
+
+      expect(source.photoCallCount, 10);
+      expect(find.text('Scanned: 0/10'), findsOneWidget);
+      expect(find.text('Scan queue is full'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  testWidgets(
     'Done stays disabled while another scan is processing because review must use a settled queue',
     (tester) async {
       final pendingLibrary = Completer<ScanResolution>();
@@ -3614,6 +3711,21 @@ class _AnalyticsRecorder {
 class _ProScanSubscriptionController extends SubscriptionController {
   @override
   SubscriptionState build() => const SubscriptionState(isPro: true);
+}
+
+class _MutableScanSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.premium);
+
+  void setPremiumState(AppPremiumState premiumState) {
+    state = state.copyWith(premiumState: premiumState);
+  }
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    return state.premiumState;
+  }
 }
 
 class _SynchronizingScanSubscriptionController extends SubscriptionController {

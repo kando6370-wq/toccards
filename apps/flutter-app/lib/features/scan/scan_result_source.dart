@@ -231,6 +231,9 @@ class ApiScanResultSource implements ScanResultSource {
   final Future<ScanAppInfo> Function() _appInfo;
   final ScanCardNumberReader _cardNumberReader;
   final bool Function() _localPremiumVerified;
+  final Expando<String> _retryRequestIds = Expando<String>(
+    'scanRetryRequestId',
+  );
   @override
   Future<ScanResolution> photo() => _pickAndRecognize(ScanImageSource.camera);
 
@@ -279,6 +282,7 @@ class ApiScanResultSource implements ScanResultSource {
     Uint8List? displayImageBytes = image.recognitionCrop == null
         ? image.bytes
         : null;
+    final requestId = _retryRequestIds[image.bytes] ?? const Uuid().v4();
     final ScanRecognitionDto recognition;
     try {
       final session = _session();
@@ -310,12 +314,13 @@ class ApiScanResultSource implements ScanResultSource {
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,
-        requestId: const Uuid().v4(),
+        requestId: requestId,
         localPremiumVerified: _localPremiumVerified(),
         cardNumber: cardNumber,
       );
     } on ScanApiException catch (error) {
       if (error.code == 'SCAN_QUOTA_EXHAUSTED' && error.quota != null) {
+        _retryRequestIds[image.bytes] = null;
         return ScanResolution.quotaExhausted(
           imageBytes: image.bytes,
           displayImageBytes: displayImageBytes,
@@ -324,12 +329,18 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       if (error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+        _retryRequestIds[image.bytes] = null;
         return ScanResolution.entitlementSyncRequired(
           imageBytes: image.bytes,
           displayImageBytes: displayImageBytes,
           imageFileName: image.fileName,
         );
       }
+      _retryRequestIds[image.bytes] =
+          error.code == scanRequestTimeoutCode ||
+              error.code == 'SCAN_REQUEST_CONFLICT'
+          ? requestId
+          : null;
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
@@ -337,12 +348,14 @@ class ApiScanResultSource implements ScanResultSource {
         quota: error.quota,
       );
     } on Object {
+      _retryRequestIds[image.bytes] = requestId;
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
         imageFileName: image.fileName,
       );
     }
+    _retryRequestIds[image.bytes] = null;
     final matchedResults = recognition.results.where(
       (result) => result.matched && result.candidates.isNotEmpty,
     );

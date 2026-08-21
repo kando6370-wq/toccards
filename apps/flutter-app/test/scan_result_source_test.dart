@@ -142,6 +142,38 @@ void main() {
   );
 
   test(
+    'retry reuses an uncertain request id because a late success must not spend Free quota twice',
+    () async {
+      final api = _FakeScanApi(
+        _matchedRecognition,
+        failures: const [
+          ScanApiException(
+            scanRequestTimeoutMessage,
+            code: scanRequestTimeoutCode,
+          ),
+        ],
+      );
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        imageHasher: _FakeScanImageHasher(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final failed = await source.photo();
+      await source.retry(
+        imageBytes: failed.imageBytes,
+        fileName: failed.imageFileName,
+      );
+
+      expect(api.requestIds, hasLength(2));
+      expect(api.requestIds[1], api.requestIds[0]);
+    },
+  );
+
+  test(
     'picker cancellation does not call recognition because cancelling capture is not a failed scan',
     () async {
       final api = _FakeScanApi(_matchedRecognition);
@@ -290,13 +322,15 @@ class _FakeScanImagePicker implements ScanImagePicker {
 }
 
 class _FakeScanApi implements ScanApi {
-  _FakeScanApi(this.result, {this.failure});
+  _FakeScanApi(this.result, {this.failure, this.failures = const []});
 
   final ScanRecognitionDto result;
   final Object? failure;
+  final List<Object> failures;
   ScanImageHashes? lastHashes;
   String? lastPlatform;
   String? lastCardNumber;
+  final requestIds = <String>[];
   var callCount = 0;
 
   @override
@@ -328,9 +362,11 @@ class _FakeScanApi implements ScanApi {
     String? osVersion,
   }) async {
     callCount += 1;
+    requestIds.add(requestId);
     lastHashes = hashes;
     lastPlatform = platform;
     lastCardNumber = cardNumber;
+    if (callCount <= failures.length) throw failures[callCount - 1];
     final failure = this.failure;
     if (failure != null) throw failure;
     return result;
