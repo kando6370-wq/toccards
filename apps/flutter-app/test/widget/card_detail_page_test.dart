@@ -1173,7 +1173,7 @@ void main() {
       expect(tooltip, contains('Date: 2026-08-12'));
       expect(tooltip, contains(r'Daily Change: +$40.00'));
       expect(tooltip, contains(r'Market Value: $790.00'));
-      expect(tooltip, contains(r'Profit / Loss: $190.00'));
+      expect(tooltip, contains(r'Profit / Loss: +$190.00'));
       expect(tooltip, contains('Qty: 1'));
       expect(tooltip, isNot(contains('Price:')));
 
@@ -1234,6 +1234,42 @@ void main() {
   );
 
   testWidgets(
+    'Card Performance makes a single data point clearly visible before selection',
+    (tester) async {
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-performance-chart')),
+      );
+
+      final chart = find.byKey(const Key('card-detail-performance-chart'));
+      final customPaint = tester.widget<CustomPaint>(
+        find.descendant(of: chart, matching: find.byType(CustomPaint)),
+      );
+      final haloAlpha = await tester.runAsync(() async {
+        final recorder = ui.PictureRecorder();
+        customPaint.painter!.paint(Canvas(recorder), const Size(100, 100));
+        final image = await recorder.endRecording().toImage(100, 100);
+        final pixels = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        image.dispose();
+        return pixels!.getUint8((52 * 100 + 55) * 4 + 3);
+      });
+
+      expect(haloAlpha, greaterThan(0));
+    },
+  );
+
+  testWidgets(
     'Pro owners without purchase price can edit the Collection Item because Performance cannot be calculated yet',
     (tester) async {
       await tester.pumpWidget(
@@ -1265,7 +1301,7 @@ void main() {
       await tester.tapAt(tester.getRect(chart).center);
       await tester.pump();
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
-      expect(tooltip, contains(r'Daily Change: +$40.00'));
+      expect(tooltip, contains(r'Daily Change: +$55.00'));
       expect(tooltip, contains(r'Market Value: $790.00'));
       expect(tooltip, contains('Qty: 1'));
       expect(tooltip, isNot(contains('Profit / Loss')));
@@ -2194,7 +2230,7 @@ class _CardPerformanceApi extends PortfolioApiClient {
     final point = PerformancePointDto(
       date: '2026-08-12',
       marketValueUsd: 790,
-      marketValueChangeUsd: 40,
+      marketValueChangeUsd: 55,
       marketChangeUsd: 10,
       portfolioChangeUsd: 20,
       paidMarketValueUsd: 790,

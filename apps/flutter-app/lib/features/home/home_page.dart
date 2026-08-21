@@ -782,11 +782,13 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
     final state = widget.state;
     final performance = widget.performance;
     final performanceData = performance.data;
-    final showPurchasePriceCount = widget.isPro && performanceData != null;
-    final showPurchasePriceInfo =
-        showPurchasePriceCount &&
-        performanceData.purchasePriceStatus == PurchasePriceStatus.partial;
+    final showPurchasePriceSummary = widget.isPro && performanceData != null;
     final purchasePriceItemCount = performanceData?.purchasePriceItemCount ?? 0;
+    final showPurchasePriceInfo =
+        showPurchasePriceSummary && purchasePriceItemCount > 0;
+    final purchasePriceSummary = purchasePriceItemCount == 0
+        ? 'Add purchase prices to track profit and return'
+        : '$purchasePriceItemCount ${purchasePriceItemCount == 1 ? 'card' : 'cards'} with purchase price';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -841,7 +843,7 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                     ],
                   ),
                 ),
-                if (showPurchasePriceCount) ...[
+                if (showPurchasePriceSummary) ...[
                   const SizedBox(height: 4),
                   SizedBox(
                     height: 20,
@@ -853,7 +855,7 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              '$purchasePriceItemCount ${purchasePriceItemCount == 1 ? 'card' : 'cards'} with purchase price',
+                              purchasePriceSummary,
                               maxLines: 1,
                               style: TextStyle(
                                 color: KandoColors.mutedText,
@@ -913,10 +915,10 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
           const _PerformanceLoadingSkeleton()
         else if (performance.data case final data?) ...[
           if (data.itemCount == 0) ...[
-            const SizedBox(
+            _PortfolioEmptyPanel(
               key: Key('home-performance-empty'),
-              height: 300,
-              child: Center(child: Text('Your portfolio is empty.')),
+              onScan: () => context.go('/scan'),
+              onSearch: () => context.go('/search'),
             ),
             const SizedBox(height: 32),
             _TopPerformersSection(
@@ -934,14 +936,20 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
           else ...[
             if (data.purchasePriceStatus == PurchasePriceStatus.missing)
               _PerformanceMetric(
+                key: const Key('home-performance-metric-market-value-single'),
+                iconAsset: 'assets/collection/performance_current_value.svg',
                 label: 'Market Value',
                 value: _performanceAmount(state, data.current.marketValueUsd),
               )
             else ...[
               Row(
+                key: const Key('home-performance-metrics-row-1'),
                 children: [
                   Expanded(
                     child: _PerformanceMetric(
+                      key: const Key('home-performance-metric-total-paid'),
+                      iconAsset:
+                          'assets/collection/performance_purchase_cost.svg',
                       label: 'Total Paid',
                       value: _performanceAmount(
                         state,
@@ -952,6 +960,9 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _PerformanceMetric(
+                      key: const Key('home-performance-metric-market-value'),
+                      iconAsset:
+                          'assets/collection/performance_current_value.svg',
                       label: 'Market Value',
                       value: _performanceAmount(
                         state,
@@ -963,23 +974,31 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
               ),
               const SizedBox(height: 12),
               Row(
+                key: const Key('home-performance-metrics-row-2'),
                 children: [
                   Expanded(
                     child: _PerformanceMetric(
+                      key: const Key('home-performance-metric-profit-loss'),
+                      iconAsset:
+                          'assets/collection/performance_profit_loss.svg',
                       label: 'Profit / Loss',
                       value: _performanceAmount(
                         state,
                         data.current.profitLossUsd,
                       ),
+                      helper: 'Priced cards only',
                     ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: _PerformanceMetric(
+                      key: const Key('home-performance-metric-return'),
+                      iconAsset: 'assets/collection/performance_return.svg',
                       label: 'Return',
                       value: data.current.returnPercent == null
                           ? '--'
                           : '${data.current.returnPercent!.toStringAsFixed(2)}%',
+                      helper: 'Priced cards only',
                     ),
                   ),
                 ],
@@ -1011,6 +1030,7 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                       semanticKey: const Key('home-performance-chart'),
                       semanticLabel: 'Portfolio performance chart',
                       persistentSelection: true,
+                      emphasizeSinglePoint: true,
                       onSelectionChanged: (selected) {
                         if (selected) _removeInfoTip();
                       },
@@ -1027,16 +1047,6 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                                 _performanceAmount(state, point.marketValueUsd),
                           )
                           .toList(),
-                      tooltipHeaderValues: data.series
-                          .map(
-                            (point) => point.marketValueChangeUsd == null
-                                ? null
-                                : _performanceChange(
-                                    state,
-                                    point.marketValueChangeUsd!,
-                                  ),
-                          )
-                          .toList(),
                       tooltipRows: [
                         for (var index = 0; index < data.series.length; index++)
                           _performanceTooltipRows(state, data.series, index),
@@ -1046,11 +1056,6 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                 ],
               ),
             ),
-            if (data.purchasePriceStatus == PurchasePriceStatus.missing)
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
-                child: Text('Add purchase prices to track profit and return.'),
-              ),
             const SizedBox(height: 32),
             _TopPerformersSection(
               state: state,
@@ -1228,20 +1233,9 @@ class _TopPerformersSection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         if (visiblePerformers.isEmpty)
-          const SizedBox(
+          const _EmptyCardBlock(
             key: Key('home-top-performers-empty'),
-            height: 96,
-            child: Center(
-              child: Text(
-                'Add purchase prices to see your top performers.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: KandoColors.mutedText,
-                  fontSize: 14,
-                  height: 20 / 14,
-                ),
-              ),
-            ),
+            message: 'No cards in this top performers yet',
           )
         else
           SizedBox(
@@ -1536,10 +1530,8 @@ List<String> _performanceTooltipRows(
   final point = points[index];
   final quantityDelta = point.quantityChange;
   return [
-    if (point.marketChangeUsd != null)
-      'Market: ${_performanceChange(state, point.marketChangeUsd!)}',
-    if (point.portfolioChangeUsd != null)
-      'Portfolio: ${_performanceChange(state, point.portfolioChangeUsd!)}',
+    'Market: ${point.marketChangeUsd == null ? '--' : _performanceChange(state, point.marketChangeUsd!)}',
+    'Portfolio: ${point.portfolioChangeUsd == null ? '--' : _performanceChange(state, point.portfolioChangeUsd!)}',
     'Qty: ${point.quantity}${quantityDelta == null || quantityDelta == 0 ? '' : ' (${quantityDelta > 0 ? '+' : ''}$quantityDelta)'}',
   ];
 }
@@ -1635,38 +1627,62 @@ class _PerformanceRangePicker extends StatelessWidget {
 }
 
 class _PerformanceMetric extends StatelessWidget {
-  const _PerformanceMetric({required this.label, required this.value});
+  const _PerformanceMetric({
+    required this.iconAsset,
+    required this.label,
+    required this.value,
+    this.helper,
+    super.key,
+  });
 
+  final String iconAsset;
   final String label;
   final String value;
+  final String? helper;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 94,
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      height: 100,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KandoColors.borderSubtle),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF262817), Color(0xFF17180F)],
+        border: Border.all(
+          color: const Color(0xFF474836).withValues(alpha: 0.3),
+        ),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFF747B26).withValues(alpha: 0.12),
+            const Color(0xFF343434).withValues(alpha: 0.38),
+          ],
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: KandoColors.mutedText,
-              fontSize: 12,
-              height: 16 / 12,
-            ),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              SvgPicture.asset(iconAsset),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: KandoColors.mutedText,
+                    fontSize: 12,
+                    height: 16 / 12,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -1680,6 +1696,19 @@ class _PerformanceMetric extends StatelessWidget {
               ),
             ),
           ),
+          if (helper != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              helper!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF999578),
+                fontSize: 10,
+                height: 14 / 10,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2036,7 +2065,11 @@ class _ChartRangePicker extends StatelessWidget {
 }
 
 class _PortfolioEmptyPanel extends StatelessWidget {
-  const _PortfolioEmptyPanel({required this.onScan, required this.onSearch});
+  const _PortfolioEmptyPanel({
+    super.key,
+    required this.onScan,
+    required this.onSearch,
+  });
 
   final VoidCallback onScan;
   final VoidCallback onSearch;
@@ -3080,9 +3113,9 @@ class _InteractiveChart extends StatefulWidget {
     this.quantities = const [],
     this.semanticKey = const Key('home-portfolio-chart'),
     this.semanticLabel = 'Portfolio value chart',
-    this.tooltipHeaderValues = const [],
     this.tooltipRows,
     this.persistentSelection = false,
+    this.emphasizeSinglePoint = false,
     this.onSelectionChanged,
   });
 
@@ -3092,9 +3125,9 @@ class _InteractiveChart extends StatefulWidget {
   final List<int> quantities;
   final Key semanticKey;
   final String semanticLabel;
-  final List<String?> tooltipHeaderValues;
   final List<List<String>>? tooltipRows;
   final bool persistentSelection;
+  final bool emphasizeSinglePoint;
   final ValueChanged<bool>? onSelectionChanged;
 
   @override
@@ -3109,9 +3142,6 @@ class _InteractiveChartState extends State<_InteractiveChart> {
     final selectedIndex = _selectedIndex;
     if (selectedIndex == null) return 'No chart point selected';
     final index = selectedIndex.clamp(0, widget.values.length - 1);
-    final tooltipHeaderValue = index < widget.tooltipHeaderValues.length
-        ? widget.tooltipHeaderValues[index]
-        : null;
     final rows =
         widget.tooltipRows?[index] ??
         [
@@ -3121,7 +3151,6 @@ class _InteractiveChartState extends State<_InteractiveChart> {
         ];
     return [
       'Date: ${_formatChartDate(widget.dates, index)}',
-      if (tooltipHeaderValue != null) 'Daily Change: $tooltipHeaderValue',
       ...rows,
     ].join(', ');
   }
@@ -3182,9 +3211,9 @@ class _InteractiveChartState extends State<_InteractiveChart> {
                   values: widget.values,
                   dates: widget.dates,
                   formattedValues: widget.formattedValues,
-                  tooltipHeaderValues: widget.tooltipHeaderValues,
                   tooltipRows: widget.tooltipRows,
                   selectedIndex: _selectedIndex,
+                  emphasizeSinglePoint: widget.emphasizeSinglePoint,
                 ),
                 child: const SizedBox.expand(),
               ),
@@ -3201,17 +3230,17 @@ class _ChartPainter extends CustomPainter {
     required this.values,
     required this.dates,
     required this.formattedValues,
-    required this.tooltipHeaderValues,
     required this.tooltipRows,
     required this.selectedIndex,
+    required this.emphasizeSinglePoint,
   });
 
   final List<double> values;
   final List<String> dates;
   final List<String> formattedValues;
-  final List<String?> tooltipHeaderValues;
   final List<List<String>>? tooltipRows;
   final int? selectedIndex;
+  final bool emphasizeSinglePoint;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -3280,6 +3309,14 @@ class _ChartPainter extends CustomPainter {
     }
 
     final selectedIndex = this.selectedIndex;
+    if (selectedIndex == null && emphasizeSinglePoint && points.length == 1) {
+      canvas.drawCircle(
+        points.single,
+        6,
+        Paint()..color = KandoColors.accent.withValues(alpha: 0.2),
+      );
+      canvas.drawCircle(points.single, 3, Paint()..color = KandoColors.accent);
+    }
     if (selectedIndex == null) return;
     final resolvedSelectedIndex = selectedIndex
         .clamp(0, points.length - 1)
@@ -3314,25 +3351,6 @@ class _ChartPainter extends CustomPainter {
       maxLines: 1,
       textDirection: TextDirection.ltr,
     )..layout();
-    final tooltipHeaderValue =
-        resolvedSelectedIndex < tooltipHeaderValues.length
-        ? tooltipHeaderValues[resolvedSelectedIndex]
-        : null;
-    final tooltipHeaderPainter = tooltipHeaderValue == null
-        ? null
-        : (TextPainter(
-            text: TextSpan(
-              text: tooltipHeaderValue,
-              style: const TextStyle(
-                color: KandoColors.accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                height: 16 / 11,
-              ),
-            ),
-            maxLines: 1,
-            textDirection: TextDirection.ltr,
-          )..layout());
     final rowPainters =
         (tooltipRows?[resolvedSelectedIndex] ??
                 ['Price: ${_chartPrice(formattedValues, resolvedSelectedIndex)}'])
@@ -3354,10 +3372,7 @@ class _ChartPainter extends CustomPainter {
             .toList();
     final tooltipSize = Size(
       [
-            datePainter.width +
-                (tooltipHeaderPainter == null
-                    ? 0
-                    : 8 + tooltipHeaderPainter.width),
+            datePainter.width,
             ...rowPainters.map((painter) => painter.width),
           ].reduce(math.max) +
           16,
@@ -3392,15 +3407,6 @@ class _ChartPainter extends CustomPainter {
         ..style = PaintingStyle.stroke,
     );
     datePainter.paint(canvas, tooltipRect.topLeft + const Offset(8, 8));
-    if (tooltipHeaderPainter != null) {
-      tooltipHeaderPainter.paint(
-        canvas,
-        Offset(
-          tooltipRect.right - tooltipHeaderPainter.width - 8,
-          tooltipRect.top + 8,
-        ),
-      );
-    }
     for (var index = 0; index < rowPainters.length; index++) {
       rowPainters[index].paint(
         canvas,
@@ -3414,9 +3420,9 @@ class _ChartPainter extends CustomPainter {
     return oldDelegate.values != values ||
         oldDelegate.dates != dates ||
         oldDelegate.formattedValues != formattedValues ||
-        oldDelegate.tooltipHeaderValues != tooltipHeaderValues ||
         oldDelegate.tooltipRows != tooltipRows ||
-        oldDelegate.selectedIndex != selectedIndex;
+        oldDelegate.selectedIndex != selectedIndex ||
+        oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint;
   }
 }
 

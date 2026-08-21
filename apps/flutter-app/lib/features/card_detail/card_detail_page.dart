@@ -1208,6 +1208,7 @@ class _CardPerformance extends StatelessWidget {
                             .map((point) => point.quantity)
                             .toList(),
                         persistentSelection: true,
+                        emphasizeSinglePoint: true,
                         semanticKey: const Key('card-detail-performance-chart'),
                         semanticLabel: 'Card performance chart',
                         tooltipRows: [
@@ -1240,7 +1241,7 @@ List<String> _cardPerformanceTooltipRows(
     'Daily Change: ${dailyChange == null ? '--' : _signedAmount(formatter, dailyChange)}',
     'Market Value: ${formatter.formatUsd(point.marketValueUsd)}',
     if (!missingPrice)
-      'Profit / Loss: ${formatter.formatUsd(point.profitLossUsd)}',
+      'Profit / Loss: ${point.profitLossUsd == null ? '--' : _signedAmount(formatter, point.profitLossUsd!)}',
     'Qty: ${point.quantity}${point.quantityChange == null || point.quantityChange == 0 ? '' : ' (${point.quantityChange! > 0 ? '+' : ''}${point.quantityChange})'}',
   ];
 }
@@ -4586,6 +4587,7 @@ class _InteractivePriceChart extends StatefulWidget {
     this.quantities = const [],
     this.tooltipRows,
     this.persistentSelection = false,
+    this.emphasizeSinglePoint = false,
     this.semanticKey = const Key('card-detail-price-chart-interactive'),
     this.semanticLabel = 'Card price chart',
   });
@@ -4594,6 +4596,7 @@ class _InteractivePriceChart extends StatefulWidget {
   final List<int> quantities;
   final List<List<String>>? tooltipRows;
   final bool persistentSelection;
+  final bool emphasizeSinglePoint;
   final Key semanticKey;
   final String semanticLabel;
 
@@ -4687,6 +4690,7 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
                   quantities: widget.quantities,
                   tooltipRows: widget.tooltipRows,
                   selectedIndex: _selectedIndex,
+                  emphasizeSinglePoint: widget.emphasizeSinglePoint,
                 ),
                 child: const SizedBox.expand(),
               ),
@@ -4704,12 +4708,14 @@ class _PriceChartPainter extends CustomPainter {
     required this.quantities,
     required this.tooltipRows,
     required this.selectedIndex,
+    required this.emphasizeSinglePoint,
   });
 
   final List<_DetailChartSeries> series;
   final List<int> quantities;
   final List<List<String>>? tooltipRows;
   final int? selectedIndex;
+  final bool emphasizeSinglePoint;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -4785,9 +4791,20 @@ class _PriceChartPainter extends CustomPainter {
 
     final selectedIndex = this.selectedIndex;
     if (selectedIndex == null) {
+      final validPointCount = offsetsBySeries.fold<int>(
+        0,
+        (count, offsets) => count + offsets.length,
+      );
       for (var index = 0; index < series.length; index++) {
         final offsets = offsetsBySeries[index];
         if (offsets.isNotEmpty) {
+          if (emphasizeSinglePoint && validPointCount == 1) {
+            canvas.drawCircle(
+              offsets.single,
+              6,
+              Paint()..color = series[index].color.withValues(alpha: 0.2),
+            );
+          }
           canvas.drawCircle(
             offsets.last,
             3,
@@ -4941,7 +4958,8 @@ class _PriceChartPainter extends CustomPainter {
     return oldDelegate.series != series ||
         oldDelegate.quantities != quantities ||
         oldDelegate.tooltipRows != tooltipRows ||
-        oldDelegate.selectedIndex != selectedIndex;
+        oldDelegate.selectedIndex != selectedIndex ||
+        oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint;
   }
 }
 
