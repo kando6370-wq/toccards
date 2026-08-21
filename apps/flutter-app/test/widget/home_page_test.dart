@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
@@ -40,6 +41,7 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/in_memory_portfolio_amount_hidden_storage.dart';
+import '../support/home_fixture_asset_bundle.dart';
 import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_collection_repository.dart';
 import '../support/mock_home_repository.dart';
@@ -47,9 +49,12 @@ import '../support/mock_search_repository.dart';
 
 void main() {
   test(
-    'Figma Home card photo decodes at its design source aspect ratio',
+    'Figma Home card test fixture stays out of runtime assets and decodes at its design source aspect ratio',
     () async {
-      final data = await rootBundle.load('assets/home/mega_lucario_ex.png');
+      expect(File(homeCardFixturePath).existsSync(), isTrue);
+      expect(File(homeCardFixtureAsset).existsSync(), isFalse);
+
+      final data = await homeFixtureAssetBundle.load(homeCardFixtureAsset);
       final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
       final frame = await codec.getNextFrame();
       addTearDown(() {
@@ -67,8 +72,9 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: SizedBox.expand()));
     final context = tester.element(find.byType(SizedBox).first);
-    final stream = const AssetImage(
-      'assets/home/mega_lucario_ex.png',
+    final stream = AssetImage(
+      homeCardFixtureAsset,
+      bundle: homeFixtureAssetBundle,
     ).resolve(createLocalImageConfiguration(context));
     final loaded = Completer<void>();
     final listener = ImageStreamListener(
@@ -113,11 +119,14 @@ void main() {
             _FreeHomeSubscriptionController.new,
           ),
         ],
-        child: MaterialApp(
-          theme: buildKandoTheme(),
-          home: const RepaintBoundary(
-            key: Key('home-figma-golden'),
-            child: HomePage(),
+        child: DefaultAssetBundle(
+          bundle: homeFixtureAssetBundle,
+          child: MaterialApp(
+            theme: buildKandoTheme(),
+            home: const RepaintBoundary(
+              key: Key('home-figma-golden'),
+              child: HomePage(),
+            ),
           ),
         ),
       ),
@@ -155,11 +164,14 @@ void main() {
             _FreeHomeSubscriptionController.new,
           ),
         ],
-        child: MaterialApp(
-          theme: buildKandoTheme(),
-          home: const RepaintBoundary(
-            key: Key('home-failure-figma-golden'),
-            child: HomePage(),
+        child: DefaultAssetBundle(
+          bundle: homeFixtureAssetBundle,
+          child: MaterialApp(
+            theme: buildKandoTheme(),
+            home: const RepaintBoundary(
+              key: Key('home-failure-figma-golden'),
+              child: HomePage(),
+            ),
           ),
         ),
       ),
@@ -2792,23 +2804,26 @@ Widget _mockHomeApp([
   PortfolioApiClient? performanceApi,
 ]) {
   final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
-  return ProviderScope(
-    overrides: [
-      ..._localAuthOverrides(),
-      homeRepositoryProvider.overrideWithValue(homeRepository),
-      collectionRepositoryProvider.overrideWithValue(
-        _HomeCollectionRepository(portfolioManagement),
-      ),
-      portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
-      portfolioApiClientProvider.overrideWithValue(
-        performanceApi ?? _TestHomePerformanceApi(),
-      ),
-      currencyRateApiProvider.overrideWithValue(currencyRateApi),
-      subscriptionControllerProvider.overrideWith(
-        subscriptionController ?? _FreeHomeSubscriptionController.new,
-      ),
-    ],
-    child: const _HomeTestApp(),
+  return DefaultAssetBundle(
+    bundle: homeFixtureAssetBundle,
+    child: ProviderScope(
+      overrides: [
+        ..._localAuthOverrides(),
+        homeRepositoryProvider.overrideWithValue(homeRepository),
+        collectionRepositoryProvider.overrideWithValue(
+          _HomeCollectionRepository(portfolioManagement),
+        ),
+        portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
+        portfolioApiClientProvider.overrideWithValue(
+          performanceApi ?? _TestHomePerformanceApi(),
+        ),
+        currencyRateApiProvider.overrideWithValue(currencyRateApi),
+        subscriptionControllerProvider.overrideWith(
+          subscriptionController ?? _FreeHomeSubscriptionController.new,
+        ),
+      ],
+      child: const _HomeTestApp(),
+    ),
   );
 }
 
