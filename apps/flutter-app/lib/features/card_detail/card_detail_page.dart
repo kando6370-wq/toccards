@@ -2368,6 +2368,7 @@ class _QuickCollectionReviewPageState
   String? _initializingItemId;
   String? _activeItemId;
   bool _isSavingAll = false;
+  final Set<String> _prefetchedCardIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -2387,7 +2388,10 @@ class _QuickCollectionReviewPageState
 
     final selectedIndex = math.min(_selectedIndex, pendingItems.length - 1);
     final pendingItem = pendingItems[selectedIndex];
-    final provider = cardDetailControllerProvider(pendingItem.card.id);
+    _scheduleAdjacentPrefetch(pendingItems, selectedIndex);
+    final provider = quickCollectionCardDetailControllerProvider(
+      pendingItem.card.id,
+    );
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
 
@@ -2395,6 +2399,12 @@ class _QuickCollectionReviewPageState
       return const _QuickCollectionLoading();
     }
     if (state.isUnavailable) {
+      return _QuickCollectionFailure(onRetry: controller.refresh);
+    }
+    if (state.assetStateStatus == KandoLoadStatus.loading) {
+      return const _QuickCollectionLoading();
+    }
+    if (state.assetStateStatus == KandoLoadStatus.failure) {
       return _QuickCollectionFailure(onRetry: controller.refresh);
     }
     if (_activeItemId != pendingItem.id || state.collectionItemDraft == null) {
@@ -2406,6 +2416,7 @@ class _QuickCollectionReviewPageState
     final sheet = _AddCollectionItemSheet(
       cardId: pendingItem.card.id,
       entrySource: AnalyticsValue.sourceSearch,
+      useQuickCollectionController: true,
       actionsEnabled: !_isSavingAll,
       topContent: multiple
           ? _PendingCollectionStrip(
@@ -2446,6 +2457,33 @@ class _QuickCollectionReviewPageState
     );
   }
 
+  void _scheduleAdjacentPrefetch(
+    List<PendingCollectionItem> items,
+    int selectedIndex,
+  ) {
+    final candidates = <PendingCollectionItem>[];
+    for (var offset = 1; offset <= 2; offset += 1) {
+      final index = selectedIndex + offset;
+      if (index >= items.length) break;
+      final item = items[index];
+      if (_prefetchedCardIds.add(item.card.id)) candidates.add(item);
+    }
+    if (candidates.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final item in candidates) {
+        ref.read(quickCollectionCardDetailControllerProvider(item.card.id));
+        final imageUrl = item.card.imageUrl?.trim();
+        if (imageUrl != null && imageUrl.isNotEmpty) {
+          unawaited(
+            precacheImage(NetworkImage(imageUrl), context, onError: (_, _) {}),
+          );
+        }
+      }
+    });
+  }
+
   void _initializeDraft(
     CardDetailController controller,
     PendingCollectionItem item,
@@ -2454,22 +2492,29 @@ class _QuickCollectionReviewPageState
     _initializingItemId = item.id;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      controller.cancelCollectionItemEdit();
-      controller.startAddingCollectionItem();
-      final storedDraft = item.draft;
-      final quantityText = storedDraft == null
-          ? item.quantity.toString()
-          : storedDraft.quantityText;
-      if (storedDraft == null) {
-        controller.updateCollectionItemDraft(quantityText: quantityText);
-      } else {
-        _applyDraft(controller, storedDraft, quantityText: quantityText);
-      }
+      _prepareDraft(controller, item);
       setState(() {
         _activeItemId = item.id;
         _initializingItemId = null;
       });
     });
+  }
+
+  void _prepareDraft(
+    CardDetailController controller,
+    PendingCollectionItem item,
+  ) {
+    controller.cancelCollectionItemEdit();
+    controller.startAddingCollectionItem();
+    final storedDraft = item.draft;
+    final quantityText = storedDraft == null
+        ? item.quantity.toString()
+        : storedDraft.quantityText;
+    if (storedDraft == null) {
+      controller.updateCollectionItemDraft(quantityText: quantityText);
+    } else {
+      _applyDraft(controller, storedDraft, quantityText: quantityText);
+    }
   }
 
   Future<void> _completeCurrent(String itemId) async {
@@ -2513,12 +2558,25 @@ class _QuickCollectionReviewPageState
     _captureDraft(
       current.id,
       ref
-          .read(cardDetailControllerProvider(current.card.id))
+          .read(quickCollectionCardDetailControllerProvider(current.card.id))
           .collectionItemDraft,
     );
     controller.cancelCollectionItemEdit();
+    final items = ref.read(pendingCollectionProvider);
+    final next = items[index];
+    final nextProvider = quickCollectionCardDetailControllerProvider(
+      next.card.id,
+    );
+    final nextState = ref.read(nextProvider);
+    final canActivateImmediately =
+        !nextState.isLoading &&
+        !nextState.isUnavailable &&
+        nextState.assetStateStatus == KandoLoadStatus.content;
+    if (canActivateImmediately) {
+      _prepareDraft(ref.read(nextProvider.notifier), next);
+    }
     setState(() {
-      _activeItemId = null;
+      _activeItemId = canActivateImmediately ? next.id : null;
       _selectedIndex = index;
     });
   }
@@ -2622,7 +2680,7 @@ class _QuickCollectionReviewPageState
   }
 
   Future<bool> _savePendingItem(PendingCollectionItem item) async {
-    final provider = cardDetailControllerProvider(item.card.id);
+    final provider = quickCollectionCardDetailControllerProvider(item.card.id);
     ref.read(provider);
     final controller = ref.read(provider.notifier);
     await controller.loadComplete;
@@ -2665,7 +2723,7 @@ class _QuickCollectionReviewPageState
       for (final item in ref.read(pendingCollectionProvider)) item.card.id,
     };
     for (final cardId in cardIds) {
-      final provider = cardDetailControllerProvider(cardId);
+      final provider = quickCollectionCardDetailControllerProvider(cardId);
       final state = ref.read(provider);
       if (!state.isLoading &&
           !state.isUnavailable &&
@@ -2783,6 +2841,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
     this.onAddAll,
     this.onDeleteAll,
     this.actionsEnabled = true,
+    this.useQuickCollectionController = false,
   });
 
   final String cardId;
@@ -2793,10 +2852,13 @@ class _AddCollectionItemSheet extends ConsumerWidget {
   final Future<void> Function()? onAddAll;
   final VoidCallback? onDeleteAll;
   final bool actionsEnabled;
+  final bool useQuickCollectionController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final provider = cardDetailControllerProvider(cardId);
+    final provider = useQuickCollectionController
+        ? quickCollectionCardDetailControllerProvider(cardId)
+        : cardDetailControllerProvider(cardId);
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
     if (state.isLoading ||

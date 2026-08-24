@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,7 @@ import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
+import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
 import 'package:kando_app/features/home/home_page.dart';
@@ -21,6 +23,7 @@ import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -983,6 +986,61 @@ void main() {
   });
 
   testWidgets(
+    'pending Review preloads adjacent editor data without full Card Detail requests so a warm switch stays interactive',
+    (tester) async {
+      final repository = _TrackingReviewLoadRepository();
+      final portfolioApi = _CountingFolderPortfolioApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            ..._localAuthOverrides(),
+            cardDetailRepositoryProvider.overrideWithValue(repository),
+            portfolioApiClientProvider.overrideWithValue(portfolioApi),
+          ],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.tap(find.byKey(const Key('search-collect-charizard-ex')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      expect(repository.coreCardIds.toSet(), {'squirtle', 'charizard-ex'});
+      expect(portfolioApi.listFoldersCount, 1);
+      expect(repository.marketPriceCardIds.toSet(), {
+        'squirtle',
+        'charizard-ex',
+      });
+      expect(repository.assetStateLoadCount, 0);
+      expect(repository.priceSeriesLoadCount, 0);
+      expect(repository.soldListingsLoadCount, 0);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+        listen: false,
+      );
+      final pendingItems = container.read(pendingCollectionProvider);
+      await tester.tap(
+        find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('card-detail-add-item-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('pending-collection-card-strip')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'pending Add this card shows validation in a top toast because its fixed action stays visible while the form error is below',
     (tester) async {
       await tester.pumpWidget(
@@ -1071,7 +1129,9 @@ void main() {
 
     expect(find.byType(SearchPage), findsOneWidget);
     expect(container.read(pendingCollectionProvider), isEmpty);
-    final detail = container.read(cardDetailControllerProvider('squirtle'));
+    final detail = container.read(
+      quickCollectionCardDetailControllerProvider('squirtle'),
+    );
     expect(detail.detail.quantity, 2);
     expect(detail.detail.collectionItems, hasLength(2));
     expect(detail.detail.collectionItems.map((item) => item.grader).toSet(), {
@@ -1203,7 +1263,9 @@ void main() {
       container.read(pendingCollectionProvider).single.draft?.grader,
       'BGS',
     );
-    final detail = container.read(cardDetailControllerProvider('squirtle'));
+    final detail = container.read(
+      quickCollectionCardDetailControllerProvider('squirtle'),
+    );
     expect(detail.detail.quantity, 1);
     expect(detail.detail.collectionItems, hasLength(1));
     expect(detail.detail.collectionItems.single.grader, 'Raw');
@@ -1235,7 +1297,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final detail = container.read(
-        cardDetailControllerProvider('charizard-ex'),
+        quickCollectionCardDetailControllerProvider('charizard-ex'),
       );
       expect(detail.detail.quantity, 2);
       expect(detail.detail.collectionItems, hasLength(2));
@@ -1925,6 +1987,100 @@ class _FailBgsCardDetailRepository extends MockCardDetailRepository {
       item: item,
       idempotencyKey: idempotencyKey,
     );
+  }
+}
+
+class _TrackingReviewLoadRepository extends MockCardDetailRepository
+    implements CardDetailSectionRepository {
+  final List<String> coreCardIds = [];
+  final List<String> marketPriceCardIds = [];
+  var assetStateLoadCount = 0;
+  var priceSeriesLoadCount = 0;
+  var soldListingsLoadCount = 0;
+
+  static const _session = AuthSession(
+    ownerType: OwnerType.anonymous,
+    accessToken: 'test-access',
+    refreshToken: 'test-refresh',
+  );
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) async {
+    coreCardIds.add(cardId);
+    return super.loadDetail(_session, cardId);
+  }
+
+  @override
+  Future<CardDetail> loadBaseDetail(AuthSession session, String cardId) async {
+    final detail = await loadCoreDetail(cardId);
+    return loadAssetState(session, detail);
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(
+    AuthSession session,
+    CardDetail detail,
+  ) async {
+    assetStateLoadCount += 1;
+    return detail;
+  }
+
+  @override
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+    String? language,
+  }) async {
+    marketPriceCardIds.add(cardId);
+    return const CardDetailMarketData(prices: [], marketPrices: []);
+  }
+
+  @override
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, {
+    CardDetailMarketData? market,
+    String? finish,
+    Iterable<CardPriceRange> ranges = const [
+      CardPriceRange.oneDay,
+      CardPriceRange.sevenDays,
+      CardPriceRange.fifteenDays,
+      CardPriceRange.oneMonth,
+      CardPriceRange.threeMonths,
+    ],
+  }) async {
+    priceSeriesLoadCount += 1;
+    return const CardDetailSeriesData(
+      marketPrices: [],
+      rawSeriesByRange: {},
+      rawSeries: [],
+      gradedSeriesByRange: {},
+      gradedSeries: [],
+    );
+  }
+
+  @override
+  Future<List<CardSoldListing>> loadSoldListings(String cardId) async {
+    soldListingsLoadCount += 1;
+    return const [];
+  }
+}
+
+class _CountingFolderPortfolioApi extends PortfolioApiClient {
+  _CountingFolderPortfolioApi() : super(Dio());
+
+  var listFoldersCount = 0;
+
+  @override
+  Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
+    listFoldersCount += 1;
+    return const [
+      PortfolioFolderDto(
+        id: 'main',
+        name: 'Main',
+        isDefault: true,
+        sortOrder: 0,
+      ),
+    ];
   }
 }
 
