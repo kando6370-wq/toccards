@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
@@ -22,6 +23,7 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -780,6 +782,46 @@ void main() {
     },
   );
 
+  testWidgets('the twenty-first collect tap shows the PRD limit warning', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SearchPage)),
+      listen: false,
+    );
+    for (var index = 0; index < pendingCollectionItemLimit; index++) {
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            PendingCollectionCard(
+              id: 'queued-$index',
+              name: 'Queued $index',
+              game: 'Pokemon',
+              setName: 'Set',
+              metadataLine: '#$index',
+              variantLine: 'Normal',
+            ),
+          );
+    }
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+    await tester.pump();
+
+    expect(container.read(pendingCollectionProvider), hasLength(20));
+    expect(find.text('You can add up to 20 cards at a time.'), findsOneWidget);
+    await tester.pump(kandoTopToastDuration);
+    await tester.pump();
+  });
+
   testWidgets('repeated unowned card clicks create separate pending Items', (
     tester,
   ) async {
@@ -936,9 +978,14 @@ void main() {
   testWidgets('saving repeated clicks creates separate variant Items', (
     tester,
   ) async {
+    final repository = _RecordingPendingCreateRepository();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+        overrides: [
+          ..._searchOverrides(),
+          ..._localAuthOverrides(),
+          cardDetailRepositoryProvider.overrideWithValue(repository),
+        ],
         child: const _SearchTestAppWithRoutes(),
       ),
     );
@@ -983,7 +1030,77 @@ void main() {
       'Raw',
       'BGS',
     });
+    expect(repository.idempotencyKeys, pendingItems.map((item) => item.id));
+    expect(repository.idempotencyKeys.toSet(), hasLength(2));
     expect(detail.detail.isWishlisted, isFalse);
+    expect(
+      find.byKey(const Key('kando-centered-success-toast')),
+      findsOneWidget,
+    );
+    expect(find.text('2 cards added to your portfolio'), findsOneWidget);
+    await tester.pump(kandoCenteredSuccessToastDuration);
+    await tester.pump();
+  });
+
+  testWidgets('batch save keeps failed Items and reports partial success', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._searchOverrides(),
+          ..._localAuthOverrides(),
+          cardDetailRepositoryProvider.overrideWithValue(
+            const _FailBgsCardDetailRepository(),
+          ),
+        ],
+        child: const _SearchTestAppWithRoutes(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final collect = find.byKey(const Key('search-collect-squirtle'));
+    await tester.tap(collect);
+    await tester.tap(collect);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pending-collection-notice')));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(QuickCollectionReviewPage)),
+      listen: false,
+    );
+    final pendingItems = container.read(pendingCollectionProvider);
+    await tester.tap(
+      find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('card-detail-item-state-graded')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('card-detail-item-state-graded')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('BGS').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('BGS').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('pending-collection-add-all')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 cards added, 1 failed.'), findsOneWidget);
+    expect(container.read(pendingCollectionProvider), hasLength(1));
+    expect(
+      container.read(pendingCollectionProvider).single.draft?.grader,
+      'BGS',
+    );
+    final detail = container.read(cardDetailControllerProvider('squirtle'));
+    expect(detail.detail.quantity, 1);
+    expect(detail.detail.collectionItems, hasLength(1));
+    expect(detail.detail.collectionItems.single.grader, 'Raw');
+    await tester.pump(kandoTopToastDuration);
+    await tester.pump();
   });
 
   testWidgets(
@@ -1023,9 +1140,16 @@ void main() {
       expect(container.read(pendingCollectionProvider), isEmpty);
       expect(find.byType(SearchPage), findsOneWidget);
       expect(
+        find.byKey(const Key('kando-centered-success-toast')),
+        findsOneWidget,
+      );
+      expect(find.text(portfolioCardAddedToastText), findsOneWidget);
+      expect(
         find.byKey(const Key('search-wishlist-charizard-ex')),
         findsNothing,
       );
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pump();
     },
   );
 
@@ -1254,7 +1378,13 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+        overrides: [
+          ..._searchOverrides(),
+          ..._localAuthOverrides(),
+          cardDetailRepositoryProvider.overrideWithValue(
+            const _MultiFolderCardDetailRepository(),
+          ),
+        ],
         child: const _SearchTestAppWithRoutes(),
       ),
     );
@@ -1269,18 +1399,58 @@ void main() {
     expect(find.byKey(const Key('card-detail-hero')), findsOneWidget);
     expect(find.text('Charizard ex'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.text('Collection Item'),
-      400,
-      scrollable: find.byType(Scrollable).last,
+    await tester.tap(
+      find.byKey(const Key('card-detail-add-to-portfolio-charizard-ex')),
     );
+    await tester.pump();
+    final detailContainer = ProviderScope.containerOf(
+      tester.element(find.byType(CardDetailPage)),
+      listen: false,
+    );
+    expect(detailContainer.read(pendingCollectionProvider), hasLength(1));
 
-    expect(find.text('Collection Item'), findsOneWidget);
-    expect(find.text('Main'), findsOneWidget);
-    expect(find.text('GRADER'), findsOneWidget);
-    expect(find.text('PSA'), findsOneWidget);
-    expect(find.text('GRADE'), findsOneWidget);
-    expect(find.text('10'), findsOneWidget);
+    expect(find.byKey(const Key('card-detail-owned-tabs')), findsNothing);
+    expect(find.text('In Your Portfolio'), findsOneWidget);
+    expect(
+      find.byKey(const Key('card-detail-portfolio-item-item-charizard')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('card-detail-portfolio-item-item-charizard-sealed')),
+      findsNothing,
+    );
+    await tester.ensureVisible(
+      find.byKey(const Key('card-detail-portfolio-item-item-charizard')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('card-detail-portfolio-item-item-charizard')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('card-detail-edit-item-sheet')),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const Key('card-detail-item-quantity')),
+      '3',
+    );
+    await tester.tap(find.byKey(const Key('card-detail-edit-item-sheet-save')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('card-detail-edit-item-sheet')), findsNothing);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CardDetailPage)),
+      listen: false,
+    );
+    expect(
+      container
+          .read(cardDetailControllerProvider('charizard-ex'))
+          .detail
+          .collectionItems
+          .singleWhere((item) => item.id == 'item-charizard')
+          .quantity,
+      3,
+    );
   });
 }
 
@@ -1623,6 +1793,78 @@ class _ImageSearchRepository implements SearchRepository {
   @override
   Future<List<SearchSet>> searchSets(String query, {String? game}) async =>
       const [];
+}
+
+class _FailBgsCardDetailRepository extends MockCardDetailRepository {
+  const _FailBgsCardDetailRepository();
+
+  @override
+  Future<CardCollectionItem> createCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+    String? idempotencyKey,
+  }) {
+    if (item.grader == 'BGS') {
+      throw StateError('BGS create unavailable');
+    }
+    return super.createCollectionItem(
+      session,
+      detail: detail,
+      item: item,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+}
+
+class _RecordingPendingCreateRepository extends MockCardDetailRepository {
+  final List<String?> idempotencyKeys = [];
+
+  @override
+  Future<CardCollectionItem> createCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+    String? idempotencyKey,
+  }) {
+    idempotencyKeys.add(idempotencyKey);
+    return super.createCollectionItem(
+      session,
+      detail: detail,
+      item: item,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+}
+
+class _MultiFolderCardDetailRepository extends MockCardDetailRepository {
+  const _MultiFolderCardDetailRepository();
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    final detail = await super.loadDetail(session, cardId);
+    final source = detail.collectionItems.first;
+    return detail.copyWith(
+      quantity: detail.quantity + 1,
+      collectionItems: [
+        ...detail.collectionItems,
+        CardCollectionItem(
+          id: 'item-charizard-sealed',
+          cardRef: source.cardRef,
+          folderId: 'sealed',
+          portfolioName: 'Sealed',
+          quantity: 1,
+          grader: 'Raw',
+          condition: 'Near Mint (NM)',
+          grade: null,
+          language: source.language,
+          finish: source.finish,
+          purchasePriceUsd: source.purchasePriceUsd,
+          notes: source.notes,
+        ),
+      ],
+    );
+  }
 }
 
 class _FailingActionSearchRepository implements SearchAssetRepository {

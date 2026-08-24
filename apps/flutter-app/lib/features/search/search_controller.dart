@@ -32,7 +32,7 @@ final searchControllerProvider =
 
 const searchDebounceDuration = Duration(milliseconds: 300);
 
-enum SearchCollectAction { updated, ignored }
+enum SearchCollectAction { updated, limitReached, ignored }
 
 class SearchState {
   const SearchState({
@@ -516,7 +516,7 @@ class SearchController extends Notifier<SearchState> {
   }
 
   Future<SearchCollectAction> _toggleCollect(SearchCard card) async {
-    ref
+    final added = ref
         .read(pendingCollectionProvider.notifier)
         .add(
           PendingCollectionCard(
@@ -529,7 +529,9 @@ class SearchController extends Notifier<SearchState> {
             imageUrl: card.imageUrl,
           ),
         );
-    return SearchCollectAction.updated;
+    return added
+        ? SearchCollectAction.updated
+        : SearchCollectAction.limitReached;
   }
 
   Future<bool> toggleWishlist(String cardId) async {

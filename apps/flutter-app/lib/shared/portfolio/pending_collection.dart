@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 const _pendingDraftUnset = Object();
 
@@ -6,6 +7,8 @@ final pendingCollectionProvider =
     NotifierProvider<PendingCollectionController, List<PendingCollectionItem>>(
       PendingCollectionController.new,
     );
+
+const pendingCollectionItemLimit = 20;
 
 class PendingCollectionCard {
   const PendingCollectionCard({
@@ -78,23 +81,16 @@ class PendingCollectionDraft {
 
 class PendingCollectionController
     extends Notifier<List<PendingCollectionItem>> {
-  var _nextItemId = 0;
-
   @override
-  List<PendingCollectionItem> build() {
-    _nextItemId = 0;
-    return const [];
-  }
+  List<PendingCollectionItem> build() => const [];
 
-  void add(PendingCollectionCard card) {
+  bool add(PendingCollectionCard card) {
+    if (state.length >= pendingCollectionItemLimit) return false;
     state = [
       ...state,
-      PendingCollectionItem(
-        id: '${card.id}:pending:${_nextItemId++}',
-        card: card,
-        quantity: 1,
-      ),
+      PendingCollectionItem(id: const Uuid().v4(), card: card, quantity: 1),
     ];
+    return true;
   }
 
   void updateDraft(String itemId, PendingCollectionDraft draft) {

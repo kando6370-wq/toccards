@@ -656,8 +656,9 @@ abstract interface class PortfolioApi {
   });
   Future<PortfolioItemDto> createCollectionItem(
     AuthSession session,
-    PortfolioItemDraftDto draft,
-  );
+    PortfolioItemDraftDto draft, {
+    String? idempotencyKey,
+  });
   Future<PortfolioItemDto> updateCollectionItem(
     AuthSession session, {
     required String itemId,
@@ -950,13 +951,15 @@ class PortfolioApiClient
   @override
   Future<PortfolioItemDto> createCollectionItem(
     AuthSession session,
-    PortfolioItemDraftDto draft,
-  ) async {
+    PortfolioItemDraftDto draft, {
+    String? idempotencyKey,
+  }) async {
     return _createPortfolioItem(
       session,
       operation: 'create_item',
       path: '/portfolio/items',
       draft: draft,
+      idempotencyKey: idempotencyKey,
     );
   }
 
@@ -965,6 +968,7 @@ class PortfolioApiClient
     required String operation,
     required String path,
     required PortfolioItemDraftDto draft,
+    String? idempotencyKey,
     bool includeCardRef = true,
   }) async {
     final ownerId =
@@ -975,10 +979,12 @@ class PortfolioApiClient
       'operation': operation,
       'draft': draft.toJson(),
     });
-    final requestId = _pendingItemRequestIds.putIfAbsent(
-      operationKey,
-      () => const Uuid().v4(),
-    );
+    final requestId =
+        idempotencyKey ??
+        _pendingItemRequestIds.putIfAbsent(
+          operationKey,
+          () => const Uuid().v4(),
+        );
     try {
       final data = await _requestData(
         'POST',
@@ -988,10 +994,12 @@ class PortfolioApiClient
         headers: {'Idempotency-Key': requestId},
       );
       final item = PortfolioItemDto.fromJson(data);
-      _pendingItemRequestIds.remove(operationKey);
+      if (idempotencyKey == null) {
+        _pendingItemRequestIds.remove(operationKey);
+      }
       return item;
     } on PortfolioApiException catch (error) {
-      if (!_isAmbiguousCreateFailure(error)) {
+      if (idempotencyKey == null && !_isAmbiguousCreateFailure(error)) {
         _pendingItemRequestIds.remove(operationKey);
       }
       rethrow;

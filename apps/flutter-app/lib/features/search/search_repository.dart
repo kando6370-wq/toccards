@@ -192,7 +192,7 @@ class HttpSearchRepository
         folders.where((item) => item.isDefault).firstOrNull ??
         folders.first;
     final itemsByCardRef = <String, List<PortfolioItemDto>>{};
-    for (final item in items.where((item) => item.folderId == folder.id)) {
+    for (final item in items) {
       (itemsByCardRef[item.cardRef] ??= []).add(item);
     }
     final wishlistByCardRef = {

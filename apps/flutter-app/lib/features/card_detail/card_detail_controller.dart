@@ -1224,7 +1224,7 @@ class CardDetailController extends Notifier<CardDetailState> {
     );
   }
 
-  Future<bool> saveCollectionItemDraft() async {
+  Future<bool> saveCollectionItemDraft({String? idempotencyKey}) async {
     final draft = state.collectionItemDraft;
     if (state.isUnavailable ||
         state.isLoading ||
@@ -1296,6 +1296,7 @@ class CardDetailController extends Notifier<CardDetailState> {
               session,
               detail: detail,
               item: draftItem,
+              idempotencyKey: idempotencyKey,
             )
           : await _repository.updateCollectionItem(
               session,

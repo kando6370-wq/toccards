@@ -15,6 +15,7 @@ abstract interface class CardDetailRepository {
     AuthSession session, {
     required CardDetail detail,
     required CardCollectionItem item,
+    String? idempotencyKey,
   });
   Future<CardCollectionItem> updateCollectionItem(
     AuthSession session, {
@@ -328,10 +329,12 @@ class HttpCardDetailRepository
     AuthSession session, {
     required CardDetail detail,
     required CardCollectionItem item,
+    String? idempotencyKey,
   }) async {
     final dto = await _api.createCollectionItem(
       session,
       _draftFromCardItem(detail, item),
+      idempotencyKey: idempotencyKey,
     );
     return _collectionItemFromDto(dto, {item.folderId: item.portfolioName});
   }

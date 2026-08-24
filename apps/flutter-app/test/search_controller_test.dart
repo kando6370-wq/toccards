@@ -707,6 +707,49 @@ void main() {
     },
   );
 
+  test('Search Qty includes saved Items from every portfolio folder', () async {
+    final repository = HttpSearchRepository(
+      _FakeCardDataApi(
+        trendingCardRows: const [
+          CardDataCardDto(
+            cardRef: '9359',
+            name: 'Escape Artist',
+            setName: 'Odyssey',
+            setCode: 'ODY',
+            cardNumber: '1',
+            finish: 'Normal',
+            language: 'English',
+            objectType: 'tcg',
+            imageUrl: null,
+            rarity: 'Common',
+          ),
+        ],
+        sets: const [],
+      ),
+      portfolioApi: _FakePortfolioApi(
+        items: [
+          _portfolioItem(
+            id: 'item-other-folder',
+            quantity: 2,
+            folderId: 'folder-other',
+          ),
+        ],
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        searchRepositoryProvider.overrideWithValue(repository),
+        searchSessionProvider.overrideWithValue(_session),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final card = (await _loadedSearchState(container)).cardById('9359');
+    expect(card.quantity, 2);
+    expect(card.isCollected, isTrue);
+    expect(card.collectionItemCount, 1);
+  });
+
   test(
     'Sets query replaces current set results after debounce because set search has a separate Workers endpoint',
     () async {
@@ -1060,6 +1103,26 @@ void main() {
       expect(container.read(pendingCollectionProvider).single.quantity, 1);
     },
   );
+
+  test('pending collection rejects the twenty-first Item', () async {
+    final container = _searchContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(searchControllerProvider.notifier);
+    await controller.loadComplete;
+
+    for (var index = 0; index < 20; index++) {
+      expect(
+        await controller.toggleCollect('squirtle'),
+        SearchCollectAction.updated,
+      );
+    }
+
+    expect(
+      await controller.toggleCollect('squirtle'),
+      SearchCollectAction.limitReached,
+    );
+    expect(container.read(pendingCollectionProvider), hasLength(20));
+  });
 
   test('missing price and change use PRD fallback text', () async {
     final container = _searchContainer();
@@ -1535,13 +1598,14 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
 PortfolioItemDto _portfolioItem({
   required String id,
   required int quantity,
+  String folderId = 'folder-main',
   String grader = 'Raw',
   String? condition = 'Near Mint (NM)',
   double? grade,
 }) {
   return PortfolioItemDto(
     id: id,
-    folderId: 'folder-main',
+    folderId: folderId,
     cardRef: '9359',
     objectType: 'tcg',
     grader: grader,

@@ -710,6 +710,54 @@ void main() {
     },
   );
 
+  test(
+    'distinct pending Items keep distinct explicit idempotency keys even when their drafts match',
+    () async {
+      var responseIndex = 0;
+      final adapter = _RecordingAdapter((request) {
+        responseIndex += 1;
+        return _json(201, {
+          'success': true,
+          'data': _portfolioItemJson(
+            id: 'item-$responseIndex',
+            cardRef: 'squirtle',
+          ),
+        });
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+      const draft = PortfolioItemDraftDto(
+        folderId: 'main',
+        cardRef: 'squirtle',
+        objectType: 'tcg',
+        grader: 'Raw',
+        condition: 'Near Mint (NM)',
+        grade: null,
+        language: 'English',
+        finish: 'Holofoil',
+        quantity: 1,
+        purchasePrice: null,
+        purchaseCurrency: null,
+        notes: '',
+      );
+
+      await api.createCollectionItem(
+        _session,
+        draft,
+        idempotencyKey: 'pending-item-a',
+      );
+      await api.createCollectionItem(
+        _session,
+        draft,
+        idempotencyKey: 'pending-item-b',
+      );
+
+      expect(adapter.requests.map((request) => request.idempotencyKey), [
+        'pending-item-a',
+        'pending-item-b',
+      ]);
+    },
+  );
+
   const retryDraft = PortfolioItemDraftDto(
     folderId: 'main',
     cardRef: 'squirtle',

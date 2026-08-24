@@ -97,12 +97,14 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 1. 用户按游戏搜索 Card 或 Set，并进入卡牌详情。
 2. 详情加载图片、市场价、价格历史和 TCGplayer 商品外链；已成交记录继续通过独立入口查询。
-3. Search 卡牌列表的收藏按钮先建立本地待编辑 Item：按钮显示亮黄色但持久化 Qty 不变；无论卡牌是否已收藏，每点击一次 `+` 都追加一个独立、默认 `Quantity=1` 的待编辑 Item，不合并为同一 Item 的数量，也不执行快捷删除。待编辑提示持续显示在 Home、Search、Collection、Profile 底部并按 Item 条数计数，Scan 不显示；单 Item 进入单卡编辑样式，多个 Item（包括同卡重复点击）进入带顶部条和批量操作的 Review 样式。
-4. 用户可分别为每个待编辑 Item 选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价；保存才逐条创建 Collection Item 并增加 Qty，保存后移除对应待编辑 Item，全部保存后按钮恢复灰色已收藏状态。只有在 Review 中删除待编辑 Item 才取消该条待收藏。已收藏卡牌点击灰色 `+` 不修改或删除已有 Item；点击卡片主体才进入 Card Detail 管理已有 Item。
-5. 收藏与 Wishlist 保持互斥：待编辑期间隐藏 Wishlist 快捷入口但不提前写服务端，保存 Collection Item 时由既有服务端流程移除同卡 Wishlist，删除待编辑 Item 后恢复原 Wishlist 状态；Wishlist 快捷加入/移除流程本身不变。
-6. 收藏写入同步产生 `collection_item_event`；后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
+3. Search、Wishlist、Home Trending 等只携带 `card_id` 的入口进入通用 Card Detail，不因卡牌已收藏而猜测某条 Item；Collection、Most Valuable、Top Performers 等携带 `collection_item_id` 的入口继续进入具体 Item 详情和 Performance。通用详情在当前选中 Folder 有正式 Item 时展示 `In Your Portfolio`，逐条显示评级、材质和 SKU 单价，点击整行打开该 Item 编辑 Sheet；其他 Folder 和待编辑 Item 不进入该模块。
+4. Search 列表和通用详情的收藏按钮先建立本地待编辑 Item：按钮显示亮黄色但正式 Qty 不变；无论卡牌是否已收藏，每点击一次 `+` 都追加一个独立、默认 `Quantity=1` 的待编辑 Item，不合并数量，也不执行快捷删除。全局最多保留 20 条，第 21 次点击不新增并显示 `You can add up to 20 cards at a time.`。待编辑提示持续显示在 Home、Search、Collection、Profile 底部并按 Item 条数计数，Scan 和二级页面不固定显示；单 Item 进入单卡编辑样式，多个 Item（包括同卡重复点击）进入带顶部条和批量操作的 Review 样式。
+5. 用户可分别为每个待编辑 Item 选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价；每条使用独立 UUID 作为创建请求的幂等键，保存才逐条创建 Collection Item 并增加 Qty。成功条目从队列移除；批量部分失败时保留失败草稿并继续显示 Review。单条和批量全成功使用 Figma 居中 Success Toast，部分成功使用顶部 warning Toast。只有在 Review 中删除待编辑 Item 才取消该条待收藏。
+6. Search `Qty` 汇总当前卡牌在全部 Folder 中已保存 Item 的 Quantity，不包含待编辑 Item；`In Your Portfolio` 只按当前选中 Folder 过滤，两种口径不得混用。
+7. 收藏与 Wishlist 保持互斥：待编辑期间隐藏 Wishlist 快捷入口但不提前写服务端，保存 Collection Item 时由既有服务端流程移除同卡 Wishlist，删除待编辑 Item 后恢复原 Wishlist 状态；Wishlist 快捷加入/移除流程本身不变。
+8. 收藏写入同步产生 `collection_item_event`；后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
 
-关键约束：待编辑队列不属于服务端资产真值，账号身份切换时清空；Search 中 `Qty=0` 表示未收藏并显示 Wishlist 入口，`Qty>0` 表示已收藏并隐藏 Wishlist 入口；数量至少为 1；同所有者、Folder、卡牌、finish、language、grader、condition、grade 组合唯一；目标 Folder 必须属于当前所有者。证据：`pending_collection.dart`、`search_controller.dart`、`card_detail_controller.dart`、`portfolio/routes.ts`、`portfolio/collect.test.ts`。
+关键约束：待编辑队列不属于服务端资产真值，账号身份切换时清空；Search 中 `Qty=0` 表示没有正式收藏，`Qty>0` 表示已有正式收藏；数量至少为 1；同所有者、Folder、卡牌、finish、language、grader、condition、grade 组合唯一；目标 Folder 必须属于当前所有者。证据：`pending_collection.dart`、`search_controller.dart`、`search_repository.dart`、`card_detail_controller.dart`、`card_detail_page.dart`、`portfolio_api_client.dart`、`portfolio/routes.ts`、`portfolio/collect.test.ts`。
 
 ### 3.3 扫描与服务端额度
 

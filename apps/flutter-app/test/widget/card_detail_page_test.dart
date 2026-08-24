@@ -18,6 +18,7 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -694,287 +695,37 @@ void main() {
   );
 
   testWidgets(
-    'Search add sheet switches portfolio only from the header because the form stays focused',
+    'generic CardDetail collect creates independent pending Items without changing Qty',
     (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      addTearDown(tester.view.resetViewInsets);
-
       await tester.pumpWidget(
         const _CardDetailTestApp(cardId: 'one-piece-luffy'),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.favorite), findsNothing);
-      expect(find.byIcon(Icons.favorite_border), findsNothing);
-      final portfolioIcon = tester.widget<SvgPicture>(
-        find.byKey(const Key('card-detail-add-to-portfolio-icon')),
+      final collect = find.byKey(
+        const Key('card-detail-add-to-portfolio-one-piece-luffy'),
       );
-      expect(
-        portfolioIcon.bytesLoader,
-        isA<SvgAssetLoader>().having(
-          (loader) => loader.assetName,
-          'assetName',
-          'assets/collection/add_to_portfolio.svg',
-        ),
-      );
-      expect(portfolioIcon.width, 20);
-      expect(portfolioIcon.height, 20);
-
-      await tester.tap(
-        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const Key('card-detail-add-item-sheet')),
-        findsOneWidget,
-      );
-      expect(find.text('Collection item'), findsOneWidget);
-      expect(find.text('Adding to Main'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('card-detail-add-item-portfolio')));
-      await tester.pumpAndSettle();
-      expect(find.text('Portfolio'), findsOneWidget);
-      await tester.tap(find.text('Sealed').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Adding to Sealed'), findsOneWidget);
-      expect(
-        find.byKey(const Key('card-detail-add-item-portfolio')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('card-detail-item-portfolio')), findsNothing);
-      expect(find.text('LANGUAGE'), findsOneWidget);
-      expect(find.text('FINISH'), findsOneWidget);
-      expect(
-        find.byKey(const Key('card-detail-item-state-raw')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('card-detail-item-selected-card')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const Key('card-detail-item-market-price')),
-        findsNothing,
-      );
-      expect(find.text('TOTAL VALUE'), findsOneWidget);
-      expect(
-        tester
-            .widget<Text>(find.byKey(const Key('card-detail-item-total')))
-            .data,
-        '--',
-      );
-      expect(find.text('Add this card'), findsOneWidget);
-      expect(find.text('Near Mint (NM)'), findsWidgets);
-      expect(tester.takeException(), isNull);
-      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(
-        tester
-            .getBottomRight(find.byKey(const Key('card-detail-item-submit')))
-            .dy,
-        lessThanOrEqualTo(544),
-      );
-      tester.view.resetViewInsets();
-      await tester.pumpAndSettle();
-      final submitTopBeforeScroll = tester.getTopLeft(
-        find.byKey(const Key('card-detail-item-submit')),
-      );
-      await tester.ensureVisible(
-        find.byKey(const Key('card-detail-item-condition')),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        tester.getTopLeft(find.byKey(const Key('card-detail-item-submit'))).dy,
-        submitTopBeforeScroll.dy,
-      );
-      expect(find.text('Lightly Played (LP)'), findsOneWidget);
-      expect(find.text('Near Mint (NM)'), findsWidgets);
-      await tester.tap(find.text('Lightly Played (LP)'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Near Mint (NM)').last);
-      await tester.pumpAndSettle();
-
-      await tester.ensureVisible(
-        find.byKey(const Key('card-detail-item-submit')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('card-detail-item-submit')));
-      await tester.pumpAndSettle();
       final container = ProviderScope.containerOf(
         tester.element(find.byType(CardDetailPage)),
       );
-      final savedState = container.read(
-        cardDetailControllerProvider('one-piece-luffy'),
-      );
-      final savedDetail = savedState.detail;
 
-      expect(savedDetail.isCollected, isTrue);
-      expect(savedDetail.quantity, 1);
-      expect(savedDetail.isWishlisted, isFalse);
-      expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
-      expect(
-        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const Key('card-detail-share-one-piece-luffy')),
-        findsOneWidget,
-      );
-      expect(find.text('OWNERSHIP SUMMARY'), findsNothing);
-      expect(savedState.collectionItemRows.single.portfolioName, 'Sealed');
-      expect(
-        savedState.collectionItemRows.single.statusText,
-        'Raw / Near Mint (NM)',
-      );
-      expect(savedState.collectionItemRows.single.purchasePriceText, '--');
-      final successToast = find.byKey(
-        const Key('kando-centered-success-toast'),
-      );
-      expect(successToast, findsOneWidget);
-      expect(find.byKey(const Key('kando-top-toast')), findsNothing);
-      expect(find.text('Success'), findsOneWidget);
-      expect(find.text(portfolioCardAddedToastText), findsOneWidget);
-      expect(tester.getSize(successToast), const Size(320, 212));
-      final viewSize = tester.view.physicalSize / tester.view.devicePixelRatio;
-      expect(
-        tester.getCenter(successToast),
-        Offset(viewSize.width / 2, viewSize.height / 2),
-      );
-      final title = tester.widget<Text>(find.text('Success'));
-      expect(title.style?.fontFamily, 'Fraunces');
-      expect(title.style?.fontSize, 24);
-      expect(title.style?.fontWeight, FontWeight.w600);
-      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.tap(collect);
+      await tester.tap(collect);
       await tester.pump();
-      expect(successToast, findsNothing);
-    },
-  );
 
-  testWidgets('Add this card waits for the API before showing success', (
-    tester,
-  ) async {
-    final repository = _DelayedCreateCardDetailRepository();
-    await tester.pumpWidget(
-      _CardDetailTestApp(cardId: 'one-piece-luffy', repository: repository),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(
-      find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('card-detail-item-submit')));
-    await tester.pump();
-
-    expect(repository.pendingCreate, isNotNull);
-    expect(find.byKey(const Key('card-detail-add-item-sheet')), findsOneWidget);
-    expect(
-      find.byKey(const Key('card-detail-item-submit-loading')),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .widget<FilledButton>(
-            find.byKey(const Key('card-detail-item-submit')),
-          )
-          .onPressed,
-      isNull,
-    );
-    expect(find.byIcon(Icons.add_circle_outline), findsNothing);
-    expect(find.text('Add this card'), findsOneWidget);
-    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
-
-    repository.completeCreate();
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
-    expect(
-      find.byKey(const Key('card-detail-item-submit-loading')),
-      findsNothing,
-    );
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(CardDetailPage)),
-    );
-    expect(
-      container
-          .read(cardDetailControllerProvider('one-piece-luffy'))
-          .isSavingCollectionItemDraft,
-      isFalse,
-    );
-    expect(
-      find.byKey(const Key('kando-centered-success-toast')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
-    expect(find.text(portfolioCardAddedToastText), findsOneWidget);
-    await tester.pump(kandoCenteredSuccessToastDuration);
-    await tester.pump();
-  });
-
-  testWidgets(
-    'add item keeps graded grader and grade choices inline because they share one Figma state',
-    (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-        const _CardDetailTestApp(cardId: 'one-piece-luffy'),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
-      );
-      await tester.pumpAndSettle();
-
-      final gradedState = find.byKey(
-        const Key('card-detail-item-state-graded'),
-      );
-      await tester.ensureVisible(gradedState);
-      await tester.pumpAndSettle();
-      await tester.tap(gradedState);
-      await tester.pumpAndSettle();
-
-      final graderGroup = find.byKey(const Key('card-detail-item-grader'));
-      await tester.ensureVisible(graderGroup);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('BGS').last);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(BottomSheet), findsOneWidget);
-      expect(find.text('GRADING DETAILS'), findsOneWidget);
-      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
-      await tester.ensureVisible(find.text('9.5'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('9.5'));
-      await tester.pumpAndSettle();
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(CardDetailPage)),
-      );
+      final pendingItems = container.read(pendingCollectionProvider);
+      expect(pendingItems, hasLength(2));
+      expect(pendingItems.map((item) => item.id).toSet(), hasLength(2));
+      expect(pendingItems.map((item) => item.quantity), everyElement(1));
       expect(
         container
             .read(cardDetailControllerProvider('one-piece-luffy'))
-            .collectionItemDraft
-            ?.grade,
-        '9.5',
+            .detail
+            .quantity,
+        0,
       );
-
-      final rawState = find.byKey(const Key('card-detail-item-state-raw'));
-      await tester.ensureVisible(rawState);
-      await tester.pumpAndSettle();
-      await tester.tap(rawState);
-      await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsOneWidget);
-      expect(find.text('RAW DETAILS'), findsOneWidget);
-      expect(
-        find.byKey(const Key('card-detail-item-condition')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
+      expect(find.byType(QuickCollectionReviewPage), findsNothing);
     },
   );
 
@@ -1471,7 +1222,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Performance'), findsNothing);
-      expect(find.text('Collection Item'), findsOneWidget);
+      expect(find.text('Collection Item'), findsNothing);
+      expect(find.text('In Your Portfolio'), findsOneWidget);
       expect(find.text('Price'), findsOneWidget);
     },
   );
@@ -1540,17 +1292,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('card-detail-owned-tabs')),
-        400,
-      );
 
       expect(
         find.byKey(const Key('card-detail-performance-content')),
         findsNothing,
       );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsNothing);
       expect(
-        find.byKey(const Key('card-detail-collection-item-item-charizard')),
+        find.byKey(const Key('card-detail-portfolio-item-item-charizard')),
         findsOneWidget,
       );
     },
@@ -2484,8 +2233,10 @@ class _CardDetailReentryApp extends StatelessWidget {
                 key: const Key('open-card-detail'),
                 onPressed: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
-                    builder: (_) =>
-                        const CardDetailPage(cardId: 'charizard-ex'),
+                    builder: (_) => const CardDetailPage(
+                      cardId: 'charizard-ex',
+                      collectionItemId: 'item-charizard',
+                    ),
                   ),
                 ),
                 child: const Text('Open card'),
@@ -2589,42 +2340,6 @@ class _DelayedUpdateCardDetailRepository extends MockCardDetailRepository {
   }
 }
 
-class _DelayedCreateCardDetailRepository extends MockCardDetailRepository {
-  Completer<CardCollectionItem>? pendingCreate;
-
-  @override
-  Future<CardCollectionItem> createCollectionItem(
-    AuthSession session, {
-    required CardDetail detail,
-    required CardCollectionItem item,
-  }) {
-    final completer = Completer<CardCollectionItem>();
-    pendingCreate = completer;
-    return completer.future;
-  }
-
-  void completeCreate() {
-    final completer = pendingCreate;
-    if (completer == null || completer.isCompleted) return;
-    completer.complete(
-      const CardCollectionItem(
-        id: 'created-luffy',
-        cardRef: 'one-piece-luffy',
-        folderId: 'main',
-        portfolioName: 'Main',
-        quantity: 1,
-        grader: 'Raw',
-        condition: 'Near Mint (NM)',
-        grade: null,
-        language: 'English',
-        finish: 'Holofoil',
-        purchasePriceUsd: null,
-        notes: '',
-      ),
-    );
-  }
-}
-
 class _FailingRemovalCardDetailRepository extends MockCardDetailRepository {
   @override
   Future<void> deleteWishlist(AuthSession session, String wishlistItemId) {
@@ -2642,12 +2357,17 @@ class _MultiItemCardDetailRepository extends MockCardDetailRepository {
     return detail.copyWith(
       collectionItems: [
         firstItem,
-        firstItem.copyWith(
+        CardCollectionItem(
+          id: 'item-charizard-sealed',
+          cardRef: firstItem.cardRef,
+          folderId: firstItem.folderId,
           portfolioName: 'Sealed',
           quantity: 2,
           grader: 'Raw',
           condition: 'Lightly Played (LP)',
           grade: null,
+          language: firstItem.language,
+          finish: firstItem.finish,
           purchasePriceUsd: 20.0,
           notes: 'Hidden duplicate item.',
         ),

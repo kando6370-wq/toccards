@@ -9,6 +9,7 @@ import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
+import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/premium_locked_panel.dart';
@@ -110,6 +111,7 @@ class CardDetailPage extends ConsumerStatefulWidget {
 
 class _CardDetailPageState extends ConsumerState<CardDetailPage> {
   bool _trackedView = false;
+  bool _isItemEditSheetOpen = false;
 
   @override
   void didUpdateWidget(covariant CardDetailPage oldWidget) {
@@ -126,6 +128,7 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
       subscriptionControllerProvider.select((value) => value.premiumState),
     );
     final isPro = premiumState == AppPremiumState.premium;
+    final selectedFolderId = ref.watch(selectedPortfolioFolderProvider);
     if (premiumState == AppPremiumState.free &&
         state.selectedPriceRange == CardPriceRange.oneYear) {
       Future<void>.microtask(
@@ -137,15 +140,19 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
             state,
             widget.collectionItemId,
             allowSingleFallback:
+                widget.collectionItemId != null &&
                 widget.entrySource != AnalyticsValue.sourceHomePerformance,
           )
         : null;
+    final hasExplicitCollectionItem =
+        widget.collectionItemId != null && currentCollectionItemId != null;
     _trackViewWhenLoaded(state);
 
     final page = Scaffold(
       backgroundColor: KandoColors.ink,
       bottomNavigationBar:
-          state.loadStatus == KandoLoadStatus.content &&
+          !_isItemEditSheetOpen &&
+              state.loadStatus == KandoLoadStatus.content &&
               state.collectionItemDraft != null &&
               state.editingCollectionItemId != null
           ? _CollectionEditFooter(state: state, controller: controller)
@@ -199,6 +206,7 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                             state: state,
                             controller: controller,
                             entrySource: widget.entrySource,
+                            isGenericEntry: !hasExplicitCollectionItem,
                             onBack: () => _goBack(context, controller),
                           ),
                           const SizedBox(height: 10),
@@ -219,9 +227,7 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                           const SizedBox(height: 28),
                           // _BasicInfo(state: state),
                           // const SizedBox(height: 28),
-                          if (state.assetStateStatus ==
-                                  KandoLoadStatus.content &&
-                              state.detail.isCollected)
+                          if (hasExplicitCollectionItem)
                             _OwnedDetailTabs(
                               key: ValueKey(currentCollectionItemId),
                               state: state,
@@ -231,10 +237,13 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                               currentCollectionItemId: currentCollectionItemId,
                             )
                           else
-                            _PriceOverview(
+                            _GenericCardDetailSections(
                               state: state,
                               controller: controller,
                               isPro: isPro,
+                              selectedFolderId: selectedFolderId,
+                              onEditItem: (itemId) =>
+                                  _openItemEditor(controller, itemId),
                             ),
                           if (state.assetStateStatus ==
                                   KandoLoadStatus.content &&
@@ -285,6 +294,23 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
 
     controller.cancelCollectionItemEdit();
     context.go('/search');
+  }
+
+  Future<void> _openItemEditor(
+    CardDetailController controller,
+    String itemId,
+  ) async {
+    setState(() => _isItemEditSheetOpen = true);
+    try {
+      await _openEditCollectionItemSheet(
+        context,
+        controller,
+        widget.cardId,
+        itemId,
+      );
+    } finally {
+      if (mounted) setState(() => _isItemEditSheetOpen = false);
+    }
   }
 }
 
@@ -337,17 +363,24 @@ class _CardHero extends ConsumerWidget {
     required this.state,
     required this.controller,
     required this.entrySource,
+    required this.isGenericEntry,
     required this.onBack,
   });
 
   final CardDetailState state;
   final CardDetailController controller;
   final String entrySource;
+  final bool isGenericEntry;
   final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = state.detail;
+    final isPendingCollection = ref.watch(
+      pendingCollectionProvider.select(
+        (items) => items.any((item) => item.card.id == detail.id),
+      ),
+    );
 
     final iconButtonStyle = IconButton.styleFrom(
       backgroundColor: KandoColors.surface.withValues(alpha: 0.92),
@@ -431,7 +464,54 @@ class _CardHero extends ConsumerWidget {
                           style: iconButtonStyle,
                           icon: const Icon(Icons.arrow_back, size: 22),
                         ),
-                        if (detail.isCollected)
+                        if (isGenericEntry)
+                          IconButton(
+                            key: Key(
+                              'card-detail-add-to-portfolio-${detail.id}',
+                            ),
+                            tooltip: isPendingCollection
+                                ? 'Pending collection item'
+                                : detail.isCollected
+                                ? 'Add another item'
+                                : 'Add to Portfolio',
+                            onPressed: () {
+                              final added = ref
+                                  .read(pendingCollectionProvider.notifier)
+                                  .add(
+                                    PendingCollectionCard(
+                                      id: detail.id,
+                                      name: detail.name,
+                                      game: detail.game,
+                                      setName: detail.setName,
+                                      metadataLine: detail.identityLine,
+                                      variantLine:
+                                          [detail.finish, detail.language]
+                                              .where(
+                                                (value) => value.isNotEmpty,
+                                              )
+                                              .join(' · '),
+                                      imageUrl: detail.imageUrl,
+                                    ),
+                                  );
+                              if (!added) {
+                                showKandoTopToast(
+                                  context,
+                                  message:
+                                      'You can add up to 20 cards at a time.',
+                                  type: KandoTopToastType.warning,
+                                );
+                              }
+                            },
+                            style: iconButtonStyle,
+                            icon: SvgPicture.asset(
+                              isPendingCollection
+                                  ? 'assets/search/collection_on.svg'
+                                  : 'assets/search/collection_off.svg',
+                              width: 20,
+                              height: 20,
+                            ),
+                          )
+                        else if (detail.isCollected)
                           Builder(
                             builder: (shareContext) => IconButton(
                               key: Key('card-detail-share-${detail.id}'),
@@ -697,6 +777,291 @@ class _BasicInfo extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _GenericCardDetailSections extends StatelessWidget {
+  const _GenericCardDetailSections({
+    required this.state,
+    required this.controller,
+    required this.isPro,
+    required this.selectedFolderId,
+    required this.onEditItem,
+  });
+
+  final CardDetailState state;
+  final CardDetailController controller;
+  final bool isPro;
+  final String? selectedFolderId;
+  final ValueChanged<String> onEditItem;
+
+  @override
+  Widget build(BuildContext context) {
+    final folders = state.detail.portfolioFolders;
+    final folderId = folders.any((folder) => folder.id == selectedFolderId)
+        ? selectedFolderId
+        : folders.where((folder) => folder.isDefault).firstOrNull?.id ??
+              folders.firstOrNull?.id;
+    final itemIds = {
+      for (final item in state.detail.collectionItems)
+        if (item.folderId == folderId) item.id,
+    };
+    final rows = state.collectionItemRows
+        .where((row) => itemIds.contains(row.id))
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (rows.isNotEmpty) ...[
+          _InYourPortfolio(rows: rows, onEditItem: onEditItem),
+          const SizedBox(height: 28),
+        ],
+        _PriceOverview(state: state, controller: controller, isPro: isPro),
+      ],
+    );
+  }
+}
+
+class _InYourPortfolio extends StatelessWidget {
+  const _InYourPortfolio({required this.rows, required this.onEditItem});
+
+  final List<CardCollectionItemRow> rows;
+  final ValueChanged<String> onEditItem;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const Key('card-detail-in-your-portfolio'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('In Your Portfolio', style: _kSectionTitleStyle),
+        const SizedBox(height: 16),
+        for (var index = 0; index < rows.length; index++) ...[
+          Material(
+            key: Key('card-detail-portfolio-item-${rows[index].id}'),
+            color: KandoColors.ink,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: KandoColors.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => onEditItem(rows[index].id),
+              child: SizedBox(
+                height: 52,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              rows[index].statusText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: KandoColors.text,
+                                fontSize: 14,
+                                height: 16 / 14,
+                              ),
+                            ),
+                            Text(
+                              rows[index].finishText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: KandoColors.mutedText,
+                                fontSize: 10,
+                                height: 16 / 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        rows[index].marketPriceText,
+                        style: const TextStyle(
+                          color: KandoColors.money,
+                          fontSize: 14,
+                          height: 24 / 14,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: KandoColors.accent,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (index != rows.length - 1) const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+}
+
+Future<void> _openEditCollectionItemSheet(
+  BuildContext context,
+  CardDetailController controller,
+  String cardId,
+  String itemId,
+) async {
+  await controller.startEditingCollectionItem(itemId);
+  if (!context.mounted) return;
+  final provider = cardDetailControllerProvider(cardId);
+  final container = ProviderScope.containerOf(context, listen: false);
+  if (container.read(provider).collectionItemDraft == null) return;
+
+  await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.72),
+    builder: (_) => _EditCollectionItemSheet(cardId: cardId),
+  );
+
+  final current = container.read(provider);
+  if (current.collectionItemDraft != null &&
+      current.editingCollectionItemId == itemId) {
+    controller.cancelCollectionItemEdit();
+  }
+}
+
+class _EditCollectionItemSheet extends ConsumerWidget {
+  const _EditCollectionItemSheet({required this.cardId});
+
+  final String cardId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = cardDetailControllerProvider(cardId);
+    final state = ref.watch(provider);
+    final controller = ref.read(provider.notifier);
+    if (state.collectionItemDraft == null ||
+        state.editingCollectionItemId == null) {
+      return const SizedBox.shrink();
+    }
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: FractionallySizedBox(
+        alignment: Alignment.bottomCenter,
+        heightFactor: 0.88,
+        child: Material(
+          key: const Key('card-detail-edit-item-sheet'),
+          color: const Color(0xFF222222),
+          clipBehavior: Clip.antiAlias,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  key: const Key('card-detail-edit-item-sheet-scroll'),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  child: _CollectionItemForm(
+                    state: state,
+                    controller: controller,
+                  ),
+                ),
+              ),
+              _EditCollectionItemSheetFooter(
+                state: state,
+                controller: controller,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditCollectionItemSheetFooter extends StatelessWidget {
+  const _EditCollectionItemSheetFooter({
+    required this.state,
+    required this.controller,
+  });
+
+  final CardDetailState state;
+  final CardDetailController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final saving = state.isSavingCollectionItemDraft;
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        decoration: const BoxDecoration(
+          color: KandoColors.ink,
+          border: Border(top: BorderSide(color: _kCollectionOutline)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 56,
+                child: TextButton(
+                  onPressed: saving
+                      ? null
+                      : () {
+                          controller.cancelCollectionItemEdit();
+                          Navigator.of(context).pop(false);
+                        },
+                  style: TextButton.styleFrom(
+                    backgroundColor: KandoColors.elevatedSurface,
+                    foregroundColor: KandoColors.text,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: const Text('CANCEL'),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SizedBox(
+                height: 56,
+                child: TextButton(
+                  key: const Key('card-detail-edit-item-sheet-save'),
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final saved = await controller
+                              .saveCollectionItemDraft();
+                          if (saved && context.mounted) {
+                            Navigator.of(context).pop(true);
+                          }
+                        },
+                  style: TextButton.styleFrom(
+                    backgroundColor: KandoColors.accent,
+                    foregroundColor: KandoColors.primaryOnDefault,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: saving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('SAVE CHANGES'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2150,6 +2515,10 @@ class _QuickCollectionReviewPageState
     ref.read(pendingCollectionProvider.notifier).remove(itemId);
     _activeItemId = null;
     if (!mounted) return;
+    showKandoCenteredSuccessToast(
+      context,
+      message: portfolioCardAddedToastText,
+    );
     final remaining = ref.read(pendingCollectionProvider);
     if (remaining.isEmpty) {
       context.pop();
@@ -2234,64 +2603,82 @@ class _QuickCollectionReviewPageState
   Future<void> _saveAll() async {
     if (_isSavingAll) return;
     setState(() => _isSavingAll = true);
-    String? savingItemId;
+    var successCount = 0;
+    var failedCount = 0;
+    String? firstFailedItemId;
     try {
       final itemsToSave = List.of(ref.read(pendingCollectionProvider));
       for (final item in itemsToSave) {
-        savingItemId = item.id;
-        final provider = cardDetailControllerProvider(item.card.id);
-        ref.read(provider);
-        final controller = ref.read(provider.notifier);
-        await controller.loadComplete;
-        if (!mounted) return;
-
-        final state = ref.read(provider);
-        if (state.isUnavailable) {
-          _selectPendingItem(item.id);
-          return;
+        var saved = false;
+        try {
+          saved = await _savePendingItem(item);
+        } catch (_) {
+          saved = false;
         }
-        controller.cancelCollectionItemEdit();
-        controller.startAddingCollectionItem();
-        final storedDraft = item.draft;
-        if (storedDraft == null) {
-          controller.updateCollectionItemDraft(
-            quantityText: item.quantity.toString(),
+        if (!mounted) return;
+        if (saved) {
+          successCount += 1;
+          ref.read(pendingCollectionProvider.notifier).remove(item.id);
+        } else {
+          failedCount += 1;
+          firstFailedItemId ??= item.id;
+        }
+      }
+      if (!mounted) return;
+      if (failedCount == 0) {
+        showKandoCenteredSuccessToast(
+          context,
+          message: portfolioCardsAddedToastText(successCount),
+        );
+        context.pop();
+      } else {
+        if (firstFailedItemId != null) {
+          _selectPendingItem(firstFailedItemId);
+        }
+        if (successCount > 0) {
+          showKandoTopToast(
+            context,
+            message: '$successCount cards added, $failedCount failed.',
+            type: KandoTopToastType.warning,
           );
         } else {
-          _applyDraft(
-            controller,
-            storedDraft,
-            quantityText: storedDraft.quantityText,
+          showKandoTopToast(
+            context,
+            message: genericFailureToastText,
+            type: KandoTopToastType.failure,
           );
         }
-        if (ref.read(provider).collectionItemDraft == null) {
-          _selectPendingItem(item.id);
-          return;
-        }
-
-        final saved = await controller.saveCollectionItemDraft();
-        if (!mounted) return;
-        if (!saved) {
-          _selectPendingItem(item.id, keepControllerDraft: true);
-          return;
-        }
-        ref.read(pendingCollectionProvider.notifier).remove(item.id);
-      }
-      if (mounted) context.pop();
-    } catch (_) {
-      if (mounted) {
-        if (savingItemId != null) {
-          _selectPendingItem(savingItemId, keepControllerDraft: true);
-        }
-        showKandoTopToast(
-          context,
-          message: genericFailureToastText,
-          type: KandoTopToastType.failure,
-        );
       }
     } finally {
       if (mounted) setState(() => _isSavingAll = false);
     }
+  }
+
+  Future<bool> _savePendingItem(PendingCollectionItem item) async {
+    final provider = cardDetailControllerProvider(item.card.id);
+    ref.read(provider);
+    final controller = ref.read(provider.notifier);
+    await controller.loadComplete;
+    if (!mounted) return false;
+
+    final state = ref.read(provider);
+    if (state.isUnavailable) return false;
+    controller.cancelCollectionItemEdit();
+    controller.startAddingCollectionItem();
+    final storedDraft = item.draft;
+    if (storedDraft == null) {
+      controller.updateCollectionItemDraft(
+        quantityText: item.quantity.toString(),
+      );
+    } else {
+      _applyDraft(
+        controller,
+        storedDraft,
+        quantityText: storedDraft.quantityText,
+      );
+    }
+    if (ref.read(provider).collectionItemDraft == null) return false;
+    return controller.saveCollectionItemDraft(idempotencyKey: item.id);
   }
 
   void _selectPendingItem(String itemId, {bool keepControllerDraft = false}) {

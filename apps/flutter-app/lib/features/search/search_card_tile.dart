@@ -8,6 +8,7 @@ import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import 'search_controller.dart';
@@ -134,12 +135,23 @@ class SearchCardTile extends ConsumerWidget {
                                     onPressed: !actionsEnabled
                                         ? null
                                         : () async {
-                                            await ref
+                                            final action = await ref
                                                 .read(
                                                   searchControllerProvider
                                                       .notifier,
                                                 )
                                                 .toggleCollectCard(card);
+                                            if (action ==
+                                                    SearchCollectAction
+                                                        .limitReached &&
+                                                context.mounted) {
+                                              showKandoTopToast(
+                                                context,
+                                                message:
+                                                    'You can add up to 20 cards at a time.',
+                                                type: KandoTopToastType.warning,
+                                              );
+                                            }
                                           },
                                   ),
                                   if (!card.isCollected &&
@@ -279,7 +291,6 @@ String _cardDetailsLocation(SearchCard card, String entrySource) {
       'collection': collectionType,
       'ip': analyticsIpType(card.gameId),
       'entry': entrySource,
-      if (card.collectionItemId != null) 'item_id': card.collectionItemId!,
     },
   ).toString();
 }

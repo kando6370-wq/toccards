@@ -1173,8 +1173,9 @@ class _FakePortfolioApiClient
   @override
   Future<PortfolioItemDto> createCollectionItem(
     AuthSession session,
-    PortfolioItemDraftDto draft,
-  ) async {
+    PortfolioItemDraftDto draft, {
+    String? idempotencyKey,
+  }) async {
     throw UnimplementedError();
   }
 
