@@ -97,8 +97,8 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 1. 用户按游戏搜索 Card 或 Set，并进入卡牌详情。
 2. 详情加载图片、市场价、价格历史和 TCGplayer 商品外链；已成交记录继续通过独立入口查询。
-3. Search 卡牌列表的收藏按钮先建立本地待编辑 Item：按钮显示亮黄色但持久化 Qty 不变；重复点击同一卡牌只增加待编辑数量，不执行快捷删除。待编辑提示持续显示在 Home、Search、Collection、Profile 底部，Scan 不显示；单张进入单卡编辑样式，多张进入带卡片条和批量操作的 Review 样式。
-4. 用户在完整 Item 表单选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价后保存，才创建 Collection Item 并增加 Qty；保存后移除待编辑提示，按钮恢复灰色已收藏状态。只有在 Review 中删除待编辑 Item 才取消本次待收藏；已收藏卡牌再次点击收藏按钮进入 Item 管理，不直接取消收藏。
+3. Search 卡牌列表的收藏按钮先建立本地待编辑 Item：按钮显示亮黄色但持久化 Qty 不变；无论卡牌是否已收藏，每点击一次 `+` 都追加一个独立、默认 `Quantity=1` 的待编辑 Item，不合并为同一 Item 的数量，也不执行快捷删除。待编辑提示持续显示在 Home、Search、Collection、Profile 底部并按 Item 条数计数，Scan 不显示；单 Item 进入单卡编辑样式，多个 Item（包括同卡重复点击）进入带顶部条和批量操作的 Review 样式。
+4. 用户可分别为每个待编辑 Item 选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价；保存才逐条创建 Collection Item 并增加 Qty，保存后移除对应待编辑 Item，全部保存后按钮恢复灰色已收藏状态。只有在 Review 中删除待编辑 Item 才取消该条待收藏。已收藏卡牌点击灰色 `+` 不修改或删除已有 Item；点击卡片主体才进入 Card Detail 管理已有 Item。
 5. 收藏与 Wishlist 保持互斥：待编辑期间隐藏 Wishlist 快捷入口但不提前写服务端，保存 Collection Item 时由既有服务端流程移除同卡 Wishlist，删除待编辑 Item 后恢复原 Wishlist 状态；Wishlist 快捷加入/移除流程本身不变。
 6. 收藏写入同步产生 `collection_item_event`；后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
 

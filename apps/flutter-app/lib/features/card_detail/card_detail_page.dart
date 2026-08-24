@@ -2040,9 +2040,9 @@ class QuickCollectionReviewPage extends ConsumerStatefulWidget {
 class _QuickCollectionReviewPageState
     extends ConsumerState<QuickCollectionReviewPage> {
   int _selectedIndex = 0;
-  String? _initializingCardId;
+  String? _initializingItemId;
+  String? _activeItemId;
   bool _isSavingAll = false;
-  final _initializedCardIds = <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -2071,14 +2071,13 @@ class _QuickCollectionReviewPageState
     if (state.isUnavailable) {
       return _QuickCollectionFailure(onRetry: controller.refresh);
     }
-    if (state.collectionItemDraft == null ||
-        pendingItem.unappliedQuantity > 0) {
+    if (_activeItemId != pendingItem.id || state.collectionItemDraft == null) {
       _initializeDraft(controller, pendingItem);
       return const _QuickCollectionLoading();
     }
 
     final multiple = pendingItems.length > 1;
-    return _AddCollectionItemSheet(
+    final sheet = _AddCollectionItemSheet(
       cardId: pendingItem.card.id,
       entrySource: AnalyticsValue.sourceSearch,
       actionsEnabled: !_isSavingAll,
@@ -2086,14 +2085,38 @@ class _QuickCollectionReviewPageState
           ? _PendingCollectionStrip(
               items: pendingItems,
               selectedIndex: selectedIndex,
-              onSelected: (index) => setState(() => _selectedIndex = index),
-              onClose: context.pop,
+              onSelected: (index) =>
+                  _selectItem(controller, pendingItem, index),
+              onClose: () {
+                _captureDraft(
+                  pendingItem.id,
+                  ref.read(provider).collectionItemDraft,
+                );
+                controller.cancelCollectionItemEdit();
+                context.pop();
+              },
             )
           : null,
-      onSaved: () => _completeCurrent(pendingItem.card.id),
-      onDelete: () => _deleteCurrent(controller, pendingItem.card.id),
-      onAddAll: multiple ? () => _saveAll(pendingItems) : null,
+      onSaved: () => _completeCurrent(pendingItem.id),
+      onDelete: () => _deleteCurrent(controller, pendingItem.id),
+      onAddAll: multiple
+          ? () {
+              _captureDraft(
+                pendingItem.id,
+                ref.read(provider).collectionItemDraft,
+              );
+              return _saveAll();
+            }
+          : null,
       onDeleteAll: multiple ? _deleteAll : null,
+    );
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) return;
+        _captureDraft(pendingItem.id, ref.read(provider).collectionItemDraft);
+        controller.cancelCollectionItemEdit();
+      },
+      child: sheet,
     );
   }
 
@@ -2101,30 +2124,31 @@ class _QuickCollectionReviewPageState
     CardDetailController controller,
     PendingCollectionItem item,
   ) {
-    if (_initializingCardId == item.card.id) return;
-    _initializingCardId = item.card.id;
+    if (_initializingItemId == item.id) return;
+    _initializingItemId = item.id;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final existingDraft = ref
-          .read(cardDetailControllerProvider(item.card.id))
-          .collectionItemDraft;
-      if (existingDraft == null) controller.startAddingCollectionItem();
-      final unapplied = ref
-          .read(pendingCollectionProvider.notifier)
-          .consumeUnappliedQuantity(item.card.id);
-      final currentQuantity = int.tryParse(existingDraft?.quantityText ?? '0');
-      controller.updateCollectionItemDraft(
-        quantityText: existingDraft == null
-            ? item.quantity.toString()
-            : ((currentQuantity ?? 0) + unapplied).toString(),
-      );
-      _initializedCardIds.add(item.card.id);
-      setState(() => _initializingCardId = null);
+      controller.cancelCollectionItemEdit();
+      controller.startAddingCollectionItem();
+      final storedDraft = item.draft;
+      final quantityText = storedDraft == null
+          ? item.quantity.toString()
+          : storedDraft.quantityText;
+      if (storedDraft == null) {
+        controller.updateCollectionItemDraft(quantityText: quantityText);
+      } else {
+        _applyDraft(controller, storedDraft, quantityText: quantityText);
+      }
+      setState(() {
+        _activeItemId = item.id;
+        _initializingItemId = null;
+      });
     });
   }
 
-  Future<void> _completeCurrent(String cardId) async {
-    ref.read(pendingCollectionProvider.notifier).remove(cardId);
+  Future<void> _completeCurrent(String itemId) async {
+    ref.read(pendingCollectionProvider.notifier).remove(itemId);
+    _activeItemId = null;
     if (!mounted) return;
     final remaining = ref.read(pendingCollectionProvider);
     if (remaining.isEmpty) {
@@ -2136,9 +2160,10 @@ class _QuickCollectionReviewPageState
     });
   }
 
-  void _deleteCurrent(CardDetailController controller, String cardId) {
+  void _deleteCurrent(CardDetailController controller, String itemId) {
     controller.cancelCollectionItemEdit();
-    ref.read(pendingCollectionProvider.notifier).remove(cardId);
+    ref.read(pendingCollectionProvider.notifier).remove(itemId);
+    _activeItemId = null;
     if (!mounted) return;
     final remaining = ref.read(pendingCollectionProvider);
     if (remaining.isEmpty) {
@@ -2150,63 +2175,114 @@ class _QuickCollectionReviewPageState
     });
   }
 
-  Future<void> _saveAll(List<PendingCollectionItem> pendingItems) async {
+  void _selectItem(
+    CardDetailController controller,
+    PendingCollectionItem current,
+    int index,
+  ) {
+    _captureDraft(
+      current.id,
+      ref
+          .read(cardDetailControllerProvider(current.card.id))
+          .collectionItemDraft,
+    );
+    controller.cancelCollectionItemEdit();
+    setState(() {
+      _activeItemId = null;
+      _selectedIndex = index;
+    });
+  }
+
+  void _captureDraft(String itemId, CardCollectionItemDraft? draft) {
+    if (draft == null) return;
+    ref
+        .read(pendingCollectionProvider.notifier)
+        .updateDraft(
+          itemId,
+          PendingCollectionDraft(
+            quantityText: draft.quantityText,
+            portfolioName: draft.portfolioName,
+            grader: draft.grader,
+            condition: draft.condition,
+            grade: draft.grade,
+            language: draft.language,
+            finish: draft.finish,
+            purchasePriceText: draft.purchasePriceText,
+            notes: draft.notes,
+          ),
+        );
+  }
+
+  void _applyDraft(
+    CardDetailController controller,
+    PendingCollectionDraft draft, {
+    required String quantityText,
+  }) {
+    controller.updateCollectionItemDraft(
+      quantityText: quantityText,
+      portfolioName: draft.portfolioName,
+      grader: draft.grader,
+      condition: draft.condition,
+      grade: draft.grade,
+      language: draft.language,
+      finish: draft.finish,
+      purchasePriceText: draft.purchasePriceText,
+      notes: draft.notes,
+    );
+  }
+
+  Future<void> _saveAll() async {
     if (_isSavingAll) return;
     setState(() => _isSavingAll = true);
-    String? savingCardId;
+    String? savingItemId;
     try {
-      for (var index = 0; index < pendingItems.length; index++) {
-        final item = pendingItems[index];
-        savingCardId = item.card.id;
+      final itemsToSave = List.of(ref.read(pendingCollectionProvider));
+      for (final item in itemsToSave) {
+        savingItemId = item.id;
         final provider = cardDetailControllerProvider(item.card.id);
         ref.read(provider);
         final controller = ref.read(provider.notifier);
         await controller.loadComplete;
         if (!mounted) return;
 
-        var state = ref.read(provider);
+        final state = ref.read(provider);
         if (state.isUnavailable) {
-          _selectPendingCard(item.card.id);
+          _selectPendingItem(item.id);
           return;
         }
-        if (state.collectionItemDraft == null) {
-          controller.startAddingCollectionItem();
+        controller.cancelCollectionItemEdit();
+        controller.startAddingCollectionItem();
+        final storedDraft = item.draft;
+        if (storedDraft == null) {
           controller.updateCollectionItemDraft(
             quantityText: item.quantity.toString(),
           );
-          ref
-              .read(pendingCollectionProvider.notifier)
-              .consumeUnappliedQuantity(item.card.id);
-          _initializedCardIds.add(item.card.id);
-          state = ref.read(provider);
-        } else if (item.unappliedQuantity > 0) {
-          final currentQuantity =
-              int.tryParse(state.collectionItemDraft!.quantityText) ?? 0;
-          final unapplied = ref
-              .read(pendingCollectionProvider.notifier)
-              .consumeUnappliedQuantity(item.card.id);
-          controller.updateCollectionItemDraft(
-            quantityText: (currentQuantity + unapplied).toString(),
+        } else {
+          _applyDraft(
+            controller,
+            storedDraft,
+            quantityText: storedDraft.quantityText,
           );
-          state = ref.read(provider);
         }
-        if (state.collectionItemDraft == null) {
-          _selectPendingCard(item.card.id);
+        if (ref.read(provider).collectionItemDraft == null) {
+          _selectPendingItem(item.id);
           return;
         }
 
         final saved = await controller.saveCollectionItemDraft();
         if (!mounted) return;
         if (!saved) {
-          _selectPendingCard(item.card.id);
+          _selectPendingItem(item.id, keepControllerDraft: true);
           return;
         }
-        ref.read(pendingCollectionProvider.notifier).remove(item.card.id);
+        ref.read(pendingCollectionProvider.notifier).remove(item.id);
       }
       if (mounted) context.pop();
     } catch (_) {
       if (mounted) {
-        if (savingCardId != null) _selectPendingCard(savingCardId);
+        if (savingItemId != null) {
+          _selectPendingItem(savingItemId, keepControllerDraft: true);
+        }
         showKandoTopToast(
           context,
           message: genericFailureToastText,
@@ -2218,15 +2294,23 @@ class _QuickCollectionReviewPageState
     }
   }
 
-  void _selectPendingCard(String cardId) {
+  void _selectPendingItem(String itemId, {bool keepControllerDraft = false}) {
     final index = ref
         .read(pendingCollectionProvider)
-        .indexWhere((item) => item.card.id == cardId);
-    if (index >= 0 && mounted) setState(() => _selectedIndex = index);
+        .indexWhere((item) => item.id == itemId);
+    if (index >= 0 && mounted) {
+      setState(() {
+        _activeItemId = keepControllerDraft ? itemId : null;
+        _selectedIndex = index;
+      });
+    }
   }
 
   void _deleteAll() {
-    for (final cardId in _initializedCardIds) {
+    final cardIds = {
+      for (final item in ref.read(pendingCollectionProvider)) item.card.id,
+    };
+    for (final cardId in cardIds) {
       final provider = cardDetailControllerProvider(cardId);
       final state = ref.read(provider);
       if (!state.isLoading &&
@@ -2299,7 +2383,7 @@ class _PendingCollectionStrip extends StatelessWidget {
               itemBuilder: (context, index) {
                 final item = items[index];
                 return InkWell(
-                  key: Key('pending-collection-card-${item.card.id}'),
+                  key: Key('pending-collection-item-${item.id}'),
                   onTap: () => onSelected(index),
                   borderRadius: BorderRadius.circular(4),
                   child: Container(

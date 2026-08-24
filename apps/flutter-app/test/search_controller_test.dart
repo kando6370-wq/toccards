@@ -656,10 +656,11 @@ void main() {
 
       expect(
         await controller.toggleCollect('9359'),
-        SearchCollectAction.openDetail,
+        SearchCollectAction.updated,
       );
       expect(portfolioApi.deletedCollectionItemIds, isEmpty);
       expect(portfolioApi.lastCollectedDraft, isNull);
+      expect(container.read(pendingCollectionProvider).single.quantity, 1);
       card = container.read(searchControllerProvider).cardById('9359');
       expect(card.quantity, 2);
       expect(card.collectionInfo, 'Near Mint (NM)');
@@ -1032,12 +1033,14 @@ void main() {
         container.read(searchControllerProvider).cardById('squirtle').quantity,
         0,
       );
-      expect(container.read(pendingCollectionProvider).single.quantity, 2);
+      final pendingItems = container.read(pendingCollectionProvider);
+      expect(pendingItems, hasLength(2));
+      expect(pendingItems.map((item) => item.quantity), everyElement(1));
     },
   );
 
   test(
-    'Collect on a card with multiple collection items requests detail management',
+    'Collect on an owned card starts another pending Item without changing Qty',
     () async {
       final container = _searchContainer(
         repository: const _MultiCollectionSearchRepository(),
@@ -1051,9 +1054,10 @@ void main() {
           .read(searchControllerProvider)
           .cardById('multi-owned');
 
-      expect(action, SearchCollectAction.openDetail);
+      expect(action, SearchCollectAction.updated);
       expect(card.quantity, 2);
       expect(card.collectionItemCount, 2);
+      expect(container.read(pendingCollectionProvider).single.quantity, 1);
     },
   );
 

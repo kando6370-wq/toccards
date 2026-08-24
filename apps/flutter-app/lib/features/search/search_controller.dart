@@ -32,7 +32,7 @@ final searchControllerProvider =
 
 const searchDebounceDuration = Duration(milliseconds: 300);
 
-enum SearchCollectAction { updated, openDetail, ignored }
+enum SearchCollectAction { updated, ignored }
 
 class SearchState {
   const SearchState({
@@ -516,10 +516,6 @@ class SearchController extends Notifier<SearchState> {
   }
 
   Future<SearchCollectAction> _toggleCollect(SearchCard card) async {
-    if (card.isCollected) {
-      return SearchCollectAction.openDetail;
-    }
-
     ref
         .read(pendingCollectionProvider.notifier)
         .add(

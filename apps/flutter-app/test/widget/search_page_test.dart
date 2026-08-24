@@ -107,7 +107,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('search-collect-charizard-ex')),
-        matching: find.byTooltip('Edit collection item'),
+        matching: find.byTooltip('Add another item'),
       ),
       findsOneWidget,
     );
@@ -729,7 +729,7 @@ void main() {
   });
 
   testWidgets(
-    'single pending card opens its accumulated quantity and delete only cancels the draft',
+    'gray collect button starts another pending Item without changing saved Qty',
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -739,56 +739,145 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final collect = find.byKey(const Key('search-collect-squirtle'));
+      final collect = find.byKey(const Key('search-collect-charizard-ex'));
       await tester.tap(collect);
-      await tester.tap(collect);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('pending-collection-notice')));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const Key('card-detail-add-item-sheet')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('pending-collection-card-strip')),
-        findsNothing,
-      );
-      final quantity = find.descendant(
-        of: find.byKey(const Key('card-detail-item-quantity')),
-        matching: find.byType(TextFormField),
-      );
-      expect(tester.widget<TextFormField>(quantity).initialValue, '2');
-
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('pending-collection-notice')));
-      await tester.pumpAndSettle();
-
-      final reopenedQuantity = find.descendant(
-        of: find.byKey(const Key('card-detail-item-quantity')),
-        matching: find.byType(TextFormField),
-      );
-      expect(tester.widget<TextFormField>(reopenedQuantity).initialValue, '3');
-
-      await tester.tap(find.byKey(const Key('pending-collection-delete')));
       await tester.pumpAndSettle();
 
       expect(find.byType(SearchPage), findsOneWidget);
-      expect(find.byKey(const Key('pending-collection-notice')), findsNothing);
+      expect(find.byKey(const Key('card-detail-hero')), findsNothing);
+      expect(find.text('1 card waiting for details'), findsOneWidget);
       expect(
         find.descendant(
-          of: find.byKey(const Key('search-card-squirtle')),
-          matching: find.text('Qty: 0'),
+          of: find.byKey(const Key('search-card-charizard-ex')),
+          matching: find.text('Qty: 1'),
         ),
         findsOneWidget,
       );
-      expect(find.byKey(const Key('search-wishlist-squirtle')), findsOneWidget);
+      expect(
+        find.byKey(const Key('search-wishlist-charizard-ex')),
+        findsNothing,
+      );
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+        listen: false,
+      );
+      expect(container.read(pendingCollectionProvider).single.quantity, 1);
+
+      await tester.tap(collect);
+      await tester.pumpAndSettle();
+      final pendingItems = container.read(pendingCollectionProvider);
+      expect(pendingItems, hasLength(2));
+      expect(pendingItems.map((item) => item.quantity), everyElement(1));
+      expect(find.text('2 cards waiting for details'), findsOneWidget);
+      expect(
+        container
+            .read(searchControllerProvider)
+            .cardById('charizard-ex')
+            .quantity,
+        1,
+      );
     },
   );
+
+  testWidgets('repeated unowned card clicks create separate pending Items', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+        child: const _SearchTestAppWithRoutes(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final collect = find.byKey(const Key('search-collect-squirtle'));
+    await tester.tap(collect);
+    await tester.tap(collect);
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SearchPage)),
+      listen: false,
+    );
+    final pendingItems = container.read(pendingCollectionProvider);
+    expect(pendingItems, hasLength(2));
+
+    await tester.tap(find.byKey(const Key('pending-collection-notice')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('card-detail-add-item-sheet')), findsOneWidget);
+    expect(
+      find.byKey(const Key('pending-collection-card-strip')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(Key('pending-collection-item-${pendingItems[0].id}')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
+      findsOneWidget,
+    );
+    var quantity = find.descendant(
+      of: find.byKey(const Key('card-detail-item-quantity')),
+      matching: find.byType(TextFormField),
+    );
+    expect(tester.widget<TextFormField>(quantity).initialValue, '1');
+    await tester.enterText(quantity, '3');
+
+    await tester.tap(
+      find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
+    );
+    await tester.pumpAndSettle();
+    quantity = find.descendant(
+      of: find.byKey(const Key('card-detail-item-quantity')),
+      matching: find.byType(TextFormField),
+    );
+    expect(tester.widget<TextFormField>(quantity).initialValue, '1');
+    await tester.enterText(quantity, '4');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(SearchPage), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pending-collection-notice')));
+    await tester.pumpAndSettle();
+
+    quantity = find.descendant(
+      of: find.byKey(const Key('card-detail-item-quantity')),
+      matching: find.byType(TextFormField),
+    );
+    expect(tester.widget<TextFormField>(quantity).initialValue, '3');
+    await tester.tap(
+      find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
+    );
+    await tester.pumpAndSettle();
+    quantity = find.descendant(
+      of: find.byKey(const Key('card-detail-item-quantity')),
+      matching: find.byType(TextFormField),
+    );
+    expect(tester.widget<TextFormField>(quantity).initialValue, '4');
+
+    await tester.tap(find.byKey(const Key('pending-collection-delete')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+    expect(container.read(pendingCollectionProvider), hasLength(1));
+
+    await tester.tap(find.byKey(const Key('pending-collection-delete')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchPage), findsOneWidget);
+    expect(find.byKey(const Key('pending-collection-notice')), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('search-card-squirtle')),
+        matching: find.text('Qty: 0'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('search-wishlist-squirtle')), findsOneWidget);
+  });
 
   testWidgets('multiple pending cards use card strip and batch actions', (
     tester,
@@ -820,6 +909,7 @@ void main() {
         );
     await tester.pumpAndSettle();
 
+    final pendingItems = container.read(pendingCollectionProvider);
     expect(find.text('2 cards waiting for details'), findsOneWidget);
     await tester.tap(find.byKey(const Key('pending-collection-notice')));
     await tester.pumpAndSettle();
@@ -829,11 +919,11 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const Key('pending-collection-card-squirtle')),
+      find.byKey(Key('pending-collection-item-${pendingItems[0].id}')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const Key('pending-collection-card-mystery-promo')),
+      find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
       findsOneWidget,
     );
     expect(find.byKey(const Key('pending-collection-add-all')), findsOneWidget);
@@ -843,8 +933,61 @@ void main() {
     );
   });
 
+  testWidgets('saving repeated clicks creates separate variant Items', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+        child: const _SearchTestAppWithRoutes(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final collect = find.byKey(const Key('search-collect-squirtle'));
+    await tester.tap(collect);
+    await tester.tap(collect);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pending-collection-notice')));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(QuickCollectionReviewPage)),
+      listen: false,
+    );
+    final pendingItems = container.read(pendingCollectionProvider);
+    await tester.tap(
+      find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('card-detail-item-state-graded')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('card-detail-item-state-graded')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('BGS').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('BGS').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('pending-collection-add-all')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchPage), findsOneWidget);
+    expect(container.read(pendingCollectionProvider), isEmpty);
+    final detail = container.read(cardDetailControllerProvider('squirtle'));
+    expect(detail.detail.quantity, 2);
+    expect(detail.detail.collectionItems, hasLength(2));
+    expect(detail.detail.collectionItems.map((item) => item.grader).toSet(), {
+      'Raw',
+      'BGS',
+    });
+    expect(detail.detail.isWishlisted, isFalse);
+  });
+
   testWidgets(
-    'saving a pending item removes the notice and commits its accumulated quantity',
+    'saving another Item on an owned card preserves the existing Item and increases Qty',
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -854,9 +997,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final collect = find.byKey(const Key('search-collect-squirtle'));
-      await tester.tap(collect);
-      await tester.tap(collect);
+      await tester.tap(find.byKey(const Key('search-collect-charizard-ex')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('pending-collection-notice')));
       await tester.pumpAndSettle();
@@ -868,11 +1009,23 @@ void main() {
       await tester.tap(find.byKey(const Key('card-detail-item-submit')));
       await tester.pumpAndSettle();
 
-      expect(find.byType(SearchPage), findsOneWidget);
-      expect(container.read(pendingCollectionProvider), isEmpty);
-      final detail = container.read(cardDetailControllerProvider('squirtle'));
+      final detail = container.read(
+        cardDetailControllerProvider('charizard-ex'),
+      );
       expect(detail.detail.quantity, 2);
-      expect(detail.detail.isWishlisted, isFalse);
+      expect(detail.detail.collectionItems, hasLength(2));
+      expect(
+        detail.detail.collectionItems
+            .singleWhere((item) => item.id == 'item-charizard')
+            .quantity,
+        1,
+      );
+      expect(container.read(pendingCollectionProvider), isEmpty);
+      expect(find.byType(SearchPage), findsOneWidget);
+      expect(
+        find.byKey(const Key('search-wishlist-charizard-ex')),
+        findsNothing,
+      );
     },
   );
 

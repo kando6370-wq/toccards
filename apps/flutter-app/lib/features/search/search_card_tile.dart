@@ -126,7 +126,7 @@ class SearchCardTile extends ConsumerWidget {
                                     tooltip: isPendingCollection
                                         ? 'Pending collection item'
                                         : card.isCollected
-                                        ? 'Edit collection item'
+                                        ? 'Add another item'
                                         : 'Collect',
                                     iconAsset: isPendingCollection
                                         ? 'assets/search/collection_on.svg'
@@ -134,24 +134,12 @@ class SearchCardTile extends ConsumerWidget {
                                     onPressed: !actionsEnabled
                                         ? null
                                         : () async {
-                                            final action = await ref
+                                            await ref
                                                 .read(
                                                   searchControllerProvider
                                                       .notifier,
                                                 )
                                                 .toggleCollectCard(card);
-                                            if (action ==
-                                                SearchCollectAction
-                                                    .openDetail) {
-                                              if (context.mounted) {
-                                                context.push(
-                                                  _cardDetailsLocation(
-                                                    card,
-                                                    entrySource,
-                                                  ),
-                                                );
-                                              }
-                                            }
                                           },
                                   ),
                                   if (!card.isCollected &&

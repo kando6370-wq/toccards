@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+const _pendingDraftUnset = Object();
+
 final pendingCollectionProvider =
     NotifierProvider<PendingCollectionController, List<PendingCollectionItem>>(
       PendingCollectionController.new,
@@ -27,65 +29,83 @@ class PendingCollectionCard {
 
 class PendingCollectionItem {
   const PendingCollectionItem({
+    required this.id,
     required this.card,
     required this.quantity,
-    required this.unappliedQuantity,
+    this.draft,
   });
 
+  final String id;
   final PendingCollectionCard card;
   final int quantity;
-  final int unappliedQuantity;
+  final PendingCollectionDraft? draft;
 
-  PendingCollectionItem copyWith({int? quantity, int? unappliedQuantity}) {
+  PendingCollectionItem copyWith({Object? draft = _pendingDraftUnset}) {
     return PendingCollectionItem(
+      id: id,
       card: card,
-      quantity: quantity ?? this.quantity,
-      unappliedQuantity: unappliedQuantity ?? this.unappliedQuantity,
+      quantity: quantity,
+      draft: draft == _pendingDraftUnset
+          ? this.draft
+          : draft as PendingCollectionDraft?,
     );
   }
 }
 
+class PendingCollectionDraft {
+  const PendingCollectionDraft({
+    required this.quantityText,
+    required this.portfolioName,
+    required this.grader,
+    required this.condition,
+    required this.grade,
+    required this.language,
+    required this.finish,
+    required this.purchasePriceText,
+    required this.notes,
+  });
+
+  final String quantityText;
+  final String portfolioName;
+  final String grader;
+  final String condition;
+  final String grade;
+  final String language;
+  final String finish;
+  final String purchasePriceText;
+  final String notes;
+}
+
 class PendingCollectionController
     extends Notifier<List<PendingCollectionItem>> {
+  var _nextItemId = 0;
+
   @override
-  List<PendingCollectionItem> build() => const [];
+  List<PendingCollectionItem> build() {
+    _nextItemId = 0;
+    return const [];
+  }
 
   void add(PendingCollectionCard card) {
-    final index = state.indexWhere((item) => item.card.id == card.id);
-    if (index < 0) {
-      state = [
-        ...state,
-        PendingCollectionItem(card: card, quantity: 1, unappliedQuantity: 1),
-      ];
-      return;
-    }
-
     state = [
-      for (var i = 0; i < state.length; i++)
-        if (i == index)
-          state[i].copyWith(
-            quantity: state[i].quantity + 1,
-            unappliedQuantity: state[i].unappliedQuantity + 1,
-          )
-        else
-          state[i],
+      ...state,
+      PendingCollectionItem(
+        id: '${card.id}:pending:${_nextItemId++}',
+        card: card,
+        quantity: 1,
+      ),
     ];
   }
 
-  int consumeUnappliedQuantity(String cardId) {
-    final index = state.indexWhere((item) => item.card.id == cardId);
-    if (index < 0) return 0;
-    final quantity = state[index].unappliedQuantity;
-    if (quantity == 0) return 0;
+  void updateDraft(String itemId, PendingCollectionDraft draft) {
     state = [
-      for (var i = 0; i < state.length; i++)
-        if (i == index) state[i].copyWith(unappliedQuantity: 0) else state[i],
+      for (final item in state)
+        if (item.id == itemId) item.copyWith(draft: draft) else item,
     ];
-    return quantity;
   }
 
-  void remove(String cardId) {
-    state = state.where((item) => item.card.id != cardId).toList();
+  void remove(String itemId) {
+    state = state.where((item) => item.id != itemId).toList();
   }
 
   void clear() {
