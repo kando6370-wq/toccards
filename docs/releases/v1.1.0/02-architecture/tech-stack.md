@@ -45,7 +45,7 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 - Google/Apple OAuth；邮箱注册与找回密码使用 ZeptoMail。
 - OCR 服务处理扫描识别；PostgreSQL/R2 保存结构化记录与受保护图片。
 - 汇率服务以 USD 为基准提供快照，KV 可缓存。
-- Firebase Analytics/Crashlytics、Mixpanel、Singular 和 ATT 用于分析、归因与稳定性，不作为授权真源。
+- Firebase Analytics/Crashlytics、Mixpanel、Singular 和 ATT 用于分析、归因与稳定性，不作为授权真源。Flutter 在 dev/prod 环境均开启 Mixpanel 移动端自动事件采集；Project Token 仍按环境加载。
 
 ## 5. 配置和安全边界
 

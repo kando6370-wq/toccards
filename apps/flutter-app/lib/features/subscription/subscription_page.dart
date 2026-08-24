@@ -163,10 +163,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
         children: [
           if (!useUpdatedSheetUi)
             Positioned.fill(
-              child: _PaywallBackground(
-                sheet: widget.sheet,
-                useUpdatedSheetUi: false,
-              ),
+              child: _PaywallBackground(useUpdatedSheetUi: false),
             ),
           CustomScrollView(
             slivers: [
@@ -355,10 +352,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
               children: [
                 if (useUpdatedSheetUi)
                   const Positioned.fill(
-                    child: _PaywallBackground(
-                      sheet: true,
-                      useUpdatedSheetUi: true,
-                    ),
+                    child: _PaywallBackground(useUpdatedSheetUi: true),
                   ),
                 Padding(
                   padding: const EdgeInsets.only(top: 32),
@@ -897,12 +891,8 @@ class _SuccessBenefitRow extends StatelessWidget {
 }
 
 class _PaywallBackground extends StatelessWidget {
-  const _PaywallBackground({
-    required this.sheet,
-    required this.useUpdatedSheetUi,
-  });
+  const _PaywallBackground({required this.useUpdatedSheetUi});
 
-  final bool sheet;
   final bool useUpdatedSheetUi;
 
   @override
@@ -935,70 +925,20 @@ class _PaywallBackground extends StatelessWidget {
         },
       );
     }
-    if (sheet) {
-      return Stack(
-        children: [
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF191813), KandoColors.ink],
-                  stops: [0, 0.42],
-                ),
-              ),
-            ),
-          ),
-          const Positioned(
-            top: 8,
-            right: -28,
-            child: _SheetBackgroundCard(
-              assetIndex: 4,
-              width: 170,
-              angle: -0.56,
-              opacity: 0.34,
-            ),
-          ),
-          const Positioned(
-            top: 64,
-            right: 82,
-            child: _SheetBackgroundCard(
-              assetIndex: 2,
-              width: 150,
-              angle: -0.87,
-              opacity: 0.2,
-            ),
-          ),
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.center,
-                  colors: [Color(0x0010100B), KandoColors.ink],
-                  stops: [0.1, 0.44],
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-    return const _SubscriptionFullPageVideoBackground();
+    return const _SubscriptionVideoBackground();
   }
 }
 
-class _SubscriptionFullPageVideoBackground extends StatefulWidget {
-  const _SubscriptionFullPageVideoBackground();
+class _SubscriptionVideoBackground extends StatefulWidget {
+  const _SubscriptionVideoBackground();
 
   @override
-  State<_SubscriptionFullPageVideoBackground> createState() =>
-      _SubscriptionFullPageVideoBackgroundState();
+  State<_SubscriptionVideoBackground> createState() =>
+      _SubscriptionVideoBackgroundState();
 }
 
-class _SubscriptionFullPageVideoBackgroundState
-    extends State<_SubscriptionFullPageVideoBackground>
+class _SubscriptionVideoBackgroundState
+    extends State<_SubscriptionVideoBackground>
     with WidgetsBindingObserver {
   static const _initializationTimeout = Duration(seconds: 4);
 
@@ -1072,7 +1012,7 @@ class _SubscriptionFullPageVideoBackgroundState
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      key: const Key('subscription-full-page-video-background'),
+      key: const Key('subscription-video-background'),
       color: Colors.black,
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -1087,7 +1027,7 @@ class _SubscriptionFullPageVideoBackgroundState
               minHeight: videoHeight,
               maxHeight: videoHeight,
               child: SizedBox(
-                key: const Key('subscription-full-page-video-frame'),
+                key: const Key('subscription-video-frame'),
                 width: videoWidth,
                 height: videoHeight,
                 child: _isReady && _controller != null
@@ -1105,44 +1045,6 @@ class _SubscriptionFullPageVideoBackgroundState
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _SheetBackgroundCard extends StatelessWidget {
-  const _SheetBackgroundCard({
-    required this.assetIndex,
-    required this.width,
-    required this.angle,
-    required this.opacity,
-  });
-
-  final int assetIndex;
-  final double width;
-  final double angle;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Transform.rotate(
-      angle: angle,
-      child: Opacity(
-        opacity: opacity,
-        child: ColorFiltered(
-          colorFilter: const ColorFilter.mode(
-            Color(0xFF677020),
-            BlendMode.modulate,
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.asset(
-              'assets/subscription/card_$assetIndex.png',
-              width: width,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
       ),
     );
   }

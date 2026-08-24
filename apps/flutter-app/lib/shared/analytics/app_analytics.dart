@@ -65,7 +65,7 @@ class AppAnalytics {
       if (projectToken != null) {
         mixpanel = await Mixpanel.init(
           projectToken,
-          trackAutomaticEvents: false,
+          trackAutomaticEvents: true,
         );
       }
     } on Object {

@@ -2206,48 +2206,35 @@ void main() {
     );
   }
 
-  testWidgets(
-    'full subscription video background follows the screen width and stays out of the sheet',
-    (tester) async {
-      tester.view.physicalSize = const Size(430, 932);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('subscription video background follows the available width', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(_subscriptionGoldenApp(const SubscriptionPage()));
-      await tester.pump();
+    await tester.pumpWidget(_subscriptionGoldenApp(const SubscriptionPage()));
+    await tester.pump();
 
-      expect(
-        find.byKey(const Key('subscription-full-page-video-background')),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .widget<ColoredBox>(
-              find.byKey(const Key('subscription-full-page-video-background')),
-            )
-            .color,
-        Colors.black,
-      );
-      final videoFrame = find.byKey(
-        const Key('subscription-full-page-video-frame'),
-      );
-      expect(tester.getSize(videoFrame).width, 430);
-      expect(tester.getSize(videoFrame).height, closeTo(763.82, 0.01));
+    expect(
+      find.byKey(const Key('subscription-video-background')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<ColoredBox>(
+            find.byKey(const Key('subscription-video-background')),
+          )
+          .color,
+      Colors.black,
+    );
+    final videoFrame = find.byKey(const Key('subscription-video-frame'));
+    expect(tester.getSize(videoFrame).width, 430);
+    expect(tester.getSize(videoFrame).height, closeTo(763.82, 0.01));
+  });
 
-      await tester.pumpWidget(
-        _subscriptionGoldenApp(const SubscriptionPage(sheet: true)),
-      );
-      await tester.pump();
-
-      expect(
-        find.byKey(const Key('subscription-full-page-video-background')),
-        findsNothing,
-      );
-    },
-  );
-
-  testWidgets('latest subscription sheet visuals are limited to iOS', (
+  testWidgets('Android sheet uses video while iOS keeps its updated image', (
     tester,
   ) async {
     Iterable<String> renderedAssetNames() => tester
@@ -2267,7 +2254,10 @@ void main() {
         renderedAssetNames(),
         isNot(contains('assets/subscription/sheet_background_1651_9915.png')),
       );
-      expect(renderedAssetNames(), contains('assets/subscription/card_4.png'));
+      expect(
+        find.byKey(const Key('subscription-video-background')),
+        findsOneWidget,
+      );
 
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       await tester.pumpWidget(
@@ -2280,8 +2270,8 @@ void main() {
         contains('assets/subscription/sheet_background_1651_9915.png'),
       );
       expect(
-        renderedAssetNames(),
-        isNot(contains('assets/subscription/card_4.png')),
+        find.byKey(const Key('subscription-video-background')),
+        findsNothing,
       );
     } finally {
       debugDefaultTargetPlatformOverride = null;
