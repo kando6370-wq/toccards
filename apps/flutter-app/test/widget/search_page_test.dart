@@ -70,6 +70,13 @@ void main() {
       44,
     );
     expect(tester.getSize(find.byKey(const Key('search-tabs'))).height, 44);
+    final viewportWidth =
+        tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    expect(tester.getRect(find.byKey(const Key('search-field'))).left, 20);
+    expect(
+      tester.getRect(find.byKey(const Key('search-field'))).right,
+      viewportWidth - 20,
+    );
     expect(
       tester.getRect(find.byKey(const Key('search-results-grid'))).left,
       tester.getRect(find.byKey(const Key('search-field'))).left,
@@ -274,7 +281,7 @@ void main() {
         tester.getRect(imageContainer).top,
         tester.getRect(cardTile).top + 14,
       );
-      expect(tester.getSize(cardTile), const Size(174, 378));
+      expect(tester.getSize(cardTile), const Size(170, 378));
       expect(tester.getSize(imageContainer).height, 186);
       expect(
         tester.getRect(actionButton).top,
@@ -528,7 +535,7 @@ void main() {
       tester
           .getSize(find.byKey(const Key('search-set-mega-evolution-promos')))
           .width,
-      358,
+      350,
     );
     expect(
       tester.getSize(

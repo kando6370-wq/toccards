@@ -68,7 +68,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       ? ListView(
                           key: const Key('search-content-list'),
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 116),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 116),
                           children: [
                             if (widget.fromScan) ...[
                               _BackToScanButton(context: context),
@@ -87,9 +87,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                               SliverPadding(
                                 key: const Key('search-content-top-padding'),
                                 padding: const EdgeInsets.fromLTRB(
-                                  16,
+                                  20,
                                   0,
-                                  16,
+                                  20,
                                   0,
                                 ),
                                 sliver: SliverToBoxAdapter(
@@ -119,9 +119,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                             ),
                             SliverPadding(
                               padding: const EdgeInsets.fromLTRB(
-                                16,
+                                20,
                                 0,
-                                16,
+                                20,
                                 116,
                               ),
                               sliver: SliverToBoxAdapter(
@@ -200,7 +200,7 @@ class _SearchControlsHeader extends StatelessWidget {
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         child: Column(
           children: [
             SizedBox(

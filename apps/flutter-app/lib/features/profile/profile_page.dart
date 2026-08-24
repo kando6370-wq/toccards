@@ -175,8 +175,8 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
         );
 
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 390),
+      child: SizedBox(
+        width: double.infinity,
         child: RefreshIndicator(
           key: const Key('profile-pull-to-refresh'),
           onRefresh: widget.onRefresh,

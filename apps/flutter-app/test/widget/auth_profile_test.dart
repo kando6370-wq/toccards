@@ -1483,7 +1483,7 @@ void main() {
   );
 
   testWidgets(
-    'Profile detail pages keep the Figma mobile canvas because account actions must not stretch on wide screens',
+    'Profile tab fills wide screens while detail pages keep the mobile canvas',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(800, 1000);
@@ -1496,7 +1496,11 @@ void main() {
 
       expect(
         tester.getSize(find.byKey(const Key('profile-content-list'))).width,
-        390,
+        800,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('profile-upgrade-banner'))).width,
+        760,
       );
       expect(find.byKey(const Key('profile-pull-to-refresh')), findsOneWidget);
 
@@ -1906,7 +1910,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester.getSize(find.byKey(const Key('profile-upgrade-banner'))),
-      const Size(350, 152),
+      const Size(390, 152),
     );
     expect(find.text('Restore'), findsOneWidget);
 
