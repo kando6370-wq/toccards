@@ -501,7 +501,10 @@ class SearchController extends Notifier<SearchState> {
     return toggleCollectCard(state.cardById(cardId));
   }
 
-  Future<SearchCollectAction> toggleCollectCard(SearchCard card) async {
+  Future<SearchCollectAction> toggleCollectCard(
+    SearchCard card, {
+    String? game,
+  }) async {
     if (state.isUnavailable ||
         state.isLoading ||
         state.assetStatus != KandoLoadStatus.content ||
@@ -509,20 +512,26 @@ class SearchController extends Notifier<SearchState> {
       return SearchCollectAction.ignored;
     }
     try {
-      return await _toggleCollect(resolveCard(card));
+      return await _toggleCollect(resolveCard(card), game: game);
     } finally {
       _pendingCardMutations.remove(card.id);
     }
   }
 
-  Future<SearchCollectAction> _toggleCollect(SearchCard card) async {
+  Future<SearchCollectAction> _toggleCollect(
+    SearchCard card, {
+    String? game,
+  }) async {
+    final requestedGame = game?.trim();
     final added = ref
         .read(pendingCollectionProvider.notifier)
         .add(
           PendingCollectionCard(
             id: card.id,
             name: card.name,
-            game: state.selectedGame.label,
+            game: requestedGame == null || requestedGame.isEmpty
+                ? state.selectedGame.label
+                : requestedGame,
             setName: card.setName,
             metadataLine: card.metadataLine,
             variantLine: card.variantLine,

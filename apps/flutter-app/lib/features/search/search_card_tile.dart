@@ -23,6 +23,7 @@ class SearchCardTile extends ConsumerWidget {
     this.showSearchMetadata = false,
     this.showQuantity = true,
     this.entrySource = AnalyticsValue.sourceSearch,
+    this.collectGame,
   });
 
   final SearchCard card;
@@ -31,6 +32,7 @@ class SearchCardTile extends ConsumerWidget {
   final bool showSearchMetadata;
   final bool showQuantity;
   final String entrySource;
+  final String? collectGame;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -140,7 +142,10 @@ class SearchCardTile extends ConsumerWidget {
                                                   searchControllerProvider
                                                       .notifier,
                                                 )
-                                                .toggleCollectCard(card);
+                                                .toggleCollectCard(
+                                                  card,
+                                                  game: collectGame,
+                                                );
                                             if (action ==
                                                     SearchCollectAction
                                                         .limitReached &&

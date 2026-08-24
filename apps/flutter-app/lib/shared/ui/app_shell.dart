@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 
 import 'kando_style.dart';
+import 'toast.dart';
 
 enum KandoMainTab { home, collection, scan, search, profile }
 
@@ -38,7 +39,7 @@ class KandoTabScaffold extends ConsumerWidget {
                 left: 20,
                 right: 20,
                 bottom: 96 + MediaQuery.paddingOf(context).bottom,
-                child: _PendingCollectionNotice(count: pendingItems.length),
+                child: PendingCollectionNotice(count: pendingItems.length),
               ),
           ],
         ),
@@ -97,8 +98,8 @@ class KandoTabScaffold extends ConsumerWidget {
   }
 }
 
-class _PendingCollectionNotice extends StatelessWidget {
-  const _PendingCollectionNotice({required this.count});
+class PendingCollectionNotice extends StatelessWidget {
+  const PendingCollectionNotice({super.key, required this.count});
 
   final int count;
 
@@ -114,7 +115,17 @@ class _PendingCollectionNotice extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.push('/collection-items/pending'),
+        onTap: () async {
+          final addedCount = await context.push<int>(
+            '/collection-items/pending',
+          );
+          if (context.mounted && addedCount != null && addedCount > 0) {
+            showKandoCenteredSuccessToast(
+              context,
+              message: portfolioCardsAddedToastText(addedCount),
+            );
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(

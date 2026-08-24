@@ -2358,6 +2358,7 @@ class _QuickCollectionReviewPageState
   Widget build(BuildContext context) {
     final pendingItems = ref.watch(pendingCollectionProvider);
     if (pendingItems.isEmpty) {
+      if (_isSavingAll) return const _QuickCollectionLoading();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (context.canPop()) {
@@ -2460,15 +2461,15 @@ class _QuickCollectionReviewPageState
     ref.read(pendingCollectionProvider.notifier).remove(itemId);
     _activeItemId = null;
     if (!mounted) return;
+    final remaining = ref.read(pendingCollectionProvider);
+    if (remaining.isEmpty) {
+      context.pop(1);
+      return;
+    }
     showKandoCenteredSuccessToast(
       context,
       message: portfolioCardAddedToastText,
     );
-    final remaining = ref.read(pendingCollectionProvider);
-    if (remaining.isEmpty) {
-      context.pop();
-      return;
-    }
     setState(() {
       _selectedIndex = math.min(_selectedIndex, remaining.length - 1);
     });
@@ -2551,6 +2552,7 @@ class _QuickCollectionReviewPageState
     var successCount = 0;
     var failedCount = 0;
     String? firstFailedItemId;
+    var closesWithSuccess = false;
     try {
       final itemsToSave = List.of(ref.read(pendingCollectionProvider));
       for (final item in itemsToSave) {
@@ -2571,11 +2573,8 @@ class _QuickCollectionReviewPageState
       }
       if (!mounted) return;
       if (failedCount == 0) {
-        showKandoCenteredSuccessToast(
-          context,
-          message: portfolioCardsAddedToastText(successCount),
-        );
-        context.pop();
+        closesWithSuccess = true;
+        context.pop(successCount);
       } else {
         if (firstFailedItemId != null) {
           _selectPendingItem(firstFailedItemId);
@@ -2595,7 +2594,9 @@ class _QuickCollectionReviewPageState
         }
       }
     } finally {
-      if (mounted) setState(() => _isSavingAll = false);
+      if (mounted && !closesWithSuccess) {
+        setState(() => _isSavingAll = false);
+      }
     }
   }
 

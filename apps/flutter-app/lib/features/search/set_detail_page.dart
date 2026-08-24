@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
+import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -104,24 +106,46 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchControllerProvider);
+    final pendingCount = ref.watch(pendingCollectionProvider).length;
     return Scaffold(
       backgroundColor: KandoColors.ink,
       appBar: AppBar(title: Text(widget.setName)),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return RefreshIndicator(
-              key: const Key('set-detail-pull-to-refresh'),
-              onRefresh: _refresh,
-              child: _body(constraints.maxHeight, searchState),
-            );
-          },
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return RefreshIndicator(
+                    key: const Key('set-detail-pull-to-refresh'),
+                    onRefresh: _refresh,
+                    child: _body(
+                      constraints.maxHeight,
+                      searchState,
+                      pendingCount > 0,
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (pendingCount > 0)
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 12,
+                child: PendingCollectionNotice(count: pendingCount),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _body(double viewportHeight, SearchState searchState) {
+  Widget _body(
+    double viewportHeight,
+    SearchState searchState,
+    bool showPendingNotice,
+  ) {
     if (_loading && _cards.isEmpty) {
       return _fullHeightScrollable(viewportHeight, const KandoLoadingBlock());
     }
@@ -151,7 +175,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
             key: const Key('set-detail-card-grid'),
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: EdgeInsets.fromLTRB(0, 16, 0, showPendingNotice ? 96 : 16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 10,
@@ -187,6 +211,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
                     !searchState.isUnavailable &&
                     searchState.assetStatus == KandoLoadStatus.content,
                 showSearchMetadata: true,
+                collectGame: widget.game,
               );
             },
           ),
@@ -195,9 +220,12 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
     );
   }
 
-  Future<void> _refresh() {
+  Future<void> _refresh() async {
     ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-    return _load(reset: true);
+    await Future.wait([
+      _load(reset: true),
+      ref.read(searchControllerProvider.notifier).refreshPreservingContent(),
+    ]);
   }
 
   Widget _fullHeightScrollable(double height, Widget child) {
