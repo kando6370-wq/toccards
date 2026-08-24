@@ -862,7 +862,7 @@ Future<void> _openEditCollectionItemSheet(
   String cardId,
   String itemId,
 ) async {
-  await controller.startEditingCollectionItem(itemId);
+  unawaited(controller.startEditingCollectionItem(itemId));
   if (!context.mounted) return;
   final provider = cardDetailControllerProvider(cardId);
   final container = ProviderScope.containerOf(context, listen: false);
@@ -916,9 +916,24 @@ class _EditCollectionItemSheet extends ConsumerWidget {
                 child: SingleChildScrollView(
                   key: const Key('card-detail-edit-item-sheet-scroll'),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                  child: _CollectionItemForm(
-                    state: state,
-                    controller: controller,
+                  child: Column(
+                    children: [
+                      _CollectionItemForm(state: state, controller: controller),
+                      const SizedBox(height: 12),
+                      _RemoveFromPortfolioFooterButton(
+                        onPressed: () async {
+                          final navigator = Navigator.of(context);
+                          final removed = await _confirmRemoveCollectionItem(
+                            context,
+                            controller,
+                            state.editingCollectionItemId!,
+                          );
+                          if (removed == true && navigator.mounted) {
+                            navigator.pop(true);
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -2555,6 +2570,7 @@ class _QuickCollectionReviewPageState
     var closesWithSuccess = false;
     try {
       final itemsToSave = List.of(ref.read(pendingCollectionProvider));
+      final savedItemIds = <String>[];
       for (final item in itemsToSave) {
         var saved = false;
         try {
@@ -2565,13 +2581,17 @@ class _QuickCollectionReviewPageState
         if (!mounted) return;
         if (saved) {
           successCount += 1;
-          ref.read(pendingCollectionProvider.notifier).remove(item.id);
+          savedItemIds.add(item.id);
         } else {
           failedCount += 1;
           firstFailedItemId ??= item.id;
         }
       }
       if (!mounted) return;
+      final pendingController = ref.read(pendingCollectionProvider.notifier);
+      for (final itemId in savedItemIds) {
+        pendingController.remove(itemId);
+      }
       if (failedCount == 0) {
         closesWithSuccess = true;
         context.pop(successCount);
@@ -2580,9 +2600,10 @@ class _QuickCollectionReviewPageState
           _selectPendingItem(firstFailedItemId);
         }
         if (successCount > 0) {
+          final cardLabel = successCount == 1 ? 'card' : 'cards';
           showKandoTopToast(
             context,
-            message: '$successCount cards added, $failedCount failed.',
+            message: '$successCount $cardLabel added, $failedCount failed.',
             type: KandoTopToastType.warning,
           );
         } else {
@@ -2978,14 +2999,42 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                                                 entrySource,
                                           },
                                         );
-                                    final saved = await controller
-                                        .saveCollectionItemDraft();
-                                    if (saved && context.mounted) {
-                                      if (onSaved != null) {
-                                        await onSaved!();
-                                      } else {
-                                        Navigator.of(context).pop(true);
+                                    bool saved;
+                                    try {
+                                      saved = await controller
+                                          .saveCollectionItemDraft();
+                                    } on PortfolioApiException catch (error) {
+                                      if (context.mounted) {
+                                        showKandoTopToast(
+                                          context,
+                                          message: error.message,
+                                          type: KandoTopToastType.failure,
+                                        );
                                       }
+                                      return;
+                                    } catch (_) {
+                                      if (context.mounted) {
+                                        showKandoTopFailureToast(context);
+                                      }
+                                      return;
+                                    }
+                                    if (!context.mounted) return;
+                                    if (!saved) {
+                                      final message = ref
+                                          .read(provider)
+                                          .collectionItemFormError;
+                                      showKandoTopToast(
+                                        context,
+                                        message:
+                                            message ?? genericFailureToastText,
+                                        type: KandoTopToastType.failure,
+                                      );
+                                      return;
+                                    }
+                                    if (onSaved != null) {
+                                      await onSaved!();
+                                    } else {
+                                      Navigator.of(context).pop(true);
                                     }
                                   },
                             icon: state.isSavingCollectionItemDraft
@@ -5780,7 +5829,7 @@ String _formatDetailChartPrice(CardPricePoint point) {
   return '\$$whole.${parts.last}';
 }
 
-Future<void> _confirmRemoveWishlist(
+Future<bool?> _confirmRemoveWishlist(
   BuildContext context,
   CardDetailController controller,
 ) {
@@ -5792,7 +5841,7 @@ Future<void> _confirmRemoveWishlist(
   );
 }
 
-Future<void> _confirmRemoveCollectionItem(
+Future<bool?> _confirmRemoveCollectionItem(
   BuildContext context,
   CardDetailController controller,
   String itemId,
@@ -5805,12 +5854,12 @@ Future<void> _confirmRemoveCollectionItem(
   );
 }
 
-Future<void> _showRemoveConfirmationSheet({
+Future<bool?> _showRemoveConfirmationSheet({
   required BuildContext context,
   required String title,
   required Future<void> Function() onRemove,
 }) {
-  return showModalBottomSheet<void>(
+  return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -5820,7 +5869,7 @@ Future<void> _showRemoveConfirmationSheet({
       title: title,
       onCancel: () {
         _trackFromContext(sheetContext, AnalyticsEvent.cancelClick);
-        Navigator.of(sheetContext).pop();
+        Navigator.of(sheetContext).pop(false);
       },
       onRemove: () async {
         _trackFromContext(sheetContext, AnalyticsEvent.deleteConfirmClick);
@@ -5833,7 +5882,7 @@ Future<void> _showRemoveConfirmationSheet({
           return;
         }
         if (sheetContext.mounted) {
-          Navigator.of(sheetContext).pop();
+          Navigator.of(sheetContext).pop(true);
         }
       },
     ),

@@ -982,6 +982,47 @@ void main() {
     );
   });
 
+  testWidgets(
+    'pending Add this card shows validation in a top toast because its fixed action stays visible while the form error is below',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const Key('card-detail-item-quantity')),
+          matching: find.byType(TextFormField),
+        ),
+        '0',
+      );
+      await tester.tap(find.byKey(const Key('card-detail-item-submit')));
+      await tester.pump();
+
+      final toast = find.byKey(const Key('kando-top-toast'));
+      expect(toast, findsOneWidget);
+      expect(
+        find.descendant(
+          of: toast,
+          matching: find.text('Quantity must be at least 1.'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+    },
+  );
+
   testWidgets('saving repeated clicks creates separate variant Items', (
     tester,
   ) async {
@@ -1049,6 +1090,62 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets(
+    'Add All keeps every pending card visible until the batch settles because progress must not look like individual removal',
+    (tester) async {
+      final repository = _BlockingBatchCreateRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            ..._localAuthOverrides(),
+            cardDetailRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final collect = find.byKey(const Key('search-collect-squirtle'));
+      await tester.tap(collect);
+      await tester.tap(collect);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+        listen: false,
+      );
+      final pendingItems = container.read(pendingCollectionProvider);
+      await tester.tap(find.byKey(const Key('pending-collection-add-all')));
+      await tester.pump();
+
+      expect(repository.pendingCreates, hasLength(1));
+      repository.completeNext();
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.pendingCreates, hasLength(2));
+      expect(container.read(pendingCollectionProvider), hasLength(2));
+      for (final item in pendingItems) {
+        expect(
+          find.byKey(Key('pending-collection-item-${item.id}')),
+          findsOneWidget,
+        );
+      }
+
+      repository.completeNext();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SearchPage), findsOneWidget);
+      expect(container.read(pendingCollectionProvider), isEmpty);
+      expect(find.text('2 cards added to your portfolio'), findsOneWidget);
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pump();
+    },
+  );
+
   testWidgets('batch save keeps failed Items and reports partial success', (
     tester,
   ) async {
@@ -1096,8 +1193,12 @@ void main() {
     await tester.tap(find.byKey(const Key('pending-collection-add-all')));
     await tester.pumpAndSettle();
 
-    expect(find.text('1 cards added, 1 failed.'), findsOneWidget);
+    expect(find.text('1 card added, 1 failed.'), findsOneWidget);
     expect(container.read(pendingCollectionProvider), hasLength(1));
+    expect(
+      container.read(pendingCollectionProvider).single.id,
+      pendingItems[1].id,
+    );
     expect(
       container.read(pendingCollectionProvider).single.draft?.grader,
       'BGS',
@@ -1843,6 +1944,38 @@ class _RecordingPendingCreateRepository extends MockCardDetailRepository {
       detail: detail,
       item: item,
       idempotencyKey: idempotencyKey,
+    );
+  }
+}
+
+class _BlockingBatchCreateRepository extends MockCardDetailRepository {
+  final List<
+    ({
+      CardDetail detail,
+      CardCollectionItem item,
+      Completer<CardCollectionItem> completer,
+    })
+  >
+  pendingCreates = [];
+
+  @override
+  Future<CardCollectionItem> createCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+    String? idempotencyKey,
+  }) {
+    final completer = Completer<CardCollectionItem>();
+    pendingCreates.add((detail: detail, item: item, completer: completer));
+    return completer.future;
+  }
+
+  void completeNext() {
+    final pending = pendingCreates.firstWhere(
+      (request) => !request.completer.isCompleted,
+    );
+    pending.completer.complete(
+      pending.item.copyWith(cardRef: pending.detail.id),
     );
   }
 }

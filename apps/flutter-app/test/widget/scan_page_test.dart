@@ -3425,10 +3425,18 @@ void main() {
 
     expect(analytics.count(AnalyticsEvent.collectionItemAddClick), 1);
     expect(analytics.count(AnalyticsEvent.scanResults), 1);
+    expect(find.byKey(const Key('scan-review-form-error')), findsOneWidget);
+    final toast = find.byKey(const Key('kando-top-toast'));
+    expect(toast, findsOneWidget);
     expect(
-      find.text('Quantity must be a whole number of 1 or more.'),
+      find.descendant(
+        of: toast,
+        matching: find.text('Quantity must be a whole number of 1 or more.'),
+      ),
       findsOneWidget,
     );
+    await tester.pump(kandoTopToastDuration);
+    await tester.pump();
   });
 
   testWidgets('Scan keeps capture controls available across multiple results', (

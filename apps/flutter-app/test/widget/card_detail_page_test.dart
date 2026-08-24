@@ -728,6 +728,43 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Add this card shows duplicate failures in a top toast because the fixed action must not require scrolling to the form error',
+    (tester) async {
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'one-piece-luffy',
+          repository: const _DuplicateCreateCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('card-detail-item-submit')));
+      await tester.pump();
+
+      final toast = find.byKey(const Key('kando-top-toast'));
+      expect(toast, findsOneWidget);
+      expect(
+        find.descendant(
+          of: toast,
+          matching: find.text(duplicateCollectionItemMessage),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-add-item-sheet')),
+        findsOneWidget,
+      );
+
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+    },
+  );
+
   testWidgets('owned CardDetail defaults to Collection Item content', (
     tester,
   ) async {
@@ -1232,6 +1269,100 @@ void main() {
     },
   );
 
+  testWidgets(
+    'In Your Portfolio opens the editor before its market refresh completes so editing is never blocked by the network',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _DelayedEditPriceCardDetailRepository();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: null,
+          repository: repository,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final item = find.byKey(
+        const Key('card-detail-portfolio-item-item-charizard'),
+      );
+      await tester.scrollUntilVisible(item, 400);
+      await tester.ensureVisible(item);
+      await tester.pumpAndSettle();
+      await tester.tap(item);
+      await tester.pump();
+
+      expect(repository.pendingEditPriceRefresh, isNotNull);
+      expect(find.text('SAVE CHANGES'), findsOneWidget);
+
+      repository.completeEditPriceRefresh();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'In Your Portfolio editor removes only after Figma confirmation because cancellation must preserve the saved Item',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: null,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final item = find.byKey(
+        const Key('card-detail-portfolio-item-item-charizard'),
+      );
+      await tester.scrollUntilVisible(item, 400);
+      await tester.ensureVisible(item);
+      await tester.tap(item);
+      await tester.pumpAndSettle();
+
+      final remove = find.byKey(const Key('card-detail-remove-from-portfolio'));
+      expect(remove, findsOneWidget);
+      await tester.ensureVisible(remove);
+      await tester.tap(remove);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('This card will be removed from your portfolio'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const Key('card-detail-remove-confirmation-cancel')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-edit-item-sheet')),
+        findsOneWidget,
+      );
+      expect(remove, findsOneWidget);
+
+      await tester.tap(remove);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-remove-confirmation-submit')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-edit-item-sheet')),
+        findsNothing,
+      );
+      expect(find.text('In Your Portfolio'), findsNothing);
+      expect(find.text('Price'), findsOneWidget);
+    },
+  );
+
   testWidgets('Collection list entry defaults owned CardDetail to Price', (
     tester,
   ) async {
@@ -1445,6 +1576,10 @@ void main() {
     );
     expect(find.text('SAVE CHANGES'), findsOneWidget);
     expect(find.text('PURCHASE DETAILS'), findsNothing);
+    expect(
+      find.byKey(const Key('card-detail-remove-from-portfolio')),
+      findsNothing,
+    );
     expect(
       find.byKey(const Key('card-detail-item-selected-card')),
       findsNothing,
@@ -2196,6 +2331,62 @@ class _FinishTabCardDetailRepository extends MockCardDetailRepository
       const [];
 }
 
+class _DelayedEditPriceCardDetailRepository
+    extends _FinishTabCardDetailRepository {
+  Completer<CardDetailMarketData>? pendingEditPriceRefresh;
+  var _marketPriceRequestCount = 0;
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) {
+    return const MockCardDetailRepository().loadDetail(
+      const AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'test-access',
+        refreshToken: 'test-refresh',
+      ),
+      cardId,
+    );
+  }
+
+  @override
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+    String? language,
+  }) {
+    _marketPriceRequestCount += 1;
+    if (_marketPriceRequestCount == 1) {
+      return Future.value(_editMarketData);
+    }
+    pendingEditPriceRefresh = Completer<CardDetailMarketData>();
+    return pendingEditPriceRefresh!.future;
+  }
+
+  void completeEditPriceRefresh() {
+    pendingEditPriceRefresh?.complete(_editMarketData);
+  }
+
+  static final _editMarketData = CardDetailMarketData(
+    prices: const [
+      CardDataMarketPriceDto(
+        grader: 'PSA',
+        grade: 10,
+        condition: null,
+        price: 780,
+      ),
+    ],
+    marketPrices: const [
+      CardMarketPrice(
+        label: 'PSA 10',
+        grader: 'PSA',
+        grade: 10,
+        priceUsd: 780,
+        previous30dPriceUsd: null,
+      ),
+    ],
+  );
+}
+
 class _CardDetailRouteApp extends StatelessWidget {
   const _CardDetailRouteApp();
 
@@ -2348,6 +2539,23 @@ class _FailingRemovalCardDetailRepository extends MockCardDetailRepository {
   @override
   Future<void> deleteWishlist(AuthSession session, String wishlistItemId) {
     throw StateError('wishlist removal unavailable');
+  }
+}
+
+class _DuplicateCreateCardDetailRepository extends MockCardDetailRepository {
+  const _DuplicateCreateCardDetailRepository();
+
+  @override
+  Future<CardCollectionItem> createCollectionItem(
+    AuthSession session, {
+    required CardDetail detail,
+    required CardCollectionItem item,
+    String? idempotencyKey,
+  }) {
+    throw const PortfolioApiException(
+      duplicateCollectionItemMessage,
+      code: duplicateCollectionItemErrorCode,
+    );
   }
 }
 

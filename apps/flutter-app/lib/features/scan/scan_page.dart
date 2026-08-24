@@ -1571,7 +1571,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _reportScanResult(item.id);
 
     final input = _reviewInputFor(item);
-    if (input == null) return;
+    if (input == null) {
+      showKandoTopToast(
+        context,
+        message: _reviewFormError ?? genericFailureToastText,
+        type: KandoTopToastType.failure,
+      );
+      return;
+    }
 
     setState(() => _savingReviewAction = _ScanReviewSaveAction.single);
     try {
