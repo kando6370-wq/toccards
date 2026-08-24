@@ -10,6 +10,7 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
 import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:video_player/video_player.dart';
 
 import '../profile/profile_actions.dart';
 import 'subscription_controller.dart';
@@ -23,6 +24,9 @@ const _benefits = [
 
 const _subscriptionSheetBackgroundAsset =
     'assets/subscription/sheet_background_1651_9915.png';
+const _subscriptionFullPageBackgroundVideoAsset =
+    'assets/subscription/card-bg.mp4';
+const _subscriptionFullPageBackgroundVideoAspectRatio = 608 / 1080;
 const _subscriptionSuccessTrophyAsset =
     'assets/subscription/success_trophy_2090_17166.svg';
 const _subscriptionSheetItemBorder = Color(0xFF2A2D20);
@@ -981,47 +985,127 @@ class _PaywallBackground extends StatelessWidget {
         ],
       );
     }
-    return Stack(
-      children: [
-        Positioned(
-          top: -70,
-          left: -35,
-          right: -35,
-          height: 300,
-          child: Transform.rotate(
-            angle: -0.13,
-            child: GridView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                childAspectRatio: 0.72,
-                crossAxisSpacing: 6,
-                mainAxisSpacing: 6,
-              ),
-              itemCount: 12,
-              itemBuilder: (context, index) => ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Image.asset(
-                  'assets/subscription/card_${index % 7 + 1}.png',
-                  fit: BoxFit.cover,
-                ),
+    return const _SubscriptionFullPageVideoBackground();
+  }
+}
+
+class _SubscriptionFullPageVideoBackground extends StatefulWidget {
+  const _SubscriptionFullPageVideoBackground();
+
+  @override
+  State<_SubscriptionFullPageVideoBackground> createState() =>
+      _SubscriptionFullPageVideoBackgroundState();
+}
+
+class _SubscriptionFullPageVideoBackgroundState
+    extends State<_SubscriptionFullPageVideoBackground>
+    with WidgetsBindingObserver {
+  static const _initializationTimeout = Duration(seconds: 4);
+
+  VideoPlayerController? _controller;
+  AppLifecycleState? _lifecycleState;
+  bool _isReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _lifecycleState = WidgetsBinding.instance.lifecycleState;
+    unawaited(_initialize());
+  }
+
+  Future<void> _initialize() async {
+    final controller = VideoPlayerController.asset(
+      _subscriptionFullPageBackgroundVideoAsset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    _controller = controller;
+    try {
+      await controller.initialize().timeout(_initializationTimeout);
+      if (!mounted || controller != _controller) return;
+      await controller.setLooping(true);
+      await controller.setVolume(0);
+      if (!mounted || controller != _controller) return;
+      setState(() => _isReady = true);
+      await _syncPlayback();
+    } catch (_) {
+      if (controller != _controller) return;
+      _controller = null;
+      if (mounted) setState(() => _isReady = false);
+      await controller.dispose();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+    unawaited(_syncPlayback());
+  }
+
+  Future<void> _syncPlayback() async {
+    final controller = _controller;
+    if (!_isReady || controller == null) return;
+    try {
+      if (_lifecycleState == null ||
+          _lifecycleState == AppLifecycleState.resumed) {
+        await controller.play();
+      } else {
+        await controller.pause();
+      }
+    } catch (_) {
+      if (!mounted || controller != _controller) return;
+      _controller = null;
+      setState(() => _isReady = false);
+      await controller.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    final controller = _controller;
+    _controller = null;
+    if (controller != null) unawaited(controller.dispose());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      key: const Key('subscription-full-page-video-background'),
+      color: Colors.black,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final videoWidth = constraints.maxWidth;
+          final videoHeight =
+              videoWidth / _subscriptionFullPageBackgroundVideoAspectRatio;
+          return ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              minWidth: videoWidth,
+              maxWidth: videoWidth,
+              minHeight: videoHeight,
+              maxHeight: videoHeight,
+              child: SizedBox(
+                key: const Key('subscription-full-page-video-frame'),
+                width: videoWidth,
+                height: videoHeight,
+                child: _isReady && _controller != null
+                    ? FittedBox(
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: _controller!.value.size.width,
+                          height: _controller!.value.size.height,
+                          child: VideoPlayer(_controller!),
+                        ),
+                      )
+                    : const SizedBox.expand(),
               ),
             ),
-          ),
-        ),
-        const Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.center,
-                colors: [Color(0x3310100B), KandoColors.ink],
-                stops: [0, 0.42],
-              ),
-            ),
-          ),
-        ),
-      ],
+          );
+        },
+      ),
     );
   }
 }

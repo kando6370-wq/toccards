@@ -2160,11 +2160,6 @@ void main() {
 
   for (final goldenCase in [
     (
-      name: 'full page',
-      file: 'figma_subscription_full_1727_13164_390x844.png',
-      child: const SubscriptionPage(),
-    ),
-    (
       name: 'bottom sheet',
       file: 'figma_subscription_sheet_1651_9467_390x844.png',
       child: const SubscriptionPage(sheet: true),
@@ -2210,6 +2205,47 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'full subscription video background follows the screen width and stays out of the sheet',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(_subscriptionGoldenApp(const SubscriptionPage()));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('subscription-full-page-video-background')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<ColoredBox>(
+              find.byKey(const Key('subscription-full-page-video-background')),
+            )
+            .color,
+        Colors.black,
+      );
+      final videoFrame = find.byKey(
+        const Key('subscription-full-page-video-frame'),
+      );
+      expect(tester.getSize(videoFrame).width, 430);
+      expect(tester.getSize(videoFrame).height, closeTo(763.82, 0.01));
+
+      await tester.pumpWidget(
+        _subscriptionGoldenApp(const SubscriptionPage(sheet: true)),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('subscription-full-page-video-background')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('latest subscription sheet visuals are limited to iOS', (
     tester,
