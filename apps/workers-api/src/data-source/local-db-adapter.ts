@@ -262,7 +262,7 @@ async function loadPriceSeriesBatch(
       ? finishRows.filter((row) => priceMatchesCondition(row, request.condition!))
       : finishRows;
     return isRawRequest
-      ? preferredSearchPrice(conditionRows)
+      ? preferredPriceSeries(conditionRows)
       : preferredGradedSeriesPrice(conditionRows);
   });
   const rowsToLoad = selectedRows.filter(
@@ -515,6 +515,15 @@ async function findPriceRowsByProductId(
 }
 
 function preferredSearchPrice(rows: PublishedPriceRow[]): PublishedPriceRow | null {
+  return [...rows].sort((left, right) =>
+    searchPriceRank(left) - searchPriceRank(right)
+    || compareIncreaseDescending(left, right)
+    || comparePriceFreshness(left, right)
+    || compareNaturalQualifiers(left, right)
+  )[0] ?? null;
+}
+
+function preferredPriceSeries(rows: PublishedPriceRow[]): PublishedPriceRow | null {
   return [...rows].sort((left, right) =>
     compareIncreaseDescending(left, right)
     || searchPriceRank(left) - searchPriceRank(right)

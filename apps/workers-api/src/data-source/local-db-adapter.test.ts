@@ -366,6 +366,47 @@ describe("PostgreSQL card data source adapter", () => {
     });
   });
 
+  it("keeps Search on the canonical Near Mint price because a larger gain from another condition must not relabel the visible market variant", async () => {
+    const adapter = createLocalDbDataSourceAdapter(
+      new FakeCardDatabase(
+        [card({ product_id: "664010", name: "Oricorio ex - 024" })],
+        [
+          sku({
+            series_id: 1,
+            product_id: "664010",
+            condition_code: "NM",
+            condition_name: "Near Mint",
+            amount_micros: 11_350_000,
+            baseline_30d_on: "2026-07-24",
+            baseline_30d_amount_micros: 11_180_000,
+            change_30d_percent: 1.520572,
+          }),
+          sku({
+            series_id: 2,
+            product_id: "664010",
+            condition_code: "MP",
+            condition_name: "Moderately Played",
+            amount_micros: 11_580_000,
+            baseline_30d_on: "2026-07-24",
+            baseline_30d_amount_micros: 11_310_000,
+            change_30d_percent: 2.387268,
+          }),
+        ],
+      ) as unknown as D1Database,
+    );
+
+    await expect(adapter.searchCards("Oricorio ex")).resolves.toEqual([
+      expect.objectContaining({
+        card_ref: "664010",
+        language: "English",
+        finish: "Normal",
+        price_usd: 11.35,
+        previous_30d_price_usd: 11.18,
+        price_change_30d_percent: 1.520572,
+      }),
+    ]);
+  });
+
   it("uses each PostgreSQL change window because Search is 30D while Market Prices is 7D", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
@@ -745,7 +786,7 @@ describe("PostgreSQL card data source adapter", () => {
     expect(setSearchSql).toContain("ORDER BY s.name ASC, s.set_id ASC");
   });
 
-  it("adds the preferred SKU price to search results because Search must show real market reference data without per-card HTTP requests", async () => {
+  it("adds the canonical Normal SKU price because Search must show one stable market reference without per-card HTTP requests", async () => {
     const adapter = createLocalDbDataSourceAdapter(
       new FakeCardDatabase(
         [card({ product_id: "100", name: "Charizard" })],
@@ -764,6 +805,7 @@ describe("PostgreSQL card data source adapter", () => {
             sku_id: 2,
             variant_code: "N",
             variant_name: "Normal",
+            change_30d_percent: 13.513514,
             price_history: JSON.stringify([
               { price: "9.25", date: "2026-06-01" },
               { price: "10.50", date: "2026-07-08" },
@@ -776,11 +818,11 @@ describe("PostgreSQL card data source adapter", () => {
     await expect(adapter.searchCards("charizard")).resolves.toMatchObject([
       {
         card_ref: "100",
-        finish: "Foil",
+        finish: "Normal",
         language: "English",
-        price_usd: 15.75,
-        previous_30d_price_usd: 12.5,
-        price_change_30d_percent: 3186.713286713287,
+        price_usd: 10.5,
+        previous_30d_price_usd: 9.25,
+        price_change_30d_percent: 13.513514,
       },
     ]);
   });
