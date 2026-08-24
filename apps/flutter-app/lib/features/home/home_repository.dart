@@ -143,8 +143,7 @@ Future<List<TrendingCard>> loadTrendingCards(CardDataApi cardDataApi) async {
         (card) =>
             card.priceUsd != null &&
             card.priceChange1dPercent != null &&
-            card.priceChange1dPercent! > 0 &&
-            card.priceChange30dPercent != null,
+            card.priceChange1dPercent! > 0,
       )
       .take(3)
       .map(
@@ -153,7 +152,7 @@ Future<List<TrendingCard>> loadTrendingCards(CardDataApi cardDataApi) async {
           title: card.name,
           subtitle: card.setName,
           priceUsd: card.priceUsd!,
-          increaseRate: card.priceChange30dPercent!,
+          increaseRate: card.priceChange1dPercent!,
           imageUrl: cardImageUrl(card.cardRef, CardImageVariant.thumbnail),
         ),
       )

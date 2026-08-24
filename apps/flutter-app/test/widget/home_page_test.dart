@@ -1854,14 +1854,17 @@ void main() {
       ),
     );
     final badgeText = tester.widget<Text>(find.text('+3.20%'));
-    final badgePosition = tester.widget<Positioned>(
-      find.ancestor(of: find.text('+3.20%'), matching: find.byType(Positioned)),
+    final badgePosition = find.descendant(
+      of: firstCard,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Positioned && widget.top == 0 && widget.right == -2,
+      ),
     );
 
     expect(backdrop, findsOneWidget);
     expect(badgeContainer, findsOneWidget);
-    expect(badgePosition.top, 0);
-    expect(badgePosition.right, -2);
+    expect(badgePosition, findsOneWidget);
     expect(
       (tester.widget<Container>(badgeContainer).decoration as BoxDecoration)
           .color,
@@ -2630,7 +2633,7 @@ void main() {
         closeTo(tester.getCenter(backButton).dy, 1),
       );
       expect(find.text('Live Trending'), findsOneWidget);
-      expect(find.text('+8.00%'), findsOneWidget);
+      expect(find.text('+5.00%'), findsOneWidget);
       expect(find.text('Falling Trending'), findsNothing);
       expect(
         tester.getSize(find.byKey(const Key('search-card-live-trending'))),
@@ -3411,7 +3414,6 @@ class _TrendingCardDataApi
       priceUsd: 12,
       previous30dPriceUsd: 1,
       priceChange1dPercent: 5,
-      priceChange30dPercent: 8,
     ),
     CardDataCardDto(
       cardRef: 'falling-trending',
@@ -3427,7 +3429,6 @@ class _TrendingCardDataApi
       priceUsd: 10,
       previous30dPriceUsd: 20,
       priceChange1dPercent: -5,
-      priceChange30dPercent: -10,
     ),
   ];
 
@@ -3476,7 +3477,6 @@ class _FailingSecondPageTrendingCardDataApi extends _TrendingCardDataApi {
         priceUsd: 12,
         previous30dPriceUsd: 1,
         priceChange1dPercent: 5,
-        priceChange30dPercent: 8,
       ),
     );
   }

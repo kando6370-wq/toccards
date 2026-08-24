@@ -1235,7 +1235,7 @@ class _TopPerformersSection extends StatelessWidget {
         if (visiblePerformers.isEmpty)
           const _EmptyCardBlock(
             key: Key('home-top-performers-empty'),
-            message: 'No cards in this top performers yet',
+            message: 'No cards in this portfolio yet',
           )
         else
           SizedBox(

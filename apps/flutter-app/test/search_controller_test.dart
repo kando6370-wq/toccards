@@ -227,12 +227,12 @@ void main() {
   );
 
   test(
-    'Trending cards keep their 1D ranking data but display the same 30D change as other card lists',
+    'Trending cards display 1D change because Trending Today is a daily market ranking',
     () {
       final card = trendingCardFromDto(
         const CardDataCardDto(
-          cardRef: 'catalog:trending-30d',
-          name: 'Trending 30D',
+          cardRef: 'catalog:trending-1d',
+          name: 'Trending 1D',
           setName: 'Test Set',
           setCode: 'TEST',
           cardNumber: '002',
@@ -248,8 +248,8 @@ void main() {
         ),
       );
 
-      expect(card.changePercent, 8.5);
-      expect(card.changeText, '+8.50%');
+      expect(card.changePercent, 25);
+      expect(card.changeText, '+25.00%');
     },
   );
 
