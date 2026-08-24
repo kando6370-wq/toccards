@@ -68,6 +68,12 @@ void main() {
         ),
         [80, 40, 8],
       );
+      expect(
+        dashboard.mostValuableCardsByFolderId['main']!.map(
+          (card) => card.itemId,
+        ),
+        ['item-1', 'item-3', 'item-2'],
+      );
       expect(dashboard.trending.single.title, 'Trending Card');
       expect(dashboard.trending.single.priceUsd, 60);
       expect(dashboard.trending.single.increaseRate, 12.34);

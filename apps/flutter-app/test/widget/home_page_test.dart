@@ -981,6 +981,25 @@ void main() {
     expect(find.text('No cards in this portfolio yet'), findsOneWidget);
   });
 
+  testWidgets('Most Valuable opens the matching Card Detail Item context', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _mockHomeRouteApp(
+        homeRepository: const _MostValuableRouteHomeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const Key('home-most-valuable-card-main-0'));
+    await tester.ensureVisible(card);
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+
+    expect(find.text('card-1|item-pikachu|edit|portfolio'), findsOneWidget);
+  });
+
   testWidgets(
     'Top Performer opens the matching Card Detail Item Performance context',
     (tester) async {
@@ -3094,6 +3113,7 @@ class _EntitlementSyncRangePerformanceApi extends _TestHomePerformanceApi {
 }
 
 Widget _mockHomeRouteApp({
+  HomeRepository homeRepository = const MockHomeRepository(),
   SubscriptionController Function()? subscriptionController,
   PortfolioApiClient? performanceApi,
 }) {
@@ -3101,7 +3121,7 @@ Widget _mockHomeRouteApp({
   return ProviderScope(
     overrides: [
       ..._localAuthOverrides(),
-      homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+      homeRepositoryProvider.overrideWithValue(homeRepository),
       collectionRepositoryProvider.overrideWithValue(
         _HomeCollectionRepository(portfolioManagement),
       ),
@@ -3127,10 +3147,56 @@ Widget _mockHomeRouteApp({
               body: Center(child: Text('Search route target')),
             ),
           ),
+          GoRoute(
+            path: '/cards/:cardId',
+            builder: (context, state) => Scaffold(
+              body: Text(
+                '${state.pathParameters['cardId']}|'
+                '${state.uri.queryParameters['item_id']}|'
+                '${state.uri.queryParameters['entry']}|'
+                '${state.uri.queryParameters['collection']}',
+              ),
+            ),
+          ),
         ],
       ),
     ),
   );
+}
+
+class _MostValuableRouteHomeRepository implements HomeRepository {
+  const _MostValuableRouteHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() {
+    const source = mockHomeDashboard;
+    final cards = source.mostValuableCardsByFolderId['main']!;
+    final first = cards.first;
+    final linked = HomeCardHighlight(
+      itemId: 'item-pikachu',
+      cardRef: 'card-1',
+      title: first.title,
+      subtitle: first.subtitle,
+      priceUsd: first.priceUsd,
+      previousPriceUsd: first.previousPriceUsd,
+      increasePercent: first.increasePercent,
+      imageAssetPath: first.imageAssetPath,
+      imageUrl: first.imageUrl,
+    );
+    return HomeDashboard(
+      folders: source.folders,
+      portfoliosByFolderId: source.portfoliosByFolderId,
+      mostValuableByFolderId: source.mostValuableByFolderId,
+      mostValuableCardsByFolderId: {
+        ...source.mostValuableCardsByFolderId,
+        'main': [linked, ...cards.skip(1)],
+      },
+      trending: source.trending,
+      currencyCode: source.currencyCode,
+      amountHidden: source.amountHidden,
+      trendingUnavailable: source.trendingUnavailable,
+    );
+  }
 }
 
 class _HomeCollectionRepository extends MockCollectionRepository {

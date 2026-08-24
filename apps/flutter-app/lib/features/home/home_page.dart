@@ -2447,10 +2447,17 @@ class _MostValuableSection extends StatelessWidget {
                     'home-most-valuable-card-${state.selectedFolder.id}-$index',
                   ),
                   card: card,
-                  onTap: card.cardRef == null
+                  onTap: card.cardRef == null || card.itemId == null
                       ? null
                       : () => context.push(
-                          '/cards/${card.cardRef}?collection=portfolio&entry=edit',
+                          Uri(
+                            path: '/cards/${card.cardRef}',
+                            queryParameters: {
+                              'collection': 'portfolio',
+                              'entry': AnalyticsValue.sourceEdit,
+                              'item_id': card.itemId!,
+                            },
+                          ).toString(),
                         ),
                   price: state.formatCardPrice(card.priceUsd),
                 );

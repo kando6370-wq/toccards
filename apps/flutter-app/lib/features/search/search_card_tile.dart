@@ -291,6 +291,9 @@ String _cardDetailsLocation(SearchCard card, String entrySource) {
       'collection': collectionType,
       'ip': analyticsIpType(card.gameId),
       'entry': entrySource,
+      if (entrySource == AnalyticsValue.sourceEdit &&
+          card.collectionItemId != null)
+        'item_id': card.collectionItemId!,
     },
   ).toString();
 }

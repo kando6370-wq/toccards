@@ -376,11 +376,6 @@ class _CardHero extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = state.detail;
-    final isPendingCollection = ref.watch(
-      pendingCollectionProvider.select(
-        (items) => items.any((item) => item.card.id == detail.id),
-      ),
-    );
 
     final iconButtonStyle = IconButton.styleFrom(
       backgroundColor: KandoColors.surface.withValues(alpha: 0.92),
@@ -469,49 +464,20 @@ class _CardHero extends ConsumerWidget {
                             key: Key(
                               'card-detail-add-to-portfolio-${detail.id}',
                             ),
-                            tooltip: isPendingCollection
-                                ? 'Pending collection item'
-                                : detail.isCollected
-                                ? 'Add another item'
-                                : 'Add to Portfolio',
-                            onPressed: () {
-                              final added = ref
-                                  .read(pendingCollectionProvider.notifier)
-                                  .add(
-                                    PendingCollectionCard(
-                                      id: detail.id,
-                                      name: detail.name,
-                                      game: detail.game,
-                                      setName: detail.setName,
-                                      metadataLine: detail.identityLine,
-                                      variantLine:
-                                          [detail.finish, detail.language]
-                                              .where(
-                                                (value) => value.isNotEmpty,
-                                              )
-                                              .join(' · '),
-                                      imageUrl: detail.imageUrl,
-                                    ),
-                                  );
-                              if (!added) {
-                                showKandoTopToast(
-                                  context,
-                                  message:
-                                      'You can add up to 20 cards at a time.',
-                                  type: KandoTopToastType.warning,
-                                );
-                              }
-                            },
+                            tooltip: 'Add to Portfolio',
+                            onPressed: () => _openAddCollectionItemSheet(
+                              context,
+                              controller,
+                              entrySource,
+                            ),
                             style: iconButtonStyle,
                             icon: SvgPicture.asset(
-                              isPendingCollection
-                                  ? 'assets/search/collection_on.svg'
-                                  : 'assets/search/collection_off.svg',
+                              'assets/search/collection_off.svg',
                               width: 20,
                               height: 20,
                             ),
                           )
-                        else if (detail.isCollected)
+                        else
                           Builder(
                             builder: (shareContext) => IconButton(
                               key: Key('card-detail-share-${detail.id}'),
@@ -544,27 +510,6 @@ class _CardHero extends ConsumerWidget {
                                 width: 24,
                                 height: 24,
                               ),
-                            ),
-                          )
-                        else
-                          IconButton(
-                            key: Key(
-                              'card-detail-add-to-portfolio-${detail.id}',
-                            ),
-                            tooltip: 'Add to Portfolio',
-                            onPressed: () => _openAddCollectionItemSheet(
-                              context,
-                              controller,
-                              entrySource,
-                            ),
-                            style: iconButtonStyle,
-                            icon: SvgPicture.asset(
-                              'assets/collection/add_to_portfolio.svg',
-                              key: const Key(
-                                'card-detail-add-to-portfolio-icon',
-                              ),
-                              width: 20,
-                              height: 20,
                             ),
                           ),
                       ],

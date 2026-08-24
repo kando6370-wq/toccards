@@ -695,7 +695,7 @@ void main() {
   );
 
   testWidgets(
-    'generic CardDetail collect creates independent pending Items without changing Qty',
+    'generic CardDetail collection action opens the item editor without changing saved Qty',
     (tester) async {
       await tester.pumpWidget(
         const _CardDetailTestApp(cardId: 'one-piece-luffy'),
@@ -710,13 +710,9 @@ void main() {
       );
 
       await tester.tap(collect);
-      await tester.tap(collect);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      final pendingItems = container.read(pendingCollectionProvider);
-      expect(pendingItems, hasLength(2));
-      expect(pendingItems.map((item) => item.id).toSet(), hasLength(2));
-      expect(pendingItems.map((item) => item.quantity), everyElement(1));
+      expect(container.read(pendingCollectionProvider), isEmpty);
       expect(
         container
             .read(cardDetailControllerProvider('one-piece-luffy'))
@@ -724,7 +720,10 @@ void main() {
             .quantity,
         0,
       );
-      expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
+      expect(
+        find.byKey(const Key('card-detail-add-item-sheet')),
+        findsOneWidget,
+      );
       expect(find.byType(QuickCollectionReviewPage), findsNothing);
     },
   );
@@ -741,6 +740,11 @@ void main() {
     expect(find.byIcon(Icons.favorite), findsNothing);
     expect(find.byIcon(Icons.favorite_border), findsNothing);
     expect(find.byIcon(Icons.ios_share_outlined), findsNothing);
+    expect(find.text('In Your Portfolio'), findsNothing);
+    expect(
+      find.byKey(const Key('card-detail-share-charizard-ex')),
+      findsOneWidget,
+    );
     final shareIcon = tester.widget<SvgPicture>(
       find.byKey(const Key('card-detail-share-icon')),
     );

@@ -1402,12 +1402,15 @@ void main() {
     await tester.tap(
       find.byKey(const Key('card-detail-add-to-portfolio-charizard-ex')),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
     final detailContainer = ProviderScope.containerOf(
       tester.element(find.byType(CardDetailPage)),
       listen: false,
     );
-    expect(detailContainer.read(pendingCollectionProvider), hasLength(1));
+    expect(detailContainer.read(pendingCollectionProvider), isEmpty);
+    expect(find.byKey(const Key('card-detail-add-item-sheet')), findsOneWidget);
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('card-detail-owned-tabs')), findsNothing);
     expect(find.text('In Your Portfolio'), findsOneWidget);
