@@ -8,6 +8,7 @@ import {
   type SkuRow,
 } from "./valuation-history";
 import { cardImageUrl } from "../card-image-url";
+import { compareDisplayPriceRows } from "../data-source/price-selection";
 
 export type DashboardPortfolioRow = {
   id: string;
@@ -54,7 +55,10 @@ export async function enrichCollectionDashboard(
 
   return {
     portfolio_items: portfolio.map((item) => {
-      const matched = matchingPrice(item, skusByRef.get(item.card_ref) ?? []);
+      const matched = matchingPrice(
+        { ...item, price_series_id: null },
+        skusByRef.get(item.card_ref) ?? [],
+      );
       return presentation(
         item,
         cardsByRef.get(item.card_ref),
@@ -125,16 +129,8 @@ function withoutPriceSeriesId(
 }
 
 function wishlistSku(rows: SkuRow[]): SkuRow | null {
-  const priced = rows.filter((row) =>
+  return [...rows].filter((row) =>
     row.grader_code.trim().toUpperCase() === "RAW"
     && priceOnDate(row.price_history, "9999-12-31") !== null
-  );
-  return priced.find((row) => [row.condition_code, row.condition_name]
-    .some((value) => normalized(value) === "near mint" || normalized(value) === "nm"))
-    ?? priced[0]
-    ?? null;
-}
-
-function normalized(value: string | null): string {
-  return (value ?? "").trim().toLowerCase();
+  ).sort(compareDisplayPriceRows)[0] ?? null;
 }

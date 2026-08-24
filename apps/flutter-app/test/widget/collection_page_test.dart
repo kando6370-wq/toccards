@@ -583,6 +583,8 @@ void main() {
     expect(find.text('Raw · Near Mint (NM)'), findsNothing);
     expect(find.text('Enchanted'), findsOneWidget);
     expect(find.textContaining('Qty:'), findsNothing);
+    expect(find.text(r'$480.00'), findsOneWidget);
+    expect(find.text('+6.70%'), findsOneWidget);
     _expectCollectionCardRowMatchesSearchField(
       tester,
       leftCardId: 'lorcana-elsa',

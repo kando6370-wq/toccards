@@ -163,7 +163,15 @@ class FakeBoundStatement {
           const card = this.cards.find(
             (candidate) => candidate.product_id === String(sku.product_id),
           );
-          return card ? [{ ...card, ...sku, rank: 1, product_id: card.product_id }] : [];
+          return card
+            ? [{
+              ...card,
+              ...sku,
+              rank: 1,
+              winning_series_id: sku.series_id,
+              product_id: card.product_id,
+            }]
+            : [];
         });
       return { results: results as T[] };
     }
@@ -1020,6 +1028,7 @@ describe("PostgreSQL card data source adapter", () => {
           sku({
             product_id: "100",
             change_1d_percent: 5,
+            change_30d_percent: 10,
             price_history: JSON.stringify([
               { price: 10, date: "2026-07-14" },
               { price: 11, date: "2026-07-15" },
@@ -1051,6 +1060,7 @@ describe("PostgreSQL card data source adapter", () => {
             variant_code: "CF",
             variant_name: "Cold Foil",
             change_1d_percent: 80,
+            change_30d_percent: 45,
             price_history: JSON.stringify([
               { price: 30, date: "2026-07-14" },
               { price: 54, date: "2026-07-15" },
@@ -1087,6 +1097,8 @@ describe("PostgreSQL card data source adapter", () => {
         price_usd: 54,
         previous_1d_price_usd: 30,
         price_change_1d_percent: 80,
+        previous_30d_price_usd: 30,
+        price_change_30d_percent: 45,
       },
       {
         card_ref: "100",
@@ -1094,6 +1106,8 @@ describe("PostgreSQL card data source adapter", () => {
         price_usd: 11,
         previous_1d_price_usd: 10,
         price_change_1d_percent: 5,
+        previous_30d_price_usd: 10,
+        price_change_30d_percent: 10,
       },
     ]);
     const trendingSql = db.preparedSql.find((sql) =>

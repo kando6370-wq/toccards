@@ -356,6 +356,10 @@ describe("portfolio valuation history", () => {
     );
 
     expect(main?.current_value_usd).toBe(60);
+    expect(main?.most_valuable[0]).toMatchObject({
+      item_id: "item",
+      price_usd: 10,
+    });
   });
 });
 

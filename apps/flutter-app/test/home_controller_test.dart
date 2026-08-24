@@ -773,6 +773,7 @@ void main() {
       expect(cardDataApi.calls, 1);
       expect(state.dashboard.trendingUnavailable, isFalse);
       expect(state.dashboard.trending.single.title, 'Live Trending Card');
+      expect(state.dashboard.trending.single.increaseRate, 7.5);
       expect(state.totalAmountText, r'$12,450.80');
     },
   );
@@ -1000,6 +1001,7 @@ class _RecoveringTrendingApi implements CardDataApi {
         rarity: 'Rare',
         priceUsd: 25,
         priceChange1dPercent: 25,
+        priceChange30dPercent: 7.5,
       ),
     ];
   }

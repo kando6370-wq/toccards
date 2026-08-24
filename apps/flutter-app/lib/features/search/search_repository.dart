@@ -261,7 +261,7 @@ SearchCard searchCardFromDto(CardDataCardDto dto) {
 }
 
 SearchCard trendingCardFromDto(CardDataCardDto dto) {
-  return _cardFromDto(dto, changePercent: dto.priceChange1dPercent);
+  return _cardFromDto(dto, changePercent: dto.priceChange30dPercent);
 }
 
 SearchCard _cardFromDto(CardDataCardDto dto, {required double? changePercent}) {

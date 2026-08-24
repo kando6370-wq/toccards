@@ -1,5 +1,6 @@
 import type { AuthenticatedOwner } from "../owner-auth";
 import { cardImageUrl } from "../card-image-url";
+import { compareDisplayPriceRows } from "../data-source/price-selection";
 import {
   loadPriceHistoryBySeries,
   loadPublishedPriceRows,
@@ -39,6 +40,7 @@ export type SkuRow = {
   grader_code: string;
   grade_min_x10: number | null;
   grade_max_x10: number | null;
+  observed_on?: string | null;
   price_history: string;
   change_30d_percent: number | null;
 };
@@ -277,7 +279,9 @@ function mostValuableItems(
   for (const state of currentItems) {
     const events = eventsByItem.get(state.item_id) ?? [];
     const matched = matchingPriceForState(
-      state,
+      state.price_series_id === null
+        ? state
+        : { ...state, price_series_id: null },
       skusByProduct.get(state.card_ref) ?? [],
       cache,
     );
@@ -398,8 +402,7 @@ function matchingPriceWithCache(
       - qualifierRank(language, right.language_code, right.language_name)
       || qualifierRank(finish, left.variant_code, left.variant_name)
       - qualifierRank(finish, right.variant_code, right.variant_name)
-      || compareNaturalQualifiers(left, right)
-      || left.series_id - right.series_id
+      || compareDisplayPriceRows(left, right)
   );
   const row = candidates[0];
   return row
@@ -430,11 +433,7 @@ function matchingSkuWithCache(
       .filter((row) => !language || qualifierMatches(language, row.language_code, row.language_name))
       .filter((row) => !finish || qualifierMatches(finish, row.variant_code, row.variant_name))
       .filter((row) => historyPoints(row.price_history, historyCache).length > 0)
-      .sort((left, right) =>
-        skuRank(left) - skuRank(right)
-        || compareNaturalQualifiers(left, right)
-        || left.series_id - right.series_id
-      )[0] ??
+      .sort(compareDisplayPriceRows)[0] ??
     null
   );
 }
@@ -479,24 +478,6 @@ function normalizedQualifier(value: string | null): string {
 function normalizedOptionalQualifier(value: string | null): string {
   const qualifier = normalizedQualifier(value);
   return qualifier === "unknown" ? "" : qualifier;
-}
-
-function skuRank(row: SkuRow): number {
-  return (
-    (row.language_code === "EN" ? 0 : 10) +
-    (row.variant_code === "N" ? 0 : 1)
-  );
-}
-
-function compareNaturalQualifiers(left: SkuRow, right: SkuRow): number {
-  return [left.condition_name, left.language_name, left.variant_name]
-    .map(normalizedQualifier)
-    .join("\u0000")
-    .localeCompare(
-      [right.condition_name, right.language_name, right.variant_name]
-        .map(normalizedQualifier)
-        .join("\u0000"),
-    );
 }
 
 function roundMoney(value: number): number {
@@ -608,6 +589,7 @@ export async function loadSkus(
     grader_code: row.grader_code,
     grade_min_x10: row.grade_min_x10,
     grade_max_x10: row.grade_max_x10,
+    observed_on: row.observed_on,
     price_history: JSON.stringify(
       pointsWithPublishedSnapshot(row, histories.get(row.series_id)),
     ),

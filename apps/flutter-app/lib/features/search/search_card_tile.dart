@@ -397,6 +397,9 @@ class _PriceRow extends StatelessWidget {
               ),
               Text(
                 change,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
                 style: TextStyle(
                   fontSize: 10,
                   height: 14 / 10,

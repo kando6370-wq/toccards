@@ -16,6 +16,7 @@ import {
   shiftDate,
   type PublishedPriceRow,
 } from "./postgres-price-store";
+import { compareDisplayPriceRows } from "./price-selection";
 
 type CardCatalogRow = {
   product_id: string;
@@ -36,6 +37,7 @@ type CardNumberRow = {
 
 type TrendingRow = CardCatalogRow & {
   rank: number;
+  winning_series_id: number;
   source_code: string;
   source_record_id: string;
   condition_code: string | null;
@@ -203,6 +205,7 @@ LIMIT ? OFFSET ?`,
         `SELECT trend.rank, cards.product_id, cards.game_id, cards.game,
            cards.set_id, cards.set_name, cards.set_code, cards.name,
            cards.rarity, cards.product_type_name,
+           trend.winning_series_id,
            source.source_code, series.source_record_id,
            series.condition_code, series.condition_name,
            series.language_code, series.language_name,
@@ -224,7 +227,18 @@ LIMIT ? OFFSET ?`,
          LIMIT ? OFFSET ?`,
       ).bind(pageSize, (page - 1) * pageSize).all<TrendingRow>();
 
-      return (results.results ?? []).map(trendingCard);
+      const trendingRows = results.results ?? [];
+      const currentPrices = await loadPublishedPriceRows(
+        db,
+        trendingRows.map((row) => row.product_id),
+      );
+      const pricesBySeries = new Map(
+        currentPrices.map((row) => [row.series_id, row]),
+      );
+      return trendingRows.map((row) => trendingCard(
+        row,
+        pricesBySeries.get(row.winning_series_id) ?? null,
+      ));
     },
 
     async getSoldListings(cardRef): Promise<SoldListing[]> {
@@ -418,16 +432,37 @@ function shopListingFromTcgplayerPrice(
   };
 }
 
-function trendingCard(row: TrendingRow): CardSearchResult {
+function trendingCard(
+  row: TrendingRow,
+  currentPrice: PublishedPriceRow | null,
+): CardSearchResult {
+  if (!currentPrice) {
+    return {
+      ...cardFromRow(row),
+      finish: row.variant_name ?? row.variant_code,
+      language: row.language_name ?? row.language_code,
+      price_change_1d_percent: row.change_1d_percent,
+    };
+  }
   return {
     ...cardFromRow(row),
-    finish: row.variant_name ?? row.variant_code,
-    language: row.language_name ?? row.language_code,
-    price_usd: amountMicrosToUsd(row.amount_micros),
-    previous_1d_price_usd: amountMicrosToUsd(row.baseline_1d_amount_micros),
+    finish: currentPrice.variant_name ?? currentPrice.variant_code,
+    language: currentPrice.language_name ?? currentPrice.language_code,
+    price_usd: amountMicrosToUsd(currentPrice.amount_micros),
+    ...(currentPrice.baseline_1d_amount_micros === null
+      ? {}
+      : { previous_1d_price_usd: amountMicrosToUsd(currentPrice.baseline_1d_amount_micros) }),
+    ...(currentPrice.baseline_30d_amount_micros === null
+      ? {}
+      : { previous_30d_price_usd: amountMicrosToUsd(currentPrice.baseline_30d_amount_micros) }),
     price_change_1d_percent: row.change_1d_percent,
-    price_as_of: row.observed_on,
-    previous_price_as_of: row.baseline_1d_on,
+    ...(Number.isFinite(currentPrice.change_30d_percent)
+      ? { price_change_30d_percent: currentPrice.change_30d_percent! }
+      : {}),
+    price_as_of: currentPrice.observed_on,
+    ...(currentPrice.baseline_1d_on
+      ? { previous_price_as_of: currentPrice.baseline_1d_on }
+      : {}),
   };
 }
 
@@ -515,12 +550,7 @@ async function findPriceRowsByProductId(
 }
 
 function preferredSearchPrice(rows: PublishedPriceRow[]): PublishedPriceRow | null {
-  return [...rows].sort((left, right) =>
-    searchPriceRank(left) - searchPriceRank(right)
-    || compareIncreaseDescending(left, right)
-    || comparePriceFreshness(left, right)
-    || compareNaturalQualifiers(left, right)
-  )[0] ?? null;
+  return [...rows].sort(compareDisplayPriceRows)[0] ?? null;
 }
 
 function preferredPriceSeries(rows: PublishedPriceRow[]): PublishedPriceRow | null {

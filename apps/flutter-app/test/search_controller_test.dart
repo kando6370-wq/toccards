@@ -227,6 +227,33 @@ void main() {
   );
 
   test(
+    'Trending cards keep their 1D ranking data but display the same 30D change as other card lists',
+    () {
+      final card = trendingCardFromDto(
+        const CardDataCardDto(
+          cardRef: 'catalog:trending-30d',
+          name: 'Trending 30D',
+          setName: 'Test Set',
+          setCode: 'TEST',
+          cardNumber: '002',
+          finish: 'Normal',
+          language: 'English',
+          objectType: 'tcg',
+          game: 'Pokemon',
+          imageUrl: null,
+          rarity: 'Rare',
+          priceUsd: 20,
+          priceChange1dPercent: 25,
+          priceChange30dPercent: 8.5,
+        ),
+      );
+
+      expect(card.changePercent, 8.5);
+      expect(card.changeText, '+8.50%');
+    },
+  );
+
+  test(
     'Cards query matches terms across fields because Search must not discard valid Workers results as a literal phrase mismatch',
     () async {
       final repository = _RecordingSearchRepository(

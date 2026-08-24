@@ -5,6 +5,7 @@ import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/set_detail_page.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 
 import '../support/mock_search_repository.dart';
 
@@ -48,7 +49,7 @@ void main() {
       expect(find.text('Qty: 0'), findsOneWidget);
       expect(find.text(r'$12.50'), findsOneWidget);
       expect(
-        find.descendant(of: card, matching: find.text('-/-')),
+        find.descendant(of: card, matching: find.text('+25.00%')),
         findsOneWidget,
       );
       expect(find.byKey(const Key('search-collect-featured')), findsOneWidget);
@@ -70,10 +71,12 @@ void main() {
       await tester.tap(find.byKey(const Key('search-collect-featured')));
       await tester.pumpAndSettle();
 
+      final container = ProviderScope.containerOf(tester.element(card));
       expect(
-        find.descendant(of: card, matching: find.text('Qty: 1')),
+        find.descendant(of: card, matching: find.text('Qty: 0')),
         findsOneWidget,
       );
+      expect(container.read(pendingCollectionProvider), hasLength(1));
     },
   );
 
@@ -203,6 +206,7 @@ class _PresentationSetCatalogApi implements SetCatalogApi {
         rarity: 'Rare',
         priceUsd: 12.5,
         previous30dPriceUsd: 10,
+        priceChange30dPercent: 25,
       ),
     ];
   }

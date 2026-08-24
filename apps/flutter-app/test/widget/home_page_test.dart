@@ -2630,7 +2630,7 @@ void main() {
         closeTo(tester.getCenter(backButton).dy, 1),
       );
       expect(find.text('Live Trending'), findsOneWidget);
-      expect(find.text('+5.00%'), findsOneWidget);
+      expect(find.text('+8.00%'), findsOneWidget);
       expect(find.text('Falling Trending'), findsNothing);
       expect(
         tester.getSize(find.byKey(const Key('search-card-live-trending'))),
@@ -3411,6 +3411,7 @@ class _TrendingCardDataApi
       priceUsd: 12,
       previous30dPriceUsd: 1,
       priceChange1dPercent: 5,
+      priceChange30dPercent: 8,
     ),
     CardDataCardDto(
       cardRef: 'falling-trending',
@@ -3426,6 +3427,7 @@ class _TrendingCardDataApi
       priceUsd: 10,
       previous30dPriceUsd: 20,
       priceChange1dPercent: -5,
+      priceChange30dPercent: -10,
     ),
   ];
 
@@ -3474,6 +3476,7 @@ class _FailingSecondPageTrendingCardDataApi extends _TrendingCardDataApi {
         priceUsd: 12,
         previous30dPriceUsd: 1,
         priceChange1dPercent: 5,
+        priceChange30dPercent: 8,
       ),
     );
   }

@@ -114,6 +114,57 @@ describe("collection dashboard enrichment", () => {
     });
   });
 
+  it("uses the same canonical same-specification price for one owned card and Wishlist because every card list must agree with Search", async () => {
+    const older = sku("100");
+    const canonical = {
+      ...older,
+      sku_id: 2,
+      series_id: 2,
+      source_record_id: "sku-2",
+      observed_on: "2026-07-10",
+      amount_micros: 30_000_000,
+      baseline_30d_amount_micros: 15_000_000,
+      price_history: JSON.stringify([
+        { date: "2026-06-10", price: 15 },
+        { date: "2026-07-10", price: 30 },
+      ]),
+      change_30d_percent: 100,
+    };
+    const result = await enrichCollectionDashboard(
+      new FakeDb([card("100")], [older, canonical]) as unknown as D1Database,
+      [
+        {
+          id: "item-1",
+          folder_id: "main",
+          card_ref: "100",
+          object_type: "tcg",
+          grader: "Raw",
+          condition: "Near Mint",
+          grade: null,
+          language: "English",
+          finish: "Normal",
+          price_series_id: null,
+          quantity: 1,
+          folder_joined_at: "2026-07-01T00:00:00.000Z",
+          created_at: "2026-07-01T00:00:00.000Z",
+        },
+      ],
+      [{ id: "wish-1", card_ref: "100", created_at: "2026-07-01T00:00:00.000Z" }],
+      new Date("2026-07-10T12:00:00.000Z"),
+    );
+
+    expect(result.portfolio_items[0]).toMatchObject({
+      market_price_usd: 30,
+      previous_30d_price_usd: 15,
+      increase_percent: 100,
+    });
+    expect(result.wishlist_items[0]).toMatchObject({
+      market_price_usd: 30,
+      previous_30d_price_usd: 15,
+      increase_percent: 100,
+    });
+  });
+
   it("maps PSA 7.5 to Grade 7 because saved grader labels must select the shared database price bucket", async () => {
     const item = {
       id: "graded-item",
@@ -157,7 +208,7 @@ describe("collection dashboard enrichment", () => {
     });
   });
 
-  it("uses the saved series without exposing its internal id because Dashboard must keep the public API stable", async () => {
+  it("uses current canonical same-specification pricing for list display without exposing the historical series binding", async () => {
     const result = await enrichCollectionDashboard(
       new FakeDb(
         [card("100")],
@@ -183,7 +234,7 @@ describe("collection dashboard enrichment", () => {
       new Date("2026-07-10T12:00:00.000Z"),
     );
 
-    expect(result.portfolio_items[0]).toMatchObject({ market_price_usd: 99 });
+    expect(result.portfolio_items[0]).toMatchObject({ market_price_usd: 20 });
     expect(result.portfolio_items[0]).not.toHaveProperty("price_series_id");
   });
 });
