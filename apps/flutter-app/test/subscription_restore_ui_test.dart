@@ -12,6 +12,7 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_page.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:kando_app/shared/ui/kando_bottom_sheet_page.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
@@ -204,6 +205,42 @@ void main() {
     expect(find.text('kept'), findsOneWidget);
   });
 
+  testWidgets('subscription sheet handle drag closes to its source', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    addTearDown(tester.view.resetPadding);
+    final host = _RestoreTestHost();
+    await tester.pumpWidget(host.app);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('source-state')), 'kept');
+
+    host.router.push('/subscription?sheet=true&source=source');
+    await tester.pumpAndSettle();
+    final viewportHeight =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    expect(
+      tester
+          .getSize(find.byKey(const Key('subscription-sheet-surface')))
+          .height,
+      lessThanOrEqualTo(viewportHeight * 0.85),
+    );
+    final topSafeArea = tester.view.padding.top / tester.view.devicePixelRatio;
+    expect(
+      tester.getRect(find.byKey(const Key('subscription-sheet-handle'))).top,
+      greaterThanOrEqualTo(topSafeArea),
+    );
+    await tester.drag(
+      find.byKey(const Key('subscription-sheet-handle')),
+      const Offset(0, 400),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SubscriptionPage), findsNothing);
+    expect(find.text('Source Page'), findsOneWidget);
+    expect(find.text('kept'), findsOneWidget);
+  });
+
   testWidgets(
     'a new subscription presentation resets the selected plan to yearly',
     (tester) async {
@@ -220,6 +257,11 @@ void main() {
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
       host.router.push('/subscription?sheet=true&source=home');
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, -240),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(SubscriptionPage), findsOneWidget);
@@ -552,7 +594,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.drag(
           find.byType(CustomScrollView).last,
-          const Offset(0, -120),
+          const Offset(0, -240),
         );
         await tester.pumpAndSettle();
 
@@ -867,10 +909,24 @@ class _RestoreTestHost {
         ),
         GoRoute(
           path: '/subscription',
-          builder: (_, state) => SubscriptionPage(
-            sheet: state.uri.queryParameters['sheet'] == 'true',
-            source: state.uri.queryParameters['source'],
-          ),
+          pageBuilder: (_, state) {
+            final sheet = state.uri.queryParameters['sheet'] == 'true';
+            final page = SubscriptionPage(
+              sheet: sheet,
+              source: state.uri.queryParameters['source'],
+            );
+            if (sheet) {
+              return KandoBottomSheetPage<SubscriptionPaywallResult>(
+                key: state.pageKey,
+                barrierColor: const Color(0x99000000),
+                isDismissible: false,
+                useSafeArea: true,
+                heightFactor: 0.85,
+                child: page,
+              );
+            }
+            return MaterialPage<void>(key: state.pageKey, child: page);
+          },
         ),
         GoRoute(
           path: '/subscription/success',

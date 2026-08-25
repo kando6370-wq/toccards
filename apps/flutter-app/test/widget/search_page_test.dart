@@ -25,6 +25,7 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:kando_app/shared/ui/kando_bottom_sheet_page.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
@@ -959,17 +960,6 @@ void main() {
     await tester.tap(find.byKey(const Key('search-collect-squirtle')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('pending-collection-notice')));
-    await tester.pump();
-
-    SlideTransition reviewTransition() => tester.widget<SlideTransition>(
-      find.byKey(const Key('quick-collection-review-transition')),
-    );
-
-    await tester.pump(const Duration(milliseconds: 125));
-    expect(reviewTransition().position.value.dy, greaterThan(0));
-    expect(reviewTransition().position.value.dy, lessThan(1));
-    await tester.pump(const Duration(milliseconds: 125));
-    expect(reviewTransition().position.value.dy, closeTo(0, 0.001));
     await tester.pumpAndSettle();
 
     expect(
@@ -977,17 +967,61 @@ void main() {
       greaterThan(0),
     );
     await tester.tapAt(const Offset(10, 10));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(reviewTransition().position.value.dy, greaterThan(0));
-    expect(reviewTransition().position.value.dy, lessThan(1));
-    await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
     expect(find.byType(QuickCollectionReviewPage), findsNothing);
     expect(find.byType(SearchPage), findsOneWidget);
     expect(find.byKey(const Key('pending-collection-notice')), findsOneWidget);
   });
+
+  testWidgets(
+    'pending Review drag isolates the editor repaint and closes the sheet',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final sheet = find.byKey(const Key('card-detail-add-item-sheet'));
+      final repaintBoundary = find.byKey(
+        const Key('quick-collection-review-repaint-boundary'),
+      );
+      expect(repaintBoundary, findsOneWidget);
+      expect(
+        tester.renderObject<RenderObject>(repaintBoundary).isRepaintBoundary,
+        isTrue,
+      );
+      final settledTop = tester.getRect(sheet).top;
+      await tester.drag(
+        find.byKey(const Key('quick-collection-review-handle')),
+        const Offset(0, 80),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+      expect(tester.getRect(sheet).top, closeTo(settledTop, 0.01));
+
+      await tester.drag(
+        find.byKey(const Key('quick-collection-review-handle')),
+        const Offset(0, 320),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickCollectionReviewPage), findsNothing);
+      expect(find.byType(SearchPage), findsOneWidget);
+      expect(
+        find.byKey(const Key('pending-collection-notice')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('multiple pending cards use card strip and batch actions', (
     tester,
@@ -1877,30 +1911,12 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
           ),
           GoRoute(
             path: '/collection-items/pending',
-            pageBuilder: (context, state) => CustomTransitionPage<void>(
+            pageBuilder: (context, state) => KandoBottomSheetPage<void>(
               key: state.pageKey,
-              opaque: false,
               barrierColor: const Color(0xB8000000),
-              barrierDismissible: true,
-              transitionDuration: const Duration(milliseconds: 250),
-              reverseTransitionDuration: const Duration(milliseconds: 200),
-              child: const QuickCollectionReviewPage(),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    final sheetAnimation = CurvedAnimation(
-                      parent: animation,
-                      curve: Easing.legacyDecelerate,
-                      reverseCurve: Easing.legacyDecelerate,
-                    );
-                    return SlideTransition(
-                      key: const Key('quick-collection-review-transition'),
-                      position: Tween(
-                        begin: const Offset(0, 1),
-                        end: Offset.zero,
-                      ).animate(sheetAnimation),
-                      child: child,
-                    );
-                  },
+              isDismissible: true,
+              heightFactor: 0.85,
+              child: const QuickCollectionReviewPage(heightFactor: 1),
             ),
           ),
           GoRoute(

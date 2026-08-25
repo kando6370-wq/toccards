@@ -2359,7 +2359,12 @@ Future<void> _openAddCollectionItemSheet(
 }
 
 class QuickCollectionReviewPage extends ConsumerStatefulWidget {
-  const QuickCollectionReviewPage({super.key});
+  const QuickCollectionReviewPage({
+    this.heightFactor = _quickCollectionReviewHeightFactor,
+    super.key,
+  });
+
+  final double heightFactor;
 
   @override
   ConsumerState<QuickCollectionReviewPage> createState() =>
@@ -2381,9 +2386,18 @@ class _QuickCollectionReviewPageState
 
   @override
   Widget build(BuildContext context) {
+    return RepaintBoundary(
+      key: const Key('quick-collection-review-repaint-boundary'),
+      child: _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final pendingItems = ref.watch(pendingCollectionProvider);
     if (pendingItems.isEmpty) {
-      if (_isSavingAll) return const _QuickCollectionLoading();
+      if (_isSavingAll) {
+        return _QuickCollectionLoading(heightFactor: widget.heightFactor);
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (context.canPop()) {
@@ -2408,21 +2422,27 @@ class _QuickCollectionReviewPageState
         : state;
 
     if (displayState.isLoading) {
-      return const _QuickCollectionLoading();
+      return _QuickCollectionLoading(heightFactor: widget.heightFactor);
     }
     if (displayState.isUnavailable) {
-      return _QuickCollectionFailure(onRetry: controller.refresh);
+      return _QuickCollectionFailure(
+        heightFactor: widget.heightFactor,
+        onRetry: controller.refresh,
+      );
     }
     if (displayState.assetStateStatus == KandoLoadStatus.loading) {
-      return const _QuickCollectionLoading();
+      return _QuickCollectionLoading(heightFactor: widget.heightFactor);
     }
     if (displayState.assetStateStatus == KandoLoadStatus.failure) {
-      return _QuickCollectionFailure(onRetry: controller.refresh);
+      return _QuickCollectionFailure(
+        heightFactor: widget.heightFactor,
+        onRetry: controller.refresh,
+      );
     }
     if (_activeItemId != pendingItem.id ||
         displayState.collectionItemDraft == null) {
       _initializeDraft(controller, pendingItem);
-      return const _QuickCollectionLoading();
+      return _QuickCollectionLoading(heightFactor: widget.heightFactor);
     }
 
     final multiple = pendingItems.length > 1;
@@ -2430,7 +2450,7 @@ class _QuickCollectionReviewPageState
       cardId: pendingItem.card.id,
       entrySource: AnalyticsValue.sourceSearch,
       useQuickCollectionController: true,
-      heightFactor: _quickCollectionReviewHeightFactor,
+      heightFactor: widget.heightFactor,
       alignment: Alignment.bottomCenter,
       useBottomSafeArea: true,
       stateOverride: _isSavingAll ? displayState : null,
@@ -2822,32 +2842,44 @@ class _QuickCollectionReviewPageState
 }
 
 class _QuickCollectionLoading extends StatelessWidget {
-  const _QuickCollectionLoading();
+  const _QuickCollectionLoading({required this.heightFactor});
+
+  final double heightFactor;
 
   @override
   Widget build(BuildContext context) {
-    return const _QuickCollectionStateSurface(
-      child: CircularProgressIndicator(color: KandoColors.accent),
+    return _QuickCollectionStateSurface(
+      heightFactor: heightFactor,
+      child: const CircularProgressIndicator(color: KandoColors.accent),
     );
   }
 }
 
 class _QuickCollectionFailure extends StatelessWidget {
-  const _QuickCollectionFailure({required this.onRetry});
+  const _QuickCollectionFailure({
+    required this.heightFactor,
+    required this.onRetry,
+  });
 
+  final double heightFactor;
   final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
     return _QuickCollectionStateSurface(
+      heightFactor: heightFactor,
       child: FilledButton(onPressed: onRetry, child: const Text('Try again')),
     );
   }
 }
 
 class _QuickCollectionStateSurface extends StatelessWidget {
-  const _QuickCollectionStateSurface({required this.child});
+  const _QuickCollectionStateSurface({
+    required this.heightFactor,
+    required this.child,
+  });
 
+  final double heightFactor;
   final Widget child;
 
   @override
@@ -2855,7 +2887,7 @@ class _QuickCollectionStateSurface extends StatelessWidget {
     return FractionallySizedBox(
       alignment: Alignment.bottomCenter,
       widthFactor: 1,
-      heightFactor: _quickCollectionReviewHeightFactor,
+      heightFactor: heightFactor,
       child: Material(
         color: const Color(0xFF222222),
         clipBehavior: Clip.antiAlias,
@@ -2997,6 +3029,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
             children: [
               const SizedBox(height: 12),
               Container(
+                key: const Key('quick-collection-review-handle'),
                 width: 48,
                 height: 6,
                 decoration: BoxDecoration(

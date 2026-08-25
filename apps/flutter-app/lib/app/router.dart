@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart' show Easing;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +19,7 @@ import '../features/subscription/subscription_page.dart';
 import '../features/subscription/startup_subscription_gate.dart';
 import '../shared/analytics/analytics_events.dart';
 import '../shared/analytics/app_analytics.dart';
+import '../shared/ui/kando_bottom_sheet_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -84,29 +84,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/collection-items/pending',
-        pageBuilder: (context, state) => CustomTransitionPage<void>(
+        pageBuilder: (context, state) => KandoBottomSheetPage<void>(
           key: state.pageKey,
-          opaque: false,
           barrierColor: const Color(0xB8000000),
-          barrierDismissible: true,
-          transitionDuration: const Duration(milliseconds: 250),
-          reverseTransitionDuration: const Duration(milliseconds: 200),
-          child: const QuickCollectionReviewPage(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final sheetAnimation = CurvedAnimation(
-              parent: animation,
-              curve: Easing.legacyDecelerate,
-              reverseCurve: Easing.legacyDecelerate,
-            );
-            return SlideTransition(
-              key: const Key('quick-collection-review-transition'),
-              position: Tween(
-                begin: const Offset(0, 1),
-                end: Offset.zero,
-              ).animate(sheetAnimation),
-              child: child,
-            );
-          },
+          isDismissible: true,
+          heightFactor: 0.85,
+          child: const QuickCollectionReviewPage(heightFactor: 1),
         ),
       ),
       GoRoute(
@@ -155,28 +138,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final sheet = state.uri.queryParameters['presentation'] == 'sheet';
           final source = state.uri.queryParameters['source'];
           final entrySource = state.uri.queryParameters['entry_source'];
+          if (sheet) {
+            return KandoBottomSheetPage<SubscriptionPaywallResult>(
+              key: state.pageKey,
+              barrierColor: const Color(0x99000000),
+              isDismissible: false,
+              useSafeArea: true,
+              heightFactor: 0.85,
+              child: SubscriptionPage(
+                sheet: true,
+                source: source,
+                entrySource: entrySource,
+              ),
+            );
+          }
           return CustomTransitionPage<SubscriptionPaywallResult>(
             key: state.pageKey,
-            opaque: !sheet,
-            barrierColor: sheet ? const Color(0x99000000) : null,
+            opaque: true,
             child: SubscriptionPage(
-              sheet: sheet,
+              sheet: false,
               source: source,
               entrySource: entrySource,
             ),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  if (!sheet) return child;
-                  return SlideTransition(
-                    position: animation.drive(
-                      Tween(
-                        begin: const Offset(0, 1),
-                        end: Offset.zero,
-                      ).chain(CurveTween(curve: Curves.easeOutCubic)),
-                    ),
-                    child: child,
-                  );
-                },
+            transitionsBuilder: (_, _, _, child) => child,
           );
         },
       ),

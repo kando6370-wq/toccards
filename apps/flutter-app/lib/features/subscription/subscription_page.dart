@@ -350,6 +350,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
       );
     }
     return Scaffold(
+      key: const Key('subscription-sheet-surface'),
       backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
