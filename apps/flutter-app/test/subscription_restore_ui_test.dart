@@ -53,6 +53,26 @@ void main() {
     });
   });
 
+  test('USD fallback prices require a configured App Store catalog', () {
+    expect(
+      const SubscriptionState().displayPriceFor(subscriptionWeeklyPlanId),
+      'Unavailable',
+    );
+    expect(
+      const SubscriptionState(
+        isConfigured: true,
+      ).displayPriceFor(subscriptionWeeklyPlanId),
+      r'$3.99',
+    );
+    expect(
+      const SubscriptionState(
+        isConfigured: true,
+        displayPrices: {subscriptionWeeklyPlanId: r'CA$4.99'},
+      ).displayPriceFor(subscriptionWeeklyPlanId),
+      r'CA$4.99',
+    );
+  });
+
   test(
     'Android keeps subscription sales disabled because v1.1 has no Google Play proof contract',
     () {
@@ -185,6 +205,36 @@ void main() {
   });
 
   testWidgets(
+    'a new subscription presentation resets the selected plan to yearly',
+    (tester) async {
+      final host = _RestoreTestHost();
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+
+      host.router.push('/subscription?source=cold_start');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('subscription-plan-weekly')));
+      await tester.pumpAndSettle();
+      expect(host.controller.state.selectedPlanId, subscriptionWeeklyPlanId);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      host.router.push('/subscription?sheet=true&source=home');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SubscriptionPage), findsOneWidget);
+      expect(host.controller.state.selectedPlanId, subscriptionYearlyPlanId);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('subscription-plan-yearly')),
+          matching: find.byIcon(Icons.radio_button_checked),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'returning to a mounted subscription container refreshes StoreKit products only while it remains open',
     (tester) async {
       final controller = _ProductRefreshController();
@@ -278,7 +328,7 @@ void main() {
   );
 
   testWidgets(
-    'missing StoreKit products show Unavailable and cannot replace the first available selection',
+    'missing StoreKit products use USD fallback prices without replacing the first available selection',
     (tester) async {
       final host = _RestoreTestHost(controller: _PartialCatalogController());
       await tester.pumpWidget(host.app);
@@ -290,10 +340,19 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const Key('subscription-plan-yearly')),
-          matching: find.text('Unavailable'),
+          matching: find.text(r'$49.99'),
         ),
         findsOneWidget,
       );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('subscription-plan-lifetime')),
+          matching: find.text(r'$79.99'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(r'$4.99'), findsOneWidget);
+      expect(find.text('Unavailable'), findsNothing);
       await tester.tap(
         find.byKey(const Key('subscription-plan-yearly')),
         warnIfMissed: false,
@@ -307,7 +366,7 @@ void main() {
   );
 
   testWidgets(
-    'all unavailable products keep Subscribe available without a selected SKU',
+    'all unavailable products show USD fallbacks without a StoreKit selection',
     (tester) async {
       final host = _RestoreTestHost(
         controller: _UnavailableCatalogController(),
@@ -319,7 +378,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.radio_button_checked), findsNothing);
-      expect(find.text('Unavailable'), findsNWidgets(3));
+      expect(find.text(r'$3.99'), findsOneWidget);
+      expect(find.text(r'$49.99'), findsOneWidget);
+      expect(find.text(r'$79.99'), findsOneWidget);
+      expect(find.text('Unavailable'), findsNothing);
+      expect(host.controller.state.availablePlanIds, isEmpty);
       await tester.drag(
         find.byType(CustomScrollView).last,
         const Offset(0, -600),

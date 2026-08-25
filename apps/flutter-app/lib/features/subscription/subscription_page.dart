@@ -29,6 +29,11 @@ const _subscriptionFullPageBackgroundVideoAsset =
 const _subscriptionFullPageBackgroundVideoAspectRatio = 608 / 1080;
 const _subscriptionSuccessTrophyAsset =
     'assets/subscription/success_trophy_2090_17166.svg';
+// Figma 2090:17166 uses one shared normalized timeline for all 24 nodes.
+const _subscriptionSuccessMotionDuration = Duration(milliseconds: 2350);
+const _successRevealCurve = Cubic(0.22, 1, 0.36, 1);
+const _successSwiftOutCurve = Cubic(0.16, 1, 0.3, 1);
+const _successOvershootCurve = Cubic(0.34, 1.28, 0.64, 1);
 const _subscriptionSheetItemBorder = Color(0xFF2A2D20);
 const _subscriptionSheetSelectedSurface = Color(0xFF38372D);
 const _subscriptionSheetSecondaryText = Color(0xFF999578);
@@ -56,6 +61,12 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    Future<void>.microtask(() {
+      if (!mounted) return;
+      ref
+          .read(subscriptionControllerProvider.notifier)
+          .resetPlanSelectionForNewPresentation();
+    });
   }
 
   @override
@@ -200,9 +211,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                         ),
                         child: _PlanTile(
                           plan: plan,
-                          price:
-                              state.displayPrices[plan.id] ??
-                              (state.isLoading ? 'Loading' : 'Unavailable'),
+                          price: state.displayPriceFor(plan.id),
                           selected:
                               state.selectedPlanId == plan.id &&
                               state.availablePlanIds.contains(plan.id),
@@ -439,7 +448,7 @@ class _SubscriptionSuccessPageState extends State<SubscriptionSuccessPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2200),
+    duration: _subscriptionSuccessMotionDuration,
   );
 
   @override
@@ -476,29 +485,39 @@ class _SubscriptionSuccessPageState extends State<SubscriptionSuccessPage>
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               child: Column(
                 children: [
-                  const SizedBox(
-                    key: Key('subscription-success-premium-active'),
-                    height: 18,
-                    child: Center(
-                      child: Text(
-                        'PREMIUM ACTIVE',
-                        style: TextStyle(
-                          color: Color(0xFFE5FF3B),
-                          fontSize: 13,
-                          height: 18 / 13,
-                          fontWeight: FontWeight.w600,
+                  _SuccessReveal(
+                    key: const Key(
+                      'subscription-success-premium-active-reveal',
+                    ),
+                    controller: _controller,
+                    begin: 0.05106,
+                    end: 0.22979,
+                    offsetY: 8,
+                    child: const SizedBox(
+                      key: Key('subscription-success-premium-active'),
+                      height: 18,
+                      child: Center(
+                        child: Text(
+                          'PREMIUM ACTIVE',
+                          style: TextStyle(
+                            color: Color(0xFFE5FF3B),
+                            fontSize: 13,
+                            height: 18 / 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 59),
-                  _SuccessBadgeReveal(controller: _controller),
+                  _SuccessBadge(controller: _controller),
                   const SizedBox(height: 14),
                   _SuccessReveal(
                     key: const Key('subscription-success-title-reveal'),
                     controller: _controller,
-                    begin: 0.29545,
-                    end: 0.40909,
+                    begin: 0.24681,
+                    end: 0.42553,
+                    offsetY: 18,
                     child: const SizedBox(
                       width: 350,
                       height: 40,
@@ -522,8 +541,9 @@ class _SubscriptionSuccessPageState extends State<SubscriptionSuccessPage>
                   const SizedBox(height: 9),
                   _SuccessReveal(
                     controller: _controller,
-                    begin: 0.29545,
-                    end: 0.40909,
+                    begin: 0.31064,
+                    end: 0.48936,
+                    offsetY: 14,
                     child: const SizedBox(
                       width: 322,
                       height: 22,
@@ -546,44 +566,74 @@ class _SubscriptionSuccessPageState extends State<SubscriptionSuccessPage>
                   _SuccessReveal(
                     key: const Key('subscription-success-benefit-0-reveal'),
                     controller: _controller,
-                    begin: 0.52273,
-                    end: 0.63636,
-                    child: const _SuccessBenefitRow('Unlimited Card Scanning'),
+                    begin: 0.41702,
+                    end: 0.59574,
+                    offsetY: 16,
+                    child: _SuccessBenefitRow(
+                      'Unlimited Card Scanning',
+                      controller: _controller,
+                      index: 0,
+                      checkOpacityBegin: 0.52766,
+                      checkOpacityEnd: 0.56170,
+                      checkDrawEnd: 0.62979,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _SuccessReveal(
                     key: const Key('subscription-success-benefit-1-reveal'),
                     controller: _controller,
-                    begin: 0.55,
-                    end: 0.66364,
-                    child: const _SuccessBenefitRow(
+                    begin: 0.47660,
+                    end: 0.65532,
+                    offsetY: 16,
+                    child: _SuccessBenefitRow(
                       'Unlimited Portfolio Folders',
+                      controller: _controller,
+                      index: 1,
+                      checkOpacityBegin: 0.58723,
+                      checkOpacityEnd: 0.62128,
+                      checkDrawEnd: 0.68936,
                     ),
                   ),
                   const SizedBox(height: 12),
                   _SuccessReveal(
                     key: const Key('subscription-success-benefit-2-reveal'),
                     controller: _controller,
-                    begin: 0.57727,
-                    end: 0.69091,
-                    child: const _SuccessBenefitRow(
+                    begin: 0.53617,
+                    end: 0.71489,
+                    offsetY: 16,
+                    child: _SuccessBenefitRow(
                       'Track Portfolio Performance',
+                      controller: _controller,
+                      index: 2,
+                      checkOpacityBegin: 0.64681,
+                      checkOpacityEnd: 0.68085,
+                      checkDrawEnd: 0.74894,
                     ),
                   ),
                   const SizedBox(height: 12),
                   _SuccessReveal(
                     key: const Key('subscription-success-benefit-3-reveal'),
                     controller: _controller,
-                    begin: 0.60455,
-                    end: 0.71818,
-                    child: const _SuccessBenefitRow('Extended Price History'),
+                    begin: 0.59574,
+                    end: 0.77447,
+                    offsetY: 16,
+                    child: _SuccessBenefitRow(
+                      'Extended Price History',
+                      controller: _controller,
+                      index: 3,
+                      checkOpacityBegin: 0.70638,
+                      checkOpacityEnd: 0.74043,
+                      checkDrawEnd: 0.80851,
+                    ),
                   ),
                   const SizedBox(height: 33),
                   _SuccessReveal(
                     key: const Key('subscription-success-button-reveal'),
                     controller: _controller,
-                    begin: 0.80909,
-                    end: 0.92273,
+                    begin: 0.71489,
+                    end: 0.89362,
+                    offsetY: 18,
+                    initialScale: 0.96,
                     child: SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -637,12 +687,16 @@ class _SuccessReveal extends StatelessWidget {
     required this.begin,
     required this.end,
     required this.child,
+    required this.offsetY,
+    this.initialScale = 1,
     super.key,
   });
 
   final AnimationController controller;
   final double begin;
   final double end;
+  final double offsetY;
+  final double initialScale;
   final Widget child;
 
   @override
@@ -654,48 +708,20 @@ class _SuccessReveal extends StatelessWidget {
         final progress = Interval(
           begin,
           end,
-          curve: Curves.easeOut,
+          curve: _successRevealCurve,
         ).transform(controller.value);
         return IgnorePointer(
           ignoring: progress < 1,
           child: Opacity(
             opacity: progress,
             child: Transform.translate(
-              offset: Offset(0, 8 * (1 - progress)),
-              child: child,
+              offset: Offset(0, offsetY * (1 - progress)),
+              child: Transform.scale(
+                scale: ui.lerpDouble(initialScale, 1, progress)!,
+                child: child,
+              ),
             ),
           ),
-        );
-      },
-    );
-  }
-}
-
-class _SuccessBadgeReveal extends StatelessWidget {
-  const _SuccessBadgeReveal({required this.controller});
-
-  final AnimationController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      child: const _SuccessBadge(),
-      builder: (context, child) {
-        final value = controller.value;
-        final opacity = const Interval(
-          0.09091,
-          0.29545,
-          curve: Curves.easeOut,
-        ).transform(value);
-        final scale = value <= 0.21818
-            ? 0.82 + (0.26 * Curves.easeOut.transform(value / 0.21818))
-            : value < 0.29545
-            ? 1.08 - (0.08 * ((value - 0.21818) / (0.29545 - 0.21818)))
-            : 1.0;
-        return Opacity(
-          opacity: opacity,
-          child: Transform.scale(scale: scale, child: child),
         );
       },
     );
@@ -703,7 +729,9 @@ class _SuccessBadgeReveal extends StatelessWidget {
 }
 
 class _SuccessBadge extends StatelessWidget {
-  const _SuccessBadge();
+  const _SuccessBadge({required this.controller});
+
+  final AnimationController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -711,98 +739,234 @@ class _SuccessBadge extends StatelessWidget {
       key: const Key('subscription-success-badge'),
       width: 208,
       height: 208,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 208,
-            height: 208,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0x1AE6FF3B),
-            ),
-          ),
-          Container(
-            width: 166,
-            height: 166,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0x29E6FF3B),
-            ),
-          ),
-          Container(
-            width: 116,
-            height: 116,
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, child) {
+          final value = controller.value;
+          final outerGlowOpacity = value < 0.09362
+              ? _motionTween(
+                  value,
+                  begin: 0,
+                  end: 0.09362,
+                  from: 0,
+                  to: 0.22,
+                  curve: _successSwiftOutCurve,
+                )
+              : _motionTween(
+                  value,
+                  begin: 0.09362,
+                  end: 0.45957,
+                  from: 0.22,
+                  to: 0,
+                  curve: Curves.easeOut,
+                );
+          final innerGlowOpacity = value < 0.05957
+              ? _motionTween(
+                  value,
+                  begin: 0,
+                  end: 0.05957,
+                  from: 0,
+                  to: 0.3,
+                  curve: _successSwiftOutCurve,
+                )
+              : _motionTween(
+                  value,
+                  begin: 0.05957,
+                  end: 0.37447,
+                  from: 0.3,
+                  to: 0,
+                  curve: Curves.easeOut,
+                );
+          final medallionOpacity = _motionTween(
+            value,
+            begin: 0,
+            end: 0.06809,
+            from: 0,
+            to: 1,
+            curve: _successSwiftOutCurve,
+          );
+          final medallionScale = value < 0.15319
+              ? _motionTween(
+                  value,
+                  begin: 0,
+                  end: 0.15319,
+                  from: 0.74,
+                  to: 1.055,
+                  curve: _successOvershootCurve,
+                )
+              : _motionTween(
+                  value,
+                  begin: 0.15319,
+                  end: 0.26383,
+                  from: 1.055,
+                  to: 1,
+                  curve: _successSwiftOutCurve,
+                );
+          final trophyOpacity = _motionTween(
+            value,
+            begin: 0,
+            end: 0.06809,
+            from: 0,
+            to: 1,
+            curve: _successSwiftOutCurve,
+          );
+          final trophyOffsetY = value < 0.12766
+              ? _motionTween(
+                  value,
+                  begin: 0,
+                  end: 0.12766,
+                  from: 20,
+                  to: -4,
+                  curve: _successSwiftOutCurve,
+                )
+              : _motionTween(
+                  value,
+                  begin: 0.12766,
+                  end: 0.22128,
+                  from: -4,
+                  to: 0,
+                  curve: Curves.easeInOut,
+                );
+          final trophyScale = value < 0.12766
+              ? _motionTween(
+                  value,
+                  begin: 0,
+                  end: 0.12766,
+                  from: 0.72,
+                  to: 1.1,
+                  curve: _successOvershootCurve,
+                )
+              : value < 0.22128
+              ? _motionTween(
+                  value,
+                  begin: 0.12766,
+                  end: 0.22128,
+                  from: 1.1,
+                  to: 0.98,
+                  curve: Curves.easeInOut,
+                )
+              : _motionTween(
+                  value,
+                  begin: 0.22128,
+                  end: 0.29787,
+                  from: 0.98,
+                  to: 1,
+                  curve: _successSwiftOutCurve,
+                );
+
+          return Stack(
+            clipBehavior: Clip.none,
             alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF404D1A),
-              border: Border.all(color: const Color(0xFFE6FF3B), width: 1.5),
-            ),
-            child: SvgPicture.asset(
-              _subscriptionSuccessTrophyAsset,
-              width: 60,
-              height: 52,
-            ),
-          ),
-          const _SuccessConfetti(
-            left: -21,
-            top: 41,
-            size: 7,
-            angle: 0.418879,
-            color: Color(0xFFE5FF3B),
-          ),
-          const _SuccessConfetti(
-            left: 210,
-            top: 48,
-            size: 6,
-            angle: -0.488692,
-            color: Color(0xFFF0F0E0),
-          ),
-          const _SuccessConfetti(
-            left: -6,
-            top: 161,
-            size: 5,
-            angle: 0.418879,
-            color: Color(0xFFF0F0E0),
-          ),
-          const _SuccessConfetti(
-            left: 198,
-            top: 162,
-            size: 8,
-            angle: -0.488692,
-            color: Color(0xFFE5FF3B),
-          ),
-          const _SuccessConfetti(
-            left: 26,
-            top: -9,
-            size: 5,
-            angle: 0.418879,
-            color: Color(0xFFE5FF3B),
-          ),
-          const _SuccessConfetti(
-            left: 180,
-            top: -5,
-            size: 5,
-            angle: -0.488692,
-            color: Color(0xFFF0F0E0),
-          ),
-          const _SuccessConfetti(
-            left: -37,
-            top: 111,
-            size: 4,
-            angle: 0.418879,
-            color: Color(0xFFE5FF3B),
-          ),
-          const _SuccessConfetti(
-            left: 236,
-            top: 114,
-            size: 4,
-            angle: -0.488692,
-            color: Color(0xFFF0F0E0),
-          ),
-        ],
+            children: [
+              _SuccessMotionLayer(
+                key: const Key('subscription-success-glow-outer'),
+                opacity: outerGlowOpacity,
+                scale: _motionTween(
+                  value,
+                  begin: 0,
+                  end: 0.45957,
+                  from: 0.7,
+                  to: 1.22,
+                  curve: Curves.easeOut,
+                ),
+                child: Container(
+                  width: 208,
+                  height: 208,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0x1AE6FF3B),
+                  ),
+                ),
+              ),
+              _SuccessMotionLayer(
+                key: const Key('subscription-success-glow-inner'),
+                opacity: innerGlowOpacity,
+                scale: _motionTween(
+                  value,
+                  begin: 0,
+                  end: 0.37447,
+                  from: 0.7,
+                  to: 1.22,
+                  curve: Curves.easeOut,
+                ),
+                child: Container(
+                  width: 166,
+                  height: 166,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0x29E6FF3B),
+                  ),
+                ),
+              ),
+              _SuccessMotionLayer(
+                key: const Key('subscription-success-medallion'),
+                opacity: medallionOpacity,
+                scale: medallionScale,
+                child: Container(
+                  width: 116,
+                  height: 116,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF404D1A),
+                    border: Border.all(
+                      color: const Color(0xFFE6FF3B),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+              _SuccessMotionLayer(
+                key: const Key('subscription-success-trophy'),
+                opacity: trophyOpacity,
+                scale: trophyScale,
+                offset: Offset(0, trophyOffsetY),
+                child: SizedBox(
+                  width: 82,
+                  height: 82,
+                  child: Center(
+                    child: SvgPicture.asset(
+                      _subscriptionSuccessTrophyAsset,
+                      width: 60,
+                      height: 52,
+                    ),
+                  ),
+                ),
+              ),
+              for (var index = 0; index < _successConfettiSpecs.length; index++)
+                _SuccessConfetti(
+                  key: Key('subscription-success-confetti-$index'),
+                  spec: _successConfettiSpecs[index],
+                  timelineValue: value,
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SuccessMotionLayer extends StatelessWidget {
+  const _SuccessMotionLayer({
+    required this.opacity,
+    required this.child,
+    this.scale = 1,
+    this.offset = Offset.zero,
+    super.key,
+  });
+
+  final double opacity;
+  final double scale;
+  final Offset offset;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: opacity.clamp(0, 1),
+      child: Transform.translate(
+        offset: offset,
+        child: Transform.scale(scale: scale, child: child),
       ),
     );
   }
@@ -810,32 +974,56 @@ class _SuccessBadge extends StatelessWidget {
 
 class _SuccessConfetti extends StatelessWidget {
   const _SuccessConfetti({
-    required this.left,
-    required this.top,
-    required this.size,
-    required this.angle,
-    required this.color,
+    required this.spec,
+    required this.timelineValue,
+    super.key,
   });
 
-  final double left;
-  final double top;
-  final double size;
-  final double angle;
-  final Color color;
+  final _SuccessConfettiSpec spec;
+  final double timelineValue;
 
   @override
   Widget build(BuildContext context) {
+    final opacity = timelineValue < spec.visibleAt
+        ? _motionTween(
+            timelineValue,
+            begin: spec.startsAt,
+            end: spec.visibleAt,
+            from: 0,
+            to: 1,
+            curve: _successSwiftOutCurve,
+          )
+        : _motionTween(
+            timelineValue,
+            begin: spec.visibleAt,
+            end: spec.endsAt,
+            from: 1,
+            to: 0,
+            curve: Curves.easeIn,
+          );
+    final movement = _motionProgress(
+      timelineValue,
+      begin: spec.startsAt,
+      end: spec.endsAt,
+      curve: Curves.easeOut,
+    );
     return Positioned(
-      left: left,
-      top: top,
-      child: Transform.rotate(
-        angle: angle,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
+      left: spec.left,
+      top: spec.top,
+      child: Transform.translate(
+        offset: Offset(spec.dx * movement, spec.dy * movement),
+        child: Opacity(
+          opacity: opacity.clamp(0, 1),
+          child: Transform.rotate(
+            angle: ui.lerpDouble(spec.angle, spec.endAngle, movement)!,
+            child: Container(
+              width: spec.size,
+              height: spec.size,
+              decoration: BoxDecoration(
+                color: spec.color,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
           ),
         ),
       ),
@@ -843,10 +1031,183 @@ class _SuccessConfetti extends StatelessWidget {
   }
 }
 
+class _SuccessConfettiSpec {
+  const _SuccessConfettiSpec({
+    required this.left,
+    required this.top,
+    required this.size,
+    required this.angle,
+    required this.endAngle,
+    required this.color,
+    required this.startsAt,
+    required this.visibleAt,
+    required this.endsAt,
+    required this.dx,
+    required this.dy,
+  });
+
+  final double left;
+  final double top;
+  final double size;
+  final double angle;
+  final double endAngle;
+  final Color color;
+  final double startsAt;
+  final double visibleAt;
+  final double endsAt;
+  final double dx;
+  final double dy;
+}
+
+const _successConfettiSpecs = [
+  _SuccessConfettiSpec(
+    left: -19.729,
+    top: 42.121,
+    size: 7,
+    angle: 0.418879,
+    endAngle: 2.373648,
+    color: Color(0xFFE5FF3B),
+    startsAt: 0.08085,
+    visibleAt: 0.13617,
+    endsAt: 0.48936,
+    dx: -22,
+    dy: -48,
+  ),
+  _SuccessConfettiSpec(
+    left: 211.0575,
+    top: 49.2375,
+    size: 6,
+    angle: -0.488692,
+    endAngle: -2.443461,
+    color: Color(0xFFF0F0E0),
+    startsAt: 0.09191,
+    visibleAt: 0.14723,
+    endsAt: 0.49787,
+    dx: 30,
+    dy: -55,
+  ),
+  _SuccessConfettiSpec(
+    left: -5.2295,
+    top: 161.8005,
+    size: 5,
+    angle: 0.418879,
+    endAngle: 2.373648,
+    color: Color(0xFFF0F0E0),
+    startsAt: 0.10298,
+    visibleAt: 0.15830,
+    endsAt: 0.50638,
+    dx: -38,
+    dy: -62,
+  ),
+  _SuccessConfettiSpec(
+    left: 199.4095,
+    top: 163.6495,
+    size: 8,
+    angle: -0.488692,
+    endAngle: -2.443461,
+    color: Color(0xFFE5FF3B),
+    startsAt: 0.11404,
+    visibleAt: 0.16936,
+    endsAt: 0.51489,
+    dx: 22,
+    dy: -69,
+  ),
+  _SuccessConfettiSpec(
+    left: 26.7705,
+    top: -8.1995,
+    size: 5,
+    angle: 0.418879,
+    endAngle: 2.373648,
+    color: Color(0xFFE5FF3B),
+    startsAt: 0.12511,
+    visibleAt: 0.18043,
+    endsAt: 0.52340,
+    dx: -30,
+    dy: -48,
+  ),
+  _SuccessConfettiSpec(
+    left: 180.881,
+    top: -4.469,
+    size: 5,
+    angle: -0.488692,
+    endAngle: -2.443461,
+    color: Color(0xFFF0F0E0),
+    startsAt: 0.13617,
+    visibleAt: 0.19149,
+    endsAt: 0.53191,
+    dx: 38,
+    dy: -55,
+  ),
+  _SuccessConfettiSpec(
+    left: -35.9895,
+    top: 111.6405,
+    size: 4,
+    angle: 0.418879,
+    endAngle: 2.373648,
+    color: Color(0xFFE5FF3B),
+    startsAt: 0.14723,
+    visibleAt: 0.20255,
+    endsAt: 0.54043,
+    dx: -22,
+    dy: -62,
+  ),
+  _SuccessConfettiSpec(
+    left: 236.705,
+    top: 114.825,
+    size: 4,
+    angle: -0.488692,
+    endAngle: -2.443461,
+    color: Color(0xFFF0F0E0),
+    startsAt: 0.15830,
+    visibleAt: 0.21362,
+    endsAt: 0.54894,
+    dx: 30,
+    dy: -69,
+  ),
+];
+
+double _motionProgress(
+  double value, {
+  required double begin,
+  required double end,
+  required Curve curve,
+}) {
+  if (value <= begin) return 0;
+  if (value >= end) return 1;
+  return curve.transform((value - begin) / (end - begin));
+}
+
+double _motionTween(
+  double value, {
+  required double begin,
+  required double end,
+  required double from,
+  required double to,
+  required Curve curve,
+}) {
+  return ui.lerpDouble(
+    from,
+    to,
+    _motionProgress(value, begin: begin, end: end, curve: curve),
+  )!;
+}
+
 class _SuccessBenefitRow extends StatelessWidget {
-  const _SuccessBenefitRow(this.label);
+  const _SuccessBenefitRow(
+    this.label, {
+    required this.controller,
+    required this.index,
+    required this.checkOpacityBegin,
+    required this.checkOpacityEnd,
+    required this.checkDrawEnd,
+  });
 
   final String label;
+  final AnimationController controller;
+  final int index;
+  final double checkOpacityBegin;
+  final double checkOpacityEnd;
+  final double checkDrawEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -860,18 +1221,41 @@ class _SuccessBenefitRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: KandoColors.accent,
-            ),
-            child: const Icon(
-              Icons.check_rounded,
-              size: 14,
-              color: KandoColors.primaryOnDefault,
-            ),
+          AnimatedBuilder(
+            animation: controller,
+            builder: (context, child) {
+              final opacity = _motionTween(
+                controller.value,
+                begin: checkOpacityBegin,
+                end: checkOpacityEnd,
+                from: 0,
+                to: 1,
+                curve: _successSwiftOutCurve,
+              );
+              final drawProgress = _motionProgress(
+                controller.value,
+                begin: checkOpacityBegin,
+                end: checkDrawEnd,
+                curve: _successSwiftOutCurve,
+              );
+              return Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: KandoColors.accent,
+                ),
+                child: Opacity(
+                  key: Key('subscription-success-checkmark-$index'),
+                  opacity: opacity.clamp(0, 1),
+                  child: CustomPaint(
+                    size: const Size(9.7, 7.45),
+                    painter: _SuccessCheckmarkPainter(drawProgress),
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -887,6 +1271,40 @@ class _SuccessBenefitRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _SuccessCheckmarkPainter extends CustomPainter {
+  const _SuccessCheckmarkPainter(this.progress);
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scaleX = size.width / 9.7;
+    final scaleY = size.height / 7.45;
+    canvas.scale(scaleX, scaleY);
+    final path = Path()
+      ..moveTo(0.85, 3.95)
+      ..lineTo(3.6, 6.6)
+      ..lineTo(8.85, 0.85);
+    final paint = Paint()
+      ..color = const Color(0xFF1E2018)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.7
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    for (final metric in path.computeMetrics()) {
+      canvas.drawPath(
+        metric.extractPath(0, metric.length * progress.clamp(0, 1)),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SuccessCheckmarkPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
 

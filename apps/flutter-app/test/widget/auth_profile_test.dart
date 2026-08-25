@@ -2135,32 +2135,125 @@ void main() {
         ),
       );
 
-      double opacityFor(Key key) => tester
-          .widget<Opacity>(
-            find
-                .descendant(of: find.byKey(key), matching: find.byType(Opacity))
-                .first,
-          )
-          .opacity;
+      double opacityFor(Key key) {
+        final keyed = find.byKey(key);
+        final widget = tester.widget(keyed);
+        return (widget is Opacity
+                ? widget
+                : tester.widget<Opacity>(
+                    find
+                        .descendant(of: keyed, matching: find.byType(Opacity))
+                        .first,
+                  ))
+            .opacity;
+      }
 
       expect(opacityFor(const Key('subscription-success-title-reveal')), 0);
       expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 0);
 
       await tester.pump(const Duration(milliseconds: 1000));
       expect(opacityFor(const Key('subscription-success-title-reveal')), 1);
-      expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 0);
+      expect(
+        opacityFor(const Key('subscription-success-benefit-0-reveal')),
+        greaterThan(0),
+      );
 
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 1);
       expect(opacityFor(const Key('subscription-success-benefit-2-reveal')), 1);
+      expect(
+        opacityFor(const Key('subscription-success-button-reveal')),
+        greaterThan(0),
+      );
 
-      await tester.pump(const Duration(milliseconds: 1000));
+      await tester.pump(const Duration(milliseconds: 550));
       expect(opacityFor(const Key('subscription-success-title-reveal')), 1);
       expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 1);
       expect(opacityFor(const Key('subscription-success-benefit-2-reveal')), 1);
       expect(opacityFor(const Key('subscription-success-button-reveal')), 1);
     },
   );
+
+  testWidgets('subscription success follows the Figma motion timeline once', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: const SubscriptionSuccessPage(),
+      ),
+    );
+
+    double opacityFor(Key key) {
+      final keyed = find.byKey(key);
+      final widget = tester.widget(keyed);
+      return (widget is Opacity
+              ? widget
+              : tester.widget<Opacity>(
+                  find
+                      .descendant(of: keyed, matching: find.byType(Opacity))
+                      .first,
+                ))
+          .opacity;
+    }
+
+    const outerGlow = Key('subscription-success-glow-outer');
+    const medallion = Key('subscription-success-medallion');
+    const trophy = Key('subscription-success-trophy');
+    const confetti = Key('subscription-success-confetti-0');
+    const checkmark = Key('subscription-success-checkmark-0');
+    expect(opacityFor(outerGlow), 0);
+    expect(opacityFor(medallion), 0);
+    expect(opacityFor(trophy), 0);
+    expect(opacityFor(confetti), 0);
+    expect(opacityFor(checkmark), 0);
+
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(opacityFor(outerGlow), greaterThan(0));
+    expect(opacityFor(medallion), 1);
+    expect(opacityFor(trophy), 1);
+    expect(opacityFor(confetti), greaterThan(0));
+    expect(opacityFor(const Key('subscription-success-title-reveal')), 0);
+
+    await tester.pump(const Duration(milliseconds: 2050));
+    expect(opacityFor(outerGlow), 0);
+    expect(opacityFor(confetti), 0);
+    expect(opacityFor(checkmark), 1);
+    expect(opacityFor(const Key('subscription-success-title-reveal')), 1);
+    expect(opacityFor(const Key('subscription-success-button-reveal')), 1);
+
+    await tester.pump(const Duration(milliseconds: 2350));
+    expect(opacityFor(outerGlow), 0);
+    expect(opacityFor(confetti), 0);
+    expect(opacityFor(checkmark), 1);
+    expect(opacityFor(const Key('subscription-success-button-reveal')), 1);
+  });
+
+  testWidgets('subscription success matches the Figma 300ms motion frame', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 59);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+
+    await tester.pumpWidget(
+      _subscriptionGoldenApp(
+        const SubscriptionSuccessPage(),
+        disableAnimations: false,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await expectLater(
+      find.byKey(const Key('subscription-golden-boundary')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_subscription_success_motion_300ms_390x844.png',
+      ),
+    );
+  });
 
   for (final goldenCase in [
     (
@@ -2650,7 +2743,10 @@ class _FreeSubscriptionController extends SubscriptionController {
   }) async {}
 }
 
-ProviderScope _subscriptionGoldenApp(Widget child) {
+ProviderScope _subscriptionGoldenApp(
+  Widget child, {
+  bool disableAnimations = true,
+}) {
   return ProviderScope(
     overrides: [
       subscriptionControllerProvider.overrideWith(
@@ -2660,7 +2756,9 @@ ProviderScope _subscriptionGoldenApp(Widget child) {
     child: MaterialApp(
       theme: buildKandoTheme(),
       builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(disableAnimations: true),
+        data: MediaQuery.of(
+          context,
+        ).copyWith(disableAnimations: disableAnimations),
         child: child!,
       ),
       home: RepaintBoundary(

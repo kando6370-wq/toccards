@@ -60,6 +60,12 @@ const subscriptionPlans = [
   ),
 ];
 
+const subscriptionFallbackDisplayPrices = {
+  subscriptionWeeklyPlanId: r'$3.99',
+  subscriptionYearlyPlanId: r'$49.99',
+  subscriptionLifetimePlanId: r'$79.99',
+};
+
 class AppSubscriptionConfiguration {
   const AppSubscriptionConfiguration({
     required this.store,
@@ -272,6 +278,16 @@ class SubscriptionState {
   final SubscriptionRestoreSource? restoreSource;
   final String? errorMessage;
 
+  String displayPriceFor(String planId) {
+    final storePrice = displayPrices[planId];
+    if (storePrice != null) return storePrice;
+    if (isConfigured) {
+      final fallbackPrice = subscriptionFallbackDisplayPrices[planId];
+      if (fallbackPrice != null) return fallbackPrice;
+    }
+    return isLoading ? 'Loading' : 'Unavailable';
+  }
+
   SubscriptionState copyWith({
     String? selectedPlanId,
     Map<String, String>? displayPrices,
@@ -386,6 +402,23 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       return;
     }
     state = state.copyWith(selectedPlanId: planId, clearError: true);
+  }
+
+  void resetPlanSelectionForNewPresentation() {
+    if (state.isPurchasing || state.isPurchasePending || state.isRestoring) {
+      return;
+    }
+    final selectedPlanId =
+        state.availablePlanIds.contains(subscriptionYearlyPlanId)
+        ? subscriptionYearlyPlanId
+        : subscriptionPlans
+              .map((plan) => plan.id)
+              .firstWhere(
+                state.availablePlanIds.contains,
+                orElse: () => subscriptionYearlyPlanId,
+              );
+    if (selectedPlanId == state.selectedPlanId) return;
+    state = state.copyWith(selectedPlanId: selectedPlanId);
   }
 
   Future<void> refreshProducts({

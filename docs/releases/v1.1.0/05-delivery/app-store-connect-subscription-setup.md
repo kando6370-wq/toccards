@@ -2,7 +2,7 @@
 
 > **定位**：指导运营与研发在 App Store Connect 中配置 Performance Pro 的 iOS 商品、测试账号、服务端通知与审核资料。
 > **日期**：2026-08-10
-> **最近核验**：2026-08-18
+> **最近核验**：2026-08-25
 > **适用应用**：dev/test Bundle ID `com.kando.kandoApp.beta`；production Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
 > **状态快照（2026-08-18）**：当前 App Store Connect dev/test App 为 `Kando KP App`（Apple ID `6790245922`），订阅组 ID 为 `22251901`，Sandbox Server URL 已保存为 `https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。dev 的 `APPLE_ROOT_CERTIFICATES_BASE64` 已用 Apple 官方 `Apple Root CA - G3` DER Base64 更新并立即生效；下载文件为 583 字节，SHA-256 为 `63343ABFB89A6A03EBB57E9B3F5FA7BE7C4F5C756F3017B3A8C488C3653E9179`，更新后的 deployment 为 `623ef89f-f01b-48a4-912d-70586538e01d`、version 为 `6985637b-5e4e-480b-b804-19ce02ecef93`，`/api/v1/health` 返回 HTTP 200。Cloudflare 不回显 Secret 值，因此现有证据证明写入输入经过指纹核验且命令成功，真实 Apple Sandbox 通知验签、结构化入库和业务处理仍待验证。prod 只创建了包含相同 G3 证书的待部署 version `42f3934f-7cb4-41df-85b5-631b4e4b8954`，未部署、未分配流量；线上仍为 deployment `03235e84-694e-4800-854a-650173408412`、version `57213c10-d392-43a9-8d34-c6472fc3febc`。prod 商品与 Product ID 尚未配置；该 Apple 配置快照不证明 production 当前数据源，production deployment、Hyperdrive 和 PostgreSQL 运行状态必须在独立发布任务中重新核验，且不得查询或回退 D1。付费 App 协议、银行和税务资料尚未全部生效，完整购买闭环仍被 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。远程环境状态会变化，后续执行前必须重新查询。
@@ -32,7 +32,13 @@ dev/test Product ID 不得默认复用到 prod。prod 值确认后，必须独�
 - Weekly 和 Yearly 必须放在同一个订阅组，用户同一时间只能持有该组内一个订阅。
 - Lifetime 是一次性永久购买，不能放入自动续订订阅组。
 - Product ID 创建后不能修改，也不能在删除后复用；创建前须确认命名。
-- App Store 返回的本地化价格是展示与扣款的权威来源。当前 App 不使用固定美元价格兜底；商品未返回时显示 Loading 或 Unavailable，不得伪造价格。
+- App Store 返回的本地化价格是展示与扣款的权威来源。2026-08-25 按产品最新决定，Subscription Page 与 Functional Paywall 在单个 SKU 未返回时展示 App Store Connect 美国当前价格作为固定美元兜底；真实 StoreKit 商品一旦返回，必须覆盖对应兜底。兜底仅用于价格展示，不得加入 StoreKit 可购买商品集合、绕过购买前重新查询或作为实际扣款金额。
+
+| 套餐 | 美元展示兜底 | 2026-08-25 App Store Connect 美国当前价格 |
+|---|---:|---:|
+| Weekly | `$3.99` | `$3.99` |
+| Yearly | `$49.99` | `$49.99` |
+| Lifetime | `$79.99` | `$79.99` |
 
 ---
 
@@ -136,7 +142,7 @@ flutter build ipa --release `
   --dart-define=SUBSCRIPTION_APP_STORE_LIFETIME_ID=cardx.lifetime
 ```
 
-dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。2026-08-13 远程 dev D1 写入的三个 active `performance_pro` 商品映射已在 2026-08-17 迁入共享 PostgreSQL，正式 dev Worker/Admin version `73766f12-d888-4e94-ba2c-f990ef00ec43` 已部署。production/prod 仍未配置 Product ID 或白名单，不能使用本示例构建正式环境。当前客户端只请求非空 Product ID：未配置或 StoreKit 未返回的 SKU 显示 `Unavailable` 且不可购买。
+dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。2026-08-13 远程 dev D1 写入的三个 active `performance_pro` 商品映射已在 2026-08-17 迁入共享 PostgreSQL，正式 dev Worker/Admin version `73766f12-d888-4e94-ba2c-f990ef00ec43` 已部署。production/prod 仍未配置 Product ID 或白名单，不能使用本示例构建正式环境。当前客户端只请求非空 Product ID：App Store 商品目录已配置但 StoreKit 未返回的 SKU 使用上表美元价格兜底展示，仍不进入 StoreKit 可购买商品集合；Apple 商品目录未配置及 Android 未启用销售时保持原不可用状态，不展示 App Store 兜底价。
 
 Singular 使用同一份 `--dart-define-from-file` 环境配置注入，不在仓库写入正式密钥：
 
@@ -284,14 +290,14 @@ Apple 默认将一个月压缩为 5 分钟；在该默认速率下，1 周订阅
 | Yearly Product ID | `cardx.year` |
 | 订阅组 | `Performance Pro`，Group ID `22251901` |
 
-若 Weekly 或 Yearly 显示 `Unavailable`，按以下顺序排查：
+若 Weekly 或 Yearly 长时间只显示上表美元兜底，而未切换为当前 App Store 地区的本地化价格，按以下顺序排查：
 
 1. 补齐税务信息，并等待银行账户和付费 App 协议变为有效。
 2. 为 Yearly 设置与 Weekly 一致的销售范围，并添加以供审核。
 3. 确认 Sandbox Tester 的国家或地区属于商品已启用地区。
 4. 确认安装包使用 test flavor，且通过 `config/test.json` 注入 Product ID。
 5. App Store Connect 配置更新后等待 Apple 服务传播，再重新安装或重启 App 查询。
-6. 若仍失败，记录 StoreKit 查询的 `error` 和 `notFoundIDs`。当前 UI 会把 StoreKit 未返回的商品统一显示为 `Unavailable`，仅凭页面不能区分具体失败原因。
+6. 若仍失败，记录 StoreKit 查询的 `error` 和 `notFoundIDs`。当前 UI 会为 StoreKit 未返回的商品显示固定美元兜底，仅凭页面上的美元金额不能证明真实 SKU 已加载；可购买状态仍以 StoreKit 返回结果为准。
 
 ### 8.7 必测清单
 
