@@ -835,6 +835,8 @@ void main() {
   testWidgets('repeated unowned card clicks create separate pending Items', (
     tester,
   ) async {
+    tester.view.padding = const FakeViewPadding(bottom: 34);
+    addTearDown(tester.view.resetPadding);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
@@ -858,7 +860,19 @@ void main() {
     await tester.tap(find.byKey(const Key('pending-collection-notice')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('card-detail-add-item-sheet')), findsOneWidget);
+    final reviewSheet = find.byKey(const Key('card-detail-add-item-sheet'));
+    expect(reviewSheet, findsOneWidget);
+    final viewportHeight =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    expect(
+      tester.getSize(reviewSheet).height,
+      closeTo(viewportHeight * 0.85, 0.01),
+    );
+    expect(tester.getRect(reviewSheet).bottom, closeTo(viewportHeight, 0.01));
+    expect(
+      tester.getRect(find.byKey(const Key('card-detail-item-submit'))).bottom,
+      lessThanOrEqualTo(viewportHeight - 34),
+    );
     expect(
       find.byKey(const Key('pending-collection-card-strip')),
       findsOneWidget,
@@ -929,6 +943,50 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsOneWidget);
+  });
+
+  testWidgets('pending Review top scrim closes the bottom-aligned sheet', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+        child: const _SearchTestAppWithRoutes(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('pending-collection-notice')));
+    await tester.pump();
+
+    SlideTransition reviewTransition() => tester.widget<SlideTransition>(
+      find.byKey(const Key('quick-collection-review-transition')),
+    );
+
+    await tester.pump(const Duration(milliseconds: 125));
+    expect(reviewTransition().position.value.dy, greaterThan(0));
+    expect(reviewTransition().position.value.dy, lessThan(1));
+    await tester.pump(const Duration(milliseconds: 125));
+    expect(reviewTransition().position.value.dy, closeTo(0, 0.001));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getRect(find.byKey(const Key('card-detail-add-item-sheet'))).top,
+      greaterThan(0),
+    );
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(reviewTransition().position.value.dy, greaterThan(0));
+    expect(reviewTransition().position.value.dy, lessThan(1));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(QuickCollectionReviewPage), findsNothing);
+    expect(find.byType(SearchPage), findsOneWidget);
+    expect(find.byKey(const Key('pending-collection-notice')), findsOneWidget);
   });
 
   testWidgets('multiple pending cards use card strip and batch actions', (
@@ -1819,7 +1877,31 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
           ),
           GoRoute(
             path: '/collection-items/pending',
-            builder: (context, state) => const QuickCollectionReviewPage(),
+            pageBuilder: (context, state) => CustomTransitionPage<void>(
+              key: state.pageKey,
+              opaque: false,
+              barrierColor: const Color(0xB8000000),
+              barrierDismissible: true,
+              transitionDuration: const Duration(milliseconds: 250),
+              reverseTransitionDuration: const Duration(milliseconds: 200),
+              child: const QuickCollectionReviewPage(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    final sheetAnimation = CurvedAnimation(
+                      parent: animation,
+                      curve: Easing.legacyDecelerate,
+                      reverseCurve: Easing.legacyDecelerate,
+                    );
+                    return SlideTransition(
+                      key: const Key('quick-collection-review-transition'),
+                      position: Tween(
+                        begin: const Offset(0, 1),
+                        end: Offset.zero,
+                      ).animate(sheetAnimation),
+                      child: child,
+                    );
+                  },
+            ),
           ),
           GoRoute(
             path: '/search',

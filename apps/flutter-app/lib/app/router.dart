@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Easing;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -88,15 +89,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           opaque: false,
           barrierColor: const Color(0xB8000000),
           barrierDismissible: true,
+          transitionDuration: const Duration(milliseconds: 250),
+          reverseTransitionDuration: const Duration(milliseconds: 200),
           child: const QuickCollectionReviewPage(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final sheetAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Easing.legacyDecelerate,
+              reverseCurve: Easing.legacyDecelerate,
+            );
             return SlideTransition(
-              position: animation.drive(
-                Tween(
-                  begin: const Offset(0, 1),
-                  end: Offset.zero,
-                ).chain(CurveTween(curve: Curves.easeOutCubic)),
-              ),
+              key: const Key('quick-collection-review-transition'),
+              position: Tween(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(sheetAnimation),
               child: child,
             );
           },

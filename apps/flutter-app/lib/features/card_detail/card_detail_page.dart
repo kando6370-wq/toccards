@@ -2366,6 +2366,8 @@ class QuickCollectionReviewPage extends ConsumerStatefulWidget {
       _QuickCollectionReviewPageState();
 }
 
+const _quickCollectionReviewHeightFactor = 0.85;
+
 class _QuickCollectionReviewPageState
     extends ConsumerState<QuickCollectionReviewPage> {
   int _selectedIndex = 0;
@@ -2428,6 +2430,9 @@ class _QuickCollectionReviewPageState
       cardId: pendingItem.card.id,
       entrySource: AnalyticsValue.sourceSearch,
       useQuickCollectionController: true,
+      heightFactor: _quickCollectionReviewHeightFactor,
+      alignment: Alignment.bottomCenter,
+      useBottomSafeArea: true,
       stateOverride: _isSavingAll ? displayState : null,
       batchProgressText: _isSavingAll
           ? 'Saving $_savingCompletedCount of $_savingTotalCount'
@@ -2821,11 +2826,8 @@ class _QuickCollectionLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Material(
-      color: Color(0xFF222222),
-      child: Center(
-        child: CircularProgressIndicator(color: KandoColors.accent),
-      ),
+    return const _QuickCollectionStateSurface(
+      child: CircularProgressIndicator(color: KandoColors.accent),
     );
   }
 }
@@ -2837,10 +2839,28 @@ class _QuickCollectionFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF222222),
-      child: Center(
-        child: FilledButton(onPressed: onRetry, child: const Text('Try again')),
+    return _QuickCollectionStateSurface(
+      child: FilledButton(onPressed: onRetry, child: const Text('Try again')),
+    );
+  }
+}
+
+class _QuickCollectionStateSurface extends StatelessWidget {
+  const _QuickCollectionStateSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      alignment: Alignment.bottomCenter,
+      widthFactor: 1,
+      heightFactor: _quickCollectionReviewHeightFactor,
+      child: Material(
+        color: const Color(0xFF222222),
+        clipBehavior: Clip.antiAlias,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: SafeArea(top: false, child: Center(child: child)),
       ),
     );
   }
@@ -2926,6 +2946,9 @@ class _AddCollectionItemSheet extends ConsumerWidget {
     this.useQuickCollectionController = false,
     this.stateOverride,
     this.batchProgressText,
+    this.heightFactor = 0.94,
+    this.alignment = Alignment.center,
+    this.useBottomSafeArea = false,
   });
 
   final String cardId;
@@ -2939,6 +2962,9 @@ class _AddCollectionItemSheet extends ConsumerWidget {
   final bool useQuickCollectionController;
   final CardDetailState? stateOverride;
   final String? batchProgressText;
+  final double heightFactor;
+  final Alignment alignment;
+  final bool useBottomSafeArea;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2960,7 +2986,8 @@ class _AddCollectionItemSheet extends ConsumerWidget {
       duration: const Duration(milliseconds: 180),
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: FractionallySizedBox(
-        heightFactor: 0.94,
+        alignment: alignment,
+        heightFactor: heightFactor,
         child: Material(
           key: const Key('card-detail-add-item-sheet'),
           color: const Color(0xFF222222),
@@ -3089,7 +3116,15 @@ class _AddCollectionItemSheet extends ConsumerWidget {
               ),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  20 +
+                      (useBottomSafeArea
+                          ? MediaQuery.paddingOf(context).bottom
+                          : 0),
+                ),
                 decoration: BoxDecoration(
                   color: KandoColors.ink.withValues(alpha: 0.96),
                   border: Border(
