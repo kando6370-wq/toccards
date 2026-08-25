@@ -539,6 +539,7 @@ describe("scan routes", () => {
             matched: true,
             candidates: [
               expect.objectContaining({
+                product_id: "10738",
                 card_ref: "10738",
                 name: "Bushi Tenderfoot",
                 set_code: "CHK",
@@ -566,6 +567,41 @@ describe("scan routes", () => {
         }),
       }),
     ]);
+  });
+
+  it("preserves an alphanumeric sports product id because catalog identity is text across the App", async () => {
+    const env = createRecognitionEnv();
+    env.DB.cards.push({
+      product_id: "sports:soccer:rookie-001",
+      game_id: 100003,
+      game: "Soccer",
+      set_name: "Rookie Debut",
+      set_code: "RD",
+      name: "Alex Rookie",
+      rarity: "Rookie",
+      product_type_name: "Cards",
+      image_url: null,
+    });
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      candidates: [
+        { product_id: "sports:soccer:rookie-001", confidence: 91.25 },
+      ],
+    })));
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const body = await response.json() as {
+      data: { results: Array<{ candidates: Array<{ product_id: string; card_ref: string }> }> };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.results[0]?.candidates[0]).toEqual(expect.objectContaining({
+      product_id: "sports:soccer:rookie-001",
+      card_ref: "sports:soccer:rookie-001",
+    }));
+    expect(env.DB.scanRecords[0]?.candidates).toContain(
+      '"product_id":"sports:soccer:rookie-001"',
+    );
   });
 
   it("returns an unlimited Premium quota without spending Free allowance", async () => {
@@ -712,6 +748,65 @@ describe("scan routes", () => {
             expect.objectContaining({
               card_ref: "602664",
               card_number: "200/187",
+              retrieval: "rgb-phash-16-v1+card-number-ocr",
+            }),
+            expect.objectContaining({ card_ref: "610499" }),
+          ],
+        })],
+      }),
+    }));
+  });
+
+  it("recovers an alphanumeric sports printing because card-number disambiguation must not coerce catalog ids to numbers", async () => {
+    const env = createRecognitionEnv();
+    env.DB.cards.push(
+      {
+        product_id: "610499",
+        game_id: 100003,
+        game: "Soccer",
+        set_name: "Rookie Debut",
+        set_code: "RD",
+        name: "Alex Rookie",
+        rarity: "Rookie",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "14/100",
+      },
+      {
+        product_id: "sports:soccer:rookie-200",
+        game_id: 100003,
+        game: "Soccer",
+        set_name: "Rookie Debut",
+        set_code: "RD",
+        name: "Alex Rookie",
+        rarity: "Rookie Parallel",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "200/200",
+      },
+    );
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      candidates: [{ product_id: 610499, confidence: 84.1 }],
+    })));
+
+    const response = await recognize(env, token, {
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+      card_number: "200/200",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual(expect.objectContaining({
+      data: expect.objectContaining({
+        results: [expect.objectContaining({
+          candidates: [
+            expect.objectContaining({
+              product_id: "sports:soccer:rookie-200",
+              card_ref: "sports:soccer:rookie-200",
+              card_number: "200/200",
               retrieval: "rgb-phash-16-v1+card-number-ocr",
             }),
             expect.objectContaining({ card_ref: "610499" }),

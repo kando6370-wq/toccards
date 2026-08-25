@@ -26,7 +26,7 @@ type ScanBindings = { Bindings: Env };
 
 type ScanCandidate = {
   rank: number;
-  product_id: number;
+  product_id: string;
   card_ref: string;
   catalog_matched: boolean;
   game: string | null;
@@ -39,7 +39,7 @@ type ScanCandidate = {
   distance: number | null;
 };
 
-type RecognitionCandidate = { productId: number; confidence: number };
+type RecognitionCandidate = { productId: string; confidence: number };
 
 type ScanResult = {
   index: number;
@@ -344,7 +344,7 @@ export function createScanRoutes() {
       try {
         auditCandidates = await Promise.all(
           recognized.map(async (candidate, index) => {
-            const card = await adapter.getCard(String(candidate.productId));
+            const card = await adapter.getCard(candidate.productId);
             return card
               ? toCatalogCandidate(card, candidate, index)
               : toUnresolvedCandidate(candidate, index);
@@ -661,7 +661,7 @@ function toUnresolvedCandidate(
   return {
     rank: index + 1,
     product_id: recognized.productId,
-    card_ref: String(recognized.productId),
+    card_ref: recognized.productId,
     catalog_matched: false,
     game: null,
     name: null,
@@ -769,11 +769,10 @@ async function disambiguateByCardNumber(
       const card = matches.find(
         (candidate) => normalizeCardNumber(candidate.card_number) === cardNumber,
       );
-      const productId = Number(card?.card_ref);
-      if (!card || !Number.isInteger(productId) || productId < 1) continue;
+      if (!card) continue;
       const recovered = toCatalogCandidate(
         card,
-        { productId, confidence: source.confidence ?? 0 },
+        { productId: card.card_ref, confidence: source.confidence ?? 0 },
         candidates.length,
       );
       return prioritizeByCardNumber([...candidates, recovered], cardNumber);
@@ -791,14 +790,13 @@ function normalizeCardNumber(value: string | null): string | null {
 function readRecognitionCandidates(value: unknown): RecognitionCandidate[] | null {
   if (!Array.isArray(value)) return null;
   const candidates: RecognitionCandidate[] = [];
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   for (const item of value) {
     if (!isRecord(item)) return null;
-    const productId = item.product_id;
+    const productId = readProductId(item.product_id);
     const confidence = item.confidence;
     if (
-      typeof productId !== "number" || !Number.isInteger(productId) ||
-      productId < 1 || productId > 4_294_967_295 ||
+      productId === null ||
       typeof confidence !== "number" || !Number.isFinite(confidence) ||
       confidence < 0 || confidence > 100
     ) {
@@ -810,6 +808,19 @@ function readRecognitionCandidates(value: unknown): RecognitionCandidate[] | nul
     }
   }
   return candidates;
+}
+
+function readProductId(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.length > 0 && value === value.trim() ? value : null;
+  }
+  if (
+    typeof value === "number" && Number.isInteger(value) &&
+    value >= 1 && value <= 4_294_967_295
+  ) {
+    return String(value);
+  }
+  return null;
 }
 
 function scanImageKey(
