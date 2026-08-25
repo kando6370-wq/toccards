@@ -25,6 +25,42 @@ void main() {
   );
 
   test(
+    'reserveQuota returns the authoritative Processing count before recognition starts',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'POST');
+        expect(request.path, '/scan/quota/reserve');
+        expect(request.idempotencyKey, '123e4567-e89b-42d3-a456-426614174000');
+        expect(request.body, {
+          'request_id': '123e4567-e89b-42d3-a456-426614174000',
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'request_id': '123e4567-e89b-42d3-a456-426614174000',
+            'quota': {
+              'access': 'free',
+              'limit': 10,
+              'reserved': 1,
+              'consumed': 0,
+              'remaining': 9,
+              'unlimited': false,
+            },
+          },
+        });
+      });
+
+      final quota = await ScanApiClient(_dio(adapter)).reserveQuota(
+        _session,
+        requestId: '123e4567-e89b-42d3-a456-426614174000',
+      );
+
+      expect(quota.reserved, 1);
+      expect(quota.remaining, 9);
+    },
+  );
+
+  test(
     'recognizeImage sends hashes plus only the corrected crop to our API because the external recognizer must never receive an image',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -253,6 +289,81 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     },
   );
+
+  test(
+    'reservation and recognition share one deadline because preflight must not double the scan wait',
+    () async {
+      var calls = 0;
+      final adapter = _RecordingAdapter((request) async {
+        calls += 1;
+        await Future<void>.delayed(const Duration(milliseconds: 15));
+        if (request.path == '/scan/quota/reserve') {
+          return _json(200, {
+            'success': true,
+            'data': {
+              'request_id': '123e4567-e89b-42d3-a456-426614174000',
+              'quota': {
+                'access': 'free',
+                'limit': 10,
+                'reserved': 1,
+                'consumed': 0,
+                'remaining': 9,
+                'unlimited': false,
+              },
+            },
+          });
+        }
+        return _json(200, {
+          'success': true,
+          'data': {
+            'scan_id': 'scan-1',
+            'recognition_status': 'no_match',
+            'quota': {
+              'access': 'free',
+              'limit': 10,
+              'reserved': 0,
+              'consumed': 1,
+              'remaining': 9,
+              'unlimited': false,
+            },
+            'results': [
+              {'index': 1, 'matched': false, 'candidates': <Object?>[]},
+            ],
+          },
+        });
+      });
+      final client = ScanApiClient(
+        _dio(adapter),
+        requestDeadline: const Duration(milliseconds: 25),
+      );
+      const requestId = '123e4567-e89b-42d3-a456-426614174000';
+
+      await client.reserveQuota(_session, requestId: requestId);
+      await expectLater(
+        client.recognizeImage(
+          _session,
+          hashes: ScanImageHashes(
+            r: _hash,
+            g: _hash,
+            b: _hash,
+            cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
+          ),
+          fileName: 'scan.jpg',
+          platform: 'iOS',
+          appVersion: '1.0.0',
+          requestId: requestId,
+        ),
+        throwsA(
+          isA<ScanApiException>().having(
+            (error) => error.code,
+            'code',
+            scanRequestTimeoutCode,
+          ),
+        ),
+      );
+      expect(calls, 2);
+    },
+  );
 }
 
 const _session = AuthSession(
@@ -297,6 +408,7 @@ class _RecordingAdapter implements HttpClientAdapter {
         method: options.method,
         path: options.path,
         authorization: options.headers['Authorization']?.toString(),
+        idempotencyKey: options.headers['Idempotency-Key']?.toString(),
         body: data,
       ),
     );
@@ -311,11 +423,13 @@ class _RecordedRequest {
     required this.method,
     required this.path,
     required this.authorization,
+    required this.idempotencyKey,
     required this.body,
   });
 
   final String method;
   final String path;
   final String? authorization;
+  final String? idempotencyKey;
   final Object? body;
 }

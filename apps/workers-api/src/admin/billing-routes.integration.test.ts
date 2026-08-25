@@ -20,7 +20,14 @@ describe("Admin billing order contract", () => {
     db = await mf.getD1Database("DB");
     for (const statement of SCHEMA) await db.prepare(statement).run();
     await seed();
-    env = { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET: "billing-admin-test", APP_ENVIRONMENT: "development" };
+    env = {
+      DB: db,
+      CACHE_KV: {} as KVNamespace,
+      JWT_SECRET: "billing-admin-test",
+      APP_ENVIRONMENT: "development",
+      APPLE_IAP_BUNDLE_ID: "com.kando.kandoApp.beta",
+      APPLE_IAP_PRODUCT_IDS: "com.cardai.tcg.pro.yearly,stable.sku",
+    };
     const login = await app.request("/admin/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "admin@example.com", password: "password" }) }, env);
     token = ((await login.json()) as { data: { access_token: string } }).data.access_token;
   });
@@ -308,10 +315,12 @@ describe("Admin billing order contract", () => {
     await db.batch([
       db.prepare(`INSERT INTO apple_notification_inbox VALUES
         ('inbox-z', 'hash-z', '{}', 'signed.z.jws', 'verification_failed', 1, NULL, NULL,
-         'Z_FAILED', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z', 'Sandbox')`),
+         'Z_FAILED', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z', 'Sandbox',
+         'com.kando.kandoApp.beta')`),
       db.prepare(`INSERT INTO apple_notification_inbox VALUES
         ('inbox-a', 'hash-a', '{}', 'signed.a.jws', 'verification_failed', 1, NULL, NULL,
-         'A_FAILED', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z', 'Sandbox')`),
+         'A_FAILED', '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z', 'Sandbox',
+         'com.kando.kandoApp.beta')`),
     ]);
     const range = "created_from=2026-08-12T11:45:00.000Z&created_to=2026-08-12T11:45:00.000Z";
 
@@ -338,7 +347,8 @@ describe("Admin billing order contract", () => {
       db.prepare(`INSERT INTO apple_notification_inbox VALUES
         ('inbox-future', 'hash-future', '{"signedPayload":"signed.future.jws","futureRequestField":"kept"}',
          'signed.future.jws', 'processed', 1, NULL, 'notification-future', NULL,
-         '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z', 'Sandbox')`),
+         '2026-08-12T11:45:00.000Z', '2026-08-12T11:45:01.000Z', 'Sandbox',
+         'com.kando.kandoApp.beta')`),
       db.prepare(`INSERT INTO apple_server_notification VALUES
         ('notification-row-future', 'inbox-future', 'notification-future', 'FUTURE_NOTIFICATION',
          'FUTURE_SUBTYPE', 'Sandbox', NULL, NULL, NULL,
@@ -368,11 +378,13 @@ describe("Admin billing order contract", () => {
       db.prepare("INSERT INTO admin_user VALUES ('admin-1', 'admin@example.com', ?, 'super_admin', 'active', ?)").bind(await hashPassword("password"), NOW),
       db.prepare("INSERT INTO billing_purchase_chain (id, environment, original_transaction_id, original_owner_id, status, auto_renew) VALUES ('chain-1', 'Sandbox', 'original-1', '100001', 'ACTIVE', 1)"),
       db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, auto_renew_snapshot, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-1', 'chain-1', 'Sandbox', 'transaction-1', 'com.cardai.tcg.pro.yearly', 'initial_purchase', 1, 1, 'US', 49990000, 'USD', 49990000, ?, ?)").bind(NOW, NOW),
+      db.prepare("INSERT INTO billing_transaction (id, purchase_chain_id, environment, transaction_id, product_id, business_status, charge_count, auto_renew_snapshot, storefront_country_code, amount_micros, currency, amount_usd_micros, purchase_at, created_at) VALUES ('order-prod-testflight', 'chain-1', 'Sandbox', 'transaction-prod-testflight', 'CardAi.yearly', 'initial_purchase', 1, 1, 'US', 49990000, 'USD', 49990000, ?, ?)").bind(NOW, NOW),
       db.prepare("INSERT INTO app_installation VALUES ('install-1', '100001', 'iOS', 'US', '2026-08-01T00:00:00.000Z', ?)").bind(NOW),
       db.prepare("INSERT INTO session VALUES ('user-session', 'user', '100001', 'refresh-user', '2099-01-01T00:00:00.000Z', ?, NULL)").bind(NOW),
       db.prepare("INSERT INTO billing_session_entitlement_grant VALUES ('grant-1', 'user-session', 'chain-1')"),
-      db.prepare("INSERT INTO apple_notification_inbox VALUES ('inbox-success', 'hash-success', '{}', 'signed.success.jws', 'processed', 1, NULL, 'notification-1', NULL, '2026-08-12T11:00:00.000Z', '2026-08-12T11:00:01.000Z', 'Sandbox')"),
-      db.prepare("INSERT INTO apple_notification_inbox VALUES ('inbox-failed', 'hash-failed', '{}', 'signed.failure.jws', 'verification_failed', 1, NULL, NULL, 'NOTIFICATION_JWS_INVALID', '2026-08-12T11:30:00.000Z', '2026-08-12T11:30:01.000Z', 'Sandbox')"),
+      db.prepare("INSERT INTO apple_notification_inbox VALUES ('inbox-success', 'hash-success', '{}', 'signed.success.jws', 'processed', 1, NULL, 'notification-1', NULL, '2026-08-12T11:00:00.000Z', '2026-08-12T11:00:01.000Z', 'Sandbox', 'com.kando.kandoApp.beta')"),
+      db.prepare("INSERT INTO apple_notification_inbox VALUES ('inbox-failed', 'hash-failed', '{}', 'signed.failure.jws', 'verification_failed', 1, NULL, NULL, 'NOTIFICATION_JWS_INVALID', '2026-08-12T11:30:00.000Z', '2026-08-12T11:30:01.000Z', 'Sandbox', 'com.kando.kandoApp.beta')"),
+      db.prepare("INSERT INTO apple_notification_inbox VALUES ('inbox-prod-testflight', 'hash-prod-testflight', '{}', 'signed.prod-testflight.jws', 'processed', 1, NULL, NULL, NULL, '2026-08-12T11:15:00.000Z', '2026-08-12T11:15:01.000Z', 'Sandbox', 'com.cardai.tcg')"),
       db.prepare("INSERT INTO apple_server_notification VALUES ('notification-row-1', 'inbox-success', 'notification-1', 'DID_RENEW', NULL, 'Sandbox', 'original-1', 'transaction-1', 'com.cardai.tcg.pro.yearly', '{\"notification\":{\"notificationType\":\"DID_RENEW\"}}', 'processed', '2026-08-12T11:00:00.000Z', '2026-08-12T11:00:00.000Z')"),
     ]);
   }
@@ -385,6 +397,6 @@ const SCHEMA = [
   "CREATE TABLE billing_transaction (id TEXT PRIMARY KEY, purchase_chain_id TEXT, environment TEXT, transaction_id TEXT, product_id TEXT, business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT DEFAULT 'notification-1', auto_renew_snapshot INTEGER, storefront_country_code TEXT, amount_micros INTEGER, currency TEXT, amount_usd_micros INTEGER, purchase_at TEXT, refund_completed_at TEXT, created_at TEXT)",
   "CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT, purchase_chain_id TEXT)",
   "CREATE TABLE app_installation (installation_id TEXT PRIMARY KEY, uid TEXT, platform TEXT, country_code TEXT, first_seen_at TEXT, last_seen_at TEXT)",
-  "CREATE TABLE apple_notification_inbox (id TEXT PRIMARY KEY, payload_sha256 TEXT, request_json TEXT, signed_payload TEXT, processing_status TEXT, attempts INTEGER, processing_expires_at TEXT, notification_uuid TEXT, last_error TEXT, received_at TEXT, processed_at TEXT, environment TEXT)",
+  "CREATE TABLE apple_notification_inbox (id TEXT PRIMARY KEY, payload_sha256 TEXT, request_json TEXT, signed_payload TEXT, processing_status TEXT, attempts INTEGER, processing_expires_at TEXT, notification_uuid TEXT, last_error TEXT, received_at TEXT, processed_at TEXT, environment TEXT, app_bundle_id TEXT)",
   "CREATE TABLE apple_server_notification (id TEXT PRIMARY KEY, inbox_id TEXT, notification_uuid TEXT, notification_type TEXT, subtype TEXT, environment TEXT, original_transaction_id TEXT, transaction_id TEXT, product_id TEXT, decoded_payload TEXT, processing_status TEXT, signed_at TEXT, received_at TEXT)",
 ];

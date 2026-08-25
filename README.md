@@ -15,7 +15,7 @@ React Admin -- assets ---+        |-- PlanetScale PostgreSQL（经 Hyperdrive）
 Marketing Web -----------------> 独立 Cloudflare 静态站点
 ```
 
-Workers 是 App 与 Admin 的服务端安全边界。客户端不得直连 PostgreSQL、KV 或 R2；Admin 构建产物由 Workers assets 托管，营销站点独立部署。dev/prod 通过同一 Hyperdrive 使用同一个 PostgreSQL 数据库，但运行环境、Apple 配置、KV、R2、域名和 secrets 继续隔离。
+Workers 是 App 与 Admin 的服务端安全边界。客户端不得直连 PostgreSQL、KV 或 R2；Admin 构建产物由 Workers assets 托管，营销站点独立部署。当前 dev 已使用 PlanetScale PostgreSQL/Hyperdrive；截至 2026-08-25，现网 prod 仍运行 v1.0 D1 版本 `57213c10-d392-43a9-8d34-c6472fc3febc`。v1.1 prod 的目标是完成生产数据迁移与冲突审计后切换到 dev 共用的 PostgreSQL；运行环境、Apple 配置、KV、R2、域名和 secrets 继续隔离。
 
 ## 仓库结构
 

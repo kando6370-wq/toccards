@@ -68,7 +68,7 @@ Idempotency-Key: <request-id>
 
 `GET /api/v1/entitlements/apple/lifecycle` 只返回当前 live session 已通过 Fresh Purchase/Restore proof 建立 grant、且属于当前 App Store 环境的购买链状态。App 静默刷新先读取全部 Apple verified `Transaction.currentEntitlements`，再以 `originalTransactionId` 和时间版本应用服务端校正：只有 `BILLING_RETRY/EXPIRED/REVOKED` 且 `state_effective_at` 不早于本机 JWS `signedDate` 时剔除对应 entitlement，并用剩余全部 entitlement 重算 Premium。服务端 `ACTIVE` 不能在本机无 Apple entitlement 时单独授予；接口不可用、链未知或校正较旧时保留 Apple 本机/有效缓存结果，不直接降为 Free。同 UID 其他 session 的链不会出现在响应中。
 
-App Store Server Notifications V2 已通过 `POST /api/v1/apple/notifications/v2` 接收：先以 `signedPayload` SHA-256 幂等保存原始请求，再用 Apple 官方库验签外层通知及嵌套 transaction/renewal JWS。Grace 保持同链 session grant 至 `gracePeriodExpiresDate`，Billing Retry/Expired 使其失效，Refund/Revoke 撤销；旧 `signedDate` 不得回滚新状态。无法确定最终状态时标记 `correction_required`，由 5 分钟补偿任务调用 Apple Server API 并再次验签当前 transaction/renewal JWS；只更新对应 purchase chain 与该链已有 grant，不按 UID 或订单创建权益。
+App Store Server Notifications V2 已通过 `POST /api/v1/apple/notifications/v2` 接收 Production，通过 `POST /api/v1/apple/notifications/v2/sandbox` 接收 production Bundle 的 TestFlight Sandbox 通知：先以可信 Worker Bundle、真实 environment 与 `signedPayload` SHA-256 幂等保存原始请求，再用 Apple 官方库验签外层通知及嵌套 transaction/renewal JWS。Grace 保持同链 session grant 至 `gracePeriodExpiresDate`，Billing Retry/Expired 使其失效，Refund/Revoke 撤销；旧 `signedDate` 不得回滚新状态。无法确定最终状态时标记 `correction_required`，由 5 分钟补偿任务按 inbox Bundle 和真实 environment 调用对应 Apple Server API 并再次验签当前 transaction/renewal JWS；只更新对应 purchase chain 与该链已有 grant，不按 UID 或订单创建权益。
 
 Restore proof API 分为 `POST /entitlements/apple/app-attest/challenge`、`POST /entitlements/apple/app-attest/register` 和 `POST /entitlements/apple/restore`。注册与 Restore challenge 均绑定当前 live session、request ID 与 key ID；Restore 还绑定 StoreKit JWS SHA-256。challenge 10 分钟有效且以随机 `consumption_id` 原子单次消费；assertion counter 使用旧值条件更新，counter 或消费条件失败时 purchase chain 与 grant 均不写入。相同 session/request/key/JWS 的重试返回已保存终态，不重复验签或写入；任一绑定字段不同则返回冲突。App Attest key 属于安装实例，登录/登出不清理；仅全新安装清除 Secure Storage 中的陈旧 key ID并重新注册。Performance 在本机 Premium 但服务端返回 `ENTITLEMENT_SYNC_REQUIRED` 时，可读取已经由 `Transaction.currentEntitlements` 验证的当前证据，最多执行一次 App Attest Restore proof；同步成功后原 Performance 请求最多重试一次，同步或重试失败后保留失败状态并等待显式刷新，不循环请求，也不重新调用 `AppStore.sync()`。
 
@@ -76,7 +76,7 @@ Restore proof API 分为 `POST /entitlements/apple/app-attest/challenge`、`POST
 
 Workers 的验证请求使用 60 秒处理租约。相同 session、`request_id` 和证据摘要只能在租约过期或此前结果为 `VERIFICATION_UNAVAILABLE` 时接管重试；终态结果保持幂等返回。
 
-Workers 配置契约：`APPLE_IAP_PRODUCT_IDS`（逗号分隔白名单）、`APPLE_IAP_BUNDLE_ID`、`APPLE_ROOT_CERTIFICATES_BASE64`（逗号分隔 DER Base64）、`APPLE_APP_ATTEST_APP_ID`；Production 还必须提供 `APPLE_IAP_APP_ID`。dev 的 `APPLE_APP_ATTEST_DEVELOPMENT=true` 只接受 development AAGUID，prod 为 `false` 只接受 production AAGUID。根证书与密钥不得提交仓库。
+Workers 配置契约：`APPLE_IAP_PRODUCT_IDS`（逗号分隔白名单）、`APPLE_IAP_BUNDLE_ID`、`APPLE_ROOT_CERTIFICATES_BASE64`（逗号分隔 DER Base64）、`APPLE_APP_ATTEST_APP_ID`；Production 还必须提供 `APPLE_IAP_APP_ID`。dev 只创建 beta Bundle 的 Sandbox verifier；prod 为同一 production Bundle 同时创建 Production 与 Sandbox verifier，Fresh Purchase、Restore、session grant、生命周期、通知重试和 Server API 校正都必须同时命中当前 Worker 的 Product ID 白名单。dev 的 `APPLE_APP_ATTEST_DEVELOPMENT=true` 只接受 development AAGUID，prod 为 `false` 只接受 production AAGUID。根证书与密钥不得提交仓库。
 
 ## 4. 服务端动作结果矩阵
 

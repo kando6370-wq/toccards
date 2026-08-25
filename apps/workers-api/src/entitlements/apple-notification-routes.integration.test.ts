@@ -36,7 +36,14 @@ describe("Apple Notifications V2 durable consumption", () => {
       (id, session_id, purchase_chain_id, entitlement_id, source, status, granted_at, last_verified_at, updated_at)
       VALUES ('grant-1', 'session-1', 'chain-1', 'performance_pro', 'fresh_purchase', 'active', ?, ?, ?)`)
       .bind(NOW.toISOString(), NOW.toISOString(), NOW.toISOString()).run();
-    env = { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET: "test", APP_ENVIRONMENT: "development" };
+    env = {
+      DB: db,
+      CACHE_KV: {} as KVNamespace,
+      JWT_SECRET: "test",
+      APP_ENVIRONMENT: "development",
+      APPLE_IAP_BUNDLE_ID: "com.kando.kandoApp.beta",
+      APPLE_IAP_PRODUCT_IDS: "weekly,yearly,lifetime",
+    };
   });
 
   afterEach(async () => { await mf.dispose(); });
@@ -195,25 +202,35 @@ describe("Apple Notifications V2 durable consumption", () => {
     );
   });
 
-  it("keeps identical payload hashes separate by Worker environment because dev and prod share PostgreSQL", async () => {
+  it("keeps identical Sandbox payloads separate by trusted Bundle because dev and TestFlight share PostgreSQL", async () => {
     const app = createAppleNotificationRoutes({
       now: () => NOW,
-      createVerifier: (runtimeEnv) => ({
-        environment: runtimeEnv.APP_ENVIRONMENT === "production"
+      createVerifier: (runtimeEnv, requestedEnvironment) => ({
+        environment: requestedEnvironment ?? (
+          runtimeEnv.APP_ENVIRONMENT === "production"
           ? Environment.PRODUCTION
-          : Environment.SANDBOX,
+          : Environment.SANDBOX
+        ),
         verifier: verifier({ verifyNotification: async () => { throw new Error("bad signature"); } }),
       }),
     });
 
     expect((await post(app, env, "shared-payload.jws")).status).toBe(200);
-    expect((await post(app, { ...env, APP_ENVIRONMENT: "production" }, "shared-payload.jws")).status)
+    expect((await post(app, {
+      ...env,
+      APP_ENVIRONMENT: "production",
+      APPLE_IAP_BUNDLE_ID: "com.cardai.tcg",
+      APPLE_IAP_PRODUCT_IDS: "CardAi.weekly,CardAi.yearly,CardAi.lifetime",
+    }, "shared-payload.jws", {}, "/apple/notifications/v2/sandbox")).status)
       .toBe(200);
 
     const { results = [] } = await db.prepare(
-      "SELECT environment FROM apple_notification_inbox ORDER BY environment",
-    ).all<{ environment: string }>();
-    expect(results.map((row) => row.environment)).toEqual(["Production", "Sandbox"]);
+      "SELECT app_bundle_id, environment FROM apple_notification_inbox ORDER BY app_bundle_id",
+    ).all<{ app_bundle_id: string; environment: string }>();
+    expect(results).toEqual([
+      { app_bundle_id: "com.cardai.tcg", environment: "Sandbox" },
+      { app_bundle_id: "com.kando.kandoApp.beta", environment: "Sandbox" },
+    ]);
   });
 
   it("preserves unknown Apple fields and notification types without inventing business side effects", async () => {
@@ -388,8 +405,10 @@ describe("Apple Notifications V2 durable consumption", () => {
 
   it("does not reserve Production retries from the dev cron because the shared inbox is environment-scoped", async () => {
     await db.prepare(`INSERT INTO apple_notification_inbox
-      (id, environment, payload_sha256, request_json, signed_payload, processing_status, attempts, received_at)
-      VALUES ('production-inbox', 'Production', 'production-hash', '{}', 'production.jws', 'pending', 0, ?)`)
+      (id, app_bundle_id, environment, payload_sha256, request_json, signed_payload,
+       processing_status, attempts, received_at)
+      VALUES ('production-inbox', 'com.kando.kandoApp.beta', 'Production',
+              'production-hash', '{}', 'production.jws', 'pending', 0, ?)`)
       .bind(NOW.toISOString()).run();
 
     await retryAppleNotificationInbox(env, {
@@ -597,8 +616,9 @@ async function post(
   env: Env,
   signedPayload: string,
   extraFields: Record<string, unknown> = {},
+  path = "/apple/notifications/v2",
 ) {
-  return await app.request("/apple/notifications/v2", {
+  return await app.request(path, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ signedPayload, ...extraFields }),
@@ -623,6 +643,6 @@ const SCHEMA = [
   "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, store TEXT NOT NULL, environment TEXT NOT NULL, original_transaction_id TEXT NOT NULL, product_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, original_owner_type TEXT NOT NULL, original_owner_id TEXT NOT NULL, status TEXT NOT NULL, auto_renew INTEGER NOT NULL, expires_at TEXT, grace_period_expires_at TEXT, revoked_at TEXT, state_effective_at TEXT, next_product_id TEXT, lifecycle_signed_at TEXT, lifecycle_notification_uuid TEXT, correction_status TEXT, auto_renew_signed_at TEXT, plan_signed_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(store, environment, original_transaction_id))",
   "CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, purchase_chain_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL, granted_at TEXT NOT NULL, expires_at TEXT, last_verified_at TEXT NOT NULL, revoked_at TEXT, updated_at TEXT NOT NULL)",
   TRANSACTION_SCHEMA,
-  "CREATE TABLE apple_notification_inbox (id TEXT PRIMARY KEY, environment TEXT NOT NULL, payload_sha256 TEXT NOT NULL, request_json TEXT NOT NULL, signed_payload TEXT NOT NULL, processing_status TEXT NOT NULL, attempts INTEGER NOT NULL, processing_expires_at TEXT, notification_uuid TEXT, last_error TEXT, received_at TEXT NOT NULL, processed_at TEXT, UNIQUE(environment, payload_sha256))",
+  "CREATE TABLE apple_notification_inbox (id TEXT PRIMARY KEY, app_bundle_id TEXT NOT NULL, environment TEXT NOT NULL, payload_sha256 TEXT NOT NULL, request_json TEXT NOT NULL, signed_payload TEXT NOT NULL, processing_status TEXT NOT NULL, attempts INTEGER NOT NULL, processing_expires_at TEXT, notification_uuid TEXT, last_error TEXT, received_at TEXT NOT NULL, processed_at TEXT, UNIQUE(app_bundle_id, environment, payload_sha256))",
   "CREATE TABLE apple_server_notification (id TEXT PRIMARY KEY, inbox_id TEXT UNIQUE, notification_uuid TEXT NOT NULL UNIQUE, notification_type TEXT NOT NULL, subtype TEXT, environment TEXT NOT NULL, original_transaction_id TEXT, transaction_id TEXT, product_id TEXT, signed_payload TEXT NOT NULL, decoded_payload TEXT, processing_status TEXT NOT NULL, attempts INTEGER NOT NULL, last_error TEXT, signed_at TEXT, received_at TEXT NOT NULL, processed_at TEXT)",
 ];

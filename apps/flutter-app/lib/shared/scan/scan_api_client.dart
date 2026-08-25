@@ -225,11 +225,44 @@ abstract interface class ScanApi {
   });
 }
 
-class ScanApiClient implements ScanApi {
-  const ScanApiClient(this._dio, {this.requestDeadline = scanRequestDeadline});
+abstract interface class ScanQuotaReservationApi {
+  Future<ScanQuotaDto> reserveQuota(
+    AuthSession session, {
+    required String requestId,
+    bool localPremiumVerified = false,
+  });
+}
+
+class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
+  ScanApiClient(this._dio, {this.requestDeadline = scanRequestDeadline});
 
   final Dio _dio;
   final Duration requestDeadline;
+  final Map<String, Stopwatch> _recognitionDeadlines = {};
+
+  @override
+  Future<ScanQuotaDto> reserveQuota(
+    AuthSession session, {
+    required String requestId,
+    bool localPremiumVerified = false,
+  }) async {
+    final deadline = Stopwatch()..start();
+    _recognitionDeadlines[requestId] = deadline;
+    try {
+      final data = await _requestData(
+        'POST',
+        '/scan/quota/reserve',
+        session,
+        <String, Object?>{'request_id': requestId},
+        idempotencyKey: requestId,
+        localPremiumVerified: localPremiumVerified,
+      );
+      return ScanQuotaDto.fromJson(_requiredMap(data['quota']));
+    } on Object {
+      _recognitionDeadlines.remove(requestId)?.stop();
+      rethrow;
+    }
+  }
 
   @override
   Future<ScanQuotaDto> getQuota(
@@ -280,6 +313,11 @@ class ScanApiClient implements ScanApi {
         contentType: DioMediaType('image', 'jpeg'),
       ),
     });
+    final operationDeadline = _recognitionDeadlines.remove(requestId);
+    operationDeadline?.stop();
+    final remaining = operationDeadline == null
+        ? null
+        : requestDeadline - operationDeadline.elapsed;
     final data = await _requestData(
       'POST',
       '/scan/recognize',
@@ -287,6 +325,7 @@ class ScanApiClient implements ScanApi {
       body,
       idempotencyKey: requestId,
       localPremiumVerified: localPremiumVerified,
+      deadline: remaining,
     );
     return ScanRecognitionDto.fromJson(data);
   }
@@ -313,7 +352,15 @@ class ScanApiClient implements ScanApi {
     Object? body, {
     String? idempotencyKey,
     bool localPremiumVerified = false,
+    Duration? deadline,
   }) async {
+    final effectiveDeadline = deadline ?? requestDeadline;
+    if (effectiveDeadline <= Duration.zero) {
+      throw const ScanApiException(
+        scanRequestTimeoutMessage,
+        code: scanRequestTimeoutCode,
+      );
+    }
     final cancelToken = CancelToken();
     late final Response<Object?> response;
     try {
@@ -333,7 +380,7 @@ class ScanApiClient implements ScanApi {
             ),
           )
           .timeout(
-            requestDeadline,
+            effectiveDeadline,
             onTimeout: () {
               cancelToken.cancel(scanRequestTimeoutCode);
               throw const ScanApiException(

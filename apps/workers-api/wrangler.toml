@@ -35,6 +35,8 @@ MAIL_FROM_NAME = "Card Ai"
 OCR_SERVICE_BASE_URL = "https://recognize.tcgcard.fun"
 APP_ENVIRONMENT = "production"
 APPLE_IAP_BUNDLE_ID = "com.cardai.tcg"
+APPLE_IAP_PRODUCT_IDS = "CardAi.weekly,CardAi.yearly,CardAi.lifetime"
+APPLE_IAP_APP_ID = "6793017224"
 
 [[env.prod.hyperdrive]]
 binding = "HYPERDRIVE"

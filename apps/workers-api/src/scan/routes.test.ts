@@ -39,6 +39,7 @@ type ScanQuotaRequestRow = {
   access_mode: "free" | "premium";
   status: "reserved" | "consumed" | "released";
   processing_expires_at: string | null;
+  attempts?: number;
   response_json: string | null;
   http_status: number | null;
 };
@@ -178,12 +179,14 @@ class FakeD1Statement {
       return (this.db.scanQuotaRequests.find((row) => row.request_id === requestId) ?? null) as T | null;
     }
     if (sql.includes("FROM scan_quota_request") && sql.includes("SUM(CASE")) {
-      const [ownerType, ownerId] = this.values as [string, string];
+      const [now, ownerType, ownerId] = this.values as [string, string, string];
       const rows = this.db.scanQuotaRequests.filter(
         (row) => row.owner_type === ownerType && row.owner_id === ownerId && row.access_mode === "free",
       );
       return {
-        reserved_count: rows.filter((row) => row.status === "reserved").length,
+        reserved_count: rows.filter(
+          (row) => row.status === "reserved" && (row.processing_expires_at ?? "") > now,
+        ).length,
         consumed_count: rows.filter((row) => row.status === "consumed").length,
       } as T;
     }
@@ -216,6 +219,20 @@ class FakeD1Statement {
 
   async all<T = unknown>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
+    if (sql.includes("FROM billing_session_entitlement_grant AS grant_record")) {
+      const [sessionId] = this.values as [string];
+      return okResult<T>(
+        this.db.activePremiumSessionIds.has(sessionId)
+          ? [{
+              id: "grant-1",
+              purchase_chain_id: "chain-1",
+              expires_at: null,
+              environment: "Sandbox",
+              product_id: "yearly",
+            } as T]
+          : [],
+      );
+    }
     if (sql.includes("SELECT product_id, number") && sql.includes("FROM cards_all")) {
       const productIds = new Set(this.values.map(String));
       return okResult<T>(
@@ -242,20 +259,23 @@ class FakeD1Statement {
   async run<T = unknown>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
     if (sql.startsWith("INSERT INTO scan_quota_request")) {
-      const [requestId, ownerType, ownerId, sessionId, accessMode, leaseExpiresAt] = this.values as [
+      const [requestId, ownerType, ownerId, sessionId, accessMode, leaseExpiresAt, attempts] = this.values as [
         string,
         "anonymous" | "user",
         string,
         string,
         "free" | "premium",
         string,
+        number,
       ];
       if (this.db.scanQuotaRequests.some((row) => row.request_id === requestId)) {
         throw new Error("UNIQUE constraint failed: scan_quota_request.request_id");
       }
+      const activeAt = String(this.values[12]);
       const used = this.db.scanQuotaRequests.filter(
         (row) => row.owner_type === ownerType && row.owner_id === ownerId && row.access_mode === "free" &&
-          (row.status === "reserved" || row.status === "consumed"),
+          (row.status === "consumed" ||
+            (row.status === "reserved" && (row.processing_expires_at ?? "") > activeAt)),
       ).length;
       if (accessMode === "free" && used >= 10) return okResult<T>([], 0);
       this.db.scanQuotaRequests.push({
@@ -266,18 +286,68 @@ class FakeD1Statement {
         access_mode: accessMode,
         status: "reserved",
         processing_expires_at: leaseExpiresAt,
+        attempts,
         response_json: null,
         http_status: null,
       });
       return okResult<T>();
     }
+    if (sql.startsWith("UPDATE scan_quota_request") && sql.includes("attempts = attempts + 1")) {
+      const [leaseExpiresAt, , requestId, sessionId, now] = this.values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+      const row = this.db.scanQuotaRequests.find(
+        (candidate) =>
+          candidate.request_id === requestId &&
+          candidate.session_id === sessionId &&
+          candidate.status === "reserved" &&
+          ((candidate.attempts ?? 1) === 0 ||
+            (candidate.processing_expires_at ?? "") <= now),
+      );
+      if (!row) return okResult<T>([], 0);
+      row.processing_expires_at = leaseExpiresAt;
+      row.attempts = (row.attempts ?? 0) + 1;
+      return okResult<T>();
+    }
+    if (sql.startsWith("UPDATE scan_quota_request") && sql.includes("attempts = 0")) {
+      const [responseJson, httpStatus, , , requestId, ownerType, ownerId, sessionId] = this.values as [
+        string,
+        number,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+      const row = this.db.scanQuotaRequests.find(
+        (candidate) =>
+          candidate.request_id === requestId &&
+          candidate.owner_type === ownerType &&
+          candidate.owner_id === ownerId &&
+          candidate.session_id === sessionId &&
+          candidate.status === "reserved" &&
+          (candidate.attempts ?? 1) === 0,
+      );
+      if (!row) return okResult<T>([], 0);
+      row.status = "released";
+      row.response_json = responseJson;
+      row.http_status = httpStatus;
+      return okResult<T>();
+    }
     if (sql.startsWith("UPDATE scan_quota_request") && sql.includes("SET status = ?")) {
-      const [status, , responseJson, httpStatus, , , requestId, ownerType, ownerId, sessionId] = this.values as [
-        "consumed" | "released", string | null, string | null, number | null, string, string, string, string, string, string,
+      const [status, , responseJson, httpStatus, , , requestId, ownerType, ownerId, sessionId, now] = this.values as [
+        "consumed" | "released", string | null, string | null, number | null, string, string, string, string, string, string, string,
       ];
       const row = this.db.scanQuotaRequests.find(
         (candidate) => candidate.request_id === requestId && candidate.owner_type === ownerType &&
-          candidate.owner_id === ownerId && candidate.session_id === sessionId && candidate.status === "reserved",
+          candidate.owner_id === ownerId && candidate.session_id === sessionId &&
+          candidate.status === "reserved" &&
+          (candidate.processing_expires_at ?? "") > now,
       );
       if (!row) return okResult<T>([], 0);
       row.status = status;
@@ -628,6 +698,87 @@ describe("scan routes", () => {
     });
     expect(env.DB.scanQuotaRequests).toEqual([
       expect.objectContaining({ access_mode: "premium", status: "consumed" }),
+    ]);
+  });
+
+  it("returns the server reservation before OCR because Processing must show the current remaining quota", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+
+    const reservation = await app.request(
+      "/api/v1/scan/quota/reserve",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": requestId,
+        },
+        body: JSON.stringify({ request_id: requestId }),
+      },
+      env,
+    );
+
+    expect(reservation.status).toBe(200);
+    expect(await reservation.json()).toMatchObject({
+      success: true,
+      data: {
+        request_id: requestId,
+        quota: {
+          access: "free",
+          unlimited: false,
+          reserved: 1,
+          consumed: 0,
+          remaining: 9,
+        },
+      },
+    });
+    expect(env.DB.scanRecords).toEqual([]);
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+    const response = await recognize(env, token, {
+      request_id: requestId,
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+    expect(response.status).toBe(200);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ status: "consumed" }),
+    ]);
+  });
+
+  it("releases a queued reservation when recognition cannot start because unavailable OCR must not hold Free quota", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    const reservation = await app.request(
+      "/api/v1/scan/quota/reserve",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": requestId,
+        },
+        body: JSON.stringify({ request_id: requestId }),
+      },
+      env,
+    );
+    expect(reservation.status).toBe(200);
+    env.OCR_SERVICE_BASE_URL = "";
+
+    const response = await recognize(env, token, {
+      request_id: requestId,
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+
+    expect(response.status).toBe(503);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ status: "released" }),
     ]);
   });
 
@@ -1234,6 +1385,8 @@ function createTestEnv(): TestEnvWithFakeDb {
     JWT_SECRET: "test-secret",
     OCR_SERVICE_BASE_URL: "https://ocr.example.test",
     SCAN_IMAGES: scanImages as unknown as R2Bucket,
+    APP_ENVIRONMENT: "development",
+    APPLE_IAP_PRODUCT_IDS: "yearly",
   };
 }
 

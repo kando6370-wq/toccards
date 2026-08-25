@@ -5,7 +5,7 @@
 > **最近核验**：2026-08-25
 > **适用应用**：dev/test Bundle ID `com.kando.kandoApp.beta`；production Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
-> **状态快照（2026-08-18）**：当前 App Store Connect dev/test App 为 `Kando KP App`（Apple ID `6790245922`），订阅组 ID 为 `22251901`，Sandbox Server URL 已保存为 `https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。dev 的 `APPLE_ROOT_CERTIFICATES_BASE64` 已用 Apple 官方 `Apple Root CA - G3` DER Base64 更新并立即生效；下载文件为 583 字节，SHA-256 为 `63343ABFB89A6A03EBB57E9B3F5FA7BE7C4F5C756F3017B3A8C488C3653E9179`，更新后的 deployment 为 `623ef89f-f01b-48a4-912d-70586538e01d`、version 为 `6985637b-5e4e-480b-b804-19ce02ecef93`，`/api/v1/health` 返回 HTTP 200。Cloudflare 不回显 Secret 值，因此现有证据证明写入输入经过指纹核验且命令成功，真实 Apple Sandbox 通知验签、结构化入库和业务处理仍待验证。prod 只创建了包含相同 G3 证书的待部署 version `42f3934f-7cb4-41df-85b5-631b4e4b8954`，未部署、未分配流量；线上仍为 deployment `03235e84-694e-4800-854a-650173408412`、version `57213c10-d392-43a9-8d34-c6472fc3febc`。prod 商品与 Product ID 尚未配置；该 Apple 配置快照不证明 production 当前数据源，production deployment、Hyperdrive 和 PostgreSQL 运行状态必须在独立发布任务中重新核验，且不得查询或回退 D1。付费 App 协议、银行和税务资料尚未全部生效，完整购买闭环仍被 Sandbox/TestFlight 端到端验收阻塞，详见「七、当前阻塞项」。远程环境状态会变化，后续执行前必须重新查询。
+> **状态快照（2026-08-25）**：App Store Connect production App 为 `Card AI: TCG Card Scanner`（Apple ID `6793017224`，Bundle ID `com.cardai.tcg`）；`CardAi.weekly`、`CardAi.yearly` 与 `CardAi.lifetime` 均已创建且处于准备提交状态。付费 App 协议有效，银行账户可用，美国税表使用中；Production Server URL 已保存为 `https://api.tcgcard.fun/api/v1/apple/notifications/v2`，Sandbox Server URL 尚未设置。production App Store Server API Key 已创建并下载；`APPLE_IAP_PRIVATE_KEY` 已通过待部署 version `4af6f4de-eaa0-4f52-b2ad-9ac268ec7bb8` 暂存，仓库内 Workers prod 白名单已配置，v1.1 目标 PostgreSQL 已写入三条 active `performance_pro` production 商品映射。三个 production Product ID 已写入客户端 `config/production.json`；Singular Key 仍必须通过仓库外受控发布 JSON 注入。只读 Cloudflare 回查确认现网 prod 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1，没有 Hyperdrive；Apple G3 根证书也仍只存在于待部署 version `42f3934f-7cb4-41df-85b5-631b4e4b8954`。PostgreSQL `0009` 已于 2026-08-25 应用并完成事务外复核，production/TestFlight 双环境代码尚未部署；完整购买闭环仍被 dev 新 Worker验证、prod D1 数据迁移/冲突审计、prod v1.1 PostgreSQL 切换、构建及真实 Sandbox/TestFlight 验收阻塞，详见「七、当前阻塞项」。
 
 ---
 
@@ -21,9 +21,9 @@ iOS 中的数字内容订阅必须使用 **Apple In-App Purchase（StoreKit）**
 
 | 套餐 | dev/test Product ID | prod Product ID |
 |---|---|---|
-| Weekly | `cardx.week` | 待 App Store 审核通过后填写 |
-| Yearly | `cardx.year` | 待 App Store 审核通过后填写 |
-| Lifetime | `cardx.lifetime` | 待 App Store 审核通过后填写 |
+| Weekly | `cardx.week` | `CardAi.weekly` |
+| Yearly | `cardx.year` | `CardAi.yearly` |
+| Lifetime | `cardx.lifetime` | `CardAi.lifetime` |
 
 dev/test Product ID 不得默认复用到 prod。prod 值确认后，必须独立更新 production 构建配置、Workers prod 白名单、共享 PostgreSQL 中按 production 环境隔离的 `billing_product` 映射及本手册；不得查询或写回 D1。
 
@@ -142,7 +142,7 @@ flutter build ipa --release `
   --dart-define=SUBSCRIPTION_APP_STORE_LIFETIME_ID=cardx.lifetime
 ```
 
-dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。2026-08-13 远程 dev D1 写入的三个 active `performance_pro` 商品映射已在 2026-08-17 迁入共享 PostgreSQL，正式 dev Worker/Admin version `73766f12-d888-4e94-ba2c-f990ef00ec43` 已部署。production/prod 仍未配置 Product ID 或白名单，不能使用本示例构建正式环境。当前客户端只请求非空 Product ID：App Store 商品目录已配置但 StoreKit 未返回的 SKU 使用上表美元价格兜底展示，仍不进入 StoreKit 可购买商品集合；Apple 商品目录未配置及 Android 未启用销售时保持原不可用状态，不展示 App Store 兜底价。
+dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。2026-08-13 远程 dev D1 写入的三个 active `performance_pro` 商品映射已在 2026-08-17 迁入共享 PostgreSQL，正式 dev Worker/Admin version `73766f12-d888-4e94-ba2c-f990ef00ec43` 已部署。2026-08-25 已确认 production Product ID 为 `CardAi.weekly`、`CardAi.yearly`、`CardAi.lifetime`，并写入 `apps/flutter-app/config/production.json` 与 Workers prod 白名单；共享 PostgreSQL 已写入对应的三条 active `performance_pro` production 商品映射。Workers prod 配置仍待正式部署生效。当前客户端只请求非空 Product ID：App Store 商品目录已配置但 StoreKit 未返回的 SKU 使用上表美元价格兜底展示，仍不进入 StoreKit 可购买商品集合；Apple 商品目录未配置及 Android 未启用销售时保持原不可用状态，不展示 App Store 兜底价。
 
 Singular 使用同一份 `--dart-define-from-file` 环境配置注入，不在仓库写入正式密钥：
 
@@ -151,9 +151,9 @@ Singular 使用同一份 `--dart-define-from-file` 环境配置注入，不在�
 | Singular API Key | `SINGULAR_API_KEY` |
 | Singular Secret Key | `SINGULAR_SECRET_KEY` |
 
-正式环境将两个字段与三个 Product ID 一并写入受控发布 JSON，正式值不得提交仓库。普通开发构建按业务规则降级；`tool/release_ios.sh` 的 test 内部测试包强制校验 `APP_ENV` 和三个不重复的 Product ID，但允许缺少 Singular Key 并保持归因关闭。production 发布额外强制校验 Singular API Key/Secret，缺项时显式终止，不能沿用 test 的放宽规则。
+三个 production Product ID 是非敏感配置，保存在仓库内 `apps/flutter-app/config/production.json`。Singular 两个字段仍只写入仓库外受控发布 JSON，不得提交仓库；该外部 JSON 必须同时包含相同的三个 Product ID，因为发布脚本读取完整文件而不与仓库内配置合并。普通开发构建按业务规则降级；`tool/release_ios.sh` 的 test 内部测试包强制校验 `APP_ENV` 和三个不重复的 Product ID，但允许缺少 Singular Key 并保持归因关闭。production 发布额外强制校验 Singular API Key/Secret，缺项时显式终止，不能沿用 test 的放宽规则。
 
-仓库内 `apps/flutter-app/config/test.json` 记录不敏感的 dev/test Product ID，可直接用于不启用 Singular 的内部测试包；`production.json` 仅保留 `APP_ENV`，prod Product ID 与 Singular 密钥均未配置。production 发布时通过 `RELEASE_ENV_CONFIG` 指向仓库外的受控文件：
+仓库内 `apps/flutter-app/config/test.json` 与 `production.json` 分别记录不敏感的 dev/test 和 production Product ID；Singular 密钥不进入仓库。production 发布时通过 `RELEASE_ENV_CONFIG` 指向仓库外的完整受控文件：
 
 ```bash
 RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env production
@@ -177,7 +177,8 @@ RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env prod
 
 在应用的 App Store Server Notifications 配置中分别填写：
 
-- Sandbox Server URL：`https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。
+- dev/test App Sandbox Server URL：`https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。
+- production App Sandbox Server URL：`https://api.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；只能在 PostgreSQL `0009`、dev 新 Worker验证及 prod v1.1 D1 → PostgreSQL 切换都完成后设置。
 - Production Server URL：`https://api.tcgcard.fun/api/v1/apple/notifications/v2`。
 - Version：选择 Version 2。
 
@@ -203,11 +204,11 @@ RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env prod
 当前已实现 Fresh Purchase challenge、StoreKit 2 JWS 上传和 Workers session grant 写链，但**仍无法宣称正式购买授权端到端完成**。上线阻塞包括：
 
 - dev/test Product ID 已确认；三个 active `performance_pro` 映射已从 dev D1 迁入共享 PostgreSQL，Workers dev 白名单已随 PostgreSQL version `73766f12-d888-4e94-ba2c-f990ef00ec43` 部署，健康接口返回 HTTP 200。
-- 2026-08-17 只读核验显示：付费 App 协议为“等待用户信息”，银行账户为“正在处理”，美国税务表为“缺少税务信息”。Sandbox Tester 可以先创建，但这些商务前置条件未完成时，不能据此认定付费商品可查询或可购买。
-- `cardx.week` 已配置价格、本地化和 174 个销售地区，并已添加以供审核；它仍受上述付费协议、银行和税务状态共同阻塞。
-- `cardx.year` 已配置价格和本地化，但尚未设置销售范围，也尚未添加以供审核；它同时受商品配置缺口和上述商务状态阻塞。
-- prod Product ID 尚未创建或通过审核；production 客户端配置和 Workers prod 白名单必须保持空。共享 PostgreSQL 当前只包含 dev/test 商品映射，待正式值确认后再独立增加 production 映射与授权。
-- dev Root CA 的官方 G3 下载指纹、DER Base64 写入命令和生效版本已确认，但平台不回显 Secret 值，仍需通过真实 Sandbox 通知证明线上验签恢复；App Store Server API Secret 仍需真实调用验证。production Root CA 仅存在于未部署 version，App Apple ID、Product ID 与 Server API Secret 仍需独立完成；上文记录的 `6790245922` 是当前 dev/test App 记录，不能代替 production 配置。
+- 2026-08-25 只读核验显示：付费 App 协议有效，银行账户可用，两份美国税表均为使用中；商务前置条件已完成。
+- `cardx.week` 已配置价格、本地化和 174 个销售地区，并已添加以供审核；仍待真实 Sandbox 购买矩阵。
+- `cardx.year` 已配置价格和本地化，但尚未设置销售范围，也尚未添加以供审核；仍需先补齐商品配置并完成真实 Sandbox 购买矩阵。
+- prod Product ID 已创建并冻结为 `CardAi.weekly`、`CardAi.yearly`、`CardAi.lifetime`，production 客户端配置、Workers prod 白名单与共享 PostgreSQL production 商品映射均已同步；三个商品仍处于准备提交状态，Workers prod 配置尚未部署。
+- dev Root CA 的官方 G3 下载指纹、DER Base64 写入命令和生效版本已确认，但平台不回显 Secret 值，仍需通过真实 Sandbox 通知证明线上验签恢复；App Store Server API Secret 仍需真实调用验证。production Root CA 仅存在于未部署 version；production App Apple ID 与 Product ID 已确认，App Store Server API Key 已创建并下载，但 Workers prod 仍需配置对应 Private Key 并完成实网调用验证。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
 - Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现；dev Root CA 已按官方 G3 更新，Apple Server API Secret 配置项与 Sandbox 通知 URL 已就绪，但真实 Server API 调用和真机/Sandbox 端到端验收尚未完成。
 - Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应结构与 dev 数据已迁入共享 PostgreSQL 并由 dev 正式版本运行。production Worker、Hyperdrive 和 PostgreSQL 实时状态需在独立发布任务中重新核验，且不得以 D1 作为回退；Sandbox/TestFlight 多设备验收仍待完成。

@@ -10,7 +10,7 @@ R1 数据库基础批次已通过只在本机运行的 Wrangler remote preview�
 
 本次正式切换时使用的迁移工具固定表顺序、列名和唯一 keyset 游标，并在每次正式执行前枚举 live D1 全表；忽略 `sqlite_%` 内部表后，实际表必须严格等于 33 张业务表与 5 张显式排除表，任何新增未分类表都会停止迁移。每批最多 500 行且编码负载硬上限为 512 KiB，D1 查询按累计 JSON 字节先行裁剪，单行超限直接失败；请求顺序复用单个 Hyperdrive client。写入按固定游标执行 `ON CONFLICT (cursor) DO UPDATE`，使迁移窗口内仍在运行的 dev D1 更新可通过重跑收敛；逐表校验按相同排序比较源/目标完整行 SHA-256。物理删除不会被静默复制，若迁移窗口内出现源删除，最终行数或摘要校验必须失败并停止切换。`--verify-cutover-state` 禁止与 schema-only 组合，且必须同时使用完整 `--verify-only` 或正式迁移及 `--confirm-source-write-frozen`；runner 只有在 33 表完整摘要全部通过后才检查七张价格空表与 Apple inbox 环境。迁移工具只接受运行时生成的 Bearer token，专用 Worker 未部署。
 
-> **最终数据库边界（2026-08-19）**：数据库迁移已经完成，dev/prod 通过同一 Hyperdrive 使用同一个 PlanetScale PostgreSQL 数据库。后续 schema、迁移、运行、测试、数据修复、重试、回滚与灾备只允许基于 PostgreSQL；上述迁移 runner 及其配置仅作为只读历史证据保留，禁止部署、运行或继续维护。
+> **数据库边界修正（2026-08-25）**：本页已完成的 33 表、270,577 行迁移与 Worker 切换是 dev 检查点。只读 Cloudflare 回查确认现网 prod 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1 `6a22aeca-e7e9-4064-a301-f18c4a0acb41`，没有 Hyperdrive。v1.1 prod 目标才是迁移生产 D1 数据并切换到 dev 共用的 PlanetScale PostgreSQL；切换前必须单独完成生产数据清单、主键/账号/业务冲突审计、完整摘要验证和回滚演练。v1.1 新 schema、代码、测试和后续修复仍只允许基于 PostgreSQL，不得为旧 prod D1 新增功能或回退路径；上述旧迁移 runner 仍仅作为历史证据，不得复用。
 
 ## Trending Pin 废弃（2026-08-18）
 
@@ -33,7 +33,7 @@ R1 数据库基础批次已通过只在本机运行的 Wrangler remote preview�
 
 keyset 扫描不是跨批次数据库快照，不能在 dev D1 持续写入时作为最终一致性证明。本次先把 dev deployment `36969b9d-2065-4a42-a1ca-3e742f51ea3d` 的 version `4382c55f-bf0c-4018-b108-675f04f817aa` 切为 100% 维护流量：health 返回 `maintenance/databaseWrites=frozen`，业务请求和 Apple 回调均返回 503，scheduled handler 不执行；冻结后 inbox、cards 与 session 计数连续两次稳定。runner 随后收到 `--confirm-source-write-frozen` 才执行正式迁移。该维护版本是切换门禁，不是最终业务版本；必须由 PostgreSQL 正式版本部署和烟测替换后才能结束维护状态。
 
-2026-08-17 切换检查点中，仓库的 dev/prod Wrangler 配置已引用同一个 Hyperdrive ID，环境仍由各自域名、`APP_ENVIRONMENT`、Apple、KV 与 R2 配置区分；Hyperdrive 查询缓存已关闭并回读为 `disabled=true`。当时正式 dev Worker/Admin deployment `6c0697d0-f9bb-423e-8b68-1ab0509e7729`、version `73766f12-d888-4e94-ba2c-f990ef00ec43` 以 100% 流量替换维护版本，完成 health、目录/价格空域、Admin 和未授权边界烟测。该检查点记录的 production 旧 deployment 状态仅是历史快照；当前数据库约束以文档顶部 2026-08-19 最终边界为准，production 实时 deployment 仍必须在独立发布任务中重新核验。
+2026-08-17 dev 切换检查点中，仓库的目标 dev/prod Wrangler 配置已引用同一个 Hyperdrive ID，环境仍由各自域名、`APP_ENVIRONMENT`、Apple、KV 与 R2 配置区分；Hyperdrive 查询缓存已关闭并回读为 `disabled=true`。当时正式 dev Worker/Admin deployment `6c0697d0-f9bb-423e-8b68-1ab0509e7729`、version `73766f12-d888-4e94-ba2c-f990ef00ec43` 以 100% 流量替换维护版本，完成 health、目录/价格空域、Admin 和未授权边界烟测。2026-08-25 重新回读 production version 后确认其仍绑定 D1，不得再把仓库目标配置解释为现网 prod 已切 PostgreSQL。
 
 较早资源预配检查点（同为 2026-08-17，早于上述 R1）：已通过 Cloudflare 与 PlanetScale 官方集成创建 Hyperdrive 配置，Cloudflare 配置名创建时为 `tcg-cards`，随后按当前 PlanetScale 名称重命名为 `tcg-cards-db`（ID 始终为 `7d71bcd0bcf64e518a23a852ced76d66`）；目标为 PlanetScale `product-kando/tcg-cards-db`（创建时名称为 `product-kando/tcg_cards`）的 `main` 分支、数据库 `postgres`，PlanetScale控制台显示 Postgres version `18.6`。Cloudflare 创建向导返回连接成功，详情页显示 PostgreSQL / PlanetScale，查询缓存保持默认启用。两侧重命名后复核：Hyperdrive 配置 ID、PostgreSQL 连接目标、数据库名、缓存参数和连接上限均未变化，PlanetScale 显示存在 PgBouncer 连接；Cloudflare 详情页的 PlanetScale 跳转链接仍指向已返回 404 的旧名称，这是陈旧的控制台元数据，不应据此重复创建连接或轮换凭据。该较早检查点只完成连接资源预配，当时未添加 binding、执行 schema、迁移、业务写入或部署；其后续状态以上述 R1 检查点为准。
 
@@ -166,7 +166,7 @@ Apple JWS 验签采用官方 `@apple/app-store-server-library`，`apps/workers-a
 - 不回填历史退款：既有 `business_status='refunded'` 行的退款前状态无法从现有列可靠证明，保持 `NULL`。
 - 重复 `REFUND` 不覆盖已经保存的退款前状态；未证明 active 的 `REFUND_REVERSED` 不清除退款事实。
 - 列为 nullable 向后兼容扩展；旧 Worker 会忽略，应用代码回滚时保留该列。
-- 新 Worker 的退款与校正 SQL 依赖该列，必须先应用共享 PostgreSQL `0007` 再部署。dev/prod 共用 PostgreSQL Schema，远程迁移不是仅 dev 生效的操作。2026-08-19 已通过仅绑定共享 Hyperdrive 的一次性 Wrangler remote preview 应用 `0007`，事务外复核确认目标列存在，幂等复跑返回 `alreadyApplied`；一次性 preview 随后关闭。同日按“先迁移、后应用”的顺序完成 dev Worker 与 Admin assets 部署；本次发布验收检查点的 Cloudflare version `ce9ee177-27a0-49fe-8e87-0a0f4414b620` 当时承载 100% dev 流量，回读确认使用共享 Hyperdrive 且无 D1 binding。后续 dev 提交可能产生新 version，实时流量版本必须以 Cloudflare deployment 回读为准。
+- 新 Worker 的退款与校正 SQL 依赖该列，必须先应用目标 PostgreSQL `0007` 再部署。2026-08-19 已通过仅绑定共享 Hyperdrive 的一次性 Wrangler remote preview 应用 `0007`，事务外复核确认目标列存在，幂等复跑返回 `alreadyApplied`；一次性 preview 随后关闭。同日按“先迁移、后应用”的顺序完成 dev Worker 与 Admin assets 部署；本次发布验收检查点的 Cloudflare version `ce9ee177-27a0-49fe-8e87-0a0f4414b620` 当时承载 100% dev 流量，回读确认使用共享 Hyperdrive 且无 D1 binding。该 Schema 当前直接影响 dev，并在 v1.1 prod 切换后成为两环境共享 Schema；不影响仍运行 D1 的现网 prod。
 
 PostgreSQL migration manifest 测试保护 `0007` 的顺序与内容；远程 Schema 状态以上述实际迁移与复核记录为准。
 
@@ -177,8 +177,18 @@ PostgreSQL migration manifest 测试保护 `0007` 的顺序与内容；远程 Sc
 - 新索引是在旧唯一键后增加评级维度，只放宽可共存的数据，不修改或回填现有 Item；旧索引下合法的数据一定满足新索引。
 - 发布顺序为先应用共享 PostgreSQL `0008`，再部署使用新重复查询的 Worker。旧 Worker 在新索引下仍以旧查询拒绝多评级共存，不会写入超出旧应用语义的数据；新 Worker 若先于 migration 部署，旧索引仍会把不同评级写入拒绝为重复，因此功能不会完整生效。
 - 应用代码回滚时可以保留新索引，旧 Worker 会恢复旧的查询行为。若必须恢复旧索引，必须先停止相关写入，并检查、导出和处理同一 `owner/folder/card/finish/language` 下已经共存的多评级 Item；未经单独的数据处理授权不得删除或合并这些记录，否则旧索引可能无法重建。
-- dev/prod 当前共用 PostgreSQL Schema，远程执行 `0008` 会同时改变两套环境使用的数据库约束，不是仅 dev 生效的操作。
+- 当前远程执行 `0008` 直接改变 dev 使用及 v1.1 prod 目标使用的 PostgreSQL Schema；现网 prod 仍运行 D1，因此在 prod 切换前不读取该约束。
 
 2026-08-20 经用户明确授权，通过只绑定共享 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66` 的一次性 Wrangler remote preview 执行 `0008`；该 preview 没有 D1、KV、R2、路由或定时任务。执行前目标为 `postgres/public`、PostgreSQL 18.6，ledger 精确包含 `0000-0007`，旧索引存在、新索引不存在，84 条 Collection Item 按新完整身份计算的冲突组为 0。迁移在 `pg_advisory_xact_lock(hashtext('kando-postgres-schema'))` 保护的单个事务内执行并写入 ledger，checksum 为 `7d6edd0e996dabbb1f571790d13b9ef20b0a44ae3f3c7799d825b657df22e1f2`，`applied_at=2026-08-20T06:20:55.020Z`。
 
 事务外复核确认旧索引已不存在，新 `uq_collection_item_folder_card_variant` 的实际定义包含 `owner_type`、`owner_id`、`folder_id`、`card_ref`、`finish`、`language`、`grader`、`condition` 和 `grade`；Collection Item 仍为 84 条且冲突组为 0。幂等复跑返回 `alreadyApplied` 且 checksum 一致，preview 随后关闭并删除本地临时执行器。本次操作没有主动部署 Worker；实时 deployment 状态需在发布任务中单独核验。
+
+## PostgreSQL 0009 Apple Notification App Bundle Scope
+
+`0009_apple_notification_app_bundle.sql` 为 `apple_notification_inbox` 增加非空 `app_bundle_id`。迁移前架构只有 beta Bundle 会产生 Sandbox inbox，因此既有 `Sandbox` 行确定性回填为 `com.kando.kandoApp.beta`；既有 `Production` 行回填为 `com.cardai.tcg`。去重约束改为 `app_bundle_id + environment + payload_sha256`，processing 索引在 environment 前增加 `app_bundle_id`，使 dev 与 production TestFlight 共用 Sandbox 数据库值时仍不能互抢通知租约。
+
+- 兼容性：migration 通过 `trg_legacy_apple_notification_app_bundle` 为尚未升级的 PostgreSQL Worker 补齐其唯一可能产生的 Bundle，避免 `NOT NULL` 在切换窗口打断 dev 通知持久化；新 Worker始终显式写 Bundle，production TestFlight Sandbox 不依赖该 trigger。必须先应用 PostgreSQL `0009`，再升级 dev Worker并完成验证；prod 在完成生产 D1 数据迁移后直接切换到包含该修复的 v1.1 Worker。dev 新 Worker与 prod v1.1 切换都完成前不得设置 production App Sandbox URL。
+- 回滚：应用代码可回退并保留新列、约束和索引。不得在已接收 production Bundle Sandbox 通知后恢复旧 `(environment, payload_sha256)` 唯一键，否则可能无法重建且会重新引入跨 App 抢租约风险。
+- 环境影响：远程执行只影响 dev 使用及未来 v1.1 prod 将使用的 PostgreSQL Schema，不影响仍绑定 D1 的现网 prod；未修改 D1。
+
+2026-08-25 经用户明确授权，在 PlanetScale `product-kando/tcg-cards-db` 的 `main`、数据库 `postgres`、schema `public` 执行 `0009`。执行前 ledger 精确包含 `0000-0008`，`app_bundle_id` 不存在，旧唯一约束与 processing 索引定义匹配 migration 预期；251 条 inbox 全部为 `Sandbox`，非法 environment 与 `(environment, payload_sha256)` 冲突均为 0。PlanetScale Web Console 角色不是表 owner，首次 DDL 返回 `must be owner of table apple_notification_inbox`；事务随后显式回滚并复核列数与 ledger 均为 0，没有半完成状态。正式执行改用只绑定目标 Hyperdrive 的 Wrangler 4.125 remote preview，连接用户与表 owner 一致；migration 在 `pg_advisory_xact_lock(hashtext('kando-postgres-schema'))` 保护的单事务内执行并写入 ledger，规范化 LF checksum 为 `4d43602cf70dbeeab9978da1c773953d8b382bd2afff5e5579d57f3d9ac8fc11`，`applied_at=2026-08-25T08:08:35.877Z`。事务内与独立 PlanetScale Console 连接复核均确认：`app_bundle_id` 为非空列，253 条 inbox 全部归属 `com.kando.kandoApp.beta:Sandbox`，NULL/Bundle mismatch 为 0，legacy trigger、新三字段唯一约束和五字段 processing 索引均精确存在。preview 随后停止，本地临时执行文件已删除；未部署 dev/prod Worker、未修改 prod D1 或 App Store Connect URL。

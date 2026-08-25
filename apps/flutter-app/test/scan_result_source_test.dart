@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -237,6 +238,50 @@ void main() {
       expect(api.callCount, 10);
     },
   );
+
+  test(
+    'library submits reservations in picker order because the last Free slots belong to the earliest Queue items',
+    () async {
+      final firstHash = Completer<void>();
+      final api = _FakeScanApi(_matchedRecognition);
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(batchCount: 2),
+        imageHasher: _OrderedScanImageHasher(firstHash.future),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final pending = await source.library();
+      await Future<void>.delayed(Duration.zero);
+      expect(api.fileNames, isEmpty);
+
+      firstHash.complete();
+      await Future.wait(pending);
+      expect(api.fileNames, ['scan-0.jpg', 'scan-1.jpg']);
+    },
+  );
+
+  test(
+    'server reservation updates quota before recognition settles because Processing must show available slots',
+    () async {
+      final quotas = <ScanQuotaDto>[];
+      final source = ApiScanResultSource(
+        api: _FakeScanApi(_matchedRecognition),
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        imageHasher: _FakeScanImageHasher(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+        onQuotaChanged: quotas.add,
+      );
+
+      await source.photo();
+
+      expect(quotas, [_reservedQuota]);
+    },
+  );
 }
 
 const _session = AuthSession(
@@ -285,6 +330,15 @@ const _freeQuota = ScanQuotaDto(
   unlimited: false,
 );
 
+const _reservedQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.free,
+  limit: 10,
+  reserved: 1,
+  consumed: 0,
+  remaining: 9,
+  unlimited: false,
+);
+
 class _FakeScanImagePicker implements ScanImagePicker {
   _FakeScanImagePicker({this.cancelled = false, this.batchCount = 1});
 
@@ -321,7 +375,7 @@ class _FakeScanImagePicker implements ScanImagePicker {
   }
 }
 
-class _FakeScanApi implements ScanApi {
+class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
   _FakeScanApi(this.result, {this.failure, this.failures = const []});
 
   final ScanRecognitionDto result;
@@ -331,7 +385,19 @@ class _FakeScanApi implements ScanApi {
   String? lastPlatform;
   String? lastCardNumber;
   final requestIds = <String>[];
+  final fileNames = <String>[];
   var callCount = 0;
+  var reservationCount = 0;
+
+  @override
+  Future<ScanQuotaDto> reserveQuota(
+    AuthSession session, {
+    required String requestId,
+    bool localPremiumVerified = false,
+  }) async {
+    reservationCount += 1;
+    return _reservedQuota;
+  }
 
   @override
   Future<ScanQuotaDto> getQuota(
@@ -363,6 +429,7 @@ class _FakeScanApi implements ScanApi {
   }) async {
     callCount += 1;
     requestIds.add(requestId);
+    fileNames.add(fileName);
     lastHashes = hashes;
     lastPlatform = platform;
     lastCardNumber = cardNumber;
@@ -370,6 +437,26 @@ class _FakeScanApi implements ScanApi {
     final failure = this.failure;
     if (failure != null) throw failure;
     return result;
+  }
+}
+
+class _OrderedScanImageHasher implements ScanImageHasher {
+  _OrderedScanImageHasher(this.firstReady);
+
+  final Future<void> firstReady;
+
+  @override
+  Future<ScanImageHashes> hash(
+    Uint8List imageBytes, {
+    ScanImageCrop? crop,
+  }) async {
+    if (imageBytes.single == 1) await firstReady;
+    return ScanImageHashes(
+      r: _hash,
+      g: _hash,
+      b: _hash,
+      cardImageBytes: Uint8List.fromList([4, 5, 6]),
+    );
   }
 }
 

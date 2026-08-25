@@ -16,6 +16,7 @@ import {
 } from "../entitlements/premium-access";
 import {
   loadScanQuota,
+  releaseQueuedScanQuota,
   reserveScanQuota,
   settleScanQuota,
   type ScanQuotaSnapshot,
@@ -228,21 +229,82 @@ export function createScanRoutes() {
     });
   });
 
+  routes.post("/scan/quota/reserve", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+    if (auth.status === "internal_error") {
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+
+    const body = await readJson(c.req);
+    const requestId = isRecord(body) ? readUuid(body.request_id) : null;
+    if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const access = await resolvePremiumAccess(
+      c.env,
+      auth.owner.session_id,
+      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+    );
+    if (access === "sync_required") {
+      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    }
+    const reservation = await reserveScanQuota(
+      c.env.DB,
+      auth.owner,
+      requestId,
+      access,
+      new Date(),
+      { startProcessing: false },
+    );
+    if (reservation.status === "exhausted") {
+      return c.json({
+        ...SCAN_QUOTA_EXHAUSTED_RESPONSE,
+        quota: scanQuotaPayload(reservation.quota, "free"),
+      }, 403);
+    }
+    if (reservation.status === "conflict") {
+      return c.json(SCAN_REQUEST_CONFLICT_RESPONSE, 409);
+    }
+    return c.json({
+      success: true,
+      data: {
+        request_id: requestId,
+        quota: scanQuotaPayload(reservation.quota, reservation.accessMode),
+      },
+    });
+  });
+
   routes.post("/scan/recognize", async (c) => {
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
     if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
-
-    const serviceBaseUrl = normalizeBaseUrl(c.env.OCR_SERVICE_BASE_URL);
-    if (!serviceBaseUrl) return c.json(OCR_UNAVAILABLE_RESPONSE, 503);
-    const imageBucket = c.env.SCAN_IMAGES;
-    if (!imageBucket) return c.json(INTERNAL_ERROR_RESPONSE, 503);
 
     const body = await readFormData(c.req);
     if (!body) return c.json(VALIDATION_ERROR_RESPONSE, 422);
     const requestId = readUuid(body.get("request_id"));
     if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const serviceBaseUrl = normalizeBaseUrl(c.env.OCR_SERVICE_BASE_URL);
+    if (!serviceBaseUrl) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: OCR_UNAVAILABLE_RESPONSE, status: 503 },
+      );
+      return c.json(OCR_UNAVAILABLE_RESPONSE, 503);
+    }
+    const imageBucket = c.env.SCAN_IMAGES;
+    if (!imageBucket) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: INTERNAL_ERROR_RESPONSE, status: 503 },
+      );
+      return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
     const r = readPhash(body.get("r"));
     const g = readPhash(body.get("g"));
@@ -251,6 +313,12 @@ export function createScanRoutes() {
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
     if (!r || !g || !b || gameId === null || cardNumber === null || !image) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: VALIDATION_ERROR_RESPONSE, status: 422 },
+      );
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
@@ -260,6 +328,12 @@ export function createScanRoutes() {
       c.req.header(LOCAL_PREMIUM_STATE_HEADER),
     );
     if (access === "sync_required") {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: ENTITLEMENT_SYNC_REQUIRED_RESPONSE, status: 409 },
+      );
       return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
     }
     const reservation = await reserveScanQuota(

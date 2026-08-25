@@ -174,23 +174,35 @@ void main() {
     'the Free quota prompt stays visible through scanning and follows the settled server count',
     (tester) async {
       final pending = Completer<ScanResolution>();
+      final quotaController = _TestScanQuotaController(_availableQuota);
       await _pumpScanTestApp(
         tester,
         scanResultSource: _TestScanResultSource(photoResult: pending.future),
+        scanQuotaController: quotaController,
       );
 
       expect(find.text('10 scans remaining'), findsOneWidget);
       expect(find.text('Tap to get unlimited scans'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Take Photo'));
+      quotaController.applyServerQuota(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 1,
+          consumed: 0,
+          remaining: 9,
+          unlimited: false,
+        ),
+      );
       await tester.pump();
-      expect(find.text('10 scans remaining'), findsOneWidget);
+      expect(find.text('9 scans remaining'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('10 scans remaining'), findsOneWidget);
+      expect(find.text('9 scans remaining'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('10 scans remaining'), findsOneWidget);
+      expect(find.text('9 scans remaining'), findsOneWidget);
 
       pending.complete(
         const ScanResolution.noMatch(
@@ -294,6 +306,7 @@ void main() {
       );
 
       expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+      expect(find.text('Unlimited scans'), findsOneWidget);
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
 
@@ -426,6 +439,11 @@ void main() {
 
       expect(source.photoCallCount, 0);
       expect(find.text('Subscription'), findsNothing);
+      expect(
+        find.text('Unable to verify Premium access. Please try again.'),
+        findsOneWidget,
+      );
+      await tester.pump(kandoTopToastDuration);
     },
   );
 
@@ -2744,6 +2762,62 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a visible Processing failure refreshes returned quota and resumes the earliest Waiting item',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final quotaController = _TestScanQuotaController(
+        _availableQuota,
+        refreshQuotas: const [
+          _availableQuota,
+          ScanQuotaDto(
+            access: ScanQuotaAccess.free,
+            limit: 10,
+            reserved: 0,
+            consumed: 9,
+            remaining: 1,
+            unlimited: false,
+          ),
+        ],
+      );
+      final source = _TestScanResultSource(
+        photoResult: pending.future,
+        libraryImages: [ScanImage(bytes: bytes, fileName: 'waiting.png')],
+        libraryResults: [
+          Future.value(
+            ScanResolution.quotaExhausted(
+              imageBytes: bytes,
+              displayImageBytes: bytes,
+              imageFileName: 'waiting.png',
+              quota: _exhaustedQuota,
+            ),
+          ),
+        ],
+        retryResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quotaController,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Subscription'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      pending.complete(const ScanResolution.failed());
+      await _completeFigmaScan(tester);
+
+      expect(find.text('Failed'), findsOneWidget);
+      expect(source.lastRetryFileName, 'waiting.png');
+    },
+  );
+
   testWidgets('Figma scan accepts concurrent capture requests', (tester) async {
     await _pumpScanTestApp(tester);
 
@@ -3799,6 +3873,10 @@ class _ResolvingScanSubscriptionController extends SubscriptionController {
   Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
     if (resolvedState != AppPremiumState.unknown) {
       state = state.copyWith(premiumState: resolvedState);
+    } else if (showFailure) {
+      state = state.copyWith(
+        errorMessage: 'Unable to verify Premium access. Please try again.',
+      );
     }
     return resolvedState;
   }

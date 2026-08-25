@@ -4,13 +4,15 @@ import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
 import { appleAppAttestVerifier, sha256Bytes, type AppleAppAttestVerifier } from "./apple-app-attest";
 import {
-  createAppleVerifier,
+  asVerifierConfigurations,
+  configuredProductIds,
+  createAppleVerifiers,
   Environment,
-  type AppleVerifierConfiguration,
+  type AppleVerifierFactoryResult,
   type JWSTransactionDecodedPayload,
+  verifyAppleTransaction,
 } from "./apple-signed-data";
 import { PREMIUM_ENTITLEMENT_ID } from "./premium-access";
-import { configuredProductIds } from "./routes";
 import { billingOrderFactStatements, businessStatusForAppleTransaction } from "./billing-order-facts";
 
 const CHALLENGE_TTL_MS = 10 * 60 * 1000;
@@ -21,7 +23,7 @@ type Dependencies = {
   now?: () => Date;
   appAttestVerifier?: AppleAppAttestVerifier;
   createAppleVerifier?: (env: Env) =>
-    Promise<AppleVerifierConfiguration | null> | AppleVerifierConfiguration | null;
+    Promise<AppleVerifierFactoryResult> | AppleVerifierFactoryResult;
 };
 
 type ChallengeRow = {
@@ -51,7 +53,7 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
   const routes = new Hono<{ Bindings: Env }>();
   const now = dependencies.now ?? (() => new Date());
   const attestVerifier = dependencies.appAttestVerifier ?? appleAppAttestVerifier;
-  const appleVerifierFactory = dependencies.createAppleVerifier ?? createAppleVerifier;
+  const appleVerifierFactory = dependencies.createAppleVerifier ?? createAppleVerifiers;
 
   routes.post("/entitlements/apple/app-attest/challenge", async (c) => {
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
@@ -155,9 +157,13 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
     const body = restoreBody(await readJson(c.req));
     if (!body || c.req.header("Idempotency-Key") !== body.requestId) return validationError(c);
     const config = appAttestConfig(c.env);
-    const apple = await appleVerifierFactory(c.env);
+    const appleVerifiers = asVerifierConfigurations(
+      await appleVerifierFactory(c.env),
+    );
     const products = configuredProductIds(c.env.APPLE_IAP_PRODUCT_IDS);
-    if (!config || !apple || !products) return c.json(unavailable, 503);
+    if (!config || appleVerifiers.length === 0 || !products) {
+      return c.json(unavailable, 503);
+    }
     const evidenceSha256 = await sha256Hex(body.signedTransactionInfo);
     const challenge = await loadChallenge(c.env.DB, body.challenge, auth.owner.session_id);
     const stored = storedChallengeResponse(c, challenge, "restore", body.requestId, body.keyId, evidenceSha256);
@@ -166,16 +172,26 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
     if (!key || key.status !== "active" || !validChallenge(challenge, "restore", body.requestId, body.keyId, evidenceSha256, now())) return c.json(replay, 409);
 
     let signCount: number;
-    let transaction: JWSTransactionDecodedPayload;
+    let verifiedTransaction: Awaited<ReturnType<typeof verifyAppleTransaction>>;
     try {
       signCount = (await attestVerifier.verifyAssertion({ appId: config.appId, assertion: body.assertion,
         clientData: challenge.client_data, publicKeyPem: key.public_key_pem, previousSignCount: key.sign_count })).signCount;
-      transaction = await apple.verifier.verifyAndDecodeTransaction(body.signedTransactionInfo);
+      verifiedTransaction = await verifyAppleTransaction(
+        appleVerifiers,
+        body.signedTransactionInfo,
+      );
     } catch {
       return c.json(invalid, 422);
     }
+    if (!verifiedTransaction) return c.json(invalid, 422);
+    const transaction: JWSTransactionDecodedPayload = verifiedTransaction.transaction;
     const attemptedAt = now();
-    const normalized = normalizeRestoreTransaction(transaction, apple.environment, products, attemptedAt);
+    const normalized = normalizeRestoreTransaction(
+      transaction,
+      verifiedTransaction.configuration.environment,
+      products,
+      attemptedAt,
+    );
     if (!normalized) return c.json(invalid, 422);
     const product = await c.env.DB.prepare(`SELECT entitlement_id FROM billing_product WHERE store = 'app_store' AND product_id = ? AND active = 1 LIMIT 1`).bind(normalized.productId).first<ProductRow>();
     if (!product || product.entitlement_id !== PREMIUM_ENTITLEMENT_ID) return c.json(unavailable, 503);

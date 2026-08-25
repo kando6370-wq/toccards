@@ -35,7 +35,7 @@ describe("Premium Performance routes", () => {
       db.prepare("INSERT INTO price_history_month VALUES (1, '2026-08-01', '[{\"d\":\"2026-08-01\",\"a\":20000000}]', 'batch-1')"),
       db.prepare("INSERT INTO cards_all VALUES ('100', 'Pokemon', 'Pikachu', 'Ranking Set', '95', 'Rare')"),
     ]);
-    env = { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET, APP_ENVIRONMENT: "development" };
+    env = { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET, APP_ENVIRONMENT: "development", APPLE_IAP_PRODUCT_IDS: "yearly" };
   });
 
   afterEach(async () => mf.dispose());
@@ -51,7 +51,7 @@ describe("Premium Performance routes", () => {
     expect(await errorCode(free)).toBe("PREMIUM_REQUIRED");
 
     await db.batch([
-      db.prepare("INSERT INTO billing_purchase_chain (id, environment, status, expires_at, revoked_at) VALUES ('chain-history', 'Sandbox', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO billing_purchase_chain (id, environment, product_id, status, expires_at, revoked_at) VALUES ('chain-history', 'Sandbox', 'yearly', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO billing_session_entitlement_grant (id, session_id, purchase_chain_id, entitlement_id, status, expires_at, revoked_at) VALUES ('grant-history', 'session-a', 'chain-history', 'performance_pro', 'active', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO portfolio_folder (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at) VALUES ('trade', 'user', 'user-1', 'Trade', 0, 100, '2026-08-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z')"),
     ]);
@@ -94,7 +94,7 @@ describe("Premium Performance routes", () => {
 
   it("allows only the session with a verified grant", async () => {
     await db.batch([
-      db.prepare("INSERT INTO billing_purchase_chain (id, environment, status, expires_at, revoked_at) VALUES ('chain-1', 'Sandbox', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO billing_purchase_chain (id, environment, product_id, status, expires_at, revoked_at) VALUES ('chain-1', 'Sandbox', 'yearly', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO billing_session_entitlement_grant (id, session_id, purchase_chain_id, entitlement_id, status, expires_at, revoked_at) VALUES ('grant-1', 'session-a', 'chain-1', 'performance_pro', 'active', '2099-01-01T00:00:00.000Z', NULL)"),
     ]);
     const allowed = await request("session-a", "/portfolio/items/item-1/performance?range=15D");
@@ -155,6 +155,6 @@ const SCHEMA = [
   "CREATE TABLE price_current_snapshot (batch_id TEXT NOT NULL, series_id INTEGER NOT NULL, observed_on TEXT NOT NULL, amount_micros INTEGER NOT NULL, baseline_1d_on TEXT, baseline_1d_amount_micros INTEGER, baseline_7d_on TEXT, baseline_7d_amount_micros INTEGER, baseline_30d_on TEXT, baseline_30d_amount_micros INTEGER, change_1d_percent REAL, change_7d_percent REAL, change_30d_percent REAL)",
   "CREATE TABLE price_history_month (series_id INTEGER NOT NULL, month_start TEXT NOT NULL, points TEXT NOT NULL, last_batch_id TEXT NOT NULL)",
   "CREATE TABLE cards_all (product_id TEXT, game TEXT, name TEXT, set_name TEXT, number TEXT, rarity TEXT)",
-  "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, environment TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
+  "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, environment TEXT NOT NULL, product_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
   "CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, purchase_chain_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
 ];

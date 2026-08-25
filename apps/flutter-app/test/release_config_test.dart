@@ -46,7 +46,7 @@ void main() {
     expect(validateReleaseConfig(config, 'test'), isEmpty);
   });
 
-  test('dev Apple products stay isolated from production configuration', () {
+  test('dev and production builds use their own verified Apple products', () {
     final testConfig =
         jsonDecode(File('config/test.json').readAsStringSync())
             as Map<String, Object?>;
@@ -67,7 +67,19 @@ void main() {
       containsPair('SUBSCRIPTION_APP_STORE_LIFETIME_ID', 'cardx.lifetime'),
     );
     expect(
-      productionConfig.keys.where((key) => key.startsWith('SUBSCRIPTION_')),
+      productionConfig,
+      containsPair('SUBSCRIPTION_APP_STORE_WEEKLY_ID', 'CardAi.weekly'),
+    );
+    expect(
+      productionConfig,
+      containsPair('SUBSCRIPTION_APP_STORE_YEARLY_ID', 'CardAi.yearly'),
+    );
+    expect(
+      productionConfig,
+      containsPair('SUBSCRIPTION_APP_STORE_LIFETIME_ID', 'CardAi.lifetime'),
+    );
+    expect(
+      productionConfig.values.toSet().intersection(testConfig.values.toSet()),
       isEmpty,
       reason: 'dev Product IDs must not authorize production purchases',
     );
