@@ -25,7 +25,7 @@ class KandoTabScaffold extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pendingItems = ref.watch(pendingCollectionProvider);
     final showPendingNotice =
-        currentTab != KandoMainTab.scan && pendingItems.isNotEmpty;
+        currentTab == KandoMainTab.search && pendingItems.isNotEmpty;
     return Theme(
       data: _tabTheme(context),
       child: Scaffold(

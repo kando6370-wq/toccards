@@ -525,11 +525,31 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SearchPage)),
+      listen: false,
+    );
+    container
+        .read(pendingCollectionProvider.notifier)
+        .add(
+          const PendingCollectionCard(
+            id: 'pending-search-tabs',
+            name: 'Pending card',
+            game: 'Pokemon',
+            setName: 'Base Set',
+            metadataLine: '#1',
+            variantLine: 'Normal',
+          ),
+        );
+    await tester.pump();
+    expect(find.byKey(const Key('pending-collection-notice')), findsOneWidget);
+
     await tester.enterText(find.byType(TextFormField), 'charizard');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sets'));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('pending-collection-notice')), findsOneWidget);
     expect(find.text('Mega Evolution Promos'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Mega Evolution Promos')).style?.fontFamily,
@@ -558,6 +578,7 @@ void main() {
 
     await tester.tap(find.text('Cards'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pending-collection-notice')), findsOneWidget);
     expect(find.text('Charizard ex'), findsOneWidget);
   });
 

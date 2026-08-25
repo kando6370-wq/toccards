@@ -104,8 +104,10 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                               state: state,
                               onSelectTab: controller.selectTab,
                               onSearchChanged: controller.updateSearch,
-                              onFilterPressed: () =>
-                                  _showFilterSheet(context, ref),
+                              onFilterPressed: () {
+                                FocusManager.instance.primaryFocus?.unfocus();
+                                _showFilterSheet(context, ref);
+                              },
                               onFolderPressed: () {
                                 ref
                                     .read(analyticsProvider)
@@ -334,19 +336,20 @@ class _SearchField extends StatelessWidget {
       height: 44,
       child: TextField(
         key: fieldKey,
+        autofocus: false,
         onChanged: onChanged,
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
         style: const TextStyle(color: KandoColors.text, fontSize: 15),
         decoration: InputDecoration(
           isDense: true,
           filled: true,
           fillColor: KandoColors.surface,
-          prefixIcon: const Icon(
-            Icons.search,
-            color: KandoColors.mutedText,
-            size: 20,
+          prefixIcon: const Padding(
+            padding: EdgeInsets.only(left: 16, right: 12),
+            child: Icon(Icons.search, color: KandoColors.mutedText, size: 20),
           ),
           prefixIconConstraints: const BoxConstraints.tightFor(
-            width: 44,
+            width: 48,
             height: 44,
           ),
           hintText: 'Search cards',
@@ -357,8 +360,8 @@ class _SearchField extends StatelessWidget {
           suffixIcon: IconButton(
             key: const Key('collection-filter-button'),
             onPressed: onFilterPressed,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            padding: const EdgeInsets.only(left: 12, right: 16),
+            constraints: const BoxConstraints.tightFor(width: 48, height: 44),
             icon: const Icon(
               Icons.tune,
               color: KandoColors.mutedText,
@@ -366,7 +369,7 @@ class _SearchField extends StatelessWidget {
             ),
           ),
           suffixIconConstraints: const BoxConstraints.tightFor(
-            width: 44,
+            width: 48,
             height: 44,
           ),
           border: base,
@@ -429,7 +432,7 @@ class _PortfolioSummaryCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1796,22 +1799,24 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
                 top: false,
                 child: Column(
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 18),
+                      child: Container(
+                        key: const Key('collection-filter-sheet-handle'),
+                        width: 48,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6C6945),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
                     Expanded(
                       child: ListView(
                         key: const Key('collection-filter-sheet'),
-                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                         children: [
-                          Center(
-                            child: Container(
-                              width: 48,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF6C6945),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 18),
                           Row(
                             children: [
                               const Expanded(

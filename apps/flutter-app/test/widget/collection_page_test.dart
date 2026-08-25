@@ -77,30 +77,100 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Collection filter keeps Apply fixed while options scroll', (
+  testWidgets(
+    'Collection filter keeps its handle and Apply fixed while options scroll',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+
+      await _pumpCollection(tester);
+      await tester.tap(find.byKey(const Key('collection-filter-button')));
+      await tester.pumpAndSettle();
+
+      final apply = find.byKey(const Key('collection-filter-apply'));
+      final handle = find.byKey(const Key('collection-filter-sheet-handle'));
+      final sortOption = find.text('Price: Low to High');
+      final applyBeforeScroll = tester.getRect(apply);
+      final handleBeforeScroll = tester.getRect(handle);
+      final sortBeforeScroll = tester.getRect(sortOption);
+
+      await tester.drag(
+        find.byKey(const Key('collection-filter-sheet')),
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(apply), applyBeforeScroll);
+      expect(tester.getRect(handle), handleBeforeScroll);
+      expect(tester.getTopLeft(sortOption).dy, lessThan(sortBeforeScroll.top));
+    },
+  );
+
+  testWidgets('Collection filter dismisses when its handle is dragged down', (
     tester,
   ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 884);
-    addTearDown(tester.view.reset);
-
     await _pumpCollection(tester);
     await tester.tap(find.byKey(const Key('collection-filter-button')));
     await tester.pumpAndSettle();
 
-    final apply = find.byKey(const Key('collection-filter-apply'));
-    final sortOption = find.text('Price: Low to High');
-    final applyBeforeScroll = tester.getRect(apply);
-    final sortBeforeScroll = tester.getRect(sortOption);
-
     await tester.drag(
-      find.byKey(const Key('collection-filter-sheet')),
-      const Offset(0, -260),
+      find.byKey(const Key('collection-filter-sheet-handle')),
+      const Offset(0, 400),
     );
     await tester.pumpAndSettle();
 
-    expect(tester.getRect(apply), applyBeforeScroll);
-    expect(tester.getTopLeft(sortOption).dy, lessThan(sortBeforeScroll.top));
+    expect(
+      find.byKey(const Key('collection-filter-sheet-background')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('Collection search does not regain focus after Filter closes', (
+    tester,
+  ) async {
+    await _pumpCollection(tester);
+    final editableText = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('collection-search-field')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('collection-search-field')));
+    await tester.pump();
+    expect(editableText.focusNode.hasFocus, isTrue);
+
+    await tester.tap(find.byKey(const Key('collection-filter-button')));
+    await tester.pumpAndSettle();
+    expect(editableText.focusNode.hasFocus, isFalse);
+
+    await tester.drag(
+      find.byKey(const Key('collection-filter-sheet-handle')),
+      const Offset(0, 400),
+    );
+    await tester.pumpAndSettle();
+
+    expect(editableText.focusNode.hasFocus, isFalse);
+  });
+
+  testWidgets('Collection search unfocuses when tapping outside', (
+    tester,
+  ) async {
+    await _pumpCollection(tester);
+    final editableText = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('collection-search-field')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('collection-search-field')));
+    await tester.pump();
+    expect(editableText.focusNode.hasFocus, isTrue);
+
+    await tester.tap(find.text('PORTFOLIO'));
+    await tester.pump();
+
+    expect(editableText.focusNode.hasFocus, isFalse);
   });
 
   testWidgets('Collection shows Portfolio summary and rows by default', (
@@ -133,11 +203,35 @@ void main() {
       tester.getSize(find.byKey(const Key('collection-search-field'))).height,
       44,
     );
+    final searchFieldRect = tester.getRect(
+      find.byKey(const Key('collection-search-field')),
+    );
+    final searchIcon = find.descendant(
+      of: find.byKey(const Key('collection-search-field')),
+      matching: find.byIcon(Icons.search),
+    );
+    final filterIcon = find.descendant(
+      of: find.byKey(const Key('collection-search-field')),
+      matching: find.byIcon(Icons.tune),
+    );
+    expect(tester.getRect(searchIcon).left - searchFieldRect.left, 16);
+    expect(searchFieldRect.right - tester.getRect(filterIcon).right, 16);
     expect(
       tester
           .getSize(find.byKey(const Key('collection-portfolio-summary')))
           .height,
       110,
+    );
+    final summaryRect = tester.getRect(
+      find.byKey(const Key('collection-portfolio-summary')),
+    );
+    expect(tester.getTopLeft(find.text('PORTFOLIO')).dx - summaryRect.left, 17);
+    expect(
+      summaryRect.right -
+          tester
+              .getRect(find.byKey(const Key('collection-folder-button')))
+              .right,
+      17,
     );
     expect(
       tester.getSize(find.byKey(const Key('collection-folder-button'))).height,
