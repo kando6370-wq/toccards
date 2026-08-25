@@ -1206,6 +1206,143 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Add All keeps the selected editor stable and runs up to three different cards concurrently with visible progress',
+    (tester) async {
+      final repository = _BlockingBatchCreateRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            ..._localAuthOverrides(),
+            cardDetailRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.tap(find.byKey(const Key('search-collect-charizard-ex')));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+        listen: false,
+      );
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'one-piece-luffy',
+              name: 'One Piece Manga Luffy',
+              game: 'One Piece',
+              setName: 'Romance Dawn',
+              metadataLine: 'Manga Rare · 001',
+              variantLine: 'Japanese',
+            ),
+          );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('pending-collection-add-all')));
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.pendingCreates, hasLength(3));
+      expect(find.text('Saving 0 of 3'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-add-item-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<InkWell>(
+              find.byKey(
+                Key(
+                  'pending-collection-item-${container.read(pendingCollectionProvider)[1].id}',
+                ),
+              ),
+            )
+            .onTap,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byKey(const Key('pending-collection-close')),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      repository.completeNext();
+      await tester.pump();
+      expect(find.text('Saving 1 of 3'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-add-item-sheet')),
+        findsOneWidget,
+      );
+
+      repository.completeNext();
+      repository.completeNext();
+      await tester.pumpAndSettle();
+      expect(find.byType(SearchPage), findsOneWidget);
+      expect(find.text('3 cards added to your portfolio'), findsOneWidget);
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'Add All returns to the non-default Game and refreshes Search once because portfolio updates must preserve browsing context',
+    (tester) async {
+      final searchRepository = _CountingSearchRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            searchRepositoryProvider.overrideWithValue(searchRepository),
+            ..._localAuthOverrides(),
+            cardDetailRepositoryProvider.overrideWithValue(
+              _RecordingPendingCreateRepository(),
+            ),
+          ],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Pokemon'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('search-game-filter-one-piece')));
+      await tester.tap(find.byKey(const Key('search-game-apply-filter')));
+      await tester.pumpAndSettle();
+      expect(find.text('One Piece Manga Luffy'), findsOneWidget);
+
+      final refreshBaseline = searchRepository.loadCatalogCount;
+      final collect = find.byKey(const Key('search-collect-one-piece-luffy'));
+      await tester.tap(collect);
+      await tester.tap(collect);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-add-all')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+        listen: false,
+      );
+      expect(
+        container.read(searchControllerProvider).selectedGame.label,
+        'One Piece',
+      );
+      expect(searchRepository.loadCatalogCount, refreshBaseline + 1);
+      expect(find.text('2 cards added to your portfolio'), findsOneWidget);
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pump();
+    },
+  );
+
   testWidgets('batch save keeps failed Items and reports partial success', (
     tester,
   ) async {
@@ -1823,6 +1960,16 @@ class _BlockingRefreshSearchRepository implements SearchRepository {
     _refresh.complete(
       await const MockSearchRepository().searchCards('', game: 'Pokemon'),
     );
+  }
+}
+
+class _CountingSearchRepository extends MockSearchRepository {
+  var loadCatalogCount = 0;
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    loadCatalogCount += 1;
+    return super.loadCatalog();
   }
 }
 

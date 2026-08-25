@@ -1254,7 +1254,10 @@ class CardDetailController extends Notifier<CardDetailState> {
     );
   }
 
-  Future<bool> saveCollectionItemDraft({String? idempotencyKey}) async {
+  Future<bool> saveCollectionItemDraft({
+    String? idempotencyKey,
+    bool invalidateAssetConsumers = true,
+  }) async {
     final draft = state.collectionItemDraft;
     if (state.isUnavailable ||
         state.isLoading ||
@@ -1403,7 +1406,9 @@ class CardDetailController extends Notifier<CardDetailState> {
       isSavingCollectionItemDraft: false,
     );
     ref.invalidate(cardPerformanceControllerProvider(savedItem.id));
-    _invalidateAssetConsumers();
+    if (invalidateAssetConsumers) {
+      _invalidateAssetConsumers();
+    }
     return true;
   }
 

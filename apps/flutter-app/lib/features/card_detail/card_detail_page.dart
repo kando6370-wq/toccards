@@ -19,6 +19,10 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../collection/collection_controller.dart';
+import '../home/home_controller.dart';
+import '../home/home_performance_controller.dart';
+import '../search/search_controller.dart';
 import '../subscription/subscription_controller.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import 'card_detail_actions.dart';
@@ -2368,6 +2372,9 @@ class _QuickCollectionReviewPageState
   String? _initializingItemId;
   String? _activeItemId;
   bool _isSavingAll = false;
+  CardDetailState? _savingDisplayState;
+  int _savingCompletedCount = 0;
+  int _savingTotalCount = 0;
   final Set<String> _prefetchedCardIds = {};
 
   @override
@@ -2394,20 +2401,24 @@ class _QuickCollectionReviewPageState
     );
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
+    final displayState = _isSavingAll && _savingDisplayState != null
+        ? _savingDisplayState!
+        : state;
 
-    if (state.isLoading) {
+    if (displayState.isLoading) {
       return const _QuickCollectionLoading();
     }
-    if (state.isUnavailable) {
+    if (displayState.isUnavailable) {
       return _QuickCollectionFailure(onRetry: controller.refresh);
     }
-    if (state.assetStateStatus == KandoLoadStatus.loading) {
+    if (displayState.assetStateStatus == KandoLoadStatus.loading) {
       return const _QuickCollectionLoading();
     }
-    if (state.assetStateStatus == KandoLoadStatus.failure) {
+    if (displayState.assetStateStatus == KandoLoadStatus.failure) {
       return _QuickCollectionFailure(onRetry: controller.refresh);
     }
-    if (_activeItemId != pendingItem.id || state.collectionItemDraft == null) {
+    if (_activeItemId != pendingItem.id ||
+        displayState.collectionItemDraft == null) {
       _initializeDraft(controller, pendingItem);
       return const _QuickCollectionLoading();
     }
@@ -2417,11 +2428,16 @@ class _QuickCollectionReviewPageState
       cardId: pendingItem.card.id,
       entrySource: AnalyticsValue.sourceSearch,
       useQuickCollectionController: true,
+      stateOverride: _isSavingAll ? displayState : null,
+      batchProgressText: _isSavingAll
+          ? 'Saving $_savingCompletedCount of $_savingTotalCount'
+          : null,
       actionsEnabled: !_isSavingAll,
       topContent: multiple
           ? _PendingCollectionStrip(
               items: pendingItems,
               selectedIndex: selectedIndex,
+              enabled: !_isSavingAll,
               onSelected: (index) =>
                   _selectItem(controller, pendingItem, index),
               onClose: () {
@@ -2621,23 +2637,62 @@ class _QuickCollectionReviewPageState
 
   Future<void> _saveAll() async {
     if (_isSavingAll) return;
-    setState(() => _isSavingAll = true);
-    var successCount = 0;
-    var failedCount = 0;
-    String? firstFailedItemId;
+    final itemsToSave = List.of(ref.read(pendingCollectionProvider));
+    if (itemsToSave.isEmpty) return;
+    final selectedIndex = math.min(_selectedIndex, itemsToSave.length - 1);
+    final selectedItem = itemsToSave[selectedIndex];
+    final selectedState = ref.read(
+      quickCollectionCardDetailControllerProvider(selectedItem.card.id),
+    );
+    setState(() {
+      _isSavingAll = true;
+      _savingDisplayState = selectedState;
+      _savingCompletedCount = 0;
+      _savingTotalCount = itemsToSave.length;
+    });
     var closesWithSuccess = false;
     try {
-      final itemsToSave = List.of(ref.read(pendingCollectionProvider));
+      final groups = <String, List<PendingCollectionItem>>{};
+      for (final item in itemsToSave) {
+        groups.putIfAbsent(item.card.id, () => []).add(item);
+      }
+      final groupedItems = groups.values.toList();
+      final savedByItemId = <String, bool>{};
+      var nextGroupIndex = 0;
+
+      Future<void> saveNextGroups() async {
+        while (true) {
+          final groupIndex = nextGroupIndex;
+          if (groupIndex >= groupedItems.length) return;
+          nextGroupIndex += 1;
+          for (final item in groupedItems[groupIndex]) {
+            var saved = false;
+            try {
+              saved = await _savePendingItem(item);
+            } catch (_) {
+              saved = false;
+            }
+            savedByItemId[item.id] = saved;
+            if (!mounted) return;
+            setState(() => _savingCompletedCount += 1);
+          }
+        }
+      }
+
+      await Future.wait(
+        List.generate(
+          math.min(3, groupedItems.length),
+          (_) => saveNextGroups(),
+        ),
+      );
+      if (!mounted) return;
+
+      var successCount = 0;
+      var failedCount = 0;
+      String? firstFailedItemId;
       final savedItemIds = <String>[];
       for (final item in itemsToSave) {
-        var saved = false;
-        try {
-          saved = await _savePendingItem(item);
-        } catch (_) {
-          saved = false;
-        }
-        if (!mounted) return;
-        if (saved) {
+        if (savedByItemId[item.id] == true) {
           successCount += 1;
           savedItemIds.add(item.id);
         } else {
@@ -2645,7 +2700,12 @@ class _QuickCollectionReviewPageState
           firstFailedItemId ??= item.id;
         }
       }
-      if (!mounted) return;
+      if (successCount > 0) {
+        _refreshAssetConsumersAfterBatch({
+          for (final item in itemsToSave)
+            if (savedByItemId[item.id] == true) item.card.id,
+        });
+      }
       final pendingController = ref.read(pendingCollectionProvider.notifier);
       for (final itemId in savedItemIds) {
         pendingController.remove(itemId);
@@ -2674,9 +2734,26 @@ class _QuickCollectionReviewPageState
       }
     } finally {
       if (mounted && !closesWithSuccess) {
-        setState(() => _isSavingAll = false);
+        setState(() {
+          _isSavingAll = false;
+          _savingDisplayState = null;
+          _savingCompletedCount = 0;
+          _savingTotalCount = 0;
+        });
       }
     }
+  }
+
+  void _refreshAssetConsumersAfterBatch(Set<String> savedCardIds) {
+    for (final cardId in savedCardIds) {
+      ref.invalidate(cardDetailControllerProvider(cardId));
+    }
+    ref.invalidate(homeControllerProvider);
+    ref.invalidate(homePerformanceControllerProvider);
+    ref.invalidate(collectionControllerProvider);
+    unawaited(
+      ref.read(searchControllerProvider.notifier).refreshPreservingContent(),
+    );
   }
 
   Future<bool> _savePendingItem(PendingCollectionItem item) async {
@@ -2703,7 +2780,10 @@ class _QuickCollectionReviewPageState
       );
     }
     if (ref.read(provider).collectionItemDraft == null) return false;
-    return controller.saveCollectionItemDraft(idempotencyKey: item.id);
+    return controller.saveCollectionItemDraft(
+      idempotencyKey: item.id,
+      invalidateAssetConsumers: false,
+    );
   }
 
   void _selectPendingItem(String itemId, {bool keepControllerDraft = false}) {
@@ -2770,12 +2850,14 @@ class _PendingCollectionStrip extends StatelessWidget {
   const _PendingCollectionStrip({
     required this.items,
     required this.selectedIndex,
+    required this.enabled,
     required this.onSelected,
     required this.onClose,
   });
 
   final List<PendingCollectionItem> items;
   final int selectedIndex;
+  final bool enabled;
   final ValueChanged<int> onSelected;
   final VoidCallback onClose;
 
@@ -2796,7 +2878,7 @@ class _PendingCollectionStrip extends StatelessWidget {
                 final item = items[index];
                 return InkWell(
                   key: Key('pending-collection-item-${item.id}'),
-                  onTap: () => onSelected(index),
+                  onTap: enabled ? () => onSelected(index) : null,
                   borderRadius: BorderRadius.circular(4),
                   child: Container(
                     width: 40,
@@ -2821,7 +2903,7 @@ class _PendingCollectionStrip extends StatelessWidget {
           IconButton(
             key: const Key('pending-collection-close'),
             tooltip: 'Close',
-            onPressed: onClose,
+            onPressed: enabled ? onClose : null,
             icon: const Icon(Icons.close, color: KandoColors.mutedText),
           ),
           const SizedBox(width: 4),
@@ -2842,6 +2924,8 @@ class _AddCollectionItemSheet extends ConsumerWidget {
     this.onDeleteAll,
     this.actionsEnabled = true,
     this.useQuickCollectionController = false,
+    this.stateOverride,
+    this.batchProgressText,
   });
 
   final String cardId;
@@ -2853,13 +2937,16 @@ class _AddCollectionItemSheet extends ConsumerWidget {
   final VoidCallback? onDeleteAll;
   final bool actionsEnabled;
   final bool useQuickCollectionController;
+  final CardDetailState? stateOverride;
+  final String? batchProgressText;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = useQuickCollectionController
         ? quickCollectionCardDetailControllerProvider(cardId)
         : cardDetailControllerProvider(cardId);
-    final state = ref.watch(provider);
+    final providerState = ref.watch(provider);
+    final state = stateOverride ?? providerState;
     final controller = ref.read(provider.notifier);
     if (state.isLoading ||
         state.isUnavailable ||
@@ -2913,23 +3000,26 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                       child: InkWell(
                         key: const Key('card-detail-add-item-portfolio'),
                         borderRadius: BorderRadius.circular(8),
-                        onTap: () async {
-                          final options = [
-                            for (final folder in state.detail.portfolioFolders)
-                              folder.name,
-                          ];
-                          final next = await _showChoiceSheet(
-                            context,
-                            title: 'Portfolio',
-                            selected: draft.portfolioName,
-                            options: options,
-                          );
-                          if (next != null) {
-                            controller.updateCollectionItemDraft(
-                              portfolioName: next,
-                            );
-                          }
-                        },
+                        onTap: actionsEnabled
+                            ? () async {
+                                final options = [
+                                  for (final folder
+                                      in state.detail.portfolioFolders)
+                                    folder.name,
+                                ];
+                                final next = await _showChoiceSheet(
+                                  context,
+                                  title: 'Portfolio',
+                                  selected: draft.portfolioName,
+                                  options: options,
+                                );
+                                if (next != null) {
+                                  controller.updateCollectionItemDraft(
+                                    portfolioName: next,
+                                  );
+                                }
+                              }
+                            : null,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 4,
@@ -2979,14 +3069,17 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                         ),
                         Padding(
                           padding: const EdgeInsets.all(20),
-                          child: _CollectionItemForm(
-                            state: state,
-                            controller: controller,
-                            embedded: true,
-                            showHeader: false,
-                            showTotal: false,
-                            showActions: false,
-                            showPortfolioSelector: !hidesPortfolioSelector,
+                          child: IgnorePointer(
+                            ignoring: !actionsEnabled,
+                            child: _CollectionItemForm(
+                              state: state,
+                              controller: controller,
+                              embedded: true,
+                              showHeader: false,
+                              showTotal: false,
+                              showActions: false,
+                              showPortfolioSelector: !hidesPortfolioSelector,
+                            ),
                           ),
                         ),
                       ],
@@ -3137,7 +3230,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                             child: OutlinedButton(
                               key: const Key('pending-collection-add-all'),
                               onPressed: actionsEnabled ? onAddAll : null,
-                              child: const Text('ADD ALL CARDS'),
+                              child: Text(batchProgressText ?? 'ADD ALL CARDS'),
                             ),
                           ),
                           const SizedBox(width: 10),
