@@ -996,6 +996,30 @@ void main() {
   });
 
   testWidgets(
+    'pending Review opens as a transient sheet without changing the Search route',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithoutPendingRoute(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pump();
+      final router = GoRouter.of(tester.element(find.byType(SearchPage)));
+      expect(router.routeInformationProvider.value.uri.path, '/search');
+
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+      expect(router.routeInformationProvider.value.uri.path, '/search');
+    },
+  );
+
+  testWidgets(
     'pending Review drag isolates the editor repaint and closes the sheet',
     (tester) async {
       await tester.pumpWidget(
@@ -1012,6 +1036,14 @@ void main() {
       await tester.pumpAndSettle();
 
       final sheet = find.byKey(const Key('card-detail-add-item-sheet'));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+        listen: false,
+      );
+      final pendingItem = container.read(pendingCollectionProvider).single;
+      final editorProvider = quickCollectionCardDetailControllerProvider(
+        pendingItem.card.id,
+      );
       final repaintBoundary = find.byKey(
         const Key('quick-collection-review-repaint-boundary'),
       );
@@ -1029,13 +1061,41 @@ void main() {
       expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
       expect(tester.getRect(sheet).top, closeTo(settledTop, 0.01));
 
-      await tester.drag(
-        find.byKey(const Key('quick-collection-review-handle')),
-        const Offset(0, 320),
+      final gesture = await tester.startGesture(
+        tester.getCenter(
+          find.byKey(const Key('quick-collection-review-handle')),
+        ),
+      );
+      for (var step = 0; step < 8; step += 1) {
+        await gesture.moveBy(const Offset(0, 40));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(tester.getRect(sheet).top, greaterThan(settledTop + 260));
+      await gesture.up();
+      await tester.pump();
+
+      expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+      expect(container.read(editorProvider).collectionItemDraft, isNotNull);
+      expect(container.read(pendingCollectionProvider).single.draft, isNull);
+      final exitFrameOffsets = <double>[];
+      var previousTop = tester.getRect(sheet).top;
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (sheet.evaluate().isEmpty) break;
+        final nextTop = tester.getRect(sheet).top;
+        exitFrameOffsets.add(nextTop - previousTop);
+        previousTop = nextTop;
+      }
+      expect(
+        exitFrameOffsets,
+        everyElement(greaterThan(0.5)),
+        reason: 'The sheet must keep moving on every exit frame after release.',
       );
       await tester.pumpAndSettle();
 
       expect(find.byType(QuickCollectionReviewPage), findsNothing);
+      expect(container.read(editorProvider).collectionItemDraft, isNull);
+      expect(container.read(pendingCollectionProvider).single.draft, isNotNull);
       expect(find.byType(SearchPage), findsOneWidget);
       expect(
         find.byKey(const Key('pending-collection-notice')),
@@ -1902,6 +1962,25 @@ class _SearchTestApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(home: SearchPage());
+  }
+}
+
+class _SearchTestAppWithoutPendingRoute extends StatelessWidget {
+  const _SearchTestAppWithoutPendingRoute();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      routerConfig: GoRouter(
+        initialLocation: '/search',
+        routes: [
+          GoRoute(
+            path: '/search',
+            builder: (context, state) => const SearchPage(),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -2358,6 +2358,24 @@ Future<void> _openAddCollectionItemSheet(
   }
 }
 
+Future<int?> showQuickCollectionReviewSheet(BuildContext context) {
+  return showModalBottomSheet<int>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: const Color(0xB8000000),
+    isDismissible: true,
+    enableDrag: true,
+    useSafeArea: false,
+    builder: (_) => const FractionallySizedBox(
+      alignment: Alignment.bottomCenter,
+      widthFactor: 1,
+      heightFactor: _quickCollectionReviewHeightFactor,
+      child: QuickCollectionReviewPage(heightFactor: 1),
+    ),
+  );
+}
+
 class QuickCollectionReviewPage extends ConsumerStatefulWidget {
   const QuickCollectionReviewPage({
     this.heightFactor = _quickCollectionReviewHeightFactor,
@@ -2382,6 +2400,7 @@ class _QuickCollectionReviewPageState
   CardDetailState? _savingDisplayState;
   int _savingCompletedCount = 0;
   int _savingTotalCount = 0;
+  bool _exitCleanupScheduled = false;
   final Set<String> _prefetchedCardIds = {};
 
   @override
@@ -2465,14 +2484,7 @@ class _QuickCollectionReviewPageState
               enabled: !_isSavingAll,
               onSelected: (index) =>
                   _selectItem(controller, pendingItem, index),
-              onClose: () {
-                _captureDraft(
-                  pendingItem.id,
-                  ref.read(provider).collectionItemDraft,
-                );
-                controller.cancelCollectionItemEdit();
-                context.pop();
-              },
+              onClose: context.pop,
             )
           : null,
       onSaved: () => _completeCurrent(pendingItem.id),
@@ -2491,8 +2503,12 @@ class _QuickCollectionReviewPageState
     return PopScope(
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) return;
-        _captureDraft(pendingItem.id, ref.read(provider).collectionItemDraft);
-        controller.cancelCollectionItemEdit();
+        _scheduleExitCleanup(
+          route: ModalRoute.of(context),
+          itemId: pendingItem.id,
+          draft: ref.read(provider).collectionItemDraft,
+          controller: controller,
+        );
       },
       child: sheet,
     );
@@ -2623,23 +2639,51 @@ class _QuickCollectionReviewPageState
   }
 
   void _captureDraft(String itemId, CardCollectionItemDraft? draft) {
-    if (draft == null) return;
+    final pendingDraft = _pendingDraftFrom(draft);
+    if (pendingDraft == null) return;
     ref
         .read(pendingCollectionProvider.notifier)
-        .updateDraft(
-          itemId,
-          PendingCollectionDraft(
-            quantityText: draft.quantityText,
-            portfolioName: draft.portfolioName,
-            grader: draft.grader,
-            condition: draft.condition,
-            grade: draft.grade,
-            language: draft.language,
-            finish: draft.finish,
-            purchasePriceText: draft.purchasePriceText,
-            notes: draft.notes,
-          ),
-        );
+        .updateDraft(itemId, pendingDraft);
+  }
+
+  void _scheduleExitCleanup({
+    required ModalRoute<dynamic>? route,
+    required String itemId,
+    required CardCollectionItemDraft? draft,
+    required CardDetailController controller,
+  }) {
+    if (_exitCleanupScheduled) return;
+    _exitCleanupScheduled = true;
+    final pendingDraft = _pendingDraftFrom(draft);
+    final pendingController = ref.read(pendingCollectionProvider.notifier);
+
+    void cleanup() {
+      if (pendingDraft != null) {
+        pendingController.updateDraft(itemId, pendingDraft);
+      }
+      controller.cancelCollectionItemEdit();
+    }
+
+    if (route == null) {
+      cleanup();
+      return;
+    }
+    unawaited(route.completed.then<void>((_) => cleanup()));
+  }
+
+  PendingCollectionDraft? _pendingDraftFrom(CardCollectionItemDraft? draft) {
+    if (draft == null) return null;
+    return PendingCollectionDraft(
+      quantityText: draft.quantityText,
+      portfolioName: draft.portfolioName,
+      grader: draft.grader,
+      condition: draft.condition,
+      grade: draft.grade,
+      language: draft.language,
+      finish: draft.finish,
+      purchasePriceText: draft.purchasePriceText,
+      notes: draft.notes,
+    );
   }
 
   void _applyDraft(
