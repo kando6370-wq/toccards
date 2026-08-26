@@ -121,10 +121,12 @@ class FakeD1 {
   collectionItemEvents: CollectionItemEventRow[] = [];
   wishlistItems: WishlistRow[] = [];
   cards: CardCatalogRow[] = [];
+  preparedSql: string[] = [];
   activePremiumSessionIds = new Set<string>();
   failScanInsert = false;
 
   prepare(sql: string): FakeD1Statement {
+    this.preparedSql.push(normalizeSql(sql));
     return new FakeD1Statement(this, sql);
   }
 
@@ -239,6 +241,16 @@ class FakeD1Statement {
         this.db.cards
           .filter((row) => productIds.has(row.product_id))
           .map((row) => ({ product_id: row.product_id, number: row.number ?? null })) as T[],
+      );
+    }
+    if (
+      sql.includes("SELECT product_id, game, set_code, name, number, rarity") &&
+      sql.includes("FROM cards_all") &&
+      sql.includes("WHERE product_id IN")
+    ) {
+      const productIds = new Set(this.values.map(String));
+      return okResult<T>(
+        this.db.cards.filter((row) => productIds.has(row.product_id)) as T[],
       );
     }
     if (sql.includes("FROM cards_all") && sql.includes("LIKE ?")) {
@@ -672,6 +684,51 @@ describe("scan routes", () => {
     expect(env.DB.scanRecords[0]?.candidates).toContain(
       '"product_id":"sports:soccer:rookie-001"',
     );
+  });
+
+  it("resolves thirty OCR candidates with one catalog query and no price query because Scan must not amplify latency per candidate", async () => {
+    const env = createRecognitionEnv();
+    const recognized = Array.from({ length: 30 }, (_, index) => ({
+      product_id: `scan-card-${index}`,
+      confidence: 90 - index,
+    }));
+    env.DB.cards.push(...recognized.map((candidate, index) => ({
+      product_id: candidate.product_id,
+      game_id: 1,
+      game: "Magic: The Gathering",
+      set_name: "Scan Set",
+      set_code: "SCN",
+      name: `Scan Card ${index}`,
+      rarity: "Common",
+      product_type_name: "Cards",
+      image_url: null,
+      number: `${index + 1}/030`,
+    })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      candidates: recognized,
+    })));
+
+    const response = await recognize(
+      env,
+      await recognitionToken(env),
+      { r: PHASH, g: PHASH, b: PHASH },
+    );
+    const body = await response.json() as {
+      data: { results: Array<{ candidates: Array<{ product_id: string }> }> };
+    };
+    const catalogQueries = env.DB.preparedSql.filter((sql) =>
+      sql.includes("FROM cards_all")
+    );
+    const priceQueries = env.DB.preparedSql.filter((sql) =>
+      sql.includes("WITH ranked_current")
+    );
+
+    expect(response.status).toBe(200);
+    expect(body.data.results[0]?.candidates.map((item) => item.product_id)).toEqual(
+      recognized.map((item) => item.product_id),
+    );
+    expect(catalogQueries).toHaveLength(1);
+    expect(priceQueries).toHaveLength(0);
   });
 
   it("returns an unlimited Premium quota without spending Free allowance", async () => {

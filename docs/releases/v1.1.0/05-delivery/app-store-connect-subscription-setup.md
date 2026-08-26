@@ -6,6 +6,8 @@
 > **适用应用**：dev/test Bundle ID `com.kando.kandoApp.beta`；production Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
 > **状态快照（2026-08-25）**：App Store Connect production App 为 `Card AI: TCG Card Scanner`（Apple ID `6793017224`，Bundle ID `com.cardai.tcg`）；`CardAi.weekly`、`CardAi.yearly` 与 `CardAi.lifetime` 均已创建且处于准备提交状态。付费 App 协议有效，银行账户可用，美国税表使用中；Production Server URL 已保存为 `https://api.tcgcard.fun/api/v1/apple/notifications/v2`，Sandbox Server URL 尚未设置。production App Store Server API Key 已创建并下载；`APPLE_IAP_PRIVATE_KEY` 已通过待部署 version `4af6f4de-eaa0-4f52-b2ad-9ac268ec7bb8` 暂存，仓库内 Workers prod 白名单已配置，v1.1 目标 PostgreSQL 已写入三条 active `performance_pro` production 商品映射。三个 production Product ID 已写入客户端 `config/production.json`；Singular Key 仍必须通过仓库外受控发布 JSON 注入。只读 Cloudflare 回查确认现网 prod 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1，没有 Hyperdrive；Apple G3 根证书也仍只存在于待部署 version `42f3934f-7cb4-41df-85b5-631b4e4b8954`。PostgreSQL `0009` 已于 2026-08-25 应用并完成事务外复核，production/TestFlight 双环境代码尚未部署；完整购买闭环仍被 dev 新 Worker验证、prod D1 数据迁移/冲突审计、prod v1.1 PostgreSQL 切换、构建及真实 Sandbox/TestFlight 验收阻塞，详见「七、当前阻塞项」。
+>
+> **dev 部署增量（2026-08-25）**：上述“dev 新 Worker 验证”已完成。提交 `38088799db8a96287c16c3ba456327e06196c657` 对应 Cloudflare dev version `1c4ea3b1-ec2f-4c79-a77c-026d84292aeb`，当前承载 100% dev 流量；`/api/v1/health`、Admin HTML 与新 Scan reservation 未授权边界烟测通过。production 仍保持原 deployment/version、D1 数据源和未设置 Sandbox Server URL 的状态，本次未修改 prod。
 
 ---
 

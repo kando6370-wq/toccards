@@ -42,6 +42,20 @@ type ScanCandidate = {
 
 type RecognitionCandidate = { productId: string; confidence: number };
 
+type ScanCatalogRow = {
+  product_id: string;
+  game: string | null;
+  set_code: string | null;
+  name: string | null;
+  number: string | null;
+  rarity: string | null;
+};
+
+type ScanCatalogCard = Pick<
+  CardSearchResult,
+  "card_ref" | "game" | "name" | "set_code" | "card_number" | "rarity"
+>;
+
 type ScanResult = {
   index: number;
   matched: boolean;
@@ -416,14 +430,13 @@ export function createScanRoutes() {
     let auditCandidates: ScanCandidate[] = [];
     if (!upstreamFailed && recognized) {
       try {
-        auditCandidates = await Promise.all(
-          recognized.map(async (candidate, index) => {
-            const card = await adapter.getCard(candidate.productId);
-            return card
-              ? toCatalogCandidate(card, candidate, index)
-              : toUnresolvedCandidate(candidate, index);
-          }),
-        );
+        const catalog = await loadScanCatalogCards(c.env.DB, recognized);
+        auditCandidates = recognized.map((candidate, index) => {
+          const card = catalog.get(candidate.productId);
+          return card
+            ? toCatalogCandidate(card, candidate, index)
+            : toUnresolvedCandidate(candidate, index);
+        });
         auditCandidates = await disambiguateByCardNumber(
           auditCandidates,
           cardNumber,
@@ -708,7 +721,7 @@ function isStoredScanCandidate(value: unknown): value is ScanCandidate {
 }
 
 function toCatalogCandidate(
-  card: CardSearchResult,
+  card: ScanCatalogCard,
   recognized: RecognitionCandidate,
   index: number,
 ): ScanCandidate {
@@ -726,6 +739,31 @@ function toCatalogCandidate(
     retrieval: "rgb-phash-16-v1",
     distance: null,
   };
+}
+
+async function loadScanCatalogCards(
+  db: D1Database,
+  recognized: RecognitionCandidate[],
+): Promise<Map<string, ScanCatalogCard>> {
+  const productIds = [...new Set(recognized.map((candidate) => candidate.productId))];
+  if (productIds.length === 0) return new Map();
+  const placeholders = productIds.map(() => "?").join(", ");
+  const result = await db.prepare(`
+    SELECT product_id, game, set_code, name, number, rarity
+    FROM cards_all
+    WHERE product_id IN (${placeholders})
+  `).bind(...productIds).all<ScanCatalogRow>();
+  return new Map((result.results ?? []).map((row) => [
+    row.product_id,
+    {
+      card_ref: row.product_id,
+      game: row.game,
+      name: row.name ?? row.product_id,
+      set_code: row.set_code ?? "",
+      card_number: row.number ?? "",
+      rarity: row.rarity,
+    },
+  ]));
 }
 
 function toUnresolvedCandidate(
