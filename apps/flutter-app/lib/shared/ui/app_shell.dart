@@ -16,16 +16,20 @@ class KandoTabScaffold extends ConsumerWidget {
     super.key,
     required this.currentTab,
     required this.body,
+    this.onPendingCollectionReview,
   });
 
   final KandoMainTab currentTab;
   final Widget body;
+  final Future<int?> Function()? onPendingCollectionReview;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pendingItems = ref.watch(pendingCollectionProvider);
+    final pendingCount = ref.watch(
+      pendingCollectionProvider.select((items) => items.length),
+    );
     final showPendingNotice =
-        currentTab == KandoMainTab.search && pendingItems.isNotEmpty;
+        currentTab == KandoMainTab.search && pendingCount > 0;
     return Theme(
       data: _tabTheme(context),
       child: Scaffold(
@@ -39,7 +43,10 @@ class KandoTabScaffold extends ConsumerWidget {
                 left: 20,
                 right: 20,
                 bottom: 96 + MediaQuery.paddingOf(context).bottom,
-                child: PendingCollectionNotice(count: pendingItems.length),
+                child: PendingCollectionNotice(
+                  count: pendingCount,
+                  onReview: onPendingCollectionReview,
+                ),
               ),
           ],
         ),
@@ -99,9 +106,14 @@ class KandoTabScaffold extends ConsumerWidget {
 }
 
 class PendingCollectionNotice extends StatelessWidget {
-  const PendingCollectionNotice({super.key, required this.count});
+  const PendingCollectionNotice({
+    super.key,
+    required this.count,
+    this.onReview,
+  });
 
   final int count;
+  final Future<int?> Function()? onReview;
 
   @override
   Widget build(BuildContext context) {
@@ -116,9 +128,9 @@ class PendingCollectionNotice extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () async {
-          final addedCount = await context.push<int>(
-            '/collection-items/pending',
-          );
+          final addedCount = onReview == null
+              ? await context.push<int>('/collection-items/pending')
+              : await onReview!();
           if (context.mounted && addedCount != null && addedCount > 0) {
             showKandoCenteredSuccessToast(
               context,

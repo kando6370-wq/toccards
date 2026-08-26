@@ -138,10 +138,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('2 cards waiting for details'), findsOneWidget);
+      final router = GoRouter.of(tester.element(find.byType(SetDetailPage)));
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        '/sets/base-set-id',
+      );
       await tester.tap(find.byKey(const Key('pending-collection-notice')));
       await tester.pumpAndSettle();
 
       expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        '/sets/base-set-id',
+      );
       await tester.tap(find.byKey(const Key('pending-collection-add-all')));
       await tester.pumpAndSettle();
 
@@ -489,10 +498,6 @@ class _SetQuickCollectRouteApp extends StatelessWidget {
               game: 'Pokemon',
               setName: 'Base Set',
             ),
-          ),
-          GoRoute(
-            path: '/collection-items/pending',
-            builder: (context, state) => const QuickCollectionReviewPage(),
           ),
         ],
       ),

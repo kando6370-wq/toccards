@@ -9,6 +9,7 @@ import 'package:kando_app/shared/ui/load_state.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../card_detail/card_detail_page.dart';
 import 'search_card_tile.dart';
 import 'search_controller.dart';
 import 'search_models.dart';
@@ -106,7 +107,9 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchControllerProvider);
-    final pendingCount = ref.watch(pendingCollectionProvider).length;
+    final pendingCount = ref.watch(
+      pendingCollectionProvider.select((items) => items.length),
+    );
     return Scaffold(
       backgroundColor: KandoColors.ink,
       appBar: AppBar(title: Text(widget.setName)),
@@ -133,7 +136,10 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
                 left: 20,
                 right: 20,
                 bottom: 12,
-                child: PendingCollectionNotice(count: pendingCount),
+                child: PendingCollectionNotice(
+                  count: pendingCount,
+                  onReview: () => showQuickCollectionReviewSheet(context),
+                ),
               ),
           ],
         ),

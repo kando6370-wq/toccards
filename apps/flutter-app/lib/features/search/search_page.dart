@@ -8,6 +8,7 @@ import 'package:kando_app/shared/ui/load_state.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../card_detail/card_detail_page.dart';
 import '../subscription/premium_top_entry.dart';
 import 'search_card_tile.dart';
 import 'search_controller.dart';
@@ -33,6 +34,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     return KandoTabScaffold(
       currentTab: KandoMainTab.search,
+      onPendingCollectionReview: () => showQuickCollectionReviewSheet(context),
       body: SafeArea(
         bottom: false,
         child: Column(

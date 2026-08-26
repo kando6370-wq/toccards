@@ -5,8 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 
 void main() {
+  test('Kando color scheme is reused across scaffold rebuilds', () {
+    expect(buildKandoColorScheme(), same(buildKandoColorScheme()));
+  });
+
   testWidgets(
     'Figma tab bar keeps the 390x844 Home Search Scan Collection Profile order',
     (tester) async {
@@ -134,6 +139,76 @@ void main() {
     }
   });
 
+  testWidgets(
+    'updating a pending draft does not rebuild the Search page body when the notice count is unchanged',
+    (tester) async {
+      var bodyBuildCount = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: KandoTabScaffold(
+              currentTab: KandoMainTab.search,
+              body: _ThemeDependentBuildCounter(
+                onBuild: () => bodyBuildCount += 1,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(KandoTabScaffold)),
+        listen: false,
+      );
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'card-1',
+              name: 'Card 1',
+              game: 'Pokemon',
+              setName: 'Set',
+              metadataLine: '#1',
+              variantLine: 'Normal',
+            ),
+          );
+      await tester.pump();
+      final buildCountAfterNoticeAppears = bodyBuildCount;
+      final pendingItem = container.read(pendingCollectionProvider).single;
+      final scaffoldElement = tester.element(find.byType(KandoTabScaffold));
+
+      container
+          .read(pendingCollectionProvider.notifier)
+          .updateDraft(
+            pendingItem.id,
+            const PendingCollectionDraft(
+              quantityText: '1',
+              portfolioName: 'Main',
+              grader: 'Raw',
+              condition: 'Near Mint (NM)',
+              grade: '10',
+              language: 'English',
+              finish: 'Normal',
+              purchasePriceText: '',
+              notes: '',
+            ),
+          );
+      expect(
+        scaffoldElement.dirty,
+        isFalse,
+        reason: 'The notice only depends on the pending item count.',
+      );
+      await tester.pump();
+
+      expect(bodyBuildCount, buildCountAfterNoticeAppears);
+      expect(
+        find.byKey(const Key('pending-collection-notice')),
+        findsOneWidget,
+      );
+      expect(find.text('1 card waiting for details'), findsOneWidget);
+    },
+  );
+
   testWidgets('selected tab background slides from the previous active tab', (
     tester,
   ) async {
@@ -216,4 +291,17 @@ void main() {
       matchesGoldenFile('goldens/rendered/figma_tab_bar_home_390x844.png'),
     );
   });
+}
+
+class _ThemeDependentBuildCounter extends StatelessWidget {
+  const _ThemeDependentBuildCounter({required this.onBuild});
+
+  final VoidCallback onBuild;
+
+  @override
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    onBuild();
+    return const SizedBox.expand();
+  }
 }
