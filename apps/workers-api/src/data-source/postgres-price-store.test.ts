@@ -60,6 +60,16 @@ describe("PostgreSQL price store query boundaries", () => {
       .rejects.toThrow("Published price query exceeded 1000 rows for 1 cards");
   });
 
+  it("matches the active-series partial index predicate because current prices must not scan every provider series", async () => {
+    const db = new RecordingDatabase();
+
+    await loadPublishedPriceRows(db.asD1(), ["card-1"]);
+
+    const sql = db.calls[0]?.sql ?? "";
+    expect(sql).toContain("WHERE series.is_active\n");
+    expect(sql).not.toContain("series.is_active IS TRUE");
+  });
+
   it("chunks history at 100 series and accepts 1600 month rows because price batches need a fixed response ceiling", async () => {
     const db = new RecordingDatabase((_sql, bindings) =>
       bindings.length === 103

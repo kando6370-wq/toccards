@@ -91,7 +91,7 @@ export async function loadPublishedPriceRows(
        JOIN price_current_snapshot AS snapshot
          ON snapshot.batch_id = published.batch_id
         AND snapshot.series_id = series.series_id
-       WHERE series.is_active IS TRUE
+       WHERE series.is_active
          AND source.is_active IS TRUE
          AND series.currency_code = 'USD'
          AND series.card_ref IN (${placeholders})
