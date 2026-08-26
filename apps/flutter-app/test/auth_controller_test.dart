@@ -569,14 +569,16 @@ void main() {
     () async {
       final storedUser = AuthSession(
         ownerType: OwnerType.user,
-        accessToken: 'user-access',
+        accessToken: _jwtExpiringAt(
+          DateTime.now().add(const Duration(minutes: 5)),
+        ),
         refreshToken: 'user-refresh',
         userId: 'user-1',
       );
       final previousAnonymous = _anonymousSession('anon-before-sign-in');
       final repository = _FakeAuthRepository(
         storedSession: storedUser,
-        validatedSession: storedUser,
+        validatedSession: previousAnonymous,
         previousAnonymousSession: previousAnonymous,
       );
       final container = _createContainer(repository, deviceId);
@@ -588,9 +590,77 @@ void main() {
 
       expect(repository.clearedUserSessions, 1);
       expect(repository.previousAnonymousReads, 1);
+      expect(repository.validatedSessions, [same(previousAnonymous)]);
       expect(repository.createdDeviceIds, isEmpty);
       expect(repository.persistedSessions, [same(previousAnonymous)]);
       expect(state.session, same(previousAnonymous));
+    },
+  );
+
+  test(
+    'user logout replaces an upgraded anonymous session so signed-out requests stay authorized',
+    () async {
+      final storedUser = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: _jwtExpiringAt(
+          DateTime.now().add(const Duration(minutes: 5)),
+        ),
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      final upgradedAnonymous = _anonymousSession('anon-upgraded');
+      final freshAnonymous = _anonymousSession('anon-after-logout');
+      final repository = _FakeAuthRepository(
+        storedSession: storedUser,
+        previousAnonymousSession: upgradedAnonymous,
+        createdAnonymousSessions: [freshAnonymous],
+      );
+      final container = _createContainer(repository, deviceId);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await container.read(authControllerProvider.notifier).logout();
+      final state = container.read(authControllerProvider);
+
+      expect(repository.validatedSessions, [same(upgradedAnonymous)]);
+      expect(repository.clearedAnonymousSessions, 1);
+      expect(repository.clearedUserSessions, 1);
+      expect(repository.createdDeviceIds, [deviceId]);
+      expect(repository.persistedSessions, [same(freshAnonymous)]);
+      expect(state.session, same(freshAnonymous));
+    },
+  );
+
+  test(
+    'logout keeps the user when replacement guest creation fails because sign-out must not leave a revoked local identity',
+    () async {
+      final storedUser = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: _jwtExpiringAt(
+          DateTime.now().add(const Duration(minutes: 5)),
+        ),
+        refreshToken: 'user-refresh',
+        userId: 'user-1',
+      );
+      final upgradedAnonymous = _anonymousSession('anon-upgraded');
+      final repository = _FakeAuthRepository(
+        storedSession: storedUser,
+        previousAnonymousSession: upgradedAnonymous,
+        createAnonymousErrors: [const AuthNetworkException()],
+      );
+      final container = _createContainer(repository, deviceId);
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await expectLater(
+        container.read(authControllerProvider.notifier).logout(),
+        throwsA(isA<AuthNetworkException>()),
+      );
+
+      expect(repository.clearedAnonymousSessions, 1);
+      expect(repository.clearedUserSessions, 0);
+      expect(repository.persistedSessions, isEmpty);
+      expect(container.read(authControllerProvider).session, same(storedUser));
     },
   );
 
