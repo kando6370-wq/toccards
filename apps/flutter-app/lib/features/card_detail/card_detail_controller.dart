@@ -781,6 +781,18 @@ class CardDetailController extends Notifier<CardDetailState> {
     );
   }
 
+  Future<void> synchronizeCollectionEditorFolders() async {
+    if (_loadProfile != _CardDetailLoadProfile.collectionEditor ||
+        _repository is! CardDetailSectionRepository ||
+        state.isLoading ||
+        state.isUnavailable) {
+      return;
+    }
+
+    final generation = _loadGeneration;
+    await _loadCollectionEditorFolders(generation);
+  }
+
   Future<void> refreshPriceSeries() {
     return _refreshSection(
       status: (value) => state = state.copyWith(priceSeriesStatus: value),

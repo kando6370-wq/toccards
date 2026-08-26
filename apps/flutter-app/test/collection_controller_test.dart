@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_repository.dart';
@@ -570,6 +571,54 @@ void main() {
   );
 
   test(
+    'successful folder mutations invalidate the Review editor folder source',
+    () async {
+      var editorFolderLoads = 0;
+      final container = _collectionContainer(
+        repository: _RecordingCollectionRepository(),
+        loadEditorFolders: () async {
+          editorFolderLoads += 1;
+          return const <CardPortfolioFolder>[];
+        },
+      );
+      addTearDown(container.dispose);
+      await _loadedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 1);
+
+      final created = (await controller.createFolder('Trade')).folder!;
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 2);
+
+      expect(await controller.renameFolder(created.id, 'Trade Binder'), isTrue);
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 3);
+
+      expect(await controller.setDefaultFolder(created.id), isTrue);
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 4);
+
+      expect(
+        await controller.reorderFolders([
+          created.id,
+          'main',
+          'sealed',
+          'empty',
+        ]),
+        isTrue,
+      );
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 5);
+
+      expect(await controller.deleteFolder('sealed'), isTrue);
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 6);
+    },
+  );
+
+  test(
     'server Folder limit refreshes the dashboard because another device may have consumed the final Free slot',
     () async {
       final repository = _FolderCreateFailureRepository(
@@ -825,6 +874,7 @@ ProviderContainer _collectionContainer({
   bool includeFolderConsumers = false,
   HomeRepository homeRepository = const MockHomeRepository(),
   InMemoryPortfolioAmountHiddenStorage? amountStorage,
+  Future<List<CardPortfolioFolder>> Function()? loadEditorFolders,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -837,6 +887,10 @@ ProviderContainer _collectionContainer({
       portfolioAmountHiddenStorageProvider.overrideWithValue(
         amountStorage ?? InMemoryPortfolioAmountHiddenStorage(),
       ),
+      if (loadEditorFolders != null)
+        collectionEditorFoldersProvider.overrideWith(
+          (ref) => loadEditorFolders(),
+        ),
       if (includeFolderConsumers) ...[
         homeRepositoryProvider.overrideWithValue(homeRepository),
         cardDetailRepositoryProvider.overrideWithValue(

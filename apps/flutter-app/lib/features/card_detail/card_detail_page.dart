@@ -2402,6 +2402,7 @@ class _QuickCollectionReviewPageState
   int _savingTotalCount = 0;
   bool _exitCleanupScheduled = false;
   final Set<String> _prefetchedCardIds = {};
+  final Set<String> _initializedItemIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -2547,10 +2548,18 @@ class _QuickCollectionReviewPageState
   ) {
     if (_initializingItemId == item.id) return;
     _initializingItemId = item.id;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      _prepareDraft(controller, item);
+      final syncPortfolioWithShared = !_initializedItemIds.contains(item.id);
+      await controller.synchronizeCollectionEditorFolders();
+      if (!mounted || _initializingItemId != item.id) return;
+      _prepareDraft(
+        controller,
+        item,
+        syncPortfolioWithShared: syncPortfolioWithShared,
+      );
       setState(() {
+        _initializedItemIds.add(item.id);
         _activeItemId = item.id;
         _initializingItemId = null;
       });
@@ -2559,8 +2568,9 @@ class _QuickCollectionReviewPageState
 
   void _prepareDraft(
     CardDetailController controller,
-    PendingCollectionItem item,
-  ) {
+    PendingCollectionItem item, {
+    bool syncPortfolioWithShared = false,
+  }) {
     controller.cancelCollectionItemEdit();
     controller.startAddingCollectionItem();
     final storedDraft = item.draft;
@@ -2570,7 +2580,12 @@ class _QuickCollectionReviewPageState
     if (storedDraft == null) {
       controller.updateCollectionItemDraft(quantityText: quantityText);
     } else {
-      _applyDraft(controller, storedDraft, quantityText: quantityText);
+      _applyDraft(
+        controller,
+        storedDraft,
+        quantityText: quantityText,
+        restorePortfolioName: !syncPortfolioWithShared,
+      );
     }
   }
 
@@ -2690,10 +2705,11 @@ class _QuickCollectionReviewPageState
     CardDetailController controller,
     PendingCollectionDraft draft, {
     required String quantityText,
+    bool restorePortfolioName = true,
   }) {
     controller.updateCollectionItemDraft(
       quantityText: quantityText,
-      portfolioName: draft.portfolioName,
+      portfolioName: restorePortfolioName ? draft.portfolioName : null,
       grader: draft.grader,
       condition: draft.condition,
       grade: draft.grade,
@@ -4858,18 +4874,9 @@ class _PriceOverview extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  for (final mode in CardPriceChartMode.values) ...[
-                    _PriceModeTab(
-                      mode: mode,
-                      selected: state.selectedPriceChartMode == mode,
-                      onSelected: controller.selectPriceChartMode,
-                    ),
-                    if (mode != CardPriceChartMode.values.last)
-                      const SizedBox(width: 16),
-                  ],
-                ],
+              _PriceModeControl(
+                selectedMode: state.selectedPriceChartMode,
+                onSelected: controller.selectPriceChartMode,
               ),
               const SizedBox(height: 20),
               if (chartSeries.length > 1) ...[
@@ -5242,6 +5249,57 @@ class _FinishIcon extends StatelessWidget {
   }
 }
 
+class _PriceModeControl extends StatelessWidget {
+  const _PriceModeControl({
+    required this.selectedMode,
+    required this.onSelected,
+  });
+
+  final CardPriceChartMode selectedMode;
+  final ValueChanged<CardPriceChartMode> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('card-detail-price-mode-control'),
+      width: 150,
+      height: 24,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0x1A90927C)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            offset: Offset(0, 1),
+            blurRadius: 2,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 73,
+            child: _PriceModeTab(
+              mode: CardPriceChartMode.raw,
+              selected: selectedMode == CardPriceChartMode.raw,
+              onSelected: onSelected,
+            ),
+          ),
+          const SizedBox(width: 1, child: ColoredBox(color: Color(0x1A90927C))),
+          Expanded(
+            child: _PriceModeTab(
+              mode: CardPriceChartMode.graded,
+              selected: selectedMode == CardPriceChartMode.graded,
+              onSelected: onSelected,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PriceModeTab extends StatelessWidget {
   const _PriceModeTab({
     required this.mode,
@@ -5258,20 +5316,26 @@ class _PriceModeTab extends StatelessWidget {
     return InkWell(
       onTap: () => onSelected(mode),
       child: Container(
-        padding: const EdgeInsets.only(bottom: 6),
+        key: Key('card-detail-price-mode-${mode.name}'),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: selected ? KandoColors.accent : Colors.transparent,
-              width: 2,
-            ),
-          ),
+          color: selected ? null : KandoColors.surface,
+          gradient: selected
+              ? const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x99747B26), Color(0x33747B26)],
+                )
+              : null,
         ),
         child: Text(
           mode.label,
           style: TextStyle(
             fontSize: 12,
-            color: selected ? KandoColors.text : KandoColors.mutedText,
+            height: 16 / 12,
+            fontWeight: FontWeight.w400,
+            letterSpacing: 0,
+            color: selected ? KandoColors.accent : _kCollectionSecondaryText,
           ),
         ),
       ),

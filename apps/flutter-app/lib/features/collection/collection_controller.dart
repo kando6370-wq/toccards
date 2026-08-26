@@ -922,6 +922,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void _invalidateFolderDetails() {
+    ref.invalidate(collectionEditorFoldersProvider);
     ref.invalidate(cardDetailControllerProvider);
   }
 }

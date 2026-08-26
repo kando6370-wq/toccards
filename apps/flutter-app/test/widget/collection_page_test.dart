@@ -535,6 +535,13 @@ void main() {
       expect(repository.createCalls, 1);
       expect(find.text('SAVING'), findsOneWidget);
       expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-name-save')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(
         tester
             .widget<TextFormField>(
               find.byKey(const Key('collection-folder-name')),
@@ -661,6 +668,157 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'editing a folder keeps the sheet open with loading until rename succeeds',
+    (tester) async {
+      final repository = _BlockingFolderMutationRepository();
+      await _pumpCollection(tester, repository: repository);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-folder-edit-sealed')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('collection-folder-name')),
+        'Trade',
+      );
+      await tester.tap(find.byKey(const Key('collection-folder-name-save')));
+      await tester.pump();
+
+      expect(repository.renameCalls, 1);
+      expect(
+        find.byKey(const Key('collection-folder-name-sheet')),
+        findsOneWidget,
+      );
+      expect(find.text('SAVING'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-name-save')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('collection-folder-name')),
+            )
+            .enabled,
+        isFalse,
+      );
+      await tester.tap(
+        find.byKey(const Key('collection-folder-name-save')),
+        warnIfMissed: false,
+      );
+      expect(repository.renameCalls, 1);
+
+      repository.completeRename(name: 'Trade');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('collection-folder-name-sheet')),
+        findsNothing,
+      );
+      expect(find.text('Trade'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'deleting a folder keeps confirmation open with loading until success',
+    (tester) async {
+      final repository = _BlockingFolderMutationRepository();
+      await _pumpCollection(tester, repository: repository);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-confirm')),
+      );
+      await tester.pump();
+
+      expect(repository.deleteCalls, 1);
+      expect(
+        find.byKey(const Key('collection-folder-delete-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-delete-confirm')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-confirm')),
+        warnIfMissed: false,
+      );
+      expect(repository.deleteCalls, 1);
+
+      repository.completeDelete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('collection-folder-delete-sheet')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'a failed folder delete keeps confirmation open and restores its action',
+    (tester) async {
+      final repository = _BlockingFolderMutationRepository();
+      await _pumpCollection(tester, repository: repository);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-confirm')),
+      );
+      await tester.pump();
+
+      repository.failDelete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('collection-folder-delete-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-delete-confirm')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsNothing,
+      );
+      expect(find.text('DELETE'), findsOneWidget);
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('kando-top-toast')),
+          matching: find.byTooltip('Close'),
+        ),
+      );
+      await tester.pump();
+    },
+  );
 
   testWidgets('Wishlist tab uses wishlist copy and hides quantity', (
     tester,
@@ -1269,6 +1427,41 @@ class _BlockingCreateFolderRepository extends MockCollectionRepository {
     createCompleter.completeError(
       PortfolioApiException('rejected', code: code),
     );
+  }
+}
+
+class _BlockingFolderMutationRepository extends MockCollectionRepository {
+  final _renameCompleter = Completer<CollectionFolder>();
+  final _deleteCompleter = Completer<void>();
+  var renameCalls = 0;
+  var deleteCalls = 0;
+
+  @override
+  Future<CollectionFolder> renameFolder(
+    AuthSession session,
+    String folderId,
+    String name,
+  ) {
+    renameCalls += 1;
+    return _renameCompleter.future;
+  }
+
+  @override
+  Future<void> deleteFolder(AuthSession session, String folderId) {
+    deleteCalls += 1;
+    return _deleteCompleter.future;
+  }
+
+  void completeRename({required String name}) {
+    _renameCompleter.complete(
+      CollectionFolder(id: 'sealed', name: name, isDefault: false),
+    );
+  }
+
+  void completeDelete() => _deleteCompleter.complete();
+
+  void failDelete() {
+    _deleteCompleter.completeError(StateError('delete failed'));
   }
 }
 

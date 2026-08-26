@@ -21,6 +21,7 @@ import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
@@ -1486,6 +1487,25 @@ void main() {
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
     expect(find.text('RAW'), findsOneWidget);
     expect(find.text('GRADED'), findsOneWidget);
+    final priceModeControl = find.byKey(
+      const Key('card-detail-price-mode-control'),
+    );
+    expect(tester.getSize(priceModeControl), const Size(150, 24));
+    final rawMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-raw')),
+    );
+    final rawDecoration = rawMode.decoration! as BoxDecoration;
+    expect((rawDecoration.gradient! as LinearGradient).colors, const [
+      Color(0x99747B26),
+      Color(0x33747B26),
+    ]);
+    final gradedMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-graded')),
+    );
+    expect(
+      (gradedMode.decoration! as BoxDecoration).color,
+      KandoColors.surface,
+    );
     expect(find.text('1M'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
@@ -1517,6 +1537,22 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('GRADED'));
     await tester.pumpAndSettle();
+    final selectedGradedMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-graded')),
+    );
+    expect(
+      ((selectedGradedMode.decoration! as BoxDecoration).gradient!
+              as LinearGradient)
+          .colors,
+      const [Color(0x99747B26), Color(0x33747B26)],
+    );
+    final unselectedRawMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-raw')),
+    );
+    expect(
+      (unselectedRawMode.decoration! as BoxDecoration).color,
+      KandoColors.surface,
+    );
     expect(find.text('PSA 10'), findsOneWidget);
     expect(find.text('BGS 10'), findsOneWidget);
     expect(find.text('PSA 10 Holofoil'), findsNothing);

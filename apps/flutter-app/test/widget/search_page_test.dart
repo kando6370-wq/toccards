@@ -1214,6 +1214,105 @@ void main() {
   );
 
   testWidgets(
+    'pending Review reloads folders and starts from the shared Home selection each time it opens',
+    (tester) async {
+      final repository = _TrackingReviewLoadRepository();
+      final portfolioApi = _CountingFolderPortfolioApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            ..._localAuthOverrides(),
+            cardDetailRepositoryProvider.overrideWithValue(repository),
+            portfolioApiClientProvider.overrideWithValue(portfolioApi),
+          ],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+        listen: false,
+      );
+      final editorProvider = quickCollectionCardDetailControllerProvider(
+        'squirtle',
+      );
+      expect(find.text('Adding to Main'), findsOneWidget);
+
+      Navigator.of(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+      ).pop();
+      await tester.pumpAndSettle();
+
+      portfolioApi.folders = const [
+        PortfolioFolderDto(
+          id: 'main',
+          name: 'Main',
+          isDefault: true,
+          sortOrder: 0,
+        ),
+        PortfolioFolderDto(
+          id: 'trade',
+          name: 'Trade',
+          isDefault: false,
+          sortOrder: 1,
+        ),
+      ];
+      container.invalidate(collectionEditorFoldersProvider);
+      container.read(selectedPortfolioFolderProvider.notifier).select('trade');
+
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adding to Trade'), findsOneWidget);
+      expect(
+        container
+            .read(editorProvider)
+            .detail
+            .portfolioFolders
+            .map((folder) => folder.name),
+        ['Main', 'Trade'],
+      );
+
+      Navigator.of(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+      ).pop();
+      await tester.pumpAndSettle();
+
+      portfolioApi.folders = const [
+        PortfolioFolderDto(
+          id: 'main',
+          name: 'Main',
+          isDefault: true,
+          sortOrder: 0,
+        ),
+      ];
+      container.invalidate(collectionEditorFoldersProvider);
+      container.read(selectedPortfolioFolderProvider.notifier).select('main');
+
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adding to Main'), findsOneWidget);
+      expect(find.text('Adding to Trade'), findsNothing);
+      expect(
+        container
+            .read(editorProvider)
+            .detail
+            .portfolioFolders
+            .map((folder) => folder.name),
+        ['Main'],
+      );
+    },
+  );
+
+  testWidgets(
     'pending Add this card shows validation in a top toast because its fixed action stays visible while the form error is below',
     (tester) async {
       await tester.pumpWidget(
@@ -2411,21 +2510,24 @@ class _TrackingReviewLoadRepository extends MockCardDetailRepository
 }
 
 class _CountingFolderPortfolioApi extends PortfolioApiClient {
-  _CountingFolderPortfolioApi() : super(Dio());
+  _CountingFolderPortfolioApi()
+    : folders = const [
+        PortfolioFolderDto(
+          id: 'main',
+          name: 'Main',
+          isDefault: true,
+          sortOrder: 0,
+        ),
+      ],
+      super(Dio());
 
   var listFoldersCount = 0;
+  List<PortfolioFolderDto> folders;
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
     listFoldersCount += 1;
-    return const [
-      PortfolioFolderDto(
-        id: 'main',
-        name: 'Main',
-        isDefault: true,
-        sortOrder: 0,
-      ),
-    ];
+    return folders;
   }
 }
 
