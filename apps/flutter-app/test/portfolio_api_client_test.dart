@@ -9,6 +9,19 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 void main() {
   test(
+    'portfolio transport keeps the full request deadline for server responses because Collection dashboard enrichment can exceed five seconds',
+    () {
+      final dio = createPortfolioDio(
+        baseUrl: 'https://api.example.test/api/v1',
+      );
+      addTearDown(dio.close);
+
+      expect(dio.options.connectTimeout, const Duration(seconds: 5));
+      expect(dio.options.receiveTimeout, portfolioRequestDeadline);
+    },
+  );
+
+  test(
     'listFolders attaches bearer token because portfolio rows are owner scoped',
     () async {
       final adapter = _RecordingAdapter((request) {

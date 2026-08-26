@@ -20,7 +20,7 @@ Dio createPortfolioDio({String baseUrl = portfolioApiBaseUrl}) {
     BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 5),
+      receiveTimeout: portfolioRequestDeadline,
     ),
   );
 }
