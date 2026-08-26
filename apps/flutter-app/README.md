@@ -57,8 +57,9 @@ The script increments the current build number automatically. Installation and
 upload are opt-in. Production is the default environment; use `--env
 test` to select the test API, Xcode scheme, and Firebase configuration:
 
-Internal test builds may omit Singular keys. Production builds still require
-`SINGULAR_API_KEY` and `SINGULAR_SECRET_KEY` through the selected release JSON.
+Singular SDK credentials are loaded at runtime from the selected environment's
+public `/app-config` endpoint. Release JSON files contain only non-sensitive
+build configuration such as the environment and subscription product IDs.
 
 ```bash
 # 构建并验证测试环境的 IPA（不安装、不上传）

@@ -7,11 +7,6 @@ const requiredSubscriptionKeys = <String>[
   'SUBSCRIPTION_APP_STORE_LIFETIME_ID',
 ];
 
-const requiredProductionAttributionKeys = <String>[
-  'SINGULAR_API_KEY',
-  'SINGULAR_SECRET_KEY',
-];
-
 List<String> validateReleaseConfig(
   Map<String, Object?> config,
   String environment,
@@ -20,11 +15,7 @@ List<String> validateReleaseConfig(
   if (config['APP_ENV'] != environment) {
     errors.add('APP_ENV must equal $environment.');
   }
-  final requiredKeys = <String>[
-    ...requiredSubscriptionKeys,
-    if (environment == 'production') ...requiredProductionAttributionKeys,
-  ];
-  for (final key in requiredKeys) {
+  for (final key in requiredSubscriptionKeys) {
     final value = config[key];
     if (value is! String || value.trim().isEmpty) {
       errors.add('$key must be a non-empty string.');

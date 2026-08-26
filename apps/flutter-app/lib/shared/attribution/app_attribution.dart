@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:singular_flutter_sdk/singular.dart';
 import 'package:singular_flutter_sdk/singular_config.dart';
 
+import 'singular_bootstrap.dart';
+
 enum AppTrackingStatus {
   notDetermined,
   restricted,
@@ -168,14 +170,18 @@ class PluginAppTrackingGateway implements AppTrackingGateway {
 }
 
 class SingularAttributionGateway implements AppAttributionGateway {
-  static const _apiKey = String.fromEnvironment('SINGULAR_API_KEY');
-  static const _secretKey = String.fromEnvironment('SINGULAR_SECRET_KEY');
+  SingularAttributionGateway({
+    Future<SingularCredentials?> Function() loadCredentials =
+        loadSingularCredentials,
+  }) : _credentials = loadCredentials();
 
+  final Future<SingularCredentials?> _credentials;
   var _started = false;
 
   @override
   Future<void> updateTrackingStatus(AppTrackingStatus status) async {
-    if (_apiKey.isEmpty || _secretKey.isEmpty) return;
+    final credentials = await _credentials;
+    if (credentials == null) return;
     final limitDataSharing = switch (status) {
       AppTrackingStatus.denied ||
       AppTrackingStatus.restricted ||
@@ -183,7 +189,7 @@ class SingularAttributionGateway implements AppAttributionGateway {
       AppTrackingStatus.authorized || AppTrackingStatus.notSupported => false,
     };
     if (!_started) {
-      final config = SingularConfig(_apiKey, _secretKey)
+      final config = SingularConfig(credentials.apiKey, credentials.secretKey)
         ..limitDataSharing = limitDataSharing
         ..waitForTrackingAuthorizationWithTimeoutInterval = 0;
       Singular.start(config);

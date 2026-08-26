@@ -6,18 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/validate_release_config.dart';
 
 void main() {
-  test(
-    'production release requires every subscription and attribution key',
-    () {
-      expect(validateReleaseConfig({'APP_ENV': 'production'}, 'production'), [
-        'SUBSCRIPTION_APP_STORE_WEEKLY_ID must be a non-empty string.',
-        'SUBSCRIPTION_APP_STORE_YEARLY_ID must be a non-empty string.',
-        'SUBSCRIPTION_APP_STORE_LIFETIME_ID must be a non-empty string.',
-        'SINGULAR_API_KEY must be a non-empty string.',
-        'SINGULAR_SECRET_KEY must be a non-empty string.',
-      ]);
-    },
-  );
+  test('production release requires every subscription product ID', () {
+    expect(validateReleaseConfig({'APP_ENV': 'production'}, 'production'), [
+      'SUBSCRIPTION_APP_STORE_WEEKLY_ID must be a non-empty string.',
+      'SUBSCRIPTION_APP_STORE_YEARLY_ID must be a non-empty string.',
+      'SUBSCRIPTION_APP_STORE_LIFETIME_ID must be a non-empty string.',
+    ]);
+  });
 
   test(
     'release config rejects the wrong environment and duplicate products',
@@ -37,13 +32,12 @@ void main() {
     expect(validateReleaseConfig(validConfig(), 'production'), isEmpty);
   });
 
-  test('internal test release permits missing Singular keys', () {
-    final config = validConfig()
-      ..['APP_ENV'] = 'test'
-      ..remove('SINGULAR_API_KEY')
-      ..remove('SINGULAR_SECRET_KEY');
+  test('release config does not contain runtime Singular credentials', () {
+    final config = validConfig()..['APP_ENV'] = 'test';
 
     expect(validateReleaseConfig(config, 'test'), isEmpty);
+    expect(config, isNot(contains('SINGULAR_API_KEY')));
+    expect(config, isNot(contains('SINGULAR_SECRET_KEY')));
   });
 
   test('dev and production builds use their own verified Apple products', () {
@@ -54,6 +48,10 @@ void main() {
         jsonDecode(File('config/production.json').readAsStringSync())
             as Map<String, Object?>;
 
+    expect(testConfig, isNot(contains('SINGULAR_API_KEY')));
+    expect(testConfig, isNot(contains('SINGULAR_SECRET_KEY')));
+    expect(productionConfig, isNot(contains('SINGULAR_API_KEY')));
+    expect(productionConfig, isNot(contains('SINGULAR_SECRET_KEY')));
     expect(
       testConfig,
       containsPair('SUBSCRIPTION_APP_STORE_WEEKLY_ID', 'cardx.week'),
@@ -157,6 +155,4 @@ Map<String, Object?> validConfig() => {
   'SUBSCRIPTION_APP_STORE_WEEKLY_ID': 'example.weekly',
   'SUBSCRIPTION_APP_STORE_YEARLY_ID': 'example.yearly',
   'SUBSCRIPTION_APP_STORE_LIFETIME_ID': 'example.lifetime',
-  'SINGULAR_API_KEY': 'api-key',
-  'SINGULAR_SECRET_KEY': 'secret-key',
 };

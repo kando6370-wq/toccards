@@ -2,10 +2,10 @@
 
 > **定位**：指导运营与研发在 App Store Connect 中配置 Performance Pro 的 iOS 商品、测试账号、服务端通知与审核资料。
 > **日期**：2026-08-10
-> **最近核验**：2026-08-25
+> **最近核验**：2026-08-26
 > **适用应用**：dev/test Bundle ID `com.kando.kandoApp.beta`；production Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
-> **状态快照（2026-08-25）**：App Store Connect production App 为 `Card AI: TCG Card Scanner`（Apple ID `6793017224`，Bundle ID `com.cardai.tcg`）；`CardAi.weekly`、`CardAi.yearly` 与 `CardAi.lifetime` 均已创建且处于准备提交状态。付费 App 协议有效，银行账户可用，美国税表使用中；Production Server URL 已保存为 `https://api.tcgcard.fun/api/v1/apple/notifications/v2`，Sandbox Server URL 尚未设置。production App Store Server API Key 已创建并下载；`APPLE_IAP_PRIVATE_KEY` 已通过待部署 version `4af6f4de-eaa0-4f52-b2ad-9ac268ec7bb8` 暂存，仓库内 Workers prod 白名单已配置，v1.1 目标 PostgreSQL 已写入三条 active `performance_pro` production 商品映射。三个 production Product ID 已写入客户端 `config/production.json`；Singular Key 仍必须通过仓库外受控发布 JSON 注入。只读 Cloudflare 回查确认现网 prod 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1，没有 Hyperdrive；Apple G3 根证书也仍只存在于待部署 version `42f3934f-7cb4-41df-85b5-631b4e4b8954`。PostgreSQL `0009` 已于 2026-08-25 应用并完成事务外复核，production/TestFlight 双环境代码尚未部署；完整购买闭环仍被 dev 新 Worker验证、prod D1 数据迁移/冲突审计、prod v1.1 PostgreSQL 切换、构建及真实 Sandbox/TestFlight 验收阻塞，详见「七、当前阻塞项」。
+> **状态快照（2026-08-26）**：App Store Connect production App 为 `Card AI: TCG Card Scanner`（Apple ID `6793017224`，Bundle ID `com.cardai.tcg`）；`CardAi.weekly`、`CardAi.yearly` 与 `CardAi.lifetime` 均已创建且处于准备提交状态。付费 App 协议有效，银行账户可用，美国税表使用中；Production Server URL 已保存为 `https://api.tcgcard.fun/api/v1/apple/notifications/v2`，Sandbox Server URL 尚未设置。production App Store Server API Key 已创建并下载；`APPLE_IAP_PRIVATE_KEY` 已通过待部署 version `4af6f4de-eaa0-4f52-b2ad-9ac268ec7bb8` 暂存，仓库内 Workers prod 白名单已配置，v1.1 目标 PostgreSQL 已写入三条 active `performance_pro` production 商品映射。三个 production Product ID 已写入客户端 `config/production.json`；Singular 两个值由 Cloudflare prod 环境管理，App 改为通过公共 `/app-config` 运行时读取，不进入源码、本机发布 JSON 或构建参数。只读 Cloudflare 回查确认现网 prod 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1，没有 Hyperdrive，尚未包含 Singular 下发代码；Apple G3 根证书也仍只存在于待部署 version `42f3934f-7cb4-41df-85b5-631b4e4b8954`。PostgreSQL `0009` 已于 2026-08-25 应用并完成事务外复核，production/TestFlight 双环境代码尚未部署；完整购买闭环仍被 dev 新 Worker验证、prod D1 数据迁移/冲突审计、prod v1.1 PostgreSQL 切换、构建及真实 Sandbox/TestFlight 验收阻塞，详见「七、当前阻塞项」。
 >
 > **dev 部署增量（2026-08-25）**：上述“dev 新 Worker 验证”已完成。提交 `38088799db8a96287c16c3ba456327e06196c657` 对应 Cloudflare dev version `1c4ea3b1-ec2f-4c79-a77c-026d84292aeb`，当前承载 100% dev 流量；`/api/v1/health`、Admin HTML 与新 Scan reservation 未授权边界烟测通过。production 仍保持原 deployment/version、D1 数据源和未设置 Sandbox Server URL 的状态，本次未修改 prod。
 >
@@ -148,20 +148,18 @@ flutter build ipa --release `
 
 dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。2026-08-13 远程 dev D1 写入的三个 active `performance_pro` 商品映射已在 2026-08-17 迁入共享 PostgreSQL，正式 dev Worker/Admin version `73766f12-d888-4e94-ba2c-f990ef00ec43` 已部署。2026-08-25 已确认 production Product ID 为 `CardAi.weekly`、`CardAi.yearly`、`CardAi.lifetime`，并写入 `apps/flutter-app/config/production.json` 与 Workers prod 白名单；共享 PostgreSQL 已写入对应的三条 active `performance_pro` production 商品映射。Workers prod 配置仍待正式部署生效。当前客户端只请求非空 Product ID：App Store 商品目录已配置但 StoreKit 未返回的 SKU 使用上表美元价格兜底展示，仍不进入 StoreKit 可购买商品集合；Apple 商品目录未配置及 Android 未启用销售时保持原不可用状态，不展示 App Store 兜底价。
 
-Singular 使用同一份 `--dart-define-from-file` 环境配置注入，不在仓库写入正式密钥：
+Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 Cloudflare 对应环境管理，Worker 的公共 `/app-config` 下发给移动客户端：
 
-| 配置 | Dart Define |
+| 配置 | Cloudflare 环境变量 |
 |---|---|
 | Singular API Key | `SINGULAR_API_KEY` |
 | Singular Secret Key | `SINGULAR_SECRET_KEY` |
 
-三个 production Product ID 是非敏感配置，保存在仓库内 `apps/flutter-app/config/production.json`。Singular 两个字段仍只写入仓库外受控发布 JSON，不得提交仓库；该外部 JSON 必须同时包含相同的三个 Product ID，因为发布脚本读取完整文件而不与仓库内配置合并。普通开发构建按业务规则降级；`tool/release_ios.sh` 的 test 内部测试包强制校验 `APP_ENV` 和三个不重复的 Product ID，但允许缺少 Singular Key 并保持归因关闭。production 发布额外强制校验 Singular API Key/Secret，缺项时显式终止，不能沿用 test 的放宽规则。
+三个 production Product ID 是非敏感配置，保存在仓库内 `apps/flutter-app/config/production.json`。Singular 两个字段不写入任何 App Release JSON，也不通过 `--dart-define-from-file` 编译进包；App 启动时请求当前 `APP_ENV` 对应 API 的 `/app-config`，两个字段都有效时才初始化 Singular。接口失败或字段缺失时保持归因关闭，不阻断 App 主流程。
 
-仓库内 `apps/flutter-app/config/test.json` 与 `production.json` 分别记录不敏感的 dev/test 和 production Product ID；Singular 密钥不进入仓库。production 发布时通过 `RELEASE_ENV_CONFIG` 指向仓库外的完整受控文件：
+`/app-config` 是无需登录的公共客户端接口，因此 Singular SDK 凭据会对 App 客户端可见；Cloudflare Secret 管理提供的是不进仓库、环境隔离和轮换能力，不应把该接口用于 `MIXPANEL_API_SECRET`、Apple Private Key 等真正的服务端密钥。prod Worker 必须先发布包含这两个响应字段的版本，再发布依赖运行时获取的 App，否则 Singular 会按降级规则保持关闭。
 
-```bash
-RELEASE_ENV_CONFIG=/secure/path/production.json ./tool/release_ios.sh --env production
-```
+仓库内 `apps/flutter-app/config/test.json` 与 `production.json` 分别记录不敏感的 dev/test 和 production Product ID；正式包可直接使用仓库内 production 配置执行 `./tool/release_ios.sh --env production`。
 
 ---
 

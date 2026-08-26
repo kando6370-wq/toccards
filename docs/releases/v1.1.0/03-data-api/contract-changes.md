@@ -208,6 +208,6 @@ Apple 官方 Node SDK 的证书吊销检查和 Server API 请求依赖 `node-fet
 - `billing_entitlement_grant` 旧 owner 关联只兼容保留，不参与授权。
 - Scan Quota 与 Folder 限制已由服务端基于可信 grant 原子执行；Waiting/自动递补、Processing 删除后的后台结算和 `blocked_action=create_folder` 已按页面内最小上下文实现，非成功或目标失效不执行旧动作。
 - Admin 已可查询原始收件箱失败记录；完整 Decoded Payload 只在授权用户主动打开详情时加载，`signedPayload` 默认不返回，复制 JSON 只由用户主动触发。最新 Admin PRD 未定义额外查看/复制审计表或审计查询功能，本版本不猜测新增该范围。
-- 当前 App 没有 PRD 所述的首次安装网络授权弹窗。按 PRD 同时规定的“不得新增无业务需要权限”，实现没有伪造网络权限，而是在现有 Splash/启动预加载结束后、Onboarding 展示前执行 ATT：仅首次安装且状态为 `notDetermined` 时请求；冷启动不重复请求；后台回前台只读取最新状态并同步 Singular，不主动弹窗。`app_tracking_transparency`、Singular SDK 和 `NSUserTrackingUsageDescription` 已接入；Singular Key 通过 `SINGULAR_API_KEY` / `SINGULAR_SECRET_KEY` 构建参数注入，缺 Key 或 SDK 异常不阻断主流程。正式 Key 与 iOS 真机归因验证仍待完成。
+- 当前 App 没有 PRD 所述的首次安装网络授权弹窗。按 PRD 同时规定的“不得新增无业务需要权限”，实现没有伪造网络权限，而是在现有 Splash/启动预加载结束后、Onboarding 展示前执行 ATT：仅首次安装且状态为 `notDetermined` 时请求；冷启动不重复请求；后台回前台只读取最新状态并同步 Singular，不主动弹窗。`app_tracking_transparency`、Singular SDK 和 `NSUserTrackingUsageDescription` 已接入；App 与 Mixpanel Project Token 使用相同配置链路，通过公共 `/app-config` 读取 Cloudflare 当前环境管理的 `SINGULAR_API_KEY` / `SINGULAR_SECRET_KEY`，不再通过构建参数或本地发布文件注入。接口缺字段、请求失败或 SDK 异常均不阻断主流程，只关闭 Singular。两个值属于必须下发给移动 SDK 的客户端凭据，Cloudflare 负责环境隔离和轮换，但公共接口不能提供服务端保密性。prod Worker 对应代码尚未部署，iOS 真机归因验证仍待完成。
 
 订阅权益上线前必须以最新 v1.1 PRD 评审结论补齐服务端可信证据、会话级 grant、通知状态归约、幂等和异常处理，并完成 Sandbox、TestFlight 及服务端集成验收。
