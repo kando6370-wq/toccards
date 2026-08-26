@@ -148,6 +148,28 @@ void main() {
       );
     },
   );
+
+  test(
+    'unconfigured builds default to production because the default app identity is production',
+    () {
+      final apiEnvironment = File(
+        'lib/shared/api/api_environment.dart',
+      ).readAsStringSync();
+      final iosProject = File(
+        'ios/Runner.xcodeproj/project.pbxproj',
+      ).readAsStringSync();
+      final androidBuild = File(
+        'android/app/build.gradle.kts',
+      ).readAsStringSync();
+
+      expect(apiEnvironment, contains("defaultValue: 'production'"));
+      expect(
+        'PRODUCT_BUNDLE_IDENTIFIER = com.cardai.tcg;'.allMatches(iosProject),
+        hasLength(3),
+      );
+      expect(androidBuild, contains('applicationId = "com.cardai.tcg"'));
+    },
+  );
 }
 
 Map<String, Object?> validConfig() => {

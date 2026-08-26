@@ -3,7 +3,9 @@
 ## Environments
 
 `APP_ENV` selects the API and Mixpanel projects together. The supported values
-are `test` and `production`; the default is `test`.
+are `test` and `production`; the default is `production` so an unconfigured
+build stays aligned with the default production app identity. Test builds must
+explicitly load `config/test.json`.
 
 From the repository root, run the web app with:
 

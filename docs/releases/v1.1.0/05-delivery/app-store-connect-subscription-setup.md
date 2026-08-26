@@ -140,10 +140,8 @@ App Store Connect 中创建的 Product ID 必须与构建参数完全一致：
 PowerShell dev/test 构建示例：
 
 ```powershell
-flutter build ipa --release `
-  --dart-define=SUBSCRIPTION_APP_STORE_WEEKLY_ID=cardx.week `
-  --dart-define=SUBSCRIPTION_APP_STORE_YEARLY_ID=cardx.year `
-  --dart-define=SUBSCRIPTION_APP_STORE_LIFETIME_ID=cardx.lifetime
+flutter build ipa --release --flavor test `
+  --dart-define-from-file=config/test.json
 ```
 
 dev/test Product ID 已写入 `apps/flutter-app/config/test.json`，Workers dev 白名单已写入 `env.dev.vars.APPLE_IAP_PRODUCT_IDS`。2026-08-13 远程 dev D1 写入的三个 active `performance_pro` 商品映射已在 2026-08-17 迁入共享 PostgreSQL，正式 dev Worker/Admin version `73766f12-d888-4e94-ba2c-f990ef00ec43` 已部署。2026-08-25 已确认 production Product ID 为 `CardAi.weekly`、`CardAi.yearly`、`CardAi.lifetime`，并写入 `apps/flutter-app/config/production.json` 与 Workers prod 白名单；共享 PostgreSQL 已写入对应的三条 active `performance_pro` production 商品映射。Workers prod 配置仍待正式部署生效。当前客户端只请求非空 Product ID：App Store 商品目录已配置但 StoreKit 未返回的 SKU 使用上表美元价格兜底展示，仍不进入 StoreKit 可购买商品集合；Apple 商品目录未配置及 Android 未启用销售时保持原不可用状态，不展示 App Store 兜底价。
