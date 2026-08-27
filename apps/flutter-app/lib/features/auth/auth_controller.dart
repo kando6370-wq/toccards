@@ -149,8 +149,10 @@ class AuthController extends Notifier<AuthState> {
         await _repository.deleteCurrentAccount(session);
         await _replaceWithAnonymous();
       } else {
+        final anonymousSession = await _validatedPreviousAnonymousOrCreate();
         await _repository.deleteCurrentAccount(session);
-        await _restorePreviousAnonymousOrCreate();
+        await _repository.persistSession(anonymousSession);
+        state = AuthState.ready(session: anonymousSession);
       }
     });
   }
@@ -292,7 +294,15 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> _loadInitialSession(int generation) async {
     final storedSession = await _repository.currentSessionFromStorage();
-    if (storedSession != null && _hasUsableAccessToken(storedSession)) {
+    final hasUsableAccessToken =
+        storedSession != null && _hasUsableAccessToken(storedSession);
+    final restoredAnonymousSession =
+        hasUsableAccessToken &&
+        storedSession.isAnonymous &&
+        await _matchesPreviousAnonymousSession(storedSession);
+    if (storedSession != null &&
+        hasUsableAccessToken &&
+        !restoredAnonymousSession) {
       if (generation == _generation) {
         state = AuthState.ready(session: storedSession);
       }
@@ -318,8 +328,17 @@ class AuthController extends Notifier<AuthState> {
     if (validSession != null) {
       state = AuthState.ready(session: validSession);
     } else {
+      if (restoredAnonymousSession) {
+        await _repository.clearAnonymousSession();
+      }
       await _replaceWithAnonymous(expectedGeneration: generation);
     }
+  }
+
+  Future<bool> _matchesPreviousAnonymousSession(AuthSession session) async {
+    final previousAnonymous = await _repository
+        .previousAnonymousSessionFromStorage();
+    return previousAnonymous?.refreshToken == session.refreshToken;
   }
 
   Future<void> _replaceWithAnonymous({int? expectedGeneration}) async {
@@ -354,18 +373,6 @@ class AuthController extends Notifier<AuthState> {
     final deviceId =
         ref.read(authDeviceIdProvider) ?? await _storage.readOrCreateDeviceId();
     return _repository.createAnonymousSession(deviceId);
-  }
-
-  Future<void> _restorePreviousAnonymousOrCreate() async {
-    final previousAnonymous = await _repository
-        .previousAnonymousSessionFromStorage();
-    if (previousAnonymous == null) {
-      await _replaceWithAnonymous();
-      return;
-    }
-
-    await _repository.persistSession(previousAnonymous);
-    state = AuthState.ready(session: previousAnonymous);
   }
 
   bool _isExpectedGeneration(int? expectedGeneration) {
