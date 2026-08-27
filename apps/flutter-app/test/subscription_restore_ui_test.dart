@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/app/theme.dart';
@@ -13,6 +14,7 @@ import 'package:kando_app/features/subscription/subscription_entitlement_cache.d
 import 'package:kando_app/features/subscription/subscription_page.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_bottom_sheet_page.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
@@ -86,6 +88,121 @@ void main() {
       expect(configuration.isConfigured, isFalse);
     },
   );
+
+  group('subscription purchase feedback', () {
+    test('maps known StoreKit start failures to specific messages', () {
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(code: 'storekit_duplicate_product_object'),
+        ),
+        subscriptionDuplicatePurchaseMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(
+            code: 'storekit2_purchase_error',
+            message: 'ASDErrorDomain Code=509 No active account',
+          ),
+        ),
+        subscriptionAppStoreAccountMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(code: 'storekit2_failed_to_fetch_product'),
+        ),
+        subscriptionProductUnavailableMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(code: 'Error Domain=StoreKit.StoreKitError Code=3'),
+        ),
+        subscriptionAppStoreTemporaryMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(
+            code: 'storekit2_purchase_error',
+            details: const {'domain': 'StoreKit.StoreKitError', 'code': 3},
+          ),
+        ),
+        subscriptionAppStoreTemporaryMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(code: 'Error Domain=SKErrorDomain Code=4'),
+        ),
+        subscriptionPurchasesDisabledMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(code: 'future_storekit_error'),
+        ),
+        contains('future_storekit_error'),
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(
+            code: 'Error Domain=FutureStoreError Code=42 details',
+          ),
+        ),
+        contains('FutureStoreError_42'),
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(
+            code: 'storekit2_purchase_error',
+            details: const {'domain': 'FutureStoreError', 'code': 42},
+          ),
+        ),
+        contains('FutureStoreError_42'),
+      );
+    });
+
+    test('maps purchase events without a generic fallback', () {
+      expect(
+        subscriptionPurchaseFeedbackMessage(
+          const SubscriptionEvent(
+            failure: SubscriptionFailure(
+              code: 'verification_failed',
+              message: 'Purchase verification failed.',
+            ),
+          ),
+        ),
+        subscriptionPurchaseVerificationMessage,
+      );
+      expect(
+        subscriptionPurchaseFeedbackMessage(
+          const SubscriptionEvent(
+            purchase: SubscriptionPurchase(
+              store: SubscriptionStore.appStore,
+              storeProductId: 'weekly.product',
+              status: SubscriptionPurchaseStatus.failed,
+              verificationData: '',
+              errorCode: 'purchase_error',
+            ),
+            failure: SubscriptionFailure(
+              code: 'purchase_error',
+              message: 'Purchase failed.',
+            ),
+          ),
+        ),
+        contains('purchase_error'),
+      );
+      expect(
+        subscriptionPurchaseFeedbackMessage(
+          const SubscriptionEvent(
+            purchase: SubscriptionPurchase(
+              store: SubscriptionStore.appStore,
+              storeProductId: 'weekly.product',
+              status: SubscriptionPurchaseStatus.canceled,
+              verificationData: '',
+            ),
+          ),
+        ),
+        subscriptionPurchaseCanceledMessage,
+      );
+    });
+  });
 
   test(
     'product loading retries three transient failures within one deadline',
@@ -799,6 +916,32 @@ void main() {
     },
   );
 
+  testWidgets('subscription errors stay visible for five seconds', (
+    tester,
+  ) async {
+    final host = _RestoreTestHost();
+    await tester.pumpWidget(host.app);
+    await tester.pumpAndSettle();
+
+    host.router.push('/subscription');
+    await tester.pumpAndSettle();
+    host.controller.showError(subscriptionPurchaseCanceledMessage);
+    await tester.pump();
+
+    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.text(subscriptionPurchaseCanceledMessage), findsOneWidget);
+    expect(
+      tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
+      KandoTopToastType.warning,
+    );
+
+    await tester.pump(const Duration(milliseconds: 4900));
+    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
+  });
+
   testWidgets(
     'Profile purchase keeps its source through Success and Start Exploring',
     (tester) async {
@@ -1079,5 +1222,9 @@ class _RestoreTestController extends SubscriptionController {
       resultEventCount: state.resultEventCount + 1,
       restoreSource: SubscriptionRestoreSource.subscriptionPage,
     );
+  }
+
+  void showError(String message) {
+    state = state.copyWith(errorMessage: message);
   }
 }

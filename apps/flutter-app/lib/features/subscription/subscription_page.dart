@@ -22,6 +22,8 @@ const _benefits = [
   'Extended Price History',
 ];
 
+const _subscriptionTopToastDuration = Duration(seconds: 5);
+
 const _subscriptionSheetBackgroundAsset =
     'assets/subscription/sheet_background_1651_9915.png';
 const _subscriptionFullPageBackgroundVideoAsset =
@@ -156,7 +158,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
         showKandoTopToast(
           context,
           message: next.errorMessage!,
-          type: KandoTopToastType.failure,
+          type: _subscriptionToastType(next.errorMessage!),
+          duration: _subscriptionTopToastDuration,
         );
       }
     });
@@ -1906,6 +1909,7 @@ class _LegalLink extends StatelessWidget {
                     context,
                     message: 'Unable to open this page.',
                     type: KandoTopToastType.failure,
+                    duration: _subscriptionTopToastDuration,
                   );
                 }
               }
@@ -1919,4 +1923,18 @@ class _LegalLink extends StatelessWidget {
       ),
     );
   }
+}
+
+KandoTopToastType _subscriptionToastType(String message) {
+  if (message == subscriptionPurchaseNetworkMessage ||
+      message == subscriptionCatalogUnavailableMessage ||
+      message == subscriptionPremiumVerificationUnavailableMessage) {
+    return KandoTopToastType.network;
+  }
+  if (message == subscriptionPurchaseCanceledMessage ||
+      message == subscriptionPurchasePendingMessage ||
+      message == subscriptionDuplicatePurchaseMessage) {
+    return KandoTopToastType.warning;
+  }
+  return KandoTopToastType.failure;
 }

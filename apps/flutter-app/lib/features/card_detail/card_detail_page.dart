@@ -3365,8 +3365,20 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                           Expanded(
                             child: OutlinedButton(
                               key: const Key('pending-collection-delete-all'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                              ),
                               onPressed: actionsEnabled ? onDeleteAll : null,
-                              child: const Text('DELETE ALL CARDS'),
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  'DELETE ALL CARDS',
+                                  maxLines: 1,
+                                  softWrap: false,
+                                ),
+                              ),
                             ),
                           ),
                         ],

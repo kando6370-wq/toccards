@@ -1159,6 +1159,50 @@ void main() {
   });
 
   testWidgets(
+    'pending Review keeps Delete All Cards on one line on narrow phones',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 700);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+        listen: false,
+      );
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'mystery-promo',
+              name: 'Mystery Promo',
+              game: 'Pokemon',
+              setName: 'Promo',
+              metadataLine: 'Promo #001',
+              variantLine: 'Normal',
+            ),
+          );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(find.text('DELETE ALL CARDS')).height,
+        lessThanOrEqualTo(20),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'pending Review preloads adjacent editor data without full Card Detail requests so a warm switch stays interactive',
     (tester) async {
       final repository = _TrackingReviewLoadRepository();

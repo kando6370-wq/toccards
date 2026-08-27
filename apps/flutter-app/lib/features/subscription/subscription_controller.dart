@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:subscription_core/subscription_core.dart';
 
@@ -65,6 +66,204 @@ const subscriptionFallbackDisplayPrices = {
   subscriptionYearlyPlanId: r'$49.99',
   subscriptionLifetimePlanId: r'$79.99',
 };
+
+const subscriptionNotConfiguredMessage =
+    'Subscriptions are not configured in this app. Please contact Support.';
+const subscriptionCatalogUnavailableMessage =
+    'Could not load plans from the App Store. Check your connection.';
+const subscriptionPurchaseNetworkMessage =
+    'Could not reach the App Store. Check your connection and retry.';
+const subscriptionAppStoreAccountMessage =
+    'App Store account verification failed. Check the account and retry.';
+const subscriptionAppStoreTemporaryMessage =
+    'The App Store had a temporary system error. Please retry.';
+const subscriptionPaymentMethodMessage =
+    'Payment could not be approved. Check your App Store payment method.';
+const subscriptionPurchasesDisabledMessage =
+    'Purchases are disabled for this App Store account or device.';
+const subscriptionAppStoreTermsMessage =
+    'Accept the latest App Store terms, then retry this purchase.';
+const subscriptionStorefrontUnavailableMessage =
+    'This plan is not available in your current App Store region.';
+const subscriptionOfferUnavailableMessage =
+    'This subscription offer is not available for this account.';
+const subscriptionDuplicatePurchaseMessage =
+    'This purchase is already processing. Wait a moment and retry.';
+const subscriptionProductUnavailableMessage =
+    'This plan is unavailable in the App Store. Try another plan.';
+const subscriptionPurchaseVerificationMessage =
+    'Purchase completed, but Premium verification failed. Tap Restore.';
+const subscriptionPurchaseUpdatesFailedMessage =
+    'Purchase confirmation was interrupted. Reopen this page and retry.';
+const subscriptionUnknownProductMessage =
+    'Apple returned an unknown subscription plan. Contact Support.';
+const subscriptionPurchasePendingMessage =
+    'Apple is still processing this purchase. Premium will unlock later.';
+const subscriptionPurchaseCanceledMessage =
+    'Purchase not completed. You were not charged. Please try again.';
+const subscriptionPremiumVerificationUnavailableMessage =
+    'Could not verify Premium with Apple. Check your connection and retry.';
+
+String subscriptionPurchaseStartErrorMessage(Object error) {
+  if (error is TimeoutException) return subscriptionPurchaseNetworkMessage;
+  if (error is PlatformException) {
+    return _subscriptionStoreErrorMessage(
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      phase: _SubscriptionStoreErrorPhase.start,
+    );
+  }
+  return _subscriptionStoreErrorMessage(
+    message: error.toString(),
+    phase: _SubscriptionStoreErrorPhase.start,
+  );
+}
+
+String? subscriptionPurchaseFeedbackMessage(SubscriptionEvent event) {
+  final failure = event.failure;
+  if (failure == null) {
+    return switch (event.purchase?.status) {
+      SubscriptionPurchaseStatus.pending => subscriptionPurchasePendingMessage,
+      SubscriptionPurchaseStatus.canceled =>
+        subscriptionPurchaseCanceledMessage,
+      _ => null,
+    };
+  }
+  switch (failure.code) {
+    case 'verification_failed':
+      return subscriptionPurchaseVerificationMessage;
+    case 'purchase_updates_failed':
+      return subscriptionPurchaseUpdatesFailedMessage;
+    case 'unknown_product':
+      return subscriptionUnknownProductMessage;
+  }
+
+  final cause = failure.cause;
+  if (cause is PlatformException) {
+    return _subscriptionStoreErrorMessage(
+      code: cause.code,
+      message: cause.message,
+      details: cause.details,
+      phase: _SubscriptionStoreErrorPhase.completion,
+    );
+  }
+  return _subscriptionStoreErrorMessage(
+    code: event.purchase?.errorCode ?? failure.code,
+    message: event.purchase?.errorMessage ?? failure.message,
+    details: cause,
+    phase: _SubscriptionStoreErrorPhase.completion,
+  );
+}
+
+enum _SubscriptionStoreErrorPhase { start, completion }
+
+String _subscriptionStoreErrorMessage({
+  String? code,
+  String? message,
+  Object? details,
+  required _SubscriptionStoreErrorPhase phase,
+}) {
+  final nativeError = _nativeStoreError(details);
+  final searchable = [
+    code,
+    message,
+    details,
+    nativeError,
+  ].whereType<Object>().join(' ').toLowerCase();
+  if (searchable.contains('duplicate_product') ||
+      searchable.contains('pending transaction')) {
+    return subscriptionDuplicatePurchaseMessage;
+  }
+  if (searchable.contains('no active account') ||
+      searchable.contains('not authenticated') ||
+      searchable.contains('authentication') ||
+      searchable.contains('apple id') ||
+      searchable.contains('asderrordomain code=509')) {
+    return subscriptionAppStoreAccountMessage;
+  }
+  if ((searchable.contains('storekit.storekiterror') &&
+          searchable.contains('code=3')) ||
+      searchable.contains('systemerror')) {
+    return subscriptionAppStoreTemporaryMessage;
+  }
+  if (searchable.contains('skerrordomain code=3') ||
+      searchable.contains('payment invalid') ||
+      searchable.contains('payment method')) {
+    return subscriptionPaymentMethodMessage;
+  }
+  if (searchable.contains('skerrordomain code=4') ||
+      searchable.contains('payment not allowed') ||
+      searchable.contains('purchases disabled')) {
+    return subscriptionPurchasesDisabledMessage;
+  }
+  if (searchable.contains('skerrordomain code=9') ||
+      searchable.contains('privacy acknowledgement')) {
+    return subscriptionAppStoreTermsMessage;
+  }
+  if (searchable.contains('network') ||
+      searchable.contains('internet') ||
+      searchable.contains('offline') ||
+      searchable.contains('connection') ||
+      searchable.contains('skerrordomain code=7') ||
+      searchable.contains('timed out') ||
+      searchable.contains('timeout')) {
+    return subscriptionPurchaseNetworkMessage;
+  }
+  if (searchable.contains('not available in storefront') ||
+      searchable.contains('notavailableinstorefront')) {
+    return subscriptionStorefrontUnavailableMessage;
+  }
+  if (searchable.contains('failed_to_fetch_product') ||
+      searchable.contains('products_error') ||
+      searchable.contains('product_not_available') ||
+      searchable.contains('product not available') ||
+      searchable.contains('product has not been loaded') ||
+      searchable.contains('skerrordomain code=5') ||
+      searchable.contains('storekit_no_response')) {
+    return subscriptionProductUnavailableMessage;
+  }
+  if (searchable.contains('invalid offer') ||
+      searchable.contains('ineligibleforoffer') ||
+      searchable.contains('invalid_signature') ||
+      searchable.contains('missing_offer')) {
+    return subscriptionOfferUnavailableMessage;
+  }
+
+  final safeCode =
+      _safeStoreErrorCode(nativeError) ?? _safeStoreErrorCode(code);
+  final codeSuffix = safeCode == null ? '' : ' (error $safeCode)';
+  return switch (phase) {
+    _SubscriptionStoreErrorPhase.start =>
+      'Purchase could not start$codeSuffix. Please retry.',
+    _SubscriptionStoreErrorPhase.completion =>
+      'Purchase failed$codeSuffix. Check your App Store account.',
+  };
+}
+
+String? _nativeStoreError(Object? details) {
+  if (details is! Map) return null;
+  final domain = details['domain']?.toString().trim();
+  final code = details['code']?.toString().trim();
+  if (domain == null || domain.isEmpty || code == null || code.isEmpty) {
+    return null;
+  }
+  return '$domain Code=$code';
+}
+
+String? _safeStoreErrorCode(String? code) {
+  final trimmed = code?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  final domainCode = RegExp(
+    r'(?:Error Domain=)?([A-Za-z0-9_.]+)\s+Code=(-?\d+)',
+    caseSensitive: false,
+  ).firstMatch(trimmed);
+  if (domainCode != null) {
+    return '${domainCode.group(1)}_${domainCode.group(2)}';
+  }
+  final safe = trimmed.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
+  return safe.length <= 24 ? safe : safe.substring(0, 24);
+}
 
 class AppSubscriptionConfiguration {
   const AppSubscriptionConfiguration({
@@ -451,9 +650,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     final client = _client;
     final store = _store;
     if (client == null || store == null) {
-      state = state.copyWith(
-        errorMessage: 'Subscription products are not configured.',
-      );
+      state = state.copyWith(errorMessage: subscriptionNotConfiguredMessage);
       return;
     }
     state = state.copyWith(
@@ -471,8 +668,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
           state = state.copyWith(
             isLoading: false,
             isPurchasing: false,
-            errorMessage:
-                'Unable to connect to the App Store. Please try again.',
+            errorMessage: subscriptionCatalogUnavailableMessage,
           );
           _purchasePresentationActive = false;
           return;
@@ -505,15 +701,15 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       state = state.copyWith(
         isLoading: false,
         isPurchasing: false,
-        errorMessage: 'Unable to connect to the App Store. Please try again.',
+        errorMessage: subscriptionPurchaseNetworkMessage,
       );
-    } on Object {
+    } on Object catch (error, stackTrace) {
+      debugPrint('Unable to start subscription purchase: $error\n$stackTrace');
       _purchasePresentationActive = false;
       state = state.copyWith(
         isLoading: false,
         isPurchasing: false,
-        errorMessage:
-            'Purchases are unavailable right now. Please try again later.',
+        errorMessage: subscriptionPurchaseStartErrorMessage(error),
       );
     }
   }
@@ -733,9 +929,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       final loaded = await _loadProductsWithRetry();
       state = state.copyWith(
         isLoading: false,
-        errorMessage: loaded
-            ? null
-            : 'Unable to connect to the App Store. Please try again.',
+        errorMessage: loaded ? null : subscriptionCatalogUnavailableMessage,
         clearError: loaded,
       );
     } on Object {
@@ -743,7 +937,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         isLoading: false,
         availablePlanIds: const {},
         unavailablePlanIds: subscriptionPlans.map((plan) => plan.id).toSet(),
-        errorMessage: 'Unable to connect to the App Store. Please try again.',
+        errorMessage: subscriptionCatalogUnavailableMessage,
       );
     }
   }
@@ -820,7 +1014,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         state = state.copyWith(
           premiumState: fallback,
           errorMessage: showFailure
-              ? 'Unable to verify Premium access. Please try again.'
+              ? subscriptionPremiumVerificationUnavailableMessage
               : null,
           clearError: !showFailure,
         );
@@ -940,6 +1134,17 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   }
 
   void _handleEvent(SubscriptionEvent event) {
+    final purchase = event.purchase;
+    debugPrint(
+      'Subscription purchase event: '
+      'status=${purchase?.status.name}, '
+      'productId=${purchase?.storeProductId}, '
+      'errorCode=${purchase?.errorCode}, '
+      'errorMessage=${purchase?.errorMessage}, '
+      'failureCode=${event.failure?.code}, '
+      'failureMessage=${event.failure?.message}, '
+      'failureCause=${event.failure?.cause}',
+    );
     final entitlement = event.entitlement;
     if (entitlement?.isActive == true) {
       final resultEvent = _purchasePresentationActive
@@ -956,7 +1161,6 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         resultEventCount: state.resultEventCount + 1,
         clearError: true,
       );
-      final purchase = event.purchase;
       if (purchase != null) {
         final cache = _cacheFromEvidence(
           purchase.storeProductId,
@@ -984,13 +1188,14 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       }
       return;
     }
+    final feedbackMessage = subscriptionPurchaseFeedbackMessage(event);
     if (event.failure != null) {
       _purchasePresentationActive = false;
       state = state.copyWith(
         isLoading: false,
         isPurchasing: false,
         isPurchasePending: false,
-        errorMessage: 'Something went wrong. Please try again.',
+        errorMessage: feedbackMessage,
       );
       return;
     }
@@ -999,8 +1204,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         isLoading: false,
         isPurchasing: false,
         isPurchasePending: true,
-        errorMessage:
-            'Purchase pending. We will unlock Premium once Apple confirms it.',
+        errorMessage: feedbackMessage,
       );
       return;
     }
@@ -1010,7 +1214,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         isLoading: false,
         isPurchasing: false,
         isPurchasePending: false,
-        clearError: true,
+        errorMessage: feedbackMessage,
       );
     }
   }
