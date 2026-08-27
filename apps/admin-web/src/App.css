@@ -448,14 +448,39 @@ body {
   stroke-width: 3;
 }
 
-.line-chart circle {
+.line-chart .chart-point {
+  cursor: pointer;
+  outline: none;
+}
+
+.line-chart .chart-point circle {
   fill: #0b8793;
+}
+
+.line-chart .chart-point:hover circle,
+.line-chart .chart-point:focus circle {
+  fill: #075e68;
+  stroke: #fff;
+  stroke-width: 2;
 }
 
 .line-chart text {
   fill: #5f7180;
   font-size: 12px;
   text-anchor: middle;
+}
+
+.line-chart .chart-empty {
+  font-size: 14px;
+}
+
+.line-chart .chart-tooltip rect {
+  fill: #12202d;
+}
+
+.line-chart .chart-tooltip text {
+  fill: #fff;
+  font-size: 12px;
 }
 
 .feedback-list {
