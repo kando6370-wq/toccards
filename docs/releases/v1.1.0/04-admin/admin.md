@@ -22,6 +22,8 @@ Admin 是 `apps/admin-web` 构建的 React SPA，静态产物由 Workers assets 
 | 卡牌管理 | 扫描记录管理 | 条件筛选、识别/确认详情、受保护图片 | `/scans*` |
 | App 版本管理 | 版本管理 | iOS/Google 版本和升级行为 | `/app-versions*` |
 
+安装统计的趋势数据按日期正序返回，保证图表时间轴从左到右；明细列表在数据库分页前按首次安装日期倒序，同日期按 UID、国家和平台稳定排序，优先展示最近安装且避免跨页顺序漂移。
+
 Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` 的 `MenuKey` 与 `menuGroups` 没有对应页面。这些是后端能力，不是当前可从 Admin UI 操作的页面。旧 Trending Pin API 已废弃，不再属于 Admin 能力。
 
 ## 3. 角色权限

@@ -344,7 +344,7 @@ const SELECT_INSTALLATION_ROWS_SQL = `
   GROUP BY uid, substr(first_seen_at, 1, 10),
     COALESCE(NULLIF(country_code, ''), 'Unknown'),
     COALESCE(NULLIF(platform, ''), 'Unknown')
-  ORDER BY MIN(first_seen_at) ASC, uid ASC, country ASC, platform ASC
+  ORDER BY date DESC, uid ASC, country ASC, platform ASC
   LIMIT ? OFFSET ?
 `;
 

@@ -277,7 +277,7 @@ class FakeD1Statement {
       const pageSize = Number(this.values[8]);
       const offset = Number(this.values[9]);
       const rows = [...groups.values()].sort((left, right) =>
-        left.date.localeCompare(right.date) ||
+        right.date.localeCompare(left.date) ||
         left.uid.localeCompare(right.uid) ||
         left.country.localeCompare(right.country) ||
         left.platform.localeCompare(right.platform));
@@ -792,6 +792,59 @@ describe("admin routes", () => {
       expect.stringContaining("LIMIT ? OFFSET ?"),
     ]);
     expect(installationQueries.every((sql) => sql.includes(" WHERE "))).toBe(true);
+  });
+
+  it("orders installation detail rows newest first because operators and paginated results must prioritize recent installs", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-install-order", "install-order@example.com", "correct-password", "operator");
+    env.DB.installations.push(
+      {
+        installation_id: "install-oldest",
+        uid: "100001",
+        platform: "iOS",
+        country_code: "US",
+        first_seen_at: "2026-07-07T08:00:00.000Z",
+        last_seen_at: "2026-07-07T08:00:00.000Z",
+      },
+      {
+        installation_id: "install-newest",
+        uid: "100003",
+        platform: "Android",
+        country_code: "CA",
+        first_seen_at: "2026-07-09T08:00:00.000Z",
+        last_seen_at: "2026-07-09T08:00:00.000Z",
+      },
+      {
+        installation_id: "install-middle",
+        uid: "100002",
+        platform: "iOS",
+        country_code: "GB",
+        first_seen_at: "2026-07-08T08:00:00.000Z",
+        last_seen_at: "2026-07-08T08:00:00.000Z",
+      },
+    );
+    const login = await loginAdmin(env, "install-order@example.com", "correct-password");
+
+    const response = await requestAdmin(
+      env,
+      "/analytics/installations?page_size=100",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    const body = await response.json() as {
+      data: { rows: Array<{ date: string }> };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.rows.map((row) => row.date)).toEqual([
+      "2026-07-09",
+      "2026-07-08",
+      "2026-07-07",
+    ]);
+    expect(env.DB.preparedSql).toContainEqual(expect.stringContaining(
+      "ORDER BY date DESC, uid ASC, country ASC, platform ASC",
+    ));
   });
 
   it("limits grouped installation rows to 100 while keeping full aggregates because response pagination must bound Hyperdrive results", async () => {
