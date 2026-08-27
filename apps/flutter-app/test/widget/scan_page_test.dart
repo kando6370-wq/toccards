@@ -139,24 +139,68 @@ void main() {
     },
   );
 
-  testWidgets(
-    'the quota prompt stays tappable so free users can open the paywall',
-    (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.padding = const FakeViewPadding(top: 62);
-      addTearDown(tester.view.reset);
-      await _pumpScanTestApp(tester);
+  testWidgets('the top Pro quota card opens the full Scan Subscription Page', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 62);
+    addTearDown(tester.view.reset);
+    await _pumpScanTestApp(tester);
 
-      final quotaPrompt = tester.getRect(
-        find.byKey(const Key('scan-free-quota-pill')),
+    final quotaPrompt = tester.getRect(
+      find.byKey(const Key('scan-free-quota-pill')),
+    );
+
+    await tester.tapAt(quotaPrompt.center);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Subscription'), findsOneWidget);
+    final query = tester
+        .widget<Text>(find.byKey(const Key('subscription-test-query')))
+        .data!;
+    final parameters = Uri.splitQueryString(query);
+    expect(parameters['source'], 'scan');
+    expect(parameters['entry_source'], 'scan_pro_card');
+    expect(parameters.containsKey('presentation'), isFalse);
+  });
+
+  testWidgets(
+    'top Pro card purchase Success returns without a duplicate Premium unlocked toast',
+    (tester) async {
+      await _pumpScanTestApp(
+        tester,
+        subscriptionResult: SubscriptionPaywallResult.premiumUnlocked,
       );
 
-      await tester.tapAt(quotaPrompt.center);
+      await tester.tap(find.byKey(const Key('scan-free-quota-pill')));
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('subscription-test-result')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.text('Subscription'), findsOneWidget);
+      expect(find.byKey(const Key('scan-page-test-boundary')), findsOneWidget);
+      expect(find.byKey(const Key('premium-unlocked-toast')), findsNothing);
     },
   );
+
+  testWidgets('top Pro card Restore still shows its success feedback', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(
+      tester,
+      subscriptionResult: SubscriptionPaywallResult.premiumRestored,
+    );
+
+    await tester.tap(find.byKey(const Key('scan-free-quota-pill')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('subscription-test-result')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byKey(const Key('scan-page-test-boundary')), findsOneWidget);
+    expect(find.text('Premium restored'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
 
   testWidgets(
     'a completed free scan consumes one allowance so the displayed limit stays truthful',
@@ -264,9 +308,11 @@ void main() {
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('subscription-test-result')));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.byKey(const Key('scan-page-test-boundary')), findsOneWidget);
+      expect(find.byKey(const Key('premium-unlocked-toast')), findsOneWidget);
       expect(source.photoCallCount, 0);
       expect(subscription.synchronizeCount, 1);
       await tester.pump(const Duration(seconds: 3));
@@ -297,22 +343,23 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Pro scanning stays unlimited and does not consume the free allowance',
-    (tester) async {
-      await _pumpScanTestApp(
-        tester,
-        subscriptionController: _ProScanSubscriptionController.new,
-      );
+  testWidgets('Pro scanning stays unlimited without showing a quota prompt', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(
+      tester,
+      subscriptionController: _ProScanSubscriptionController.new,
+    );
 
-      expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
-      expect(find.text('Unlimited scans'), findsOneWidget);
-      await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump();
+    expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+    expect(find.byKey(const Key('scan-unlimited-pill')), findsNothing);
+    expect(find.text('Unlimited scans'), findsNothing);
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
 
-      expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
-    },
-  );
+    expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+    expect(find.byKey(const Key('scan-unlimited-pill')), findsNothing);
+  });
 
   testWidgets(
     'server Unlimited hides Free quota while local entitlement catches up',
@@ -320,6 +367,8 @@ void main() {
       await _pumpScanTestApp(tester, scanQuota: _unlimitedQuota);
 
       expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+      expect(find.byKey(const Key('scan-unlimited-pill')), findsNothing);
+      expect(find.text('Unlimited scans'), findsNothing);
     },
   );
 
@@ -4359,13 +4408,22 @@ class _ScanTestAppWithRoutes extends StatelessWidget {
             path: '/subscription',
             builder: (context, state) => Scaffold(
               body: Center(
-                child: subscriptionResult == null
-                    ? const Text('Subscription')
-                    : TextButton(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Subscription'),
+                    Text(
+                      state.uri.query,
+                      key: const Key('subscription-test-query'),
+                    ),
+                    if (subscriptionResult != null)
+                      TextButton(
                         key: const Key('subscription-test-result'),
                         onPressed: () => context.pop(subscriptionResult),
                         child: const Text('Unlock Premium'),
                       ),
+                  ],
+                ),
               ),
             ),
           ),

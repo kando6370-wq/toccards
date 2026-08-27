@@ -942,36 +942,70 @@ void main() {
     expect(find.byKey(const Key('kando-top-toast')), findsNothing);
   });
 
-  testWidgets(
-    'Profile purchase keeps its source through Success and Start Exploring',
-    (tester) async {
-      final host = _RestoreTestHost(initialLocation: '/profile');
-      await tester.pumpWidget(host.app);
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const Key('profile-state')), 'kept');
+  for (final source in ['home', 'search', 'collection', 'profile', 'scan']) {
+    testWidgets(
+      '$source purchase keeps its source through Success and Start Exploring',
+      (tester) async {
+        final host = _RestoreTestHost(initialLocation: '/$source');
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(Key('$source-state')), 'kept');
 
-      host.router.push('/subscription?source=profile');
-      await tester.pumpAndSettle();
-      host.controller.emit(
-        SubscriptionResultEvent.purchaseSuccess,
-        isPro: true,
-      );
-      await tester.pumpAndSettle();
+        host.router.push(
+          subscriptionPageLocation(
+            source: source,
+            entrySource: source == 'scan'
+                ? 'scan_pro_card'
+                : 'top_subscription_entry',
+          ),
+        );
+        await tester.pumpAndSettle();
+        host.controller.emit(
+          SubscriptionResultEvent.purchaseSuccess,
+          isPro: true,
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text("You're Premium!"), findsOneWidget);
-      final startExploring = find.byKey(
-        const Key('subscription-success-continue'),
-      );
-      await tester.ensureVisible(startExploring);
-      await tester.pump();
-      await tester.tap(startExploring);
-      await tester.pumpAndSettle();
+        expect(find.text("You're Premium!"), findsOneWidget);
+        final startExploring = find.byKey(
+          const Key('subscription-success-continue'),
+        );
+        await tester.ensureVisible(startExploring);
+        await tester.pump();
+        await tester.tap(startExploring);
+        await tester.pumpAndSettle();
 
-      expect(find.text('Profile Page'), findsOneWidget);
-      expect(find.text('kept'), findsOneWidget);
-      expect(find.text('Choose Your Plan'), findsNothing);
-    },
-  );
+        expect(find.text('${_capitalized(source)} Page'), findsOneWidget);
+        expect(find.text('kept'), findsOneWidget);
+        expect(find.text('Choose Your Plan'), findsNothing);
+        expect(find.text("You're Premium!"), findsNothing);
+        expect(host.router.canPop(), isFalse);
+      },
+    );
+  }
+
+  testWidgets('cold-start purchase Success continues to Home', (tester) async {
+    final host = _RestoreTestHost();
+    await tester.pumpWidget(host.app);
+    await tester.pumpAndSettle();
+
+    host.router.push('/subscription?source=cold_start');
+    await tester.pumpAndSettle();
+    host.controller.emit(SubscriptionResultEvent.purchaseSuccess, isPro: true);
+    await tester.pumpAndSettle();
+
+    final startExploring = find.byKey(
+      const Key('subscription-success-continue'),
+    );
+    await tester.ensureVisible(startExploring);
+    await tester.tap(startExploring);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home Page'), findsOneWidget);
+    expect(find.text('Choose Your Plan'), findsNothing);
+    expect(find.text("You're Premium!"), findsNothing);
+    expect(host.router.canPop(), isFalse);
+  });
 
   testWidgets(
     'Repeated premium events do not dismiss the purchase Success page',
@@ -1030,6 +1064,9 @@ void _returnAppToForeground(WidgetTester tester) {
   tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
 }
 
+String _capitalized(String value) =>
+    '${value.substring(0, 1).toUpperCase()}${value.substring(1)}';
+
 class _RestoreTestHost {
   _RestoreTestHost({
     _RestoreTestController? controller,
@@ -1057,6 +1094,7 @@ class _RestoreTestHost {
             final page = SubscriptionPage(
               sheet: sheet,
               source: state.uri.queryParameters['source'],
+              entrySource: state.uri.queryParameters['entry_source'],
             );
             if (sheet) {
               return KandoBottomSheetPage<SubscriptionPaywallResult>(
@@ -1080,18 +1118,23 @@ class _RestoreTestHost {
         ),
         GoRoute(
           path: '/home',
-          builder: (_, _) => const Scaffold(body: Text('Home Page')),
+          builder: (_, _) => const _SourceStatePage(source: 'home'),
+        ),
+        GoRoute(
+          path: '/search',
+          builder: (_, _) => const _SourceStatePage(source: 'search'),
+        ),
+        GoRoute(
+          path: '/collection',
+          builder: (_, _) => const _SourceStatePage(source: 'collection'),
         ),
         GoRoute(
           path: '/profile',
-          builder: (_, _) => const Scaffold(
-            body: Column(
-              children: [
-                Text('Profile Page'),
-                TextField(key: Key('profile-state')),
-              ],
-            ),
-          ),
+          builder: (_, _) => const _SourceStatePage(source: 'profile'),
+        ),
+        GoRoute(
+          path: '/scan',
+          builder: (_, _) => const _SourceStatePage(source: 'scan'),
         ),
       ],
     );
@@ -1114,6 +1157,24 @@ class _RestoreTestHost {
   final _RestoreTestController controller;
   late final GoRouter router;
   late final Widget app;
+}
+
+class _SourceStatePage extends StatelessWidget {
+  const _SourceStatePage({required this.source});
+
+  final String source;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          Text('${_capitalized(source)} Page'),
+          TextField(key: Key('$source-state')),
+        ],
+      ),
+    );
+  }
 }
 
 class _RecordingProfileActions implements ProfileActions {

@@ -70,7 +70,7 @@ Apple entitlement 的 purchase challenge、Fresh Purchase JWS 同步、App Attes
 
 Subscription Page 固定使用 `Choose Your Plan` 和四项 Premium Benefits；Subscription Success 固定使用 `You're Premium!`、`Your premium features are now unlocked.`、相同四项权益及 `Start Exploring`。Wishlist 不属于 Premium，Success 不提供额外的 `Manage subscription` 正常出口。
 
-Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时显示，Unknown/Premium 隐藏；四个入口均使用 `presentation=sheet` 打开 Subscription Bottom Sheet，并分别携带 `source=home/search/collection/profile` 与 `entry_source=top_subscription_entry`。Profile Banner 同样使用 Bottom Sheet，并携带 `source=profile&entry_source=profile_banner`；启动门禁使用 `onboarding/cold_start`，Scan Pro Card 使用 `scan`，两者仍打开完整 Subscription Page，Scan 顶部及二级页面不挂载入口。Bottom Sheet 的 Purchase/Restore Success 直接关闭并返回来源页，不进入 Subscription Success；完整页面的 Purchase Success 继续将来源及入口来源传入 Subscription Success，并通过 `push/pop` 保留来源页面实例。
+Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时显示，Unknown/Premium 隐藏；四个入口均打开完整 Subscription Page，分别携带 `source=home/search/collection/profile` 与 `entry_source=top_subscription_entry`，不携带 `presentation=sheet`。Profile Banner / `Upgrade Now` 同样使用 Full Page，并携带 `source=profile&entry_source=profile_banner`；启动门禁使用 `onboarding/cold_start`，Scan 页面顶部 Pro 次数提示卡使用 `source=scan&entry_source=scan_pro_card`，均打开完整 Subscription Page。Full Page 的 StoreKit verified Purchase Success 将来源及入口来源传入 Subscription Success；`Start Exploring` 通过 `push/pop` 移除 Success 和 Subscription Page，返回并保留 Home/Search/Collection/Profile/Scan 来源页面实例，`onboarding/cold_start` 或来源缺失进入 Home。Home Performance、Card Detail 1Y、Scan Capture/Gallery 额度耗尽与 Waiting Card 等功能卡点仍使用 `presentation=sheet` 的 Functional Paywall，其 Purchase/Restore Success 直接关闭并返回功能来源，不进入 Subscription Success。
 
 ## Admin 订单与通知契约
 

@@ -40,6 +40,14 @@ void main() {
       expect(tester.getSize(bar), const Size(350, 62));
       expect(tester.getBottomRight(bar), const Offset(370, 822));
       expect(tester.getSize(scan), const Size.square(64));
+      expect(
+        tester.getTopLeft(scan).dx,
+        closeTo(tester.getBottomRight(search).dx, 0.01),
+      );
+      expect(
+        tester.getBottomRight(scan).dx,
+        closeTo(tester.getTopLeft(collection).dx, 0.01),
+      );
       expect(tester.getTopLeft(home).dx, 20);
       expect(tester.getBottomRight(profile).dx, 370);
       expect(tester.getCenter(home).dx, lessThan(tester.getCenter(search).dx));
@@ -77,6 +85,46 @@ void main() {
       expect(find.text('Collection'), findsOneWidget);
     },
   );
+
+  testWidgets('the visible top of the Scan button opens Scan', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(
+          path: '/home',
+          builder: (_, _) => const KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
+          ),
+        ),
+        GoRoute(
+          path: '/scan',
+          builder: (_, _) =>
+              const Scaffold(body: Center(child: Text('Scan target'))),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+
+    final scanRect = tester.getRect(find.byKey(const Key('kando-tab-scan')));
+    final overflowRect = tester.getRect(
+      find.byKey(const Key('kando-tab-scan-overflow-hit-region')),
+    );
+    expect(overflowRect.size, const Size(64, 21));
+    expect(overflowRect.topLeft, scanRect.topLeft);
+    await tester.tapAt(Offset(scanRect.center.dx, scanRect.top + 4));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scan target'), findsOneWidget);
+  });
 
   testWidgets('tab scaffold extends content behind translucent tab bar', (
     tester,

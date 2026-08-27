@@ -2090,7 +2090,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     remainingScans: hasPremiumAccess
                         ? null
                         : quota.remainingScans,
-                    unlimitedScans: hasPremiumAccess,
                     onClosePressed: _handleClosePressed,
                     onFlashPressed: _cameraSession == null
                         ? null
@@ -2099,7 +2098,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     onUpgradePressed: () async {
                       final result = await context
                           .push<SubscriptionPaywallResult>(
-                            scanSubscriptionLocation,
+                            subscriptionPageLocation(
+                              source: 'scan',
+                              entrySource: 'scan_pro_card',
+                            ),
                           );
                       if (!mounted || !context.mounted || result == null) {
                         return;
@@ -2109,8 +2111,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
                           context,
                           type: SubscriptionRestoreResultType.premiumRestored,
                         );
-                      } else {
-                        showPremiumUnlockedToast(context);
                       }
                       unawaited(_synchronizePremiumForScan());
                     },
@@ -2158,7 +2158,6 @@ class _ScanCameraView extends StatelessWidget {
     required this.cards,
     required this.currency,
     required this.remainingScans,
-    required this.unlimitedScans,
     required this.onClosePressed,
     required this.onFlashPressed,
     required this.onSearchPressed,
@@ -2186,7 +2185,6 @@ class _ScanCameraView extends StatelessWidget {
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
   final int? remainingScans;
-  final bool unlimitedScans;
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final VoidCallback onSearchPressed;
@@ -2315,10 +2313,7 @@ class _ScanCameraView extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               const _AlignCardPill(),
-              if (unlimitedScans) ...[
-                const SizedBox(height: 6),
-                const _ScanUnlimitedPill(),
-              ] else if (remainingScans != null) ...[
+              if (remainingScans != null) ...[
                 const SizedBox(height: 6),
                 _ScanQuotaPill(
                   remainingScans: remainingScans!,
@@ -2568,41 +2563,6 @@ class _ScanQuotaPill extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ScanUnlimitedPill extends StatelessWidget {
-  const _ScanUnlimitedPill();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const Key('scan-unlimited-pill'),
-      width: 209,
-      height: 48,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: const Color(0xFF222222),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x40000000),
-            offset: Offset(0, 23.585),
-            blurRadius: 23.585,
-          ),
-        ],
-      ),
-      child: const Text(
-        'Unlimited scans',
-        style: TextStyle(
-          color: Color(0xFFE4E3D3),
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-          height: 16 / 13,
-          letterSpacing: 0,
         ),
       ),
     );

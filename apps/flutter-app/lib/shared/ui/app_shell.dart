@@ -25,11 +25,20 @@ class KandoTabScaffold extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final tabBarBottomPadding =
+        (bottomInset > 32 ? bottomInset : 32) - _FigmaTabBarState._bottomOffset;
     final pendingCount = ref.watch(
       pendingCollectionProvider.select((items) => items.length),
     );
     final showPendingNotice =
         currentTab == KandoMainTab.search && pendingCount > 0;
+    void selectTab(KandoMainTab next) {
+      if (next != currentTab) {
+        context.go(_pathForTab(next));
+      }
+    }
+
     return Theme(
       data: _tabTheme(context),
       child: Scaffold(
@@ -48,15 +57,29 @@ class KandoTabScaffold extends ConsumerWidget {
                   onReview: onPendingCollectionReview,
                 ),
               ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: tabBarBottomPadding + _FigmaTabBarState._barHeight,
+              height: -_FigmaTabBarState._scanButtonTop,
+              child: Center(
+                child: GestureDetector(
+                  key: const Key('kando-tab-scan-overflow-hit-region'),
+                  behavior: HitTestBehavior.opaque,
+                  excludeFromSemantics: true,
+                  onTap: () => selectTab(KandoMainTab.scan),
+                  child: const SizedBox(
+                    width: _FigmaTabBarState._scanButtonSize,
+                    height: -_FigmaTabBarState._scanButtonTop,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
         bottomNavigationBar: _FigmaTabBar(
           currentTab: currentTab,
-          onSelected: (next) {
-            if (next != currentTab) {
-              context.go(_pathForTab(next));
-            }
-          },
+          onSelected: selectTab,
         ),
       ),
     );
@@ -399,6 +422,7 @@ class _FigmaTabBarState extends State<_FigmaTabBar> {
                     child: Center(
                       child: GestureDetector(
                         key: const Key('kando-tab-scan'),
+                        behavior: HitTestBehavior.opaque,
                         onTap: () => _selectTab(KandoMainTab.scan),
                         child: Container(
                           width: _scanButtonSize,

@@ -62,14 +62,10 @@ class PremiumTopEntry extends ConsumerWidget {
 
     void onPressed() {
       context.push(
-        Uri(
-          path: '/subscription',
-          queryParameters: {
-            'source': source,
-            'entry_source': 'top_subscription_entry',
-            'presentation': 'sheet',
-          },
-        ).toString(),
+        subscriptionPageLocation(
+          source: source,
+          entrySource: 'top_subscription_entry',
+        ),
       );
     }
 

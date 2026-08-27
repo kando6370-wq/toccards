@@ -21,9 +21,16 @@ const subscriptionWeeklyPlanId = 'weekly';
 const subscriptionYearlyPlanId = 'yearly';
 const subscriptionLifetimePlanId = 'lifetime';
 const subscriptionSheetLocation = '/subscription?presentation=sheet';
-const scanSubscriptionLocation = '/subscription?source=scan';
-const profileSubscriptionLocation =
-    '/subscription?source=profile&entry_source=profile_banner&presentation=sheet';
+
+String subscriptionPageLocation({
+  required String source,
+  required String entrySource,
+}) {
+  return Uri(
+    path: '/subscription',
+    queryParameters: {'source': source, 'entry_source': entrySource},
+  ).toString();
+}
 
 enum SubscriptionPaywallResult { premiumUnlocked, premiumRestored }
 

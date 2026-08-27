@@ -31,6 +31,8 @@ const _subscriptionFullPageBackgroundVideoAsset =
 const _subscriptionFullPageBackgroundVideoAspectRatio = 608 / 1080;
 const _subscriptionSuccessTrophyAsset =
     'assets/subscription/success_trophy_2090_17166.svg';
+const _subscriptionBenefitCheckAsset =
+    'assets/subscription/benefit_check_2090_17443.svg';
 // Figma 2090:17166 uses one shared normalized timeline for all 24 nodes.
 const _subscriptionSuccessMotionDuration = Duration(milliseconds: 2350);
 const _successRevealCurve = Cubic(0.22, 1, 0.36, 1);
@@ -175,7 +177,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
       },
       child: Stack(
         children: [
-          if (!useUpdatedSheetUi)
+          if (widget.sheet && !useUpdatedSheetUi)
             Positioned.fill(
               child: _PaywallBackground(useUpdatedSheetUi: false),
             ),
@@ -196,11 +198,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                       ),
                     ),
                     const SizedBox(height: 24),
-                    ..._benefits.map(
-                      (benefit) => _BenefitRow(
-                        benefit,
-                        useUpdatedSheetUi: useUpdatedSheetUi,
-                      ),
+                    ..._benefits.indexed.map(
+                      (entry) => _BenefitRow(entry.$2, index: entry.$1),
                     ),
                     const SizedBox(height: 18),
                     ...subscriptionPlans.map(
@@ -349,7 +348,14 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     if (!widget.sheet) {
       return Scaffold(
         backgroundColor: KandoColors.ink,
-        body: SafeArea(bottom: false, child: content),
+        body: Stack(
+          children: [
+            const Positioned.fill(
+              child: _PaywallBackground(useUpdatedSheetUi: false),
+            ),
+            SafeArea(bottom: false, child: content),
+          ],
+        ),
       );
     }
     return Scaffold(
@@ -1473,55 +1479,71 @@ class _SubscriptionVideoBackgroundState
 }
 
 class _BenefitRow extends StatelessWidget {
-  const _BenefitRow(this.label, {required this.useUpdatedSheetUi});
+  const _BenefitRow(this.label, {required this.index});
 
   final String label;
-  final bool useUpdatedSheetUi;
+  final int index;
 
   @override
   Widget build(BuildContext context) {
-    final row = Container(
-      height: 50,
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: EdgeInsets.symmetric(horizontal: useUpdatedSheetUi ? 13 : 12),
-      decoration: BoxDecoration(
-        color: useUpdatedSheetUi
-            ? KandoColors.surface.withValues(alpha: 0.4)
-            : KandoColors.ink.withValues(alpha: 0.72),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: ClipRRect(
+        key: Key('subscription-benefit-$index'),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: useUpdatedSheetUi
-              ? _subscriptionSheetItemBorder
-              : KandoColors.borderSubtle,
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+          child: Container(
+            key: Key('subscription-benefit-$index-surface'),
+            height: 50,
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: KandoColors.surface.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _subscriptionSheetItemBorder),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 36,
+                  height: 24,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: KandoColors.accentGlow10,
+                      ),
+                      alignment: Alignment.center,
+                      child: SvgPicture.asset(
+                        _subscriptionBenefitCheckAsset,
+                        key: Key('subscription-benefit-$index-check'),
+                        width: 9.50833,
+                        height: 7.01458,
+                        excludeFromSemantics: true,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    style: const TextStyle(
+                      color: KandoColors.text,
+                      fontSize: 14,
+                      height: 20 / 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: KandoColors.accentGlow10,
-            ),
-            child: const Icon(Icons.check, size: 15, color: KandoColors.accent),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: KandoColors.text, fontSize: 14),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (!useUpdatedSheetUi) return row;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-        child: row,
       ),
     );
   }
