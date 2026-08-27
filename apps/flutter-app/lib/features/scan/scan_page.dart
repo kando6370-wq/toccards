@@ -351,9 +351,10 @@ String _normalizedReviewCondition(String? value) {
 }
 
 class _PendingScan {
-  _PendingScan(this.token);
+  _PendingScan(this.token, {this.quotaPromptBatchId});
 
   final int token;
+  final int? quotaPromptBatchId;
   ScanResolution? resolution;
   var revealTimelineFinished = false;
   var removedFromUi = false;
@@ -381,11 +382,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
   final Map<int, Duration> _scanDurations = {};
   final Map<int, String> _scanResultValues = {};
   final Set<int> _reportedScanResultIds = {};
+  final Set<int> _quotaPromptedBatchIds = {};
   late final AnimationController _captureController;
   ScanCameraSession? _cameraSession;
 
   var _nextScanId = 1;
   var _nextScanToken = 1;
+  var _nextQuotaPromptBatchId = 1;
   var _cameraGeneration = 0;
   var _openingCamera = false;
   var _cameraPausedForLifecycle = false;
@@ -728,6 +731,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
       }
       await _closeCamera();
       var selectedCount = 0;
+      final quotaPromptBatchId = _nextQuotaPromptBatchId;
+      _nextQuotaPromptBatchId += 1;
       final scans = await ref
           .read(scanResultSourceProvider)
           .library(
@@ -742,6 +747,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   displayImageBytes: image.bytes,
                   imageFileName: image.fileName,
                   retainOnQuotaExhausted: true,
+                  quotaPromptBatchId: quotaPromptBatchId,
                 );
               }
             },
@@ -753,6 +759,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             scan,
             usesCameraFeedback: false,
             retainOnQuotaExhausted: true,
+            quotaPromptBatchId: quotaPromptBatchId,
           );
         }
       }
@@ -829,6 +836,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         subscriptionSheetLocation,
       );
       if (!mounted || result == null) return;
+      _markWaitingItemsAsEntitlementSync();
       if (result == SubscriptionPaywallResult.premiumRestored) {
         showSubscriptionRestoreResult(
           context,
@@ -841,6 +849,23 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } finally {
       _quotaPaywallOpen = false;
     }
+  }
+
+  void _markWaitingItemsAsEntitlementSync() {
+    final waitingItems = _items
+        .where((item) => item.status == _ScanItemStatus.waiting)
+        .toList();
+    if (waitingItems.isEmpty) return;
+    setState(() {
+      for (final item in waitingItems) {
+        final index = _items.indexWhere((candidate) => candidate.id == item.id);
+        if (index >= 0) {
+          _items[index] = item.copyWith(
+            status: _ScanItemStatus.entitlementSync,
+          );
+        }
+      }
+    });
   }
 
   Future<void> _refreshQuotaAndResumeWaiting() async {
@@ -1129,6 +1154,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     Uint8List? displayImageBytes,
     String? imageFileName,
     bool retainOnQuotaExhausted = false,
+    int? quotaPromptBatchId,
   }) {
     final id = _nextScanId;
     _nextScanId += 1;
@@ -1148,7 +1174,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
         ),
       );
     });
-    _startScanTimeline(id, resultFuture);
+    _startScanTimeline(
+      id,
+      resultFuture,
+      quotaPromptBatchId: quotaPromptBatchId,
+    );
     return id;
   }
 
@@ -1170,10 +1200,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _replaceItem(item.copyWith(displayImageBytes: bytes));
   }
 
-  void _startScanTimeline(int itemId, Future<ScanResolution> resultFuture) {
+  void _startScanTimeline(
+    int itemId,
+    Future<ScanResolution> resultFuture, {
+    int? quotaPromptBatchId,
+  }) {
     final token = _nextScanToken;
     _nextScanToken += 1;
-    _pendingScans[itemId] = _PendingScan(token);
+    _pendingScans[itemId] = _PendingScan(
+      token,
+      quotaPromptBatchId: quotaPromptBatchId,
+    );
     _watchScanResolution(itemId, token, resultFuture);
 
     final timer = Timer(const Duration(seconds: 1), () {
@@ -1313,6 +1350,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     if (resolution.kind == ScanResolutionKind.quotaExhausted) {
+      final shouldOpenQuotaPaywall =
+          pending.quotaPromptBatchId == null ||
+          _quotaPromptedBatchIds.add(pending.quotaPromptBatchId!);
       _pendingScans.remove(itemId)?.revealController?.dispose();
       final item = _items.where((item) => item.id == itemId).firstOrNull;
       if (item?.retainOnQuotaExhausted == true) {
@@ -1327,7 +1367,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
       } else {
         setState(() => _items.removeWhere((item) => item.id == itemId));
       }
-      unawaited(_openQuotaPaywall());
+      if (shouldOpenQuotaPaywall) {
+        unawaited(_openQuotaPaywall());
+      }
       return;
     }
     if (resolution.kind == ScanResolutionKind.entitlementSyncRequired) {
@@ -2106,6 +2148,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                       if (!mounted || !context.mounted || result == null) {
                         return;
                       }
+                      _markWaitingItemsAsEntitlementSync();
                       if (result == SubscriptionPaywallResult.premiumRestored) {
                         showSubscriptionRestoreResult(
                           context,

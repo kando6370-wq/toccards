@@ -256,6 +256,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-08-27 底部 TabBar Scan 点击区域修复：根因是 64×64 Scan 圆按钮相对 62px TabBar 向上突出 21px，但 Flutter 父级 RenderBox 只在自身边界内执行命中测试，导致按钮顶部 21px 可见却无法点击。现保持 TabBar、圆按钮视觉位置和中间 64px 横向槽位不变，仅在页面层补齐与按钮顶部对齐的 64×21px 透明命中区，并让原 64×64 手势区域完整响应；透明区不提供重复 Semantics，不覆盖 Search 或 Collection。修复前点击按钮顶部 4px 的回归稳定无法进入 Scan，修复后顶部点击、64×21 几何、左右边界无重叠、原 350×62 TabBar 尺寸及 Home→Scan 路由回归通过，`flutter analyze`、Dart 格式和 `git diff --check` 通过。App Shell 8 项中 7 项通过，唯一失败仍为既有 TabBar Golden 5.00% 文字像素差异，未更新基线；Code Review 未发现阻断项。连接中的 iOS 15.6 真机已热重载，当前 Home Widget 树确认原 Scan 按钮与新增透明区同时挂载；iOS 点击手感和 Android 真机仍待人工验收。
 
+- 2026-08-27 Profile Restore 账号验证门禁修复：根因是显式 Restore 在 `AppStore.sync()` 返回 `StoreKit.StoreKitError code=3` 后仍读取设备上的 `Transaction.currentEntitlements`，导致密码错误或取消账号验证时可能复用残留的 verified entitlement 并错误触发 `Premium restored`。现显式 Restore 必须先成功完成 App Store 同步，任意同步取消或失败均停止本次流程，不读取旧 entitlement、不写缓存或 grant，沿用现有 Restore Failed 反馈并保持操作前权益；同步成功后仍按最新 verified current entitlements 区分 Success 与 Not Found。修复前回归稳定得到错误的 Success，修复后订阅/权益相关 6 个测试文件 62/62、Profile Restore 容器行为 1/1、`flutter analyze` 和 Dart 格式通过。扩展 Profile 文件运行中 4 项既有 Golden 像素差异失败，行为测试均通过且本次未修改 UI 或 Golden；Code Review 未发现阻断项。共享 Subscription Page Restore 同步收紧，后台静默 entitlement proof 路径、Workers API、Schema、购买与续订逻辑不变；iOS Sandbox/TestFlight 的正确密码、错误密码和取消三条原始真机路径仍需复验，Android v1.1 未启用订阅销售。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。

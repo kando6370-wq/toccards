@@ -85,13 +85,14 @@ void main() {
   });
 
   test(
-    'Restore uses a verified current entitlement when StoreKit synchronization reports system error',
+    'Restore does not reuse a current entitlement when App Store authentication fails',
     () async {
+      final error = PlatformException(
+        code: 'apple_restore_failed',
+        details: const {'domain': 'StoreKit.StoreKitError', 'code': 3},
+      );
       final reader = _SynchronizationFailureReader(
-        error: PlatformException(
-          code: 'apple_restore_failed',
-          details: const {'domain': 'StoreKit.StoreKitError', 'code': 3},
-        ),
+        error: error,
         values: const [
           AppleCurrentEntitlement(
             productId: 'ios.yearly',
@@ -100,18 +101,22 @@ void main() {
         ],
       );
 
-      final result = await AppleSubscriptionRestorer(
-        reader: reader,
-      ).restore({'ios.yearly'});
-
-      expect(result.isSuccess, isTrue);
-      expect(result.signedTransactionInfo, 'jws-yearly');
-      expect(reader.readCount, 1);
+      await expectLater(
+        AppleSubscriptionRestorer(reader: reader).restore({'ios.yearly'}),
+        throwsA(same(error)),
+      );
+      expect(
+        reader.readCount,
+        0,
+        reason:
+            'A cancelled or failed account check must not restore from '
+            'entitlement data left on the device.',
+      );
     },
   );
 
   test(
-    'Restore keeps StoreKit system error as Failed when fallback has no current entitlement',
+    'Restore keeps StoreKit system error as Failed without reading entitlements',
     () async {
       final error = PlatformException(
         code: 'apple_restore_failed',
@@ -126,7 +131,7 @@ void main() {
         AppleSubscriptionRestorer(reader: reader).restore({'ios.yearly'}),
         throwsA(same(error)),
       );
-      expect(reader.readCount, 1);
+      expect(reader.readCount, 0);
     },
   );
 

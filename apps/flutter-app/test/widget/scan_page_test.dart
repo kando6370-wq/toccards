@@ -3038,6 +3038,75 @@ void main() {
   );
 
   testWidgets(
+    'one gallery batch opens the quota paywall once when multiple images exceed the remaining allowance',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final lateQuotaRejection = Completer<ScanResolution>();
+      await _pumpScanTestApp(
+        tester,
+        scanQuota: const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 0,
+          consumed: 9,
+          remaining: 1,
+          unlimited: false,
+        ),
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+          libraryImages: [
+            ScanImage(bytes: bytes, fileName: 'allowed.png'),
+            ScanImage(bytes: bytes, fileName: 'waiting-1.png'),
+            ScanImage(bytes: bytes, fileName: 'waiting-2.png'),
+          ],
+          libraryResults: [
+            Future.value(
+              ScanResolution.noMatch(
+                imageBytes: bytes,
+                imageFileName: 'allowed.png',
+                quota: _exhaustedQuota,
+              ),
+            ),
+            Future.value(
+              ScanResolution.quotaExhausted(
+                imageBytes: bytes,
+                displayImageBytes: bytes,
+                imageFileName: 'waiting-1.png',
+                quota: _exhaustedQuota,
+              ),
+            ),
+            lateQuotaRejection.future,
+          ],
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+      expect(find.text('Subscription'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      lateQuotaRejection.complete(
+        ScanResolution.quotaExhausted(
+          imageBytes: bytes,
+          displayImageBytes: bytes,
+          imageFileName: 'waiting-2.png',
+          quota: _exhaustedQuota,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Subscription'),
+        findsNothing,
+        reason:
+            'One user gallery selection must produce only one quota prompt.',
+      );
+      expect(find.byTooltip('Unlock unlimited scans'), findsNWidgets(2));
+    },
+  );
+
+  testWidgets(
     'Waiting delete removes only that item without opening the paywall',
     (tester) async {
       final bytes = Uint8List.fromList(_transparentPngBytes);
@@ -3149,6 +3218,54 @@ void main() {
 
       expect(source.lastRetryFileName, 'waiting.png');
       expect(quotaController.state.unlimited, isTrue);
+    },
+  );
+
+  testWidgets(
+    'Premium success immediately removes the Waiting paywall action while server entitlement synchronization is pending',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final synchronization = Completer<bool>();
+      final subscription = _SynchronizingScanSubscriptionController(
+        onSynchronize: () => synchronization.future,
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+          libraryImages: [ScanImage(bytes: bytes, fileName: 'waiting.png')],
+          libraryResults: [
+            Future.value(
+              ScanResolution.quotaExhausted(
+                imageBytes: bytes,
+                displayImageBytes: bytes,
+                imageFileName: 'waiting.png',
+                quota: _exhaustedQuota,
+              ),
+            ),
+          ],
+        ),
+        subscriptionController: () => subscription,
+        subscriptionResult: SubscriptionPaywallResult.premiumUnlocked,
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('subscription-test-result')));
+      await tester.pumpAndSettle();
+
+      expect(subscription.synchronizeCount, 1);
+      expect(find.text('Waiting to scan'), findsNothing);
+      expect(find.text('Premium Syncing'), findsOneWidget);
+      expect(find.text('Syncing Premium'), findsOneWidget);
+      expect(find.byTooltip('Unlock unlimited scans'), findsNothing);
+      expect(find.text('Subscription'), findsNothing);
+
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
+      synchronization.complete(true);
+      await tester.pump();
     },
   );
 
