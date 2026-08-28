@@ -6,12 +6,10 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
-final cardPerformanceControllerProvider =
-    NotifierProvider.family<
-      CardPerformanceController,
-      CardPerformanceState,
-      String
-    >(CardPerformanceController.new);
+final cardPerformanceControllerProvider = NotifierProvider.autoDispose
+    .family<CardPerformanceController, CardPerformanceState, String>(
+      CardPerformanceController.new,
+    );
 
 class CardPerformanceState {
   const CardPerformanceState({

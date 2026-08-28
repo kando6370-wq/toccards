@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -219,6 +220,60 @@ void main() {
     expect(actionWidth, heroWidth);
     expect(tabsWidth, heroWidth);
   });
+
+  testWidgets(
+    'owned CardDetail tabs match Figma typography without truncating labels',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+      await tester.pumpAndSettle();
+
+      final tabs = find.byKey(const Key('card-detail-owned-tabs'));
+      await tester.scrollUntilVisible(tabs, 400);
+      await tester.pumpAndSettle();
+
+      final tabBar = tester.widget<TabBar>(
+        find.descendant(of: tabs, matching: find.byType(TabBar)),
+      );
+      expect(tabBar.labelPadding, EdgeInsets.zero);
+
+      TextStyle labelStyle(String label) => DefaultTextStyle.of(
+        tester.element(find.descendant(of: tabs, matching: find.text(label))),
+      ).style;
+
+      for (final label in const ['Collection Item', 'Performance', 'Price']) {
+        final labelFinder = find.descendant(
+          of: tabs,
+          matching: find.text(label),
+        );
+        expect(labelFinder, findsOneWidget);
+        final style = labelStyle(label);
+        expect(style.fontSize, 13);
+        expect(style.height, closeTo(16 / 13, 0.001));
+        expect(style.fontWeight, FontWeight.w400);
+        expect(style.letterSpacing, 0);
+        expect(
+          tester.renderObject<RenderParagraph>(labelFinder).didExceedMaxLines,
+          isFalse,
+        );
+      }
+
+      expect(labelStyle('Collection Item').color, KandoColors.accent);
+      expect(labelStyle('Performance').color, const Color(0xFF92927D));
+      expect(labelStyle('Price').color, const Color(0xFF92927D));
+
+      await tester.tap(find.descendant(of: tabs, matching: find.text('Price')));
+      await tester.pumpAndSettle();
+
+      expect(labelStyle('Collection Item').color, const Color(0xFF92927D));
+      expect(labelStyle('Performance').color, const Color(0xFF92927D));
+      expect(labelStyle('Price').color, KandoColors.accent);
+    },
+  );
 
   testWidgets('uncollected CardDetail renders identity and price overview', (
     tester,
@@ -1774,6 +1829,53 @@ void main() {
   );
 
   testWidgets(
+    'Card Performance keeps its range across tabs but resets to 1M after reentry',
+    (tester) async {
+      BoxDecoration rangeDecoration(String range) {
+        final indicator = find.ancestor(
+          of: find.byKey(Key('card-detail-performance-range-$range')),
+          matching: find.byType(Ink),
+        );
+        expect(indicator, findsOneWidget);
+        return tester.widget<Ink>(indicator).decoration! as BoxDecoration;
+      }
+
+      await tester.pumpWidget(const _CardDetailReentryApp());
+      await tester.tap(find.byKey(const Key('open-card-detail')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(rangeDecoration('1M').gradient, isNotNull);
+      expect(rangeDecoration('3M').gradient, isNull);
+
+      await tester.tap(
+        find.byKey(const Key('card-detail-performance-range-3M')),
+      );
+      await tester.pumpAndSettle();
+      expect(rangeDecoration('3M').gradient, isNotNull);
+
+      await tester.tap(find.text('Price'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+      expect(rangeDecoration('3M').gradient, isNotNull);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('open-card-detail')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(rangeDecoration('1M').gradient, isNotNull);
+      expect(rangeDecoration('3M').gradient, isNull);
+    },
+  );
+
+  testWidgets(
     'owned Collection Item edit keeps keyboard dismissed after changing another field',
     (tester) async {
       await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
@@ -2455,7 +2557,13 @@ class _CardDetailReentryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
-      overrides: _cardDetailOverrides,
+      overrides: [
+        ..._cardDetailOverrides,
+        portfolioApiClientProvider.overrideWithValue(_CardPerformanceApi()),
+        subscriptionControllerProvider.overrideWith(
+          _ProCardSubscriptionController.new,
+        ),
+      ],
       child: MaterialApp(
         home: Builder(
           builder: (context) => Scaffold(

@@ -1175,6 +1175,7 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
                     Colors.transparent,
                   ),
                   splashFactory: NoSplash.splashFactory,
+                  labelPadding: EdgeInsets.zero,
                   indicator: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
@@ -1194,16 +1195,18 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
                     ],
                   ),
                   labelColor: KandoColors.accent,
-                  unselectedLabelColor: KandoColors.mutedText,
+                  unselectedLabelColor: _kCollectionSecondaryText,
                   labelStyle: const TextStyle(
-                    fontSize: 15,
-                    height: 17 / 15,
+                    fontSize: 13,
+                    height: 16 / 13,
                     fontWeight: FontWeight.w400,
+                    letterSpacing: 0,
                   ),
                   unselectedLabelStyle: const TextStyle(
-                    fontSize: 15,
-                    height: 17 / 15,
+                    fontSize: 13,
+                    height: 16 / 13,
                     fontWeight: FontWeight.w400,
+                    letterSpacing: 0,
                   ),
                   tabs: [
                     const Tab(height: 42, text: 'Collection Item'),
@@ -2467,6 +2470,7 @@ class _QuickCollectionReviewPageState
 
     final multiple = pendingItems.length > 1;
     final sheet = _AddCollectionItemSheet(
+      key: ValueKey(pendingItem.id),
       cardId: pendingItem.card.id,
       entrySource: AnalyticsValue.sourceSearch,
       useQuickCollectionController: true,
@@ -3027,6 +3031,7 @@ class _PendingCollectionStrip extends StatelessWidget {
 
 class _AddCollectionItemSheet extends ConsumerWidget {
   const _AddCollectionItemSheet({
+    super.key,
     required this.cardId,
     required this.entrySource,
     this.topContent,

@@ -907,23 +907,46 @@ void main() {
       find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
       findsOneWidget,
     );
-    var quantity = find.descendant(
-      of: find.byKey(const Key('card-detail-item-quantity')),
+
+    Finder field(String key) => find.descendant(
+      of: find.byKey(Key(key)),
       matching: find.byType(TextFormField),
     );
-    expect(tester.widget<TextFormField>(quantity).initialValue, '1');
-    await tester.enterText(quantity, '3');
+    String displayedText(String key) {
+      final editable = find.descendant(
+        of: field(key),
+        matching: find.byType(EditableText),
+      );
+      return tester.widget<EditableText>(editable).controller.text;
+    }
+
+    Future<void> enterField(String key, String value) async {
+      final target = field(key);
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
+      await tester.enterText(target, value);
+    }
+
+    expect(displayedText('card-detail-item-quantity'), '1');
+    await enterField('card-detail-item-quantity', '3');
+    await enterField('card-detail-item-purchase-price', '12.34');
+    await enterField('card-detail-item-notes', 'first card note');
 
     await tester.tap(
       find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
     );
     await tester.pumpAndSettle();
-    quantity = find.descendant(
-      of: find.byKey(const Key('card-detail-item-quantity')),
-      matching: find.byType(TextFormField),
+    expect(
+      [
+        displayedText('card-detail-item-quantity'),
+        displayedText('card-detail-item-purchase-price'),
+        displayedText('card-detail-item-notes'),
+      ],
+      ['1', '', ''],
     );
-    expect(tester.widget<TextFormField>(quantity).initialValue, '1');
-    await tester.enterText(quantity, '4');
+    await enterField('card-detail-item-quantity', '4');
+    await enterField('card-detail-item-purchase-price', '56.78');
+    await enterField('card-detail-item-notes', 'second card note');
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -931,20 +954,26 @@ void main() {
     await tester.tap(find.byKey(const Key('pending-collection-notice')));
     await tester.pumpAndSettle();
 
-    quantity = find.descendant(
-      of: find.byKey(const Key('card-detail-item-quantity')),
-      matching: find.byType(TextFormField),
+    expect(
+      [
+        displayedText('card-detail-item-quantity'),
+        displayedText('card-detail-item-purchase-price'),
+        displayedText('card-detail-item-notes'),
+      ],
+      ['3', '12.34', 'first card note'],
     );
-    expect(tester.widget<TextFormField>(quantity).initialValue, '3');
     await tester.tap(
       find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
     );
     await tester.pumpAndSettle();
-    quantity = find.descendant(
-      of: find.byKey(const Key('card-detail-item-quantity')),
-      matching: find.byType(TextFormField),
+    expect(
+      [
+        displayedText('card-detail-item-quantity'),
+        displayedText('card-detail-item-purchase-price'),
+        displayedText('card-detail-item-notes'),
+      ],
+      ['4', '56.78', 'second card note'],
     );
-    expect(tester.widget<TextFormField>(quantity).initialValue, '4');
 
     await tester.tap(find.byKey(const Key('pending-collection-delete')));
     await tester.pumpAndSettle();
