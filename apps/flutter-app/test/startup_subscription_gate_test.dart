@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/subscription/startup_subscription_gate.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
@@ -73,6 +74,62 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Home ready'), findsOneWidget);
   });
+
+  testWidgets(
+    'onboarding purchase stays on Success until Start Exploring is tapped',
+    (tester) async {
+      final controller = _StartupSubscriptionController(AppPremiumState.free);
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const StartupSubscriptionGate(
+              source: 'onboarding',
+              home: Text('Home ready'),
+            ),
+          ),
+          GoRoute(
+            path: '/subscription/success',
+            builder: (_, state) => SubscriptionSuccessPage(
+              source: state.uri.queryParameters['source'],
+            ),
+          ),
+          GoRoute(path: '/home', builder: (_, _) => const Text('Home ready')),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            subscriptionControllerProvider.overrideWith(() => controller),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(SubscriptionPage), findsOneWidget);
+
+      controller.emit(SubscriptionResultEvent.purchaseSuccess);
+      controller.emit(SubscriptionResultEvent.externalPremium);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SubscriptionSuccessPage), findsOneWidget);
+      expect(find.text('Home ready'), findsNothing);
+      expect(find.byKey(const Key('premium-unlocked-toast')), findsNothing);
+
+      final startExploring = find.byKey(
+        const Key('subscription-success-continue'),
+      );
+      await tester.ensureVisible(startExploring);
+      await tester.tap(startExploring);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SubscriptionSuccessPage), findsNothing);
+      expect(find.text('Home ready'), findsOneWidget);
+      expect(find.byKey(const Key('premium-unlocked-toast')), findsNothing);
+    },
+  );
 }
 
 Widget _testApp(
@@ -102,6 +159,14 @@ class _StartupSubscriptionController extends SubscriptionController {
   Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
     state = state.copyWith(premiumState: resolvedState);
     return resolvedState;
+  }
+
+  void emit(SubscriptionResultEvent event) {
+    state = state.copyWith(
+      premiumState: AppPremiumState.premium,
+      resultEvent: event,
+      resultEventCount: state.resultEventCount + 1,
+    );
   }
 }
 

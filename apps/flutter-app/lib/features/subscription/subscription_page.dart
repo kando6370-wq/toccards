@@ -61,6 +61,8 @@ class SubscriptionPage extends ConsumerStatefulWidget {
 
 class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     with WidgetsBindingObserver {
+  var _onboardingPurchaseSuccessNavigationStarted = false;
+
   @override
   void initState() {
     super.initState();
@@ -97,10 +99,14 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     final useUpdatedSheetUi = widget.sheet && useUpdatedSkuUi;
     ref.listen(subscriptionControllerProvider, (previous, next) {
       if (next.resultEventCount != previous?.resultEventCount &&
+          !_onboardingPurchaseSuccessNavigationStarted &&
           context.mounted &&
           ModalRoute.of(context)?.isCurrent == true) {
         switch (next.resultEvent) {
           case SubscriptionResultEvent.purchaseSuccess:
+            if (!widget.sheet && widget.source == 'onboarding') {
+              _onboardingPurchaseSuccessNavigationStarted = true;
+            }
             if (widget.sheet && context.canPop()) {
               context.pop(SubscriptionPaywallResult.premiumUnlocked);
             } else if (widget.source == 'scan' ||
