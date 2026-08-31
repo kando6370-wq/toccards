@@ -1360,6 +1360,63 @@ void main() {
   );
 
   testWidgets(
+    'In Your Portfolio editor uses the shared backed footer and visible Save loading',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _DelayedUpdateCardDetailRepository();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: null,
+          repository: repository,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final item = find.byKey(
+        const Key('card-detail-portfolio-item-item-charizard'),
+      );
+      await tester.scrollUntilVisible(item, 400);
+      await tester.ensureVisible(item);
+      await tester.tap(item);
+      await tester.pumpAndSettle();
+
+      final sheet = find.byKey(const Key('card-detail-edit-item-sheet'));
+      final footer = find.byKey(const Key('card-detail-item-edit-footer'));
+      expect(sheet, findsOneWidget);
+      expect(footer, findsOneWidget);
+      expect(
+        tester.getBottomRight(footer).dy,
+        closeTo(tester.getBottomRight(sheet).dy, 0.01),
+      );
+      final footerDecoration =
+          tester.widget<Container>(footer).decoration! as BoxDecoration;
+      expect(footerDecoration.color, KandoColors.ink);
+
+      final save = find.byKey(const Key('card-detail-edit-item-sheet-save'));
+      await tester.tap(save);
+      await tester.pump();
+
+      expect(repository.pendingUpdate, isNotNull);
+      final progress = tester.widget<CircularProgressIndicator>(
+        find.descendant(
+          of: save,
+          matching: find.byType(CircularProgressIndicator),
+        ),
+      );
+      expect(progress.color, KandoColors.primaryOnDefault);
+      expect(tester.widget<TextButton>(save).onPressed, isNull);
+
+      repository.completeUpdate();
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+    },
+  );
+
+  testWidgets(
     'In Your Portfolio editor removes only after Figma confirmation because cancellation must preserve the saved Item',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);

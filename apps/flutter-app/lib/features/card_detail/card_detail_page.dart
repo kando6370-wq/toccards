@@ -942,89 +942,21 @@ class _EditCollectionItemSheet extends ConsumerWidget {
                   ),
                 ),
               ),
-              _EditCollectionItemSheetFooter(
+              _CollectionEditFooter(
                 state: state,
                 controller: controller,
+                saveButtonKey: const Key('card-detail-edit-item-sheet-save'),
+                onCancel: () {
+                  final navigator = Navigator.of(context);
+                  if (navigator.mounted) navigator.pop(false);
+                },
+                onSaved: () {
+                  final navigator = Navigator.of(context);
+                  if (navigator.mounted) navigator.pop(true);
+                },
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EditCollectionItemSheetFooter extends StatelessWidget {
-  const _EditCollectionItemSheetFooter({
-    required this.state,
-    required this.controller,
-  });
-
-  final CardDetailState state;
-  final CardDetailController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final saving = state.isSavingCollectionItemDraft;
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        decoration: const BoxDecoration(
-          color: KandoColors.ink,
-          border: Border(top: BorderSide(color: _kCollectionOutline)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 56,
-                child: TextButton(
-                  onPressed: saving
-                      ? null
-                      : () {
-                          controller.cancelCollectionItemEdit();
-                          Navigator.of(context).pop(false);
-                        },
-                  style: TextButton.styleFrom(
-                    backgroundColor: KandoColors.elevatedSurface,
-                    foregroundColor: KandoColors.text,
-                    shape: const StadiumBorder(),
-                  ),
-                  child: const Text('CANCEL'),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: SizedBox(
-                height: 56,
-                child: TextButton(
-                  key: const Key('card-detail-edit-item-sheet-save'),
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          final saved = await controller
-                              .saveCollectionItemDraft();
-                          if (saved && context.mounted) {
-                            Navigator.of(context).pop(true);
-                          }
-                        },
-                  style: TextButton.styleFrom(
-                    backgroundColor: KandoColors.accent,
-                    foregroundColor: KandoColors.primaryOnDefault,
-                    shape: const StadiumBorder(),
-                  ),
-                  child: saving
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('SAVE CHANGES'),
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -4243,75 +4175,89 @@ class _CollectionDetailsHeading extends StatelessWidget {
 }
 
 class _CollectionEditFooter extends StatelessWidget {
-  const _CollectionEditFooter({required this.state, required this.controller});
+  const _CollectionEditFooter({
+    required this.state,
+    required this.controller,
+    this.onCancel,
+    this.onSaved,
+    this.saveButtonKey = const Key('card-detail-item-submit'),
+  });
 
   final CardDetailState state;
   final CardDetailController controller;
+  final VoidCallback? onCancel;
+  final VoidCallback? onSaved;
+  final Key saveButtonKey;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        key: const Key('card-detail-item-edit-footer'),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        decoration: const BoxDecoration(
-          color: KandoColors.ink,
-          border: Border(top: BorderSide(color: _kCollectionOutline)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 56,
-                child: TextButton(
-                  onPressed: state.isSavingCollectionItemDraft
-                      ? null
-                      : () {
-                          _trackFromContext(
-                            context,
-                            AnalyticsEvent.cancelClick,
-                          );
-                          controller.cancelCollectionItemEdit();
-                        },
-                  style: TextButton.styleFrom(
-                    backgroundColor: KandoColors.elevatedSurface,
-                    foregroundColor: KandoColors.text,
-                    shape: const StadiumBorder(),
+    return Container(
+      key: const Key('card-detail-item-edit-footer'),
+      decoration: const BoxDecoration(
+        color: KandoColors.ink,
+        border: Border(top: BorderSide(color: _kCollectionOutline)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 56,
+                  child: TextButton(
+                    onPressed: state.isSavingCollectionItemDraft
+                        ? null
+                        : () {
+                            _trackFromContext(
+                              context,
+                              AnalyticsEvent.cancelClick,
+                            );
+                            controller.cancelCollectionItemEdit();
+                            onCancel?.call();
+                          },
+                    style: TextButton.styleFrom(
+                      backgroundColor: KandoColors.elevatedSurface,
+                      foregroundColor: KandoColors.text,
+                      shape: const StadiumBorder(),
+                    ),
+                    child: const Text('CANCEL'),
                   ),
-                  child: const Text('CANCEL'),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: SizedBox(
-                height: 56,
-                child: TextButton(
-                  key: const Key('card-detail-item-submit'),
-                  onPressed: state.isSavingCollectionItemDraft
-                      ? null
-                      : () async {
-                          await controller.saveCollectionItemDraft();
-                        },
-                  style: TextButton.styleFrom(
-                    backgroundColor: KandoColors.accent,
-                    foregroundColor: KandoColors.primaryOnDefault,
-                    shape: const StadiumBorder(),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 56,
+                  child: TextButton(
+                    key: saveButtonKey,
+                    onPressed: state.isSavingCollectionItemDraft
+                        ? null
+                        : () async {
+                            final saved = await controller
+                                .saveCollectionItemDraft();
+                            if (saved) onSaved?.call();
+                          },
+                    style: TextButton.styleFrom(
+                      backgroundColor: KandoColors.accent,
+                      foregroundColor: KandoColors.primaryOnDefault,
+                      shape: const StadiumBorder(),
+                    ),
+                    child: state.isSavingCollectionItemDraft
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: KandoColors.primaryOnDefault,
+                            ),
+                          )
+                        : const Text('SAVE CHANGES'),
                   ),
-                  child: state.isSavingCollectionItemDraft
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: KandoColors.primaryOnDefault,
-                          ),
-                        )
-                      : const Text('SAVE CHANGES'),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
