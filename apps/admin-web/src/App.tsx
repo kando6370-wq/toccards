@@ -132,6 +132,7 @@ type FeedbackTicket = {
 
 type ScanListItem = {
   scan_id: string;
+  environment: string;
   image_url: string;
   uid: string;
   platform: string;
@@ -849,6 +850,7 @@ function ScansPage({ session }: { session: AdminSession }) {
     { title: "SCAN ID", dataIndex: "scan_id", ellipsis: true },
     { title: "卡牌图片", dataIndex: "image_url", render: (value: string) => <AuthenticatedScanImage path={value} session={session} className="scan-thumb" /> },
     { title: "UID", dataIndex: "uid" },
+    { title: "环境", dataIndex: "environment" },
     { title: "APP版本", dataIndex: "app_version" },
     { title: "扫描时间", dataIndex: "scan_time", render: formatTime },
     { title: "识别状态", dataIndex: "recognition_status", render: renderRecognitionStatus },
@@ -859,7 +861,7 @@ function ScansPage({ session }: { session: AdminSession }) {
   return (
     <div className="scans-page">
       {error && <Alert type="error" showIcon message={error} action={<Button onClick={reload}>重试</Button>} />}
-      <section className="scans-filter-panel">
+      <section className="scans-filter-panel scan-records-filter-panel">
         <ScanFilterField label="扫描时间">
           <DatePicker.RangePicker placeholder={["扫描开始", "扫描结束"]} onChange={(_, values) => setDraft((current) => ({ ...current, date_from: values[0], date_to: values[1] }))} />
         </ScanFilterField>
@@ -868,6 +870,9 @@ function ScansPage({ session }: { session: AdminSession }) {
         </ScanFilterField>
         <ScanFilterField label="平台">
           <Select placeholder="全部" allowClear value={draft.platform || undefined} options={scanPlatformOptions} onChange={(value) => setDraft((current) => ({ ...current, platform: value ?? "" }))} />
+        </ScanFilterField>
+        <ScanFilterField label="环境">
+          <Select placeholder="全部" allowClear value={draft.environment || undefined} options={environmentOptions} onChange={(value) => setDraft((current) => ({ ...current, environment: value ?? "" }))} />
         </ScanFilterField>
         <ScanFilterField label="App 版本">
           <Input placeholder="e.g. 2.4.0" value={draft.app_version ?? ""} onChange={(event) => setDraft((current) => ({ ...current, app_version: event.target.value }))} />
@@ -887,7 +892,7 @@ function ScansPage({ session }: { session: AdminSession }) {
         </div>
       </section>
       <section className="scans-table-panel">
-        <Table rowKey="scan_id" columns={columns} dataSource={scans} loading={loading} pagination={false} />
+        <Table rowKey="scan_id" columns={columns} dataSource={scans} loading={loading} pagination={false} scroll={{ x: 1100 }} />
         <div className="scans-pagination">
           <Text>{rangeSummaryPage(page, data?.page_size ?? 10, data?.total ?? 0)}</Text>
           <Pagination size="small" current={page} pageSize={data?.page_size ?? 10} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} />
@@ -1096,6 +1101,7 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
               { label: "Scan ID", value: scan.scan_id },
               { label: "UID", value: scan.uid },
               { label: "平台", value: scan.platform },
+              { label: "环境", value: scan.environment },
               { label: "App 版本", value: scan.app_version },
               { label: "设备型号", value: scan.device_model },
               { label: "系统版本", value: scan.os_version },

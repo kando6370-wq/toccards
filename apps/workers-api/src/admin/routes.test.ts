@@ -85,6 +85,7 @@ type CardOverrideRow = {
 
 type ScanRecordRow = {
   id: string;
+  environment: "development" | "production";
   owner_type: "anonymous" | "user";
   owner_id: string;
   image_url: string | null;
@@ -182,7 +183,7 @@ class FakeD1Statement {
     }
 
     if (sql.startsWith("SELECT COUNT(*) AS total FROM scan_record")) {
-      return { total: this.db.scanRecords.length } as T;
+      return { total: scanRecordResults(this.db, this.values).length } as T;
     }
 
     if (sql.includes("FROM admin_user") && sql.includes("WHERE email = ?")) {
@@ -317,7 +318,10 @@ class FakeD1Statement {
     }
 
     if (sql.includes("FROM scan_record")) {
-      return okResult<T>(this.db.scanRecords as T[]);
+      const rows = scanRecordResults(this.db, this.values);
+      const pageSize = Number(this.values[18] ?? rows.length);
+      const offset = Number(this.values[19] ?? 0);
+      return okResult<T>(rows.slice(offset, offset + pageSize) as T[]);
     }
 
     throw new Error(`Unsupported all SQL: ${sql}`);
@@ -502,6 +506,11 @@ class FakeD1Statement {
   }
 }
 
+function scanRecordResults(db: FakeD1, values: unknown[]): ScanRecordRow[] {
+  const environment = values[6] as string | null | undefined;
+  return db.scanRecords.filter((row) => !environment || row.environment === environment);
+}
+
 describe("admin routes", () => {
   it("issues isolated Admin tokens because App tokens must never authorize the back office", async () => {
     const env = createTestEnv();
@@ -611,6 +620,7 @@ describe("admin routes", () => {
     env.DB.authIdentities.push({ user_id: "UID-GOOGLE-1", provider: "google" });
     env.DB.scanRecords.push({
       id: "scan-user-1", owner_type: "user", owner_id: "UID-GOOGLE-1", image_url: null,
+      environment: "development",
       filename: "card.jpg", platform: "Android", app_version: "2.0.0", device_model: null,
       os_version: null, recognition_status: "success", user_confirmation_status: "confirmed",
       modified_result: 0, system_result: "{}", user_result: "{}", candidates: "[]",
@@ -921,7 +931,7 @@ describe("admin routes", () => {
       sql.startsWith("SELECT id, uid, email, types") && sql.includes("LIMIT ? OFFSET ?")
     );
     const scansSql = env.DB.preparedSql.find((sql) =>
-      sql.startsWith("SELECT id, owner_type, owner_id, image_url")
+      sql.startsWith("SELECT id, environment, owner_type, owner_id, image_url")
         && sql.includes("LIMIT ? OFFSET ?")
     );
     const overridesSql = env.DB.preparedSql.find((sql) =>
@@ -952,6 +962,7 @@ describe("admin routes", () => {
     await seedAdmin(env, "admin-scan", "scan@example.com", "correct-password", "operator");
     env.DB.scanRecords.push({
       id: "scan-db-1",
+      environment: "development",
       owner_type: "anonymous",
       owner_id: "100284",
       image_url: "scans/anonymous/100284/2026/07/scan-db-1.jpg",
@@ -1014,6 +1025,7 @@ describe("admin routes", () => {
         items: [
           expect.objectContaining({
             scan_id: "scan-db-1",
+            environment: "development",
             uid: "100284",
             image_url: "/scans/scan-db-1/image",
             recognition_status: "success",
@@ -1028,6 +1040,7 @@ describe("admin routes", () => {
       success: true,
       data: expect.objectContaining({
         scan_id: scanId,
+        environment: "development",
         system_result: expect.objectContaining({ name: "Bushi Tenderfoot", confidence: 86.2 }),
         user_result: expect.objectContaining({ added_to_inventory: expect.any(Boolean) }),
         candidates: [
@@ -1232,6 +1245,63 @@ describe("admin routes", () => {
       is_missing_card: 0,
       image_url: expect.stringMatching(/first|second/),
     });
+  });
+
+  it("filters scan records by persisted environment because shared PostgreSQL contains multiple app environments", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-scan-env", "scan-env@example.com", "correct-password", "operator");
+    const base = {
+      owner_type: "anonymous" as const,
+      owner_id: "100284",
+      image_url: null,
+      filename: "scan.jpg",
+      platform: "iOS",
+      app_version: "1.0.0",
+      device_model: null,
+      os_version: null,
+      recognition_status: "success",
+      user_confirmation_status: "confirmed",
+      modified_result: 0,
+      system_result: "{}",
+      user_result: "{}",
+      candidates: "[]",
+      created_at: "2026-07-10T09:00:00.000Z",
+    };
+    env.DB.scanRecords.push(
+      { ...base, id: "scan-development", environment: "development" },
+      { ...base, id: "scan-production", environment: "production" },
+    );
+    const login = await loginAdmin(env, "scan-env@example.com", "correct-password");
+
+    const response = await requestAdmin(
+      env,
+      "/scans?environment=production",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    const body = await response.json() as {
+      success: boolean;
+      data?: { items: Array<{ scan_id: string; environment: string }>; total: number };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        total: 1,
+        items: [expect.objectContaining({ scan_id: "scan-production", environment: "production" })],
+      }),
+    });
+
+    const invalid = await requestAdmin(
+      env,
+      "/scans?environment=staging",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    expect(invalid.status).toBe(422);
   });
 
   it("updates only image metadata on upload because editorial override fields and row identity must survive", async () => {

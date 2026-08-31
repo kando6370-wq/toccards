@@ -19,7 +19,7 @@ Admin 是 `apps/admin-web` 构建的 React SPA，静态产物由 Workers assets 
 | 用户管理 | 用户列表 | 正式/匿名用户查询、详情 | `/users*` |
 | 用户管理 | 用户反馈 | 反馈列表、详情、处理状态 | `/feedbacks*` |
 | 用户管理 | 权限管理 | 管理 Admin 账号、角色和状态 | `/permissions*` |
-| 卡牌管理 | 扫描记录管理 | 条件筛选、识别/确认详情、受保护图片 | `/scans*` |
+| 卡牌管理 | 扫描记录管理 | 环境等条件筛选、环境列、识别/确认详情、受保护图片 | `/scans*` |
 | App 版本管理 | 版本管理 | iOS/Google 版本和升级行为 | `/app-versions*` |
 
 安装统计的趋势数据按日期正序返回，保证图表时间轴从左到右；明细列表在数据库分页前按首次安装日期倒序，同日期按 UID、国家和平台稳定排序，优先展示最近安装且避免跨页顺序漂移。
@@ -109,7 +109,8 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 ### 扫描审计
 
-- 可按平台、识别状态、确认状态和是否修改结果等筛选。
+- 可按环境、平台、识别状态、确认状态和是否修改结果等筛选；环境只接受可信扫描记录中的 `development/production`。
+- 列表和详情均展示记录创建时由 Worker 持久化的环境，不使用当前 Admin Host 或客户端自报值推断。
 - 详情展示系统候选、置信度、用户确认和是否入库等事实。
 - R2 图片端点要求 Admin Token，并返回私有、不可缓存响应。
 
@@ -134,7 +135,7 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 Admin 没有独立生产部署目标。Workers deploy 会先按 dev/prod 模式构建 `auth-core` 和 Admin，再由 Worker assets 发布。验证时至少区分 API health、SPA HTML 和实际 JS assets。
 
-本次退款撤销依赖 `billing_transaction.business_status_before_refund`。该列是 nullable 向后兼容扩展，必须先应用 PostgreSQL `0007_billing_refund_status`，再部署读取该列的新 Worker；旧 Worker 可忽略该列，代码回滚时保留列。dev/prod 共用 PostgreSQL Schema，迁移会同时影响两套 Worker 所连接的数据结构，不能把 dev 部署与 Schema 迁移当作互相隔离的动作。共享 Schema 已于 2026-08-19 应用 `0007` 并完成幂等复核，同日完成 dev Worker 与 Admin assets 部署。本次发布以 version `ce9ee177-27a0-49fe-8e87-0a0f4414b620` 完成验收检查点：health 与 Admin HTML 返回 `200`，HTML 引用的 10 个 JS/CSS 资源全部返回 `200`，未授权订单 API 返回 `401`；实时流量版本以 Cloudflare deployment 回读为准。
+扫描环境筛选依赖 PostgreSQL `0010_scan_record_environment.sql`。该迁移必须先于读取/写入 `scan_record.environment` 的新 Worker 部署；数据库默认值 `development` 仅用于迁移后、部署前兼容仍未传列的旧 dev Worker，应用回滚时保留列。新 Worker 必须由 `APP_ENVIRONMENT` 显式写入，缺失配置时返回 `503`，不能依赖数据库默认值。现有 PostgreSQL scan 记录基于已确认的 dev D1 迁移事实回填为 `development`。未来 prod D1 数据迁移必须由独立 prod 工具把历史记录标记为 `production`，不得复用 dev-only runner 的固定值或数据库默认值。当前 Git 交付未执行远程 `0010`、Worker/Admin 部署或生产数据写入。
 
 仓库内证据：
 

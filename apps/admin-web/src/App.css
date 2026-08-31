@@ -609,6 +609,10 @@ body {
   white-space: pre-wrap;
 }
 
+.scan-records-filter-panel {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .notification-detail-state {
   display: grid;
   min-height: 240px;

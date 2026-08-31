@@ -75,6 +75,7 @@ type FeedbackTicketRow = {
 
 type ScanRecordRow = {
   id: string;
+  environment: "development" | "production";
   owner_type: string;
   owner_id: string;
   image_url: string | null;
@@ -142,6 +143,7 @@ const LEGACY_FEEDBACK_STATUS_MAP: Record<string, FeedbackStatus> = {
   closed: "processed",
 };
 const VALID_APP_VERSION_STATUSES = new Set<AppVersionStatus>(["enabled", "disabled"]);
+const VALID_APP_ENVIRONMENTS = new Set(["development", "production"]);
 const APP_VERSION_PLATFORMS: AppVersionPlatform[] = ["iOS", "Google"];
 const APP_VERSION_CONFIG_PREFIX = "admin.app_version.";
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
@@ -394,13 +396,14 @@ const SELECT_APP_CONFIG_SQL = `
 `;
 
 const SELECT_SCAN_RECORDS_SQL = `
-  SELECT id, owner_type, owner_id, image_url, filename, platform, app_version,
+  SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
   FROM scan_record
   WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
     AND (CAST(? AS text) IS NULL OR lower(app_version) = ?)
+    AND (CAST(? AS text) IS NULL OR environment = ?)
     AND (CAST(? AS text) IS NULL OR recognition_status = ?)
     AND (CAST(? AS text) IS NULL OR user_confirmation_status = ?)
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
@@ -416,6 +419,7 @@ const COUNT_SCAN_RECORDS_SQL = `
   WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
     AND (CAST(? AS text) IS NULL OR lower(app_version) = ?)
+    AND (CAST(? AS text) IS NULL OR environment = ?)
     AND (CAST(? AS text) IS NULL OR recognition_status = ?)
     AND (CAST(? AS text) IS NULL OR user_confirmation_status = ?)
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
@@ -424,7 +428,7 @@ const COUNT_SCAN_RECORDS_SQL = `
 `;
 
 const SELECT_SCAN_RECORD_BY_ID_SQL = `
-  SELECT id, owner_type, owner_id, image_url, filename, platform, app_version,
+  SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
   FROM scan_record
@@ -989,12 +993,17 @@ adminRoutes.get("/scans", async (c) => {
   const uid = normalizeQuery(c.req.query("uid"));
   const platform = normalizeQuery(c.req.query("platform"));
   const appVersion = normalizeQuery(c.req.query("app_version"));
+  const environment = normalizeQuery(c.req.query("environment"));
   const recognitionStatus = normalizeQuery(c.req.query("recognition_status"));
   const confirmationStatus = normalizeQuery(c.req.query("user_confirmation_status"));
   const modifiedResult = readBooleanQuery(c.req.query("modified_result"));
   const dateFrom = readDateBoundary(c.req.query("date_from"), false);
   const dateTo = readDateBoundary(c.req.query("date_to"), true);
-  if (dateFrom === "invalid" || dateTo === "invalid") {
+  if (
+    dateFrom === "invalid"
+    || dateTo === "invalid"
+    || (environment !== null && !VALID_APP_ENVIRONMENTS.has(environment))
+  ) {
     return c.json(VALIDATION_ERROR_RESPONSE, 422);
   }
   const modifiedResultValue = modifiedResult === null ? null : modifiedResult ? 1 : 0;
@@ -1006,6 +1015,8 @@ adminRoutes.get("/scans", async (c) => {
       platform,
       appVersion,
       appVersion,
+      environment,
+      environment,
       recognitionStatus,
       recognitionStatus,
       confirmationStatus,
@@ -1569,6 +1580,7 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
 function toScanListItem(row: ScanRecordRow) {
   return {
     scan_id: row.id,
+    environment: row.environment,
     image_url: row.image_url
       ? `/scans/${encodeURIComponent(row.id)}/image`
       : "",

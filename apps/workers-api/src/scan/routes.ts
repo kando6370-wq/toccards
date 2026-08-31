@@ -135,10 +135,10 @@ const SCAN_REQUEST_CONFLICT_RESPONSE = {
 
 const INSERT_SCAN_RECORD_SQL = `
 INSERT INTO scan_record
-  (id, owner_type, owner_id, image_url, filename, platform, app_version,
+  (id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
    device_model, os_version, recognition_status, user_confirmation_status,
    system_result, user_result, candidates, raw_response, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const SELECT_SCAN_RECORD_SQL = `
@@ -299,6 +299,16 @@ export function createScanRoutes() {
     const requestId = readUuid(body.get("request_id"));
     if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const appEnvironment = c.env.APP_ENVIRONMENT;
+    if (!appEnvironment) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: INTERNAL_ERROR_RESPONSE, status: 503 },
+      );
+      return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
     const serviceBaseUrl = normalizeBaseUrl(c.env.OCR_SERVICE_BASE_URL);
     if (!serviceBaseUrl) {
@@ -474,6 +484,7 @@ export function createScanRoutes() {
       await c.env.DB.prepare(INSERT_SCAN_RECORD_SQL)
         .bind(
           scanId,
+          appEnvironment,
           auth.owner.owner_type,
           auth.owner.owner_id,
           imageKey,

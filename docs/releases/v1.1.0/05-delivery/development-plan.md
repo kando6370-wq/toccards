@@ -280,6 +280,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-08-31 Search 快捷收藏批量删除确认框 UI 对齐：按 Figma `231:2318` 将多卡 Quick Collection Review 的确认框收口为 342×355、16px 圆角的 Danger Modal；产品复核后明确取消渐变背景，最终使用设计右下角采样色 `RGB(29,29,28)`（`#1D1D1C`）作为纯色背景，不再加载背景 SVG 或 PNG。使用设计导出的顶部 26px 与按钮 20px 两套删除 SVG，并按本轮确认移除顶部图标的白色描边；危险标题为 24/32、正文为 15/22，正文水平边距缩至 16px，按钮保持 33px 水平边距与 44px 纵向 `DELETE / CANCEL` 胶囊样式。正文更新为 `This action will permanently delete all these cards and cannot be undone`。320px 小屏下弹窗宽度按 24px 左右安全边距收敛为 272px，正文允许三行并把高度扩展为 377px，不缩小字号或图标。删除确认等待原有本地草稿及 Pending Item 清理完成：等待期间危险按钮显示 Loading、两项操作禁用且弹窗不可返回，成功后才关闭确认框与 Review；取消、清理内容、Provider、API、Schema、批量保存及其他业务逻辑不变。修改前异步确认测试因公共弹窗不支持 `confirmAction` 编译失败；纯色背景测试在修改前稳定找到背景 Image，修改后确认无背景资源 Widget 且容器颜色严格为 `#1D1D1C`。共享 Modal 与完整 Search Widget 48/48、Profile 共用 Danger Modal 1/1、`flutter analyze --no-pub`、Dart 格式及限定路径 `git diff --check` 通过。Code Review 未发现阻断项，确认背景资源已移除，重复点击受保护、Loading 期间取消与系统返回禁用、失败不关闭、空列表自动返回不与确认框抢占路由；iOS/Android 真机视觉仍需人工验收。
 
+- 2026-08-31 Admin 扫描记录环境筛选与展示：共享 PostgreSQL 的 `scan_record` 新增持久化 `environment`，只允许 `development/production`；现有 dev 迁移记录回填为 `development`，新扫描由可信 Worker `APP_ENVIRONMENT` 显式写入，Admin 列表、详情和 `/admin/scans` 筛选均使用该持久化事实。客户端不能自报环境，非法筛选返回 `422`；缺少 Worker 环境配置时返回 `503`、释放已排队扫描额度且不写 R2。Code Review 首轮发现迁移先于部署时旧 Worker 会因非空列无默认值而中断扫描，现为旧 dev Worker 保留 `development` 数据库默认值作为迁移窗口兼容，新 Worker 与未来 prod 导入均禁止依赖该默认值；复审未发现剩余阻断项。Workers 定向 `57/57`、全量 `573/573`、根类型检查 `7/7`、依赖方向、Admin production build、Worker dev dry-run 和 `git diff --check` 通过；Admin 全量 `18/19`，唯一失败仍为既有 `billing-admin-intent.test.mjs` 源码正则断言，与扫描环境路径无关。未执行远程 PostgreSQL `0010`、dev/prod 部署、生产写入或真实 Admin 会话验收。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。

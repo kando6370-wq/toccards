@@ -192,3 +192,14 @@ PostgreSQL migration manifest 测试保护 `0007` 的顺序与内容；远程 Sc
 - 环境影响：远程执行只影响 dev 使用及未来 v1.1 prod 将使用的 PostgreSQL Schema，不影响仍绑定 D1 的现网 prod；未修改 D1。
 
 2026-08-25 经用户明确授权，在 PlanetScale `product-kando/tcg-cards-db` 的 `main`、数据库 `postgres`、schema `public` 执行 `0009`。执行前 ledger 精确包含 `0000-0008`，`app_bundle_id` 不存在，旧唯一约束与 processing 索引定义匹配 migration 预期；251 条 inbox 全部为 `Sandbox`，非法 environment 与 `(environment, payload_sha256)` 冲突均为 0。PlanetScale Web Console 角色不是表 owner，首次 DDL 返回 `must be owner of table apple_notification_inbox`；事务随后显式回滚并复核列数与 ledger 均为 0，没有半完成状态。正式执行改用只绑定目标 Hyperdrive 的 Wrangler 4.125 remote preview，连接用户与表 owner 一致；migration 在 `pg_advisory_xact_lock(hashtext('kando-postgres-schema'))` 保护的单事务内执行并写入 ledger，规范化 LF checksum 为 `4d43602cf70dbeeab9978da1c773953d8b382bd2afff5e5579d57f3d9ac8fc11`，`applied_at=2026-08-25T08:08:35.877Z`。事务内与独立 PlanetScale Console 连接复核均确认：`app_bundle_id` 为非空列，253 条 inbox 全部归属 `com.kando.kandoApp.beta:Sandbox`，NULL/Bundle mismatch 为 0，legacy trigger、新三字段唯一约束和五字段 processing 索引均精确存在。preview 随后停止，本地临时执行文件已删除；未部署 dev/prod Worker、未修改 prod D1 或 App Store Connect URL。
+
+## PostgreSQL 0010 Scan Record Environment
+
+`0010_scan_record_environment.sql` 为 `scan_record` 增加非空 `environment`，只允许 `development/production`，并增加 `environment + created_at + id` 查询索引。现有 PostgreSQL scan 记录来自已确认完成的 dev D1 迁移，因此确定性回填为 `development`；新扫描由可信 Worker `APP_ENVIRONMENT` 显式写入，客户端请求不能指定环境。迁移保留数据库默认值 `development`，只用于迁移后、部署前兼容仍未传列的旧 dev Worker；新 Worker 缺少 `APP_ENVIRONMENT` 时释放已排队额度并返回 `503`，不能依赖该默认值掩盖配置错误。
+
+- 兼容与顺序：先执行共享 PostgreSQL `0010`，再部署依赖该列的 Worker/Admin。旧 Worker 不读取该列，可以在 migration 后继续运行；新 Worker 在列不存在时必须显式失败，不能先部署代码。
+- dev 迁移工具仍受 `--confirm-dev` 和固定 dev D1 binding 保护，`scan_record.targetValues.environment=development`。cutover 复核要求 development 行数等于 dev D1 源计数、production 为 0 且不存在未分类行。
+- prod 边界：现网 prod 仍运行 v1.0 D1。未来 prod 数据迁移必须使用独立受控流程，把生产历史 scan 显式写为 `production`；prod Worker 必须通过 `APP_ENVIRONMENT=production` 显式写入，不得复用 dev-only runner 或依赖数据库默认值。
+- 回滚：应用代码可回退并保留列、约束和索引。若要物理删除列，必须先回退所有读取/写入，再使用新的递增 PostgreSQL migration；不得修改已执行的 `0010`。
+
+当前仓库只交付 migration、写入/API/UI 和自动化契约；尚未远程执行 `0010`，也未部署依赖它的 dev/prod Worker。

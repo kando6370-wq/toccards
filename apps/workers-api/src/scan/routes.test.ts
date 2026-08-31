@@ -19,6 +19,7 @@ type AnonymousAccountRow = {
 
 type ScanRecordRow = {
   id: string;
+  environment?: "development" | "production";
   owner_type: "anonymous" | "user";
   owner_id: string;
   recognition_status: string;
@@ -369,9 +370,10 @@ class FakeD1Statement {
     }
     if (sql.startsWith("INSERT INTO scan_record")) {
       if (this.db.failScanInsert) throw new Error("scan insert failed");
-      const [id, ownerType, ownerId, imageUrl, , , , , , recognitionStatus, confirmationStatus, systemResult, userResult, candidates, rawResponse] =
+      const [id, environment, ownerType, ownerId, imageUrl, , , , , , recognitionStatus, confirmationStatus, systemResult, userResult, candidates, rawResponse] =
         this.values as [
           string,
+          "development" | "production",
           "anonymous" | "user",
           string,
           string | null,
@@ -390,6 +392,7 @@ class FakeD1Statement {
         ];
       this.db.scanRecords.push({
         id,
+        environment,
         owner_type: ownerType,
         owner_id: ownerId,
         recognition_status: recognitionStatus,
@@ -635,6 +638,7 @@ describe("scan routes", () => {
     });
     expect(env.DB.scanRecords).toEqual([
       expect.objectContaining({
+        environment: "development",
         owner_type: "anonymous",
         owner_id: "anon-1",
         recognition_status: "success",
@@ -837,6 +841,40 @@ describe("scan routes", () => {
     expect(env.DB.scanQuotaRequests).toEqual([
       expect.objectContaining({ status: "released" }),
     ]);
+  });
+
+  it("releases a queued reservation when the trusted app environment is missing", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    const reservation = await app.request(
+      "/api/v1/scan/quota/reserve",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": requestId,
+        },
+        body: JSON.stringify({ request_id: requestId }),
+      },
+      env,
+    );
+    expect(reservation.status).toBe(200);
+    delete env.APP_ENVIRONMENT;
+
+    const response = await recognize(env, token, {
+      request_id: requestId,
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+
+    expect(response.status).toBe(503);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ status: "released" }),
+    ]);
+    expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
   it("promotes an exact printed number because pHash alone cannot distinguish cards with identical artwork", async () => {
