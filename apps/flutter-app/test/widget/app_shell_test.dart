@@ -144,48 +144,50 @@ void main() {
     expect(scaffold.extendBody, isTrue);
   });
 
-  testWidgets('pending collection notice is visible only on the Search tab', (
-    tester,
-  ) async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    container
-        .read(pendingCollectionProvider.notifier)
-        .add(
-          const PendingCollectionCard(
-            id: 'card-1',
-            name: 'Card 1',
-            game: 'Pokemon',
-            setName: 'Set',
-            metadataLine: '#1',
-            variantLine: 'Normal',
-          ),
-        );
+  testWidgets(
+    'pending collection notice stays visible across the four non-Scan tabs',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'card-1',
+              name: 'Card 1',
+              game: 'Pokemon',
+              setName: 'Set',
+              metadataLine: '#1',
+              variantLine: 'Normal',
+            ),
+          );
 
-    for (final tab in const [
-      KandoMainTab.home,
-      KandoMainTab.search,
-      KandoMainTab.scan,
-      KandoMainTab.collection,
-      KandoMainTab.profile,
-    ]) {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            home: KandoTabScaffold(
-              currentTab: tab,
-              body: const SizedBox.expand(),
+      for (final tab in const [
+        KandoMainTab.home,
+        KandoMainTab.search,
+        KandoMainTab.scan,
+        KandoMainTab.collection,
+        KandoMainTab.profile,
+      ]) {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: KandoTabScaffold(
+                currentTab: tab,
+                body: const SizedBox.expand(),
+              ),
             ),
           ),
-        ),
-      );
-      expect(
-        find.byKey(const Key('pending-collection-notice')),
-        tab == KandoMainTab.search ? findsOneWidget : findsNothing,
-      );
-    }
-  });
+        );
+        final shouldShowNotice = tab != KandoMainTab.scan;
+        expect(
+          find.byKey(const Key('pending-collection-notice')),
+          shouldShowNotice ? findsOneWidget : findsNothing,
+        );
+      }
+    },
+  );
 
   testWidgets(
     'updating a pending draft does not rebuild the Search page body when the notice count is unchanged',

@@ -32,7 +32,7 @@ class KandoTabScaffold extends ConsumerWidget {
       pendingCollectionProvider.select((items) => items.length),
     );
     final showPendingNotice =
-        currentTab == KandoMainTab.search && pendingCount > 0;
+        currentTab != KandoMainTab.scan && pendingCount > 0;
     void selectTab(KandoMainTab next) {
       if (next != currentTab) {
         context.go(_pathForTab(next));
