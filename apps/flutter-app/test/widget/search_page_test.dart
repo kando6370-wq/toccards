@@ -1226,14 +1226,14 @@ void main() {
       expect(find.text('Delete all cards ?'), findsOneWidget);
       expect(
         find.text(
-          'This action will permanently delete all cards waiting for details and cannot be undone.',
+          'This action will permanently delete all these cards and cannot be undone',
         ),
         findsOneWidget,
       );
       expect(container.read(pendingCollectionProvider), hasLength(2));
       expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
 
-      await tester.tap(find.text('Cancel'));
+      await tester.tap(find.text('CANCEL'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('kando-modal-frame')), findsNothing);
       expect(container.read(pendingCollectionProvider), hasLength(2));
@@ -1241,7 +1241,15 @@ void main() {
 
       await tester.tap(find.byKey(const Key('pending-collection-delete-all')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete'));
+      await tester.tap(find.text('DELETE'));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('kando-danger-modal-loading')),
+        findsOneWidget,
+      );
+      expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+
       await tester.pumpAndSettle();
 
       expect(container.read(pendingCollectionProvider), isEmpty);

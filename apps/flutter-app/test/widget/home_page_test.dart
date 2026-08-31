@@ -54,7 +54,11 @@ void main() {
     'Performance tab reports each actual entry without rebuild duplicates',
     (tester) async {
       final events = <String>[];
-      final analytics = AppAnalytics.recording((event, _) => events.add(event));
+      final firebaseEvents = <String>[];
+      final analytics = AppAnalytics.recording(
+        (event, _) => events.add(event),
+        onFirebaseEvent: (event, _) => firebaseEvents.add(event),
+      );
       await tester.pumpWidget(
         _mockHomeApp(
           null,
@@ -89,6 +93,12 @@ void main() {
       await tester.pump();
       expect(
         events.where((event) => event == AnalyticsEvent.homePerformanceView),
+        hasLength(2),
+      );
+      expect(
+        firebaseEvents.where(
+          (event) => event == AnalyticsEvent.homePerformanceView,
+        ),
         hasLength(2),
       );
     },

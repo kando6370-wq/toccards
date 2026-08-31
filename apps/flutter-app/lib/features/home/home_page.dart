@@ -133,7 +133,7 @@ class _HomePageState extends ConsumerState<HomePage>
                       setState(() => _performanceSelected = true);
                       ref
                           .read(analyticsProvider)
-                          .trackMixpanel(AnalyticsEvent.homePerformanceView);
+                          .track(AnalyticsEvent.homePerformanceView);
                       unawaited(
                         _loadPerformanceIfPremium(state.selectedFolderId),
                       );

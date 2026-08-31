@@ -22,11 +22,14 @@ class AppAnalytics {
     required String appVersion,
     required bool isDebugData,
     void Function(String event, Map<String, Object?> properties)? eventObserver,
+    void Function(String event, Map<String, Object?> properties)?
+    firebaseEventObserver,
   }) : _mixpanel = mixpanel,
        _firebase = firebase,
        _appVersion = appVersion,
        _isDebugData = isDebugData,
-       _eventObserver = eventObserver;
+       _eventObserver = eventObserver,
+       _firebaseEventObserver = firebaseEventObserver;
 
   factory AppAnalytics.disabled() {
     return AppAnalytics._(
@@ -39,14 +42,17 @@ class AppAnalytics {
 
   @visibleForTesting
   factory AppAnalytics.recording(
-    void Function(String event, Map<String, Object?> properties) onEvent,
-  ) {
+    void Function(String event, Map<String, Object?> properties) onEvent, {
+    void Function(String event, Map<String, Object?> properties)?
+    onFirebaseEvent,
+  }) {
     return AppAnalytics._(
       mixpanel: null,
       firebase: null,
       appVersion: '',
       isDebugData: true,
       eventObserver: onEvent,
+      firebaseEventObserver: onFirebaseEvent,
     );
   }
 
@@ -86,6 +92,8 @@ class AppAnalytics {
   final bool _isDebugData;
   final void Function(String event, Map<String, Object?> properties)?
   _eventObserver;
+  final void Function(String event, Map<String, Object?> properties)?
+  _firebaseEventObserver;
 
   static const _clickDebounceWindow = Duration(milliseconds: 500);
   final Map<String, DateTime> _lastClickAt = {};
@@ -100,37 +108,15 @@ class AppAnalytics {
     Map<String, Object?> properties = const {},
     String? debounceKey,
   }) {
-    _track(
-      event,
-      properties: properties,
-      debounceKey: debounceKey,
-      includeFirebase: true,
-    );
-  }
-
-  void trackMixpanel(
-    String event, {
-    Map<String, Object?> properties = const {},
-    String? debounceKey,
-  }) {
-    _track(
-      event,
-      properties: properties,
-      debounceKey: debounceKey,
-      includeFirebase: false,
-    );
-  }
-
-  void _track(
-    String event, {
-    required Map<String, Object?> properties,
-    required String? debounceKey,
-    required bool includeFirebase,
-  }) {
     final mixpanel = _mixpanel;
-    final firebase = includeFirebase ? _firebase : null;
+    final firebase = _firebase;
     final eventObserver = _eventObserver;
-    if (mixpanel == null && firebase == null && eventObserver == null) return;
+    if (mixpanel == null &&
+        firebase == null &&
+        eventObserver == null &&
+        _firebaseEventObserver == null) {
+      return;
+    }
     if (_isDebouncedClick(event, properties, debounceKey)) return;
 
     final payload = <String, dynamic>{
@@ -142,6 +128,7 @@ class AppAnalytics {
       ...properties,
     };
     eventObserver?.call(event, Map.unmodifiable(payload));
+    _firebaseEventObserver?.call(event, Map.unmodifiable(payload));
     if (mixpanel != null) {
       try {
         unawaited(

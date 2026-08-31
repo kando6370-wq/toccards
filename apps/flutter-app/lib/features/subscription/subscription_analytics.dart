@@ -63,7 +63,7 @@ const _subscriptionScenes = {
 };
 
 void trackSubscriptionView(AppAnalytics analytics, String scene) {
-  analytics.trackMixpanel(
+  analytics.track(
     AnalyticsEvent.subscribeView,
     properties: {AnalyticsProperty.scene: scene},
   );
@@ -73,7 +73,7 @@ void trackSubscriptionClick(
   AppAnalytics analytics,
   SubscriptionPurchaseAnalyticsContext context,
 ) {
-  analytics.trackMixpanel(
+  analytics.track(
     AnalyticsEvent.subClick,
     properties: {
       ...context.resultProperties,
@@ -87,7 +87,7 @@ void trackSubscriptionResult(
   SubscriptionPurchaseAnalyticsContext context,
   String result,
 ) {
-  analytics.trackMixpanel(
+  analytics.track(
     AnalyticsEvent.subResult,
     properties: {
       AnalyticsProperty.results: result,
@@ -125,7 +125,7 @@ bool trackVerifiedSubscriptionSuccess(
       !RegExp(r'^[A-Za-z]{3}$').hasMatch(currency)) {
     return false;
   }
-  analytics.trackMixpanel(
+  analytics.track(
     AnalyticsEvent.subSuccess,
     properties: {
       AnalyticsProperty.plan: productId,
@@ -139,7 +139,7 @@ bool trackVerifiedSubscriptionSuccess(
 }
 
 void trackRestoreResult(AppAnalytics analytics, String result) {
-  analytics.trackMixpanel(
+  analytics.track(
     AnalyticsEvent.restoreResult,
     properties: {AnalyticsProperty.results: result},
   );

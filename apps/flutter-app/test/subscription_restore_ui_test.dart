@@ -20,25 +20,26 @@ import 'package:kando_app/shared/ui/toast.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
-  testWidgets('onboarding subscription view reports the guide Mixpanel scene', (
-    tester,
-  ) async {
-    final events = <(String, Map<String, Object?>)>[];
-    final analytics = AppAnalytics.recording(
-      (event, properties) => events.add((event, properties)),
-    );
-    final host = _RestoreTestHost(analytics: analytics);
-    await tester.pumpWidget(host.app);
-    await tester.pumpAndSettle();
+  testWidgets(
+    'onboarding subscription view reports the guide analytics scene',
+    (tester) async {
+      final events = <(String, Map<String, Object?>)>[];
+      final analytics = AppAnalytics.recording(
+        (event, properties) => events.add((event, properties)),
+      );
+      final host = _RestoreTestHost(analytics: analytics);
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
 
-    host.router.push('/subscription?source=onboarding');
-    await tester.pumpAndSettle();
+      host.router.push('/subscription?source=onboarding');
+      await tester.pumpAndSettle();
 
-    expect(
-      events.where((entry) => entry.$1 == 'subscribe_view').map((e) => e.$2),
-      [containsPair('Scene', 'guide')],
-    );
-  });
+      expect(
+        events.where((entry) => entry.$1 == 'subscribe_view').map((e) => e.$2),
+        [containsPair('Scene', 'guide')],
+      );
+    },
+  );
 
   testWidgets(
     'subscription click reports selected SKU price currency and Scene',

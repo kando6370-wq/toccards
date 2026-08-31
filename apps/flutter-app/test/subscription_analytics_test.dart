@@ -7,6 +7,34 @@ import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
+  test('v1.0.1 subscription events are forwarded to Firebase', () {
+    final firebaseEvents = <String>[];
+    final analytics = AppAnalytics.recording(
+      (_, _) {},
+      onFirebaseEvent: (event, _) => firebaseEvents.add(event),
+    );
+    const context = SubscriptionPurchaseAnalyticsContext(
+      product: SubscriptionProductAnalytics(
+        sku: 'com.kando.yearly',
+        currency: 'USD',
+        price: 49.99,
+      ),
+      scene: AnalyticsValue.sceneGuide,
+    );
+
+    trackSubscriptionView(analytics, context.scene);
+    trackSubscriptionClick(analytics, context);
+    trackSubscriptionResult(analytics, context, AnalyticsValue.resultSuccess);
+    trackRestoreResult(analytics, AnalyticsValue.resultSuccess);
+
+    expect(firebaseEvents, [
+      AnalyticsEvent.subscribeView,
+      AnalyticsEvent.subClick,
+      AnalyticsEvent.subResult,
+      AnalyticsEvent.restoreResult,
+    ]);
+  });
+
   test('subscription entry context maps to the spreadsheet Scene values', () {
     expect(
       subscriptionAnalyticsScene(source: 'onboarding'),
@@ -42,8 +70,10 @@ void main() {
 
   test('verified Apple purchase reports trusted subscription properties', () {
     final events = <(String, Map<String, Object?>)>[];
+    final firebaseEvents = <String>[];
     final analytics = AppAnalytics.recording(
       (event, properties) => events.add((event, properties)),
+      onFirebaseEvent: (event, _) => firebaseEvents.add(event),
     );
     const context = SubscriptionPurchaseAnalyticsContext(
       product: SubscriptionProductAnalytics(
@@ -74,6 +104,7 @@ void main() {
 
     expect(trackVerifiedSubscriptionSuccess(analytics, context, event), isTrue);
     expect(events.single.$1, AnalyticsEvent.subSuccess);
+    expect(firebaseEvents, [AnalyticsEvent.subSuccess]);
     expect(
       events.single.$2,
       allOf(

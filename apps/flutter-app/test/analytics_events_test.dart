@@ -55,7 +55,7 @@ void main() {
     expect(AnalyticsEvent.all, hasLength(46));
   });
 
-  test('v1.0.1 Mixpanel events match the yellow spreadsheet additions', () {
+  test('v1.0.1 analytics events match the yellow spreadsheet additions', () {
     expect(
       AnalyticsEvent.all,
       containsAll(const {

@@ -2340,6 +2340,7 @@ class _QuickCollectionReviewPageState
   String? _initializingItemId;
   String? _activeItemId;
   bool _isSavingAll = false;
+  bool _isDeletingAll = false;
   CardDetailState? _savingDisplayState;
   int _savingCompletedCount = 0;
   int _savingTotalCount = 0;
@@ -2358,7 +2359,7 @@ class _QuickCollectionReviewPageState
   Widget _buildContent(BuildContext context) {
     final pendingItems = ref.watch(pendingCollectionProvider);
     if (pendingItems.isEmpty) {
-      if (_isSavingAll) {
+      if (_isSavingAll || _isDeletingAll) {
         return _QuickCollectionLoading(heightFactor: widget.heightFactor);
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2854,24 +2855,40 @@ class _QuickCollectionReviewPageState
       context,
       title: 'Delete all cards ?',
       message:
-          'This action will permanently delete all cards waiting for details and cannot be undone.',
+          'This action will permanently delete all these cards and cannot be undone',
+      confirmLabel: 'DELETE',
+      cancelLabel: 'CANCEL',
+      confirmAction: _clearPendingItems,
     );
     if (!confirmed || !mounted) return;
 
-    final cardIds = {
-      for (final item in ref.read(pendingCollectionProvider)) item.card.id,
-    };
-    for (final cardId in cardIds) {
-      final provider = quickCollectionCardDetailControllerProvider(cardId);
-      final state = ref.read(provider);
-      if (!state.isLoading &&
-          !state.isUnavailable &&
-          state.collectionItemDraft != null) {
-        ref.read(provider.notifier).cancelCollectionItemEdit();
-      }
-    }
-    ref.read(pendingCollectionProvider.notifier).clear();
     context.pop();
+  }
+
+  Future<bool> _clearPendingItems() async {
+    if (!mounted) return false;
+    setState(() => _isDeletingAll = true);
+
+    try {
+      final cardIds = {
+        for (final item in ref.read(pendingCollectionProvider)) item.card.id,
+      };
+      for (final cardId in cardIds) {
+        final provider = quickCollectionCardDetailControllerProvider(cardId);
+        final state = ref.read(provider);
+        if (!state.isLoading &&
+            !state.isUnavailable &&
+            state.collectionItemDraft != null) {
+          ref.read(provider.notifier).cancelCollectionItemEdit();
+        }
+      }
+      ref.read(pendingCollectionProvider.notifier).clear();
+      await WidgetsBinding.instance.endOfFrame;
+      return true;
+    } catch (_) {
+      if (mounted) setState(() => _isDeletingAll = false);
+      rethrow;
+    }
   }
 }
 
