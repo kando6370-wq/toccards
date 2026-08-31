@@ -135,7 +135,9 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 Admin 没有独立生产部署目标。Workers deploy 会先按 dev/prod 模式构建 `auth-core` 和 Admin，再由 Worker assets 发布。验证时至少区分 API health、SPA HTML 和实际 JS assets。
 
-扫描环境筛选依赖 PostgreSQL `0010_scan_record_environment.sql`。该迁移必须先于读取/写入 `scan_record.environment` 的新 Worker 部署；数据库默认值 `development` 仅用于迁移后、部署前兼容仍未传列的旧 dev Worker，应用回滚时保留列。新 Worker 必须由 `APP_ENVIRONMENT` 显式写入，缺失配置时返回 `503`，不能依赖数据库默认值。现有 PostgreSQL scan 记录基于已确认的 dev D1 迁移事实回填为 `development`。未来 prod D1 数据迁移必须由独立 prod 工具把历史记录标记为 `production`，不得复用 dev-only runner 的固定值或数据库默认值。当前 Git 交付未执行远程 `0010`、Worker/Admin 部署或生产数据写入。
+扫描环境筛选依赖 PostgreSQL `0010_scan_record_environment.sql`。该迁移必须先于读取/写入 `scan_record.environment` 的新 Worker 部署；数据库默认值 `development` 仅用于迁移后、部署前兼容仍未传列的旧 dev Worker，应用回滚时保留列。新 Worker 必须由 `APP_ENVIRONMENT` 显式写入，缺失配置时返回 `503`，不能依赖数据库默认值。现有 PostgreSQL scan 记录基于已确认的 dev D1 迁移事实回填为 `development`。未来 prod D1 数据迁移必须由独立 prod 工具把历史记录标记为 `production`，不得复用 dev-only runner 的固定值或数据库默认值。
+
+2026-08-31 已按“先 migration、后应用”完成 dev 发布：`0010` 的 ledger、checksum、非空列、已验证约束、索引及 467 条 `development` 回填均经事务外复核；Cloudflare deployment `222a2069-4924-4fff-b28c-6248a884e457` 将 version `be0a5923-8c81-485c-b8a3-b0a982fca912` 置于 100% dev 流量。`/api/v1/health` 与 `/admin` 返回 `200`，Admin HTML 引用的 10 个 JS/CSS 资源全部返回 `200` 且 SHA-256 与本地 dev 构建一致，未授权 `/api/v1/admin/scans` 返回 `401 UNAUTHORIZED`。未部署 prod，也未执行登录态 Admin 环境筛选人工验收。
 
 仓库内证据：
 

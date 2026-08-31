@@ -202,4 +202,4 @@ PostgreSQL migration manifest 测试保护 `0007` 的顺序与内容；远程 Sc
 - prod 边界：现网 prod 仍运行 v1.0 D1。未来 prod 数据迁移必须使用独立受控流程，把生产历史 scan 显式写为 `production`；prod Worker 必须通过 `APP_ENVIRONMENT=production` 显式写入，不得复用 dev-only runner 或依赖数据库默认值。
 - 回滚：应用代码可回退并保留列、约束和索引。若要物理删除列，必须先回退所有读取/写入，再使用新的递增 PostgreSQL migration；不得修改已执行的 `0010`。
 
-当前仓库只交付 migration、写入/API/UI 和自动化契约；尚未远程执行 `0010`，也未部署依赖它的 dev/prod Worker。
+2026-08-31 经用户明确授权部署 dev，先执行 `0010` 再发布依赖它的 Worker/Admin。首次使用固定 dev D1 配置启动 schema-only remote preview 时，Cloudflare 在 preview 启动阶段返回 D1 database not found（code `10181`）；该次尚未连接或执行 PostgreSQL DDL。随后改用只绑定共享 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66` 的一次性 Wrangler remote preview，未绑定 D1、KV、R2、路由或定时任务。只读预检确认目标为 `postgres/public`、PostgreSQL 18.6，ledger 精确包含 `0000-0009`，环境列、约束和索引均不存在；migration 在 advisory lock 保护的单事务中只应用 `0010`。事务外复核确认 checksum 为 `6ef480092683760fc4f0a50b221ccea35fa58c3ad23c1ebfca30e4272bfde99f`、`applied_at=2026-08-31T08:28:04.491Z`，列为 `text NOT NULL`，约束已验证，索引存在，467 条扫描记录全部为 `development`。preview 随后正常关闭，临时配置已删除。之后部署 dev Worker/Admin version `be0a5923-8c81-485c-b8a3-b0a982fca912`；未执行 prod 部署、prod D1 迁移或生产写入。
