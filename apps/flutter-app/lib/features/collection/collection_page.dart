@@ -1248,7 +1248,7 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                             state.dashboard.folders.length >= 2) {
                           final result = await context
                               .push<SubscriptionPaywallResult>(
-                                subscriptionSheetLocation,
+                                subscriptionSheetLocation(),
                               );
                           if (!context.mounted || result == null) return;
                           if (result ==
@@ -1297,7 +1297,7 @@ Future<void> _runCreateFolderFlow(
 
     initialName = result.name;
     final paywallResult = await context.push<SubscriptionPaywallResult>(
-      subscriptionSheetLocation,
+      subscriptionSheetLocation(),
     );
     if (!context.mounted || paywallResult == null) return;
     if (paywallResult == SubscriptionPaywallResult.premiumRestored) {

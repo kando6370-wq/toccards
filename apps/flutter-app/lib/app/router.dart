@@ -138,6 +138,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final sheet = state.uri.queryParameters['presentation'] == 'sheet';
           final source = state.uri.queryParameters['source'];
           final entrySource = state.uri.queryParameters['entry_source'];
+          final analyticsScene = state.uri.queryParameters['scene'];
           if (sheet) {
             return KandoBottomSheetPage<SubscriptionPaywallResult>(
               key: state.pageKey,
@@ -149,6 +150,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 sheet: true,
                 source: source,
                 entrySource: entrySource,
+                analyticsScene: analyticsScene,
               ),
             );
           }
@@ -159,6 +161,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               sheet: false,
               source: source,
               entrySource: entrySource,
+              analyticsScene: analyticsScene,
             ),
             transitionsBuilder: (_, _, _, child) => child,
           );

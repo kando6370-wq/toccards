@@ -17,6 +17,8 @@ abstract final class AnalyticsEvent {
   static const resetpasswordView = 'resetpassword_view';
   static const scanView = 'scan_view';
   static const reviewMatchesView = 'reviewMatches_view';
+  static const homePerformanceView = 'homePerformance_view';
+  static const subscribeView = 'subscribe_view';
 
   static const getCodeClick = 'getCode_click';
   static const currencyClick = 'currency_click';
@@ -35,10 +37,14 @@ abstract final class AnalyticsEvent {
   static const signSkipClick = 'signSkip_click';
   static const scanCloseClick = 'scanClose_click';
   static const shareAppClick = 'shareApp_click';
+  static const subClick = 'sub_click';
 
   static const googleSuccess = 'Google_success';
   static const appleSuccess = 'Apple_success';
   static const scanResults = 'scan_results';
+  static const subSuccess = 'sub_success';
+  static const subResult = 'sub_result';
+  static const restoreResult = 'restore_result';
 
   static const apiError = 'api_err';
   static const apiTiming = 'api_timing';
@@ -62,6 +68,8 @@ abstract final class AnalyticsEvent {
     resetpasswordView,
     scanView,
     reviewMatchesView,
+    homePerformanceView,
+    subscribeView,
     getCodeClick,
     currencyClick,
     folderClick,
@@ -79,9 +87,13 @@ abstract final class AnalyticsEvent {
     signSkipClick,
     scanCloseClick,
     shareAppClick,
+    subClick,
     googleSuccess,
     appleSuccess,
     scanResults,
+    subSuccess,
+    subResult,
+    restoreResult,
     apiError,
     apiTiming,
   };
@@ -93,6 +105,12 @@ abstract final class AnalyticsProperty {
   static const uid = 'uid';
   static const checkDebug = 'check_debug';
   static const subPlan = 'sub_plan';
+  static const scene = 'Scene';
+  static const plan = 'plan';
+  static const currency = 'currency';
+  static const price = 'price';
+  static const originalId = 'original_id';
+  static const results = 'Results';
 
   static const ipType = 'IP type';
   static const tabType = 'tab type';
@@ -127,6 +145,22 @@ abstract final class AnalyticsValue {
   static const scanFailed = 'failed';
   static const scanSuccess = 'success';
   static const scanNotFound = 'notfound';
+
+  static const sceneGuide = 'guide';
+  static const sceneUsual = 'Usual';
+  static const sceneIcon = 'icon';
+  static const sceneBanner = 'banner';
+  static const sceneTimeRange = 'timeRange';
+  static const sceneHomePerformance = 'homePerformance';
+  static const sceneCardDetailPerformance = 'cardDetailPerformance';
+  static const sceneScanTip = 'scanTip';
+  static const sceneScanTimes = 'scanTimes';
+  static const sceneScanWaiting = 'scanWating';
+
+  static const resultSuccess = 'success';
+  static const resultCancel = 'cancel';
+  static const resultFailed = 'failed';
+  static const resultNotFound = 'notFound';
 }
 
 String analyticsIpType(String? value) {

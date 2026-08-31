@@ -10,14 +10,71 @@ import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 import 'package:kando_app/features/subscription/apple_current_entitlements.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_analytics.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_page.dart';
+import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_bottom_sheet_page.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
+  testWidgets('onboarding subscription view reports the guide Mixpanel scene', (
+    tester,
+  ) async {
+    final events = <(String, Map<String, Object?>)>[];
+    final analytics = AppAnalytics.recording(
+      (event, properties) => events.add((event, properties)),
+    );
+    final host = _RestoreTestHost(analytics: analytics);
+    await tester.pumpWidget(host.app);
+    await tester.pumpAndSettle();
+
+    host.router.push('/subscription?source=onboarding');
+    await tester.pumpAndSettle();
+
+    expect(
+      events.where((entry) => entry.$1 == 'subscribe_view').map((e) => e.$2),
+      [containsPair('Scene', 'guide')],
+    );
+  });
+
+  testWidgets(
+    'subscription click reports selected SKU price currency and Scene',
+    (tester) async {
+      final events = <(String, Map<String, Object?>)>[];
+      final analytics = AppAnalytics.recording(
+        (event, properties) => events.add((event, properties)),
+      );
+      final host = _RestoreTestHost(
+        analytics: analytics,
+        controller: _AnalyticsPurchaseController(),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+
+      host.router.push('/subscription?source=onboarding');
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('subscription-purchase-button')),
+      );
+      await tester.tap(find.byKey(const Key('subscription-purchase-button')));
+      await tester.pump();
+
+      final click = events.singleWhere((entry) => entry.$1 == 'sub_click').$2;
+      expect(click, containsPair('plan', 'yearly.product'));
+      expect(click, containsPair('currency', 'USD'));
+      expect(click, containsPair('price', 49.99));
+      expect(click, containsPair('Scene', 'guide'));
+    },
+  );
+
   test('Restore outcome recalculates only from the latest verified result', () {
     expect(
       resolvePremiumStateAfterRestore(
@@ -1090,6 +1147,7 @@ class _RestoreTestHost {
   _RestoreTestHost({
     _RestoreTestController? controller,
     ProfileActions? actions,
+    AppAnalytics? analytics,
     String initialLocation = '/source',
   }) : controller = controller ?? _RestoreTestController() {
     router = GoRouter(
@@ -1114,6 +1172,7 @@ class _RestoreTestHost {
               sheet: sheet,
               source: state.uri.queryParameters['source'],
               entrySource: state.uri.queryParameters['entry_source'],
+              analyticsScene: state.uri.queryParameters['scene'],
             );
             if (sheet) {
               return KandoBottomSheetPage<SubscriptionPaywallResult>(
@@ -1161,6 +1220,7 @@ class _RestoreTestHost {
       overrides: [
         subscriptionControllerProvider.overrideWith(() => this.controller),
         if (actions != null) profileActionsProvider.overrideWithValue(actions),
+        if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
       child: MaterialApp.router(
         theme: buildKandoTheme(),
@@ -1254,6 +1314,11 @@ class _InFlightPurchaseController extends _RestoreTestController {
   }
 }
 
+class _AnalyticsPurchaseController extends _RestoreTestController {
+  @override
+  Future<void> purchase() async {}
+}
+
 class _UnavailableCatalogController extends _RestoreTestController {
   @override
   SubscriptionState build() => const SubscriptionState(
@@ -1287,6 +1352,23 @@ class _RestoreTestController extends SubscriptionController {
       subscriptionWeeklyPlanId: r'$4.99',
       subscriptionYearlyPlanId: r'$49.99',
       subscriptionLifetimePlanId: r'$79.99',
+    },
+    analyticsProducts: {
+      subscriptionWeeklyPlanId: SubscriptionProductAnalytics(
+        sku: 'weekly.product',
+        currency: 'USD',
+        price: 4.99,
+      ),
+      subscriptionYearlyPlanId: SubscriptionProductAnalytics(
+        sku: 'yearly.product',
+        currency: 'USD',
+        price: 49.99,
+      ),
+      subscriptionLifetimePlanId: SubscriptionProductAnalytics(
+        sku: 'lifetime.product',
+        currency: 'USD',
+        price: 79.99,
+      ),
     },
     availablePlanIds: {
       subscriptionWeeklyPlanId,

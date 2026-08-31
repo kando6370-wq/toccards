@@ -1263,7 +1263,9 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
     }
     if (premiumState == AppPremiumState.unknown) return;
     final result = await context.push<SubscriptionPaywallResult>(
-      subscriptionSheetLocation,
+      subscriptionSheetLocation(
+        scene: AnalyticsValue.sceneCardDetailPerformance,
+      ),
     );
     if (!mounted || result == null) return;
     if (result == SubscriptionPaywallResult.premiumRestored) {
@@ -5074,7 +5076,7 @@ class _PriceOverview extends ConsumerWidget {
         return;
       }
       final result = await context.push<SubscriptionPaywallResult>(
-        subscriptionSheetLocation,
+        subscriptionSheetLocation(scene: AnalyticsValue.sceneTimeRange),
       );
       if (!context.mounted || result == null) return;
       if (result == SubscriptionPaywallResult.premiumRestored) {

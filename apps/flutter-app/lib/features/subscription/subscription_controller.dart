@@ -7,6 +7,7 @@ import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 import '../../shared/portfolio/portfolio_providers.dart';
+import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
@@ -15,12 +16,18 @@ import 'apple_current_entitlements.dart';
 import 'subscription_entitlement_api.dart';
 import 'subscription_entitlement_cache.dart';
 import 'subscription_revenue_reporter.dart';
+import 'subscription_analytics.dart';
 import 'subscription_sync_queue.dart';
 
 const subscriptionWeeklyPlanId = 'weekly';
 const subscriptionYearlyPlanId = 'yearly';
 const subscriptionLifetimePlanId = 'lifetime';
-const subscriptionSheetLocation = '/subscription?presentation=sheet';
+String subscriptionSheetLocation({String scene = AnalyticsValue.sceneUsual}) {
+  return Uri(
+    path: '/subscription',
+    queryParameters: {'presentation': 'sheet', 'scene': scene},
+  ).toString();
+}
 
 String subscriptionPageLocation({
   required String source,
@@ -470,6 +477,7 @@ class SubscriptionState {
   const SubscriptionState({
     this.selectedPlanId = subscriptionYearlyPlanId,
     this.displayPrices = const {},
+    this.analyticsProducts = const {},
     this.availablePlanIds = const {},
     this.unavailablePlanIds = const {},
     this.isConfigured = false,
@@ -490,6 +498,7 @@ class SubscriptionState {
 
   final String selectedPlanId;
   final Map<String, String> displayPrices;
+  final Map<String, SubscriptionProductAnalytics> analyticsProducts;
   final Set<String> availablePlanIds;
   final Set<String> unavailablePlanIds;
   final bool isConfigured;
@@ -518,6 +527,7 @@ class SubscriptionState {
   SubscriptionState copyWith({
     String? selectedPlanId,
     Map<String, String>? displayPrices,
+    Map<String, SubscriptionProductAnalytics>? analyticsProducts,
     Set<String>? availablePlanIds,
     Set<String>? unavailablePlanIds,
     bool? isConfigured,
@@ -538,6 +548,7 @@ class SubscriptionState {
     return SubscriptionState(
       selectedPlanId: selectedPlanId ?? this.selectedPlanId,
       displayPrices: displayPrices ?? this.displayPrices,
+      analyticsProducts: analyticsProducts ?? this.analyticsProducts,
       availablePlanIds: availablePlanIds ?? this.availablePlanIds,
       unavailablePlanIds: unavailablePlanIds ?? this.unavailablePlanIds,
       isConfigured: isConfigured ?? this.isConfigured,
@@ -567,6 +578,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   SubscriptionStore? _store;
   var _restoreAttempt = 0;
   var _purchasePresentationActive = false;
+  SubscriptionPurchaseAnalyticsContext? _purchaseAnalyticsContext;
   Future<_EntitlementRefreshResult>? _entitlementRefreshInFlight;
   Future<bool>? _serverEntitlementSyncInFlight;
   Future<EntitlementReconciliationResult>? _entitlementReconciliationInFlight;
@@ -634,6 +646,20 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     state = state.copyWith(selectedPlanId: planId, clearError: true);
   }
 
+  void beginPurchaseAnalytics(String scene) {
+    if (state.isLoading || state.isPurchasing || state.isPurchasePending) {
+      return;
+    }
+    final product = state.analyticsProducts[state.selectedPlanId];
+    if (product == null) return;
+    final context = SubscriptionPurchaseAnalyticsContext(
+      product: product,
+      scene: scene,
+    );
+    _purchaseAnalyticsContext = context;
+    trackSubscriptionClick(ref.read(analyticsProvider), context);
+  }
+
   void resetPlanSelectionForNewPresentation() {
     if (state.isPurchasing || state.isPurchasePending || state.isRestoring) {
       return;
@@ -681,6 +707,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     final client = _client;
     final store = _store;
     if (client == null || store == null) {
+      _trackPurchaseResult(AnalyticsValue.resultFailed);
       state = state.copyWith(errorMessage: subscriptionNotConfiguredMessage);
       return;
     }
@@ -701,6 +728,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
             isPurchasing: false,
             errorMessage: subscriptionCatalogUnavailableMessage,
           );
+          _trackPurchaseResult(AnalyticsValue.resultFailed);
           _purchasePresentationActive = false;
           return;
         }
@@ -728,6 +756,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         applicationUserName: applicationUserName,
       );
     } on TimeoutException {
+      _trackPurchaseResult(AnalyticsValue.resultFailed);
       _purchasePresentationActive = false;
       state = state.copyWith(
         isLoading: false,
@@ -736,6 +765,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       );
     } on Object catch (error, stackTrace) {
       debugPrint('Unable to start subscription purchase: $error\n$stackTrace');
+      _trackPurchaseResult(AnalyticsValue.resultFailed);
       _purchasePresentationActive = false;
       state = state.copyWith(
         isLoading: false,
@@ -913,6 +943,10 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         restoreSource: source,
         resultEventCount: state.resultEventCount + 1,
       );
+      trackRestoreResult(
+        ref.read(analyticsProvider),
+        AnalyticsValue.resultFailed,
+      );
       return;
     }
     final attempt = ++_restoreAttempt;
@@ -961,6 +995,22 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         resultEventCount: state.resultEventCount + 1,
       );
       await _cacheRestoreResult(result);
+      trackRestoreResult(
+        ref.read(analyticsProvider),
+        result.isSuccess
+            ? AnalyticsValue.resultSuccess
+            : AnalyticsValue.resultNotFound,
+      );
+      if (result.isSuccess) {
+        final productId = decodeStoreKitJwsPayload(
+          result.signedTransactionInfo!,
+        )?['productId'];
+        if (productId is String) {
+          ref.read(analyticsProvider).updateSubscriptionPlan(productId);
+        }
+      } else {
+        ref.read(analyticsProvider).updateSubscriptionPlan(null);
+      }
     } on Object catch (error, stackTrace) {
       final failureEvent = subscriptionRestoreFailureEvent(error);
       if (failureEvent != null) {
@@ -975,6 +1025,10 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         );
         return;
       }
+      trackRestoreResult(
+        ref.read(analyticsProvider),
+        AnalyticsValue.resultFailed,
+      );
       state = state.copyWith(
         isLoading: false,
         isRestoring: false,
@@ -1035,6 +1089,11 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     final storage = ref.read(subscriptionEntitlementCacheStorageProvider);
     final cached = await storage.read();
     final cachedState = cached?.effectiveState(DateTime.now().toUtc());
+    ref
+        .read(analyticsProvider)
+        .updateSubscriptionPlan(
+          cachedState == AppPremiumState.premium ? cached?.productId : null,
+        );
     _scheduleEntitlementExpiry(cached);
     if (cachedState != null && ref.mounted) {
       state = state.copyWith(premiumState: cachedState);
@@ -1078,6 +1137,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         lifecycle,
       );
       if (entitlements.isEmpty) {
+        ref.read(analyticsProvider).updateSubscriptionPlan(null);
         final verifiedFree = VerifiedEntitlementCache(
           state: AppPremiumState.free,
           verifiedAt: DateTime.now().toUtc(),
@@ -1105,6 +1165,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         throw StateError('Current Apple entitlement evidence is malformed.');
       }
       await storage.write(cache);
+      ref.read(analyticsProvider).updateSubscriptionPlan(cache.productId);
       _scheduleEntitlementExpiry(cache);
       if (ref.mounted) {
         state = state.copyWith(
@@ -1221,12 +1282,18 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       return false;
     }
     final prices = <String, String>{};
+    final analyticsProducts = <String, SubscriptionProductAnalytics>{};
     final available = <String>{};
     for (final product in catalog.products) {
       final plan = client.config.planByProductId(store, product.storeProductId);
       if (plan != null) {
         available.add(plan.id);
         prices[plan.id] = product.displayPrice;
+        analyticsProducts[plan.id] = SubscriptionProductAnalytics(
+          sku: product.storeProductId,
+          currency: product.currencyCode.toUpperCase(),
+          price: product.rawPrice,
+        );
       }
     }
     final unavailable = subscriptionPlans
@@ -1244,6 +1311,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     state = state.copyWith(
       selectedPlanId: selected,
       displayPrices: prices,
+      analyticsProducts: analyticsProducts,
       availablePlanIds: available,
       unavailablePlanIds: unavailable,
     );
@@ -1287,6 +1355,8 @@ class SubscriptionController extends Notifier<SubscriptionState> {
           ? SubscriptionResultEvent.purchaseSuccess
           : SubscriptionResultEvent.externalPremium;
       _purchasePresentationActive = false;
+      final analyticsContext = _purchaseAnalyticsContext;
+      _purchaseAnalyticsContext = null;
       state = state.copyWith(
         isLoading: false,
         isPurchasing: false,
@@ -1298,6 +1368,9 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         clearError: true,
       );
       if (purchase != null) {
+        ref
+            .read(analyticsProvider)
+            .updateSubscriptionPlan(purchase.storeProductId);
         final cache = _cacheFromEvidence(
           purchase.storeProductId,
           purchase.verificationData,
@@ -1311,6 +1384,14 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       }
       if (event.purchase?.status == SubscriptionPurchaseStatus.purchased &&
           event.failure == null) {
+        if (resultEvent == SubscriptionResultEvent.purchaseSuccess &&
+            analyticsContext != null) {
+          trackVerifiedSubscriptionSuccess(
+            ref.read(analyticsProvider),
+            analyticsContext,
+            event,
+          );
+        }
         unawaited(synchronizeServerEntitlement());
         unawaited(
           ref
@@ -1323,10 +1404,19 @@ class SubscriptionController extends Notifier<SubscriptionState> {
               }),
         );
       }
+      if (resultEvent == SubscriptionResultEvent.purchaseSuccess &&
+          analyticsContext != null) {
+        trackSubscriptionResult(
+          ref.read(analyticsProvider),
+          analyticsContext,
+          AnalyticsValue.resultSuccess,
+        );
+      }
       return;
     }
     final feedbackMessage = subscriptionPurchaseFeedbackMessage(event);
     if (event.failure != null) {
+      _trackPurchaseResult(AnalyticsValue.resultFailed);
       _purchasePresentationActive = false;
       state = state.copyWith(
         isLoading: false,
@@ -1346,6 +1436,18 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       return;
     }
     if (event.purchase?.status == SubscriptionPurchaseStatus.canceled) {
+      _trackPurchaseResult(AnalyticsValue.resultCancel);
+      _purchasePresentationActive = false;
+      state = state.copyWith(
+        isLoading: false,
+        isPurchasing: false,
+        isPurchasePending: false,
+        errorMessage: feedbackMessage,
+      );
+      return;
+    }
+    if (event.purchase?.status == SubscriptionPurchaseStatus.failed) {
+      _trackPurchaseResult(AnalyticsValue.resultFailed);
       _purchasePresentationActive = false;
       state = state.copyWith(
         isLoading: false,
@@ -1354,6 +1456,13 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         errorMessage: feedbackMessage,
       );
     }
+  }
+
+  void _trackPurchaseResult(String result) {
+    final context = _purchaseAnalyticsContext;
+    _purchaseAnalyticsContext = null;
+    if (context == null) return;
+    trackSubscriptionResult(ref.read(analyticsProvider), context, result);
   }
 }
 

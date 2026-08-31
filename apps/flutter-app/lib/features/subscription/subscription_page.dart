@@ -12,7 +12,9 @@ import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../shared/analytics/app_analytics.dart';
 import '../profile/profile_actions.dart';
+import 'subscription_analytics.dart';
 import 'subscription_controller.dart';
 
 const _benefits = [
@@ -48,12 +50,14 @@ class SubscriptionPage extends ConsumerStatefulWidget {
     this.sheet = false,
     this.source,
     this.entrySource,
+    this.analyticsScene,
     super.key,
   });
 
   final bool sheet;
   final String? source;
   final String? entrySource;
+  final String? analyticsScene;
 
   @override
   ConsumerState<SubscriptionPage> createState() => _SubscriptionPageState();
@@ -62,11 +66,21 @@ class SubscriptionPage extends ConsumerStatefulWidget {
 class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     with WidgetsBindingObserver {
   var _onboardingPurchaseSuccessNavigationStarted = false;
+  late final String _analyticsScene;
 
   @override
   void initState() {
     super.initState();
+    _analyticsScene = subscriptionAnalyticsScene(
+      source: widget.source,
+      entrySource: widget.entrySource,
+      explicitScene: widget.analyticsScene,
+    );
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      trackSubscriptionView(ref.read(analyticsProvider), _analyticsScene);
+    });
     Future<void>.microtask(() {
       if (!mounted) return;
       ref
@@ -245,9 +259,15 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                                 state.isPurchasing ||
                                 state.isPurchasePending
                             ? null
-                            : () => ref
-                                  .read(subscriptionControllerProvider.notifier)
-                                  .purchase(),
+                            : () {
+                                final controller = ref.read(
+                                  subscriptionControllerProvider.notifier,
+                                );
+                                controller.beginPurchaseAnalytics(
+                                  _analyticsScene,
+                                );
+                                controller.purchase();
+                              },
                         style: FilledButton.styleFrom(
                           backgroundColor: KandoColors.accent,
                           foregroundColor: KandoColors.primaryOnDefault,

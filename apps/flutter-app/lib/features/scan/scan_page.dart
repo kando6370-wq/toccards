@@ -828,12 +828,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
   }
 
-  Future<void> _openQuotaPaywall() async {
+  Future<void> _openQuotaPaywall({
+    String scene = AnalyticsValue.sceneScanTimes,
+  }) async {
     if (!mounted || _quotaPaywallOpen) return;
     _quotaPaywallOpen = true;
     try {
       final result = await context.push<SubscriptionPaywallResult>(
-        subscriptionSheetLocation,
+        subscriptionSheetLocation(scene: scene),
       );
       if (!mounted || result == null) return;
       _markWaitingItemsAsEntitlementSync();
@@ -2180,7 +2182,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     onDeleteItem: _removeScanFromUser,
                     onSearchItem: (item) {
                       if (item.status == _ScanItemStatus.waiting) {
-                        unawaited(_openQuotaPaywall());
+                        unawaited(
+                          _openQuotaPaywall(
+                            scene: AnalyticsValue.sceneScanWaiting,
+                          ),
+                        );
                       } else {
                         unawaited(_searchManually(item));
                       }

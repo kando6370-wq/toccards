@@ -29,6 +29,8 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
+import 'package:kando_app/shared/analytics/analytics_events.dart';
+import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
@@ -48,6 +50,50 @@ import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  testWidgets(
+    'Performance tab reports each actual entry without rebuild duplicates',
+    (tester) async {
+      final events = <String>[];
+      final analytics = AppAnalytics.recording((event, _) => events.add(event));
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _FreeHomeSubscriptionController.new,
+          null,
+          analytics,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        events.where((event) => event == AnalyticsEvent.homePerformanceView),
+        hasLength(1),
+      );
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      expect(
+        events.where((event) => event == AnalyticsEvent.homePerformanceView),
+        hasLength(1),
+      );
+
+      await tester.tap(find.byKey(const Key('home-overview-tab')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      expect(
+        events.where((event) => event == AnalyticsEvent.homePerformanceView),
+        hasLength(2),
+      );
+    },
+  );
+
   test(
     'Figma Home card test fixture stays out of runtime assets and decodes at its design source aspect ratio',
     () async {
@@ -2824,6 +2870,7 @@ Widget _mockHomeApp([
   HomeRepository homeRepository = const MockHomeRepository(),
   SubscriptionController Function()? subscriptionController,
   PortfolioApiClient? performanceApi,
+  AppAnalytics? analytics,
 ]) {
   final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
   return DefaultAssetBundle(
@@ -2843,6 +2890,7 @@ Widget _mockHomeApp([
         subscriptionControllerProvider.overrideWith(
           subscriptionController ?? _FreeHomeSubscriptionController.new,
         ),
+        if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
       child: const _HomeTestApp(),
     ),

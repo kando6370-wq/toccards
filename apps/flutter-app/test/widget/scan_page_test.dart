@@ -3166,6 +3166,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Subscription'), findsOneWidget);
+    final query = tester
+        .widget<Text>(find.byKey(const Key('subscription-test-query')))
+        .data!;
+    expect(Uri.splitQueryString(query)['scene'], 'scanWating');
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(source.lastRetryFileName, isNull);

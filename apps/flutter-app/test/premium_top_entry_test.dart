@@ -16,7 +16,11 @@ void main() {
     expect(uri.queryParameters['source'], 'scan');
     expect(uri.queryParameters['entry_source'], 'scan_pro_card');
     expect(uri.queryParameters.containsKey('presentation'), isFalse);
-    expect(subscriptionSheetLocation, contains('presentation=sheet'));
+    final sheet = Uri.parse(
+      subscriptionSheetLocation(scene: 'cardDetailPerformance'),
+    );
+    expect(sheet.queryParameters['presentation'], 'sheet');
+    expect(sheet.queryParameters['scene'], 'cardDetailPerformance');
   });
 
   testWidgets('page header matches the shared Figma title and PRO layout', (

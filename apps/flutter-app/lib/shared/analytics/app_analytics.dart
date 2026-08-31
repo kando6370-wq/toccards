@@ -100,8 +100,35 @@ class AppAnalytics {
     Map<String, Object?> properties = const {},
     String? debounceKey,
   }) {
+    _track(
+      event,
+      properties: properties,
+      debounceKey: debounceKey,
+      includeFirebase: true,
+    );
+  }
+
+  void trackMixpanel(
+    String event, {
+    Map<String, Object?> properties = const {},
+    String? debounceKey,
+  }) {
+    _track(
+      event,
+      properties: properties,
+      debounceKey: debounceKey,
+      includeFirebase: false,
+    );
+  }
+
+  void _track(
+    String event, {
+    required Map<String, Object?> properties,
+    required String? debounceKey,
+    required bool includeFirebase,
+  }) {
     final mixpanel = _mixpanel;
-    final firebase = _firebase;
+    final firebase = includeFirebase ? _firebase : null;
     final eventObserver = _eventObserver;
     if (mixpanel == null && firebase == null && eventObserver == null) return;
     if (_isDebouncedClick(event, properties, debounceKey)) return;

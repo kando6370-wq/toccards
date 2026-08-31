@@ -129,7 +129,11 @@ class _HomePageState extends ConsumerState<HomePage>
                       setState(() => _performanceSelected = false);
                     },
                     onPerformancePressed: () {
+                      if (_performanceSelected) return;
                       setState(() => _performanceSelected = true);
+                      ref
+                          .read(analyticsProvider)
+                          .trackMixpanel(AnalyticsEvent.homePerformanceView);
                       unawaited(
                         _loadPerformanceIfPremium(state.selectedFolderId),
                       );
@@ -259,7 +263,7 @@ class _HomePageState extends ConsumerState<HomePage>
     }
     if (premiumState == AppPremiumState.unknown) return;
     final result = await context.push<SubscriptionPaywallResult>(
-      subscriptionSheetLocation,
+      subscriptionSheetLocation(scene: AnalyticsValue.sceneHomePerformance),
     );
     if (!mounted || !context.mounted || result == null) return;
     if (result == SubscriptionPaywallResult.premiumRestored) {
@@ -288,7 +292,7 @@ class _HomePageState extends ConsumerState<HomePage>
       if (!context.mounted || resolved == AppPremiumState.unknown) return;
       if (resolved == AppPremiumState.free) {
         final result = await context.push<SubscriptionPaywallResult>(
-          subscriptionSheetLocation,
+          subscriptionSheetLocation(scene: AnalyticsValue.sceneTimeRange),
         );
         if (!context.mounted || result == null) return;
         if (result == SubscriptionPaywallResult.premiumRestored) {
