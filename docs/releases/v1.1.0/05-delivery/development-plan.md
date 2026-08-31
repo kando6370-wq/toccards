@@ -272,6 +272,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-08-31 Search 快捷收藏 Qty 同步修复：复现为已收藏卡牌从 Search `+` 进入 Review 并保存正式 Item，创建成功且详情内部 Quantity 已增加，但返回 Search 后同卡 `Qty` 仍为旧值。根因有三处：单条保存先失效整个 Search Provider，批量保存只启动未等待的二次资产刷新；资产请求失败后又长期缓存失败 Future，后续恢复请求继续复用失败结果；失败兜底使用公共卡牌目录的默认 `Qty=0`，会覆盖页面已确认的持仓值。现单条与批量均使用创建接口返回的正式 `Collection Item`，按同一 `card_ref` 立即合并全部 Folder、Raw/评级等不同版本的 Quantity、Item 数与收藏摘要，同时使旧资产请求失效；后台仍执行权威全量刷新以保留原 Game 与跨页契约，刷新失败时保留当前已确认资产值并清除失败 Future，服务恢复后可重新校准。修复前 Widget 回归稳定得到期望 `Qty: 2`、实际仍为 `Qty: 1`；修复后 Search Controller 34/34、Search Widget 43/43、Set Detail 8/8、Card Detail Widget 51/51、`flutter analyze`、Dart 格式及 `git diff --check` 通过。Code Review 未发现阻断项，确认只合并服务端确认成功项、重复服务端 Item ID 不重复计数，失败或待编辑 Item 不增加 Qty；未修改 Workers API、Schema、收藏口径、权限、价格或 Wishlist 契约。未执行登录态 dev App 原路径、iOS/Android 真机及真实弱网/迟到响应人工验收。
 
+- 2026-08-31 Card Detail 同卡多版本收藏数据展示修复：Collection 列表已把具体 `collection_item_id` 传入详情，Performance 也按该 ID 查询，但 Collection Item 页签固定展示同 `card_ref` 结果集首条，导致先收藏 A 版本数量 1、价格 50，再收藏 B 版本数量 2、价格 13 后，打开 A 可能误显示 B 的数量和收藏价；服务端两条 Item 数据并未因此互相覆盖。现页签在存在 Item 上下文时按 `collection_item_id` 精确选择摘要，编辑和删除继续作用于同一 Item；无 Item 上下文的通用入口及过期 Item 降级保持原行为。修复前双 Item Widget 回归稳定找不到请求的 B 摘要，修复后能独立展示 B 的数量、收藏价和备注且保留 A 数据；Card Detail Controller 与 Widget 95/95、`flutter analyze --no-pub`、Dart 格式及 `git diff --check` 通过。Code Review 未发现阻断项；未修改 Workers API、Schema、保存、唯一性、价格或 Performance 契约，未执行登录态 dev App 原路径及 iOS/Android 真机验收。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。

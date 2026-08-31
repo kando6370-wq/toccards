@@ -1226,6 +1226,7 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
             state: widget.state,
             controller: widget.controller,
             entrySource: widget.entrySource,
+            collectionItemId: itemId,
           )
         else if (itemId != null && _tabController.index == 1)
           _CardPerformance(
@@ -1783,6 +1784,7 @@ class _CollectionItems extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.entrySource,
+    required this.collectionItemId,
   });
 
   static const _modeTransitionDuration = Duration(milliseconds: 380);
@@ -1790,12 +1792,15 @@ class _CollectionItems extends StatelessWidget {
   final CardDetailState state;
   final CardDetailController controller;
   final String entrySource;
+  final String? collectionItemId;
 
   @override
   Widget build(BuildContext context) {
-    final item = state.collectionItemRows.isEmpty
-        ? null
-        : state.collectionItemRows.first;
+    final item = collectionItemId == null
+        ? state.collectionItemRows.firstOrNull
+        : state.collectionItemRows
+              .where((candidate) => candidate.id == collectionItemId)
+              .firstOrNull;
     final showEdit =
         state.collectionItemDraft != null &&
         (item == null || state.editingCollectionItemId == item.id);

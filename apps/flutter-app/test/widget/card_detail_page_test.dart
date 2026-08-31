@@ -1525,6 +1525,38 @@ void main() {
     },
   );
 
+  testWidgets(
+    'owned CardDetail displays the requested Collection Item because same-card versions keep independent ownership data',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: 'item-charizard-sealed',
+          repository: _MultiItemCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+
+      expect(
+        find.byKey(
+          const Key('card-detail-collection-item-item-charizard-sealed'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-collection-item-item-charizard')),
+        findsNothing,
+      );
+      expect(find.text('Sealed'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text(r'$20.00'), findsOneWidget);
+      expect(find.text('Hidden duplicate item.'), findsOneWidget);
+      expect(find.text('Pulled from Obsidian Flames binder.'), findsNothing);
+    },
+  );
+
   testWidgets('owned CardDetail can switch to Price overview', (tester) async {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
     await tester.pumpAndSettle();
