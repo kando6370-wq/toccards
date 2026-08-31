@@ -141,8 +141,8 @@ class _StartupPageState extends ConsumerState<_StartupPage>
                                   key: const ValueKey(
                                     'onboarding-loading-logo',
                                   ),
-                                  width: 63,
-                                  height: 77,
+                                  width: 76,
+                                  height: 92,
                                   filterQuality: FilterQuality.high,
                                 )
                               : Image.asset(
@@ -150,8 +150,8 @@ class _StartupPageState extends ConsumerState<_StartupPage>
                                   key: const ValueKey(
                                     'onboarding-loading-logo',
                                   ),
-                                  width: 90,
-                                  height: 90,
+                                  width: 76,
+                                  height: 92,
                                   filterQuality: FilterQuality.high,
                                 ),
                         ),

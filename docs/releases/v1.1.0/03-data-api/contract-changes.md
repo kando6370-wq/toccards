@@ -203,7 +203,7 @@ Apple 官方 Node SDK 的证书吊销检查和 Server API 请求依赖 `node-fet
 上述能力定位为 **App 订阅体验原型 + StoreKit 抽象层 + Admin/PostgreSQL 数据骨架**，不是生产可用的订阅闭环。当前至少存在以下上线阻塞：
 
 - 客户端已在 Fresh Purchase 前尽力申请 challenge，并仅将 StoreKit 2 signed transaction 作为即时 Premium 证据异步上传；业务接口失败不反向覆盖本机购买成功。
-- App 已将静默权益读取与主动 Restore 分离：启动只读取 Apple verified `Transaction.currentEntitlements`，用户主动 Restore 才调用 `AppStore.sync()`；Restore 实现 Success/Not Found/Failed/15 秒 Timeout 分流。`AppStore.sync()` 的 StoreKit `systemError` 可回退读取本机 current entitlements，但仅以 Apple verified 且命中配置 SKU 的证据判定 Success；无匹配权益仍保留同步失败，其他同步错误不回退。Success 不进入 Purchase Success，并在后台尽力完成 App Attest proof，不以 proof 同步失败覆盖本机成功。
+- App 已将静默权益读取与主动 Restore 分离：启动只读取 Apple verified `Transaction.currentEntitlements`，用户主动 Restore 才调用 `AppStore.sync()`；Restore 实现 Success/Not Found/Cancelled/Failed/15 秒 Timeout 分流。`AppStore.sync()` 的用户取消及其他同步错误均停止本次流程且不读取设备残留 entitlement；Cancelled 只结束 Loading、保持操作前权益且不显示结果反馈，真实错误继续进入 Failed。Success 不进入 Purchase Success，并在后台尽力完成 App Attest proof，不以 proof 同步失败覆盖本机成功。
 - Workers 已有 Fresh Purchase、Restore、Notifications V2 与 Apple Server API 校正链；production/TestFlight 双 verifier、Bundle 隔离 inbox 与双环境校正代码及 `0009` migration 已准备，但共享 PostgreSQL migration 尚未远程执行，prod Worker 尚未部署。App Attest 原生代码仍需 Xcode/真机验证，Apple Server API Secret 内容仍需真实调用证明。
 - `billing_entitlement_grant` 旧 owner 关联只兼容保留，不参与授权。
 - Scan Quota 与 Folder 限制已由服务端基于可信 grant 原子执行；Waiting/自动递补、Processing 删除后的后台结算和 `blocked_action=create_folder` 已按页面内最小上下文实现，非成功或目标失效不执行旧动作。

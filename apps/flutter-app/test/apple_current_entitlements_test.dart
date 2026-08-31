@@ -85,11 +85,11 @@ void main() {
   });
 
   test(
-    'Restore does not reuse a current entitlement when App Store authentication fails',
+    'Restore cancellation does not reuse a current entitlement left on the device',
     () async {
       final error = PlatformException(
-        code: 'apple_restore_failed',
-        details: const {'domain': 'StoreKit.StoreKitError', 'code': 3},
+        code: appleRestoreCancelledErrorCode,
+        details: const {'domain': 'StoreKit.StoreKitError'},
       );
       final reader = _SynchronizationFailureReader(
         error: error,
@@ -109,11 +109,27 @@ void main() {
         reader.readCount,
         0,
         reason:
-            'A cancelled or failed account check must not restore from '
+            'A cancelled account check must not restore from '
             'entitlement data left on the device.',
       );
     },
   );
+
+  test('Restore cancellation is classified separately from failure', () {
+    expect(
+      isAppleRestoreCancellation(
+        PlatformException(code: appleRestoreCancelledErrorCode),
+      ),
+      isTrue,
+    );
+    expect(
+      isAppleRestoreCancellation(
+        PlatformException(code: 'apple_restore_failed'),
+      ),
+      isFalse,
+    );
+    expect(isAppleRestoreCancellation(TimeoutException('restore')), isFalse);
+  });
 
   test(
     'Restore keeps StoreKit system error as Failed without reading entitlements',

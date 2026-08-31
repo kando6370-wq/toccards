@@ -1,5 +1,10 @@
 import 'package:flutter/services.dart';
 
+const appleRestoreCancelledErrorCode = 'apple_restore_cancelled';
+
+bool isAppleRestoreCancellation(Object error) =>
+    error is PlatformException && error.code == appleRestoreCancelledErrorCode;
+
 class AppleCurrentEntitlement {
   const AppleCurrentEntitlement({
     required this.productId,

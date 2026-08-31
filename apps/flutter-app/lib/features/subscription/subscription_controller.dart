@@ -407,6 +407,11 @@ enum SubscriptionResultEvent {
   externalPremium,
 }
 
+SubscriptionResultEvent? subscriptionRestoreFailureEvent(Object error) =>
+    isAppleRestoreCancellation(error)
+    ? null
+    : SubscriptionResultEvent.restoreFailed;
+
 enum SubscriptionRestoreSource { subscriptionPage, profile }
 
 enum EntitlementReconciliationResult {
@@ -957,13 +962,24 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       );
       await _cacheRestoreResult(result);
     } on Object catch (error, stackTrace) {
-      debugPrint('Unable to restore Apple subscription: $error\n$stackTrace');
+      final failureEvent = subscriptionRestoreFailureEvent(error);
+      if (failureEvent != null) {
+        debugPrint('Unable to restore Apple subscription: $error\n$stackTrace');
+      }
       if (attempt != _restoreAttempt) return;
+      if (failureEvent == null) {
+        state = state.copyWith(
+          isLoading: false,
+          isRestoring: false,
+          clearResult: true,
+        );
+        return;
+      }
       state = state.copyWith(
         isLoading: false,
         isRestoring: false,
         premiumState: resolvePremiumStateAfterRestore(state.premiumState, null),
-        resultEvent: SubscriptionResultEvent.restoreFailed,
+        resultEvent: failureEvent,
         restoreSource: source,
         resultEventCount: state.resultEventCount + 1,
       );

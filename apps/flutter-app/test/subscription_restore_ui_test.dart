@@ -40,6 +40,25 @@ void main() {
     );
   });
 
+  test('Restore cancellation does not emit a result dialog event', () {
+    expect(
+      subscriptionRestoreFailureEvent(
+        PlatformException(code: appleRestoreCancelledErrorCode),
+      ),
+      isNull,
+    );
+    expect(
+      subscriptionRestoreFailureEvent(
+        PlatformException(code: 'apple_restore_failed'),
+      ),
+      SubscriptionResultEvent.restoreFailed,
+    );
+    expect(
+      subscriptionRestoreFailureEvent(TimeoutException('restore')),
+      SubscriptionResultEvent.restoreFailed,
+    );
+  });
+
   test('one configured SKU keeps the remaining StoreKit catalog usable', () {
     const configuration = AppSubscriptionConfiguration(
       store: SubscriptionStore.appStore,

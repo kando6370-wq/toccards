@@ -33,6 +33,14 @@ import UIKit
           do {
             try await AppStore.sync()
             await MainActor.run { result(nil) }
+          } catch StoreKitError.userCancelled {
+            await MainActor.run {
+              result(FlutterError(
+                code: "apple_restore_cancelled",
+                message: "App Store synchronization was cancelled.",
+                details: nil
+              ))
+            }
           } catch {
             let nsError = error as NSError
             await MainActor.run {
