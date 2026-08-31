@@ -22,10 +22,16 @@ Dio createScanDio({String baseUrl = scanApiBaseUrl}) {
 }
 
 class ScanApiException implements Exception {
-  const ScanApiException(this.message, {this.code, this.quota});
+  const ScanApiException(
+    this.message, {
+    this.code,
+    this.statusCode,
+    this.quota,
+  });
 
   final String message;
   final String? code;
+  final int? statusCode;
   final ScanQuotaDto? quota;
 
   @override
@@ -407,10 +413,10 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
       return <String, Object?>{};
     }
 
-    throw _apiException(envelope);
+    throw _apiException(envelope, statusCode: response.statusCode);
   }
 
-  ScanApiException _apiException(Object? envelope) {
+  ScanApiException _apiException(Object? envelope, {required int? statusCode}) {
     if (envelope is Map) {
       final error = envelope['error'];
       if (error is Map) {
@@ -418,11 +424,15 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
           _nullableString(error['message']) ??
               'Something went wrong. Please try again.',
           code: _nullableString(error['code']),
+          statusCode: statusCode,
           quota: _optionalQuota(envelope['quota']),
         );
       }
     }
-    return const ScanApiException('Something went wrong. Please try again.');
+    return ScanApiException(
+      'Something went wrong. Please try again.',
+      statusCode: statusCode,
+    );
   }
 }
 

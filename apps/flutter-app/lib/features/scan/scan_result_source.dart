@@ -365,7 +365,8 @@ class ApiScanResultSource implements ScanResultSource {
           quota: error.quota!,
         );
       }
-      if (error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+      if (error.statusCode == 409 &&
+          error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
         _retryRequestIds[image.bytes] = null;
         return ScanResolution.entitlementSyncRequired(
           imageBytes: image.bytes,

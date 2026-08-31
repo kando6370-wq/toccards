@@ -2876,9 +2876,11 @@ class _RepairingHomeSubscriptionController extends SubscriptionController {
   SubscriptionState build() => const SubscriptionState(isPro: true);
 
   @override
-  Future<bool> synchronizeServerEntitlement() async {
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
     tracker.calls++;
-    return tracker.result;
+    return tracker.result
+        ? EntitlementReconciliationResult.premiumSynchronized
+        : EntitlementReconciliationResult.verificationUnavailable;
   }
 }
 

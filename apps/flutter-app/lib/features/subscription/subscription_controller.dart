@@ -409,6 +409,22 @@ enum SubscriptionResultEvent {
 
 enum SubscriptionRestoreSource { subscriptionPage, profile }
 
+enum EntitlementReconciliationResult {
+  premiumSynchronized,
+  freeConfirmed,
+  verificationUnavailable,
+}
+
+class _EntitlementRefreshResult {
+  const _EntitlementRefreshResult({
+    required this.state,
+    required this.wasVerified,
+  });
+
+  final AppPremiumState state;
+  final bool wasVerified;
+}
+
 AppPremiumState resolvePremiumStateAfterRestore(
   AppPremiumState current,
   AppleRestoreResult? result,
@@ -546,9 +562,11 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   SubscriptionStore? _store;
   var _restoreAttempt = 0;
   var _purchasePresentationActive = false;
-  Future<AppPremiumState>? _entitlementRefreshInFlight;
+  Future<_EntitlementRefreshResult>? _entitlementRefreshInFlight;
   Future<bool>? _serverEntitlementSyncInFlight;
+  Future<EntitlementReconciliationResult>? _entitlementReconciliationInFlight;
   Future<bool>? _productLoadInFlight;
+  Timer? _entitlementExpiryTimer;
   var _productLoadCycle = 0;
 
   @override
@@ -576,6 +594,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     ref.onDispose(() {
       _restoreAttempt++;
       _productLoadCycle++;
+      _entitlementExpiryTimer?.cancel();
       unawaited(_eventSubscription?.cancel());
       unawaited(_client?.dispose());
     });
@@ -727,12 +746,56 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     }
   }
 
-  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) {
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    final result = await _refreshEntitlementResult(showFailure: showFailure);
+    return result.state;
+  }
+
+  Future<_EntitlementRefreshResult> _refreshEntitlementResult({
+    required bool showFailure,
+  }) {
     final inFlight = _entitlementRefreshInFlight;
     if (inFlight != null) return inFlight;
     final refresh = _runEntitlementRefresh(showFailure: showFailure);
     _entitlementRefreshInFlight = refresh;
     return refresh;
+  }
+
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() {
+    final inFlight = _entitlementReconciliationInFlight;
+    if (inFlight != null) return inFlight;
+    late final Future<EntitlementReconciliationResult> reconciliation;
+    reconciliation = _reconcileServerEntitlement().whenComplete(() {
+      if (identical(_entitlementReconciliationInFlight, reconciliation)) {
+        _entitlementReconciliationInFlight = null;
+      }
+    });
+    _entitlementReconciliationInFlight = reconciliation;
+    return reconciliation;
+  }
+
+  Future<EntitlementReconciliationResult> _reconcileServerEntitlement() async {
+    try {
+      final refresh = await _refreshEntitlementResult(showFailure: false);
+      if (!refresh.wasVerified) {
+        return EntitlementReconciliationResult.verificationUnavailable;
+      }
+      if (refresh.state == AppPremiumState.free) {
+        return EntitlementReconciliationResult.freeConfirmed;
+      }
+      if (refresh.state != AppPremiumState.premium) {
+        return EntitlementReconciliationResult.verificationUnavailable;
+      }
+      return await synchronizeServerEntitlement()
+          ? EntitlementReconciliationResult.premiumSynchronized
+          : EntitlementReconciliationResult.verificationUnavailable;
+    } on Object catch (error, stackTrace) {
+      debugPrint(
+        'Unable to reconcile the denied Premium entitlement: '
+        '$error\n$stackTrace',
+      );
+      return EntitlementReconciliationResult.verificationUnavailable;
+    }
   }
 
   Future<bool> synchronizeServerEntitlement() {
@@ -816,7 +879,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     }
   }
 
-  Future<AppPremiumState> _runEntitlementRefresh({
+  Future<_EntitlementRefreshResult> _runEntitlementRefresh({
     required bool showFailure,
   }) async {
     try {
@@ -949,19 +1012,23 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     }
   }
 
-  Future<AppPremiumState> _refreshEntitlement(
+  Future<_EntitlementRefreshResult> _refreshEntitlement(
     AppSubscriptionConfiguration configuration, {
     bool showFailure = false,
   }) async {
     final storage = ref.read(subscriptionEntitlementCacheStorageProvider);
     final cached = await storage.read();
     final cachedState = cached?.effectiveState(DateTime.now().toUtc());
+    _scheduleEntitlementExpiry(cached);
     if (cachedState != null && ref.mounted) {
       state = state.copyWith(premiumState: cachedState);
     }
     if (configuration.store != SubscriptionStore.appStore ||
         configuration.configuredProductIds.isEmpty) {
-      return state.premiumState;
+      return _EntitlementRefreshResult(
+        state: state.premiumState,
+        wasVerified: false,
+      );
     }
     try {
       final session = ref.read(authControllerProvider).session;
@@ -977,9 +1044,19 @@ class SubscriptionController extends Notifier<SubscriptionState> {
           .read(appleCurrentEntitlementReaderProvider)
           .read(configuration.configuredProductIds.values.toSet())
           .timeout(const Duration(seconds: 15));
-      if (!ref.mounted) return state.premiumState;
+      if (!ref.mounted) {
+        return _EntitlementRefreshResult(
+          state: state.premiumState,
+          wasVerified: false,
+        );
+      }
       final lifecycle = await lifecycleFuture;
-      if (!ref.mounted) return state.premiumState;
+      if (!ref.mounted) {
+        return _EntitlementRefreshResult(
+          state: state.premiumState,
+          wasVerified: false,
+        );
+      }
       final entitlements = applyAppleLifecycleCorrections(
         appleEntitlements,
         lifecycle,
@@ -990,13 +1067,17 @@ class SubscriptionController extends Notifier<SubscriptionState> {
           verifiedAt: DateTime.now().toUtc(),
         );
         await storage.write(verifiedFree);
+        _scheduleEntitlementExpiry(verifiedFree);
         if (ref.mounted) {
           state = state.copyWith(
             premiumState: AppPremiumState.free,
             clearError: true,
           );
         }
-        return AppPremiumState.free;
+        return const _EntitlementRefreshResult(
+          state: AppPremiumState.free,
+          wasVerified: true,
+        );
       }
       final cache = selectBestVerifiedEntitlementCache(
         entitlements,
@@ -1008,13 +1089,17 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         throw StateError('Current Apple entitlement evidence is malformed.');
       }
       await storage.write(cache);
+      _scheduleEntitlementExpiry(cache);
       if (ref.mounted) {
         state = state.copyWith(
           premiumState: AppPremiumState.premium,
           clearError: true,
         );
       }
-      return AppPremiumState.premium;
+      return const _EntitlementRefreshResult(
+        state: AppPremiumState.premium,
+        wasVerified: true,
+      );
     } on Object {
       final fallback = cachedState ?? AppPremiumState.unknown;
       if (ref.mounted) {
@@ -1026,19 +1111,19 @@ class SubscriptionController extends Notifier<SubscriptionState> {
           clearError: !showFailure,
         );
       }
-      return fallback;
+      return _EntitlementRefreshResult(state: fallback, wasVerified: false);
     }
   }
 
   Future<void> _cacheRestoreResult(AppleRestoreResult result) async {
     final storage = ref.read(subscriptionEntitlementCacheStorageProvider);
     if (!result.isSuccess) {
-      await storage.write(
-        VerifiedEntitlementCache(
-          state: AppPremiumState.free,
-          verifiedAt: DateTime.now().toUtc(),
-        ),
+      final cache = VerifiedEntitlementCache(
+        state: AppPremiumState.free,
+        verifiedAt: DateTime.now().toUtc(),
       );
+      await storage.write(cache);
+      _scheduleEntitlementExpiry(cache);
       return;
     }
     final evidence = result.signedTransactionInfo!;
@@ -1047,7 +1132,35 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     final cache = productId is String
         ? _cacheFromEvidence(productId, evidence)
         : null;
-    if (cache != null) await storage.write(cache);
+    if (cache != null) {
+      await storage.write(cache);
+      _scheduleEntitlementExpiry(cache);
+    }
+  }
+
+  void _scheduleEntitlementExpiry(VerifiedEntitlementCache? cache) {
+    _entitlementExpiryTimer?.cancel();
+    _entitlementExpiryTimer = null;
+    if (cache?.state != AppPremiumState.premium || cache!.isLifetime) return;
+    final expiresAt = cache.expiresAt;
+    if (expiresAt == null) return;
+    final delay = expiresAt.difference(DateTime.now().toUtc());
+    if (delay <= Duration.zero) return;
+    _entitlementExpiryTimer = Timer(delay, () {
+      _entitlementExpiryTimer = null;
+      unawaited(
+        refreshEntitlement(showFailure: false).catchError((
+          Object error,
+          StackTrace stackTrace,
+        ) {
+          debugPrint(
+            'Unable to refresh Premium at the verified expiry time: '
+            '$error\n$stackTrace',
+          );
+          return state.premiumState;
+        }),
+      );
+    });
   }
 
   VerifiedEntitlementCache? _cacheFromEvidence(
@@ -1174,6 +1287,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
           purchase.verificationData,
         );
         if (cache != null) {
+          _scheduleEntitlementExpiry(cache);
           unawaited(
             ref.read(subscriptionEntitlementCacheStorageProvider).write(cache),
           );

@@ -12,6 +12,8 @@ import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
@@ -664,6 +666,32 @@ void main() {
   );
 
   test(
+    'an expired entitlement turns Folder sync rejection into the current Free limit',
+    () async {
+      final repository = _FolderCreateFailureRepository(
+        code: 'ENTITLEMENT_SYNC_REQUIRED',
+      );
+      final container = _collectionContainer(
+        repository: repository,
+        subscriptionController: _FreeReconciliationSubscriptionController.new,
+      );
+      addTearDown(container.dispose);
+      await _loadedState(container);
+
+      final result = await container
+          .read(collectionControllerProvider.notifier)
+          .createFolder('Trade');
+
+      expect(result.status, CreateFolderStatus.premiumRequired);
+      expect(repository.loadCalls, 2);
+      expect(
+        container.read(subscriptionControllerProvider).premiumState,
+        AppPremiumState.free,
+      );
+    },
+  );
+
+  test(
     'remote preference failure only rolls back settings that still use the backend',
     () async {
       final repository = _RecordingCollectionRepository(failPreferences: true);
@@ -875,6 +903,7 @@ ProviderContainer _collectionContainer({
   HomeRepository homeRepository = const MockHomeRepository(),
   InMemoryPortfolioAmountHiddenStorage? amountStorage,
   Future<List<CardPortfolioFolder>> Function()? loadEditorFolders,
+  SubscriptionController Function()? subscriptionController,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -884,6 +913,10 @@ ProviderContainer _collectionContainer({
         LocalPlaceholderAuthRepository(storage),
       ),
       collectionRepositoryProvider.overrideWithValue(repository),
+      subscriptionControllerProvider.overrideWith(
+        subscriptionController ??
+            _UnavailableReconciliationSubscriptionController.new,
+      ),
       portfolioAmountHiddenStorageProvider.overrideWithValue(
         amountStorage ?? InMemoryPortfolioAmountHiddenStorage(),
       ),
@@ -899,6 +932,30 @@ ProviderContainer _collectionContainer({
       ],
     ],
   );
+}
+
+class _UnavailableReconciliationSubscriptionController
+    extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.premium);
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    return EntitlementReconciliationResult.verificationUnavailable;
+  }
+}
+
+class _FreeReconciliationSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.premium);
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    state = state.copyWith(premiumState: AppPremiumState.free);
+    return EntitlementReconciliationResult.freeConfirmed;
+  }
 }
 
 class _CountingHomeRepository implements HomeRepository {
@@ -991,7 +1048,11 @@ class _FolderCreateFailureRepository extends MockCollectionRepository {
     String name, {
     bool localPremiumVerified = false,
   }) {
-    throw PortfolioApiException('rejected', code: code);
+    throw PortfolioApiException(
+      'rejected',
+      code: code,
+      statusCode: code == 'ENTITLEMENT_SYNC_REQUIRED' ? 409 : null,
+    );
   }
 }
 

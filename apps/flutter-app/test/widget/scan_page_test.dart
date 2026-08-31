@@ -3995,6 +3995,15 @@ class _SynchronizingScanSubscriptionController extends SubscriptionController {
   }
 
   @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    synchronizeCount += 1;
+    final synchronized = await onSynchronize?.call() ?? true;
+    return synchronized
+        ? EntitlementReconciliationResult.premiumSynchronized
+        : EntitlementReconciliationResult.verificationUnavailable;
+  }
+
+  @override
   Future<bool> synchronizeServerEntitlement() async {
     synchronizeCount += 1;
     return await onSynchronize?.call() ?? true;

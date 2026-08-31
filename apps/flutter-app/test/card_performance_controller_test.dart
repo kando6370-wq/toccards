@@ -6,10 +6,48 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_performance_controller.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 
 void main() {
+  test(
+    'expired Item Performance entitlement becomes Free without retrying the denied request',
+    () async {
+      final api = _ControlledItemPerformanceApi();
+      final container = _container(
+        api,
+        subscriptionController: _FreeReconciliationSubscriptionController.new,
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        cardPerformanceControllerProvider('item-1').notifier,
+      );
+
+      final request = controller.load(localPremiumVerified: true);
+      api.failAt(
+        0,
+        const PortfolioApiException(
+          'Premium access is still syncing.',
+          code: 'ENTITLEMENT_SYNC_REQUIRED',
+          statusCode: 409,
+        ),
+      );
+      await request;
+
+      expect(api.itemIds, ['item-1']);
+      expect(
+        container.read(subscriptionControllerProvider).premiumState,
+        AppPremiumState.free,
+      );
+      expect(
+        container.read(cardPerformanceControllerProvider('item-1')).isFailure,
+        isTrue,
+      );
+    },
+  );
+
   test(
     'slow Item range selects immediately and keeps the last valid data visible',
     () async {
@@ -142,11 +180,14 @@ void main() {
 ProviderContainer _container(
   _ControlledItemPerformanceApi api, {
   bool keepProviderAlive = true,
+  SubscriptionController Function()? subscriptionController,
 }) {
   final container = ProviderContainer(
     overrides: [
       authControllerProvider.overrideWith(_ReadyAuthController.new),
       portfolioApiClientProvider.overrideWithValue(api),
+      if (subscriptionController != null)
+        subscriptionControllerProvider.overrideWith(subscriptionController),
     ],
   );
   if (keepProviderAlive) {
@@ -165,6 +206,18 @@ class _ReadyAuthController extends AuthController {
       userId: 'user-1',
     ),
   );
+}
+
+class _FreeReconciliationSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.premium);
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    state = state.copyWith(premiumState: AppPremiumState.free);
+    return EntitlementReconciliationResult.freeConfirmed;
+  }
 }
 
 class _ControlledItemPerformanceApi extends PortfolioApiClient {
@@ -191,8 +244,10 @@ class _ControlledItemPerformanceApi extends PortfolioApiClient {
     _pending[index].complete(data);
   }
 
-  void failAt(int index) {
-    _pending[index].completeError(const PortfolioApiException('failed'));
+  void failAt(int index, [Object? error]) {
+    _pending[index].completeError(
+      error ?? const PortfolioApiException('failed'),
+    );
   }
 }
 

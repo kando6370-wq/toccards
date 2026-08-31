@@ -695,17 +695,15 @@ class CollectionController extends Notifier<CollectionState> {
         normalized.length > 50) {
       return const CreateFolderResult(CreateFolderStatus.failed);
     }
-    try {
-      final session = ref.read(authControllerProvider).session!;
-      final folder = await ref
-          .read(collectionRepositoryProvider)
-          .createFolder(
-            session,
-            normalized,
-            localPremiumVerified: ref
-                .read(subscriptionControllerProvider)
-                .isPro,
-          );
+    final session = ref.read(authControllerProvider).session!;
+    Future<CollectionFolder> request() => ref
+        .read(collectionRepositoryProvider)
+        .createFolder(
+          session,
+          normalized,
+          localPremiumVerified: ref.read(subscriptionControllerProvider).isPro,
+        );
+    CreateFolderResult applyFolder(CollectionFolder folder) {
       state = state.copyWith(
         dashboard: state.dashboard.copyWith(
           folders: [...state.dashboard.folders, folder],
@@ -713,15 +711,49 @@ class CollectionController extends Notifier<CollectionState> {
       );
       _invalidateFolderDetails();
       return CreateFolderResult(CreateFolderStatus.success, folder: folder);
+    }
+
+    try {
+      final folder = await request();
+      return applyFolder(folder);
     } on PortfolioApiException catch (error) {
       if (error.code == 'PREMIUM_REQUIRED') {
         await refreshPreservingContent();
         return const CreateFolderResult(CreateFolderStatus.premiumRequired);
       }
-      if (error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
-        return const CreateFolderResult(
-          CreateFolderStatus.entitlementSyncRequired,
-        );
+      if (error.statusCode == 409 &&
+          error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+        final reconciliation = await ref
+            .read(subscriptionControllerProvider.notifier)
+            .reconcileServerEntitlement();
+        if (reconciliation == EntitlementReconciliationResult.freeConfirmed) {
+          await refreshPreservingContent();
+          return const CreateFolderResult(CreateFolderStatus.premiumRequired);
+        }
+        if (reconciliation !=
+            EntitlementReconciliationResult.premiumSynchronized) {
+          return const CreateFolderResult(
+            CreateFolderStatus.entitlementSyncRequired,
+          );
+        }
+        try {
+          final folder = await request();
+          return applyFolder(folder);
+        } on PortfolioApiException catch (retryError) {
+          if (retryError.code == 'PREMIUM_REQUIRED') {
+            await refreshPreservingContent();
+            return const CreateFolderResult(CreateFolderStatus.premiumRequired);
+          }
+          if (retryError.statusCode == 409 &&
+              retryError.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+            return const CreateFolderResult(
+              CreateFolderStatus.entitlementSyncRequired,
+            );
+          }
+          return const CreateFolderResult(CreateFolderStatus.failed);
+        } catch (_) {
+          return const CreateFolderResult(CreateFolderStatus.failed);
+        }
       }
       return const CreateFolderResult(CreateFolderStatus.failed);
     } catch (_) {

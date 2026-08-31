@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -72,7 +73,7 @@ class CardPerformanceController extends Notifier<CardPerformanceState> {
       hasLoaded: previous.hasLoaded,
     );
     try {
-      final data = await ref
+      Future<PortfolioPerformanceDto> request() => ref
           .read(portfolioApiClientProvider)
           .getItemPerformance(
             session,
@@ -81,6 +82,23 @@ class CardPerformanceController extends Notifier<CardPerformanceState> {
             localPremiumVerified: localPremiumVerified,
           )
           .timeout(const Duration(seconds: 15));
+      late final PortfolioPerformanceDto data;
+      try {
+        data = await request();
+      } on PortfolioApiException catch (error) {
+        if (error.statusCode != 409 ||
+            error.code != 'ENTITLEMENT_SYNC_REQUIRED') {
+          rethrow;
+        }
+        final reconciliation = await ref
+            .read(subscriptionControllerProvider.notifier)
+            .reconcileServerEntitlement();
+        if (reconciliation !=
+            EntitlementReconciliationResult.premiumSynchronized) {
+          rethrow;
+        }
+        data = await request();
+      }
       if (!ref.mounted || generation != _generation) return;
       state = CardPerformanceState(
         selectedRange: range,

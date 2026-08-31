@@ -884,14 +884,28 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _resumeWaitingFromServerQuota();
   }
 
-  Future<void> _synchronizePremiumForScan() async {
+  Future<void> _synchronizePremiumForScan({
+    bool reconcileDeniedAccess = false,
+  }) async {
     if (_entitlementRefreshInFlight) return;
     _entitlementRefreshInFlight = true;
     try {
-      await ref
-          .read(subscriptionControllerProvider.notifier)
-          .synchronizeServerEntitlement();
+      final subscription = ref.read(subscriptionControllerProvider.notifier);
+      final reconciliation = reconcileDeniedAccess
+          ? await subscription.reconcileServerEntitlement()
+          : await subscription.synchronizeServerEntitlement()
+          ? EntitlementReconciliationResult.premiumSynchronized
+          : EntitlementReconciliationResult.verificationUnavailable;
       if (!mounted) return;
+      if (reconciliation == EntitlementReconciliationResult.freeConfirmed) {
+        _premiumDowngradedToFree = true;
+        await _refreshQuotaAndResumeWaiting();
+        return;
+      }
+      if (reconciliation !=
+          EntitlementReconciliationResult.premiumSynchronized) {
+        return;
+      }
       final deadline = DateTime.now().add(const Duration(seconds: 15));
       do {
         await _refreshQuotaAndResumeWaiting();
@@ -1385,7 +1399,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           ),
         );
       }
-      unawaited(_synchronizePremiumForScan());
+      unawaited(_synchronizePremiumForScan(reconcileDeniedAccess: true));
       return;
     }
     pending.resolution = resolution;
