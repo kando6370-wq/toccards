@@ -6052,22 +6052,31 @@ class _PriceChartPainter extends CustomPainter {
       canvas.drawCircle(offset, 3, Paint()..color = series[index].color);
     }
 
+    final usePerformanceTooltipStyle = tooltipRows != null;
+    final customRows = tooltipRows?[resolvedSelectedIndex];
+    final tooltipRowHeight = usePerformanceTooltipStyle ? 18.0 : 14.0;
+    final tooltipBaseHeight = usePerformanceTooltipStyle ? 36.0 : 28.0;
+    final tooltipFirstRowOffset = usePerformanceTooltipStyle ? 28.0 : 24.0;
     final datePainter = TextPainter(
-      text: TextSpan(
-        text: 'Date: ${selected.dateLabel}',
-        style: const TextStyle(
-          color: Color(0xFF92927D),
-          fontSize: 11,
-          fontWeight: FontWeight.w400,
-          height: 16 / 11,
-        ),
-      ),
+      text: usePerformanceTooltipStyle
+          ? buildCardDetailChartTooltipRow('Date: ${selected.dateLabel}')
+          : TextSpan(
+              text: 'Date: ${selected.dateLabel}',
+              style: const TextStyle(
+                color: Color(0xFF92927D),
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                height: 16 / 11,
+              ),
+            ),
       maxLines: 1,
       ellipsis: '...',
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: math.max(0.0, size.width - 16));
-    final maxTooltipRows = math.max(1, ((size.height - 28) / 14).floor());
-    final customRows = tooltipRows?[resolvedSelectedIndex];
+    final maxTooltipRows = math.max(
+      1,
+      ((size.height - tooltipBaseHeight) / tooltipRowHeight).floor(),
+    );
     final tooltipSeriesCount = math.min(
       customRows?.length ?? series.length,
       maxTooltipRows,
@@ -6075,21 +6084,18 @@ class _PriceChartPainter extends CustomPainter {
     final pricePainters = [
       for (var index = 0; index < tooltipSeriesCount; index++)
         TextPainter(
-          text: TextSpan(
-            text:
-                customRows?[index] ??
-                '${series[index].label}: ${_formatDetailChartPrice(selectedPoints[index])}',
-            style: TextStyle(
-              color: customRows == null
-                  ? series[index].color
-                  : index == 0
-                  ? KandoColors.accent
-                  : KandoColors.mutedText,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              height: 14 / 10,
-            ),
-          ),
+          text: customRows == null
+              ? TextSpan(
+                  text:
+                      '${series[index].label}: ${_formatDetailChartPrice(selectedPoints[index])}',
+                  style: TextStyle(
+                    color: series[index].color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    height: 14 / 10,
+                  ),
+                )
+              : buildCardDetailChartTooltipRow(customRows[index]),
           maxLines: 1,
           ellipsis: '...',
           textDirection: TextDirection.ltr,
@@ -6118,7 +6124,10 @@ class _PriceChartPainter extends CustomPainter {
             ].reduce(math.max) +
             16,
       ),
-      math.min(size.height, 28 + pricePainters.length * 14),
+      math.min(
+        size.height,
+        tooltipBaseHeight + pricePainters.length * tooltipRowHeight,
+      ),
     );
     final preferredLeft = selectedX + tooltipSize.width + 12 <= size.width
         ? selectedX + 12
@@ -6150,7 +6159,8 @@ class _PriceChartPainter extends CustomPainter {
     for (var index = 0; index < pricePainters.length; index++) {
       pricePainters[index].paint(
         canvas,
-        tooltipRect.topLeft + Offset(8, 24 + index * 14),
+        tooltipRect.topLeft +
+            Offset(8, tooltipFirstRowOffset + index * tooltipRowHeight),
       );
     }
   }
@@ -6164,6 +6174,44 @@ class _PriceChartPainter extends CustomPainter {
         oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint;
   }
 }
+
+/// Builds the mixed label/value typography used by the Card Detail chart.
+@visibleForTesting
+TextSpan buildCardDetailChartTooltipRow(String row) {
+  final separatorIndex = row.indexOf(':');
+  if (separatorIndex < 0) {
+    return TextSpan(
+      children: [TextSpan(text: row, style: _cardDetailTooltipValueStyle)],
+    );
+  }
+  return TextSpan(
+    children: [
+      TextSpan(
+        text: row.substring(0, separatorIndex + 1),
+        style: _cardDetailTooltipLabelStyle,
+      ),
+      TextSpan(
+        text: row.substring(separatorIndex + 1),
+        style: _cardDetailTooltipValueStyle,
+      ),
+    ],
+  );
+}
+
+const _cardDetailTooltipLabelStyle = TextStyle(
+  color: Color(0xFF999578),
+  fontFamily: 'Geist',
+  fontSize: 12,
+  fontWeight: FontWeight.w400,
+  height: 18 / 12,
+);
+
+const _cardDetailTooltipValueStyle = TextStyle(
+  color: KandoColors.accent,
+  fontSize: 10,
+  fontWeight: FontWeight.w400,
+  height: 14 / 10,
+);
 
 void _drawPriceChartDashedLine(
   Canvas canvas,

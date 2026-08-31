@@ -1460,8 +1460,7 @@ void main() {
       );
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsOneWidget,
       );
@@ -1470,8 +1469,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsNothing,
       );
@@ -1489,8 +1487,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsNothing,
       );
@@ -1636,8 +1633,7 @@ void main() {
       expect(tipRect.center.dx, closeTo(infoRect.center.dx, .01));
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsOneWidget,
       );

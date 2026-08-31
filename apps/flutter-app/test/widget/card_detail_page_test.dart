@@ -31,6 +31,22 @@ import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_card_detail_repository.dart';
 
 void main() {
+  test('Performance tooltip separates Figma label and value styles', () {
+    final span = buildCardDetailChartTooltipRow(r'Market Value: $790.00');
+    final children = span.children!.cast<TextSpan>();
+
+    expect(children, hasLength(2));
+    expect(children[0].text, 'Market Value:');
+    expect(children[0].style?.color, const Color(0xFF999578));
+    expect(children[0].style?.fontFamily, 'Geist');
+    expect(children[0].style?.fontSize, 12);
+    expect(children[0].style?.height, 18 / 12);
+    expect(children[1].text, r' $790.00');
+    expect(children[1].style?.color, KandoColors.accent);
+    expect(children[1].style?.fontSize, 10);
+    expect(children[1].style?.height, 14 / 10);
+  });
+
   testWidgets(
     'product 180865 shows Normal and Foil tabs and switching refreshes material prices',
     (tester) async {

@@ -1494,8 +1494,7 @@ class _PerformanceInfoTip extends StatelessWidget {
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 9),
                   child: Text(
-                    'Profit and return are calculated only from cards\n'
-                    'with purchase prices',
+                    'Profit and return are calculated only from cards with purchase prices',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 10,
