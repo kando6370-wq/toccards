@@ -3139,6 +3139,22 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                                   options: options,
                                 );
                                 if (next != null) {
+                                  if (useQuickCollectionController) {
+                                    final folderId = state
+                                        .detail
+                                        .portfolioFolders
+                                        .where((folder) => folder.name == next)
+                                        .firstOrNull
+                                        ?.id;
+                                    if (folderId != null) {
+                                      ref
+                                          .read(
+                                            selectedPortfolioFolderProvider
+                                                .notifier,
+                                          )
+                                          .select(folderId);
+                                    }
+                                  }
                                   controller.updateCollectionItemDraft(
                                     portfolioName: next,
                                   );

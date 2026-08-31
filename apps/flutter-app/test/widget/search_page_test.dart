@@ -1386,6 +1386,87 @@ void main() {
   );
 
   testWidgets(
+    'pending Review keeps the chosen folder after close and defaults later cards to it',
+    (tester) async {
+      final repository = _TrackingReviewLoadRepository();
+      final portfolioApi = _CountingFolderPortfolioApi()
+        ..folders = const [
+          PortfolioFolderDto(
+            id: 'main',
+            name: 'Main',
+            isDefault: true,
+            sortOrder: 0,
+          ),
+          PortfolioFolderDto(
+            id: 'trade',
+            name: 'Trade',
+            isDefault: false,
+            sortOrder: 1,
+          ),
+        ];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            ..._localAuthOverrides(),
+            cardDetailRepositoryProvider.overrideWithValue(repository),
+            portfolioApiClientProvider.overrideWithValue(portfolioApi),
+          ],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+        listen: false,
+      );
+      expect(find.text('Adding to Main'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('card-detail-add-item-portfolio')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Trade').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adding to Trade'), findsOneWidget);
+      expect(container.read(selectedPortfolioFolderProvider), 'trade');
+
+      Navigator.of(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+      ).pop();
+      await tester.pumpAndSettle();
+      expect(
+        container.read(pendingCollectionProvider).single.draft?.portfolioName,
+        'Trade',
+      );
+
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+      expect(find.text('Adding to Trade'), findsOneWidget);
+
+      Navigator.of(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+      ).pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('search-collect-charizard-ex')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final pendingItems = container.read(pendingCollectionProvider);
+      await tester.tap(
+        find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Adding to Trade'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'pending Add this card shows validation in a top toast because its fixed action stays visible while the form error is below',
     (tester) async {
       await tester.pumpWidget(
