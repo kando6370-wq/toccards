@@ -270,6 +270,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-08-28 Card Detail `Collection Item / Performance / Price` Tab 文字样式修复：Figma `1644:5631` 规定三等分胶囊 Tab 使用完整文案、13px Regular、16px 行高和 `#92927D` 未选中文字；旧实现虽然已有正确的 52px 容器、5px 内边距、42px Tab、边框及选中渐变，但文字写成 15/17，并继承 TabBar 默认左右 label padding，导致 `Collection Item` 可用宽度被额外压缩并出现淡出截断。现移除额外 label padding，统一为 13/16、字重 400、字距 0，选中态继续使用 Accent，未选中态复用页面既有 `#92927D` Figma token；Tab 索引、路由、Performance 加载、Price 和 Collection Item 内容均不变。修复前 390px 回归稳定得到期望 `EdgeInsets.zero`、实际 `null`，修复后完整文案、排版、无超行和切换颜色回归通过，Card Detail Widget 52/52、`flutter analyze --no-pub`、Dart 格式及 `git diff --check` 通过。320px 探索性运行被页面内两个与本次 Tab 无关的既有 Row 溢出阻断（Collection Item 摘要和 Price Range），未标记为通过且未扩大本次范围。Code Review 未发现阻断项；未执行 iOS/Android 真机视觉与系统字体缩放验收。
 
+- 2026-08-31 Search 快捷收藏 Qty 同步修复：复现为已收藏卡牌从 Search `+` 进入 Review 并保存正式 Item，创建成功且详情内部 Quantity 已增加，但返回 Search 后同卡 `Qty` 仍为旧值。根因有三处：单条保存先失效整个 Search Provider，批量保存只启动未等待的二次资产刷新；资产请求失败后又长期缓存失败 Future，后续恢复请求继续复用失败结果；失败兜底使用公共卡牌目录的默认 `Qty=0`，会覆盖页面已确认的持仓值。现单条与批量均使用创建接口返回的正式 `Collection Item`，按同一 `card_ref` 立即合并全部 Folder、Raw/评级等不同版本的 Quantity、Item 数与收藏摘要，同时使旧资产请求失效；后台仍执行权威全量刷新以保留原 Game 与跨页契约，刷新失败时保留当前已确认资产值并清除失败 Future，服务恢复后可重新校准。修复前 Widget 回归稳定得到期望 `Qty: 2`、实际仍为 `Qty: 1`；修复后 Search Controller 34/34、Search Widget 43/43、Set Detail 8/8、Card Detail Widget 51/51、`flutter analyze`、Dart 格式及 `git diff --check` 通过。Code Review 未发现阻断项，确认只合并服务端确认成功项、重复服务端 Item ID 不重复计数，失败或待编辑 Item 不增加 Qty；未修改 Workers API、Schema、收藏口径、权限、价格或 Wishlist 契约。未执行登录态 dev App 原路径、iOS/Android 真机及真实弱网/迟到响应人工验收。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。

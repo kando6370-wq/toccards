@@ -1188,6 +1188,70 @@ void main() {
   });
 
   testWidgets(
+    'pending Review Delete All requires confirmation before clearing drafts',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+        listen: false,
+      );
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'mystery-promo',
+              name: 'Mystery Promo',
+              game: 'Pokemon',
+              setName: 'Promo',
+              metadataLine: 'Promo #001',
+              variantLine: 'Normal',
+            ),
+          );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('pending-collection-delete-all')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('kando-modal-frame')), findsOneWidget);
+      expect(find.text('Delete all cards ?'), findsOneWidget);
+      expect(
+        find.text(
+          'This action will permanently delete all cards waiting for details and cannot be undone.',
+        ),
+        findsOneWidget,
+      );
+      expect(container.read(pendingCollectionProvider), hasLength(2));
+      expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('kando-modal-frame')), findsNothing);
+      expect(container.read(pendingCollectionProvider), hasLength(2));
+      expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('pending-collection-delete-all')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(container.read(pendingCollectionProvider), isEmpty);
+      expect(find.byType(QuickCollectionReviewPage), findsNothing);
+      expect(find.byKey(const Key('pending-collection-notice')), findsNothing);
+      expect(find.byType(SearchPage), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'pending Review keeps Delete All Cards on one line on narrow phones',
     (tester) async {
       tester.view.devicePixelRatio = 1;
@@ -1880,6 +1944,20 @@ void main() {
       expect(
         find.byKey(const Key('search-wishlist-charizard-ex')),
         findsNothing,
+      );
+      expect(
+        container
+            .read(searchControllerProvider)
+            .cardById('charizard-ex')
+            .quantity,
+        2,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('search-card-charizard-ex')),
+          matching: find.text('Qty: 2'),
+        ),
+        findsOneWidget,
       );
       await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pump();

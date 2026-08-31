@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
@@ -626,6 +627,80 @@ class SearchController extends Notifier<SearchState> {
     return assets == null ? card : _cardWithAssets(card, assets);
   }
 
+  void applySavedCollectionItems(Iterable<CardCollectionItem> savedItems) {
+    final itemsByCardRef = <String, List<CardCollectionItem>>{};
+    for (final item in savedItems) {
+      (itemsByCardRef[item.cardRef] ??= []).add(item);
+    }
+    if (itemsByCardRef.isEmpty) return;
+
+    _loadGeneration += 1;
+    _assetGeneration += 1;
+    _assetLoad = null;
+    final snapshot = _assetSnapshot;
+    final assetStates = snapshot == null ? null : {...snapshot.statesByCardRef};
+    final overrides = {...state.cardOverrides};
+
+    for (final entry in itemsByCardRef.entries) {
+      final catalogCard = state.catalog.cards
+          .where((card) => card.id == entry.key)
+          .firstOrNull;
+      if (catalogCard == null) continue;
+
+      final current = resolveCard(catalogCard);
+      final currentAssets = assetStates?[entry.key];
+      final itemIds = [
+        ...?currentAssets?.collectionItemIds,
+        if (currentAssets == null && current.collectionItemId != null)
+          current.collectionItemId!,
+      ];
+      final additions = [
+        for (final item in entry.value)
+          if (item.id.isEmpty || !itemIds.contains(item.id)) item,
+      ];
+      if (additions.isEmpty) continue;
+      for (final item in additions) {
+        if (item.id.isNotEmpty) itemIds.add(item.id);
+      }
+
+      final quantity =
+          current.quantity +
+          additions.fold<int>(0, (sum, item) => sum + item.quantity);
+      final itemCount = current.collectionItemCount + additions.length;
+      final collectionInfo = _collectionInfoWithSavedItems(
+        current.collectionInfo,
+        additions,
+      );
+      final updated = current.copyWith(
+        quantity: quantity,
+        collectionItemCount: itemCount,
+        collectionItemId: itemCount == 1 && itemIds.length == 1
+            ? itemIds.single
+            : null,
+        collectionInfo: collectionInfo,
+        isWishlisted: false,
+        wishlistItemId: null,
+      );
+      overrides[entry.key] = updated;
+      if (assetStates != null) {
+        assetStates[entry.key] = SearchCardAssetState(
+          quantity: quantity,
+          collectionItemIds: itemIds,
+          wishlistItemId: null,
+          collectionInfo: collectionInfo,
+        );
+      }
+    }
+
+    if (snapshot != null && assetStates != null) {
+      _assetSnapshot = SearchAssetSnapshot(
+        folderId: snapshot.folderId,
+        statesByCardRef: assetStates,
+      );
+    }
+    state = state.copyWith(cardOverrides: overrides);
+  }
+
   void _scheduleSearch({
     required SearchTab tab,
     required String query,
@@ -785,8 +860,30 @@ class SearchController extends Notifier<SearchState> {
       final snapshot = await _loadAssetSnapshot(repository, session);
       return _catalogWithAssets(catalog, snapshot);
     } catch (_) {
-      return catalog;
+      return SearchCatalog(
+        games: catalog.games,
+        cards: [
+          for (final card in catalog.cards) _cardWithRetainedAssets(card),
+        ],
+        sets: catalog.sets,
+      );
     }
+  }
+
+  SearchCard _cardWithRetainedAssets(SearchCard card) {
+    final existing = state.catalog.cards
+        .where((item) => item.id == card.id)
+        .firstOrNull;
+    if (existing == null) return resolveCard(card);
+    final current = resolveCard(existing);
+    return card.copyWith(
+      quantity: current.quantity,
+      collectionItemCount: current.collectionItemCount,
+      collectionItemId: current.collectionItemId,
+      collectionInfo: current.collectionInfo,
+      isWishlisted: current.isWishlisted,
+      wishlistItemId: current.wishlistItemId,
+    );
   }
 
   Future<SearchAssetSnapshot> _loadAssetSnapshot(
@@ -802,17 +899,25 @@ class SearchController extends Notifier<SearchState> {
       selectedFolderId: ref.read(selectedPortfolioFolderProvider),
     );
     final generation = _assetGeneration;
-    _assetLoad = future.then((snapshot) {
-      if (generation == _assetGeneration) {
-        _assetSnapshot = snapshot;
+    _assetLoad = () async {
+      try {
+        final snapshot = await future;
+        if (generation == _assetGeneration) {
+          _assetSnapshot = snapshot;
+        }
+        if (ref.mounted && ref.read(selectedPortfolioFolderProvider) == null) {
+          ref
+              .read(selectedPortfolioFolderProvider.notifier)
+              .select(snapshot.folderId);
+        }
+        return snapshot;
+      } catch (error, stackTrace) {
+        if (generation == _assetGeneration) {
+          _assetLoad = null;
+        }
+        Error.throwWithStackTrace(error, stackTrace);
       }
-      if (ref.mounted && ref.read(selectedPortfolioFolderProvider) == null) {
-        ref
-            .read(selectedPortfolioFolderProvider.notifier)
-            .select(snapshot.folderId);
-      }
-      return snapshot;
-    });
+    }();
     return _assetLoad!;
   }
 
@@ -885,4 +990,29 @@ class SearchController extends Notifier<SearchState> {
         ? ref.read(searchSessionProvider)
         : null;
   }
+}
+
+String? _collectionInfoWithSavedItems(
+  String? current,
+  Iterable<CardCollectionItem> additions,
+) {
+  if (current == 'Mixed') return current;
+  final values = <String>{
+    if (current?.trim().isNotEmpty ?? false) current!.trim(),
+    for (final item in additions)
+      if (_collectionItemInfo(item) case final info?) info,
+  };
+  if (values.isEmpty) return null;
+  return values.length == 1 ? values.single : 'Mixed';
+}
+
+String? _collectionItemInfo(CardCollectionItem item) {
+  if (item.grader.trim().toLowerCase() == 'raw') {
+    final condition = item.condition?.trim();
+    return condition == null || condition.isEmpty ? null : condition;
+  }
+  final grader = item.grader.trim();
+  if (grader.isEmpty) return null;
+  final grade = item.grade?.trim();
+  return grade == null || grade.isEmpty ? grader : '$grader $grade';
 }

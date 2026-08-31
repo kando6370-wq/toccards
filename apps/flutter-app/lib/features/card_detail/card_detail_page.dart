@@ -10,6 +10,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/ui/kando_modal.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/premium_locked_panel.dart';
@@ -2492,7 +2493,10 @@ class _QuickCollectionReviewPageState
               onClose: context.pop,
             )
           : null,
-      onSaved: () => _completeCurrent(pendingItem.id),
+      onSaved: () => _completeCurrent(
+        pendingItem.id,
+        ref.read(provider).detail.collectionItems.last,
+      ),
       onDelete: () => _deleteCurrent(controller, pendingItem.id),
       onAddAll: multiple
           ? () {
@@ -2593,7 +2597,11 @@ class _QuickCollectionReviewPageState
     }
   }
 
-  Future<void> _completeCurrent(String itemId) async {
+  Future<void> _completeCurrent(
+    String itemId,
+    CardCollectionItem savedItem,
+  ) async {
+    _refreshAssetConsumersAfterBatch([savedItem]);
     ref.read(pendingCollectionProvider.notifier).remove(itemId);
     _activeItemId = null;
     if (!mounted) return;
@@ -2746,7 +2754,7 @@ class _QuickCollectionReviewPageState
         groups.putIfAbsent(item.card.id, () => []).add(item);
       }
       final groupedItems = groups.values.toList();
-      final savedByItemId = <String, bool>{};
+      final savedByItemId = <String, CardCollectionItem?>{};
       var nextGroupIndex = 0;
 
       Future<void> saveNextGroups() async {
@@ -2755,11 +2763,11 @@ class _QuickCollectionReviewPageState
           if (groupIndex >= groupedItems.length) return;
           nextGroupIndex += 1;
           for (final item in groupedItems[groupIndex]) {
-            var saved = false;
+            CardCollectionItem? saved;
             try {
               saved = await _savePendingItem(item);
             } catch (_) {
-              saved = false;
+              saved = null;
             }
             savedByItemId[item.id] = saved;
             if (!mounted) return;
@@ -2781,7 +2789,7 @@ class _QuickCollectionReviewPageState
       String? firstFailedItemId;
       final savedItemIds = <String>[];
       for (final item in itemsToSave) {
-        if (savedByItemId[item.id] == true) {
+        if (savedByItemId[item.id] != null) {
           successCount += 1;
           savedItemIds.add(item.id);
         } else {
@@ -2790,10 +2798,7 @@ class _QuickCollectionReviewPageState
         }
       }
       if (successCount > 0) {
-        _refreshAssetConsumersAfterBatch({
-          for (final item in itemsToSave)
-            if (savedByItemId[item.id] == true) item.card.id,
-        });
+        _refreshAssetConsumersAfterBatch(savedByItemId.values.whereType());
       }
       final pendingController = ref.read(pendingCollectionProvider.notifier);
       for (final itemId in savedItemIds) {
@@ -2833,27 +2838,39 @@ class _QuickCollectionReviewPageState
     }
   }
 
-  void _refreshAssetConsumersAfterBatch(Set<String> savedCardIds) {
+  void _refreshAssetConsumersAfterBatch(
+    Iterable<CardCollectionItem> savedItems,
+  ) {
+    final items = savedItems.toList();
+    final savedCardIds = {for (final item in items) item.cardRef};
     for (final cardId in savedCardIds) {
       ref.invalidate(cardDetailControllerProvider(cardId));
     }
     ref.invalidate(homeControllerProvider);
     ref.invalidate(homePerformanceControllerProvider);
     ref.invalidate(collectionControllerProvider);
+    ref
+        .read(searchControllerProvider.notifier)
+        .applySavedCollectionItems(items);
     unawaited(
       ref.read(searchControllerProvider.notifier).refreshPreservingContent(),
     );
   }
 
-  Future<bool> _savePendingItem(PendingCollectionItem item) async {
+  Future<CardCollectionItem?> _savePendingItem(
+    PendingCollectionItem item,
+  ) async {
     final provider = quickCollectionCardDetailControllerProvider(item.card.id);
     ref.read(provider);
     final controller = ref.read(provider.notifier);
     await controller.loadComplete;
-    if (!mounted) return false;
+    if (!mounted) return null;
 
     final state = ref.read(provider);
-    if (state.isUnavailable) return false;
+    if (state.isUnavailable) return null;
+    final existingItemIds = {
+      for (final existingItem in state.detail.collectionItems) existingItem.id,
+    };
     controller.cancelCollectionItemEdit();
     controller.startAddingCollectionItem();
     final storedDraft = item.draft;
@@ -2868,10 +2885,16 @@ class _QuickCollectionReviewPageState
         quantityText: storedDraft.quantityText,
       );
     }
-    if (ref.read(provider).collectionItemDraft == null) return false;
-    return controller.saveCollectionItemDraft(
+    if (ref.read(provider).collectionItemDraft == null) return null;
+    final saved = await controller.saveCollectionItemDraft(
       idempotencyKey: item.id,
       invalidateAssetConsumers: false,
+    );
+    if (!saved) return null;
+    final savedItems = ref.read(provider).detail.collectionItems;
+    return savedItems.firstWhere(
+      (savedItem) => !existingItemIds.contains(savedItem.id),
+      orElse: () => savedItems.last,
     );
   }
 
@@ -2887,7 +2910,15 @@ class _QuickCollectionReviewPageState
     }
   }
 
-  void _deleteAll() {
+  Future<void> _deleteAll() async {
+    final confirmed = await showKandoDangerConfirmModal(
+      context,
+      title: 'Delete all cards ?',
+      message:
+          'This action will permanently delete all cards waiting for details and cannot be undone.',
+    );
+    if (!confirmed || !mounted) return;
+
     final cardIds = {
       for (final item in ref.read(pendingCollectionProvider)) item.card.id,
     };
@@ -3306,7 +3337,10 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                                     bool saved;
                                     try {
                                       saved = await controller
-                                          .saveCollectionItemDraft();
+                                          .saveCollectionItemDraft(
+                                            invalidateAssetConsumers:
+                                                onSaved == null,
+                                          );
                                     } on PortfolioApiException catch (error) {
                                       if (context.mounted) {
                                         showKandoTopToast(
