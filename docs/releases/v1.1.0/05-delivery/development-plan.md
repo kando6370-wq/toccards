@@ -17,6 +17,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 ## 2. 当前基线
 
+2026-08-27 官网 Download BUG 修复检查点：根因是首页两处 App Store badge 均为无链接静态 `div`。考虑正式 App Store 地址基本不变且下载入口不应依赖业务数据库，最终按产品决定将当前正式 URL 直接写入两处链接，撤回运行时 `/app-config`、官网代理 Worker 及相关环境依赖；Google Play、App/Workers API 契约、数据库和其他官网交互均不受影响。修复前回归确认 HTML 中正式 URL 为 0 处；修复后 Marketing 1 项回归、Wrangler dry-run、依赖方向、`git diff --check` 及真实本地静态页验证均通过，本地页面正式 URL 恰好 2 处且动态配置引用为 0。Code Review 未发现残留代理、数据库依赖或无关修改。官网已部署为 `toccards-website` version `9816a0b4-9ef5-43f1-96fb-031205f8adcc`；绕缓存线上复核返回 200，正式 URL 恰好 2 处，动态配置引用为 0。
+
 | 范围 | 当前代码事实 | v1.1 差距 |
 |---|---|---|
 | App 订阅体验 | 已有 Subscription Page、Paywall、Success、StoreKit 2 Fresh Purchase verifier、Secure Storage 补偿队列、本机 Restore 结果分流、App Attest 原生桥接，以及 Performance/1Y/Folder/Scan Waiting 的来源动作恢复；Home/Search/Collection/Profile 顶部入口、Profile Banner 和 Scan 顶部 Pro 次数卡均已接入完整 Subscription Page，功能卡点仍使用 Functional Paywall Bottom Sheet；Profile 顶部及升级 Banner 已同步 Figma `2129:5678` 并按左右 20px 响应式布局，Search/Collection 顶部已同步 Figma `2070:9663` 的标题与皇冠 PRO 胶囊，Search 顶部搜索框、游戏选择框及 Cards/Sets 切换框和 Collection 顶部 Tab、搜索框均已统一为 44px，Collection Portfolio 摘要已同步 Figma `2070:9486` 的 110px 紧凑布局，Home 顶部订阅入口及 Overview/Performance Tab 已同步 Figma `2181:12864`，模式切换器使用固定外框宽度以保持皇冠入口位置稳定；商品局部缺失、15 秒重载、Purchase 状态、首次/冷启动 Premium 三态分流、ATT/Singular 启动顺序及 v1.1 PRD 视觉 Golden 已实现 | 前后台完整矩阵、Singular prod Worker 发布及 iOS 真机验收不完整 |

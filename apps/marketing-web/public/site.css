@@ -42,6 +42,7 @@
 .hero-copy { max-width: 1000px; color: var(--site-muted); font-size: 18px; line-height: 29px; }
 .store-buttons { display: flex; justify-content: center; gap: 16px; padding-top: 8px; }
 .store-badge { width: 174px; height: 58px; display: grid; grid-template-columns: 35px 1fr; align-items: center; gap: 4px; padding: 8px 10px; border: 2px solid #fff; border-radius: 12px; color: #fff; background: transparent; }
+.store-badge[href] { cursor: pointer; text-decoration: none; }
 .store-icon-img { width: 35px; height: 35px; object-fit: contain; }
 .store-text { display: flex; flex-direction: column; align-items: center; }
 .store-text small { font-size: 10px; line-height: 10px; }
@@ -51,13 +52,14 @@
 .hero-phones { width: 1232px; max-width: none; margin-top: -2px; }
 
 .tools-section { min-height: 892px; padding: 156px 120px; background: #000; }
-.tool-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); grid-template-rows: 334px 174px; gap: 24px; }
+.tool-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); grid-template-rows: 334px 222px; gap: 24px; }
 .tool-title { display: flex; align-items: center; padding-bottom: 22px; }
 .tool-title h2 { font-size: 36px; font-weight: 510; line-height: 57px; }
 .tool-card { min-width: 0; padding: 25px; border: 1px solid var(--site-border); border-radius: 24px; background: var(--site-panel); overflow: hidden; }
 .tool-card-large { display: flex; flex-direction: column; gap: 8px; }
 .tool-card-small.first-small { grid-column: 2; }
 .tool-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; background: rgba(240,254,111,.1); color: var(--site-lime); font-size: 20px; }
+.tool-icon-image { display: block; max-width: none; object-fit: contain; }
 .tool-card h3 { color: #fff; font-size: 18px; font-weight: 510; line-height: 28px; }
 .tool-card-large h3 { padding-top: 8px; }
 .tool-card p { color: var(--site-faint); font-size: 14px; line-height: 20px; }
@@ -108,7 +110,22 @@
 .new-footer-links a,
 .new-footer-links button { padding: 0; border: 0; background: none; color: var(--site-faint); font: inherit; font-size: 14px; text-decoration: none; cursor: pointer; }
 
-@media (max-width: 1300px) {
+@media (min-width: 1800px) {
+  .detail-row:nth-child(1) { height: 418px; }
+  .detail-row:nth-child(2) { height: 440px; padding-bottom: 49px; border-bottom: 1px solid var(--site-border); }
+  .detail-row:nth-child(3) { height: 419px; padding-bottom: 49px; border-bottom: 1px solid var(--site-border); }
+  .detail-row:nth-child(1) .detail-visual { height: 301px; }
+  .detail-row:nth-child(2) .detail-visual { height: 343px; }
+  .detail-row:nth-child(3) .detail-visual { height: 314px; }
+  .detail-visual img { max-height: none; }
+  .games-layout.site-container { width: 100%; margin: 0; padding: 0 113px; }
+  .games-layout { grid-template-columns: repeat(12,minmax(0,1fr)); gap: 48px; }
+  .games-layout h2 { grid-column: 1 / span 4; }
+  .game-tags { grid-column: 5 / span 8; }
+  .game-tag { height: 34px; min-height: 34px; white-space: nowrap; }
+}
+
+@media (max-width: 1799px) {
   .site-container { width: min(1120px, calc(100% - 64px)); }
   .tools-section, .details-section, .games-section { padding-right: 32px; padding-left: 32px; }
   .steps-section { padding-right: 32px; padding-left: 32px; }
