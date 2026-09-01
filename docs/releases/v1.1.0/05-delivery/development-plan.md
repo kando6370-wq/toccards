@@ -287,6 +287,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-09-01 Home/Search 首屏卡图启动预加载：现有启动流程仍优先等待 Home 核心数据；核心数据成功后立即在后台预热当前 Folder 实际展示的 Most Valuable 网络卡图，Trending Today 完成后再预热其最多 3 张网络卡图，其他 Folder、Performance 和本地 Asset 不进入该批次。随后在不阻塞进入 Home 的二级页面预热阶段等待 Search 数据；仅当 Search Cards 成功返回且当前默认游戏存在可见卡牌时，按当前排序先截取前 20 条数据，再过滤空图片 URL、去重并写入同一 Flutter 网络图片缓存。空数据、接口失败或图片加载失败均静默跳过，不改 Home/Search 列表、分页、搜索、图片占位或业务状态，也不越过 Search 第 20 条补取后续图片。启动预加载测试 8/8、Home Controller 27/27、Onboarding 启动门禁 5/5、`flutter analyze --no-pub` 与 Dart 格式通过；Code Review 未发现阻断项，确认即使 Home 图片下载未完成也不会延长启动等待，登录会话切换仍走现有重新预加载链路。iOS/Android 真机的冷缓存首屏速度、流量和内存占用仍待人工验收。
 
+- 2026-09-01 Search 当前价格批量查询超限修复：dev 的 Pokemon Search `page=3&page_size=40` 与第 4 页稳定返回裸 500，实时 Worker 日志确认 `Published price query exceeded 1000 rows for 40 cards`；相同数据按 20 卡分页均为 200，根因是当前价格查询固定把 40 个 card ref 作为单块，但这些卡的合法多来源、品相、语言、版本和评级价格维度合计已超过单次 1,000 行安全边界。现保留 40 卡初始分块与 1,000 行上限，多卡查询达到 1,001 行探测值时按 card ref 列表顺序二分并顺序重查，直到每次查询回到边界内；单卡自身仍超限时继续显式失败，不抬高上限、不截断价格、不吞数据库异常。修复前新增回归稳定抛出原异常，修复后递归覆盖 `40→20→10` 且断言所有 card ref 区间恰好查询一次；价格存储、目录适配器、Portfolio 估值与数据路由定向 `63/63`、Workers 全量 `574/574`、Workers type-check 和限定路径 `git diff --check` 通过。当前工作树的 Wrangler remote dev 预览读取同一 dev Hyperdrive/KV 后，第 3、4 页均返回 200、40 条卡牌；该预览未承载正式流量，但 Search read-through 已向共享 dev KV 回填一小时的 `v12` 成功缓存，第 3 页 key 于 `2026-09-01 12:27:06 +08:00` 过期，所以正式 dev 接口随后返回 200 仅是临时缓存命中，不代表旧 Worker 已永久修复。Code Review 未发现阻断项，确认拆分必然收敛、单次响应边界和单卡失败契约保持、共享调用方不依赖跨分块顺序。未修改 API 字段、Schema、migration、缓存键、客户端分页或价格选择口径，未执行 dev/prod 部署或数据库写入；除上述 GET 触发的 dev KV 缓存回填外未执行远程写操作。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。
