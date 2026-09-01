@@ -426,7 +426,12 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
             </div>
           </article>
           <article class="detail-row">
-            <div class="detail-visual scan-visual"><img src="/assets/showcase-scan.png" alt="AI card scanning and recognition preview"></div>
+            <div class="detail-visual scan-visual">
+              <img class="scan-composite" src="/assets/showcase-scan.png" alt="AI card scanning and recognition preview">
+              <span class="scan-card-layer" aria-hidden="true">
+                <img class="scan-card-motion" src="/assets/showcase-scan-card.png" alt="">
+              </span>
+            </div>
             <div class="detail-copy">
               <h2>Identify Cards as You Scan.</h2>
               <p>A powerful image recognition engine for rapid card identification.</p>
@@ -456,8 +461,10 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
       </section>
 
       <section class="new-cta" id="download">
-        <img src="/assets/card-ai-logo.png" alt="Card AI logo">
-        <p class="cta-brand">Card AI</p>
+        <div class="cta-brand-block">
+          <img src="/assets/card-ai-logo.png" alt="Card AI logo">
+          <p class="cta-brand">Card AI</p>
+        </div>
         <h2>Start Tracking Your Collection Today.</h2>
         <p>Scan the cards you own, understand their market trends, and stay informed about the value of every card.</p>
         <div class="store-buttons" aria-label="Download options">
