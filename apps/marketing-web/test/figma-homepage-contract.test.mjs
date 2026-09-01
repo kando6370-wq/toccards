@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -67,5 +68,17 @@ test('homepage follows the latest Figma spacing and scan motion layers', async (
   assert.match(
     css,
     /@media \(prefers-reduced-motion: reduce\) \{\s*\.scan-card-layer \{ display: none; \}\s*\}/,
+  );
+});
+
+test('hero uses the current Figma Phone Mockups export', async () => {
+  const image = await readFile(fileURLToPath(new URL('assets/hero-phones.png', publicUrl)));
+
+  assert.equal(image.toString('ascii', 1, 4), 'PNG');
+  assert.equal(image.readUInt32BE(16), 1232);
+  assert.equal(image.readUInt32BE(20), 686);
+  assert.equal(
+    createHash('sha256').update(image).digest('hex'),
+    '098b24f1bdf509e58e600a51496f77920468c060b91e6d95020157630c3aeef0',
   );
 });
