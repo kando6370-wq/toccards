@@ -441,6 +441,24 @@ describe("Apple Notifications V2 durable consumption", () => {
   it("updates auto-renew metadata without resurrecting an expired entitlement", async () => {
     await db.prepare("UPDATE billing_purchase_chain SET status = 'EXPIRED', auto_renew = 1").run();
     await db.prepare("UPDATE billing_session_entitlement_grant SET status = 'expired'").run();
+    await db.batch([
+      db.prepare(`INSERT INTO billing_transaction
+        (id, purchase_chain_id, store, environment, transaction_id, product_id,
+         transaction_reason, status, business_status, charge_count, source_notification_uuid,
+         auto_renew_snapshot, purchase_at, created_at, updated_at)
+        VALUES ('order-old', 'chain-1', 'app_store', 'Sandbox', 'transaction-old', 'yearly',
+                'PURCHASE', 'purchased', 'initial_purchase', 1, 'order-old-uuid', 1,
+                '2026-08-12T10:00:00.000Z', ?, ?)`)
+        .bind(NOW.toISOString(), NOW.toISOString()),
+      db.prepare(`INSERT INTO billing_transaction
+        (id, purchase_chain_id, store, environment, transaction_id, product_id,
+         transaction_reason, status, business_status, charge_count, source_notification_uuid,
+         auto_renew_snapshot, purchase_at, created_at, updated_at)
+        VALUES ('order-latest', 'chain-1', 'app_store', 'Sandbox', 'transaction-latest', 'yearly',
+                'RENEWAL', 'purchased', 'renewal', 2, 'order-latest-uuid', 1,
+                '2026-08-12T10:04:00.000Z', ?, ?)`)
+        .bind(NOW.toISOString(), NOW.toISOString()),
+    ]);
     const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
       environment: Environment.SANDBOX,
       verifier: verifier({
@@ -451,6 +469,74 @@ describe("Apple Notifications V2 durable consumption", () => {
     await post(app, env, "renewal-status");
     expect(await db.prepare("SELECT status, auto_renew FROM billing_purchase_chain").first()).toMatchObject({ status: "EXPIRED", auto_renew: 0 });
     expect((await db.prepare("SELECT status FROM billing_session_entitlement_grant").first())?.status).toBe("expired");
+    expect(await db.prepare(`SELECT transaction_id, auto_renew_snapshot FROM billing_transaction
+      ORDER BY purchase_at ASC`).all()).toMatchObject({ results: [
+      { transaction_id: "transaction-old", auto_renew_snapshot: 1 },
+      { transaction_id: "transaction-latest", auto_renew_snapshot: 0 },
+    ] });
+  });
+
+  it("updates the latest order when auto-renew is enabled without changing older orders", async () => {
+    await db.prepare("UPDATE billing_purchase_chain SET auto_renew = 0").run();
+    await db.batch([
+      db.prepare(`INSERT INTO billing_transaction
+        (id, purchase_chain_id, store, environment, transaction_id, product_id,
+         transaction_reason, status, business_status, charge_count, source_notification_uuid,
+         auto_renew_snapshot, purchase_at, created_at, updated_at)
+        VALUES ('order-old', 'chain-1', 'app_store', 'Sandbox', 'transaction-old', 'yearly',
+                'PURCHASE', 'purchased', 'initial_purchase', 1, 'order-old-uuid', 0,
+                '2026-08-12T10:00:00.000Z', ?, ?)`)
+        .bind(NOW.toISOString(), NOW.toISOString()),
+      db.prepare(`INSERT INTO billing_transaction
+        (id, purchase_chain_id, store, environment, transaction_id, product_id,
+         transaction_reason, status, business_status, charge_count, source_notification_uuid,
+         auto_renew_snapshot, purchase_at, created_at, updated_at)
+        VALUES ('order-latest', 'chain-1', 'app_store', 'Sandbox', 'transaction-latest', 'yearly',
+                'RENEWAL', 'purchased', 'renewal', 2, 'order-latest-uuid', 0,
+                '2026-08-12T10:04:00.000Z', ?, ?)`)
+        .bind(NOW.toISOString(), NOW.toISOString()),
+    ]);
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("renewal-enabled-uuid", "DID_CHANGE_RENEWAL_STATUS", 10 * 60 + 5, "AUTO_RENEW_ENABLED"),
+        verifyRenewal: async () => ({ originalTransactionId: "original-1", productId: "yearly", autoRenewStatus: 1, signedDate: Date.UTC(2026, 7, 12, 10, 5), environment: Environment.SANDBOX }),
+      }),
+    }) });
+
+    await post(app, env, "renewal-enabled");
+
+    expect(await db.prepare(`SELECT transaction_id, auto_renew_snapshot FROM billing_transaction
+      ORDER BY purchase_at ASC`).all()).toMatchObject({ results: [
+      { transaction_id: "transaction-old", auto_renew_snapshot: 0 },
+      { transaction_id: "transaction-latest", auto_renew_snapshot: 1 },
+    ] });
+  });
+
+  it("does not apply an older auto-renew disable event to the latest order", async () => {
+    await db.prepare(`UPDATE billing_purchase_chain
+      SET auto_renew = 1, auto_renew_signed_at = '2026-08-12T10:06:00.000Z'`).run();
+    await db.prepare(`INSERT INTO billing_transaction
+      (id, purchase_chain_id, store, environment, transaction_id, product_id,
+       transaction_reason, status, business_status, charge_count, source_notification_uuid,
+       auto_renew_snapshot, purchase_at, created_at, updated_at)
+      VALUES ('order-latest', 'chain-1', 'app_store', 'Sandbox', 'transaction-latest', 'yearly',
+              'RENEWAL', 'purchased', 'renewal', 1, 'order-latest-uuid', 1,
+              '2026-08-12T10:04:00.000Z', ?, ?)`)
+      .bind(NOW.toISOString(), NOW.toISOString()).run();
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("older-renewal-status-uuid", "DID_CHANGE_RENEWAL_STATUS", 10 * 60 + 5, "AUTO_RENEW_DISABLED"),
+        verifyRenewal: async () => ({ originalTransactionId: "original-1", productId: "yearly", autoRenewStatus: 0, signedDate: Date.UTC(2026, 7, 12, 10, 5), environment: Environment.SANDBOX }),
+      }),
+    }) });
+
+    await post(app, env, "older-renewal-status");
+
+    expect(await db.prepare("SELECT auto_renew, auto_renew_signed_at FROM billing_purchase_chain").first())
+      .toMatchObject({ auto_renew: 1, auto_renew_signed_at: "2026-08-12T10:06:00.000Z" });
+    expect((await db.prepare("SELECT auto_renew_snapshot FROM billing_transaction").first())?.auto_renew_snapshot).toBe(1);
   });
 
   it.each(["UPGRADE", "DOWNGRADE"])("records %s as a next-plan change without creating an order", async (subtype) => {

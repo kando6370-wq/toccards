@@ -424,13 +424,31 @@ async function consumeNotification(
     chain.next_product_id !== renewal!.autoRenewProductId
   ) return "correction_required";
   if (updatesRenewal) {
+    const autoRenewStatus = renewal!.autoRenewStatus === 1 ? 1 : 0;
     statements.push(db.prepare(`
       UPDATE billing_purchase_chain
       SET auto_renew = ?, auto_renew_signed_at = ?, updated_at = ?
       WHERE id = ? AND (auto_renew_signed_at IS NULL OR auto_renew_signed_at < ?)
     `).bind(
-      renewal?.autoRenewStatus === 1 ? 1 : 0, envelope.signedAt,
+      autoRenewStatus, envelope.signedAt,
       now.toISOString(), chain.id, envelope.signedAt,
+    ));
+    statements.push(db.prepare(`
+      UPDATE billing_transaction
+      SET auto_renew_snapshot = ?, updated_at = ?
+      WHERE id = (
+        SELECT id FROM billing_transaction
+        WHERE purchase_chain_id = ? AND environment = ?
+          AND source_notification_uuid IS NOT NULL
+        ORDER BY purchase_at DESC, transaction_id DESC
+        LIMIT 1
+      ) AND EXISTS (
+        SELECT 1 FROM billing_purchase_chain
+        WHERE id = ? AND auto_renew = ? AND auto_renew_signed_at = ?
+      )
+    `).bind(
+      autoRenewStatus, now.toISOString(), chain.id, envelope.environment,
+      chain.id, autoRenewStatus, envelope.signedAt,
     ));
   }
   if (updatesPlan) {

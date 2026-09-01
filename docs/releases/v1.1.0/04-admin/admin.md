@@ -65,7 +65,11 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
 - 单笔交易以 `store + environment + transactionId` 幂等。
 - Trial 扣款次数为 0；通知确认的有效非 Trial 收费按购买链时序累计，客户端暂存记录不占序号。
 - Refund 更新原订单为 refunded、保存退款前业务状态并保留交易事实，不创建虚假收费订单；`REFUND_REVERSED` 经 Apple Server API 校正为 active 后恢复退款前状态。迁移前历史退款若没有该状态，则业务分类显示为未知，不继续显示退款，也不猜测订单类型。
-- 自动续订显示使用交易发生时的 snapshot，不能被购买链后续状态倒灌。
+- 自动续订在建单时保存交易发生时的状态。收到不建单的
+  `DID_CHANGE_RENEWAL_STATUS` 后，同一 `environment + originalTransactionId`
+  购买链中按 `purchase_at + transactionId` 确定的最新通知确认订单，使用已验签
+  `autoRenewStatus` 更新为当前状态；直接通知消费与 Apple Server API 校正遵循同一规则，
+  更早历史订单保持原值，乱序旧通知或旧校正证据不得覆盖较新状态。
 - UID 仅用于业务关联；`unlinked` 购买链不是匿名用户，也不是 Premium owner。
 
 来源：PostgreSQL 迁移 `0000_business_schema.sql`、`0007_billing_refund_status.sql`，`billing-order-facts.ts` 和集成测试。
