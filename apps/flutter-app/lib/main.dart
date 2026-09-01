@@ -38,7 +38,7 @@ Future<void> main() async {
   final firebase = await AppFirebase.initialize();
   firebase?.installGlobalErrorHandlers();
   installAppDebugErrorHandlers();
-  final analytics = await AppAnalytics.initialize(firebase: firebase);
+  final analytics = AppAnalytics.initialize(firebase: firebase);
   runApp(
     ProviderScope(
       overrides: [

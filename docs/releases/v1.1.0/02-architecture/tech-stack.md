@@ -45,7 +45,7 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 - Google/Apple OAuth；邮箱注册与找回密码使用 ZeptoMail。
 - OCR 服务处理扫描识别；PostgreSQL/R2 保存结构化记录与受保护图片。
 - 汇率服务以 USD 为基准提供快照，KV 可缓存。
-- Firebase Analytics/Crashlytics、Mixpanel、Singular 和 ATT 用于分析、归因与稳定性，不作为授权真源。Flutter 在 dev/prod 环境均开启 Mixpanel 移动端自动事件采集；Project Token 仍按环境加载。
+- Firebase Analytics/Crashlytics、Mixpanel、Singular 和 ATT 用于分析、归因与稳定性，不作为授权真源。Flutter 在 dev/prod 环境均开启 Mixpanel 移动端自动事件采集；Project Token 仍按环境加载。每次完整冷启动异步执行一次 Mixpanel 初始化，不阻塞 `runApp`；初始化失败后仅在当前进程内按 2 秒、5 秒、15 秒重试三次，成功后按原顺序补发初始化期间的内存事件，全部失败后停止重试并清空待发事件。表格定义的全部自定义事件共用同一属性组装入口；首次认证会话恢复完成前事件只暂存在内存，恢复为账号或游客后分别使用用户 UID 或匿名 ID 组装 `uid` 并发送，认证明确失败且没有可用身份时才发送空 `uid`。后续身份切换只影响切换后发生的事件，不回写已经组装的历史事件。
 
 ## 5. 配置和安全边界
 

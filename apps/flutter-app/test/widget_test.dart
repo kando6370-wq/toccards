@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,12 +12,54 @@ import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
+import 'package:kando_app/shared/analytics/analytics_events.dart';
+import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/attribution/app_attribution.dart';
+import 'package:mixpanel_flutter/mixpanel_flutter.dart';
 
 import 'support/in_memory_onboarding_storage.dart';
 import 'support/test_app_attribution.dart';
 
 void main() {
+  testWidgets('cold-start events wait for the restored user uid', (
+    tester,
+  ) async {
+    final storage = InMemoryOnboardingStorage();
+    final authRepository = _PendingInitialAuthRepository();
+    final mixpanel = _RecordingMixpanel();
+    final analytics = AppAnalytics.initializingForTest(Future.value(mixpanel));
+
+    await tester.pumpWidget(
+      _testApp(storage, authRepository: authRepository, analytics: analytics),
+    );
+    await tester.pump();
+
+    expect(mixpanel.events, isEmpty);
+
+    authRepository.initialSession.complete(
+      const AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'user-access',
+        refreshToken: 'user-refresh',
+        userId: '100028',
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(mixpanel.events, contains(AnalyticsEvent.splashView));
+    expect(
+      mixpanel.properties
+          .singleWhere((entry) => entry.$1 == AnalyticsEvent.splashView)
+          .$2,
+      containsPair(AnalyticsProperty.uid, '100028'),
+    );
+
+    await _finishStartup(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
   testWidgets('KandoApp shows onboarding before the startup home page', (
     tester,
   ) async {
@@ -70,7 +114,11 @@ Future<void> _finishPageTransition(WidgetTester tester) async {
   await tester.pump();
 }
 
-ProviderScope _testApp(InMemoryOnboardingStorage storage) {
+ProviderScope _testApp(
+  InMemoryOnboardingStorage storage, {
+  AuthRepository? authRepository,
+  AppAnalytics? analytics,
+}) {
   return ProviderScope(
     overrides: [
       appAttributionCoordinatorProvider.overrideWithValue(
@@ -78,15 +126,17 @@ ProviderScope _testApp(InMemoryOnboardingStorage storage) {
       ),
       appStartupPreloaderProvider.overrideWith((ref) async {}),
       authRepositoryProvider.overrideWithValue(
-        _WidgetTestAuthRepository(
-          AuthSession(
-            ownerType: OwnerType.anonymous,
-            accessToken: 'guest-access',
-            refreshToken: 'guest-refresh',
-            anonymousId: 'guest-1',
-          ),
-        ),
+        authRepository ??
+            _WidgetTestAuthRepository(
+              AuthSession(
+                ownerType: OwnerType.anonymous,
+                accessToken: 'guest-access',
+                refreshToken: 'guest-refresh',
+                anonymousId: 'guest-1',
+              ),
+            ),
       ),
+      if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(storage),
       ),
@@ -96,6 +146,42 @@ ProviderScope _testApp(InMemoryOnboardingStorage storage) {
     ],
     child: const KandoApp(),
   );
+}
+
+class _PendingInitialAuthRepository extends _WidgetTestAuthRepository {
+  _PendingInitialAuthRepository()
+    : super(
+        const AuthSession(
+          ownerType: OwnerType.anonymous,
+          accessToken: 'guest-access',
+          refreshToken: 'guest-refresh',
+          anonymousId: 'guest-1',
+        ),
+      );
+
+  final initialSession = Completer<AuthSession?>();
+
+  @override
+  Future<AuthSession?> currentSessionFromStorage() => initialSession.future;
+}
+
+class _RecordingMixpanel extends Mixpanel {
+  _RecordingMixpanel() : super('test-token');
+
+  final events = <String>[];
+  final properties = <(String, Map<String, dynamic>)>[];
+
+  @override
+  Future<void> identify(String distinctId) async {}
+
+  @override
+  Future<void> track(
+    String eventName, {
+    Map<String, dynamic>? properties,
+  }) async {
+    events.add(eventName);
+    this.properties.add((eventName, Map.of(properties ?? const {})));
+  }
 }
 
 class _FreeWidgetTestSubscriptionController extends SubscriptionController {
