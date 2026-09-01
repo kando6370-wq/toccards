@@ -87,9 +87,11 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
 
 ### 5.1 列表与筛选
 
-筛选项为 UID、原始交易 ID、订单 ID、环境、主通知类型、子通知类型和创建时间范围。列表显示 UID、原始交易 ID、订单 ID、主/子通知、SKU、环境、UTC+0 创建时间和详情操作，默认按 inbox 接收时间倒序。
+筛选项为 UID、原始交易 ID、订单 ID、环境、主通知类型、子通知类型和创建时间范围。列表显示 UID、原始交易 ID、订单 ID、主/子通知、状态名称、SKU、环境、UTC+0 创建时间和详情操作，默认按 inbox 接收时间倒序。
 
 主通知类型和子通知类型均为可搜索单选，选中主类型后子类型只显示对应实际组合；选项来自结构化通知实际数据，未知 Apple 类型直接显示原值。查询、重置、刷新和分页在列表请求期间禁用；空结果与加载失败使用固定业务文案，页码超过最新总页数时回退到最后一个有效页。
+
+状态名称由列表已有的 Apple 主通知类型和子通知类型按确认映射在前端确定性生成，不修改通知原始字段或 API。没有子类型时使用该主类型的空子类型映射；未收录、验签失败或字段不完整的组合显示 `--`，不得根据相近类型猜测。
 
 结构化通知与原始 inbox 使用 LEFT JOIN：验签、解析或处理失败时，即使没有结构化行，失败记录仍出现在列表，供排障。
 
@@ -148,6 +150,7 @@ Admin 没有独立生产部署目标。Workers deploy 会先按 dev/prod 模式�
 仓库内证据：
 
 - `apps/admin-web/test/billing-admin-intent.test.mjs`：订单/通知页面意图、空值和交互边界。
+- `apps/admin-web/test/apple-notification-status.test.mjs`：通知主/子类型组合的状态名称翻译和未知组合边界。
 - `apps/workers-api/src/admin/billing-routes.integration.test.ts`：组合筛选、导出、通知失败记录和 payload 安全。
 - `apps/workers-api/src/admin/routes.test.ts`：既有 Admin 路由与权限。
 - `apps/workers-api/src/admin/cors-preflight.test.ts`：跨域预检边界。

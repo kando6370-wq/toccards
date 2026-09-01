@@ -71,6 +71,8 @@ test("Apple notification payload stays out of list responses and is copied only 
   assert.match(styles, /\.notification-detail-drawer \.info-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s);
   assert.match(styles, /@media \(max-width: 900px\) \{.*\.notification-detail-drawer-root \.ant-drawer-content-wrapper \{[^}]*width: 92vw !important;.*\.notification-detail-drawer \.info-grid \{[^}]*grid-template-columns: minmax\(0, 1fr\)/s);
   assert.match(app, /const notificationValue = \(value: unknown\).*\? "--"/);
+  assert.match(app, /title: "子通知类型".*title: "状态名称".*title: "SKU"/s);
+  assert.match(app, /appleNotificationStatusName\(row\.notification_type, row\.subtype\)/);
   assert.match(app, /async function openDetail\(id: string\).*setDetailLoading\(true\).*\/apple-notifications\/\$\{id\}/s);
   assert.match(app, /detailLoading \? <div className="notification-detail-state"><Spin/);
   assert.match(app, /detailError \? <Alert type="error" showIcon message="通知详情加载失败，请稍后重试"/);

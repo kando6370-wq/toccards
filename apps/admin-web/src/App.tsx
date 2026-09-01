@@ -24,6 +24,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { resolveAdminApiBase } from "./api-base";
+import { appleNotificationStatusName } from "./apple-notification-status";
 import { countryName } from "./country-name";
 import {
   INSTALLATION_PERIOD_OPTIONS,
@@ -662,6 +663,7 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     { title: "订单 ID", dataIndex: "transaction_id", width: 190, ellipsis: true, render: notificationValue },
     { title: "主通知类型", dataIndex: "notification_type", width: 150, render: (v) => v ? <Tag color="cyan">{v}</Tag> : "--" },
     { title: "子通知类型", dataIndex: "subtype", width: 150, render: notificationValue },
+    { title: "状态名称", width: 190, render: (_, row) => notificationValue(appleNotificationStatusName(row.notification_type, row.subtype)) },
     { title: "SKU", dataIndex: "sku", width: 170, ellipsis: true, render: notificationValue },
     { title: "环境", dataIndex: "environment", width: 90, render: (v) => v ? billingEnvironmentLabel(v) : "--" },
     { title: "创建时间（UTC+0）", dataIndex: "received_at", width: 170, render: notificationUtcTime },
@@ -678,7 +680,7 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
       <ScanFilterField label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} showTime onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
       <div className="scans-filter-actions"><Button disabled={loading} onClick={resetNotificationFilters}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyNotificationFilters}>查询</Button></div>
     </section>
-    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的通知消息" }} pagination={false} scroll={{ x: 1250 }} />
+    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的通知消息" }} pagination={false} scroll={{ x: 1510 }} />
       <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination disabled={loading} current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
     </section>
     <Drawer className="notification-detail-drawer" rootClassName="notification-detail-drawer-root" title="通知消息详情" width="55%" open={detailId !== null} onClose={closeDetail}>
