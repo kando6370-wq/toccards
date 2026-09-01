@@ -50,6 +50,44 @@ import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  test('Performance tooltip uses the Figma text style', () {
+    final dateStyle = homeChartTooltipTextStyle(
+      isPerformance: true,
+      isDate: true,
+    );
+    final rowStyle = homeChartTooltipTextStyle(
+      isPerformance: true,
+      isDate: false,
+    );
+
+    expect(dateStyle, same(homePerformanceTooltipTextStyle));
+    expect(rowStyle, same(homePerformanceTooltipTextStyle));
+    expect(rowStyle.color, const Color(0xFF999578));
+    expect(rowStyle.fontFamily, 'Geist');
+    expect(rowStyle.fontSize, 12);
+    expect(rowStyle.fontWeight, FontWeight.w400);
+    expect(rowStyle.height, 18 / 12);
+  });
+
+  test('Overview tooltip keeps its existing text styles', () {
+    final dateStyle = homeChartTooltipTextStyle(
+      isPerformance: false,
+      isDate: true,
+    );
+    final rowStyle = homeChartTooltipTextStyle(
+      isPerformance: false,
+      isDate: false,
+    );
+
+    expect(dateStyle.color, const Color(0xFF92927D));
+    expect(dateStyle.fontSize, 11);
+    expect(dateStyle.height, 16 / 11);
+    expect(rowStyle.color, KandoColors.accent);
+    expect(rowStyle.fontSize, 11);
+    expect(rowStyle.fontWeight, FontWeight.w500);
+    expect(rowStyle.height, 16 / 11);
+  });
+
   testWidgets(
     'Performance tab reports each actual entry without rebuild duplicates',
     (tester) async {

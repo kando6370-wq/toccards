@@ -283,6 +283,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-08-31 Admin 扫描记录环境筛选与展示：共享 PostgreSQL 的 `scan_record` 新增持久化 `environment`，只允许 `development/production`；现有 dev 迁移记录回填为 `development`，新扫描由可信 Worker `APP_ENVIRONMENT` 显式写入，Admin 列表、详情和 `/admin/scans` 筛选均使用该持久化事实。客户端不能自报环境，非法筛选返回 `422`；缺少 Worker 环境配置时返回 `503`、释放已排队扫描额度且不写 R2。Code Review 首轮发现迁移先于部署时旧 Worker 会因非空列无默认值而中断扫描，现为旧 dev Worker 保留 `development` 数据库默认值作为迁移窗口兼容，新 Worker 与未来 prod 导入均禁止依赖该默认值；复审未发现剩余阻断项。Workers 定向 `57/57`、全量 `573/573`、根类型检查 `7/7`、依赖方向、Admin production build、Worker dev dry-run 和 `git diff --check` 通过；Admin 全量 `18/19`，唯一失败仍为既有 `billing-admin-intent.test.mjs` 源码正则断言，与扫描环境路径无关。远程 `0010` 已按 checksum `6ef480092683760fc4f0a50b221ccea35fa58c3ad23c1ebfca30e4272bfde99f` 应用，467 条既有记录全部回填 `development`；dev Worker/Admin version `be0a5923-8c81-485c-b8a3-b0a982fca912` 已承载 100% 流量，health、Admin HTML、10 个静态资源哈希和未授权 API 边界验收通过。未执行 prod 部署、生产写入或真实登录态 Admin 环境筛选人工验收。
 
+- 2026-08-31 Home Performance Tooltip 文本样式按 Figma `1911:8207` 收口：现有 Date、Market、Portfolio、Qty 统一使用 `#999578`、Geist Regular、12px 字号与 18px 行高，并同步调整提示框内部行距和高度以避免文本挤压。Tooltip 字段、金额/数量取值、币种换算、缺失值、Semantics 和交互均不变；PRD 规定不展示的 Daily Change 未新增。Code Review 发现 Home Overview 与 Performance 复用同一 Painter 后，已把新样式严格限定在 Performance 数据行分支并增加 Overview 旧样式保护。Tooltip 相关测试 6/6 与 `flutter analyze --no-pub` 通过；完整 Home Widget 70 项中 69 项通过，唯一失败为既有 Performance Header Golden 10.93% 像素差异，本次未修改或覆盖该基线；iOS/Android 真机视觉仍待人工验收。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。

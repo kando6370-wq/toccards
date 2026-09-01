@@ -3348,14 +3348,13 @@ class _ChartPainter extends CustomPainter {
     );
     canvas.drawCircle(selected, 3, Paint()..color = KandoColors.accent);
 
+    final isPerformanceTooltip = tooltipRows != null;
     final datePainter = TextPainter(
       text: TextSpan(
         text: 'Date: ${_formatChartDate(dates, resolvedSelectedIndex)}',
-        style: const TextStyle(
-          color: Color(0xFF92927D),
-          fontSize: 11,
-          fontWeight: FontWeight.w400,
-          height: 16 / 11,
+        style: homeChartTooltipTextStyle(
+          isPerformance: isPerformanceTooltip,
+          isDate: true,
         ),
       ),
       maxLines: 1,
@@ -3368,11 +3367,9 @@ class _ChartPainter extends CustomPainter {
               (row) => TextPainter(
                 text: TextSpan(
                   text: row,
-                  style: const TextStyle(
-                    color: KandoColors.accent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    height: 16 / 11,
+                  style: homeChartTooltipTextStyle(
+                    isPerformance: isPerformanceTooltip,
+                    isDate: false,
                   ),
                 ),
                 maxLines: 1,
@@ -3380,13 +3377,15 @@ class _ChartPainter extends CustomPainter {
               )..layout(),
             )
             .toList();
+    final tooltipRowHeight = isPerformanceTooltip ? 18.0 : 16.0;
+    final tooltipVerticalPadding = isPerformanceTooltip ? 16.0 : 12.0;
     final tooltipSize = Size(
       [
             datePainter.width,
             ...rowPainters.map((painter) => painter.width),
           ].reduce(math.max) +
           16,
-      16.0 * (rowPainters.length + 1) + 12,
+      tooltipRowHeight * (rowPainters.length + 1) + tooltipVerticalPadding,
     );
     final preferredLeft = selected.dx + tooltipSize.width + 12 <= size.width
         ? selected.dx + 12
@@ -3420,7 +3419,7 @@ class _ChartPainter extends CustomPainter {
     for (var index = 0; index < rowPainters.length; index++) {
       rowPainters[index].paint(
         canvas,
-        tooltipRect.topLeft + Offset(8, 8 + 16.0 * (index + 1)),
+        tooltipRect.topLeft + Offset(8, 8 + tooltipRowHeight * (index + 1)),
       );
     }
   }
@@ -3434,6 +3433,37 @@ class _ChartPainter extends CustomPainter {
         oldDelegate.selectedIndex != selectedIndex ||
         oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint;
   }
+}
+
+/// Figma `1911:8207` typography for Home Performance chart tooltip rows.
+@visibleForTesting
+const homePerformanceTooltipTextStyle = TextStyle(
+  color: Color(0xFF999578),
+  fontFamily: 'Geist',
+  fontSize: 12,
+  fontWeight: FontWeight.w400,
+  height: 18 / 12,
+);
+
+@visibleForTesting
+TextStyle homeChartTooltipTextStyle({
+  required bool isPerformance,
+  required bool isDate,
+}) {
+  if (isPerformance) return homePerformanceTooltipTextStyle;
+  return isDate
+      ? const TextStyle(
+          color: Color(0xFF92927D),
+          fontSize: 11,
+          fontWeight: FontWeight.w400,
+          height: 16 / 11,
+        )
+      : const TextStyle(
+          color: KandoColors.accent,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          height: 16 / 11,
+        );
 }
 
 void _drawDashedLine(
