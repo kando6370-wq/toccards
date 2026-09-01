@@ -70,6 +70,8 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
   购买链中按 `purchase_at + transactionId` 确定的最新通知确认订单，使用已验签
   `autoRenewStatus` 更新为当前状态；直接通知消费与 Apple Server API 校正遵循同一规则，
   更早历史订单保持原值，乱序旧通知或旧校正证据不得覆盖较新状态。
+- 收到不建单的 `EXPIRED + BILLING_RETRY` 时，购买链的当前订阅状态和同链最新通知确认订单的
+  自动续订状态在同一批处理中更新；自动续订值读取已验签 `autoRenewStatus`，更早历史订单不变。
 - UID 仅用于业务关联；`unlinked` 购买链不是匿名用户，也不是 Premium owner。
 
 来源：PostgreSQL 迁移 `0000_business_schema.sql`、`0007_billing_refund_status.sql`，`billing-order-facts.ts` 和集成测试。

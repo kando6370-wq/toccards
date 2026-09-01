@@ -362,6 +362,11 @@ async function consumeNotification(
   const lifecycle = lifecycleFor(envelope, transaction, renewal);
   const updatesRenewal = envelope.notificationType === "DID_CHANGE_RENEWAL_STATUS";
   const updatesPlan = envelope.notificationType === "DID_CHANGE_RENEWAL_PREF";
+  const expiredBillingRetryAutoRenew = envelope.notificationType === "EXPIRED" &&
+    envelope.subtype === "BILLING_RETRY" &&
+    (renewal?.autoRenewStatus === 0 || renewal?.autoRenewStatus === 1)
+    ? renewal.autoRenewStatus
+    : null;
   const needsChain = lifecycle !== null || updatesRenewal || updatesPlan ||
     createsOrder(envelope.notificationType) || envelope.notificationType === "REFUND";
   if (!originalTransactionId) return needsChain ? "correction_required" : "processed";
@@ -583,6 +588,25 @@ async function consumeNotification(
       lifecycle.grantStatus === "active" ? null : lifecycle.stateEffectiveAt,
       now.toISOString(), chain.id, chain.id, envelope.notificationUuid,
     ));
+    if (expiredBillingRetryAutoRenew !== null) {
+      statements.push(db.prepare(`
+        UPDATE billing_transaction
+        SET auto_renew_snapshot = ?, updated_at = ?
+        WHERE id = (
+          SELECT id FROM billing_transaction
+          WHERE purchase_chain_id = ? AND environment = ?
+            AND source_notification_uuid IS NOT NULL
+          ORDER BY purchase_at DESC, transaction_id DESC
+          LIMIT 1
+        ) AND EXISTS (
+          SELECT 1 FROM billing_purchase_chain
+          WHERE id = ? AND lifecycle_notification_uuid = ? AND status = 'EXPIRED'
+        )
+      `).bind(
+        expiredBillingRetryAutoRenew, now.toISOString(), chain.id, envelope.environment,
+        chain.id, envelope.notificationUuid,
+      ));
+    }
   }
 
   if (statements.length > 0) await db.batch(statements);

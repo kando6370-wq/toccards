@@ -636,6 +636,68 @@ describe("Apple Notifications V2 durable consumption", () => {
     expect((await db.prepare("SELECT status FROM billing_session_entitlement_grant").first())?.status).toBe("expired");
   });
 
+  it("expires Premium and disables auto-renew on only the latest order for billing retry expiry", async () => {
+    await db.batch([
+      db.prepare(`INSERT INTO billing_transaction
+        (id, purchase_chain_id, store, environment, transaction_id, product_id,
+         transaction_reason, status, business_status, charge_count, source_notification_uuid,
+         auto_renew_snapshot, purchase_at, created_at, updated_at)
+        VALUES ('order-old', 'chain-1', 'app_store', 'Sandbox', 'transaction-old', 'yearly',
+                'PURCHASE', 'purchased', 'initial_purchase', 1, 'order-old-uuid', 1,
+                '2026-08-12T10:00:00.000Z', ?, ?)`)
+        .bind(NOW.toISOString(), NOW.toISOString()),
+      db.prepare(`INSERT INTO billing_transaction
+        (id, purchase_chain_id, store, environment, transaction_id, product_id,
+         transaction_reason, status, business_status, charge_count, source_notification_uuid,
+         auto_renew_snapshot, purchase_at, created_at, updated_at)
+        VALUES ('order-latest', 'chain-1', 'app_store', 'Sandbox', 'transaction-latest', 'yearly',
+                'RENEWAL', 'purchased', 'renewal', 2, 'order-latest-uuid', 1,
+                '2026-08-12T10:04:00.000Z', ?, ?)`)
+        .bind(NOW.toISOString(), NOW.toISOString()),
+    ]);
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("expired-uuid", "EXPIRED", 10 * 60 + 5, "BILLING_RETRY"),
+        verifyRenewal: async () => ({ originalTransactionId: "original-1", productId: "yearly", autoRenewStatus: 0, signedDate: Date.UTC(2026, 7, 12, 10, 5), environment: Environment.SANDBOX }),
+      }),
+    }) });
+
+    await post(app, env, "expired");
+
+    expect((await db.prepare("SELECT status FROM billing_purchase_chain").first())?.status).toBe("EXPIRED");
+    expect((await db.prepare("SELECT status FROM billing_session_entitlement_grant").first())?.status).toBe("expired");
+    expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(2);
+    expect(await db.prepare(`SELECT transaction_id, auto_renew_snapshot FROM billing_transaction
+      ORDER BY purchase_at ASC`).all()).toMatchObject({ results: [
+      { transaction_id: "transaction-old", auto_renew_snapshot: 1 },
+      { transaction_id: "transaction-latest", auto_renew_snapshot: 0 },
+    ] });
+  });
+
+  it("preserves enabled auto-renew on the latest order for billing retry expiry", async () => {
+    await db.prepare(`INSERT INTO billing_transaction
+      (id, purchase_chain_id, store, environment, transaction_id, product_id,
+       transaction_reason, status, business_status, charge_count, source_notification_uuid,
+       auto_renew_snapshot, purchase_at, created_at, updated_at)
+      VALUES ('order-latest', 'chain-1', 'app_store', 'Sandbox', 'transaction-latest', 'yearly',
+              'RENEWAL', 'purchased', 'renewal', 1, 'order-latest-uuid', 0,
+              '2026-08-12T10:04:00.000Z', ?, ?)`)
+      .bind(NOW.toISOString(), NOW.toISOString()).run();
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("expired-enabled-uuid", "EXPIRED", 10 * 60 + 5, "BILLING_RETRY"),
+        verifyRenewal: async () => ({ originalTransactionId: "original-1", productId: "yearly", autoRenewStatus: 1, signedDate: Date.UTC(2026, 7, 12, 10, 5), environment: Environment.SANDBOX }),
+      }),
+    }) });
+
+    await post(app, env, "expired-enabled");
+
+    expect((await db.prepare("SELECT status FROM billing_purchase_chain").first())?.status).toBe("EXPIRED");
+    expect((await db.prepare("SELECT auto_renew_snapshot FROM billing_transaction").first())?.auto_renew_snapshot).toBe(1);
+  });
+
   it("revokes Premium and marks the original order refunded after Apple confirms a refund", async () => {
     await db.prepare(`INSERT INTO billing_transaction
       (id, purchase_chain_id, store, environment, transaction_id, product_id,
